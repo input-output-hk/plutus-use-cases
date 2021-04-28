@@ -19,11 +19,11 @@
 module Plutus.Contracts.LendingPool
     ( Coin (..)
     , coin, coinValueOf
-    , Uniswap (..), uniswap
-    , poolStateCoinFromUniswapCurrency, liquidityCoin
+    , Aave (..), aave
+    , poolStateCoinFromAaveCurrency, liquidityCoin
     , CreateParams (..)
     , CloseParams (..)
-    , UniswapUserSchema, UserContractState (..)
+    , AaveUserSchema, UserContractState (..)
     , start, create, close
     , ownerEndpoint, userEndpoints
     ) where
@@ -55,8 +55,8 @@ feeNum, feeDen :: Integer
 feeNum = 3
 feeDen = 1000
 
-uniswapTokenName, poolStateTokenName :: TokenName
-uniswapTokenName = "Uniswap"
+aaveTokenName, poolStateTokenName :: TokenName
+aaveTokenName = "Aave"
 poolStateTokenName = "Pool State"
 
 -- | A pair consisting of a 'CurrencySymbol' and a 'TokenName'.
@@ -174,50 +174,50 @@ hashLiquidityPool LiquidityPool{..} = sha2_256 $ concatenate (hashCoin c) (hashC
         | lpCoinA `coinLT` lpCoinB = (lpCoinA, lpCoinB)
         | otherwise                = (lpCoinB, lpCoinA)
 
-newtype Uniswap = Uniswap
-    { usCoin :: Coin
+newtype Aave = Aave
+    { aaveCoin :: Coin
     } deriving stock    (Show, Generic)
       deriving anyclass (ToJSON, FromJSON, ToSchema)
 
-PlutusTx.makeLift ''Uniswap
+PlutusTx.makeLift ''Aave
 
-instance Prelude.Eq Uniswap where
-    u == v = usCoin u Prelude.== usCoin v
+instance Prelude.Eq Aave where
+    u == v = aaveCoin u Prelude.== aaveCoin v
 
-instance Prelude.Ord Uniswap where
-    compare u v = Prelude.compare (usCoin u) (usCoin v)
+instance Prelude.Ord Aave where
+    compare u v = Prelude.compare (aaveCoin u) (aaveCoin v)
 
-data UniswapAction = Create LiquidityPool | Close
+data AaveAction = Create LiquidityPool | Close
     deriving Show
 
-PlutusTx.unstableMakeIsData ''UniswapAction
-PlutusTx.makeLift ''UniswapAction
+PlutusTx.unstableMakeIsData ''AaveAction
+PlutusTx.makeLift ''AaveAction
 
-data UniswapDatum =
+data AaveDatum =
       Factory [LiquidityPool]
     | Pool LiquidityPool Integer
     deriving stock (Show)
 
-PlutusTx.unstableMakeIsData ''UniswapDatum
-PlutusTx.makeLift ''UniswapDatum
+PlutusTx.unstableMakeIsData ''AaveDatum
+PlutusTx.makeLift ''AaveDatum
 
-data Uniswapping
-instance Scripts.ScriptType Uniswapping where
-    type instance RedeemerType Uniswapping = UniswapAction
-    type instance DatumType Uniswapping = UniswapDatum
+data Aaveping
+instance Scripts.ScriptType Aaveping where
+    type instance RedeemerType Aaveping = AaveAction
+    type instance DatumType Aaveping = AaveDatum
 
 {-# INLINABLE validateCreate #-}
-validateCreate :: Uniswap
+validateCreate :: Aave
                -> Coin
                -> [LiquidityPool]
                -> LiquidityPool
                -> ValidatorCtx
                -> Bool
-validateCreate Uniswap{..} c lps lp@LiquidityPool{..} ctx =
-    traceIfFalse "Uniswap coin not present" (coinValueOf (txInInfoValue $ findOwnInput ctx) usCoin == 1) &&
+validateCreate Aave{..} c lps lp@LiquidityPool{..} ctx =
+    traceIfFalse "Aave coin not present" (coinValueOf (txInInfoValue $ findOwnInput ctx) aaveCoin == 1) &&
     (lpCoinA /= lpCoinB)                                                                                 &&
     all (/= lp) lps                                                                                      &&
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ coin usCoin 1)     &&
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ coin aaveCoin 1)     &&
     (coinValueOf forged c == 1)                                                                          &&
     (coinValueOf forged liquidityCoin' == liquidity)                                                      &&
     (outA > 0)                                                                                           &&
@@ -242,9 +242,9 @@ validateCreate Uniswap{..} c lps lp@LiquidityPool{..} ctx =
     liquidityCoin' = let Coin cs _ = c in Coin cs $ lpTicker lp
 
 {-# INLINABLE validateCloseFactory #-}
-validateCloseFactory :: Uniswap -> Coin -> [LiquidityPool] -> ValidatorCtx -> Bool
+validateCloseFactory :: Aave -> Coin -> [LiquidityPool] -> ValidatorCtx -> Bool
 validateCloseFactory us c lps ctx =
-    traceIfFalse "Uniswap coin not present" (coinValueOf (txInInfoValue $ findOwnInput ctx) usC == 1)             &&
+    traceIfFalse "Aave coin not present" (coinValueOf (txInInfoValue $ findOwnInput ctx) usC == 1)             &&
     traceIfFalse "wrong forge value"        (txInfoForge info == negate (coin c 1 <>  coin lC (snd lpLiquidity))) &&
     traceIfFalse "factory output wrong"
         (Constraints.checkOwnOutputConstraint ctx $ OutputConstraint (Factory $ filter (/= fst lpLiquidity) lps) $ coin usC 1)
@@ -267,10 +267,10 @@ validateCloseFactory us c lps ctx =
 
     lC, usC :: Coin
     lC  = Coin (cCurrency c) (lpTicker $ fst lpLiquidity)
-    usC = usCoin us
+    usC = aaveCoin us
 
 {-# INLINABLE validateClosePool #-}
-validateClosePool :: Uniswap -> ValidatorCtx -> Bool
+validateClosePool :: Aave -> ValidatorCtx -> Bool
 validateClosePool us ctx = hasFactoryInput
   where
     info :: TxInfo
@@ -278,8 +278,8 @@ validateClosePool us ctx = hasFactoryInput
 
     hasFactoryInput :: Bool
     hasFactoryInput =
-        traceIfFalse "Uniswap factory input expected" $
-        coinValueOf (valueSpent info) (usCoin us) == 1
+        traceIfFalse "Aave factory input expected" $
+        coinValueOf (valueSpent info) (aaveCoin us) == 1
 
 
 {-# INLINABLE findPoolDatum #-}
@@ -303,18 +303,18 @@ lpTicker LiquidityPool{..} = TokenName $
         | lpCoinA `coinLT` lpCoinB = (lpCoinA, lpCoinB)
         | otherwise                = (lpCoinB, lpCoinA)
 
-mkUniswapValidator :: Uniswap
+mkAaveValidator :: Aave
                    -> Coin
-                   -> UniswapDatum
-                   -> UniswapAction
+                   -> AaveDatum
+                   -> AaveAction
                    -> ValidatorCtx
                    -> Bool
-mkUniswapValidator us c (Factory lps) (Create lp) ctx = validateCreate us c lps lp ctx
-mkUniswapValidator us c (Factory lps) Close       ctx = validateCloseFactory us c lps ctx
-mkUniswapValidator us _ (Pool _  _)   Close       ctx = validateClosePool us ctx
-mkUniswapValidator _  _ _             _           _   = False
+mkAaveValidator us c (Factory lps) (Create lp) ctx = validateCreate us c lps lp ctx
+mkAaveValidator us c (Factory lps) Close       ctx = validateCloseFactory us c lps ctx
+mkAaveValidator us _ (Pool _  _)   Close       ctx = validateClosePool us ctx
+mkAaveValidator _  _ _             _           _   = False
 
-validateLiquidityForging :: Uniswap -> TokenName -> PolicyCtx -> Bool
+validateLiquidityForging :: Aave -> TokenName -> PolicyCtx -> Bool
 validateLiquidityForging us tn ctx = case [ i
                                           | i <- txInfoInputs $ policyCtxTxInfo ctx
                                           , let v = txInInfoValue i
@@ -323,15 +323,15 @@ validateLiquidityForging us tn ctx = case [ i
                                           ] of
     [_]    -> True
     [_, _] -> True
-    _      -> traceError "pool state forging without Uniswap input"
+    _      -> traceError "pool state forging without Aave input"
   where
     usC, lpC :: Coin
-    usC = usCoin us
+    usC = aaveCoin us
     lpC = Coin (ownCurrencySymbol ctx) tn
 
-uniswapInstance :: Uniswap -> Scripts.ScriptInstance Uniswapping
-uniswapInstance us = Scripts.validator @Uniswapping
-    ($$(PlutusTx.compile [|| mkUniswapValidator ||])
+aaveInstance :: Aave -> Scripts.ScriptInstance Aaveping
+aaveInstance us = Scripts.validator @Aaveping
+    ($$(PlutusTx.compile [|| mkAaveValidator ||])
         `PlutusTx.applyCode` PlutusTx.liftCode us
         `PlutusTx.applyCode` PlutusTx.liftCode c)
      $$(PlutusTx.compile [|| wrap ||])
@@ -339,43 +339,43 @@ uniswapInstance us = Scripts.validator @Uniswapping
     c :: Coin
     c = poolStateCoin us
 
-    wrap = Scripts.wrapValidator @UniswapDatum @UniswapAction
+    wrap = Scripts.wrapValidator @AaveDatum @AaveAction
 
-uniswapScript :: Uniswap -> Validator
-uniswapScript = Scripts.validatorScript . uniswapInstance
+aaveScript :: Aave -> Validator
+aaveScript = Scripts.validatorScript . aaveInstance
 
-uniswapHash :: Uniswap -> Ledger.ValidatorHash
-uniswapHash = Scripts.validatorHash . uniswapScript
+aaveHash :: Aave -> Ledger.ValidatorHash
+aaveHash = Scripts.validatorHash . aaveScript
 
-uniswapAddress :: Uniswap -> Ledger.Address
-uniswapAddress = ScriptAddress . uniswapHash
+aaveAddress :: Aave -> Ledger.Address
+aaveAddress = ScriptAddress . aaveHash
 
-uniswap :: CurrencySymbol -> Uniswap
-uniswap cs = Uniswap $ Coin cs uniswapTokenName
+aave :: CurrencySymbol -> Aave
+aave cs = Aave $ Coin cs aaveTokenName
 
-liquidityPolicy :: Uniswap -> MonetaryPolicy
+liquidityPolicy :: Aave -> MonetaryPolicy
 liquidityPolicy us = mkMonetaryPolicyScript $
     $$(PlutusTx.compile [|| \u t -> Scripts.wrapMonetaryPolicy (validateLiquidityForging u t) ||])
         `PlutusTx.applyCode` PlutusTx.liftCode us
         `PlutusTx.applyCode` PlutusTx.liftCode poolStateTokenName
 
-liquidityCurrency :: Uniswap -> CurrencySymbol
+liquidityCurrency :: Aave -> CurrencySymbol
 liquidityCurrency = scriptCurrencySymbol . liquidityPolicy
 
-poolStateCoin :: Uniswap -> Coin
+poolStateCoin :: Aave -> Coin
 poolStateCoin = flip Coin poolStateTokenName . liquidityCurrency
 
 -- | Gets the 'Coin' used to identity liquidity pools.
-poolStateCoinFromUniswapCurrency :: CurrencySymbol -- ^ The currency identifying the Uniswap instance.
+poolStateCoinFromAaveCurrency :: CurrencySymbol -- ^ The currency identifying the Aave instance.
                                  -> Coin
-poolStateCoinFromUniswapCurrency = poolStateCoin . uniswap
+poolStateCoinFromAaveCurrency = poolStateCoin . aave
 
 -- | Gets the liquidity token for a given liquidity pool.
-liquidityCoin :: CurrencySymbol -- ^ The currency identifying the Uniswap instance.
+liquidityCoin :: CurrencySymbol -- ^ The currency identifying the Aave instance.
               -> Coin           -- ^ One coin in the liquidity pair.
               -> Coin           -- ^ The other coin in the liquidity pair.
               -> Coin
-liquidityCoin cs coinA coinB = Coin (liquidityCurrency $ uniswap cs) $ lpTicker $ LiquidityPool coinA coinB
+liquidityCoin cs coinA coinB = Coin (liquidityCurrency $ aave cs) $ lpTicker $ LiquidityPool coinA coinB
 
 -- | Paraneters for the @create@-endpoint, which creates a new liquidity pool.
 data CreateParams = CreateParams
@@ -391,39 +391,39 @@ data CloseParams = CloseParams
     , clpCoinB :: Coin           -- ^ The other 'Coin' of the liquidity pair.
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
--- | Creates a Uniswap "factory". This factory will keep track of the existing liquidity pools and enforce that there will be at most one liquidity pool
+-- | Creates a Aave "factory". This factory will keep track of the existing liquidity pools and enforce that there will be at most one liquidity pool
 -- for any pair of tokens at any given time.
-start :: HasBlockchainActions s => Contract w s Text Uniswap
+start :: HasBlockchainActions s => Contract w s Text Aave
 start = do
     pkh <- pubKeyHash <$> ownPubKey
     cs  <- fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(uniswapTokenName, 1)]
-    let c    = Coin cs uniswapTokenName
-        us   = uniswap cs
-        inst = uniswapInstance us
+           Currency.forgeContract pkh [(aaveTokenName, 1)]
+    let c    = Coin cs aaveTokenName
+        aa   = aave cs
+        inst = aaveInstance aa
         tx   = mustPayToTheScript (Factory []) $ coin c 1
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo @String $ printf "started Uniswap %s at address %s" (show us) (show $ uniswapAddress us)
-    return us
+    logInfo @String $ printf "started Aave %s at address %s" (show aa) (show $ aaveAddress aa)
+    return aa
 
 -- | Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
-create :: HasBlockchainActions s => Uniswap -> CreateParams -> Contract w s Text ()
+create :: HasBlockchainActions s => Aave -> CreateParams -> Contract w s Text ()
 create us CreateParams{..} = do
     when (cpCoinA == cpCoinB)               $ throwError "coins must be different"
     when (cpAmountA <= 0 || cpAmountB <= 0) $ throwError "amounts must be positive"
-    (oref, o, lps) <- findUniswapFactory us
+    (oref, o, lps) <- findAaveFactory us
     let liquidity = calculateInitialLiquidity cpAmountA cpAmountB
         lp        = LiquidityPool {lpCoinA = cpCoinA, lpCoinB = cpCoinB}
-    let usInst   = uniswapInstance us
-        usScript = uniswapScript us
+    let usInst   = aaveInstance us
+        usScript = aaveScript us
         usDat1   = Factory $ lp : lps
         usDat2   = Pool lp liquidity
         psC      = poolStateCoin us
         lC       = Coin (liquidityCurrency us) $ lpTicker lp
-        usVal    = coin (usCoin us) 1
+        usVal    = coin (aaveCoin us) 1
         lpVal    = coin cpCoinA cpAmountA <> coin cpCoinB cpAmountB <> coin psC 1
 
         lookups  = Constraints.scriptInstanceLookups usInst        <>
@@ -442,14 +442,14 @@ create us CreateParams{..} = do
     logInfo $ "created liquidity pool: " ++ show lp
 
 -- | Closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
-close :: HasBlockchainActions s => Uniswap -> CloseParams -> Contract w s Text ()
+close :: HasBlockchainActions s => Aave -> CloseParams -> Contract w s Text ()
 close us CloseParams{..} = do
-    ((oref1, o1, lps), (oref2, o2, lp, liquidity)) <- findUniswapFactoryAndPool us clpCoinA clpCoinB
+    ((oref1, o1, lps), (oref2, o2, lp, liquidity)) <- findAaveFactoryAndPool us clpCoinA clpCoinB
     pkh                                            <- pubKeyHash <$> ownPubKey
-    let usInst   = uniswapInstance us
-        usScript = uniswapScript us
+    let usInst   = aaveInstance us
+        usScript = aaveScript us
         usDat    = Factory $ filter (/= lp) lps
-        usC      = usCoin us
+        usC      = aaveCoin us
         psC      = poolStateCoin us
         lC       = Coin (liquidityCurrency us) $ lpTicker lp
         usVal    = coin usC 1
@@ -474,8 +474,8 @@ close us CloseParams{..} = do
 
     logInfo $ "closed liquidity pool: " ++ show lp
 
-getUniswapDatum :: TxOutTx -> Contract w s Text UniswapDatum
-getUniswapDatum o = case txOutType $ txOutTxOut o of
+getAaveDatum :: TxOutTx -> Contract w s Text AaveDatum
+getAaveDatum o = case txOutType $ txOutTxOut o of
         PayToPubKey   -> throwError "unexpected out type"
         PayToScript h -> case Map.lookup h $ txData $ txOutTxTx o of
             Nothing -> throwError "datum not found"
@@ -483,82 +483,79 @@ getUniswapDatum o = case txOutType $ txOutTxOut o of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
-findUniswapInstance :: HasBlockchainActions s => Uniswap -> Coin -> (UniswapDatum -> Maybe a) -> Contract w s Text (TxOutRef, TxOutTx, a)
-findUniswapInstance us c f = do
-    let addr = uniswapAddress us
-    logInfo @String $ printf "looking for Uniswap instance at address %s containing coin %s " (show addr) (show c)
+findAaveInstance :: HasBlockchainActions s => Aave -> Coin -> (AaveDatum -> Maybe a) -> Contract w s Text (TxOutRef, TxOutTx, a)
+findAaveInstance us c f = do
+    let addr = aaveAddress us
+    logInfo @String $ printf "looking for Aave instance at address %s containing coin %s " (show addr) (show c)
     utxos <- utxoAt addr
     go  [x | x@(_, o) <- Map.toList utxos, coinValueOf (txOutValue $ txOutTxOut o) c == 1]
   where
-    go [] = throwError "Uniswap instance not found"
+    go [] = throwError "Aave instance not found"
     go ((oref, o) : xs) = do
-        d <- getUniswapDatum o
+        d <- getAaveDatum o
         case f d of
             Nothing -> go xs
             Just a  -> do
-                logInfo @String $ printf "found Uniswap instance with datum: %s" (show d)
+                logInfo @String $ printf "found Aave instance with datum: %s" (show d)
                 return (oref, o, a)
 
-findUniswapFactory :: HasBlockchainActions s => Uniswap -> Contract w s Text (TxOutRef, TxOutTx, [LiquidityPool])
-findUniswapFactory us@Uniswap{..} = findUniswapInstance us usCoin $ \case
+findAaveFactory :: HasBlockchainActions s => Aave -> Contract w s Text (TxOutRef, TxOutTx, [LiquidityPool])
+findAaveFactory us@Aave{..} = findAaveInstance us aaveCoin $ \case
     Factory lps -> Just lps
     Pool _ _    -> Nothing
 
-findUniswapPool :: HasBlockchainActions s => Uniswap -> LiquidityPool -> Contract w s Text (TxOutRef, TxOutTx, Integer)
-findUniswapPool us lp = findUniswapInstance us (poolStateCoin us) $ \case
+findAavePool :: HasBlockchainActions s => Aave -> LiquidityPool -> Contract w s Text (TxOutRef, TxOutTx, Integer)
+findAavePool us lp = findAaveInstance us (poolStateCoin us) $ \case
         Pool lp' l
             | lp == lp' -> Just l
         _               -> Nothing
 
-findUniswapFactoryAndPool :: HasBlockchainActions s
-                          => Uniswap
+findAaveFactoryAndPool :: HasBlockchainActions s
+                          => Aave
                           -> Coin
                           -> Coin
                           -> Contract w s Text ( (TxOutRef, TxOutTx, [LiquidityPool])
                                                , (TxOutRef, TxOutTx, LiquidityPool, Integer)
                                                )
-findUniswapFactoryAndPool us coinA coinB = do
-    (oref1, o1, lps) <- findUniswapFactory us
+findAaveFactoryAndPool us coinA coinB = do
+    (oref1, o1, lps) <- findAaveFactory us
     case [ lp'
          | lp' <- lps
          , lp' == LiquidityPool coinA coinB
          ] of
         [lp] -> do
-            (oref2, o2, a) <- findUniswapPool us lp
+            (oref2, o2, a) <- findAavePool us lp
             return ( (oref1, o1, lps)
                    , (oref2, o2, lp, a)
                    )
         _    -> throwError "liquidity pool not found"
 
-ownerEndpoint :: Contract (Last (Either Text Uniswap)) BlockchainActions Void ()
+ownerEndpoint :: Contract (Last (Either Text Aave)) BlockchainActions Void ()
 ownerEndpoint = do
     e <- runError start
     tell $ Last $ Just $ case e of
         Left err -> Left err
         Right us -> Right us
 
--- | Schema for the endpoints for users of Uniswap.
-type UniswapUserSchema =
+-- | Schema for the endpoints for users of Aave.
+type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "create" CreateParams
         .\/ Endpoint "close"  CloseParams
         .\/ Endpoint "stop"   ()
 
--- | Type of the Uniswap user contract state.
-data UserContractState =
-      Pools [((Coin, Integer), (Coin, Integer))]
-    | Funds Value
-    | Created
+-- | Type of the Aave user contract state.
+data UserContractState = Created
     | Closed
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
 
--- | Provides the following endpoints for users of a Uniswap instance:
+-- | Provides the following endpoints for users of a Aave instance:
 --
 --      [@create@]: Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
 --      [@close@]: Closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
 --      [@stop@]: Stops the contract.
-userEndpoints :: Uniswap -> Contract (Last (Either Text UserContractState)) UniswapUserSchema Void ()
+userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
 userEndpoints us =
     stop
         `select`
@@ -567,11 +564,11 @@ userEndpoints us =
       >> userEndpoints us)
   where
     f :: forall l a p.
-         HasEndpoint l p UniswapUserSchema
+         HasEndpoint l p AaveUserSchema
       => Proxy l
       -> (a -> UserContractState)
-      -> (Uniswap -> p -> Contract (Last (Either Text UserContractState)) UniswapUserSchema Text a)
-      -> Contract (Last (Either Text UserContractState)) UniswapUserSchema Void ()
+      -> (Aave -> p -> Contract (Last (Either Text UserContractState)) AaveUserSchema Text a)
+      -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
     f _ g c = do
         e <- runError $ do
             p <- endpoint @l
@@ -580,7 +577,7 @@ userEndpoints us =
             Left err -> Left err
             Right a  -> Right $ g a
 
-    stop :: Contract (Last (Either Text UserContractState)) UniswapUserSchema Void ()
+    stop :: Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
     stop = do
         e <- runError $ endpoint @"stop"
         tell $ Last $ Just $ case e of
