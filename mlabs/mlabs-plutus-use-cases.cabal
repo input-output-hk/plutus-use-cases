@@ -39,6 +39,21 @@ library
   hs-source-dirs:      src/
   exposed-modules:
         Mlabs.Lending
+  default-extensions: ExplicitForAll
+                      FlexibleContexts
+                      ScopedTypeVariables
+                      DeriveAnyClass
+                      DeriveGeneric StandaloneDeriving DeriveLift
+                      GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable  DeriveTraversable
+                      MonoLocalBinds
+                      MultiParamTypeClasses
+                      RecordWildCards
+                      OverloadedStrings
+                      TypeFamilies
+                      QuasiQuotes
+                      TemplateHaskell
+                      DataKinds
+                      TypeOperators
 
 executable mlabs-plutus-use-caases
   main-is:             Main.hs
@@ -62,7 +77,6 @@ executable mlabs-plutus-use-caases
                      , freer-extras
   -- hs-source-dirs:
   default-language:    Haskell2010
-
 
 Test-suite mlabs-plutus-use-cases-tests
   Type:                exitcode-stdio-1.0
