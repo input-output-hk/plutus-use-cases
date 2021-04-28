@@ -25,15 +25,20 @@ library
     exposed-modules:
       MyModule
       Plutus.Contracts.Game
+      Plutus.Contracts.LendingPool
     build-depends:
       base >= 4.9 && < 5,
       aeson,
       bytestring,
+      containers,
+      text,
+      -- Plutus:
       playground-common,
       plutus-contract,
       plutus-tx-plugin,
       plutus-tx,
-      plutus-ledger
+      plutus-ledger,
+      plutus-use-cases
     hs-source-dirs: src examples/src
     default-language: Haskell2010
     ghc-options:
