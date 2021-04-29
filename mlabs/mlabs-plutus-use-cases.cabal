@@ -49,6 +49,7 @@ library
                       DeriveAnyClass
                       DeriveGeneric StandaloneDeriving DeriveLift
                       GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable  DeriveTraversable
+                      LambdaCase
                       MonoLocalBinds
                       MultiParamTypeClasses
                       NoImplicitPrelude

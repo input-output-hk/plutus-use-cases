@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 module Mlabs.Lending.Coin where
 
-import           PlutusTx.Prelude (Integer)
+import           PlutusTx.Prelude (Integer, Bool, Eq(..))
 
 import           Ledger              hiding (singleton)
 import           Ledger.Value        (AssetClass (..), assetClassValue, assetClassValueOf, assetClass)
@@ -24,3 +24,8 @@ coinValueOf = assetClassValueOf
 mkCoin:: CurrencySymbol -> TokenName -> AssetClass
 mkCoin = assetClass
 
+{-# INLINABLE hasCoinValue #-}
+-- | We check that value for coin is present and equals to 1.
+-- It serves as a marker of coin presence.
+hasCoinValue :: Value -> Coin -> Bool
+hasCoinValue val c = coinValueOf val c == 1

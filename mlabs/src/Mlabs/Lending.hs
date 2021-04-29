@@ -5,14 +5,14 @@ module Mlabs.Lending where
 import           PlutusTx.Prelude     hiding (Semigroup(..), unless)
 import qualified PlutusTx.Prelude     as Plutus
 
-import Control.Monad (forever)
+import Control.Monad (forever, void)
 
 import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text)
 import           GHC.Generics (Generic)
 
 import           Ledger                           hiding (singleton)
--- import           Ledger.Constraints               as Constraints
+import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import           Plutus.Contract
@@ -21,6 +21,9 @@ import qualified Ledger.Typed.Scripts             as Scripts
 
 import           Playground.Contract (ToSchema)
 import qualified Prelude
+import           Prelude (Semigroup(..))
+import qualified Data.Map as Map
+import Text.Printf (printf)
 
 import Mlabs.Lending.Coin
 import Mlabs.Lending.Utils
@@ -51,6 +54,7 @@ type LendingPool = [Coin]
 data LendingDatum
   = Factory [Coin]
   | Pool Coin
+  deriving stock Show
 
 PlutusTx.unstableMakeIsData ''LendingDatum
 PlutusTx.makeLift ''LendingDatum
@@ -80,8 +84,8 @@ validateCreate Lendex{..} poolCoin coins newCoin ctx =
     && keepsPoolStateCoin
   where
     lendexCoinPresent =
-      Plutus.traceIfFalse "Lendex coin not present"
-        (coinValueOf (valueWithin $ findOwnInput' ctx) lxCoin == 1)
+      Plutus.traceIfFalse "Lendex coin not present" $
+        hasCoinValue (valueWithin $ findOwnInput' ctx) lxCoin
 
     newCoinIsAdded =
       Plutus.traceIfFalse "New coin is added to pool" $
@@ -89,15 +93,12 @@ validateCreate Lendex{..} poolCoin coins newCoin ctx =
 
     poolStateCoinForged =
       Plutus.traceIfFalse "Pool state coin not forged" $
-       (coinValueOf forged poolCoin == 1)
+       hasCoinValue forged poolCoin
 
-    keepsLedexCoin =
-      Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ newCoin : coins) $
-        coin lxCoin 1)
+    keepsLedexCoin     = keepsCoin (Factory $ newCoin : coins) lxCoin
+    keepsPoolStateCoin = keepsCoin (Pool newCoin) poolCoin
 
-    keepsPoolStateCoin =
-      Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool newCoin) $
-        coin poolCoin 1)
+    keepsCoin st c = Constraints.checkOwnOutputConstraint ctx (OutputConstraint st $ coin c 1)
 
     forged :: Value
     forged = txInfoForge $ scriptContextTxInfo ctx
@@ -111,8 +112,8 @@ validateLiquidityForging :: Lendex -> TokenName -> ScriptContext -> Bool
 validateLiquidityForging us tn ctx = case [ i
                                           | i <- txInfoInputs $ scriptContextTxInfo ctx
                                           , let v = valueWithin i
-                                          , (coinValueOf v usC == 1) ||
-                                            (coinValueOf v lpC == 1)
+                                          , hasCoinValue v usC ||
+                                            hasCoinValue v lpC
                                           ] of
     [_]    -> True
     [_, _] -> True
@@ -155,15 +156,63 @@ liquidityPolicy lx = mkMonetaryPolicyScript $
 liquidityCurrency :: Lendex -> CurrencySymbol
 liquidityCurrency = scriptCurrencySymbol . liquidityPolicy
 
-findLendingFactory :: App (TxOutRef, TxOut, LendingPool)
-findLendingFactory = undefined
+findLendexInstance :: Lendex -> Coin -> (LendingDatum -> Maybe a) -> App (TxOutRef, TxOutTx, a)
+findLendexInstance us c f = do
+    let addr = lendexAddress us
+    logInfo @String $ printf "looking for Lendex instance at address %s containing coin %s " (show addr) (show c)
+    utxos <- utxoAt addr
+    go  [x | x@(_, o) <- Map.toList utxos, coinValueOf (txOutValue $ txOutTxOut o) c == 1]
+  where
+    go [] = throwError "Lendex instance not found"
+    go ((oref, o) : xs) = do
+        d <- getLendexDatum o
+        case f d of
+            Nothing -> go xs
+            Just a  -> do
+                logInfo @String $ printf "found Lendex instance with datum: %s" (show d)
+                return (oref, o, a)
 
--- | TODO
-create :: CreateParams -> App ()
-create CreateParams{..} = do
-  (_oref, _outp, _lps) <- findLendingFactory
-  let _usDat = cpCoin
-  return ()
+findLendexFactory :: Lendex -> App (TxOutRef, TxOutTx, [Coin])
+findLendexFactory lx@Lendex{..} = findLendexInstance lx lxCoin $ \case
+     Factory lps -> Just lps
+     Pool _      -> Nothing
+
+getLendexDatum :: TxOutTx -> App LendingDatum
+getLendexDatum o = case txOutDatumHash $ txOutTxOut o of
+  Nothing -> throwError "datumHash not found"
+  Just h -> case Map.lookup h $ txData $ txOutTxTx o of
+    Nothing -> throwError "datum not found"
+    Just (Datum e) -> case PlutusTx.fromData e of
+      Nothing -> throwError "datum has wrong type"
+      Just d  -> return d
+
+-- | Creates a liquidity pool for a given coin.
+create :: Lendex -> CreateParams -> App ()
+create lx CreateParams{..} = do
+    (oref, o, lps) <- findLendexFactory lx
+    let lp        =  cpCoin
+        usInst   = lendexInstance lx
+        usScript = lendexScript lx
+        usDat1   = Factory $ lp : lps
+        usDat2   = Pool lp
+        psC      = poolStateCoin lx
+        usVal    = coin (lxCoin lx) 1
+        lpVal    = coin cpCoin 0
+
+        lookups  = Constraints.scriptInstanceLookups usInst
+                <> Constraints.otherScript usScript
+                <> Constraints.monetaryPolicy (liquidityPolicy lx)
+                <> Constraints.unspentOutputs (Map.singleton oref o)
+
+        tx       = Constraints.mustPayToTheScript usDat1 usVal
+                <> Constraints.mustPayToTheScript usDat2 lpVal
+                <> Constraints.mustForgeValue (coin psC 1)
+                <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create lp)
+
+    ledgerTx <- submitTxConstraintsWith lookups tx
+    void $ awaitTxConfirmed $ txId ledgerTx
+
+    logInfo $ "created liquidity pool: " ++ show lp
 
 data Lending
 instance Scripts.ScriptType Lending where
@@ -176,8 +225,8 @@ type LendingSchema =
 
 type App a = Contract () LendingSchema Text a
 
-endpoints :: App ()
-endpoints = create' >> forever endpoints
+userEndpoints :: Lendex -> App ()
+userEndpoints lx = forever create'
   where
-    create' = endpoint @"create" >>= create
+    create' = endpoint @"create" >>= create lx
 
