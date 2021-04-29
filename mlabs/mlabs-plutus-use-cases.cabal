@@ -32,6 +32,7 @@ library
                      , plutus-ledger-api
                      , plutus-tx-plugin
                      , plutus-pab
+                     , plutus-use-cases
                      , prettyprinter
                      , lens
                      , text
@@ -90,9 +91,21 @@ Test-suite mlabs-plutus-use-cases-tests
   Default-Language:    Haskell2010
   Build-Depends:       base              >=4.9 && <5
                      , mlabs-plutus-use-cases
-                     , text
+                     , containers
+                     , playground-common
+                     , plutus-core
+                     , plutus-contract
+                     , plutus-ledger
+                     , plutus-tx
+                     , plutus-ledger-api
+                     , plutus-tx-plugin
+                     , plutus-pab
+                     , plutus-use-cases
+                     , plutus-contract
+                     , prettyprinter
                      , tasty
                      , tasty-hunit
+                     , text
   hs-source-dirs:      test
   Main-is:             Main.hs
   Other-modules:       Test.Lending

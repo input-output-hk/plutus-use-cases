@@ -7,15 +7,20 @@ import qualified PlutusTx.Prelude     as Plutus
 
 import Control.Monad (forever, void)
 
+import           Data.Monoid (Last(..))
+import           Data.Void   (Void)
+
 import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text)
 import           GHC.Generics (Generic)
+
 
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import           Plutus.Contract
+import qualified Plutus.Contracts.Currency        as Currency
 import qualified PlutusTx
 import qualified Ledger.Typed.Scripts             as Scripts
 
@@ -24,9 +29,13 @@ import qualified Prelude
 import           Prelude (Semigroup(..))
 import qualified Data.Map as Map
 import Text.Printf (printf)
-
+import qualified Plutus.Trace as Trace
+import           Plutus.Contract.Trace (Wallet)
+import           Plutus.Trace (EmulatorTrace)
 import Mlabs.Lending.Coin
 import Mlabs.Lending.Utils
+
+import qualified Data.Text as T
 
 lendexTokenName, poolStateTokenName :: TokenName
 lendexTokenName = "Lendex"
@@ -186,6 +195,25 @@ getLendexDatum o = case txOutDatumHash $ txOutTxOut o of
       Nothing -> throwError "datum has wrong type"
       Just d  -> return d
 
+-- | Creates a Lendex "factory". This factory will keep track of the existing
+-- liquidity pools and enforce that there will be at most one liquidity pool
+-- for any pair of tokens at any given time.
+start :: HasBlockchainActions s => Contract w s Text Lendex
+start = do
+  pkh <- pubKeyHash <$> ownPubKey
+  cs  <- fmap Currency.currencySymbol $
+        mapError (T.pack . show @Currency.CurrencyError) $
+        Currency.forgeContract pkh [(lendexTokenName, 1)]
+  let c    = mkCoin cs lendexTokenName
+      us   = lendex cs
+      inst = lendexInstance us
+      tx   = mustPayToTheScript (Factory []) $ coin c 1
+  ledgerTx <- submitTxConstraints inst tx
+  void $ awaitTxConfirmed $ txId ledgerTx
+
+  logInfo @String $ printf "started Uniswap %s at address %s" (show us) (show $ lendexAddress us)
+  return us
+
 -- | Creates a liquidity pool for a given coin.
 create :: Lendex -> CreateParams -> App ()
 create lx CreateParams{..} = do
@@ -219,14 +247,40 @@ instance Scripts.ScriptType Lending where
   type RedeemerType Lending = Action
   type DatumType    Lending = LendingDatum
 
+type LendingOwnerSchema =
+     BlockchainActions
+         .\/ Endpoint "start" ()
+
 type LendingSchema =
      BlockchainActions
          .\/ Endpoint "create" CreateParams
 
 type App a = Contract () LendingSchema Text a
+type OwnerApp a = Contract () LendingOwnerSchema Text a
+
+ownerEndpoint :: Contract (Last Lendex) BlockchainActions Void ()
+ownerEndpoint = do
+  e <- runError start
+  tell $ Last $ case e of
+    Left _err -> Nothing
+    Right lx  -> Just lx
 
 userEndpoints :: Lendex -> App ()
 userEndpoints lx = forever create'
   where
     create' = endpoint @"create" >>= create lx
+
+-----------------------------------------------
+-- call endpoints (for testing)
+
+callStart :: Wallet -> EmulatorTrace (Maybe Lendex)
+callStart w = do
+  hdl <- Trace.activateContractWallet w ownerEndpoint
+  Last res <- Trace.observableState hdl
+  return res
+
+callCreate :: Lendex ->Wallet -> CreateParams -> EmulatorTrace ()
+callCreate lx w cp = do
+  hdl <- Trace.activateContractWallet w (userEndpoints lx)
+  void $ Trace.callEndpoint @"create" hdl cp
 
