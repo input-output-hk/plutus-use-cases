@@ -6,7 +6,7 @@ module Test.Lending(
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Prelude (($), Maybe(..), Bool(..))
+import Prelude (($), Maybe(..), Bool(..), String)
 import Data.Either
 import Data.Maybe (isNothing)
 
@@ -51,7 +51,7 @@ createScript = do
         { cpCoin = L.mkCoin currency token
         }
       next
-    Nothing -> Trace.throwError (Trace.GenericError "No lendex was created")
+    Nothing -> throwError "No lendex was created"
   where
     next = void Trace.nextSlot
 
@@ -83,4 +83,10 @@ initConfig = cfg
     val x y = Ledger.Value $ PM.fromList
       [ (Ada.adaSymbol,  PM.singleton Ada.adaToken x)
       , (currency, PM.singleton token y)]
+
+------------------------------------------------------------------------------------
+-- utils
+
+throwError :: String -> Trace.EmulatorTrace a
+throwError msg = Trace.throwError (Trace.GenericError msg)
 
