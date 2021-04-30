@@ -15,7 +15,6 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 
-
 module Plutus.Contracts.LendingPool
     ( Coin (..)
     , coin, coinValueOf
@@ -47,6 +46,7 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..), unless
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
+import Plutus.V1.Ledger.Ada ( lovelaceValueOf )
 
 aaveProtocolName, aaveTokenName, poolStateTokenName :: TokenName
 aaveProtocolName = "Aave"
@@ -167,9 +167,8 @@ validateCreate Aave{..} c lps lp@LendingPool{..} ctx =
     traceIfFalse "Aave coin not present" (coinValueOf (txInInfoValue $ findOwnInput ctx) aaveProtocolInst == 1) &&
     notElem lp lps                                                                                      &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ coin aaveProtocolInst 1)     &&
-    (coinValueOf forged c == 1)
-    -- TODO validate aTokens forged
-    -- Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp liquidity) $ coin c 1)
+    (coinValueOf forged c == 1) &&
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp aTokensNum) $ coin c 1)
   where
     poolOutput :: TxOutInfo
     poolOutput = case [o | o <- getContinuingOutputs ctx, coinValueOf (txOutValue o) c == 1] of
@@ -178,6 +177,9 @@ validateCreate Aave{..} c lps lp@LendingPool{..} ctx =
 
     forged :: Value
     forged = txInfoForge $ valCtxTxInfo ctx
+
+    aTokensNum :: Integer
+    aTokensNum = coinValueOf forged aaveToken
 
 {-# INLINABLE validateCloseFactory #-}
 validateCloseFactory :: Aave -> Coin -> [LendingPool] -> ValidatorCtx -> Bool
@@ -327,8 +329,7 @@ create aa aTokensNum = do
         aaDat2   = Pool lp aTokensNum
         psC      = poolStateCoin aa
         aaVal    = coin (aaveProtocolInst aa) 1
-        -- TODO: forge aTokens
-        lpVal    = coin psC 1
+        lpVal    = coin psC 1 <> lovelaceValueOf aTokensNum
 
         lookups  = Constraints.scriptInstanceLookups aaInst        <>
                    Constraints.otherScript aaScript                <>
@@ -337,7 +338,7 @@ create aa aTokensNum = do
 
         tx       = Constraints.mustPayToTheScript aaDat1 aaVal                                               <>
                    Constraints.mustPayToTheScript aaDat2 lpVal                                               <>
-                   Constraints.mustForgeValue (coin psC 1)                              <>
+                   Constraints.mustForgeValue (coin psC 1 <> coin (aaveToken aa) aTokensNum)                 <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create lp)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
