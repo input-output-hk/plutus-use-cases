@@ -258,12 +258,20 @@ type LendingSchema =
 type App a = Contract () LendingSchema Text a
 type OwnerApp a = Contract () LendingOwnerSchema Text a
 
-ownerEndpoint :: Contract (Last Lendex) BlockchainActions Void ()
-ownerEndpoint = do
+ownerEndpoint' :: Contract (Last Lendex) BlockchainActions Void ()
+ownerEndpoint' = do
   e <- runError start
   tell $ Last $ case e of
     Left _err -> Nothing
     Right lx  -> Just lx
+
+ownerEndpoint :: Contract (Last Lendex) LendingOwnerSchema Text ()
+ownerEndpoint = forever start'
+  where
+  start' =
+    endpoint @"start" >>= \() -> do
+      lx <- start
+      tell $ Last $ Just lx
 
 userEndpoints :: Lendex -> App ()
 userEndpoints lx = forever create'
@@ -276,6 +284,8 @@ userEndpoints lx = forever create'
 callStart :: Wallet -> EmulatorTrace (Maybe Lendex)
 callStart w = do
   hdl <- Trace.activateContractWallet w ownerEndpoint
+  void $ Trace.callEndpoint @"start" hdl ()
+  void $ Trace.waitNSlots 10
   Last res <- Trace.observableState hdl
   return res
 

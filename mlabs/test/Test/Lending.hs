@@ -2,13 +2,11 @@ module Test.Lending(
   tests
 ) where
 
+import Prelude
 
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Prelude (($), Maybe(..), Bool(..), String)
-import Data.Either
-import Data.Maybe (isNothing)
 
 import Control.Monad (void)
 import qualified Plutus.V1.Ledger.Ada as Ada
@@ -30,8 +28,7 @@ tests = testGroup "Lending"
   ]
 
 testCreate :: TestTree
-testCreate = testCase "Create lending pool" $ assertBool "script runs with no errors" $
-  testOk initConfig createScript
+testCreate = testCase "Create lending pool" $ testOk initConfig createScript
 
 ------------------------------------------------------------------------------------
 
@@ -52,11 +49,14 @@ createScript = do
         }
       next
     Nothing -> throwError "No lendex was created"
-  where
-    next = void Trace.nextSlot
 
-testOk :: Trace.EmulatorConfig -> Trace.EmulatorTrace () -> Bool
-testOk cfg trace = isNothing $ (\(_, merr, _) -> merr) $ Trace.runEmulatorTrace cfg trace
+
+testOk :: Trace.EmulatorConfig -> Trace.EmulatorTrace () -> IO ()
+testOk cfg trace = case err of
+  Just e  -> assertFailure $ show e
+  Nothing -> pure ()
+  where
+    err = (\(_, merr, _) -> merr) $ Trace.runEmulatorTrace cfg trace
 
 ------------------------------------------------------------------------------------
 -- init blockchain state
@@ -89,4 +89,10 @@ initConfig = cfg
 
 throwError :: String -> Trace.EmulatorTrace a
 throwError msg = Trace.throwError (Trace.GenericError msg)
+
+next :: Trace.EmulatorTrace ()
+next = void Trace.nextSlot
+
+wait :: Integer -> Trace.EmulatorTrace ()
+wait = void . Trace.waitNSlots . fromInteger
 
