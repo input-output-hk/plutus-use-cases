@@ -77,11 +77,17 @@ executable plutus-starter-pab
     -threaded
   build-depends:
     base >= 4.9 && < 5,
-    plutus-contract -any,
-    plutus-pab -any,
-    plutus-starter -any,
-    aeson -any,
-    freer-simple -any,
-    prettyprinter -any,
-    freer-extras -any,
-    plutus-ledger -any
+    aeson,
+    freer-simple,
+    freer-extras,
+    prettyprinter,
+    containers,
+    row-types,
+    text,
+    -- Plutus:
+    plutus-ledger,
+    plutus-contract,
+    plutus-pab,
+    plutus-starter,
+    playground-common,
+    plutus-use-cases
