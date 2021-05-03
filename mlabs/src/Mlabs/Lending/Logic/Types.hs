@@ -14,6 +14,7 @@ module Mlabs.Lending.Logic.Types(
   , LpAddressesProvider(..)
   , LpAddressesProviderRegistry(..)
   , Coin(..)
+  , Addr(..)
   , AToken(..)
   , LpCollateralManager(..)
   , LpConfigurator(..)
@@ -29,7 +30,7 @@ import Data.ByteString (ByteString)
 
 -- | Address that can hold values of assets
 newtype Addr = Addr Integer
-  deriving (Show)
+  deriving (Show, Eq, Ord)
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool (Map Coin Reserve)

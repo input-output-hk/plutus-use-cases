@@ -18,22 +18,25 @@ import Mlabs.Lending.Logic.State
 import qualified Data.Map.Strict as M
 
 data App = App
-  { app'pool  :: !LendingPool
-  , app'log   :: ![Error]
+  { app'pool    :: !LendingPool
+  , app'log     :: ![Error]
+  , app'wallets :: !BchState
   }
+
 
 runApp :: App -> [Act] -> App
 runApp app acts = foldl' go app acts
   where
-    go (App lp errs) act = case runStateT (react act) lp of
-      Right (_, nextState) -> App nextState errs
-      Left err             -> App lp (err : errs)
+    go (App lp errs wallets) act = case runStateT (react act) lp of
+      Right (resp, nextState) -> App nextState errs (foldl' (flip applyResp) wallets resp)
+      Left err                -> App lp (err : errs) wallets
 
 -- | App is initialised with list of coins and their rates (value relative to base currency, ada for us)
 initApp :: [(Coin, Rational)] -> App
 initApp coins = App
   { app'pool = LendingPool $ M.fromList (fmap (second initReserve) coins)
   , app'log  = []
+  , app'wallets = BchState M.empty
   }
   where
     initReserve rate = Reserve
@@ -43,4 +46,5 @@ initApp coins = App
       , reserve'deposits    = []
       , reserve'value       = rate
       }
+
 
