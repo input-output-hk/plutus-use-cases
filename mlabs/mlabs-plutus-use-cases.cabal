@@ -24,6 +24,7 @@ library
                      , aeson
                      , bytestring
                      , containers
+                     , mtl
                      , playground-common
                      , plutus-core
                      , plutus-contract
@@ -32,6 +33,7 @@ library
                      , plutus-tx-plugin
                      , plutus-pab
                      , prettyprinter
+                     , stm
                      , lens
                      , text
                      , freer-extras
@@ -39,7 +41,11 @@ library
   hs-source-dirs:      src/
   exposed-modules:
         Mlabs.Lending
-  default-extensions: ExplicitForAll
+        Mlabs.Lending.Logic.App
+        Mlabs.Lending.Logic.State
+        Mlabs.Lending.Logic.Types
+  default-extensions: BangPatterns
+                      ExplicitForAll
                       FlexibleContexts
                       ScopedTypeVariables
                       DeriveAnyClass
@@ -54,6 +60,7 @@ library
                       TemplateHaskell
                       DataKinds
                       TypeOperators
+                      LambdaCase
 
 executable mlabs-plutus-use-caases
   main-is:             Main.hs
