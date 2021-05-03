@@ -23,7 +23,6 @@ import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text)
 import           GHC.Generics (Generic)
 
-
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
