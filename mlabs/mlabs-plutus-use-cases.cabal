@@ -109,6 +109,7 @@ Test-suite mlabs-plutus-use-cases-tests
   hs-source-dirs:      test
   Main-is:             Main.hs
   Other-modules:       Test.Lending
+                     , Test.Utils
   default-extensions:
     RecordWildCards
     OverloadedStrings

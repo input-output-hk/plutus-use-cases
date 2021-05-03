@@ -1,5 +1,15 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-strictness #-}
+-- | Lending exchange platform (Lendex for short) is a tool for
+-- user to provide lending funds.
+--
+-- There are three roles of users:
+--
+-- * **admin** - can initialise whole platform and close it.
+--
+-- * **lender user**  can create new tokens on the platform and provide funds with it.
+--
+-- * **borrower user** can borrow funds.
 module Mlabs.Lending where
 
 import           PlutusTx.Prelude     hiding (Semigroup(..), unless)
@@ -8,7 +18,6 @@ import qualified PlutusTx.Prelude     as Plutus
 import Control.Monad (forever, void)
 
 import           Data.Monoid (Last(..))
-import           Data.Void   (Void)
 
 import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text)
@@ -37,7 +46,9 @@ import Mlabs.Lending.Utils
 
 import qualified Data.Text as T
 
+-- | Constants for thread of lendex state and pool state.
 lendexTokenName, poolStateTokenName :: TokenName
+
 lendexTokenName = "Lendex"
 poolStateTokenName = "Pool State"
 
@@ -51,7 +62,9 @@ PlutusTx.makeLift ''Lendex
 -- | Available actions
 data Action
   = Create Coin
+  -- ^ Create new coin for lending
   | Close
+  -- $ close the exchange
   deriving (Show)
 
 PlutusTx.unstableMakeIsData ''Action
@@ -62,7 +75,11 @@ type LendingPool = [Coin]
 -- | Lending datum
 data LendingDatum
   = Factory [Coin]
+  -- ^ Global state to watch for coins that were created.
+  -- For every new coin we check against this state
+  -- weather it is new and have not been already created.
   | Pool Coin
+  -- ^ single coint to lend funds.
   deriving stock Show
 
 PlutusTx.unstableMakeIsData ''LendingDatum
@@ -71,6 +88,7 @@ PlutusTx.makeLift ''LendingDatum
 -- | Parameters for create endpoint
 data CreateParams = CreateParams
   { cpCoin :: Coin
+  -- ^ coin for which we create lending capabilities.
   }
   deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
@@ -83,7 +101,7 @@ mkValidator lx c dat act ctx = case (dat, act) of
   _                         -> False
 
 {-# INLINABLE validateCreate #-}
--- | Validate create-case
+-- | It validates create-case
 validateCreate :: Lendex -> Coin -> [Coin] -> Coin -> ScriptContext -> Bool
 validateCreate Lendex{..} poolCoin coins newCoin ctx =
        lendexCoinPresent
@@ -113,10 +131,12 @@ validateCreate Lendex{..} poolCoin coins newCoin ctx =
     forged = txInfoForge $ scriptContextTxInfo ctx
 
 {-# INLINABLE validateClose #-}
+-- | It validates the closing of the whole lending system
 validateClose :: Lendex -> Coin -> LendingDatum -> ScriptContext -> Bool
 validateClose _ _ _ _ = True
 
 {-# INLINABLE validateLiquidityForging #-}
+-- | It validates the forging of new coin for lending purposes
 validateLiquidityForging :: Lendex -> TokenName -> ScriptContext -> Bool
 validateLiquidityForging us tn ctx = case [ i
                                           | i <- txInfoInputs $ scriptContextTxInfo ctx
@@ -132,6 +152,7 @@ validateLiquidityForging us tn ctx = case [ i
     usC = lxCoin us
     lpC = mkCoin (ownCurrencySymbol ctx) tn
 
+-- | Instance of validation script for lending exchange
 lendexInstance :: Lendex -> Scripts.ScriptInstance Lending
 lendexInstance lx = Scripts.validator @Lending
     ($$(PlutusTx.compile [|| mkValidator ||])
@@ -144,27 +165,36 @@ lendexInstance lx = Scripts.validator @Lending
 
     wrap = Scripts.wrapValidator @LendingDatum @Action
 
+-- | Validator
 lendexScript :: Lendex -> Validator
 lendexScript = Scripts.validatorScript . lendexInstance
 
+-- | Validator script address
 lendexAddress :: Lendex -> Ledger.Address
 lendexAddress = Ledger.scriptAddress . lendexScript
 
+-- | Wrapper to create lendex state coin out of @CurrencySymbol@.
 lendex :: CurrencySymbol -> Lendex
 lendex cs = Lendex $ mkCoin cs lendexTokenName
 
+-- | Constructor for pool state coin.
+-- It relies on script for new coin forgery validation.
 poolStateCoin :: Lendex -> Coin
 poolStateCoin = flip mkCoin poolStateTokenName . liquidityCurrency
 
+-- | pool state forgery validator
 liquidityPolicy :: Lendex -> MonetaryPolicy
 liquidityPolicy lx = mkMonetaryPolicyScript $
     $$(PlutusTx.compile [|| \u t -> Scripts.wrapMonetaryPolicy (validateLiquidityForging u t) ||])
         `PlutusTx.applyCode` PlutusTx.liftCode lx
         `PlutusTx.applyCode` PlutusTx.liftCode poolStateTokenName
 
+-- | @CurrencySumbol@ for the lendex. We use it for pool state.
+-- They share common @CurrencySymbol@
 liquidityCurrency :: Lendex -> CurrencySymbol
 liquidityCurrency = scriptCurrencySymbol . liquidityPolicy
 
+-- | Provides TxOut that contains lendex script.
 findLendexInstance :: Lendex -> Coin -> (LendingDatum -> Maybe a) -> App (TxOutRef, TxOutTx, a)
 findLendexInstance us c f = do
     let addr = lendexAddress us
@@ -181,11 +211,14 @@ findLendexInstance us c f = do
                 logInfo @String $ printf "found Lendex instance with datum: %s" (show d)
                 return (oref, o, a)
 
+-- | Provides TXOut that contains global state of lendex.
+-- It provides the list of coins that are part of the exchange so far.
 findLendexFactory :: Lendex -> App (TxOutRef, TxOutTx, [Coin])
 findLendexFactory lx@Lendex{..} = findLendexInstance lx lxCoin $ \case
      Factory lps -> Just lps
      Pool _      -> Nothing
 
+-- | Reads lendex datum for the @TxOut@.
 getLendexDatum :: TxOutTx -> App LendingDatum
 getLendexDatum o = case txOutDatumHash $ txOutTxOut o of
   Nothing -> throwError "datumHash not found"
@@ -215,6 +248,7 @@ start = do
   return us
 
 -- | Creates a liquidity pool for a given coin.
+-- We have no coins at the start
 create :: Lendex -> CreateParams -> App ()
 create lx CreateParams{..} = do
     (oref, o, lps) <- findLendexFactory lx
@@ -242,29 +276,26 @@ create lx CreateParams{..} = do
 
     logInfo $ "created liquidity pool: " ++ show lp
 
+-- Type to tag Redeemer and Datum for our lending platform
 data Lending
 instance Scripts.ScriptType Lending where
   type RedeemerType Lending = Action
   type DatumType    Lending = LendingDatum
 
+-- | Schema for the super user who can initiate the whole lendex platform.
 type LendingOwnerSchema =
      BlockchainActions
          .\/ Endpoint "start" ()
 
+-- | Schema for lender.
 type LendingSchema =
      BlockchainActions
-         .\/ Endpoint "create" CreateParams
+         .\/ Endpoint "create" CreateParams  -- create new coin to lend funds
 
 type App a = Contract () LendingSchema Text a
 type OwnerApp a = Contract () LendingOwnerSchema Text a
 
-ownerEndpoint' :: Contract (Last Lendex) BlockchainActions Void ()
-ownerEndpoint' = do
-  e <- runError start
-  tell $ Last $ case e of
-    Left _err -> Nothing
-    Right lx  -> Just lx
-
+-- | Endpoints for admin of the platform. Admin can initialise the lending platform.
 ownerEndpoint :: Contract (Last Lendex) LendingOwnerSchema Text ()
 ownerEndpoint = forever start'
   where
@@ -273,6 +304,7 @@ ownerEndpoint = forever start'
       lx <- start
       tell $ Last $ Just lx
 
+-- | Endpoints for lender
 userEndpoints :: Lendex -> App ()
 userEndpoints lx = forever create'
   where
@@ -281,6 +313,9 @@ userEndpoints lx = forever create'
 -----------------------------------------------
 -- call endpoints (for testing)
 
+-- | Calls init lendex platform for a given wallet.
+-- Produces tag of the platform that contains coin by which we track
+-- state of the platform.
 callStart :: Wallet -> EmulatorTrace (Maybe Lendex)
 callStart w = do
   hdl <- Trace.activateContractWallet w ownerEndpoint
@@ -289,7 +324,8 @@ callStart w = do
   Last res <- Trace.observableState hdl
   return res
 
-callCreate :: Lendex ->Wallet -> CreateParams -> EmulatorTrace ()
+-- | Lendeer calls create coin endpoint. Coin for @CreateParams@ is used for lending purposes.
+callCreate :: Lendex -> Wallet -> CreateParams -> EmulatorTrace ()
 callCreate lx w cp = do
   hdl <- Trace.activateContractWallet w (userEndpoints lx)
   void $ Trace.callEndpoint @"create" hdl cp
