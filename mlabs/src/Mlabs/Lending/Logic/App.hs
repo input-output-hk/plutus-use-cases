@@ -34,17 +34,8 @@ runApp app acts = foldl' go app acts
 -- | App is initialised with list of coins and their rates (value relative to base currency, ada for us)
 initApp :: [(Coin, Rational)] -> App
 initApp coins = App
-  { app'pool = LendingPool $ M.fromList (fmap (second initReserve) coins)
+  { app'pool = LendingPool (M.fromList (fmap (second initReserve) coins)) mempty
   , app'log  = []
   , app'wallets = BchState M.empty
   }
-  where
-    initReserve rate = Reserve
-      { reserve'liquidity   = 0
-      , reserve'borrow      = 0
-      , reserve'collaterals = []
-      , reserve'deposits    = []
-      , reserve'value       = rate
-      }
-
 

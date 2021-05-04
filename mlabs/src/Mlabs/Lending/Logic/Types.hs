@@ -5,17 +5,23 @@
 -- * https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool
 module Mlabs.Lending.Logic.Types(
     LendingPool(..)
+  , Wallet(..)
+  , defaultWallet
+  , User(..)
+  , defaultUser
+  , UserId(..)
   , Reserve(..)
+  , initReserve
   , Act(..)
-  , LpAct(..)
+  , UserAct(..)
   , PriceQuery(..)
   , PriceAct(..)
   , GovernAct(..)
   , LpAddressesProvider(..)
   , LpAddressesProviderRegistry(..)
   , Coin(..)
+  , aToken
   , Addr(..)
-  , AToken(..)
   , LpCollateralManager(..)
   , LpConfigurator(..)
   , PriceOracleProvider(..)
@@ -32,57 +38,97 @@ import Data.ByteString (ByteString)
 newtype Addr = Addr Integer
   deriving (Show, Eq, Ord)
 
+newtype UserId = UserId Integer
+  deriving (Show, Eq, Ord)
+
 -- | Lending pool is a list of reserves
-data LendingPool = LendingPool (Map Coin Reserve)
+data LendingPool = LendingPool
+  { lp'reserves :: Map Coin Reserve
+  , lp'users    :: Map UserId User
+  }
   deriving (Show)
 
 -- | Reserve of give coin in the pool.
 -- It holds all info on individual collaterals and deposits.
 data Reserve = Reserve
-  { reserve'liquidity   :: !Integer       -- ^ total amount of coins available in reserve
-  , reserve'borrow      :: !Integer       -- ^ how much was already borrowed
-  , reserve'collaterals :: ![Collateral]  -- ^ list of collaterals
-  , reserve'deposits    :: ![Deposit]     -- ^ list of deposits
-  , reserve'value       :: !Rational      -- ^ ratio of reserve's coin to base currency
+  { reserve'deposit     :: !Integer             -- ^ total amount of coins deposited to reserve
+  , reserve'collateral  :: !Integer             -- ^ total amount of collaterals on the reserve
+  , reserve'borrow      :: !Integer             -- ^ how much was already borrowed
+  , reserve'rate        :: !Rational            -- ^ ratio of reserve's coin to base currency
+  , reserve'liquidationThreshold :: !Rational   -- ^ ratio at which liquidation of collaterals can happen for this coin
+  }
+  deriving (Show)
+
+-- | Initialise empty reserve with given ratio of its coin to ada
+initReserve :: Rational -> Reserve
+initReserve rate = Reserve
+  { reserve'deposit    = 0
+  , reserve'borrow     = 0
+  , reserve'collateral = 0
+  , reserve'rate       = rate
+  , reserve'liquidationThreshold = 0.8
+  }
+
+data User = User
+  { user'wallets         :: Map Coin Wallet
+  }
+  deriving (Show)
+
+defaultUser :: User
+defaultUser = User mempty
+
+data Wallet = Wallet
+  { wallet'deposit       :: Integer
+  , wallet'collateral    :: Integer
+  , wallet'borrow        :: Integer
+  }
+  deriving (Show)
+
+defaultWallet :: Wallet
+defaultWallet = Wallet 0 0 0
+
+data UserConfig = UserConfig
+  { userConfig'collaterals :: [Addr]
+  , userConfig'borrows     :: [Borrow]
+  }
+  deriving (Show)
+
+data Borrow = Borrow
+  { borrow'amount   :: Integer
+  , borrow'health   :: Rational
   }
   deriving (Show)
 
 -- | Colateral
 data Collateral = Collateral
   { collateral'amount   :: Integer
-  , collateral'health   :: Rational
-  , collateral'addr     :: Addr
   }
   deriving (Show)
 
 -- | Deposit
 data Deposit = Deposit
   { deposit'amount      :: Integer
-  , deposit'addr        :: Addr
   }
   deriving (Show)
 
-data Act = LpAct LpAct | PriceAct PriceAct | GovernAct GovernAct
+data Act = UserAct UserId UserAct | PriceAct PriceAct | GovernAct GovernAct
   deriving (Show)
 
 -- | Lending pool action
-data LpAct
+data UserAct
   = DepositAct
       { act'amount          :: Integer
       , act'asset           :: Coin
-      , act'onBehalfOf      :: Addr
       }
   | BorrowAct
       { act'asset           :: Coin
       , act'amount          :: Integer
       , act'rate            :: InterestRate
-      , act'onBehalfOf      :: Addr
       }
   | RepayAct
       { act'asset           :: Coin
       , act'amount          :: Integer
       , act'rate            :: InterestRate
-      , act'onBehalfOf      :: Addr
       }
   | SwapBorrowRateModelAct
       { act'asset           :: Coin
@@ -93,8 +139,7 @@ data LpAct
       , act'useAsCollateral :: Bool
       }
   | WithdrawAct
-      { act'to             :: Addr
-      , act'amount         :: Integer
+      { act'amount         :: Integer
       , act'asset          :: Coin
       }
   | FlashLoanAct  -- TODO
@@ -130,8 +175,9 @@ newtype LpAddressesProviderRegistry
 newtype Coin = Coin ByteString
   deriving (Show, Eq, Ord)
 
-newtype AToken = AToken Coin
-  deriving (Show)
+-- | Appends a prefix to all coins
+aToken :: Coin -> Coin
+aToken (Coin bs) = Coin $ "a" <> bs
 
 data LpCollateralManager = LpCollateralManager
 
