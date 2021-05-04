@@ -19,7 +19,7 @@ module Plutus.Contracts.LendingPool
     ( Coin (..)
     , coin, coinValueOf
     , Aave (..), aave
-    , AaveUserSchema, UserContractState (..)
+    , AaveUserSchema, AaveOwnerSchema, UserContractState (..)
     , start, create, close
     , ownerEndpoint, userEndpoints
     ) where
@@ -53,6 +53,7 @@ aaveProtocolName = "Aave"
 aaveTokenName = "aToken"
 poolStateTokenName = "Pool State"
 
+-- TODO use AssetClass instead of Coin
 -- | A pair consisting of a 'CurrencySymbol' and a 'TokenName'.
 -- Coins are the entities that can be swapped in the exchange.
 data Coin = Coin
@@ -447,6 +448,10 @@ ownerEndpoint = do
     tell $ Last $ Just $ case e of
         Left err -> Left err
         Right aa -> Right aa
+
+type AaveOwnerSchema =
+    BlockchainActions
+        .\/ Endpoint "start" ()
 
 -- | Schema for the endpoints for users of Aave.
 type AaveUserSchema =
