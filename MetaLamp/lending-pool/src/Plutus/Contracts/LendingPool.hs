@@ -156,64 +156,72 @@ instance Scripts.ScriptType AaveScript where
     type instance RedeemerType AaveScript = AaveAction
     type instance DatumType AaveScript = AaveDatum
 
+{-# INLINABLE findOwnInput' #-}
+findOwnInput' :: ScriptContext -> TxInInfo
+findOwnInput' ctx = fromMaybe (error ()) (findOwnInput ctx)
+
+{-# INLINABLE valueWithin #-}
+valueWithin :: TxInInfo -> Value
+valueWithin = txOutValue . txInInfoResolved
+
 {-# INLINABLE validateCreate #-}
 validateCreate :: Aave
                -> Coin
                -> [LendingPool]
                -> LendingPool
-               -> ValidatorCtx
+               -> ScriptContext
                -> Bool
 validateCreate Aave{..} c lps lp@LendingPool{..} ctx =
-    traceIfFalse "Aave coin not present" (coinValueOf (txInInfoValue $ findOwnInput ctx) aaveProtocolInst == 1) &&
+    traceIfFalse "Aave coin not present" (coinValueOf (valueWithin $ findOwnInput' ctx) aaveProtocolInst == 1) &&
     notElem lp lps                                                                                      &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ coin aaveProtocolInst 1)     &&
     (coinValueOf forged c == 1) &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp aTokensNum) $ coin c 1)
   where
-    poolOutput :: TxOutInfo
+    poolOutput :: TxOut
     poolOutput = case [o | o <- getContinuingOutputs ctx, coinValueOf (txOutValue o) c == 1] of
         [o] -> o
         _   -> traceError "expected exactly one pool output"
 
     forged :: Value
-    forged = txInfoForge $ valCtxTxInfo ctx
+    forged = txInfoForge $ scriptContextTxInfo ctx
 
     aTokensNum :: Integer
     aTokensNum = coinValueOf forged aaveToken
 
 {-# INLINABLE validateCloseFactory #-}
-validateCloseFactory :: Aave -> Coin -> [LendingPool] -> ValidatorCtx -> Bool
+validateCloseFactory :: Aave -> Coin -> [LendingPool] -> ScriptContext -> Bool
 validateCloseFactory aa c lps ctx =
-    traceIfFalse "Aave coin not present" (coinValueOf (txInInfoValue $ findOwnInput ctx) aaC == 1)             &&
+    traceIfFalse "Aave coin not present" (coinValueOf (valueWithin $ findOwnInput' ctx) aaC == 1)             &&
     traceIfFalse "wrong forge value"        (txInfoForge info == negate (coin c 1)) &&
     traceIfFalse "factory output wrong"
         (Constraints.checkOwnOutputConstraint ctx $ OutputConstraint (Factory $ filter (/= fst lpLiquidity) lps) $ coin aaC 1)
   where
     info :: TxInfo
-    info = valCtxTxInfo ctx
+    info = scriptContextTxInfo ctx
 
     poolInput :: TxInInfo
     poolInput = case [ i
                      | i <- txInfoInputs info
-                     , coinValueOf (txInInfoValue i) c == 1
+                     , coinValueOf (valueWithin i) c == 1
                      ] of
         [i] -> i
         _   -> traceError "expected exactly one pool input"
 
     lpLiquidity :: (LendingPool, Integer)
-    lpLiquidity = case txInInfoWitness poolInput of
-        Nothing        -> traceError "pool input witness missing"
-        Just (_, _, h) -> findPoolDatum info h
+    lpLiquidity = case txOutDatumHash . txInInfoResolved $ poolInput of
+        Nothing -> traceError "pool input witness missing"
+        Just h  -> findPoolDatum info h
 
     aaC :: Coin
     aaC = aaveProtocolInst aa
 
 {-# INLINABLE validateClosePool #-}
-validateClosePool :: Aave -> ValidatorCtx -> Bool
+validateClosePool :: Aave -> ScriptContext -> Bool
 validateClosePool aa ctx = hasFactoryInput
   where
     info :: TxInfo
-    info = valCtxTxInfo ctx
+    info = scriptContextTxInfo ctx
 
     hasFactoryInput :: Bool
     hasFactoryInput =
@@ -233,17 +241,17 @@ mkAaveValidator :: Aave
                    -> Coin
                    -> AaveDatum
                    -> AaveAction
-                   -> ValidatorCtx
+                   -> ScriptContext
                    -> Bool
 mkAaveValidator aa c (Factory lps) (Create lp) ctx = validateCreate aa c lps lp ctx
 mkAaveValidator aa c (Factory lps) Close       ctx = validateCloseFactory aa c lps ctx
 mkAaveValidator aa _ (Pool _  _)   Close       ctx = validateClosePool aa ctx
 mkAaveValidator _  _ _             _           _   = False
 
-validateLiquidityForging :: Aave -> TokenName -> PolicyCtx -> Bool
+validateLiquidityForging :: Aave -> TokenName -> ScriptContext -> Bool
 validateLiquidityForging aa tn ctx = case [ i
-                                          | i <- txInfoInputs $ policyCtxTxInfo ctx
-                                          , let v = txInInfoValue i
+                                          | i <- txInfoInputs $ scriptContextTxInfo ctx
+                                          , let v = valueWithin i
                                           , (coinValueOf v aaC == 1) ||
                                             (coinValueOf v lpC == 1)
                                           ] of
@@ -274,7 +282,7 @@ aaveHash :: Aave -> Ledger.ValidatorHash
 aaveHash = Scripts.validatorHash . aaveScript
 
 aaveAddress :: Aave -> Ledger.Address
-aaveAddress = ScriptAddress . aaveHash
+aaveAddress = Ledger.scriptAddress . aaveScript
 
 aave :: CurrencySymbol -> CurrencySymbol -> Aave
 aave protocol token = Aave (Coin protocol aaveProtocolName) (Coin token aaveTokenName)
@@ -379,9 +387,9 @@ close aa poolCoin = do
     logInfo $ "closed liquidity pool: " ++ show lp
 
 getAaveDatum :: TxOutTx -> Contract w s Text AaveDatum
-getAaveDatum o = case txOutType $ txOutTxOut o of
-        PayToPubKey   -> throwError "unexpected out type"
-        PayToScript h -> case Map.lookup h $ txData $ txOutTxTx o of
+getAaveDatum o = case txOutDatumHash $ txOutTxOut o of
+        Nothing -> throwError "datumHash not found"
+        Just h -> case Map.lookup h $ txData $ txOutTxTx o of
             Nothing -> throwError "datum not found"
             Just (Datum e) -> case PlutusTx.fromData e of
                 Nothing -> throwError "datum has wrong type"
