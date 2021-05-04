@@ -23,8 +23,6 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      MyModule
-      Plutus.Contracts.Game
       Plutus.Contracts.LendingPool
     build-depends:
       base >= 4.9 && < 5,
@@ -40,35 +38,11 @@ library
       plutus-ledger,
       plutus-ledger-api,
       plutus-use-cases
-    hs-source-dirs: src examples/src
+    hs-source-dirs: src
     default-language: Haskell2010
     ghc-options:
             -- See Plutus Tx readme
             -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-
-test-suite plutus-example-projects-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  hs-source-dirs: examples/test
-  other-modules:
-    Spec.Game
-  default-language: Haskell2010
-  ghc-options: -Wall -Wnoncanonical-monad-instances
-              -Wincomplete-uni-patterns -Wincomplete-record-updates
-              -Wredundant-constraints -Widentities -rtsopts
-              -- See Plutus Tx readme
-              -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-  build-depends:
-    plutus-tx -any,
-    plutus-tx-plugin,
-    plutus-contract -any,
-    plutus-ledger -any,
-    plutus-starter -any
-  build-depends:
-    base >=4.9 && <5,
-    tasty -any,
-    tasty-hunit -any,
-    tasty-hedgehog >=0.2.0.0
 
 executable plutus-starter-pab
   main-is: Main.hs
