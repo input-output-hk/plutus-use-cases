@@ -45,7 +45,7 @@ react = \case
       BorrowAct{..}                     -> borrowAct  uid act'asset act'amount act'rate
       RepayAct{..}                      -> repayAct   uid act'asset act'amount act'rate
       SwapBorrowRateModelAct{..}        -> swapBorrowRateModelAct uid act'asset act'rate
-      SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral
+      SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion 1)
       WithdrawAct{..}                   -> withdrawAct uid act'amount act'asset
       FlashLoanAct                      -> flashLoanAct uid
       LiquidationCallAct{..}            -> liquidationCallAct uid act'collateral act'debt act'user act'debtToCover act'receiveAToken
@@ -106,7 +106,44 @@ react = \case
 
     repayAct _ _ _ _ = todo
     swapBorrowRateModelAct _ _ _ = todo
-    setUserReserveAsCollateralAct _ _ _ = todo
+
+    setUserReserveAsCollateralAct uid asset useAsCollateral portion
+      | useAsCollateral = setAsCollateral uid asset portion
+      | otherwise       = setAsDeposit    uid asset portion
+
+    setAsCollateral uid asset portion
+      | portion <= 0 = pure []
+      | otherwise    = do
+          amount <- getAmountBy wallet'deposit uid asset portion
+          modifyWallet uid asset $ \w -> Right $ w
+            { wallet'deposit    = wallet'deposit w    - amount
+            , wallet'collateral = wallet'collateral w + amount
+            }
+          modifyReserve asset $ \r -> Right $ r
+            { reserve'deposit    = reserve'deposit r    - amount
+            , reserve'collateral = reserve'collateral r + amount
+            }
+          pure [ MoveTo $ Move uid (aToken asset) (negate amount) ]
+
+    setAsDeposit uid asset portion
+      | portion <= 0 = pure []
+      | otherwise    = do
+          amount <- getAmountBy wallet'collateral uid asset portion
+          modifyWallet uid asset $ \w -> Right $ w
+            { wallet'deposit    = wallet'deposit w    + amount
+            , wallet'collateral = wallet'collateral w - amount
+            }
+          modifyReserve asset $ \r -> Right $ r
+            { reserve'deposit    = reserve'deposit r    + amount
+            , reserve'collateral = reserve'collateral r - amount
+            }
+          pure [ MoveTo $ Move uid (aToken asset) amount ]
+
+    getAmountBy extract uid asset portion = do
+      val <- getsWallet uid asset extract
+      pure $ floor $ portion * fromInteger val
+
+
     withdrawAct _ _ _ = todo
     flashLoanAct _ = todo
     liquidationCallAct _ _ _ _ _ _ = todo

@@ -135,8 +135,9 @@ data UserAct
       , act'rate            :: InterestRate
       }
   | SetUserReserveAsCollateralAct
-      { act'asset           :: Coin
-      , act'useAsCollateral :: Bool
+      { act'asset           :: Coin       -- ^ which asset to use as collateral or not
+      , act'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
+      , act'portion         :: Rational   -- ^ poriton of deposit/collateral to change status (0, 1)
       }
   | WithdrawAct
       { act'amount         :: Integer
