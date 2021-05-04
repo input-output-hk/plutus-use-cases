@@ -43,18 +43,16 @@ newtype UserId = UserId Integer
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool
-  { lp'reserves :: Map Coin Reserve
-  , lp'users    :: Map UserId User
+  { lp'reserves :: !(Map Coin Reserve)
+  , lp'users    :: !(Map UserId User)
   }
   deriving (Show)
 
 -- | Reserve of give coin in the pool.
 -- It holds all info on individual collaterals and deposits.
 data Reserve = Reserve
-  { reserve'deposit     :: !Integer             -- ^ total amount of coins deposited to reserve
-  , reserve'collateral  :: !Integer             -- ^ total amount of collaterals on the reserve
-  , reserve'borrow      :: !Integer             -- ^ how much was already borrowed
-  , reserve'rate        :: !Rational            -- ^ ratio of reserve's coin to base currency
+  { reserve'wallet               :: !Wallet     -- ^ total amounts of coins deposited to reserve
+  , reserve'rate                 :: !Rational   -- ^ ratio of reserve's coin to base currency
   , reserve'liquidationThreshold :: !Rational   -- ^ ratio at which liquidation of collaterals can happen for this coin
   }
   deriving (Show)
@@ -62,15 +60,17 @@ data Reserve = Reserve
 -- | Initialise empty reserve with given ratio of its coin to ada
 initReserve :: Rational -> Reserve
 initReserve rate = Reserve
-  { reserve'deposit    = 0
-  , reserve'borrow     = 0
-  , reserve'collateral = 0
-  , reserve'rate       = rate
+  { reserve'wallet = Wallet
+      { wallet'deposit    = 0
+      , wallet'borrow     = 0
+      , wallet'collateral = 0
+      }
+  , reserve'rate                 = rate
   , reserve'liquidationThreshold = 0.8
   }
 
 data User = User
-  { user'wallets         :: Map Coin Wallet
+  { user'wallets         :: !(Map Coin Wallet)
   }
   deriving (Show)
 
@@ -78,9 +78,9 @@ defaultUser :: User
 defaultUser = User mempty
 
 data Wallet = Wallet
-  { wallet'deposit       :: Integer
-  , wallet'collateral    :: Integer
-  , wallet'borrow        :: Integer
+  { wallet'deposit       :: !Integer
+  , wallet'collateral    :: !Integer
+  , wallet'borrow        :: !Integer
   }
   deriving (Show)
 

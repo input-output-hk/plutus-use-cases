@@ -12,6 +12,8 @@ import Control.Arrow (second)
 
 import Data.List (foldl')
 
+import Mlabs.Lending.Logic.Emulator
+import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
 import Mlabs.Lending.Logic.State
 
@@ -22,7 +24,6 @@ data App = App
   , app'log     :: ![Error]
   , app'wallets :: !BchState
   }
-
 
 runApp :: App -> [Act] -> App
 runApp app acts = foldl' go app acts

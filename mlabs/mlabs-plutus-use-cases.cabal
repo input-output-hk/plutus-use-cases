@@ -42,6 +42,8 @@ library
   exposed-modules:
         Mlabs.Lending
         Mlabs.Lending.Logic.App
+        Mlabs.Lending.Logic.Emulator
+        Mlabs.Lending.Logic.React
         Mlabs.Lending.Logic.State
         Mlabs.Lending.Logic.Types
   default-extensions: BangPatterns
