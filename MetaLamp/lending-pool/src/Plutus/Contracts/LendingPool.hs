@@ -15,9 +15,9 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 
+{-# LANGUAGE StandaloneDeriving #-}
 module Plutus.Contracts.LendingPool
-    ( Coin (..)
-    , coin, coinValueOf
+    ( AssetClass (..)
     , Aave (..), aave
     , AaveUserSchema, AaveOwnerSchema, UserContractState (..)
     , start, create, close
@@ -53,61 +53,10 @@ aaveProtocolName = "Aave"
 aaveTokenName = "aToken"
 poolStateTokenName = "Pool State"
 
--- TODO use AssetClass instead of Coin
--- | A pair consisting of a 'CurrencySymbol' and a 'TokenName'.
--- Coins are the entities that can be swapped in the exchange.
-data Coin = Coin
-    { cCurrency :: CurrencySymbol
-    , cToken    :: TokenName
-    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
-
-PlutusTx.unstableMakeIsData ''Coin
-PlutusTx.makeLift ''Coin
-
-instance Eq Coin where
-    {-# INLINABLE (==) #-}
-    c == d = cCurrency c == cCurrency d && cToken c == cToken d
-
-instance Prelude.Eq Coin where
-    (==) = (==)
-
-{-# INLINABLE compareCoins #-}
-compareCoins :: Coin -> Coin -> Ordering
-compareCoins c d = case compare (cCurrency c) (cCurrency d) of
-    LT -> LT
-    GT -> GT
-    EQ -> compare (cToken c) (cToken d)
-
-instance Prelude.Ord Coin where
-    compare = compareCoins
-
-{-# INLINABLE coinLT #-}
-coinLT :: Coin -> Coin -> Bool
-coinLT c d = case compareCoins c d of
-    LT -> True
-    _  -> False
-
-{-# INLINABLE coin #-}
--- | @'coin' c n@ denotes the value given by @n@ units of @'Coin'@ @c@.
-coin :: Coin    -- ^ The 'Coin'.
-     -> Integer -- ^ The desired number coins.
-     -> Value   -- ^ The 'Value' consisting of the given number of units of the given 'Coin'.
-coin Coin{..} = Value.singleton cCurrency cToken
-
-{-# INLINABLE coinValueOf #-}
--- | Calculates how many units of the specified 'Coin' are contained in the
--- given 'Value'.
-coinValueOf :: Value   -- ^ The 'Value' to inspect.
-            -> Coin    -- ^ The 'Coin' to look for.
-            -> Integer -- ^ The number of units of the given 'Coin' contained in the given 'Value'.
-coinValueOf v Coin{..} = valueOf v cCurrency cToken
-
-{-# INLINABLE hashCoin #-}
-hashCoin :: Coin -> ByteString
-hashCoin Coin{..} = sha2_256 $ concatenate (unCurrencySymbol cCurrency) (unTokenName cToken)
+deriving anyclass instance ToSchema AssetClass
 
 data LendingPool = LendingPool
-    { lpCoin :: Coin,
+    { lpCoin :: AssetClass,
       lpIssuer :: PubKeyHash
     }
     deriving stock (Show, Generic)
@@ -120,13 +69,9 @@ instance Eq LendingPool where
     {-# INLINABLE (==) #-}
     x == y = lpCoin x == lpCoin y && lpIssuer x == lpIssuer y
 
-{-# INLINABLE hashLendingPool #-}
-hashLendingPool :: LendingPool -> ByteString
-hashLendingPool LendingPool{..} = sha2_256 $ hashCoin lpCoin <> getPubKeyHash lpIssuer
-
 data Aave = Aave
-    { aaveProtocolInst :: Coin,
-      aaveToken :: Coin
+    { aaveProtocolInst :: AssetClass,
+      aaveToken :: AssetClass
     } deriving stock    (Show, Generic)
       deriving anyclass (ToJSON, FromJSON, ToSchema)
 
@@ -167,20 +112,20 @@ valueWithin = txOutValue . txInInfoResolved
 
 {-# INLINABLE validateCreate #-}
 validateCreate :: Aave
-               -> Coin
+               -> AssetClass
                -> [LendingPool]
                -> LendingPool
                -> ScriptContext
                -> Bool
 validateCreate Aave{..} c lps lp@LendingPool{..} ctx =
-    traceIfFalse "Aave coin not present" (coinValueOf (valueWithin $ findOwnInput' ctx) aaveProtocolInst == 1) &&
+    traceIfFalse "Aave assetClassValue not present" (assetClassValueOf (valueWithin $ findOwnInput' ctx) aaveProtocolInst == 1) &&
     notElem lp lps                                                                                      &&
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ coin aaveProtocolInst 1)     &&
-    (coinValueOf forged c == 1) &&
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp aTokensNum) $ coin c 1)
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ assetClassValue aaveProtocolInst 1)     &&
+    (assetClassValueOf forged c == 1) &&
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp aTokensNum) $ assetClassValue c 1)
   where
     poolOutput :: TxOut
-    poolOutput = case [o | o <- getContinuingOutputs ctx, coinValueOf (txOutValue o) c == 1] of
+    poolOutput = case [o | o <- getContinuingOutputs ctx, assetClassValueOf (txOutValue o) c == 1] of
         [o] -> o
         _   -> traceError "expected exactly one pool output"
 
@@ -188,15 +133,15 @@ validateCreate Aave{..} c lps lp@LendingPool{..} ctx =
     forged = txInfoForge $ scriptContextTxInfo ctx
 
     aTokensNum :: Integer
-    aTokensNum = coinValueOf forged aaveToken
+    aTokensNum = assetClassValueOf forged aaveToken
 
 {-# INLINABLE validateCloseFactory #-}
-validateCloseFactory :: Aave -> Coin -> [LendingPool] -> ScriptContext -> Bool
+validateCloseFactory :: Aave -> AssetClass -> [LendingPool] -> ScriptContext -> Bool
 validateCloseFactory aa c lps ctx =
-    traceIfFalse "Aave coin not present" (coinValueOf (valueWithin $ findOwnInput' ctx) aaC == 1)             &&
-    traceIfFalse "wrong forge value"        (txInfoForge info == negate (coin c 1)) &&
+    traceIfFalse "Aave assetClassValue not present" (assetClassValueOf (valueWithin $ findOwnInput' ctx) aaC == 1)             &&
+    traceIfFalse "wrong forge value"        (txInfoForge info == negate (assetClassValue c 1)) &&
     traceIfFalse "factory output wrong"
-        (Constraints.checkOwnOutputConstraint ctx $ OutputConstraint (Factory $ filter (/= fst lpLiquidity) lps) $ coin aaC 1)
+        (Constraints.checkOwnOutputConstraint ctx $ OutputConstraint (Factory $ filter (/= fst lpLiquidity) lps) $ assetClassValue aaC 1)
   where
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -204,7 +149,7 @@ validateCloseFactory aa c lps ctx =
     poolInput :: TxInInfo
     poolInput = case [ i
                      | i <- txInfoInputs info
-                     , coinValueOf (valueWithin i) c == 1
+                     , assetClassValueOf (valueWithin i) c == 1
                      ] of
         [i] -> i
         _   -> traceError "expected exactly one pool input"
@@ -214,7 +159,7 @@ validateCloseFactory aa c lps ctx =
         Nothing -> traceError "pool input witness missing"
         Just h  -> findPoolDatum info h
 
-    aaC :: Coin
+    aaC :: AssetClass
     aaC = aaveProtocolInst aa
 
 {-# INLINABLE validateClosePool #-}
@@ -227,7 +172,7 @@ validateClosePool aa ctx = hasFactoryInput
     hasFactoryInput :: Bool
     hasFactoryInput =
         traceIfFalse "Aave factory input expected" $
-        coinValueOf (valueSpent info) (aaveProtocolInst aa) == 1
+        assetClassValueOf (valueSpent info) (aaveProtocolInst aa) == 1
 
 
 {-# INLINABLE findPoolDatum #-}
@@ -239,7 +184,7 @@ findPoolDatum info h = case findDatum h info of
     _              -> traceError "pool input datum not found"
 
 mkAaveValidator :: Aave
-                   -> Coin
+                   -> AssetClass
                    -> AaveDatum
                    -> AaveAction
                    -> ScriptContext
@@ -253,16 +198,16 @@ validateLiquidityForging :: Aave -> TokenName -> ScriptContext -> Bool
 validateLiquidityForging aa tn ctx = case [ i
                                           | i <- txInfoInputs $ scriptContextTxInfo ctx
                                           , let v = valueWithin i
-                                          , (coinValueOf v aaC == 1) ||
-                                            (coinValueOf v lpC == 1)
+                                          , (assetClassValueOf v aaC == 1) ||
+                                            (assetClassValueOf v lpC == 1)
                                           ] of
     [_]    -> True
     [_, _] -> True
     _      -> traceError "pool state forging without Aave input"
   where
-    aaC, lpC :: Coin
+    aaC, lpC :: AssetClass
     aaC = aaveProtocolInst aa
-    lpC = Coin (ownCurrencySymbol ctx) tn
+    lpC = assetClass (ownCurrencySymbol ctx) tn
 
 aaveInstance :: Aave -> Scripts.ScriptInstance AaveScript
 aaveInstance aa = Scripts.validator @AaveScript
@@ -271,7 +216,7 @@ aaveInstance aa = Scripts.validator @AaveScript
         `PlutusTx.applyCode` PlutusTx.liftCode c)
      $$(PlutusTx.compile [|| wrap ||])
   where
-    c :: Coin
+    c :: AssetClass
     c = poolStateCoin aa
 
     wrap = Scripts.wrapValidator @AaveDatum @AaveAction
@@ -286,7 +231,7 @@ aaveAddress :: Aave -> Ledger.Address
 aaveAddress = Ledger.scriptAddress . aaveScript
 
 aave :: CurrencySymbol -> CurrencySymbol -> Aave
-aave protocol token = Aave (Coin protocol aaveProtocolName) (Coin token aaveTokenName)
+aave protocol token = Aave (assetClass protocol aaveProtocolName) (assetClass token aaveTokenName)
 
 liquidityPolicy :: Aave -> MonetaryPolicy
 liquidityPolicy aa = mkMonetaryPolicyScript $
@@ -297,8 +242,8 @@ liquidityPolicy aa = mkMonetaryPolicyScript $
 liquidityCurrency :: Aave -> CurrencySymbol
 liquidityCurrency = scriptCurrencySymbol . liquidityPolicy
 
-poolStateCoin :: Aave -> Coin
-poolStateCoin = flip Coin poolStateTokenName . liquidityCurrency
+poolStateCoin :: Aave -> AssetClass
+poolStateCoin = flip assetClass poolStateTokenName . liquidityCurrency
 
 -- | Creates a Aave "factory". This factory will keep track of the existing liquidity pools and enforce that there will be at most one liquidity pool
 -- for any pair of tokens at any given time.
@@ -311,11 +256,11 @@ start = do
     token  <- fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(aaveTokenName, 0)]
-    let c    = Coin cs aaveProtocolName
-    let tokenCoin    = Coin token aaveTokenName
+    let c    = assetClass cs aaveProtocolName
+    let tokenCoin    = assetClass token aaveTokenName
         aa   = aave cs token
         inst = aaveInstance aa
-        tx   = mustPayToTheScript (Factory []) $ coin c 1 <> coin tokenCoin 0
+        tx   = mustPayToTheScript (Factory []) $ assetClassValue c 1 <> assetClassValue tokenCoin 0
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
@@ -330,15 +275,15 @@ create aa aTokensNum = do
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(poolStateTokenName, 1)]
     (oref, o, lps) <- findAaveFactory aa
-    let c    = Coin cs poolStateTokenName
+    let c    = assetClass cs poolStateTokenName
     let lp        = LendingPool c pkh
     let aaInst   = aaveInstance aa
         aaScript = aaveScript aa
         aaDat1   = Factory $ lp : lps
         aaDat2   = Pool lp aTokensNum
         psC      = poolStateCoin aa
-        aaVal    = coin (aaveProtocolInst aa) 1
-        lpVal    = coin psC 1 <> lovelaceValueOf aTokensNum
+        aaVal    = assetClassValue (aaveProtocolInst aa) 1
+        lpVal    = assetClassValue psC 1 <> lovelaceValueOf aTokensNum
 
         lookups  = Constraints.scriptInstanceLookups aaInst        <>
                    Constraints.otherScript aaScript                <>
@@ -347,7 +292,7 @@ create aa aTokensNum = do
 
         tx       = Constraints.mustPayToTheScript aaDat1 aaVal                                               <>
                    Constraints.mustPayToTheScript aaDat2 lpVal                                               <>
-                   Constraints.mustForgeValue (coin psC 1 <> coin (aaveToken aa) aTokensNum)                 <>
+                   Constraints.mustForgeValue (assetClassValue psC 1 <> assetClassValue (aaveToken aa) aTokensNum)                 <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create lp)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
@@ -356,7 +301,7 @@ create aa aTokensNum = do
     logInfo $ "created liquidity pool: " ++ show lp
 
 -- | Closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
-close :: HasBlockchainActions s => Aave -> Coin -> Contract w s Text ()
+close :: HasBlockchainActions s => Aave -> AssetClass -> Contract w s Text ()
 close aa poolCoin = do
     pkh <- pubKeyHash <$> ownPubKey
     ((oref1, o1, lps), (oref2, o2, lp, liquidity)) <- findAaveFactoryAndPool aa $ LendingPool poolCoin pkh
@@ -366,8 +311,8 @@ close aa poolCoin = do
         aaDat    = Factory $ filter (/= lp) lps
         aaC      = aaveProtocolInst aa
         psC      = poolStateCoin aa
-        aaVal    = coin aaC 1
-        psVal    = coin psC 1
+        aaVal    = assetClassValue aaC 1
+        psVal    = assetClassValue psC 1
         redeemer = Redeemer $ PlutusTx.toData Close
 
         lookups  = Constraints.scriptInstanceLookups aaInst        <>
@@ -396,12 +341,12 @@ getAaveDatum o = case txOutDatumHash $ txOutTxOut o of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
-findAaveInstance :: HasBlockchainActions s => Aave -> Coin -> (AaveDatum -> Maybe a) -> Contract w s Text (TxOutRef, TxOutTx, a)
+findAaveInstance :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text (TxOutRef, TxOutTx, a)
 findAaveInstance aa c f = do
     let addr = aaveAddress aa
-    logInfo @String $ printf "looking for Aave instance at address %s containing coin %s " (show addr) (show c)
+    logInfo @String $ printf "looking for Aave instance at address %s containing assetClassValue %s " (show addr) (show c)
     utxos <- utxoAt addr
-    go  [x | x@(_, o) <- Map.toList utxos, coinValueOf (txOutValue $ txOutTxOut o) c == 1]
+    go  [x | x@(_, o) <- Map.toList utxos, assetClassValueOf (txOutValue $ txOutTxOut o) c == 1]
   where
     go [] = throwError "Aave instance not found"
     go ((oref, o) : xs) = do
@@ -457,7 +402,7 @@ type AaveOwnerSchema =
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "create" Integer
-        .\/ Endpoint "close"  Coin
+        .\/ Endpoint "close"  AssetClass
         .\/ Endpoint "stop"   ()
 
 -- | Type of the Aave user contract state.
