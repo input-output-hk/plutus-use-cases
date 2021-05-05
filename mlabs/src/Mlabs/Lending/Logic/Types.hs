@@ -38,7 +38,9 @@ import Data.ByteString (ByteString)
 newtype Addr = Addr Integer
   deriving (Show, Eq, Ord)
 
-newtype UserId = UserId Integer
+data UserId
+  = UserId Integer  -- user address
+  | Self            -- addres of the lending platform
   deriving (Show, Eq, Ord)
 
 -- | Lending pool is a list of reserves

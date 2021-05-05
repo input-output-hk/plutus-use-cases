@@ -37,6 +37,6 @@ initApp :: [(Coin, Rational)] -> App
 initApp coins = App
   { app'pool = LendingPool (M.fromList (fmap (second initReserve) coins)) mempty
   , app'log  = []
-  , app'wallets = BchState M.empty
+  , app'wallets = BchState $ M.fromList [(Self, defaultBchWallet)]
   }
 

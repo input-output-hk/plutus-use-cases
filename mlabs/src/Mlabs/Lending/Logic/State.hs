@@ -16,6 +16,7 @@ module Mlabs.Lending.Logic.State(
   , getHealth
   , getHealthCheck
   , modifyReserve
+  , modifyReserveWallet
   , modifyUser
   , modifyWallet
   , modifyWalletAndReserve
@@ -131,6 +132,10 @@ modifyUser uid f = do
 modifyWalletAndReserve :: UserId -> Coin -> (Wallet -> Either Text Wallet) -> St ()
 modifyWalletAndReserve uid coin f = do
   modifyWallet uid coin f
+  modifyReserveWallet coin f
+
+modifyReserveWallet :: Coin -> (Wallet -> Either Text Wallet) -> St ()
+modifyReserveWallet coin f =
   modifyReserve coin $ \r -> fmap (\w -> r { reserve'wallet = w }) $ f $ reserve'wallet r
 
 modifyWallet :: UserId -> Coin -> (Wallet -> Either Text Wallet) -> St ()
