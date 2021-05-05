@@ -42,6 +42,7 @@ type Error = Text
 -- | State update of lending pool
 type St = StateT LendingPool (Either Error)
 
+
 ----------------------------------------------------
 -- common functions
 

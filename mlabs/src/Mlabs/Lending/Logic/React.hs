@@ -40,10 +40,10 @@ react = \case
     -- TODO: ignores ratio of liquidity to borrowed totals
     depositAct uid amount asset = do
       modifyWalletAndReserve uid asset (Right . depositUser)
-      let move a b = Move uid a b
-      pure
-        [ move asset (negate amount)
-        , move (aToken asset) amount
+      pure $ mconcat
+        [ pure $ Mint (aToken asset) amount
+        , moveFromTo Self uid (aToken asset) amount
+        , moveFromTo uid Self asset          amount
         ]
       where
         depositUser    w@Wallet{..}  = w { wallet'deposit  = amount + wallet'deposit }
@@ -61,7 +61,7 @@ react = \case
       collateralNonBorrow uid asset
       hasEnoughCollateral uid asset amount
       updateOnBorrow
-      pure [ Move uid asset amount  ]
+      pure $ moveFromTo Self uid asset amount
       where
         updateOnBorrow = modifyWalletAndReserve uid asset $ \w -> Right $ w
           { wallet'deposit = wallet'deposit w - amount
@@ -96,7 +96,7 @@ react = \case
         else modifyWallet uid asset $ \w -> Right $ w { wallet'borrow = 0
                                                       , wallet'deposit = abs newBor }
       modifyReserveWallet asset $ \w -> Right $ w { wallet'deposit = wallet'deposit w + amount }
-      pure [ Move uid asset (negate amount) ]
+      pure $ moveFromTo uid Self asset amount
 
     ---------------------------------------------------
     -- swap borrow model
@@ -118,7 +118,10 @@ react = \case
             { wallet'deposit    = wallet'deposit w    - amount
             , wallet'collateral = wallet'collateral w + amount
             }
-          pure [ Move uid (aToken asset) (negate amount) ]
+          pure $ mconcat
+            [ moveFromTo uid Self (aToken asset) amount
+            , pure $ Burn (aToken asset) amount
+            ]
 
     setAsDeposit uid asset portion
       | portion <= 0 = pure []
@@ -128,7 +131,7 @@ react = \case
             { wallet'deposit    = wallet'deposit w    + amount
             , wallet'collateral = wallet'collateral w - amount
             }
-          pure [ Move uid (aToken asset) amount ]
+          pure $ moveFromTo Self uid (aToken asset) amount
 
     getAmountBy extract uid asset portion = do
       val <- getsWallet uid asset extract
@@ -142,8 +145,10 @@ react = \case
       hasEnoughDepositToWithdraw uid amount asset
       -- update state on withdraw
       modifyWalletAndReserve uid asset $ \w -> Right $ w { wallet'deposit = wallet'deposit w - amount }
-      let move a b = Move uid a b
-      pure [ move (aToken asset) (negate amount), move asset amount ]
+      pure $ mconcat
+        [ moveFromTo uid Self (aToken asset) amount
+        , moveFromTo Self uid asset amount
+        ]
 
     hasEnoughDepositToWithdraw uid amount asset = do
       dep <- getsWallet uid asset wallet'deposit
