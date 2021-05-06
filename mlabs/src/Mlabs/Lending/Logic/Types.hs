@@ -11,33 +11,34 @@ module Mlabs.Lending.Logic.Types(
   , defaultUser
   , UserId(..)
   , Reserve(..)
+  , InterestRate(..)
   , initReserve
   , Act(..)
   , UserAct(..)
-  , PriceQuery(..)
   , PriceAct(..)
   , GovernAct(..)
   , LpAddressesProvider(..)
   , LpAddressesProviderRegistry(..)
   , Coin(..)
   , aToken
-  , Addr(..)
   , LpCollateralManager(..)
   , LpConfigurator(..)
   , PriceOracleProvider(..)
   , InterestRateStrategy(..)
-  , Collateral(..)
-  , Deposit(..)
+  , showt
 ) where
 
 import Prelude
+import Data.Text
 import Data.Map.Strict (Map)
 import Data.ByteString (ByteString)
+import qualified Data.Text as T
 
--- | Address that can hold values of assets
-newtype Addr = Addr Integer
-  deriving (Show, Eq, Ord)
+-- | Helper to print @Text@ values
+showt :: Show a => a -> Text
+showt = T.pack . show
 
+-- | Address of the wallet that can hold values of assets
 data UserId
   = UserId Integer  -- user address
   | Self            -- addres of the lending platform
@@ -45,8 +46,8 @@ data UserId
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool
-  { lp'reserves :: !(Map Coin Reserve)
-  , lp'users    :: !(Map UserId User)
+  { lp'reserves :: !(Map Coin Reserve)   -- ^ list of reserves
+  , lp'users    :: !(Map UserId User)    -- ^ internal user wallets on the app
   }
   deriving (Show)
 
@@ -71,49 +72,34 @@ initReserve rate = Reserve
   , reserve'liquidationThreshold = 0.8
   }
 
+-- | User is a set of wallets per currency
 data User = User
   { user'wallets         :: !(Map Coin Wallet)
   }
   deriving (Show)
 
+-- | Default user with no wallets.
 defaultUser :: User
 defaultUser = User mempty
 
+-- | Internal walet of the lending app
+--
+-- All amounts are provided in the currency of the wallet
 data Wallet = Wallet
-  { wallet'deposit       :: !Integer
-  , wallet'collateral    :: !Integer
-  , wallet'borrow        :: !Integer
+  { wallet'deposit       :: !Integer   -- ^ amount of deposit
+  , wallet'collateral    :: !Integer   -- ^ amount of collateral
+  , wallet'borrow        :: !Integer   -- ^ amount of borrow
   }
   deriving (Show)
 
 defaultWallet :: Wallet
 defaultWallet = Wallet 0 0 0
 
-data UserConfig = UserConfig
-  { userConfig'collaterals :: [Addr]
-  , userConfig'borrows     :: [Borrow]
-  }
-  deriving (Show)
-
-data Borrow = Borrow
-  { borrow'amount   :: Integer
-  , borrow'health   :: Rational
-  }
-  deriving (Show)
-
--- | Colateral
-data Collateral = Collateral
-  { collateral'amount   :: Integer
-  }
-  deriving (Show)
-
--- | Deposit
-data Deposit = Deposit
-  { deposit'amount      :: Integer
-  }
-  deriving (Show)
-
-data Act = UserAct UserId UserAct | PriceAct PriceAct | GovernAct GovernAct
+-- | Acts for lending platform
+data Act
+  = UserAct UserId UserAct   -- ^ user's actions
+  | PriceAct PriceAct        -- ^ price oracle's actions
+  | GovernAct GovernAct      -- ^ app admin's actions
   deriving (Show)
 
 -- | Lending pool action
@@ -122,65 +108,74 @@ data UserAct
       { act'amount          :: Integer
       , act'asset           :: Coin
       }
+  -- ^ deposit funds
   | BorrowAct
       { act'asset           :: Coin
       , act'amount          :: Integer
       , act'rate            :: InterestRate
       }
+  -- ^ borrow funds. We have to allocate collateral to be able to borrow
   | RepayAct
       { act'asset           :: Coin
       , act'amount          :: Integer
       , act'rate            :: InterestRate
       }
+  -- ^ repay part of the borrow
   | SwapBorrowRateModelAct
       { act'asset           :: Coin
       , act'rate            :: InterestRate
       }
+  -- ^ swap borrow interest rate strategy (stable to variable)
   | SetUserReserveAsCollateralAct
       { act'asset           :: Coin       -- ^ which asset to use as collateral or not
       , act'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
       , act'portion         :: Rational   -- ^ poriton of deposit/collateral to change status (0, 1)
       }
+  -- ^ set some portion of deposit as collateral or some portion of collateral as deposit
   | WithdrawAct
       { act'amount         :: Integer
       , act'asset          :: Coin
       }
+  -- ^ withdraw funds from deposit
   | FlashLoanAct  -- TODO
+  -- ^ flash loans happen within the single block of transactions
   | LiquidationCallAct
-      { act'collateral     :: Addr  -- ^ collateral address
-      , act'debt           :: Addr
-      , act'user           :: Addr
+      { act'collateral     :: UserId  -- ^ collateral address
+      , act'debt           :: UserId
+      , act'user           :: UserId
       , act'debtToCover    :: Integer
       , act'receiveAToken  :: Bool
       }
+  -- ^ call to liquidate borrows that are unsafe due to health check
   deriving (Show)
 
-data PriceQuery
-  = GetAssetPrice Coin
-  | GetAssetPrices [Coin]
-  | GetOracleAddr Coin
-  deriving (Show)
-
+-- | Acts that can be done by admin users.
 data GovernAct
-  = AddReserve Coin Rational
+  = AddReserve Coin Rational  -- ^ Adds new reserve
   deriving (Show)
 
+-- | Updates for the prices of the currencies on the markets
 data PriceAct
-  = SetAssetPrice Coin Rational
-  | SetOracleAddr Coin Addr
+  = SetAssetPrice Coin Rational   -- ^ Set asset price
+  | SetOracleAddr Coin UserId     -- ^ Provide address of the oracle
   deriving (Show)
 
-data LpAddressesProvider = LpAddressesProvider
-
-newtype LpAddressesProviderRegistry
-  = LpAddressesProviderRegistry [LpAddressesProvider]
-
+-- | Custom currency
 newtype Coin = Coin ByteString
   deriving (Show, Eq, Ord)
 
 -- | Appends a prefix to all coins
 aToken :: Coin -> Coin
 aToken (Coin bs) = Coin $ "a" <> bs
+
+----------------------------------------------------
+-- some types specific to aave
+--
+
+data LpAddressesProvider = LpAddressesProvider
+
+newtype LpAddressesProviderRegistry
+  = LpAddressesProviderRegistry [LpAddressesProvider]
 
 data LpCollateralManager = LpCollateralManager
 

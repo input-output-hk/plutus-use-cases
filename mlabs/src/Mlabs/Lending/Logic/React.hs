@@ -14,9 +14,9 @@ import Mlabs.Lending.Logic.Types
 
 import qualified Data.Text as T
 
--- | State transition for lending pool.
+-- | State transitions for lending pool.
 -- For a given action we update internal state of Lending pool and produce
--- list of responses to simulate change of the balances
+-- list of responses to simulate change of the balances on blockchain.
 react :: Act -> St [Resp]
 react = \case
   UserAct uid act -> userAct uid act
@@ -39,14 +39,14 @@ react = \case
 
     -- TODO: ignores ratio of liquidity to borrowed totals
     depositAct uid amount asset = do
-      modifyWalletAndReserve uid asset (Right . depositUser)
+      modifyWalletAndReserve uid asset depositUser
       pure $ mconcat
         [ pure $ Mint (aToken asset) amount
         , moveFromTo Self uid (aToken asset) amount
         , moveFromTo uid Self asset          amount
         ]
       where
-        depositUser    w@Wallet{..}  = w { wallet'deposit  = amount + wallet'deposit }
+        depositUser w@Wallet{..} = w { wallet'deposit  = amount + wallet'deposit }
 
     ---------------------------------------------------
     -- borrow
@@ -63,7 +63,7 @@ react = \case
       updateOnBorrow
       pure $ moveFromTo Self uid asset amount
       where
-        updateOnBorrow = modifyWalletAndReserve uid asset $ \w -> Right $ w
+        updateOnBorrow = modifyWalletAndReserve uid asset $ \w -> w
           { wallet'deposit = wallet'deposit w - amount
           , wallet'borrow  = wallet'borrow  w + amount
           }
@@ -92,10 +92,10 @@ react = \case
       bor <- getsWallet uid asset wallet'borrow
       let newBor = bor - amount
       if newBor >= 0
-        then modifyWallet uid asset $ \w -> Right $ w { wallet'borrow = newBor }
-        else modifyWallet uid asset $ \w -> Right $ w { wallet'borrow = 0
-                                                      , wallet'deposit = abs newBor }
-      modifyReserveWallet asset $ \w -> Right $ w { wallet'deposit = wallet'deposit w + amount }
+        then modifyWallet uid asset $ \w -> w { wallet'borrow = newBor }
+        else modifyWallet uid asset $ \w -> w { wallet'borrow = 0
+                                              , wallet'deposit = abs newBor }
+      modifyReserveWallet asset $ \w -> w { wallet'deposit = wallet'deposit w + amount }
       pure $ moveFromTo uid Self asset amount
 
     ---------------------------------------------------
@@ -114,7 +114,7 @@ react = \case
       | portion <= 0 = pure []
       | otherwise    = do
           amount <- getAmountBy wallet'deposit uid asset portion
-          modifyWalletAndReserve uid asset $ \w -> Right $ w
+          modifyWalletAndReserve uid asset $ \w -> w
             { wallet'deposit    = wallet'deposit w    - amount
             , wallet'collateral = wallet'collateral w + amount
             }
@@ -127,7 +127,7 @@ react = \case
       | portion <= 0 = pure []
       | otherwise    = do
           amount <- getAmountBy wallet'collateral uid asset portion
-          modifyWalletAndReserve uid asset $ \w -> Right $ w
+          modifyWalletAndReserve uid asset $ \w -> w
             { wallet'deposit    = wallet'deposit w    + amount
             , wallet'collateral = wallet'collateral w - amount
             }
@@ -144,7 +144,7 @@ react = \case
       -- validate withdraw
       hasEnoughDepositToWithdraw uid amount asset
       -- update state on withdraw
-      modifyWalletAndReserve uid asset $ \w -> Right $ w { wallet'deposit = wallet'deposit w - amount }
+      modifyWalletAndReserve uid asset $ \w -> w { wallet'deposit = wallet'deposit w - amount }
       pure $ mconcat
         [ moveFromTo uid Self (aToken asset) amount
         , moveFromTo Self uid asset amount

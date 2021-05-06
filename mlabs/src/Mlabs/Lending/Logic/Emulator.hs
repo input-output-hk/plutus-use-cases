@@ -10,6 +10,8 @@ module Mlabs.Lending.Logic.Emulator(
 
 import Data.Maybe
 import Data.Map.Strict (Map)
+import Data.Text
+
 import Mlabs.Lending.Logic.Types
 
 import qualified Data.Map.Strict as M
@@ -19,7 +21,9 @@ newtype BchState = BchState (Map UserId BchWallet)
 
 -- " For simplicity wallet is a map of coins to balances.
 newtype BchWallet = BchWallet (Map Coin Integer)
+  deriving (Show, Eq, Ord)
 
+-- | Default empty wallet
 defaultBchWallet :: BchWallet
 defaultBchWallet = BchWallet mempty
 
@@ -42,7 +46,7 @@ data Resp
       , mint'amount :: Integer
       }
   -- ^ burns coins for lending platform
-
+  deriving (Show)
 
 -- | Moves from first user to second user
 moveFromTo :: UserId -> UserId -> Coin -> Integer -> [Resp]
@@ -52,12 +56,20 @@ moveFromTo from to coin amount =
   ]
 
 -- | Applies reponse to the blockchain state.
-applyResp :: Resp -> BchState -> BchState
-applyResp resp (BchState wallets) = BchState $ case resp of
+applyResp :: Resp -> BchState -> Either Text BchState
+applyResp resp (BchState wallets) = fmap BchState $ case resp of
   Move addr coin amount -> updateWallet addr coin amount wallets
   Mint coin amount      -> updateWallet Self coin amount wallets
   Burn coin amount      -> updateWallet Self coin (negate amount) wallets
   where
-    updateWallet addr coin amt m = M.update (Just . updateBalance coin amt) addr m
-    updateBalance coin amt (BchWallet bals) = BchWallet $ M.alter (\x -> Just ((fromMaybe 0 x) + amt)) coin bals
+    updateWallet addr coin amt m = M.alterF (maybe (pure Nothing) (fmap Just . updateBalance coin amt)) addr m
+
+    updateBalance :: Coin -> Integer -> BchWallet -> Either Text BchWallet
+    updateBalance coin amt (BchWallet bals) = fmap BchWallet $ M.alterF (upd amt) coin bals
+
+    upd amt x
+      | res >= 0  = Right $ Just res
+      | otherwise = Left  $ "Negative balance for " <> showt resp
+      where
+        res = fromMaybe 0 x + amt
 
