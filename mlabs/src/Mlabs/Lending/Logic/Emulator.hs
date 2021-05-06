@@ -8,6 +8,8 @@ module Mlabs.Lending.Logic.Emulator(
   , moveFromTo
 ) where
 
+import Prelude
+
 import Data.Maybe
 import Data.Map.Strict (Map)
 import Data.Text

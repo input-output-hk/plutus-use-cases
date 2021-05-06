@@ -30,8 +30,10 @@ library
                      , plutus-contract
                      , plutus-ledger
                      , plutus-tx
+                     , plutus-ledger-api
                      , plutus-tx-plugin
                      , plutus-pab
+                     , plutus-use-cases
                      , prettyprinter
                      , stm
                      , lens
@@ -41,20 +43,30 @@ library
   hs-source-dirs:      src/
   exposed-modules:
         Mlabs.Lending
+        Mlabs.Lending.Coin
         Mlabs.Lending.Logic.App
         Mlabs.Lending.Logic.Emulator
         Mlabs.Lending.Logic.React
         Mlabs.Lending.Logic.State
         Mlabs.Lending.Logic.Types
+        Mlabs.Lending.Utils
   default-extensions: BangPatterns
                       ExplicitForAll
                       FlexibleContexts
                       ScopedTypeVariables
+                      DerivingStrategies
                       DeriveAnyClass
-                      DeriveGeneric StandaloneDeriving DeriveLift
-                      GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable  DeriveTraversable
+                      DeriveGeneric
+                      StandaloneDeriving
+                      DeriveLift
+                      GeneralizedNewtypeDeriving
+                      DeriveFunctor
+                      DeriveFoldable
+                      DeriveTraversable
+                      LambdaCase
                       MonoLocalBinds
                       MultiParamTypeClasses
+                      NoImplicitPrelude
                       RecordWildCards
                       OverloadedStrings
                       TypeFamilies
@@ -62,14 +74,11 @@ library
                       TemplateHaskell
                       DataKinds
                       TypeOperators
+                      TypeApplications
                       TupleSections
-                      LambdaCase
 
 executable mlabs-plutus-use-cases
-  main-is:             Main.hs
-  hs-source-dirs:      app/
-  -- other-modules:
-  -- other-extensions:
+  main-is:             app/Main.hs
   build-depends:       base >=4.14 && <4.15
                      , aeson
                      , bytestring
@@ -85,7 +94,6 @@ executable mlabs-plutus-use-cases
                      , lens
                      , text
                      , freer-extras
-  -- hs-source-dirs:
   default-language:    Haskell2010
 
 Test-suite mlabs-plutus-use-cases-tests
@@ -95,13 +103,25 @@ Test-suite mlabs-plutus-use-cases-tests
   Build-Depends:       base              >=4.9 && <5
                      , mlabs-plutus-use-cases
                      , containers
-                     , text
+                     , playground-common
+                     , plutus-core
+                     , plutus-contract
+                     , plutus-ledger
+                     , plutus-tx
+                     , plutus-ledger-api
+                     , plutus-tx-plugin
+                     , plutus-pab
+                     , plutus-use-cases
+                     , plutus-contract
+                     , prettyprinter
                      , tasty
                      , tasty-hunit
+                     , text
   hs-source-dirs:      test
   Main-is:             Main.hs
   Other-modules:       Test.Lending
                        Test.Lending.Logic
+                     , Test.Utils
   default-extensions:
     RecordWildCards
     OverloadedStrings

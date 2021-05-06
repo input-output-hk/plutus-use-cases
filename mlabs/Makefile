@@ -2,17 +2,17 @@
 hoogle: requires_nix_shell
 	hoogle server --local --port 8008
 
-build: requires_nix_shell
-	cabal build all
+build: 
+	stack build --ghc-options="-Wall"
 
-repl: requires_nix_shell
-	cabal new-repl
+repl: 
+	stack ghci
 
-test: requires_nix_shell
-	cabal test all
+test: 
+	stack test all
 
-watch: requires_nix_shell
-	ghcid "-c cabal new-repl"
+watch: 
+	stack build --file-watch --ghc-options="-Wall"
 
 # Target to use as dependency to fail if not inside nix-shell
 requires_nix_shell:

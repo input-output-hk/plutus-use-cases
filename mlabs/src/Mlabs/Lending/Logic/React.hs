@@ -3,6 +3,8 @@ module Mlabs.Lending.Logic.React(
   react
 ) where
 
+import Prelude
+
 import Control.Monad.Except
 import Control.Monad.State.Strict
 
