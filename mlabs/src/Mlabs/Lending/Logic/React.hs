@@ -3,19 +3,19 @@ module Mlabs.Lending.Logic.React(
   react
 ) where
 
-import Prelude
+import qualified PlutusTx.Ratio as R
+import qualified PlutusTx.Numeric as N
+import PlutusTx.Prelude
+import qualified PlutusTx.AssocMap as M
 
 import Control.Monad.Except
 import Control.Monad.State.Strict
-
-import qualified Data.Map.Strict as M
 
 import Mlabs.Lending.Logic.Emulator
 import Mlabs.Lending.Logic.State
 import Mlabs.Lending.Logic.Types
 
-import qualified Data.Text as T
-
+{-# INLINABLE react #-}
 -- | State transitions for lending pool.
 -- For a given action we update internal state of Lending pool and produce
 -- list of responses to simulate change of the balances on blockchain.
@@ -31,7 +31,7 @@ react = \case
       BorrowAct{..}                     -> borrowAct  uid act'asset act'amount act'rate
       RepayAct{..}                      -> repayAct   uid act'asset act'amount act'rate
       SwapBorrowRateModelAct{..}        -> swapBorrowRateModelAct uid act'asset act'rate
-      SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion 1)
+      SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion (R.fromInteger 1))
       WithdrawAct{..}                   -> withdrawAct uid act'amount act'asset
       FlashLoanAct                      -> flashLoanAct uid
       LiquidationCallAct{..}            -> liquidationCallAct uid act'collateral act'debt act'user act'debtToCover act'receiveAToken
@@ -43,7 +43,7 @@ react = \case
     depositAct uid amount asset = do
       modifyWalletAndReserve uid asset depositUser
       pure $ mconcat
-        [ pure $ Mint (aToken asset) amount
+        [ [Mint (aToken asset) amount]
         , moveFromTo Self uid (aToken asset) amount
         , moveFromTo uid Self asset          amount
         ]
@@ -77,7 +77,7 @@ react = \case
 
     collateralNonBorrow uid asset = do
       col <- getsWallet uid asset wallet'collateral
-      guardError (T.unwords ["Collateral can not be used as borrow for user", showt uid, "for asset", showt asset])
+      guardError (mconcat ["Collateral can not be used as borrow for user ", showt uid, " for asset ", showt asset])
         (col == 0)
 
     hasEnoughCollateral uid asset amount = do
@@ -85,7 +85,7 @@ react = \case
       isOk <- getHealthCheck bor asset =<< getUser uid
       guardError msg isOk
       where
-        msg = T.unwords ["Not enough collateral to borrow", showt amount, showt asset, "for user", showt uid]
+        msg = mconcat ["Not enough collateral to borrow ", showt amount, " ", showt asset, " for user ", showt uid]
 
     ---------------------------------------------------
     -- repay (also called redeem in whitepaper)
@@ -96,7 +96,7 @@ react = \case
       if newBor >= 0
         then modifyWallet uid asset $ \w -> w { wallet'borrow = newBor }
         else modifyWallet uid asset $ \w -> w { wallet'borrow = 0
-                                              , wallet'deposit = abs newBor }
+                                              , wallet'deposit = negate newBor }
       modifyReserveWallet asset $ \w -> w { wallet'deposit = wallet'deposit w + amount }
       pure $ moveFromTo uid Self asset amount
 
@@ -113,8 +113,8 @@ react = \case
       | otherwise       = setAsDeposit    uid asset portion
 
     setAsCollateral uid asset portion
-      | portion <= 0 = pure []
-      | otherwise    = do
+      | portion <= R.fromInteger 0 = pure []
+      | otherwise                  = do
           amount <- getAmountBy wallet'deposit uid asset portion
           modifyWalletAndReserve uid asset $ \w -> w
             { wallet'deposit    = wallet'deposit w    - amount
@@ -122,12 +122,12 @@ react = \case
             }
           pure $ mconcat
             [ moveFromTo uid Self (aToken asset) amount
-            , pure $ Burn (aToken asset) amount
+            , [Burn (aToken asset) amount]
             ]
 
     setAsDeposit uid asset portion
-      | portion <= 0 = pure []
-      | otherwise    = do
+      | portion <= R.fromInteger 0 = pure []
+      | otherwise                  = do
           amount <- getAmountBy wallet'collateral uid asset portion
           modifyWalletAndReserve uid asset $ \w -> w
             { wallet'deposit    = wallet'deposit w    + amount
@@ -137,7 +137,7 @@ react = \case
 
     getAmountBy extract uid asset portion = do
       val <- getsWallet uid asset extract
-      pure $ floor $ portion * fromInteger val
+      pure $ R.round $ portion N.* R.fromInteger val
 
     ---------------------------------------------------
     -- withdraw
@@ -154,7 +154,7 @@ react = \case
 
     hasEnoughDepositToWithdraw uid amount asset = do
       dep <- getsWallet uid asset wallet'deposit
-      guardError (T.unwords ["Not enough deposit to withdraw", showt amount, showt asset, "for user", showt uid])
+      guardError (mconcat ["Not enough deposit to withdraw ", showt amount, " ", showt asset, " for user ", showt uid])
         (dep >= amount)
 
     ---------------------------------------------------

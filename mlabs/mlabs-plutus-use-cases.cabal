@@ -44,6 +44,7 @@ library
   exposed-modules:
         Mlabs.Lending
         Mlabs.Lending.Coin
+        Mlabs.Lending.Lendex
         Mlabs.Lending.Logic.App
         Mlabs.Lending.Logic.Emulator
         Mlabs.Lending.Logic.React
@@ -75,6 +76,8 @@ library
                       DataKinds
                       TypeOperators
                       TypeApplications
+                      FlexibleInstances
+                      TypeSynonymInstances
                       TupleSections
 
 executable mlabs-plutus-use-cases
