@@ -24,6 +24,7 @@ library
                      , aeson
                      , bytestring
                      , containers
+                     , mtl
                      , playground-common
                      , plutus-core
                      , plutus-contract
@@ -34,22 +35,34 @@ library
                      , plutus-pab
                      , plutus-use-cases
                      , prettyprinter
+                     , stm
                      , lens
                      , text
                      , freer-extras
   default-language: Haskell2010
   hs-source-dirs:      src/
   exposed-modules:
-      Mlabs.Lending
-      Mlabs.Lending.Coin
-      Mlabs.Lending.Utils
-  default-extensions: ExplicitForAll
+        Mlabs.Lending
+        Mlabs.Lending.Coin
+        Mlabs.Lending.Logic.App
+        Mlabs.Lending.Logic.Emulator
+        Mlabs.Lending.Logic.React
+        Mlabs.Lending.Logic.State
+        Mlabs.Lending.Logic.Types
+        Mlabs.Lending.Utils
+  default-extensions: BangPatterns
+                      ExplicitForAll
                       FlexibleContexts
                       ScopedTypeVariables
                       DerivingStrategies
                       DeriveAnyClass
-                      DeriveGeneric StandaloneDeriving DeriveLift
-                      GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable  DeriveTraversable
+                      DeriveGeneric
+                      StandaloneDeriving
+                      DeriveLift
+                      GeneralizedNewtypeDeriving
+                      DeriveFunctor
+                      DeriveFoldable
+                      DeriveTraversable
                       LambdaCase
                       MonoLocalBinds
                       MultiParamTypeClasses
@@ -62,11 +75,10 @@ library
                       DataKinds
                       TypeOperators
                       TypeApplications
+                      TupleSections
 
-executable mlabs-plutus-use-caases
+executable mlabs-plutus-use-cases
   main-is:             app/Main.hs
-  -- other-modules:
-  -- other-extensions:
   build-depends:       base >=4.14 && <4.15
                      , aeson
                      , bytestring
@@ -82,7 +94,6 @@ executable mlabs-plutus-use-caases
                      , lens
                      , text
                      , freer-extras
-  -- hs-source-dirs:
   default-language:    Haskell2010
 
 Test-suite mlabs-plutus-use-cases-tests
@@ -109,9 +120,11 @@ Test-suite mlabs-plutus-use-cases-tests
   hs-source-dirs:      test
   Main-is:             Main.hs
   Other-modules:       Test.Lending
+                       Test.Lending.Logic
                      , Test.Utils
   default-extensions:
     RecordWildCards
     OverloadedStrings
     QuasiQuotes
+    TupleSections
 
