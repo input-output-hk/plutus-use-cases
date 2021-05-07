@@ -48,9 +48,9 @@ import qualified Prelude
 import           Text.Printf                      (printf)
 import Plutus.V1.Ledger.Ada ( lovelaceValueOf )
 
-aaveProtocolName, aaveTokenName :: TokenName
+aaveProtocolName, aavePoolName :: TokenName
 aaveProtocolName = "Aave"
-aaveTokenName = "aToken"
+aavePoolName = "Aave Lending Pool"
 
 deriving anyclass instance ToSchema AssetClass
 
@@ -117,8 +117,8 @@ validateCreate Aave{..} lps lp@LendingPool{..} ctx =
     traceIfFalse "Aave assetClassValue not present" (assetClassValueOf (valueWithin $ findOwnInput' ctx) aaveProtocolInst == 1) &&
     notElem lp lps                                                                                      &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ assetClassValue aaveProtocolInst 1)     &&
-    (assetClassValueOf forged lpToken == aTokensNum) &&
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp aTokensNum) $ assetClassValue lpToken aTokensNum)
+    (assetClassValueOf forged lpToken == 1) &&
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp 0) $ assetClassValue lpToken 1)
   where
     poolOutput :: TxOut
     poolOutput = case [o | o <- getContinuingOutputs ctx, assetClassValueOf (txOutValue o) lpToken == 1] of
@@ -127,9 +127,6 @@ validateCreate Aave{..} lps lp@LendingPool{..} ctx =
 
     forged :: Value
     forged = txInfoForge $ scriptContextTxInfo ctx
-
-    aTokensNum :: Integer
-    aTokensNum = assetClassValueOf forged lpToken
 
 {-# INLINABLE findPoolDatum #-}
 findPoolDatum :: TxInfo -> DatumHash -> (LendingPool, Integer)
@@ -186,7 +183,7 @@ liquidityPolicy :: Aave -> MonetaryPolicy
 liquidityPolicy aa = mkMonetaryPolicyScript $
     $$(PlutusTx.compile [|| \a t -> Scripts.wrapMonetaryPolicy (validateLiquidityForging a t) ||])
         `PlutusTx.applyCode` PlutusTx.liftCode aa
-        `PlutusTx.applyCode` PlutusTx.liftCode aaveTokenName
+        `PlutusTx.applyCode` PlutusTx.liftCode aavePoolName
 
 -- | Creates a Aave "factory". This factory will keep track of the existing liquidity pools and enforce that there will be at most one liquidity pool
 -- for any pair of tokens at any given time.
@@ -207,21 +204,21 @@ start = do
     return aa
 
 -- | Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
-create :: HasBlockchainActions s => Aave -> Integer -> Contract w s Text ()
-create aa aTokensNum = do
+create :: HasBlockchainActions s => Aave -> Contract w s Text ()
+create aa = do
     pkh <- pubKeyHash <$> ownPubKey
     cs  <- fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(aaveTokenName, aTokensNum)]
+           Currency.forgeContract pkh [(aavePoolName, 1)]
     (oref, o, lps) <- findAaveFactory aa
-    let c    = assetClass cs aaveTokenName
+    let c    = assetClass cs aavePoolName
     let lp        = LendingPool c
     let aaInst   = aaveInstance aa
         aaScript = aaveScript aa
         aaDat1   = Factory $ lp : lps
-        aaDat2   = Pool lp aTokensNum
+        aaDat2   = Pool lp 0
         aaVal    = assetClassValue (aaveProtocolInst aa) 1
-        lpVal    = lovelaceValueOf aTokensNum
+        lpVal    = assetClassValue c 1
 
         lookups  = Constraints.scriptInstanceLookups aaInst        <>
                    Constraints.otherScript aaScript                <>
@@ -230,7 +227,7 @@ create aa aTokensNum = do
 
         tx       = Constraints.mustPayToTheScript aaDat1 aaVal                                               <>
                    Constraints.mustPayToTheScript aaDat2 lpVal                                               <>
-                   Constraints.mustForgeValue (assetClassValue c aTokensNum)                 <>
+                   Constraints.mustForgeValue lpVal                 <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create lp)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
@@ -307,7 +304,7 @@ type AaveOwnerSchema =
 -- | Schema for the endpoints for users of Aave.
 type AaveUserSchema =
     BlockchainActions
-        .\/ Endpoint "create" Integer
+        .\/ Endpoint "create" ()
 
 -- | Type of the Aave user contract state.
 data UserContractState = Created
@@ -317,19 +314,17 @@ data UserContractState = Created
 --
 --      [@create@]: Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
 userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
-userEndpoints aa = f (Proxy @"create") (const Created) create
-      >> userEndpoints aa
+userEndpoints aa = forever $ f (Proxy @"create") (const Created) create
   where
     f :: forall l a p.
-         HasEndpoint l p AaveUserSchema
+         HasEndpoint l () AaveUserSchema
       => Proxy l
       -> (a -> UserContractState)
-      -> (Aave -> p -> Contract (Last (Either Text UserContractState)) AaveUserSchema Text a)
+      -> (Aave -> Contract (Last (Either Text UserContractState)) AaveUserSchema Text a)
       -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
     f _ g c = do
         e <- runError $ do
-            p <- endpoint @l
-            c aa p
+            c aa
         tell $ Last $ Just $ case e of
             Left err -> Left err
             Right a  -> Right $ g a

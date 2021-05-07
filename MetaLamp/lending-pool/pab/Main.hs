@@ -79,9 +79,8 @@ main = void $ Simulator.runSimulationWith handlers $ do
         Simulator.logString @(Builtin AaveContracts) $ "Aave user contract started for " ++ show w
         return (w, cid)
 
-    let cp = 10000 :: Integer
-    Simulator.logString @(Builtin AaveContracts) $ "creating liquidity pool: " ++ show (encode cp)
-    _  <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" cp
+    Simulator.logString @(Builtin AaveContracts) "creating liquidity pool"
+    _  <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" ()
     flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (Right Aave.Created))) -> Just ()
         _                                                    -> Nothing
