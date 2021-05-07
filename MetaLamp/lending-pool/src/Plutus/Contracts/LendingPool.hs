@@ -39,7 +39,6 @@ import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Value                     as Value
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
--- TODO remove that dep Plutus.Contracts.Currency (?)
 import qualified Plutus.Contracts.Currency        as Currency
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
@@ -117,16 +116,7 @@ validateCreate Aave{..} lps lp@LendingPool{..} ctx =
     traceIfFalse "Aave assetClassValue not present" (assetClassValueOf (valueWithin $ findOwnInput' ctx) aaveProtocolInst == 1) &&
     notElem lp lps                                                                                      &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ assetClassValue aaveProtocolInst 1)     &&
-    (assetClassValueOf forged lpToken == 1) &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp 0) $ assetClassValue lpToken 1)
-  where
-    poolOutput :: TxOut
-    poolOutput = case [o | o <- getContinuingOutputs ctx, assetClassValueOf (txOutValue o) lpToken == 1] of
-        [o] -> o
-        _   -> traceError "expected exactly one pool output"
-
-    forged :: Value
-    forged = txInfoForge $ scriptContextTxInfo ctx
 
 {-# INLINABLE findPoolDatum #-}
 findPoolDatum :: TxInfo -> DatumHash -> (LendingPool, Integer)
@@ -222,12 +212,12 @@ create aa = do
 
         lookups  = Constraints.scriptInstanceLookups aaInst        <>
                    Constraints.otherScript aaScript                <>
-                   Constraints.monetaryPolicy (liquidityPolicy aa) <>
+                --    Constraints.monetaryPolicy (liquidityPolicy aa) <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
         tx       = Constraints.mustPayToTheScript aaDat1 aaVal                                               <>
                    Constraints.mustPayToTheScript aaDat2 lpVal                                               <>
-                   Constraints.mustForgeValue lpVal                 <>
+                --    Constraints.mustForgeValue lpVal                 <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create lp)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
