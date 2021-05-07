@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-specialize #-}
-module Mlabs.Lending.Utils where
+module Mlabs.Lending.Contract.Utils where
 
 import           PlutusTx.Prelude ((.), error)
 import qualified PlutusTx.Prelude     as Plutus

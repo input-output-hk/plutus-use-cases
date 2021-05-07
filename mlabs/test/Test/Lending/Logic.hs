@@ -7,11 +7,15 @@ module Test.Lending.Logic(
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Plutus.V1.Ledger.Value
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+
 import Mlabs.Lending.Logic.App
 import Mlabs.Lending.Logic.Emulator
 import Mlabs.Lending.Logic.Types
 
 import qualified Data.Map.Strict as M
+import qualified PlutusTx.Ratio as R
 
 noErrors :: App -> Bool
 noErrors app = null $ app'log app
@@ -88,7 +92,7 @@ borrowScript = mconcat
   , [ UserAct user1 $ SetUserReserveAsCollateralAct
         { act'asset           = coin1
         , act'useAsCollateral = True
-        , act'portion         = 1
+        , act'portion         = R.fromInteger 1
         }
     , UserAct user1 $ BorrowAct
         { act'asset           = coin2
@@ -116,7 +120,7 @@ borrowNotEnoughCollateralScript = mconcat
   , [ UserAct user1 $ SetUserReserveAsCollateralAct
         { act'asset           = coin1
         , act'useAsCollateral = True
-        , act'portion         = 1
+        , act'portion         = R.fromInteger 1
         }
     , UserAct user1 $ BorrowAct
         { act'asset           = coin2
@@ -152,25 +156,31 @@ repayScript = mconcat
 ---------------------------------
 -- constants
 
+aToken :: Coin -> Coin
+aToken = toLendingToken lendingPoolCurrency
+
+lendingPoolCurrency :: CurrencySymbol
+lendingPoolCurrency = currencySymbol "lending-pool"
+
 -- users
 user1, user2, user3 :: UserId
-user1 = UserId 1
-user2 = UserId 2
-user3 = UserId 3
+user1 = UserId $ PubKeyHash "1"
+user2 = UserId $ PubKeyHash "2"
+user3 = UserId $ PubKeyHash "3"
 
 -- coins
 coin1, coin2, coin3 :: Coin
-coin1 = Coin "Dollar"
-coin2 = Coin "Euro"
-coin3 = Coin "Lira"
+coin1 = toCoin "Dollar"
+coin2 = toCoin "Euro"
+coin3 = toCoin "Lira"
 
 -- | Default application.
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 testAppConfig :: AppConfig
-testAppConfig = AppConfig reserves users
+testAppConfig = AppConfig reserves users lendingPoolCurrency
   where
-    reserves = fmap (, 1) [coin1, coin2, coin3]
+    reserves = fmap (, R.fromInteger 1) [coin1, coin2, coin3]
     users =
       [ (user1, wal (coin1, 100))
       , (user2, wal (coin2, 100))

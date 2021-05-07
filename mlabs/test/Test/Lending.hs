@@ -17,7 +17,7 @@ import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 
 import qualified Mlabs.Lending as L
-import qualified Mlabs.Lending.Coin as L
+import qualified Mlabs.Lending.Contract.Coin as L
 
 import Test.Utils
 
