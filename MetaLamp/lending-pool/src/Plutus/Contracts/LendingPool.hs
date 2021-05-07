@@ -20,7 +20,7 @@ module Plutus.Contracts.LendingPool
     ( AssetClass (..)
     , Aave (..), aave
     , AaveUserSchema, AaveOwnerSchema, UserContractState (..)
-    , start, create, close
+    , start, create
     , ownerEndpoint, userEndpoints
     ) where
 
@@ -80,7 +80,7 @@ instance Prelude.Eq Aave where
 instance Prelude.Ord Aave where
     compare u v = Prelude.compare (aaveProtocolInst u) (aaveProtocolInst v)
 
-data AaveAction = Create LendingPool | Close
+data AaveAction = Create LendingPool
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveAction
@@ -131,46 +131,6 @@ validateCreate Aave{..} lps lp@LendingPool{..} ctx =
     aTokensNum :: Integer
     aTokensNum = assetClassValueOf forged lpToken
 
-{-# INLINABLE validateCloseFactory #-}
-validateCloseFactory :: Aave -> [LendingPool] -> ScriptContext -> Bool
-validateCloseFactory aa lps ctx =
-    traceIfFalse "Aave assetClassValue not present" (assetClassValueOf (valueWithin $ findOwnInput' ctx) aaC == 1)
-    -- traceIfFalse "wrong forge value"        (txInfoForge info == negate (assetClassValue c 1)) &&
-    -- traceIfFalse "factory output wrong"
-    --     (Constraints.checkOwnOutputConstraint ctx $ OutputConstraint (Factory $ filter (/= fst lpLiquidity) lps) $ assetClassValue aaC 1)
-  where
-    info :: TxInfo
-    info = scriptContextTxInfo ctx
-
-    -- poolInput :: TxInInfo
-    -- poolInput = case [ i
-    --                  | i <- txInfoInputs info
-    --                  , assetClassValueOf (valueWithin i) c == 1
-    --                  ] of
-    --     [i] -> i
-    --     _   -> traceError "expected exactly one pool input"
-
-    -- lpLiquidity :: (LendingPool, Integer)
-    -- lpLiquidity = case txOutDatumHash . txInInfoResolved $ poolInput of
-    --     Nothing -> traceError "pool input witness missing"
-    --     Just h  -> findPoolDatum info h
-
-    aaC :: AssetClass
-    aaC = aaveProtocolInst aa
-
-{-# INLINABLE validateClosePool #-}
-validateClosePool :: Aave -> ScriptContext -> Bool
-validateClosePool aa ctx = hasFactoryInput
-  where
-    info :: TxInfo
-    info = scriptContextTxInfo ctx
-
-    hasFactoryInput :: Bool
-    hasFactoryInput =
-        traceIfFalse "Aave factory input expected" $
-        assetClassValueOf (valueSpent info) (aaveProtocolInst aa) == 1
-
-
 {-# INLINABLE findPoolDatum #-}
 findPoolDatum :: TxInfo -> DatumHash -> (LendingPool, Integer)
 findPoolDatum info h = case findDatum h info of
@@ -185,8 +145,6 @@ mkAaveValidator :: Aave
                    -> ScriptContext
                    -> Bool
 mkAaveValidator aa (Factory lps) (Create lp) ctx = validateCreate aa lps lp ctx
-mkAaveValidator aa (Factory lps) Close       ctx = validateCloseFactory aa lps ctx
-mkAaveValidator aa (Pool _  _)   Close       ctx = validateClosePool aa ctx
 mkAaveValidator _  _             _           _   = False
 
 validateLiquidityForging :: Aave -> TokenName -> ScriptContext -> Bool
@@ -280,37 +238,6 @@ create aa aTokensNum = do
 
     logInfo $ "created liquidity pool: " ++ show lp
 
--- TODO fix close and validateClose
--- | Closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
-close :: HasBlockchainActions s => Aave -> AssetClass -> Contract w s Text ()
-close aa poolCoin = do
-    pkh <- pubKeyHash <$> ownPubKey
-    ((oref1, o1, lps), (oref2, o2, lp, liquidity)) <- findAaveFactoryAndPool aa $ LendingPool poolCoin
-    let aaInst   = aaveInstance aa
-        aaScript = aaveScript aa
-        aaDat    = Factory $ filter (/= lp) lps
-        aaC      = aaveProtocolInst aa
-        aaVal    = assetClassValue aaC 1
-        psVal    = assetClassValue poolCoin 1
-        redeemer = Redeemer $ PlutusTx.toData Close
-
-        lookups  = Constraints.scriptInstanceLookups aaInst        <>
-                   Constraints.otherScript aaScript                <>
-                   Constraints.monetaryPolicy (liquidityPolicy aa) <>
-                   Constraints.ownPubKeyHash pkh                   <>
-                   Constraints.unspentOutputs (Map.singleton oref1 o1 <> Map.singleton oref2 o2)
-
-        tx       = Constraints.mustPayToTheScript aaDat aaVal          <>
-                   Constraints.mustForgeValue (negate psVal) <>
-                   Constraints.mustSpendScriptOutput oref1 redeemer    <>
-                   Constraints.mustSpendScriptOutput oref2 redeemer    <>
-                   Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Pool lp liquidity)
-
-    ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
-
-    logInfo $ "closed liquidity pool: " ++ show lp
-
 getAaveDatum :: TxOutTx -> Contract w s Text AaveDatum
 getAaveDatum o = case txOutDatumHash $ txOutTxOut o of
         Nothing -> throwError "datumHash not found"
@@ -381,27 +308,17 @@ type AaveOwnerSchema =
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "create" Integer
-        .\/ Endpoint "close"  AssetClass
-        .\/ Endpoint "stop"   ()
 
 -- | Type of the Aave user contract state.
 data UserContractState = Created
-    | Closed
-    | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
 
 -- | Provides the following endpoints for users of a Aave instance:
 --
 --      [@create@]: Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
---      [@close@]: Closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
---      [@stop@]: Stops the contract.
 userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
-userEndpoints aa =
-    stop
-        `select`
-    ((f (Proxy @"create") (const Created) create                 `select`
-      f (Proxy @"close")  (const Closed)  close                  )
-      >> userEndpoints aa)
+userEndpoints aa = f (Proxy @"create") (const Created) create
+      >> userEndpoints aa
   where
     f :: forall l a p.
          HasEndpoint l p AaveUserSchema
@@ -416,10 +333,3 @@ userEndpoints aa =
         tell $ Last $ Just $ case e of
             Left err -> Left err
             Right a  -> Right $ g a
-
-    stop :: Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
-    stop = do
-        e <- runError $ endpoint @"stop"
-        tell $ Last $ Just $ case e of
-            Left err -> Left err
-            Right () -> Right Stopped
