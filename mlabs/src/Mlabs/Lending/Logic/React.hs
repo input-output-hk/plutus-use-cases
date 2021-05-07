@@ -1,6 +1,13 @@
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 -- | State transitions for Aave-like application
 module Mlabs.Lending.Logic.React(
-  react
+    react
 ) where
 
 import qualified PlutusTx.Ratio as R
@@ -25,6 +32,10 @@ react = \case
   PriceAct    act -> priceAct act
   GovernAct   act -> governAct act
   where
+    aToken coin = do
+      curSym <- gets lp'currency
+      pure $ toLendingToken curSym coin
+
     -- | User acts
     userAct uid = \case
       DepositAct{..}                    -> depositAct uid act'amount act'asset
@@ -42,9 +53,10 @@ react = \case
     -- TODO: ignores ratio of liquidity to borrowed totals
     depositAct uid amount asset = do
       modifyWalletAndReserve uid asset depositUser
+      aCoin <- aToken asset
       pure $ mconcat
-        [ [Mint (aToken asset) amount]
-        , moveFromTo Self uid (aToken asset) amount
+        [ [Mint aCoin amount]
+        , moveFromTo Self uid aCoin amount
         , moveFromTo uid Self asset          amount
         ]
       where
@@ -72,12 +84,11 @@ react = \case
 
     hasEnoughLiquidityToBorrow asset amount = do
       liquidity <- getsReserve asset (wallet'deposit . reserve'wallet)
-      guardError ("Not enough liquidity for asset " <> showt asset)
-        (liquidity >= amount)
+      guardError "Not enough liquidity for asset" (liquidity >= amount)
 
     collateralNonBorrow uid asset = do
       col <- getsWallet uid asset wallet'collateral
-      guardError (mconcat ["Collateral can not be used as borrow for user ", showt uid, " for asset ", showt asset])
+      guardError "Collateral can not be used as borrow for user"
         (col == 0)
 
     hasEnoughCollateral uid asset amount = do
@@ -85,7 +96,7 @@ react = \case
       isOk <- getHealthCheck bor asset =<< getUser uid
       guardError msg isOk
       where
-        msg = mconcat ["Not enough collateral to borrow ", showt amount, " ", showt asset, " for user ", showt uid]
+        msg = "Not enough collateral to borrow"
 
     ---------------------------------------------------
     -- repay (also called redeem in whitepaper)
@@ -120,9 +131,10 @@ react = \case
             { wallet'deposit    = wallet'deposit w    - amount
             , wallet'collateral = wallet'collateral w + amount
             }
+          aCoin <- aToken asset
           pure $ mconcat
-            [ moveFromTo uid Self (aToken asset) amount
-            , [Burn (aToken asset) amount]
+            [ moveFromTo uid Self aCoin amount
+            , [Burn aCoin amount]
             ]
 
     setAsDeposit uid asset portion
@@ -133,7 +145,8 @@ react = \case
             { wallet'deposit    = wallet'deposit w    + amount
             , wallet'collateral = wallet'collateral w - amount
             }
-          pure $ moveFromTo Self uid (aToken asset) amount
+          aCoin <- aToken asset
+          pure $ moveFromTo Self uid aCoin amount
 
     getAmountBy extract uid asset portion = do
       val <- getsWallet uid asset extract
@@ -147,15 +160,15 @@ react = \case
       hasEnoughDepositToWithdraw uid amount asset
       -- update state on withdraw
       modifyWalletAndReserve uid asset $ \w -> w { wallet'deposit = wallet'deposit w - amount }
+      aCoin <- aToken asset
       pure $ mconcat
-        [ moveFromTo uid Self (aToken asset) amount
+        [ moveFromTo uid Self aCoin amount
         , moveFromTo Self uid asset amount
         ]
 
     hasEnoughDepositToWithdraw uid amount asset = do
       dep <- getsWallet uid asset wallet'deposit
-      guardError (mconcat ["Not enough deposit to withdraw ", showt amount, " ", showt asset, " for user ", showt uid])
-        (dep >= amount)
+      guardError "Not enough deposit to withdraw" (dep >= amount)
 
     ---------------------------------------------------
     -- flash loan
@@ -191,12 +204,13 @@ react = \case
     -- Adds new reserve (new coin/asset)
 
     addReserve coin val = do
-      LendingPool reserves users <- get
+      LendingPool reserves users curSym <- get
       if M.member coin reserves
         then throwError "Reserve is already present"
         else do
-          put $ LendingPool (M.insert coin (initReserve val) reserves) users
+          put $ LendingPool (M.insert coin (initReserve val) reserves) users curSym
           return []
 
     todo = return []
+
 

@@ -1,3 +1,11 @@
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | Types for lending app
 --
 -- inspired by aave spec. See
@@ -19,33 +27,33 @@ module Mlabs.Lending.Logic.Types(
   , GovernAct(..)
   , LpAddressesProvider(..)
   , LpAddressesProviderRegistry(..)
-  , Coin(..)
-  , aToken
+  , Coin
+  , toLendingToken
   , LpCollateralManager(..)
   , LpConfigurator(..)
   , PriceOracleProvider(..)
   , InterestRateStrategy(..)
-  , showt
+  , Showt(..)
 ) where
+
 
 import qualified Prelude as P
 import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
+import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
 import GHC.Generics
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
-import Data.String
-
-{-# INLINABLE showt #-}
--- | Helper to print @Text@ values
-showt :: Show a => a -> String
-showt = fromString . show
+-- | Class that converts to inlinable builtin string
+class Showt a where
+  showt :: a -> String
 
 -- | Address of the wallet that can hold values of assets
 data UserId
-  = UserId Integer  -- user address
-  | Self            -- addres of the lending platform
+  = UserId PubKeyHash  -- user address
+  | Self               -- addres of the lending platform
   deriving (Show, Generic, P.Eq, P.Ord)
 
 instance Eq UserId where
@@ -58,6 +66,7 @@ instance Eq UserId where
 data LendingPool = LendingPool
   { lp'reserves :: !(Map Coin Reserve)   -- ^ list of reserves
   , lp'users    :: !(Map UserId User)    -- ^ internal user wallets on the app
+  , lp'currency :: !CurrencySymbol
   }
   deriving (Show, Generic)
 
@@ -174,17 +183,12 @@ data PriceAct
   deriving (Show, Generic)
 
 -- | Custom currency
-newtype Coin = Coin ByteString
-  deriving newtype (Show, P.Eq, P.Ord)
+type Coin = AssetClass
 
-instance Eq Coin where
-  {-# INLINABLE (==) #-}
-  Coin a == Coin b = a == b
-
-{-# INLINABLE aToken #-}
--- | Appends a prefix to all coins
-aToken :: Coin -> Coin
-aToken (Coin bs) = Coin $ "a" <> bs
+{-# INLINABLE toLendingToken #-}
+toLendingToken :: CurrencySymbol -> Coin -> Coin
+toLendingToken lendingPoolCurrency (AssetClass (cs, tn)) =
+  AssetClass (lendingPoolCurrency, TokenName $ concatenate (unCurrencySymbol cs) (unTokenName tn))
 
 ----------------------------------------------------
 -- some types specific to aave
@@ -209,7 +213,6 @@ data InterestRate = StableRate | VariableRate
 ------------------------------------------
 
 PlutusTx.unstableMakeIsData ''InterestRate
-PlutusTx.unstableMakeIsData ''Coin
 PlutusTx.unstableMakeIsData ''UserAct
 PlutusTx.unstableMakeIsData ''PriceAct
 PlutusTx.unstableMakeIsData ''GovernAct

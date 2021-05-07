@@ -73,7 +73,7 @@ applyResp resp (BchState wallets) = fmap BchState $ case resp of
 
     upd amt x
       | res >= 0  = Right $ Just res
-      | otherwise = Left  $ "Negative balance for " <> showt resp
+      | otherwise = Left  $ "Negative balance"
       where
         res = fromMaybe 0 x + amt
 

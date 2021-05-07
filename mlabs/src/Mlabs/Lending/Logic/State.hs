@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | State transitions for Lending app
 module Mlabs.Lending.Logic.State(
@@ -102,7 +104,7 @@ getReserve coin = do
   mReserve <- gets (M.lookup coin . lp'reserves)
   maybe err pure mReserve
   where
-    err = throwError $ "Uknown coin " <> showt coin
+    err = throwError "Uknown coin"
 
 {-# INLINABLE toAda #-}
 -- | Convert given currency to base currency
@@ -166,10 +168,10 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 -- | Modify reserve for a given asset. It can throw errors.
 modifyReserve' :: Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
-  LendingPool lp users <- get
+  LendingPool lp users curSym <- get
   case M.lookup asset lp of
-    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users) (f reserve)
-    Nothing      -> throwError $ mconcat ["Asset is not supported: ", showt asset]
+    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym) (f reserve)
+    Nothing      -> throwError $ "Asset is not supported"
 
 {-# INLINABLE modifyUser #-}
 -- | Modify user info by id.
@@ -180,10 +182,10 @@ modifyUser uid f = modifyUser' uid (Right . f)
 -- | Modify user info by id. It can throw errors.
 modifyUser' :: UserId -> (User -> Either Error User) -> St ()
 modifyUser' uid f = do
-  LendingPool lp users <- get
+  LendingPool lp users curSym <- get
   case f $ fromMaybe defaultUser $ M.lookup uid users of
     Left msg   -> throwError msg
-    Right user -> put $ LendingPool lp (M.insert uid user users)
+    Right user -> put $ LendingPool lp (M.insert uid user users) curSym
 
 {-# INLINABLE modifyWalletAndReserve #-}
 -- | Modify user wallet and reserve wallet with the same function.

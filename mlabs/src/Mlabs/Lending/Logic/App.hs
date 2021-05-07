@@ -5,9 +5,12 @@ module Mlabs.Lending.Logic.App(
   , AppConfig(..)
   , defaultAppConfig
   , lookupAppWallet
+  , toCoin
 ) where
 
 import PlutusTx.Prelude
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import Plutus.V1.Ledger.Value
 
 import Control.Monad.State.Strict hiding (Functor(..))
 import Control.Arrow (second)
@@ -57,12 +60,14 @@ data AppConfig = AppConfig
   -- ^ initial set of users with their wallets on blockchain
   -- the wallet for lending app wil be created automatically.
   -- no need to include it here
+  , appConfig'currencySymbol :: CurrencySymbol
+  -- ^ lending app main currency symbol
   }
 
 -- | App is initialised with list of coins and their rates (value relative to base currency, ada for us)
 initApp :: AppConfig -> App
 initApp AppConfig{..} = App
-  { app'pool = LendingPool (AM.fromList (fmap (second initReserve) appConfig'reserves)) AM.empty
+  { app'pool = LendingPool (AM.fromList (fmap (second initReserve) appConfig'reserves)) AM.empty appConfig'currencySymbol
   , app'log  = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appConfig'users
   }
@@ -71,19 +76,23 @@ initApp AppConfig{..} = App
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 defaultAppConfig :: AppConfig
-defaultAppConfig = AppConfig reserves users
+defaultAppConfig = AppConfig reserves users curSym
   where
+    curSym = currencySymbol "lending-app"
+
     reserves = fmap (, R.fromInteger 1) [coin1, coin2, coin3]
 
-    coin1 = Coin "Dollar"
-    coin2 = Coin "Euro"
-    coin3 = Coin "Lira"
+    coin1 = toCoin "Dollar"
+    coin2 = toCoin "Euro"
+    coin3 = toCoin "Lira"
 
     users = [user1, user2, user3]
 
-    user1 = (UserId 1, wal (coin1, 100))
-    user2 = (UserId 2, wal (coin2, 100))
-    user3 = (UserId 3, wal (coin3, 100))
+    user1 = (UserId (PubKeyHash "1"), wal (coin1, 100))
+    user2 = (UserId (PubKeyHash "2"), wal (coin2, 100))
+    user3 = (UserId (PubKeyHash "3"), wal (coin3, 100))
 
     wal cs = BchWallet $ uncurry M.singleton cs
 
+toCoin :: ByteString -> Coin
+toCoin str = AssetClass (currencySymbol str, tokenName str)
