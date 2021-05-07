@@ -40,8 +40,8 @@ import Text.Printf (printf)
 import qualified Plutus.Trace as Trace
 import           Plutus.Contract.Trace (Wallet)
 import           Plutus.Trace (EmulatorTrace)
-import Mlabs.Lending.Coin
-import Mlabs.Lending.Utils
+import Mlabs.Lending.Contract.Coin
+import Mlabs.Lending.Contract.Utils
 
 import qualified Data.Text as T
 

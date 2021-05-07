@@ -8,7 +8,7 @@ module Mlabs.Lending.Logic.Emulator(
   , moveFromTo
 ) where
 
-import Prelude ()
+import qualified Prelude as P
 import PlutusTx.Prelude hiding (fromMaybe, maybe)
 
 import Data.Maybe
@@ -22,7 +22,7 @@ newtype BchState = BchState (Map UserId BchWallet)
 
 -- " For simplicity wallet is a map of coins to balances.
 newtype BchWallet = BchWallet (Map Coin Integer)
-  deriving newtype (Show)
+  deriving newtype (Show, P.Eq)
 
 instance Eq BchWallet where
   (BchWallet a) == (BchWallet b) = M.toList a == M.toList b

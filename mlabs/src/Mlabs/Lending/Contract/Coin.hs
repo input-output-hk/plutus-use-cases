@@ -1,7 +1,7 @@
 {-# options_ghc -fno-warn-orphans       #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-specialize #-}
-module Mlabs.Lending.Coin where
+module Mlabs.Lending.Contract.Coin where
 
 import           PlutusTx.Prelude (Integer, Bool, Eq(..))
 

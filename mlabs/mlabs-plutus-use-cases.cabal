@@ -43,14 +43,14 @@ library
   hs-source-dirs:      src/
   exposed-modules:
         Mlabs.Lending
-        Mlabs.Lending.Coin
-        Mlabs.Lending.Lendex
+        Mlabs.Lending.Contract.Coin
+        Mlabs.Lending.Contract.Lendex
+        Mlabs.Lending.Contract.Utils
         Mlabs.Lending.Logic.App
         Mlabs.Lending.Logic.Emulator
         Mlabs.Lending.Logic.React
         Mlabs.Lending.Logic.State
         Mlabs.Lending.Logic.Types
-        Mlabs.Lending.Utils
   default-extensions: BangPatterns
                       ExplicitForAll
                       FlexibleContexts
