@@ -4,87 +4,118 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
+module Main
+    ( main
+    ) where
 
-module Main(main) where
+import Control.Monad ( forM, void, forM_, when )
+import           Control.Monad.Freer                     (Eff, Member, interpret, type (~>))
+import           Control.Monad.Freer.Error               (Error)
+import           Control.Monad.Freer.Extras.Log          (LogMsg)
+import           Control.Monad.IO.Class                  (MonadIO (..))
+import           Data.Aeson                              (FromJSON, Result (..), ToJSON, encode, fromJSON)
+import qualified Data.Map.Strict                         as Map
+import qualified Data.Monoid                             as Monoid
+import           Data.Text                               (Text)
+import           Data.Text.Prettyprint.Doc               (Pretty (..), viaShow)
+import           GHC.Generics                            (Generic)
+import           Ledger.Ada                              (adaSymbol, adaToken, adaValueOf,lovelaceValueOf)
+import qualified Plutus.Contracts.LendingPool                as Aave
+import           Plutus.PAB.Effects.Contract             (ContractEffect (..))
+import           Plutus.PAB.Effects.Contract.Builtin     (Builtin, SomeBuiltin (..), type (.\\))
+import qualified Plutus.PAB.Effects.Contract.Builtin     as Builtin
+import           Plutus.PAB.Monitoring.PABLogMsg         (PABMultiAgentMsg)
+import           Plutus.PAB.Simulator                    (SimulatorEffectHandlers)
+import qualified Plutus.PAB.Simulator                    as Simulator
+import           Plutus.PAB.Types                        (PABError (..))
+import qualified Plutus.PAB.Webserver.Server             as PAB.Server
+import           Prelude                                 hiding (init)
+import qualified Data.Semigroup            as Semigroup
+import           Ledger
+import           Ledger.Constraints
+import           Ledger.Value              as Value
+import           Plutus.Contract           hiding (when)
+import qualified Plutus.Contracts.Currency as Currency
+import           Wallet.Emulator.Types     (Wallet (..), walletPubKey)
 
-import           Control.Monad                       (void)
-import           Control.Monad.Freer                 (Eff, Member, interpret, type (~>))
-import           Control.Monad.Freer.Error           (Error)
-import           Control.Monad.IO.Class              (MonadIO (..))
-import           Data.Aeson                          (FromJSON (..), ToJSON (..), genericToJSON, genericParseJSON
-                                                     , defaultOptions, Options(..))
-import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
-import           GHC.Generics                        (Generic)
-import           Plutus.Contract                     (BlockchainActions, ContractError)
-import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\))
-import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
-import           Plutus.PAB.Simulator                (SimulatorEffectHandlers)
-import qualified Plutus.PAB.Simulator                as Simulator
-import           Plutus.PAB.Types                    (PABError (..))
-import qualified Plutus.PAB.Webserver.Server         as PAB.Server
-import           Plutus.Contracts.Game               as Game
-import           Wallet.Emulator.Types               (Wallet (..))
+initContract :: Contract (Maybe (Semigroup.Last Currency.OneShotCurrency)) Currency.CurrencySchema Currency.CurrencyError ()
+initContract = do
+    ownPK <- pubKeyHash <$> ownPubKey
+    let v  = lovelaceValueOf amount
+    forM_ wallets $ \w -> do
+        let pkh = pubKeyHash $ walletPubKey w
+        when (pkh /= ownPK) $ do
+            tx <- submitTx $ mustPayToPubKey pkh v
+            awaitTxConfirmed $ txId tx
+  where
+    amount = 1000000
+
+wallets :: [Wallet]
+wallets = [Wallet i | i <- [1 .. 4]]
 
 main :: IO ()
 main = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin StarterContracts) "Starting plutus-starter PAB webserver on port 8080. Press enter to exit."
+    Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
-    -- Example of spinning up a game instance on startup
-    -- void $ Simulator.activateContract (Wallet 1) GameContract
-    -- You can add simulator actions here:
-    -- Simulator.observableState
-    -- etc.
-    -- That way, the simulation gets to a predefined state and you don't have to
-    -- use the HTTP API for setup.
 
-    -- Pressing enter results in the balances being printed
-    void $ liftIO getLine
-    
-    Simulator.logString @(Builtin StarterContracts) "Balances at the end of the simulation"
-    b <- Simulator.currentBalances
-    Simulator.logBalances @(Builtin StarterContracts) b
+    cidInit  <- Simulator.activateContract (Wallet 1) Init
+    _        <- Simulator.waitUntilFinished cidInit
 
+    Simulator.logString @(Builtin AaveContracts) "Initialization finished."
+
+    cidStart <- Simulator.activateContract (Wallet 1) AaveStart
+    aa       <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.Aave))) of
+                    Success (Monoid.Last (Just (Right aa))) -> Just aa
+                    _                                       -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Aave instance created: " ++ show aa
+
+    cids <- fmap Map.fromList $ forM wallets $ \w -> do
+        cid <- Simulator.activateContract w $ AaveUser aa
+        Simulator.logString @(Builtin AaveContracts) $ "Aave user contract started for " ++ show w
+        return (w, cid)
+
+    Simulator.logString @(Builtin AaveContracts) "creating liquidity pool"
+    _  <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" ()
+    flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Created))) -> Just ()
+        _                                                    -> Nothing
+    Simulator.logString @(Builtin AaveContracts) "liquidity pool created"
+
+    _ <- liftIO getLine
     shutdown
 
-data StarterContracts =
-    GameContract
+data AaveContracts =
+      Init
+    | AaveStart
+    | AaveUser Aave.Aave
     deriving (Eq, Ord, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
 
--- NOTE: Because 'StarterContracts' only has one constructor, corresponding to 
--- the demo 'Game' contract, we kindly ask aeson to still encode it as if it had
--- many; this way we get to see the label of the contract in the API output!
--- If you simple have more contracts, you can just use the anyclass deriving
--- statement on 'StarterContracts' instead:
---
---    `... deriving anyclass (ToJSON, FromJSON)`
-instance ToJSON StarterContracts where
-  toJSON = genericToJSON defaultOptions {
-             tagSingleConstructors = True }
-instance FromJSON StarterContracts where
-  parseJSON = genericParseJSON defaultOptions {
-             tagSingleConstructors = True }
-
-instance Pretty StarterContracts where
+instance Pretty AaveContracts where
     pretty = viaShow
 
-handleStarterContract ::
+handleAaveContract ::
     ( Member (Error PABError) effs
+    , Member (LogMsg (PABMultiAgentMsg (Builtin AaveContracts))) effs
     )
-    => ContractEffect (Builtin StarterContracts)
+    => ContractEffect (Builtin AaveContracts)
     ~> Eff effs
-handleStarterContract = Builtin.handleBuiltin getSchema getContract where
-    getSchema = \case
-        GameContract -> Builtin.endpointsToSchemas @(Game.GameSchema .\\ BlockchainActions)
-    getContract = \case
-        GameContract -> SomeBuiltin (Game.game @ContractError)
+handleAaveContract = Builtin.handleBuiltin getSchema getContract where
+  getSchema = \case
+    AaveUser _ -> Builtin.endpointsToSchemas @(Aave.AaveUserSchema .\\ BlockchainActions)
+    AaveStart  -> Builtin.endpointsToSchemas @(Aave.AaveOwnerSchema .\\ BlockchainActions)
+    Init          -> Builtin.endpointsToSchemas @Empty
+  getContract = \case
+    AaveUser us -> SomeBuiltin $ Aave.userEndpoints us
+    AaveStart   -> SomeBuiltin Aave.ownerEndpoint
+    Init           -> SomeBuiltin initContract
 
-handlers :: SimulatorEffectHandlers (Builtin StarterContracts)
+handlers :: SimulatorEffectHandlers (Builtin AaveContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin StarterContracts) [GameContract]
-    $ interpret handleStarterContract
-
+    Simulator.mkSimulatorHandlers @(Builtin AaveContracts) [] -- [Init, AaveStart, AaveUser ???]
+    $ interpret handleAaveContract
