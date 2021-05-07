@@ -324,6 +324,7 @@ userEndpoints aa = forever $ f (Proxy @"create") (const Created) create
       -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
     f _ g c = do
         e <- runError $ do
+            _ <- endpoint @l
             c aa
         tell $ Last $ Just $ case e of
             Left err -> Left err
