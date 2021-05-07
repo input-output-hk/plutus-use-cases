@@ -134,21 +134,6 @@ mkAaveValidator :: Aave
 mkAaveValidator aa (Factory lps) (Create lp) ctx = validateCreate aa lps lp ctx
 mkAaveValidator _  _             _           _   = False
 
-validateLiquidityForging :: Aave -> TokenName -> ScriptContext -> Bool
-validateLiquidityForging aa tn ctx = case [ i
-                                          | i <- txInfoInputs $ scriptContextTxInfo ctx
-                                          , let v = valueWithin i
-                                          , (assetClassValueOf v aaC == 1) ||
-                                            (assetClassValueOf v lpC == 1)
-                                          ] of
-    [_]    -> True
-    [_, _] -> True
-    _      -> traceError "pool state forging without Aave input"
-  where
-    aaC, lpC :: AssetClass
-    aaC = aaveProtocolInst aa
-    lpC = assetClass (ownCurrencySymbol ctx) tn
-
 aaveInstance :: Aave -> Scripts.ScriptInstance AaveScript
 aaveInstance aa = Scripts.validator @AaveScript
     ($$(PlutusTx.compile [|| mkAaveValidator ||])
@@ -169,14 +154,7 @@ aaveAddress = Ledger.scriptAddress . aaveScript
 aave :: CurrencySymbol -> Aave
 aave protocol = Aave (assetClass protocol aaveProtocolName)
 
-liquidityPolicy :: Aave -> MonetaryPolicy
-liquidityPolicy aa = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \a t -> Scripts.wrapMonetaryPolicy (validateLiquidityForging a t) ||])
-        `PlutusTx.applyCode` PlutusTx.liftCode aa
-        `PlutusTx.applyCode` PlutusTx.liftCode aavePoolName
-
--- | Creates a Aave "factory". This factory will keep track of the existing liquidity pools and enforce that there will be at most one liquidity pool
--- for any pair of tokens at any given time.
+-- | Creates a Aave "factory". This factory will keep track of the existing lending pools
 start :: HasBlockchainActions s => Contract w s Text Aave
 start = do
     pkh <- pubKeyHash <$> ownPubKey
@@ -193,7 +171,7 @@ start = do
     logInfo @String $ printf "started Aave %s at address %s" (show aa) (show $ aaveAddress aa)
     return aa
 
--- | Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
+-- | Creates a lending pool.
 create :: HasBlockchainActions s => Aave -> Contract w s Text ()
 create aa = do
     pkh <- pubKeyHash <$> ownPubKey
@@ -212,18 +190,16 @@ create aa = do
 
         lookups  = Constraints.scriptInstanceLookups aaInst        <>
                    Constraints.otherScript aaScript                <>
-                --    Constraints.monetaryPolicy (liquidityPolicy aa) <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
         tx       = Constraints.mustPayToTheScript aaDat1 aaVal                                               <>
                    Constraints.mustPayToTheScript aaDat2 lpVal                                               <>
-                --    Constraints.mustForgeValue lpVal                 <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create lp)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "created liquidity pool: " ++ show lp
+    logInfo $ "created lending pool: " ++ show lp
 
 getAaveDatum :: TxOutTx -> Contract w s Text AaveDatum
 getAaveDatum o = case txOutDatumHash $ txOutTxOut o of
@@ -278,7 +254,7 @@ findAaveFactoryAndPool aa lpToFind = do
             return ( (oref1, o1, lps)
                    , (oref2, o2, lp, a)
                    )
-        _    -> throwError "liquidity pool not found"
+        _    -> throwError "lending pool not found"
 
 ownerEndpoint :: Contract (Last (Either Text Aave)) BlockchainActions Void ()
 ownerEndpoint = do
@@ -302,7 +278,7 @@ data UserContractState = Created
 
 -- | Provides the following endpoints for users of a Aave instance:
 --
---      [@create@]: Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
+--      [@create@]: Creates a lending pool.
 userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
 userEndpoints aa = forever $ f (Proxy @"create") (const Created) create
   where
