@@ -44,6 +44,7 @@ library
   exposed-modules:
         Mlabs.Lending
         Mlabs.Lending.Contract.Coin
+        Mlabs.Lending.Contract.Forge
         Mlabs.Lending.Contract.Lendex
         Mlabs.Lending.Contract.Utils
         Mlabs.Lending.Logic.App
@@ -123,6 +124,7 @@ Test-suite mlabs-plutus-use-cases-tests
   hs-source-dirs:      test
   Main-is:             Main.hs
   Other-modules:       Test.Lending
+                       Test.Lending.Contract
                        Test.Lending.Logic
                      , Test.Utils
   default-extensions:

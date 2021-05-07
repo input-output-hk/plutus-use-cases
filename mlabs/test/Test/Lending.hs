@@ -1,6 +1,6 @@
 -- | Test suite for lending exchange
 module Test.Lending(
-  tests
+  test
 ) where
 
 import Prelude
@@ -22,8 +22,8 @@ import qualified Mlabs.Lending.Contract.Coin as L
 import Test.Utils
 
 --  | Test suite for lending exchange
-tests :: TestTree
-tests = testGroup "Lending"
+test :: TestTree
+test = testGroup "Lending"
   [ testCreate
   ]
 

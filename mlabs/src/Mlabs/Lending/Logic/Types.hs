@@ -21,6 +21,7 @@ module Mlabs.Lending.Logic.Types(
   , Reserve(..)
   , InterestRate(..)
   , initReserve
+  , initLendingPool
   , Act(..)
   , UserAct(..)
   , PriceAct(..)
@@ -36,6 +37,8 @@ module Mlabs.Lending.Logic.Types(
   , Showt(..)
 ) where
 
+
+import Data.Aeson (FromJSON, ToJSON)
 
 import qualified Prelude as P
 import qualified PlutusTx as PlutusTx
@@ -54,7 +57,8 @@ class Showt a where
 data UserId
   = UserId PubKeyHash  -- user address
   | Self               -- addres of the lending platform
-  deriving (Show, Generic, P.Eq, P.Ord)
+  deriving stock (Show, Generic, P.Eq, P.Ord)
+  deriving anyclass (FromJSON, ToJSON)
 
 instance Eq UserId where
   {-# INLINABLE (==) #-}
@@ -78,6 +82,12 @@ data Reserve = Reserve
   , reserve'liquidationThreshold :: !Rational   -- ^ ratio at which liquidation of collaterals can happen for this coin
   }
   deriving (Show, Generic)
+
+{-# INLINABLE initLendingPool #-}
+initLendingPool :: CurrencySymbol -> [(Coin, Rational)] -> LendingPool
+initLendingPool curSym coins = LendingPool reserves M.empty curSym
+  where
+    reserves = M.fromList $ fmap (\(coin, rat) -> (coin, initReserve rat)) coins
 
 {-# INLINABLE initReserve #-}
 -- | Initialise empty reserve with given ratio of its coin to ada
@@ -122,7 +132,8 @@ data Act
   = UserAct UserId UserAct   -- ^ user's actions
   | PriceAct PriceAct        -- ^ price oracle's actions
   | GovernAct GovernAct      -- ^ app admin's actions
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Lending pool action
 data UserAct
@@ -169,18 +180,21 @@ data UserAct
       , act'receiveAToken  :: Bool
       }
   -- ^ call to liquidate borrows that are unsafe due to health check
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Acts that can be done by admin users.
 data GovernAct
   = AddReserve Coin Rational  -- ^ Adds new reserve
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Updates for the prices of the currencies on the markets
 data PriceAct
   = SetAssetPrice Coin Rational   -- ^ Set asset price
   | SetOracleAddr Coin UserId     -- ^ Provide address of the oracle
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Custom currency
 type Coin = AssetClass
@@ -208,7 +222,8 @@ data PriceOracleProvider = PriceOracleProvider
 data InterestRateStrategy = InterestRateStrategy
 
 data InterestRate = StableRate | VariableRate
-  deriving (Show)
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 ------------------------------------------
 

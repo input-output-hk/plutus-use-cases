@@ -9,10 +9,13 @@ repl:
 	stack ghci
 
 test: 
-	stack test all
+	stack test all 
 
 watch: 
 	stack build --file-watch --ghc-options="-Wall"
+
+test-watch: 
+	stack test --file-watch 
 
 # Target to use as dependency to fail if not inside nix-shell
 requires_nix_shell:
