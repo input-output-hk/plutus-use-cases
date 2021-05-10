@@ -5,6 +5,8 @@ module Test.Lending.Contract(
 
 import Prelude
 
+import Data.Default
+
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -29,14 +31,16 @@ test = testGroup "Contract"
   ]
   where
     testDeposit = testNoErrors initConfig depositScript
-    testBorrow  = testNoErrors initConfig borrowScript
+    testBorrow  = do
+      Trace.runEmulatorTraceIO' def initConfig borrowScript
+      testNoErrors initConfig borrowScript
 
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
 depositScript :: Trace.EmulatorTrace ()
 depositScript = do
   L.callStartLendex w1 $ L.StartParams
     { sp'coins = fmap (, R.fromInteger 1) [adaCoin, coin1, coin2, coin3] }
-  next
+  wait 5
   userAct1 $ DepositAct 50 coin1
   userAct2 $ DepositAct 50 coin2
   userAct3 $ DepositAct 50 coin3

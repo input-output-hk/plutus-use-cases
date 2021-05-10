@@ -18,6 +18,8 @@ module Mlabs.Lending.Contract.Lendex(
   , callStartLendex
 ) where
 
+import qualified Prelude as P
+
 import Control.Monad (forever)
 import Control.Monad.State.Strict (runStateT)
 
@@ -29,10 +31,16 @@ import GHC.Generics
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import           Plutus.Contract
 import qualified Plutus.Contract.StateMachine as SM
+import           Ledger                       hiding (singleton)
 import qualified Ledger.Typed.Scripts         as Scripts
+import           Ledger.Value        (AssetClass (..), assetClassValue, assetClassValueOf, assetClass)
+import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
-import           PlutusTx.Prelude             hiding (Applicative (..), check)
+import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
+import qualified PlutusTx.Prelude             as PlutusTx
 
+
+import Mlabs.Lending.Logic.Emulator
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
 import qualified Mlabs.Lending.Contract.Forge as Forge
@@ -68,8 +76,10 @@ transition ::
   -> Act
   -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State LendingPool)
 transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react input) oldData of
-  Left _err          -> Nothing
-  Right (_, newData) -> Just (mempty, SM.State { stateData=newData, stateValue=oldValue })
+  Left _err              -> Nothing
+  Right (resps, newData) -> Just ( foldMap toConstraints resps
+                                 , SM.State { stateData=newData
+                                            , stateValue= updateLendexValue resps oldValue })
 
 -----------------------------------------------------------------------
 -- endpoints and schemas
@@ -85,7 +95,24 @@ type UserApp a = Contract () UserLendexSchema LendexError a
 userAction :: UserAct -> UserApp ()
 userAction act = do
   pkh <- fmap pubKeyHash ownPubKey
-  void $ SM.runStep client (UserAct (UserId pkh) act)
+  let lookups = monetaryPolicy Forge.currencyPolicy P.<>
+                ownPubKeyHash  pkh
+  t <- SM.mkStep client (UserAct (UserId pkh) act)
+  logInfo @String $ "Executes action " P.<> show act
+  case t of
+    Left err -> logError ("Action failed" :: String)
+    Right SM.StateMachineTransition{smtConstraints=constraints, smtLookups=lookups'} -> do
+        tx <- submitTxConstraintsWith (lookups P.<> lookups') constraints
+        awaitTxConfirmed (txId tx)
+
+{-
+  case t of
+         Left{} -> return () -- Ignore invalid transitions
+         Right StateMachineTransition{smtConstraints=constraints, smtLookups=lookups'} -> do
+             tx <- submitTxConstraintsWith (lookups <> lookups') constraints
+             awaitTxConfirmed (txId tx)
+-}
+
 
 -- | Endpoints for user
 userEndpoints :: UserApp ()
@@ -130,7 +157,7 @@ startLendex :: StartParams -> GovernApp ()
 startLendex StartParams{..} = do
   void $ SM.runInitialise client (initLendingPool Forge.currencySymbol sp'coins) initValue
   where
-    initValue = mempty
+    initValue = PlutusTx.mempty
 
 -- | Endpoints for admin user
 governEndpoints :: GovernApp ()
@@ -138,6 +165,32 @@ governEndpoints = startLendex' >> forever governAction'
   where
     governAction' = endpoint @"govern-action" >>= governAction
     startLendex'  = endpoint @"start-lendex"  >>= startLendex
+
+---------------------------------------------------------
+
+{-# INLINABLE toConstraints #-}
+toConstraints :: Resp -> TxConstraints SM.Void SM.Void
+toConstraints = \case
+  Move addr coin amount | amount > 0 -> case addr of
+    -- pays to lendex app
+    Self       -> PlutusTx.mempty -- we already check this constraint with StateMachine
+    -- pays to the user
+    UserId pkh -> mustPayToPubKey pkh (assetClassValue coin amount)
+  Mint coin amount      -> mustForgeValue (assetClassValue coin amount)
+  Burn coin amount      -> mustForgeValue (assetClassValue coin $ negate amount)
+  _ -> PlutusTx.mempty
+
+{-# INLINABLE updateLendexValue #-}
+updateLendexValue :: [Resp] -> Value -> Value
+updateLendexValue rs val = foldMap toLendexValue rs PlutusTx.<> val
+
+{-# INLINABLE toLendexValue #-}
+toLendexValue :: Resp -> Value
+toLendexValue = \case
+  Move Self coin amount -> assetClassValue coin amount
+  Mint coin amount      -> assetClassValue coin amount
+  Burn coin amount      -> assetClassValue coin (negate amount)
+  _                     -> PlutusTx.mempty
 
 ---------------------------------------------------------
 -- call endpoints (for debug and testing)

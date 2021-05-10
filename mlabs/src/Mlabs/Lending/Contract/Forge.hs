@@ -1,5 +1,6 @@
 module Mlabs.Lending.Contract.Forge(
-  currencySymbol
+    currencySymbol
+  , currencyPolicy
 ) where
 
 import PlutusTx.Prelude
