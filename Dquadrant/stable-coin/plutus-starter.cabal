@@ -1,0 +1,67 @@
+cabal-version:      2.4
+name:               plutus-starter
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+license: Apache-2.0
+license-files: LICENSE
+author:             Your name
+maintainer:         Your email
+
+-- A copyright notice.
+-- copyright:
+-- category:
+-- extra-source-files: CHANGELOG.md
+
+library
+    exposed-modules:
+      Plutus.Contracts.LendingPool
+    build-depends:
+      base >= 4.9 && < 5,
+      aeson,
+      bytestring,
+      containers,
+      text,
+      -- Plutus:
+      playground-common,
+      plutus-contract,
+      plutus-tx-plugin,
+      plutus-tx,
+      plutus-ledger,
+      plutus-ledger-api,
+      plutus-use-cases
+    hs-source-dirs: src
+    default-language: Haskell2010
+    ghc-options:
+            -- See Plutus Tx readme
+            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+
+executable plutus-starter-pab
+  main-is: Main.hs
+  hs-source-dirs: pab
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    aeson,
+    freer-simple,
+    freer-extras,
+    prettyprinter,
+    containers,
+    row-types,
+    text,
+    -- Plutus:
+    plutus-ledger,
+    plutus-contract,
+    plutus-pab,
+    plutus-starter,
+    playground-common,
+    plutus-use-cases
