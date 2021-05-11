@@ -1,3 +1,3 @@
 fmt:
-	find . -type f -name \*.hs -exec \
+	find pab src -type f -name \*.hs -exec \
 		stylish-haskell --inplace '{}' +
