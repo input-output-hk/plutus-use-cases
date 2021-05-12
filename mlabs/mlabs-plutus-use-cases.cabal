@@ -24,6 +24,7 @@ library
                      , aeson
                      , bytestring
                      , containers
+                     , extra
                      , mtl
                      , playground-common
                      , plutus-core
@@ -42,8 +43,9 @@ library
   default-language: Haskell2010
   hs-source-dirs:      src/
   exposed-modules:
-        Mlabs.Lending
+--        Mlabs.Lending
         Mlabs.Lending.Contract.Coin
+        Mlabs.Lending.Contract.Forge
         Mlabs.Lending.Contract.Lendex
         Mlabs.Lending.Contract.Utils
         Mlabs.Lending.Logic.App
@@ -104,6 +106,7 @@ Test-suite mlabs-plutus-use-cases-tests
   Ghc-options:         -Wall -threaded -rtsopts
   Default-Language:    Haskell2010
   Build-Depends:       base              >=4.9 && <5
+                     , data-default
                      , mlabs-plutus-use-cases
                      , containers
                      , playground-common
@@ -122,9 +125,11 @@ Test-suite mlabs-plutus-use-cases-tests
                      , text
   hs-source-dirs:      test
   Main-is:             Main.hs
-  Other-modules:       Test.Lending
+  Other-modules:
+                      -- Test.Lending
+                       Test.Lending.Contract
                        Test.Lending.Logic
-                     , Test.Utils
+                       Test.Utils
   default-extensions:
     RecordWildCards
     OverloadedStrings

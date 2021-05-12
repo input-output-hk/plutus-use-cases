@@ -13,7 +13,6 @@ import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Plutus.V1.Ledger.Value
 
 import Control.Monad.State.Strict hiding (Functor(..))
-import Control.Arrow (second)
 
 import Data.List (foldl')
 
@@ -54,7 +53,7 @@ runApp cfg acts = foldl' go (initApp cfg) acts
 
 -- Configuration paprameters for app.
 data AppConfig = AppConfig
-  { appConfig'reserves :: [(Coin, Rational)]
+  { appConfig'reserves :: [CoinCfg]
   -- ^ coins with ratios to base currencies for each reserve
   , appConfig'users    :: [(UserId, BchWallet)]
   -- ^ initial set of users with their wallets on blockchain
@@ -67,10 +66,12 @@ data AppConfig = AppConfig
 -- | App is initialised with list of coins and their rates (value relative to base currency, ada for us)
 initApp :: AppConfig -> App
 initApp AppConfig{..} = App
-  { app'pool = LendingPool (AM.fromList (fmap (second initReserve) appConfig'reserves)) AM.empty appConfig'currencySymbol
+  { app'pool = LendingPool (AM.fromList (fmap (\x -> (coinCfg'coin x, initReserve x)) appConfig'reserves)) AM.empty appConfig'currencySymbol coinMap
   , app'log  = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appConfig'users
   }
+  where
+    coinMap = AM.fromList $ fmap (\CoinCfg{..} -> (coinCfg'aToken, coinCfg'coin)) $ appConfig'reserves
 
 -- | Default application.
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
@@ -79,20 +80,15 @@ defaultAppConfig :: AppConfig
 defaultAppConfig = AppConfig reserves users curSym
   where
     curSym = currencySymbol "lending-app"
+    userNames = ["1", "2", "3"]
+    coinNames = ["Dollar", "Euro", "Lira"]
 
-    reserves = fmap (, R.fromInteger 1) [coin1, coin2, coin3]
+    reserves = fmap (\name -> CoinCfg (toCoin name) (R.fromInteger 1) (toAToken name))  coinNames
 
-    coin1 = toCoin "Dollar"
-    coin2 = toCoin "Euro"
-    coin3 = toCoin "Lira"
-
-    users = [user1, user2, user3]
-
-    user1 = (UserId (PubKeyHash "1"), wal (coin1, 100))
-    user2 = (UserId (PubKeyHash "2"), wal (coin2, 100))
-    user3 = (UserId (PubKeyHash "3"), wal (coin3, 100))
-
+    users = zipWith (\coinName userName -> (UserId (PubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames
     wal cs = BchWallet $ uncurry M.singleton cs
+
+    toAToken name = tokenName $ "a" <> name
 
 toCoin :: ByteString -> Coin
 toCoin str = AssetClass (currencySymbol str, tokenName str)
