@@ -24,6 +24,7 @@ library
                      , aeson
                      , bytestring
                      , containers
+                     , extra
                      , mtl
                      , playground-common
                      , plutus-core

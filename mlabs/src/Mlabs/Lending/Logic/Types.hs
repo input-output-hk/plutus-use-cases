@@ -20,6 +20,7 @@ module Mlabs.Lending.Logic.Types(
   , UserId(..)
   , Reserve(..)
   , InterestRate(..)
+  , CoinCfg(..)
   , initReserve
   , initLendingPool
   , Act(..)
@@ -30,6 +31,8 @@ module Mlabs.Lending.Logic.Types(
   , LpAddressesProviderRegistry(..)
   , Coin
   , toLendingToken
+  , fromLendingToken
+  , fromAToken
   , LpCollateralManager(..)
   , LpConfigurator(..)
   , PriceOracleProvider(..)
@@ -70,7 +73,8 @@ instance Eq UserId where
 data LendingPool = LendingPool
   { lp'reserves :: !(Map Coin Reserve)   -- ^ list of reserves
   , lp'users    :: !(Map UserId User)    -- ^ internal user wallets on the app
-  , lp'currency :: !CurrencySymbol
+  , lp'currency :: !CurrencySymbol       -- ^ main correncySymbol of the app
+  , lp'coinMap  :: !(Map TokenName Coin) -- ^ maps aTokenNames to actual coins
   }
   deriving (Show, Generic)
 
@@ -80,26 +84,38 @@ data Reserve = Reserve
   { reserve'wallet               :: !Wallet     -- ^ total amounts of coins deposited to reserve
   , reserve'rate                 :: !Rational   -- ^ ratio of reserve's coin to base currency
   , reserve'liquidationThreshold :: !Rational   -- ^ ratio at which liquidation of collaterals can happen for this coin
+  , reserve'aToken               :: !TokenName  -- ^ aToken coressponding to the coin of the reserve
   }
   deriving (Show, Generic)
 
+-- | Coin configuration
+data CoinCfg = CoinCfg
+  { coinCfg'coin   :: Coin
+  , coinCfg'rate   :: Rational
+  , coinCfg'aToken :: TokenName
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
 {-# INLINABLE initLendingPool #-}
-initLendingPool :: CurrencySymbol -> [(Coin, Rational)] -> LendingPool
-initLendingPool curSym coins = LendingPool reserves M.empty curSym
+initLendingPool :: CurrencySymbol -> [CoinCfg] -> LendingPool
+initLendingPool curSym coinCfgs = LendingPool reserves M.empty curSym coinMap
   where
-    reserves = M.fromList $ fmap (\(coin, rat) -> (coin, initReserve rat)) coins
+    reserves = M.fromList $ fmap (\cfg -> (coinCfg'coin cfg, initReserve cfg)) coinCfgs
+    coinMap  = M.fromList $ fmap (\(CoinCfg coin _ aToken) -> (aToken, coin)) coinCfgs
 
 {-# INLINABLE initReserve #-}
 -- | Initialise empty reserve with given ratio of its coin to ada
-initReserve :: Rational -> Reserve
-initReserve rate = Reserve
+initReserve :: CoinCfg -> Reserve
+initReserve CoinCfg{..} = Reserve
   { reserve'wallet = Wallet
       { wallet'deposit    = 0
       , wallet'borrow     = 0
       , wallet'collateral = 0
       }
-  , reserve'rate                 = rate
+  , reserve'rate                 = coinCfg'rate
   , reserve'liquidationThreshold = 8 % 10
+  , reserve'aToken               = coinCfg'aToken
   }
 
 -- | User is a set of wallets per currency
@@ -185,7 +201,7 @@ data UserAct
 
 -- | Acts that can be done by admin users.
 data GovernAct
-  = AddReserve Coin Rational  -- ^ Adds new reserve
+  = AddReserve CoinCfg  -- ^ Adds new reserve
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -200,9 +216,17 @@ data PriceAct
 type Coin = AssetClass
 
 {-# INLINABLE toLendingToken #-}
-toLendingToken :: CurrencySymbol -> Coin -> Coin
-toLendingToken lendingPoolCurrency (AssetClass (cs, tn)) =
-  AssetClass (lendingPoolCurrency, TokenName $ concatenate (unCurrencySymbol cs) (unTokenName tn))
+toLendingToken :: LendingPool -> Coin -> Maybe Coin
+toLendingToken LendingPool{..} coin =
+  flip fmap (M.lookup coin lp'reserves) $ \Reserve{..} -> AssetClass (lp'currency, reserve'aToken)
+
+{-# INLINABLE fromAToken #-}
+fromAToken :: LendingPool -> TokenName -> Maybe Coin
+fromAToken LendingPool{..} tn = M.lookup tn lp'coinMap
+
+{-# INLINABLE fromLendingToken #-}
+fromLendingToken :: LendingPool -> Coin -> Maybe Coin
+fromLendingToken lp (AssetClass (_ ,tn)) = fromAToken lp tn
 
 ----------------------------------------------------
 -- some types specific to aave
@@ -227,6 +251,7 @@ data InterestRate = StableRate | VariableRate
 
 ------------------------------------------
 
+PlutusTx.unstableMakeIsData ''CoinCfg
 PlutusTx.unstableMakeIsData ''InterestRate
 PlutusTx.unstableMakeIsData ''UserAct
 PlutusTx.unstableMakeIsData ''PriceAct

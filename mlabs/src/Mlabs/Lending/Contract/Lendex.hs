@@ -22,18 +22,18 @@ import qualified Prelude as P
 
 import Control.Monad (forever)
 import Control.Monad.State.Strict (runStateT)
+import Data.List.Extra (firstJust)
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Functor (void)
 
 import GHC.Generics
 
-import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import           Plutus.Contract
 import qualified Plutus.Contract.StateMachine as SM
 import           Ledger                       hiding (singleton)
 import qualified Ledger.Typed.Scripts         as Scripts
-import           Ledger.Value        (AssetClass (..), assetClassValue, assetClassValueOf, assetClass)
+import           Ledger.Value                 (assetClassValue)
 import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
@@ -44,9 +44,15 @@ import Mlabs.Lending.Logic.Emulator
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
 import qualified Mlabs.Lending.Contract.Forge as Forge
+import Mlabs.Lending.Contract.Utils
 
 import Plutus.Trace.Emulator (EmulatorTrace, callEndpoint, activateContractWallet)
 import qualified Wallet.Emulator as Emulator
+
+import qualified Data.Map as M
+
+import Data.Text.Prettyprint.Doc.Extras
+
 
 type Lendex = SM.StateMachine LendingPool Act
 
@@ -62,6 +68,12 @@ mkValidator = SM.mkValidator machine
 
 client :: SM.StateMachineClient LendingPool Act
 client = SM.mkStateMachineClient $ SM.StateMachineInstance machine scriptInstance
+
+lendexValidatorHash :: ValidatorHash
+lendexValidatorHash = Scripts.scriptHash scriptInstance
+
+lendexAddress :: Address
+lendexAddress = scriptHashAddress lendexValidatorHash
 
 scriptInstance :: Scripts.ScriptInstance Lendex
 scriptInstance = Scripts.validator @Lendex
@@ -92,27 +104,28 @@ type UserLendexSchema =
 
 type UserApp a = Contract () UserLendexSchema LendexError a
 
+findInputStateDatum :: UserApp Datum
+findInputStateDatum = do
+  utxos <- utxoAt lendexAddress
+  maybe err P.pure $ firstJust (readDatum . snd) $ M.toList utxos
+  where
+    err = throwError $ SM.SMCContractError "Can not find Lending app instance"
+
 userAction :: UserAct -> UserApp ()
 userAction act = do
   pkh <- fmap pubKeyHash ownPubKey
+  inputDatum <- findInputStateDatum
   let lookups = monetaryPolicy Forge.currencyPolicy P.<>
                 ownPubKeyHash  pkh
+      constraints = mustIncludeDatum inputDatum
   t <- SM.mkStep client (UserAct (UserId pkh) act)
   logInfo @String $ "Executes action " P.<> show act
   case t of
-    Left err -> logError ("Action failed" :: String)
-    Right SM.StateMachineTransition{smtConstraints=constraints, smtLookups=lookups'} -> do
-        tx <- submitTxConstraintsWith (lookups P.<> lookups') constraints
+    Left _err -> logError ("Action failed" :: String)
+    Right SM.StateMachineTransition{smtConstraints=constraints', smtLookups=lookups'} -> do
+        tx <- submitTxConstraintsWith (lookups P.<> lookups') (constraints P.<> constraints')
+        mapM_ (logInfo @String) (lines $ show $ pretty tx)
         awaitTxConfirmed (txId tx)
-
-{-
-  case t of
-         Left{} -> return () -- Ignore invalid transitions
-         Right StateMachineTransition{smtConstraints=constraints, smtLookups=lookups'} -> do
-             tx <- submitTxConstraintsWith (lookups <> lookups') constraints
-             awaitTxConfirmed (txId tx)
--}
-
 
 -- | Endpoints for user
 userEndpoints :: UserApp ()
@@ -142,7 +155,7 @@ type GovernLendexSchema =
     .\/ Endpoint "start-lendex"  StartParams
 
 data StartParams = StartParams
-  { sp'coins  :: [(Coin, Rational)]  -- ^ supported coins with ratios to ADA
+  { sp'coins  :: [CoinCfg]  -- ^ supported coins with ratios to ADA
   }
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)

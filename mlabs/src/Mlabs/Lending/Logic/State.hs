@@ -6,6 +6,7 @@ module Mlabs.Lending.Logic.State(
     St
   , showt
   , Error
+  , aToken
   , initReserve
   , guardError
   , getWallet, getsWallet
@@ -61,6 +62,14 @@ instance Applicative St where
 
 ----------------------------------------------------
 -- common functions
+
+{-# INLINABLE aToken #-}
+aToken :: Coin -> St Coin
+aToken coin = do
+  mCoin <- gets (\st -> toLendingToken st coin)
+  maybe err pure mCoin
+  where
+    err = throwError "Coin not supported"
 
 {-# INLINABLE guardError #-}
 -- | Execute further if condition is True or throw error with
@@ -168,9 +177,9 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 -- | Modify reserve for a given asset. It can throw errors.
 modifyReserve' :: Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
-  LendingPool lp users curSym <- get
+  LendingPool lp users curSym coinMap <- get
   case M.lookup asset lp of
-    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym) (f reserve)
+    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym coinMap) (f reserve)
     Nothing      -> throwError $ "Asset is not supported"
 
 {-# INLINABLE modifyUser #-}
@@ -182,10 +191,10 @@ modifyUser uid f = modifyUser' uid (Right . f)
 -- | Modify user info by id. It can throw errors.
 modifyUser' :: UserId -> (User -> Either Error User) -> St ()
 modifyUser' uid f = do
-  LendingPool lp users curSym <- get
+  LendingPool lp users curSym coinMap <- get
   case f $ fromMaybe defaultUser $ M.lookup uid users of
     Left msg   -> throwError msg
-    Right user -> put $ LendingPool lp (M.insert uid user users) curSym
+    Right user -> put $ LendingPool lp (M.insert uid user users) curSym coinMap
 
 {-# INLINABLE modifyWalletAndReserve #-}
 -- | Modify user wallet and reserve wallet with the same function.

@@ -5,7 +5,7 @@ module Test.Lending.Contract(
 
 import Prelude
 
-import Data.Default
+-- import Data.Default
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -18,7 +18,7 @@ import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx.Ratio as R
 
-import Mlabs.Lending.Logic.Types (Coin, UserAct(..), InterestRate(..))
+import Mlabs.Lending.Logic.Types (Coin, UserAct(..), InterestRate(..), CoinCfg(..))
 import qualified Mlabs.Lending.Logic.App as L
 import qualified Mlabs.Lending.Contract.Lendex as L
 
@@ -32,17 +32,20 @@ test = testGroup "Contract"
   where
     testDeposit = testNoErrors initConfig depositScript
     testBorrow  = do
-      Trace.runEmulatorTraceIO' def initConfig borrowScript
+      -- uncomment to see the trace of execution
+      -- Trace.runEmulatorTraceIO' def initConfig borrowScript
       testNoErrors initConfig borrowScript
 
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
 depositScript :: Trace.EmulatorTrace ()
 depositScript = do
   L.callStartLendex w1 $ L.StartParams
-    { sp'coins = fmap (, R.fromInteger 1) [adaCoin, coin1, coin2, coin3] }
+    { sp'coins = fmap (\(coin, aCoin) -> CoinCfg coin (R.fromInteger 1) aCoin) [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)] }
   wait 5
   userAct1 $ DepositAct 50 coin1
+  next
   userAct2 $ DepositAct 50 coin2
+  next
   userAct3 $ DepositAct 50 coin3
   next
 
@@ -83,6 +86,12 @@ adaCoin, coin1, coin2, coin3 :: Coin
 coin1 = L.toCoin "Dollar"
 coin2 = L.toCoin "Euro"
 coin3 = L.toCoin "Lira"
+
+aToken1, aToken2, aToken3, aAda :: Value.TokenName
+aToken1 = Value.tokenName "aDollar"
+aToken2 = Value.tokenName "aEuro"
+aToken3 = Value.tokenName "aLira"
+aAda    = Value.tokenName "aAda"
 
 adaCoin = Value.AssetClass (Ada.adaSymbol, Ada.adaToken)
 

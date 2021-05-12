@@ -33,18 +33,18 @@ test = testGroup "User actions"
   where
     testBorrow = testWallets [(user1, w1)] borrowScript
       where
-        w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 30), (aToken coin1, 0)]
+        w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 30), (fromToken aToken1, 0)]
 
-    testDeposit = testWallets [(user1, wal coin1), (user2, wal coin2), (user3, wal coin3)] depositScript
+    testDeposit = testWallets [(user1, wal coin1 aToken1), (user2, wal coin2 aToken2), (user3, wal coin3 aToken3)] depositScript
       where
-        wal coin = BchWallet $ M.fromList [(coin, 50), (aToken coin, 50)]
+        wal coin aToken = BchWallet $ M.fromList [(coin, 50), (fromToken aToken, 50)]
 
     testBorrowNoCollateral = testScript borrowNoCollateralScript @=? False
     testBorrowNotEnoughCollateral = testScript borrowNotEnoughCollateralScript @=? False
 
     testWithdraw = testWallets [(user1, w1)] withdrawScript
       where
-        w1 = BchWallet $ M.fromList [(coin1, 75), (aToken coin1, 25)]
+        w1 = BchWallet $ M.fromList [(coin1, 75), (fromToken aToken1, 25)]
 
     -- User:
     --  * deposits 50 coin1
@@ -58,7 +58,7 @@ test = testGroup "User actions"
     --    aToken - 0 = remaining from collateral
     testRepay = testWallets [(user1, w1)] repayScript
       where
-        w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 10), (aToken coin1, 0)]
+        w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 10), (fromToken aToken1, 0)]
 
 -- | Checks that script runs without errors
 testScript :: [Act] -> Bool
@@ -156,8 +156,8 @@ repayScript = mconcat
 ---------------------------------
 -- constants
 
-aToken :: Coin -> Coin
-aToken = toLendingToken lendingPoolCurrency
+fromToken :: TokenName -> Coin
+fromToken aToken = AssetClass (lendingPoolCurrency, aToken)
 
 lendingPoolCurrency :: CurrencySymbol
 lendingPoolCurrency = currencySymbol "lending-pool"
@@ -174,18 +174,24 @@ coin1 = toCoin "Dollar"
 coin2 = toCoin "Euro"
 coin3 = toCoin "Lira"
 
+aToken1, aToken2, aToken3 :: TokenName
+aToken1 = tokenName "aDollar"
+aToken2 = tokenName "aEuro"
+aToken3 = tokenName "aLira"
+
 -- | Default application.
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 testAppConfig :: AppConfig
 testAppConfig = AppConfig reserves users lendingPoolCurrency
   where
-    reserves = fmap (, R.fromInteger 1) [coin1, coin2, coin3]
+    reserves = fmap (\(coin, aCoin) -> CoinCfg coin (R.fromInteger 1) aCoin)
+      [(coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
+
     users =
       [ (user1, wal (coin1, 100))
       , (user2, wal (coin2, 100))
       , (user3, wal (coin3, 100))
       ]
-
     wal cs = BchWallet $ uncurry M.singleton cs
 

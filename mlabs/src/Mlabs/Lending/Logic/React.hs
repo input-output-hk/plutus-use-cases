@@ -32,10 +32,6 @@ react = \case
   PriceAct    act -> priceAct act
   GovernAct   act -> governAct act
   where
-    aToken coin = do
-      curSym <- gets lp'currency
-      pure $ toLendingToken curSym coin
-
     -- | User acts
     userAct uid = \case
       DepositAct{..}                    -> depositAct uid act'amount act'asset
@@ -133,9 +129,7 @@ react = \case
             }
           aCoin <- aToken asset
           pure $ mconcat
-            [ moveFromTo uid Self aCoin amount
-            , [Burn aCoin amount]
-            ]
+            [ moveFromTo uid Self aCoin amount ]
 
     setAsDeposit uid asset portion
       | portion <= R.fromInteger 0 = pure []
@@ -198,17 +192,19 @@ react = \case
     -- Govern acts
 
     governAct = \case
-      AddReserve coin val -> addReserve coin val
+      AddReserve cfg -> addReserve cfg
 
     ---------------------------------------------------
     -- Adds new reserve (new coin/asset)
 
-    addReserve coin val = do
-      LendingPool reserves users curSym <- get
-      if M.member coin reserves
+    addReserve cfg@CoinCfg{..} = do
+      LendingPool reserves users curSym coinMap <- get
+      if M.member coinCfg'coin reserves
         then throwError "Reserve is already present"
         else do
-          put $ LendingPool (M.insert coin (initReserve val) reserves) users curSym
+          let newReserves = M.insert coinCfg'coin (initReserve cfg) reserves
+              newCoinMap  = M.insert coinCfg'aToken coinCfg'coin coinMap
+          put $ LendingPool newReserves users curSym newCoinMap
           return []
 
     todo = return []
