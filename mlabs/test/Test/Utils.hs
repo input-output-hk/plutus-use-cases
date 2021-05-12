@@ -2,14 +2,15 @@ module Test.Utils(
     throwError
   , next
   , wait
-  , testNoErrors
+  , concatPredicates
 ) where
 
 
 import Data.Functor (void)
-import Test.Tasty.HUnit (assertFailure)
+import Plutus.Contract.Test
 
 import qualified Plutus.Trace.Emulator as Trace
+import qualified Data.List as L
 
 -- | Throws error to emulator trace.
 throwError :: String -> Trace.EmulatorTrace a
@@ -23,10 +24,7 @@ next = void Trace.nextSlot
 wait :: Integer -> Trace.EmulatorTrace ()
 wait = void . Trace.waitNSlots . fromInteger
 
--- | Check that there are no errors during execution of the script.
-testNoErrors :: Trace.EmulatorConfig -> Trace.EmulatorTrace () -> IO ()
-testNoErrors cfg trace = case err of
-  Just e  -> assertFailure $ show e
-  Nothing -> pure ()
-  where
-    err = (\(_, merr, _) -> merr) $ Trace.runEmulatorTrace cfg trace
+concatPredicates :: [TracePredicate] -> TracePredicate
+concatPredicates = L.foldl1' (.&&.)
+
+
