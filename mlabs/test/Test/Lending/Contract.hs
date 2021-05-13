@@ -5,54 +5,41 @@ module Test.Lending.Contract(
 
 import Prelude
 
--- import Data.Default
-import Control.Lens
-
 import Test.Tasty
-
-import Plutus.V1.Ledger.Value (Value, TokenName)
-import qualified Plutus.V1.Ledger.Ada as Ada
-import qualified Plutus.V1.Ledger.Value as Value
-import qualified Data.Map as M
 
 import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx.Ratio as R
 
-import Mlabs.Lending.Logic.Types (Coin, UserAct(..), InterestRate(..), CoinCfg(..))
-import qualified Mlabs.Lending.Logic.App as L
+import Mlabs.Lending.Logic.Types (UserAct(..), InterestRate(..), CoinCfg(..))
 import qualified Mlabs.Lending.Contract.Lendex as L
-import qualified Mlabs.Lending.Contract.Forge as Forge
 
 import Test.Utils
 
+import Test.Lending.Init
 import Test.Lending.Scene
-
-depositScene :: Scene
-depositScene = appOwns mempty
-  <> mconcat
-      [ user w1 coin1 aCoin1
-      , user w2 coin2 aCoin2
-      , user w3 coin3 aCoin3  ]
-  where
-    user wal coin aCoin = wal `owns` [(coin, -50), (aCoin, 50)]
-
-borrowScene :: Scene
-borrowScene = depositScene <> borrowChange
-  where
-    borrowChange = w1 `owns` [(aCoin1, -50), (coin2, 30)]
-
 
 test :: TestTree
 test = testGroup "Contract"
   [ testDeposit
   , testBorrow
+  , testBorrowNoCollateral
+  , testBorrowNotEnoughCollateral
+  , testWithdraw
+  , testRepay
   ]
   where
     check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
 
-    testDeposit = check "Deposit" depositScene depositScript
+    testDeposit = check "Deposit (can mint aTokens)" depositScene depositScript
     testBorrow  = check "Borrow"  borrowScene  borrowScript
+    testBorrowNoCollateral = check "Borrow without collateral" borrowWithoutCollateralScene borrowWithoutCollateralScript
+    testBorrowNotEnoughCollateral = check "Borrow with not enough collateral" borrowNotEnoughCollateralScene borrowNotEnoughCollateralScript
+    testWithdraw = check "Withdraw (can burn aTokens)" withdrawScene withdrawScript
+    testRepay = check "Repay" repayScene repayScript
+
+--------------------------------------------------------------------------------
+-- deposit test
 
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
 depositScript :: Trace.EmulatorTrace ()
@@ -66,6 +53,19 @@ depositScript = do
   next
   userAct3 $ DepositAct 50 coin3
   next
+
+depositScene :: Scene
+depositScene = mconcat
+  [ appAddress L.lendexAddress
+  , appOwns [(coin1, 50), (coin2, 50), (coin3, 50)]
+  , user w1 coin1 aCoin1
+  , user w2 coin2 aCoin2
+  , user w3 coin3 aCoin3  ]
+  where
+    user wal coin aCoin = wal `owns` [(coin, -50), (aCoin, 50)]
+
+--------------------------------------------------------------------------------
+-- borrow test
 
 -- | 3 users deposit 50 coins to lending app
 -- and first user borrows in coin2 that he does not own prior to script run.
@@ -85,59 +85,94 @@ borrowScript = do
         }
   next
 
-------------------------------------------------------------------------------------
--- init blockchain state
-
-checkOptions :: CheckOptions
-checkOptions = defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution
-
--- | Wallets that are used for testing.
-wAdmin, w1, w2, w3 :: Wallet
-wAdmin = Wallet 50
-w1 = Wallet 1
-w2 = Wallet 2
-w3 = Wallet 3
-
-userAct1, userAct2, userAct3 :: UserAct -> Trace.EmulatorTrace ()
-userAct1 = L.callUserAct w1
-userAct2 = L.callUserAct w2
-userAct3 = L.callUserAct w3
-
--- coins
-adaCoin, coin1, coin2, coin3 :: Coin
-coin1 = L.toCoin "Dollar"
-coin2 = L.toCoin "Euro"
-coin3 = L.toCoin "Lira"
-
-aToken1, aToken2, aToken3, aAda :: TokenName
-aToken1 = Value.tokenName "aDollar"
-aToken2 = Value.tokenName "aEuro"
-aToken3 = Value.tokenName "aLira"
-aAda    = Value.tokenName "aAda"
-
-adaCoin = Value.AssetClass (Ada.adaSymbol, Ada.adaToken)
-
-fromToken :: TokenName -> Coin
-fromToken aToken = Value.AssetClass (Forge.currencySymbol, aToken)
-
-aCoin1, aCoin2, aCoin3 :: Coin
-aCoin1 = fromToken aToken1
-aCoin2 = fromToken aToken2
-aCoin3 = fromToken aToken3
-
-initialDistribution :: M.Map Wallet Value
-initialDistribution = M.fromList
-  [ (wAdmin, val 1000)
-  , (w1, val 1000 <> v1 100)
-  , (w2, val 1000 <> v2 100)
-  , (w3, val 1000 <> v3 100)
-  ]
+borrowScene :: Scene
+borrowScene = depositScene <> borrowChange
   where
-    val x = Value.singleton Ada.adaSymbol Ada.adaToken x
+    borrowChange = mconcat
+      [ w1 `owns` [(aCoin1, -50), (coin2, 30)]
+      , appOwns [(aCoin1, 50), (coin2, -30)]
+      ]
 
-    coinVal coin = uncurry Value.singleton (Value.unAssetClass coin)
-    v1 = coinVal coin1
-    v2 = coinVal coin2
-    v3 = coinVal coin3
+--------------------------------------------------------------------------------
+-- borrow without collateral test (It should fail to borrow)
 
+-- | 3 users deposit 50 coins to lending app
+-- and first user borrows in coin2 that he does not own prior to script run.
+-- But it should fail because user does not set his deposit funds as collateral.
+borrowWithoutCollateralScript :: Trace.EmulatorTrace ()
+borrowWithoutCollateralScript = do
+  depositScript
+  next
+  userAct1 $ BorrowAct
+        { act'asset           = coin2
+        , act'amount          = 30
+        , act'rate            = StableRate
+        }
+  next
+
+borrowWithoutCollateralScene :: Scene
+borrowWithoutCollateralScene = depositScene
+
+--------------------------------------------------------------------------------
+-- borrow without not enough collateral test (It should fail to borrow)
+
+-- | 3 users deposit 50 coins to lending app
+-- and first user wants to borrow too much.
+-- Only allocation of collateral succeeds for the first user but borrow step should fail.
+borrowNotEnoughCollateralScript :: Trace.EmulatorTrace ()
+borrowNotEnoughCollateralScript = do
+  depositScript
+  userAct1 SetUserReserveAsCollateralAct
+        { act'asset           = coin1
+        , act'useAsCollateral = True
+        , act'portion         = R.fromInteger 1
+        }
+  next
+  userAct1 BorrowAct
+        { act'asset           = coin2
+        , act'amount          = 60
+        , act'rate            = StableRate
+        }
+  next
+
+-- | Only allocation of collateral succeeds but borrow step should fail.
+borrowNotEnoughCollateralScene :: Scene
+borrowNotEnoughCollateralScene = depositScene <> setCollateralChange
+  where
+    setCollateralChange = mconcat [ w1 `owns` [(aCoin1, -50)], appOwns [(aCoin1, 50)]]
+
+--------------------------------------------------------------------------------
+-- withdraw test
+
+-- | User1 deposits 50 out of 100 and gets back 25.
+-- So we check that user has 75 coins and 25 aCoins
+withdrawScript :: Trace.EmulatorTrace ()
+withdrawScript = do
+  depositScript
+  userAct1 WithdrawAct
+      { act'amount = 25
+      , act'asset  = coin1
+      }
+
+withdrawScene :: Scene
+withdrawScene = depositScene <> withdrawChange
+  where
+    withdrawChange = mconcat [ w1 `owns` [(aCoin1, -25), (coin1, 25)], appOwns [(coin1, -25)] ]
+
+--------------------------------------------------------------------------------
+-- repay test
+
+repayScript :: Trace.EmulatorTrace ()
+repayScript = do
+  borrowScript
+  userAct1 $ RepayAct
+      { act'asset   = coin2
+      , act'amount  = 20
+      , act'rate    = StableRate
+      }
+
+repayScene :: Scene
+repayScene = borrowScene <> repayChange
+  where
+    repayChange = mconcat [w1 `owns` [(coin2, -20)], appOwns [(coin2, 20)]]
 

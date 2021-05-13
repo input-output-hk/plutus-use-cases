@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-strictness #-}
 module Mlabs.Lending.Contract.Lendex(
-    mkValidator
+    lendexAddress
+  , mkValidator
   , scriptInstance
   -- * Endpoints
   , UserLendexSchema, UserApp

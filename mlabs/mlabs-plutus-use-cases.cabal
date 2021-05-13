@@ -129,6 +129,7 @@ Test-suite mlabs-plutus-use-cases-tests
   Other-modules:
                       -- Test.Lending
                        Test.Lending.Contract
+                       Test.Lending.Init
                        Test.Lending.Logic
                        Test.Lending.Scene
                        Test.Utils
