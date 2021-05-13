@@ -10,6 +10,8 @@ module Mlabs.Lending.Logic.React(
     react
 ) where
 
+import qualified Prelude as Hask
+
 import qualified PlutusTx.Ratio as R
 import qualified PlutusTx.Numeric as N
 import PlutusTx.Prelude
@@ -156,8 +158,9 @@ react = \case
       modifyWalletAndReserve uid asset $ \w -> w { wallet'deposit = wallet'deposit w - amount }
       aCoin <- aToken asset
       pure $ mconcat
-        [ moveFromTo uid Self aCoin amount
-        , moveFromTo Self uid asset amount
+        [ moveFromTo Self uid asset amount
+        , moveFromTo uid Self aCoin amount
+        , Hask.pure $ Burn aCoin amount
         ]
 
     hasEnoughDepositToWithdraw uid amount asset = do

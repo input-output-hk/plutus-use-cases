@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-strictness #-}
 module Mlabs.Lending.Contract.Lendex(
-    mkValidator
+    lendexAddress
+  , mkValidator
   , scriptInstance
   -- * Endpoints
   , UserLendexSchema, UserApp
@@ -16,6 +17,8 @@ module Mlabs.Lending.Contract.Lendex(
   , callPriceOracleAct
   , callGovernAct
   , callStartLendex
+  , userAction
+  , startLendex
 ) where
 
 import qualified Prelude as P
@@ -50,8 +53,7 @@ import Plutus.Trace.Emulator (EmulatorTrace, callEndpoint, activateContractWalle
 import qualified Wallet.Emulator as Emulator
 
 import qualified Data.Map as M
-
-import Data.Text.Prettyprint.Doc.Extras
+-- import Data.Text.Prettyprint.Doc.Extras
 
 
 type Lendex = SM.StateMachine LendingPool Act
@@ -124,7 +126,7 @@ userAction act = do
     Left _err -> logError ("Action failed" :: String)
     Right SM.StateMachineTransition{smtConstraints=constraints', smtLookups=lookups'} -> do
         tx <- submitTxConstraintsWith (lookups P.<> lookups') (constraints P.<> constraints')
-        mapM_ (logInfo @String) (lines $ show $ pretty tx)
+        -- mapM_ (logInfo @String) (lines $ show $ pretty tx)
         awaitTxConfirmed (txId tx)
 
 -- | Endpoints for user

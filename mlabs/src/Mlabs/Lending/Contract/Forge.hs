@@ -41,8 +41,10 @@ data Input = Input
 -- For burn case we check that:
 --
 -- * user deposit has diminished properly on user's internal wallet for leding pool state
--- * user has paid enough aTokens to script
 -- * script has paid enough real tokens to the use rin return
+--
+-- Note that during burn user does not pay aTokens to the app they just get burned.
+-- Only app pays to user in compensation for burn.
 validate :: ScriptContext -> Bool
 validate ctx = case (getInState, getOutState) of
   (Just st1, Just st2) -> all (isValidForge st1 st2) $ Value.flattenValue $ txInfoForge info
@@ -84,7 +86,8 @@ validate ctx = case (getInState, getOutState) of
     -- checks that user deposit becomes larger on given amount of minted tokens
     -- and user pays given amount to the lending app. We go through the list of all signatures
     -- to see if anyone acts as a user (satisfy constraints).
-    isValidMint (Input st1 stVal1) (Input st2 stVal2) coin aCoin amount = any checkUserMint users
+    isValidMint (Input st1 stVal1) (Input st2 stVal2) coin aCoin amount =
+      traceIfFalse "No user is allowed to mint" $ any checkUserMint users
       where
         checkUserMint uid =
              checkUserDepositDiff uid
@@ -92,31 +95,32 @@ validate ctx = case (getInState, getOutState) of
           && checkScriptPays uid
 
         -- Check that user balance has growed on user inner wallet deposit
-        checkUserDepositDiff = checkUserDepositDiffBy (\dep1 dep2 -> dep2 - dep1 == amount) st1 st2 coin
+        checkUserDepositDiff uid = traceIfFalse "User deposit has not growed after Mint" $
+          checkUserDepositDiffBy (\dep1 dep2 -> dep2 - dep1 == amount) st1 st2 coin uid
 
         -- Check that user payed value to script.
         -- We check that state value became bigger after state transition.
-        checkUserPays = stVal2 == (stVal1 <> Value.assetClassValue coin amount)
+        checkUserPays = traceIfFalse "User does not pay for Mint" $
+          stVal2 == (stVal1 <> Value.assetClassValue coin amount)
 
         -- Check that user recieved aCoins
-        checkScriptPays uid = checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue aCoin amount :: TxConstraints () ()) ctx
+        checkScriptPays uid = traceIfFalse "User has not received aCoins for Mint" $
+          checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue aCoin amount :: TxConstraints () ()) ctx
 
-    isValidBurn (Input st1 stVal1) (Input st2 stVal2) coin aCoin amount = any checkUserBurn users
+    isValidBurn (Input st1 stVal1) (Input st2 stVal2) coin aCoin amount =
+      traceIfFalse "No user is allowed to burn" $ any checkUserBurn users
       where
         checkUserBurn uid =
              checkUserDepositDiff uid
-          && checkUserPays
           && checkScriptPays uid
 
         -- Check that user balance has diminished on user inner wallet deposit
-        checkUserDepositDiff = checkUserDepositDiffBy (\dep1 dep2 -> dep1 - dep2 == amount) st1 st2 coin
-
-        -- Check that user payed value to script.
-        -- We check that state value became bigger after state transition
-        checkUserPays = stVal2 == (stVal1 <> Value.assetClassValue aCoin amount)
+        checkUserDepositDiff uid = traceIfFalse "User deposit has not diminished after Burn" $
+          checkUserDepositDiffBy (\dep1 dep2 -> dep1 - dep2 == amount) st1 st2 coin uid
 
         -- Check that user recieved coins
-        checkScriptPays uid = checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue coin amount :: TxConstraints () ()) ctx
+        checkScriptPays uid = traceIfFalse "User does not receive for Burn" $
+          checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue coin amount :: TxConstraints () ()) ctx
 
     -- check change of the user deposit for state prior to transition (st1) and after transition (st2)
     checkUserDepositDiffBy cond st1 st2 coin uid = either (const False) id $ do

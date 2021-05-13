@@ -22,7 +22,7 @@ noErrors app = null $ app'log app
 
 -- | Test suite for a logic of lending application
 test :: TestTree
-test = testGroup "User actions"
+test = testGroup "Logic"
   [ testCase "Deposit" testDeposit
   , testCase "Borrow"  testBorrow
   , testCase "Borrow without collateral" testBorrowNoCollateral
@@ -156,9 +156,11 @@ repayScript = mconcat
 ---------------------------------
 -- constants
 
+-- | convert aToken to aCoin
 fromToken :: TokenName -> Coin
 fromToken aToken = AssetClass (lendingPoolCurrency, aToken)
 
+-- | Base currency of lending app (it's mock for monetary policy of the lending app)
 lendingPoolCurrency :: CurrencySymbol
 lendingPoolCurrency = currencySymbol "lending-pool"
 
@@ -174,6 +176,7 @@ coin1 = toCoin "Dollar"
 coin2 = toCoin "Euro"
 coin3 = toCoin "Lira"
 
+-- | aTokens
 aToken1, aToken2, aToken3 :: TokenName
 aToken1 = tokenName "aDollar"
 aToken2 = tokenName "aEuro"

@@ -107,6 +107,7 @@ Test-suite mlabs-plutus-use-cases-tests
   Default-Language:    Haskell2010
   Build-Depends:       base              >=4.9 && <5
                      , data-default
+                     , lens
                      , mlabs-plutus-use-cases
                      , containers
                      , playground-common
@@ -128,7 +129,9 @@ Test-suite mlabs-plutus-use-cases-tests
   Other-modules:
                       -- Test.Lending
                        Test.Lending.Contract
+                       Test.Lending.Init
                        Test.Lending.Logic
+                       Test.Lending.Scene
                        Test.Utils
   default-extensions:
     RecordWildCards
