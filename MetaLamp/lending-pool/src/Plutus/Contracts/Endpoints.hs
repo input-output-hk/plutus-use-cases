@@ -35,10 +35,9 @@ import           Plutus.Contract                  hiding (when)
 -- TODO remove that dep Plutus.Contracts.Currency (?)
 import qualified Data.ByteString                  as BS
 import qualified Plutus.Contracts.AToken          as AToken
-import           Plutus.Contracts.Core            (Aave, AaveAction (..),
-                                                   AaveDatum (..), Factory,
-                                                   LendingPool (..),
-                                                   LendingPoolId,
+import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
+                                                   AaveRedeemer (..), Factory,
+                                                   Reserve (..), ReserveId,
                                                    UserConfig (..))
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
@@ -55,8 +54,6 @@ import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
 
-errorHandler t = logInfo @Text ("Error submiting the transaction!: " <> t)
-
 newtype CreateParams =
     CreateParams
         { cpAsset :: AssetClass }
@@ -65,14 +62,14 @@ newtype CreateParams =
 
 PlutusTx.makeLift ''CreateParams
 
-createPool :: CreateParams -> LendingPool
-createPool CreateParams {..} =
-    LendingPool
-        { lpCurrency = cpAsset,
-          lpAmount = 0,
-          lpAToken = AToken.makeAToken cpAsset,
-          lpDebtToken = cpAsset,
-          lpLiquidityIndex = 1 }
+createReserve :: CreateParams -> Reserve
+createReserve CreateParams {..} =
+    Reserve
+        { rCurrency = cpAsset,
+          rAmount = 0,
+          rAToken = AToken.makeAToken cpAsset,
+          rDebtToken = cpAsset,
+          rLiquidityIndex = 1 }
 
 start :: HasBlockchainActions s => [CreateParams] -> Contract w s Text Aave
 start params = do
@@ -81,13 +78,13 @@ start params = do
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
     let aave = Core.aave aaveToken
-    let pools = fmap createPool params
+    let reserves = fmap createReserve params
     let factoryCoin = assetClass aaveToken Core.aaveProtocolName
         inst = Core.aaveInstance aave
-        tx = mustPayToTheScript (Factory (fmap lpCurrency pools)) $ assetClassValue factoryCoin 1
+        tx = mustPayToTheScript (Core.FactoryDatum (fmap rCurrency reserves)) $ assetClassValue factoryCoin 1
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
-    traverse_ (State.putPool aave) pools
+    traverse_ (State.putReserve aave) reserves
     logInfo @String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
 
@@ -105,11 +102,11 @@ type AaveOwnerSchema =
 factory :: forall w s. HasBlockchainActions s => Aave -> Contract w s Text Factory
 factory = fmap soDatum . State.findAaveFactory
 
-pools :: forall w s. HasBlockchainActions s => Aave -> Contract w s Text [LendingPool]
-pools aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (Core.poolStateToken aave) State.pickPool
+reserves :: forall w s. HasBlockchainActions s => Aave -> Contract w s Text [Reserve]
+reserves aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (Core.reserveStateToken aave) State.pickReserve
 
 users :: forall w s. HasBlockchainActions s => Aave -> Contract w s Text [UserConfig]
-users aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (Core.userStateToken aave) State.pickUser
+users aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (Core.userStateToken aave) State.pickUserConfig
 
 valueAt :: HasBlockchainActions s => Address -> Contract w s Text Value
 valueAt address = do
@@ -139,29 +136,27 @@ PlutusTx.makeLift ''DepositParams
 
 deposit :: (HasBlockchainActions s) => Aave -> DepositParams -> Contract w s Text ()
 deposit aave DepositParams {..} = do
-    reserveOutput <- State.findAavePool aave dpAsset
+    reserveOutput <- State.findAaveReserve aave dpAsset
     let reserve = soDatum reserveOutput
         lookups = Constraints.ownPubKeyHash dpOnBehalfOf
             <> Constraints.scriptInstanceLookups (Core.aaveInstance aave)
-        outValue = assetClassValue (lpCurrency reserve) dpAmount
-        tx = mustPayToTheScript Core.Deposit outValue
+        outValue = assetClassValue (rCurrency reserve) dpAmount
+        tx = mustPayToTheScript Core.DepositDatum outValue
     ledgerTx <- submitTxConstraintsWith lookups tx
     _ <- awaitTxConfirmed $ txId ledgerTx
 
-    logInfo @String $ "HASH " <> show dpOnBehalfOf
-
-    wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (lpAToken reserve)
+    wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
     _ <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
     when wasZeroBalance $ do
-        userOutputs <- State.findOutputsBy aave (Core.userStateToken aave) State.pickUser
+        userOutputs <- State.findOutputsBy aave (Core.userStateToken aave) State.pickUserConfig
         case userOutputs of
             [] -> void $
-                State.putUser aave $ UserConfig { ucAddress = dpOnBehalfOf, ucReserveId = lpCurrency reserve, ucUsingAsCollateral = True }
+                State.putUser aave $ UserConfig { ucAddress = dpOnBehalfOf, ucReserveId = rCurrency reserve, ucUsingAsCollateral = True }
             [userOutput] -> void $
                 State.updateUser aave $ Prelude.fmap (\u -> u { ucUsingAsCollateral = True }) userOutput
             _ -> throwError "Invalid state: multiple users"
 
-    void $ State.updatePool aave $ Prelude.fmap (\r -> r { lpAmount = lpAmount r + dpAmount }) reserveOutput
+    void $ State.updateReserve aave $ Prelude.fmap (\r -> r { rAmount = rAmount r + dpAmount }) reserveOutput
 
 data WithdrawParams =
     WithdrawParams {
@@ -178,10 +173,10 @@ PlutusTx.makeLift ''WithdrawParams
 
 withdraw :: (HasBlockchainActions s) => Aave -> WithdrawParams -> Contract w s Text ()
 withdraw aave WithdrawParams {..} = do
-    reserveOutput <- State.findAavePool aave wpAsset
+    reserveOutput <- State.findAaveReserve aave wpAsset
     let reserve = soDatum reserveOutput
 
-    balance <- balanceAt wpFrom (lpAToken reserve)
+    balance <- balanceAt wpFrom (rAToken reserve)
     when (wpAmount == balance) $ do
         userOutput <- State.findAaveUser aave wpFrom wpAsset
         void $
@@ -189,7 +184,7 @@ withdraw aave WithdrawParams {..} = do
 
     _ <- AToken.burnATokensFrom aave reserve wpTo wpAmount
 
-    void $ State.updatePool aave $ Prelude.fmap (\r -> r { lpAmount = lpAmount r - wpAmount }) reserveOutput
+    void $ State.updateReserve aave $ Prelude.fmap (\r -> r { rAmount = rAmount r - wpAmount }) reserveOutput
 
 type AaveUserSchema =
     BlockchainActions
@@ -198,7 +193,7 @@ type AaveUserSchema =
         .\/ Endpoint "fundsAt" PubKeyHash
         .\/ Endpoint "poolFunds" ()
         .\/ Endpoint "factory" ()
-        .\/ Endpoint "pools" ()
+        .\/ Endpoint "reserves" ()
         .\/ Endpoint "users" ()
 
 data UserContractState = Created
@@ -209,7 +204,7 @@ data UserContractState = Created
     | FundsAt Value
     | PoolFunds Value
     | FactoryEndpoint Factory
-    | Pools [LendingPool]
+    | Reserves [Reserve]
     | Users [UserConfig]
     deriving (Show, Generic, FromJSON, ToJSON)
 
@@ -220,7 +215,7 @@ userEndpoints aa = forever $
     `select` f (Proxy @"fundsAt") FundsAt (\_ pkh -> fundsAt pkh)
     `select` f (Proxy @"poolFunds") PoolFunds (\aave () -> poolFunds aave)
     `select` f (Proxy @"factory") FactoryEndpoint (\aave () -> factory aave)
-    `select` f (Proxy @"pools") Pools (\aave () -> pools aave)
+    `select` f (Proxy @"reserves") Reserves (\aave () -> reserves aave)
     `select` f (Proxy @"users") Users (\aave () -> users aave)
   where
     f :: forall l a p.

@@ -30,7 +30,7 @@ import           Ledger.Constraints.TxConstraints as Constraints
 import           Ledger.Typed.Scripts             (MonetaryPolicy)
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Plutus.Contract
-import           Plutus.Contracts.Core            (Aave, LendingPool (..))
+import           Plutus.Contracts.Core            (Aave, Reserve (..))
 import qualified Plutus.Contracts.Core            as Core
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import qualified Plutus.Contracts.State           as State
@@ -63,23 +63,23 @@ makeAToken asset = assetClass (scriptCurrencySymbol . makeLiquidityPolicy $ asse
     (_, tokenName) = unAssetClass asset
     aTokenName = "a" <> unTokenName tokenName
 
-forgeATokensFrom :: (HasBlockchainActions s) => Aave -> LendingPool -> PubKeyHash -> Integer -> Contract w s Text ()
+forgeATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
 forgeATokensFrom aave reserve pkh amount = do
     let script = Core.aaveInstance aave
-        policy = makeLiquidityPolicy (lpCurrency reserve)
+        policy = makeLiquidityPolicy (rCurrency reserve)
         lookups = Constraints.scriptInstanceLookups script
             <> Constraints.monetaryPolicy policy
             <> Constraints.ownPubKeyHash pkh
-        aTokenAmount = amount -- / lpLiquidityIndex reserve -- TODO: how should we divide?
-        outValue = assetClassValue (lpAToken reserve) aTokenAmount
+        aTokenAmount = amount -- / rLiquidityIndex reserve -- TODO: how should we divide?
+        outValue = assetClassValue (rAToken reserve) aTokenAmount
         tx = mustForgeValue outValue <> mustPayToPubKey pkh outValue
     ledgerTx <- submitTxConstraintsWith lookups tx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
-burnATokensFrom :: (HasBlockchainActions s) => Aave -> LendingPool -> PubKeyHash -> Integer -> Contract w s Text ()
+burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
 burnATokensFrom aave reserve pkh amount = do
-    let asset = lpCurrency reserve
+    let asset = rCurrency reserve
     utxos <-
         Map.filter ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut)
         <$> utxoAt (Core.aaveAddress aave)
@@ -96,12 +96,12 @@ burnATokensFrom aave reserve pkh amount = do
             <> Constraints.unspentOutputs utxos
             <> Constraints.ownPubKeyHash pkh
             <> Constraints.monetaryPolicy policy
-        outValue = negate $ assetClassValue (lpAToken reserve) aTokenAmount
-        spendTx = mconcat $ fmap (\ref -> mustSpendScriptOutput ref $ Redeemer $ PlutusTx.toData Core.Withdraw) orefs
+        outValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
+        spendTx = mconcat $ fmap (\ref -> mustSpendScriptOutput ref $ Redeemer $ PlutusTx.toData Core.WithdrawRedeemer) orefs
         tx = mustForgeValue outValue
             <> mustPayToPubKey pkh toPubKey
             <> spendTx
-            <> mustPayToTheScript Core.Deposit (assetClassValue asset remainder)
+            <> mustPayToTheScript Core.DepositDatum (assetClassValue asset remainder)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
     _ <- awaitTxConfirmed $ txId ledgerTx

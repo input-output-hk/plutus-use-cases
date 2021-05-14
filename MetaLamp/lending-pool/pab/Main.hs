@@ -139,11 +139,11 @@ main = void $ Simulator.runSimulationWith handlers $ do
             _                                                      -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Final factory: " <> show v
 
-    _ <- Simulator.callEndpointOnInstance userCid "pools" ()
-    pools <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
-            Success (Monoid.Last (Just (Right (Aave.Pools pools)))) -> Just pools
+    _ <- Simulator.callEndpointOnInstance userCid "reserves" ()
+    reserves <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+            Success (Monoid.Last (Just (Right (Aave.Reserves reserves)))) -> Just reserves
             _                                                      -> Nothing
-    Simulator.logString @(Builtin AaveContracts) $ "Final pools: " <> show pools
+    Simulator.logString @(Builtin AaveContracts) $ "Final reserves: " <> show reserves
 
     _ <- Simulator.callEndpointOnInstance userCid "poolFunds" ()
     v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of

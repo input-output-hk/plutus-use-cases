@@ -49,26 +49,24 @@ instance Prelude.Eq Aave where
 instance Prelude.Ord Aave where
     compare u v = Prelude.compare (aaveProtocolInst u) (aaveProtocolInst v)
 
-type LendingPoolId = AssetClass
+type ReserveId = AssetClass
 
-type AnyAddress = BS.ByteString
-
-data LendingPool = LendingPool
-    { lpCurrency       :: LendingPoolId,
-      lpAToken         :: AssetClass,
-      lpAmount         :: Integer,
-      lpDebtToken      :: AssetClass,
-      lpLiquidityIndex :: Integer
+data Reserve = Reserve
+    { rCurrency       :: ReserveId,
+      rAToken         :: AssetClass,
+      rAmount         :: Integer,
+      rDebtToken      :: AssetClass,
+      rLiquidityIndex :: Integer
     }
     deriving stock (Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
-PlutusTx.unstableMakeIsData ''LendingPool
-PlutusTx.makeLift ''LendingPool
+PlutusTx.unstableMakeIsData ''Reserve
+PlutusTx.makeLift ''Reserve
 
 data UserConfig = UserConfig
     { ucAddress           :: PubKeyHash,
-      ucReserveId         :: LendingPoolId,
+      ucReserveId         :: ReserveId,
       ucUsingAsCollateral :: Bool
     }
     deriving stock (Show, Generic)
@@ -77,21 +75,26 @@ data UserConfig = UserConfig
 PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
 
-type Factory = [LendingPoolId]
-data AaveAction = CreateLendingPool LendingPool | UpdateLendingPool | CreateUser UserConfig | UpdateUser | Withdraw | Payment
+type Factory = [ReserveId]
+data AaveRedeemer =
+  CreateReserveRedeemer Reserve
+  | UpdateReserveRedeemer
+  | CreateUserRedeemer UserConfig
+  | UpdateUserRedeemer
+  | WithdrawRedeemer
     deriving Show
 
-PlutusTx.unstableMakeIsData ''AaveAction
-PlutusTx.makeLift ''AaveAction
+PlutusTx.unstableMakeIsData ''AaveRedeemer
+PlutusTx.makeLift ''AaveRedeemer
 
-data AaveDatum = Factory Factory | Pool LendingPool | User UserConfig | Deposit deriving stock (Show)
+data AaveDatum = FactoryDatum Factory | ReserveDatum Reserve | UserConfigDatum UserConfig | DepositDatum deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
 PlutusTx.makeLift ''AaveDatum
 
 data AaveScript
 instance Scripts.ScriptType AaveScript where
-    type instance RedeemerType AaveScript = AaveAction
+    type instance RedeemerType AaveScript = AaveRedeemer
     type instance DatumType AaveScript = AaveDatum
 
 {-# INLINABLE makeAaveValidator #-}
@@ -101,16 +104,15 @@ instance Scripts.ScriptType AaveScript where
 -- TODO: write validations
 makeAaveValidator :: Aave
                    -> AaveDatum
-                   -> AaveAction
+                   -> AaveRedeemer
                    -> ScriptContext
                    -> Bool
-makeAaveValidator _ _ (CreateLendingPool _) _ = True
-makeAaveValidator _ _ UpdateLendingPool _     = True
-makeAaveValidator _ _ (CreateUser _) _        = True
-makeAaveValidator _ _ UpdateUser _            = True
-makeAaveValidator _ _ Withdraw _              = True
-makeAaveValidator _ _ Payment _               = True
-makeAaveValidator _  _  _  _                  = False
+makeAaveValidator _ _ (CreateReserveRedeemer _) _ = True
+makeAaveValidator _ _ UpdateReserveRedeemer _     = True
+makeAaveValidator _ _ (CreateUserRedeemer _) _    = True
+makeAaveValidator _ _ UpdateUserRedeemer _        = True
+makeAaveValidator _ _ WithdrawRedeemer _          = True
+makeAaveValidator _  _  _  _                      = False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
@@ -121,7 +123,7 @@ aaveInstance aave = Scripts.validator @AaveScript
         `PlutusTx.applyCode` PlutusTx.liftCode aave)
      $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator @AaveDatum @AaveAction
+    wrap = Scripts.wrapValidator @AaveDatum @AaveRedeemer
 
 aaveScript :: Aave -> Validator
 aaveScript = Scripts.validatorScript . aaveInstance
@@ -166,6 +168,6 @@ makeStateCurrency tokenName = scriptCurrencySymbol . makeStatePolicy tokenName
 makeStateToken :: TokenName -> Aave -> AssetClass
 makeStateToken tokenName = flip assetClass tokenName . makeStateCurrency tokenName
 
-poolStateToken, userStateToken :: Aave -> AssetClass
-poolStateToken = makeStateToken "aaveLendingPool"
+reserveStateToken, userStateToken :: Aave -> AssetClass
+reserveStateToken = makeStateToken "aaveReserve"
 userStateToken = makeStateToken "aaveUser"

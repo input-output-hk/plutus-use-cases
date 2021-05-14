@@ -35,10 +35,9 @@ import qualified Ledger.Scripts                   as Scripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
-import           Plutus.Contracts.Core            (Aave (..), AaveAction (..),
-                                                   AaveDatum (..), Factory,
-                                                   LendingPool (..),
-                                                   LendingPoolId,
+import           Plutus.Contracts.Core            (Aave (..), AaveDatum (..),
+                                                   AaveRedeemer (..), Factory,
+                                                   Reserve (..), ReserveId,
                                                    UserConfig (..))
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
@@ -94,26 +93,26 @@ findOutputBy aave stateToken mapDatum = do
         xs       -> throwError $ "Multiple " <> stateName <> " found"
 
 pickFactory :: AaveDatum -> Maybe Factory
-pickFactory (Factory f) = Just f
-pickFactory _           = Nothing
+pickFactory (FactoryDatum f) = Just f
+pickFactory _                = Nothing
 
 findAaveFactory :: HasBlockchainActions s => Aave -> Contract w s Text (StateOutput Factory)
 findAaveFactory aave@Aave{..} = findOutputBy aave aaveProtocolInst pickFactory
 
-findAavePool :: HasBlockchainActions s => Aave -> LendingPoolId -> Contract w s Text (StateOutput LendingPool)
-findAavePool aave poolId = findOutputBy aave (Core.poolStateToken aave) mapState
+findAaveReserve :: HasBlockchainActions s => Aave -> ReserveId -> Contract w s Text (StateOutput Reserve)
+findAaveReserve aave reserveId = findOutputBy aave (Core.reserveStateToken aave) mapState
     where
-        mapState (Pool lp) =
-            if lpCurrency lp == poolId
-                then Just lp
+        mapState (Core.ReserveDatum r) =
+            if rCurrency r == reserveId
+                then Just r
                 else Nothing
         mapState _ = Nothing
 
-findAaveUser :: HasBlockchainActions s => Aave -> PubKeyHash -> LendingPoolId -> Contract w s Text (StateOutput UserConfig)
-findAaveUser aave userAddress poolId = findOutputBy aave (Core.userStateToken aave) mapState
+findAaveUser :: HasBlockchainActions s => Aave -> PubKeyHash -> ReserveId -> Contract w s Text (StateOutput UserConfig)
+findAaveUser aave userAddress reserveId = findOutputBy aave (Core.userStateToken aave) mapState
     where
-        mapState (User user) =
-            if ucAddress user == userAddress && ucReserveId user == poolId
+        mapState (UserConfigDatum user) =
+            if ucAddress user == userAddress && ucReserveId user == reserveId
                 then Just user
                 else Nothing
         mapState _ = Nothing
@@ -121,7 +120,7 @@ findAaveUser aave userAddress poolId = findOutputBy aave (Core.userStateToken aa
 data StateHandle a = StateHandle {
     getToken :: Aave -> AssetClass,
     toDatum  :: a -> AaveDatum,
-    toAction :: a -> AaveAction
+    toAction :: a -> AaveRedeemer
 }
 
 putState :: (HasBlockchainActions s) => StateHandle a -> Aave -> a -> Contract w s Text a
@@ -147,38 +146,38 @@ updateState StateHandle{..} aave (StateOutput oref o datum) = do
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure datum
 
-makePoolHandle :: (LendingPool -> AaveAction) -> StateHandle LendingPool
-makePoolHandle toAction =
+makeReserveHandle :: (Reserve -> AaveRedeemer) -> StateHandle Reserve
+makeReserveHandle toAction =
     StateHandle {
-        getToken = Core.poolStateToken,
-        toDatum = Pool,
+        getToken = Core.reserveStateToken,
+        toDatum = Core.ReserveDatum,
         toAction = toAction
     }
 
-pickPool :: AaveDatum -> Maybe LendingPool
-pickPool (Pool lp) = Just lp
-pickPool _         = Nothing
+pickReserve :: AaveDatum -> Maybe Reserve
+pickReserve (Core.ReserveDatum r) = Just r
+pickReserve _                     = Nothing
 
-putPool :: (HasBlockchainActions s) => Aave -> LendingPool -> Contract w s Text LendingPool
-putPool = putState $ makePoolHandle Core.CreateLendingPool
+putReserve :: (HasBlockchainActions s) => Aave -> Reserve -> Contract w s Text Reserve
+putReserve = putState $ makeReserveHandle Core.CreateReserveRedeemer
 
-updatePool :: (HasBlockchainActions s) => Aave -> StateOutput LendingPool -> Contract w s Text LendingPool
-updatePool = updateState $ makePoolHandle (const Core.UpdateLendingPool)
+updateReserve :: (HasBlockchainActions s) => Aave -> StateOutput Reserve -> Contract w s Text Reserve
+updateReserve = updateState $ makeReserveHandle (const Core.UpdateReserveRedeemer)
 
-makeUserHandle :: (UserConfig -> AaveAction) -> StateHandle UserConfig
+makeUserHandle :: (UserConfig -> AaveRedeemer) -> StateHandle UserConfig
 makeUserHandle toAction =
     StateHandle {
         getToken = Core.userStateToken,
-        toDatum = Core.User,
+        toDatum = Core.UserConfigDatum,
         toAction = toAction
     }
 
-pickUser :: AaveDatum -> Maybe UserConfig
-pickUser (User user) = Just user
-pickUser _           = Nothing
+pickUserConfig :: AaveDatum -> Maybe UserConfig
+pickUserConfig (Core.UserConfigDatum user) = Just user
+pickUserConfig _                           = Nothing
 
 putUser :: (HasBlockchainActions s) => Aave -> UserConfig -> Contract w s Text UserConfig
-putUser = putState $ makeUserHandle Core.CreateUser
+putUser = putState $ makeUserHandle Core.CreateUserRedeemer
 
 updateUser :: (HasBlockchainActions s) => Aave -> StateOutput UserConfig -> Contract w s Text UserConfig
-updateUser = updateState $ makeUserHandle (const Core.UpdateUser)
+updateUser = updateState $ makeUserHandle (const Core.UpdateUserRedeemer)
