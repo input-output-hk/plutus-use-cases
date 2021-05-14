@@ -6,6 +6,11 @@ module Mlabs.Lending.Logic.State(
     St
   , showt
   , Error
+  , isNonNegative
+  , isPositive
+  , isPositiveRational
+  , isUnitRange
+  , isAsset
   , aToken
   , updateReserveState
   , initReserve
@@ -66,6 +71,37 @@ instance Applicative St where
 
 ----------------------------------------------------
 -- common functions
+{-# INLINABLE isNonNegative #-}
+isNonNegative :: String -> Integer -> St ()
+isNonNegative msg val
+  | val >= 0  = pure ()
+  | otherwise = throwError $ msg <> " should be non-negative"
+
+{-# INLINABLE isPositive #-}
+isPositive :: String -> Integer -> St ()
+isPositive msg val
+  | val > 0   = pure ()
+  | otherwise = throwError $ msg <> " should be positive"
+
+{-# INLINABLE isPositiveRational #-}
+isPositiveRational :: String -> Rational -> St ()
+isPositiveRational msg val
+  | val > R.fromInteger 0 = pure ()
+  | otherwise             = throwError $ msg <> " should be positive"
+
+{-# INLINABLE isUnitRange #-}
+isUnitRange :: String -> Rational -> St ()
+isUnitRange msg val
+  | val >= R.fromInteger 0 && val <= R.fromInteger 1 = pure ()
+  | otherwise                                        = throwError $ msg <> " should have unit range [0, 1]"
+
+{-# INLINABLE isAsset #-}
+isAsset :: Coin -> St ()
+isAsset asset = do
+  reserves <- gets lp'reserves
+  if M.member asset reserves
+    then pure ()
+    else throwError "Asset not supported"
 
 {-# INLINABLE updateReserveState #-}
 updateReserveState :: Integer -> Coin -> St ()

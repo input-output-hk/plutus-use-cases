@@ -84,4 +84,3 @@ initialDistribution = M.fromList
     v2 = coinVal coin2
     v3 = coinVal coin3
 
-

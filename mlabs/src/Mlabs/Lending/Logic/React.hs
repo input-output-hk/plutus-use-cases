@@ -30,10 +30,12 @@ import Mlabs.Lending.Logic.Types
 -- For a given action we update internal state of Lending pool and produce
 -- list of responses to simulate change of the balances on blockchain.
 react :: Act -> St [Resp]
-react = \case
-  UserAct t uid act -> userAct t uid act
-  PriceAct      act -> priceAct act
-  GovernAct     act -> governAct act
+react input = do
+  checkInput input
+  case input of
+    UserAct t uid act -> userAct t uid act
+    PriceAct      act -> priceAct act
+    GovernAct     act -> governAct act
   where
     -- | User acts
     userAct time uid = \case
@@ -217,4 +219,53 @@ react = \case
 
     todo = return []
 
+{-# INLINABLE checkInput #-}
+-- | Check if input is valid
+checkInput :: Act -> St ()
+checkInput = \case
+  UserAct time _uid act -> do
+    isNonNegative "timestamp" time
+    checkUserAct act
+  PriceAct act  -> checkPriceAct act
+  GovernAct act -> checkGovernAct act
+  where
+    checkUserAct = \case
+      DepositAct amount asset -> do
+        isPositive "deposit" amount
+        isAsset asset
+      BorrowAct asset amount _rate -> do
+        isPositive "borrow" amount
+        isAsset asset
+      RepayAct asset amount _rate -> do
+        isPositive "repay" amount
+        isAsset asset
+      SwapBorrowRateModelAct asset _rate -> isAsset asset
+      SetUserReserveAsCollateralAct asset _useAsCollateral portion -> do
+        isAsset asset
+        isUnitRange "deposit portion" portion
+      WithdrawAct amount asset -> do
+        isPositive "withdraw" amount
+        isAsset asset
+      FlashLoanAct -> pure ()
+      LiquidationCallAct _collateral _debt _user debtToCover _receiveAToken ->
+        isPositive "Debt to cover" debtToCover
+
+    checkPriceAct = \case
+      SetAssetPrice asset price -> do
+        isPositiveRational "price" price
+        isAsset asset
+      SetOracleAddr asset _uid ->
+        isAsset asset
+
+    checkGovernAct = \case
+      AddReserve cfg -> checkCoinCfg cfg
+
+    checkCoinCfg CoinCfg{..} = do
+      isPositiveRational "coin price" coinCfg'rate
+      checkInterestModel coinCfg'interestModel
+
+    checkInterestModel InterestModel{..} = do
+      isUnitRange "optimal utilisation" im'optimalUtilisation
+      isPositiveRational "slope 1" im'slope1
+      isPositiveRational "slope 2" im'slope2
 
