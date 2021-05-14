@@ -80,29 +80,33 @@ forgeATokensFrom aave reserve pkh amount = do
 burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
 burnATokensFrom aave reserve pkh amount = do
     let asset = rCurrency reserve
-    utxos <-
-        Map.filter ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut)
-        <$> utxoAt (Core.aaveAddress aave)
-
-    let aTokenAmount = amount
-        toPubKey = assetClassValue asset aTokenAmount
-        balance = mconcat . fmap (txOutValue . txOutTxOut) . map snd . Map.toList $ utxos
-        remainder = assetClassValueOf balance asset - aTokenAmount
+        aTokenAmount = amount
         script = Core.aaveInstance aave
         policy = makeLiquidityPolicy asset
-        orefs = fst <$> Map.toList utxos
-        lookups = Constraints.scriptInstanceLookups script
+        burnLookups = Constraints.scriptInstanceLookups script
             <> Constraints.otherScript (Core.aaveScript aave)
-            <> Constraints.unspentOutputs utxos
             <> Constraints.ownPubKeyHash pkh
             <> Constraints.monetaryPolicy policy
         outValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
+        burnTx = mustForgeValue outValue
+    ledgerTx <- submitTxConstraintsWith burnLookups burnTx
+    _ <- awaitTxConfirmed $ txId ledgerTx
+
+    utxos <-
+        Map.filter ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut)
+        <$> utxoAt (Core.aaveAddress aave)
+    let balance = mconcat . fmap (txOutValue . txOutTxOut) . map snd . Map.toList $ utxos
+        remainder = assetClassValueOf balance asset - aTokenAmount
+        withdrawLookups = Constraints.scriptInstanceLookups script
+            <> Constraints.otherScript (Core.aaveScript aave)
+            <> Constraints.unspentOutputs utxos
+            <> Constraints.ownPubKeyHash pkh
+        orefs = fst <$> Map.toList utxos
         spendTx = mconcat $ fmap (\ref -> mustSpendScriptOutput ref $ Redeemer $ PlutusTx.toData Core.WithdrawRedeemer) orefs
-        tx = mustForgeValue outValue
-            <> mustPayToPubKey pkh toPubKey
+        withdrawTx = mustPayToPubKey pkh (assetClassValue asset aTokenAmount)
             <> spendTx
             <> mustPayToTheScript Core.DepositDatum (assetClassValue asset remainder)
-
-    ledgerTx <- submitTxConstraintsWith lookups tx
+    ledgerTx <- submitTxConstraintsWith withdrawLookups withdrawTx
     _ <- awaitTxConfirmed $ txId ledgerTx
+
     pure ()
