@@ -15,7 +15,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 module Plutus.Contracts.LendingPool
     ( AssetClass (..)
     , Aave (..), aave
@@ -40,12 +40,13 @@ import           Ledger.Value                     as Value
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.Currency        as Currency
+import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
 import qualified PlutusTx
-import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
+import           PlutusTx.Prelude                 hiding (Semigroup (..),
+                                                   unless)
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
-import Plutus.V1.Ledger.Ada ( lovelaceValueOf )
 
 aaveProtocolName, aavePoolName :: TokenName
 aaveProtocolName = "Aave"
