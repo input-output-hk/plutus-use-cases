@@ -11,7 +11,7 @@ import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx.Ratio as R
 
-import Mlabs.Lending.Logic.Types (UserAct(..), InterestRate(..), CoinCfg(..))
+import Mlabs.Lending.Logic.Types (UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel)
 import qualified Mlabs.Lending.Contract.Lendex as L
 
 import Test.Utils
@@ -45,7 +45,14 @@ test = testGroup "Contract"
 depositScript :: Trace.EmulatorTrace ()
 depositScript = do
   L.callStartLendex wAdmin $ L.StartParams
-    { sp'coins = fmap (\(coin, aCoin) -> CoinCfg coin (R.fromInteger 1) aCoin) [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)] }
+    { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
+                                          { coinCfg'coin = coin
+                                          , coinCfg'rate = R.fromInteger 1
+                                          , coinCfg'aToken = aCoin
+                                          , coinCfg'interestModel = defaultInterestModel
+                                          })
+          [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
+    }
   wait 5
   userAct1 $ DepositAct 50 coin1
   next

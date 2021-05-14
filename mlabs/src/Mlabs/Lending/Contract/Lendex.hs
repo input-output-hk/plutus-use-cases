@@ -60,7 +60,7 @@ type Lendex = SM.StateMachine LendingPool Act
 
 {-# INLINABLE machine #-}
 machine :: Lendex
-machine = SM.mkStateMachine Nothing transition isFinal
+machine = (SM.mkStateMachine Nothing transition isFinal)
   where
     isFinal = const False
 
@@ -89,7 +89,7 @@ transition ::
      SM.State LendingPool
   -> Act
   -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State LendingPool)
-transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react input) oldData of
+transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react 0 input) oldData of
   Left _err              -> Nothing
   Right (resps, newData) -> Just ( foldMap toConstraints resps
                                  , SM.State { stateData=newData

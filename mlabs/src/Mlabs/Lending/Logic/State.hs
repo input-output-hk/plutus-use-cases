@@ -7,6 +7,7 @@ module Mlabs.Lending.Logic.State(
   , showt
   , Error
   , aToken
+  , updateReserveState
   , initReserve
   , guardError
   , getWallet, getsWallet
@@ -29,6 +30,8 @@ module Mlabs.Lending.Logic.State(
   , modifyUser'
   , modifyWallet'
   , modifyWalletAndReserve'
+  , getNormalisedIncome
+  , getCumulativeBalance
 ) where
 
 import qualified PlutusTx.Ratio as R
@@ -39,6 +42,7 @@ import qualified PlutusTx.AssocMap as M
 import Control.Monad.Except       hiding (Functor(..), mapM)
 import Control.Monad.State.Strict hiding (Functor(..), mapM)
 
+import qualified Mlabs.Lending.Logic.InterestRate as IR
 import Mlabs.Lending.Logic.Types
 
 -- | Type for errors
@@ -62,6 +66,11 @@ instance Applicative St where
 
 ----------------------------------------------------
 -- common functions
+
+{-# INLINABLE updateReserveState #-}
+updateReserveState :: Integer -> Coin -> St ()
+updateReserveState currentTime asset =
+  modifyReserve asset $ IR.updateReserveInterestRates currentTime
 
 {-# INLINABLE aToken #-}
 aToken :: Coin -> St Coin
@@ -231,4 +240,15 @@ modifyWallet' :: UserId -> Coin -> (Wallet -> Either Error Wallet) -> St ()
 modifyWallet' uid coin f = modifyUser' uid $ \(User ws) -> do
   wal <- f $ fromMaybe defaultWallet $ M.lookup coin ws
   pure $ User $ M.insert coin wal ws
+
+{-# INLINABLE getNormalisedIncome #-}
+getNormalisedIncome :: Coin -> St Rational
+getNormalisedIncome asset =
+  getsReserve asset $ (ri'normalisedIncome . reserve'interest)
+
+{-# INLINABLE getCumulativeBalance #-}
+getCumulativeBalance :: UserId -> Coin -> St Rational
+getCumulativeBalance uid asset = do
+  ni <- getNormalisedIncome asset
+  getsWallet uid asset (IR.getCumulativeBalance ni)
 

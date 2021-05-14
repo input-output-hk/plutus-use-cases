@@ -50,6 +50,7 @@ library
         Mlabs.Lending.Contract.Utils
         Mlabs.Lending.Logic.App
         Mlabs.Lending.Logic.Emulator
+        Mlabs.Lending.Logic.InterestRate
         Mlabs.Lending.Logic.React
         Mlabs.Lending.Logic.State
         Mlabs.Lending.Logic.Types
@@ -121,6 +122,7 @@ Test-suite mlabs-plutus-use-cases-tests
                      , plutus-use-cases
                      , plutus-contract
                      , prettyprinter
+                     , pretty-show
                      , tasty
                      , tasty-hunit
                      , text

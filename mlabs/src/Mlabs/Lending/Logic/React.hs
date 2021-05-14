@@ -21,6 +21,7 @@ import Control.Monad.Except
 import Control.Monad.State.Strict
 
 import Mlabs.Lending.Logic.Emulator
+import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import Mlabs.Lending.Logic.State
 import Mlabs.Lending.Logic.Types
 
@@ -28,8 +29,8 @@ import Mlabs.Lending.Logic.Types
 -- | State transitions for lending pool.
 -- For a given action we update internal state of Lending pool and produce
 -- list of responses to simulate change of the balances on blockchain.
-react :: Act -> St [Resp]
-react = \case
+react :: Integer -> Act -> St [Resp]
+react currentTime = \case
   UserAct uid act -> userAct uid act
   PriceAct    act -> priceAct act
   GovernAct   act -> governAct act
@@ -37,8 +38,8 @@ react = \case
     -- | User acts
     userAct uid = \case
       DepositAct{..}                    -> depositAct uid act'amount act'asset
-      BorrowAct{..}                     -> borrowAct  uid act'asset act'amount act'rate
-      RepayAct{..}                      -> repayAct   uid act'asset act'amount act'rate
+      BorrowAct{..}                     -> borrowAct uid act'asset act'amount act'rate
+      RepayAct{..}                      -> repayAct uid act'asset act'amount act'rate
       SwapBorrowRateModelAct{..}        -> swapBorrowRateModelAct uid act'asset act'rate
       SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion (R.fromInteger 1))
       WithdrawAct{..}                   -> withdrawAct uid act'amount act'asset
@@ -48,17 +49,16 @@ react = \case
     ---------------------------------------------------
     -- deposit
 
-    -- TODO: ignores ratio of liquidity to borrowed totals
     depositAct uid amount asset = do
-      modifyWalletAndReserve uid asset depositUser
+      ni <- getNormalisedIncome asset
+      modifyWalletAndReserve' uid asset (addDeposit ni amount)
       aCoin <- aToken asset
+      updateReserveState currentTime asset
       pure $ mconcat
         [ [Mint aCoin amount]
         , moveFromTo Self uid aCoin amount
         , moveFromTo uid Self asset          amount
         ]
-      where
-        depositUser w@Wallet{..} = w { wallet'deposit  = amount + wallet'deposit }
 
     ---------------------------------------------------
     -- borrow
@@ -73,12 +73,13 @@ react = \case
       collateralNonBorrow uid asset
       hasEnoughCollateral uid asset amount
       updateOnBorrow
+      updateReserveState currentTime asset
       pure $ moveFromTo Self uid asset amount
       where
-        updateOnBorrow = modifyWalletAndReserve uid asset $ \w -> w
-          { wallet'deposit = wallet'deposit w - amount
-          , wallet'borrow  = wallet'borrow  w + amount
-          }
+        updateOnBorrow = do
+          ni <- getNormalisedIncome asset
+          modifyWallet uid asset $ \w -> w { wallet'borrow  = wallet'borrow w + amount }
+          modifyReserveWallet' asset $ addDeposit ni (negate amount)
 
     hasEnoughLiquidityToBorrow asset amount = do
       liquidity <- getsReserve asset (wallet'deposit . reserve'wallet)
@@ -100,13 +101,16 @@ react = \case
     -- repay (also called redeem in whitepaper)
 
     repayAct uid asset amount _rate = do
+      ni <- getNormalisedIncome asset
       bor <- getsWallet uid asset wallet'borrow
       let newBor = bor - amount
       if newBor >= 0
         then modifyWallet uid asset $ \w -> w { wallet'borrow = newBor }
-        else modifyWallet uid asset $ \w -> w { wallet'borrow = 0
-                                              , wallet'deposit = negate newBor }
-      modifyReserveWallet asset $ \w -> w { wallet'deposit = wallet'deposit w + amount }
+        else modifyWallet' uid asset $ \w -> do
+                w1 <- addDeposit ni (negate newBor) w
+                pure $ w1 { wallet'borrow = 0 }
+      modifyReserveWallet' asset $ addDeposit ni amount
+      updateReserveState currentTime asset
       pure $ moveFromTo uid Self asset amount
 
     ---------------------------------------------------
@@ -122,25 +126,24 @@ react = \case
       | otherwise       = setAsDeposit    uid asset portion
 
     setAsCollateral uid asset portion
-      | portion <= R.fromInteger 0 = pure []
+      | portion <= R.fromInteger 0 || portion > R.fromInteger 1 = pure []
       | otherwise                  = do
+          ni <- getNormalisedIncome asset
           amount <- getAmountBy wallet'deposit uid asset portion
-          modifyWalletAndReserve uid asset $ \w -> w
-            { wallet'deposit    = wallet'deposit w    - amount
-            , wallet'collateral = wallet'collateral w + amount
-            }
+          modifyWalletAndReserve' uid asset $ \w -> do
+            w1 <- addDeposit ni (negate amount) w
+            pure $ w1 { wallet'collateral = wallet'collateral w + amount }
           aCoin <- aToken asset
-          pure $ mconcat
-            [ moveFromTo uid Self aCoin amount ]
+          pure $ moveFromTo uid Self aCoin amount
 
     setAsDeposit uid asset portion
       | portion <= R.fromInteger 0 = pure []
       | otherwise                  = do
           amount <- getAmountBy wallet'collateral uid asset portion
-          modifyWalletAndReserve uid asset $ \w -> w
-            { wallet'deposit    = wallet'deposit w    + amount
-            , wallet'collateral = wallet'collateral w - amount
-            }
+          ni <- getNormalisedIncome asset
+          modifyWalletAndReserve' uid asset $ \w -> do
+            w1 <- addDeposit ni amount w
+            pure $ w1 { wallet'collateral = wallet'collateral w - amount }
           aCoin <- aToken asset
           pure $ moveFromTo Self uid aCoin amount
 
@@ -155,8 +158,10 @@ react = \case
       -- validate withdraw
       hasEnoughDepositToWithdraw uid amount asset
       -- update state on withdraw
-      modifyWalletAndReserve uid asset $ \w -> w { wallet'deposit = wallet'deposit w - amount }
+      ni <- getNormalisedIncome asset
+      modifyWalletAndReserve' uid asset $ addDeposit ni (negate amount)
       aCoin <- aToken asset
+      updateReserveState currentTime asset
       pure $ mconcat
         [ moveFromTo Self uid asset amount
         , moveFromTo uid Self aCoin amount
@@ -164,8 +169,8 @@ react = \case
         ]
 
     hasEnoughDepositToWithdraw uid amount asset = do
-      dep <- getsWallet uid asset wallet'deposit
-      guardError "Not enough deposit to withdraw" (dep >= amount)
+      dep <- getCumulativeBalance uid asset
+      guardError "Not enough deposit to withdraw" (dep >= R.fromInteger amount)
 
     ---------------------------------------------------
     -- flash loan

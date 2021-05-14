@@ -27,9 +27,10 @@ import qualified PlutusTx.Ratio as R
 
 -- | Prototype application
 data App = App
-  { app'pool    :: !LendingPool  -- ^ lending pool
-  , app'log     :: ![Error]      -- ^ error log
-  , app'wallets :: !BchState     -- ^ current state of blockchain
+  { app'pool    :: !LendingPool                  -- ^ lending pool
+  , app'log     :: ![(Act, LendingPool, Error)]  -- ^ error log
+                                                 -- ^ it reports on which act and pool state error has happened
+  , app'wallets :: !BchState                     -- ^ current state of blockchain
   }
 
 -- | Lookup state of the blockchain-wallet for a given user-id.
@@ -40,16 +41,16 @@ lookupAppWallet uid App{..} = case app'wallets of
 -- | Runs application with the list of actions.
 -- Returns final state of the application.
 runApp :: AppConfig -> [Act] -> App
-runApp cfg acts = foldl' go (initApp cfg) acts
+runApp cfg acts = foldl' go (initApp cfg) $ zip [0..] acts
   where
     -- There are two possible sources of errors:
     --   * we can not make transition to state (react produces Left)
     --   * the transition produces action on blockchain that leads to negative balances (applyResp produces Left)
-    go (App lp errs wallets) act = case runStateT (react act) lp of
+    go (App lp errs wallets) (timestamp, act) = case runStateT (react timestamp act) lp of
       Right (resp, nextState) -> case foldM (flip applyResp) wallets resp of
         Right nextWallets -> App nextState errs nextWallets
-        Left err          -> App lp (err : errs) wallets
-      Left err                -> App lp (err : errs) wallets
+        Left err          -> App lp ((act, lp, err) : errs) wallets
+      Left err                -> App lp ((act, lp, err) : errs) wallets
 
 -- Configuration paprameters for app.
 data AppConfig = AppConfig
@@ -83,7 +84,7 @@ defaultAppConfig = AppConfig reserves users curSym
     userNames = ["1", "2", "3"]
     coinNames = ["Dollar", "Euro", "Lira"]
 
-    reserves = fmap (\name -> CoinCfg (toCoin name) (R.fromInteger 1) (toAToken name))  coinNames
+    reserves = fmap (\name -> CoinCfg (toCoin name) (R.fromInteger 1) (toAToken name) defaultInterestModel)  coinNames
 
     users = zipWith (\coinName userName -> (UserId (PubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames
     wal cs = BchWallet $ uncurry M.singleton cs
