@@ -41,6 +41,7 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..))
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 
+{-# INLINABLE validator #-}
 -- TODO: check that ScriptContext has enough liquidity
 validator :: AssetClass -> ScriptContext -> Bool
 validator _ _ = True

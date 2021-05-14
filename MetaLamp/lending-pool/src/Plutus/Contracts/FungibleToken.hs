@@ -10,6 +10,7 @@ import qualified Plutus.V1.Ledger.Scripts  as Scripts
 import           Plutus.V1.Ledger.Value    (TokenName, Value)
 import qualified PlutusTx
 
+{-# INLINABLE validator #-}
 validator :: TokenName -> ScriptContext -> Bool
 validator _ _ = True
 

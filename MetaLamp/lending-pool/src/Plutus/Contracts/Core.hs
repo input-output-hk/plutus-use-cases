@@ -94,6 +94,7 @@ instance Scripts.ScriptType AaveScript where
     type instance RedeemerType AaveScript = AaveAction
     type instance DatumType AaveScript = AaveDatum
 
+{-# INLINABLE makeAaveValidator #-}
 -- Main validator
 -- Each state field must have one or more associated actions(Redeemer types),
 -- produced on state update, which are then validated here
