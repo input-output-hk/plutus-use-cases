@@ -58,13 +58,12 @@ import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 4]]
 
-testCurrencyNames :: [BS.ByteString]
+testCurrencyNames :: [TokenName]
 testCurrencyNames = ["MOGUS"]
 
-toAsset :: BS.ByteString -> AssetClass
-toAsset rawName =
+toAsset :: TokenName -> AssetClass
+toAsset tokenName =
    assetClass (scriptCurrencySymbol . FungibleToken.makeLiquidityPolicy $ tokenName) tokenName
-       where tokenName = Value.tokenName rawName
 
 testAssets :: [AssetClass]
 testAssets = fmap toAsset testCurrencyNames
