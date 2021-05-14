@@ -61,8 +61,20 @@ type Lendex = SM.StateMachine LendingPool Act
 {-# INLINABLE machine #-}
 machine :: Lendex
 machine = (SM.mkStateMachine Nothing transition isFinal)
+  { SM.smCheck = checkTimestamp }
   where
     isFinal = const False
+
+    checkTimestamp _ input ctx = maybe True check $ getInputTime input
+      where
+        check t = member (Slot t) range
+        range = txInfoValidRange $ scriptContextTxInfo ctx
+
+
+    getInputTime = \case
+      UserAct time _ _ -> Just time
+      _                -> Nothing
+
 
 {-# INLINABLE mkValidator #-}
 mkValidator :: Scripts.ValidatorType Lendex
