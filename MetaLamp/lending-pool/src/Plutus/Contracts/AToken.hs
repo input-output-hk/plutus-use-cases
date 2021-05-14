@@ -18,8 +18,11 @@
 
 module Plutus.Contracts.AToken where
 
+import           Control.Monad                    (void)
 import           Data.ByteString                  (ByteString)
+import qualified Data.Map                         as Map
 import           Data.Text                        (Text)
+import           Data.Void                        (Void)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
@@ -29,6 +32,8 @@ import qualified Ledger.Typed.Scripts             as Scripts
 import           Plutus.Contract
 import           Plutus.Contracts.Core            (Aave, LendingPool (..))
 import qualified Plutus.Contracts.Core            as Core
+import qualified Plutus.Contracts.FungibleToken   as FungibleToken
+import qualified Plutus.Contracts.State           as State
 import           Plutus.V1.Ledger.Contexts        (ScriptContext,
                                                    scriptCurrencySymbol)
 import qualified Plutus.V1.Ledger.Scripts         as Scripts
@@ -74,15 +79,30 @@ forgeATokensFrom aave reserve pkh amount = do
 
 burnATokensFrom :: (HasBlockchainActions s) => Aave -> LendingPool -> PubKeyHash -> Integer -> Contract w s Text ()
 burnATokensFrom aave reserve pkh amount = do
-    logInfo @String "BURN"
-    let script = Core.aaveInstance aave
-        policy = makeLiquidityPolicy (lpCurrency reserve)
+    let asset = lpCurrency reserve
+    utxos <-
+        Map.filter ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut)
+        <$> utxoAt (Core.aaveAddress aave)
+
+    let aTokenAmount = amount
+        toPubKey = assetClassValue asset aTokenAmount
+        balance = mconcat . fmap (txOutValue . txOutTxOut) . map snd . Map.toList $ utxos
+        remainder = assetClassValueOf balance asset - aTokenAmount
+        script = Core.aaveInstance aave
+        policy = makeLiquidityPolicy asset
+        orefs = fst <$> Map.toList utxos
         lookups = Constraints.scriptInstanceLookups script
-            <> Constraints.monetaryPolicy policy
+            <> Constraints.otherScript (Core.aaveScript aave)
+            <> Constraints.unspentOutputs utxos
             <> Constraints.ownPubKeyHash pkh
-        aTokenAmount = amount -- / lpLiquidityIndex reserve -- TODO: how should we divide?
-        outValue = negate (assetClassValue (lpAToken reserve) aTokenAmount)
-        tx = mustForgeValue outValue <> mustPayToPubKey pkh (assetClassValue (lpCurrency reserve) aTokenAmount)
+            <> Constraints.monetaryPolicy policy
+        outValue = negate $ assetClassValue (lpAToken reserve) aTokenAmount
+        spendTx = mconcat $ fmap (\ref -> mustSpendScriptOutput ref $ Redeemer $ PlutusTx.toData Core.Withdraw) orefs
+        tx = mustForgeValue outValue
+            <> mustPayToPubKey pkh toPubKey
+            <> spendTx
+            <> mustPayToTheScript Core.Deposit (assetClassValue asset remainder)
+
     ledgerTx <- submitTxConstraintsWith lookups tx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()

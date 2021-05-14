@@ -35,7 +35,6 @@ import qualified Ledger.Scripts                   as Scripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
-import qualified Plutus.Contracts.AToken          as AToken
 import           Plutus.Contracts.Core            (Aave (..), AaveAction (..),
                                                    AaveDatum (..), Factory,
                                                    LendingPool (..),

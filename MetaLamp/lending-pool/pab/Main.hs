@@ -111,8 +111,6 @@ main = void $ Simulator.runSimulationWith handlers $ do
     let userCid = cids Map.! Wallet 2
         sender = pubKeyHash . walletPubKey $ Wallet 2
 
-    Simulator.logString @(Builtin AaveContracts) $ "Send:" <> show sender
-
     _  <-
         Simulator.callEndpointOnInstance userCid "deposit" $
             Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 100 }
@@ -123,7 +121,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "withdraw" $
-            Aave.WithdrawParams { Aave.wpAsset = head testAssets, Aave.wpTo = sender, Aave.wpFrom = sender, Aave.wpAmount = 50 }
+            Aave.WithdrawParams { Aave.wpAsset = head testAssets, Aave.wpTo = sender, Aave.wpFrom = sender, Aave.wpAmount = 30 }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (Right Aave.Withdrawn))) -> Just ()
         _                                                   -> Nothing
