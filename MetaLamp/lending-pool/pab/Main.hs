@@ -38,10 +38,10 @@ import qualified Ledger.Constraints.OffChain         as Constraints
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Ledger.Value                        as Value
 import           Plutus.Contract                     hiding (when)
+import qualified Plutus.Contracts.Core               as Aave
 import           Plutus.Contracts.Currency           as Currency
+import qualified Plutus.Contracts.Endpoints          as Aave
 import qualified Plutus.Contracts.FungibleToken      as FungibleToken
-import qualified Plutus.Contracts.Endpoints        as Aave
-import qualified Plutus.Contracts.Core        as Aave
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..),
                                                       type (.\\))
@@ -132,7 +132,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     _ <- Simulator.callEndpointOnInstance userCid "fundsAt" sender
     v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
             Success (Monoid.Last (Just (Right (Aave.FundsAt v)))) -> Just v
-            _                                                      -> Nothing
+            _                                                     -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Final user funds: " <> show v
 
     _ <- Simulator.callEndpointOnInstance userCid "factory" ()
@@ -150,13 +150,13 @@ main = void $ Simulator.runSimulationWith handlers $ do
     _ <- Simulator.callEndpointOnInstance userCid "poolFunds" ()
     v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
             Success (Monoid.Last (Just (Right (Aave.PoolFunds v)))) -> Just v
-            _                                                      -> Nothing
+            _                                                       -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Final pool funds: " <> show v
 
     _ <- Simulator.callEndpointOnInstance userCid "users" ()
     v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
             Success (Monoid.Last (Just (Right (Aave.Users v)))) -> Just v
-            _                                                      -> Nothing
+            _                                                   -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Final users: " <> show v
 
     _ <- liftIO getLine

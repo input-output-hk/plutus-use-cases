@@ -34,7 +34,8 @@ import           Plutus.V1.Ledger.Contexts        (ScriptContext,
 import qualified Plutus.V1.Ledger.Scripts         as Scripts
 import           Plutus.V1.Ledger.Value
 import           Plutus.V1.Ledger.Value           (AssetClass (unAssetClass),
-                                                   TokenName (..), assetClass, assetClassValue)
+                                                   TokenName (..), assetClass,
+                                                   assetClassValue)
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..))
 import           Prelude                          (Semigroup (..))

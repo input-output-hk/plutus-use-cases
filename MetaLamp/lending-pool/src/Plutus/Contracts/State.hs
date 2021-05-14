@@ -91,12 +91,12 @@ findOutputBy aave stateToken mapDatum = do
     let stateName = Text.pack . Prelude.show . Prelude.snd . unAssetClass $ stateToken
     case outputs of
         [output] -> pure output
-        [] -> throwError $ stateName <> " not found"
-        xs -> throwError $ "Multiple " <> stateName <> " found"
+        []       -> throwError $ stateName <> " not found"
+        xs       -> throwError $ "Multiple " <> stateName <> " found"
 
 pickFactory :: AaveDatum -> Maybe Factory
 pickFactory (Factory f) = Just f
-pickFactory _ = Nothing
+pickFactory _           = Nothing
 
 findAaveFactory :: HasBlockchainActions s => Aave -> Contract w s Text (StateOutput Factory)
 findAaveFactory aave@Aave{..} = findOutputBy aave aaveProtocolInst pickFactory
@@ -176,7 +176,7 @@ makeUserHandle toAction =
 
 pickUser :: AaveDatum -> Maybe UserConfig
 pickUser (User user) = Just user
-pickUser _ = Nothing
+pickUser _           = Nothing
 
 putUser :: (HasBlockchainActions s) => Aave -> UserConfig -> Contract w s Text UserConfig
 putUser = putState $ makeUserHandle Core.CreateUser

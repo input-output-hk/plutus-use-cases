@@ -105,10 +105,10 @@ makeAaveValidator :: Aave
                    -> Bool
 makeAaveValidator _ _ (CreateLendingPool _) _ = True
 makeAaveValidator _ _ UpdateLendingPool _     = True
-makeAaveValidator _ _ (CreateUser _) _ = True
-makeAaveValidator _ _ UpdateUser _ = True
-makeAaveValidator _ _ Withdraw _ = True
-makeAaveValidator _  _  _  _ = False
+makeAaveValidator _ _ (CreateUser _) _        = True
+makeAaveValidator _ _ UpdateUser _            = True
+makeAaveValidator _ _ Withdraw _              = True
+makeAaveValidator _  _  _  _                  = False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

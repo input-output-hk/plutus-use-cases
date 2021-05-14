@@ -46,6 +46,7 @@ import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import           Plutus.Contracts.State           (StateOutput (..))
 import qualified Plutus.Contracts.State           as State
 import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
+import qualified Plutus.V1.Ledger.Address         as Addr
 import           Plutus.V1.Ledger.Value           as Value
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..),
@@ -53,7 +54,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
-import qualified Plutus.V1.Ledger.Address as Addr
 
 errorHandler t = logInfo @Text ("Error submiting the transaction!: " <> t)
 
