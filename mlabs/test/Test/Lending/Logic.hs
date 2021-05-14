@@ -10,8 +10,8 @@ import Test.Tasty.HUnit
 import Plutus.V1.Ledger.Value
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
-import Mlabs.Lending.Logic.App
-import Mlabs.Lending.Logic.Emulator
+import Mlabs.Lending.Logic.Emulator.App
+import Mlabs.Lending.Logic.Emulator.Blockchain
 import Mlabs.Lending.Logic.Types
 
 import Text.Show.Pretty
@@ -75,11 +75,11 @@ test = testGroup "Logic"
         w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 10), (fromToken aToken1, 0)]
 
 -- | Checks that script runs without errors
-testScript :: [Act] -> App
+testScript :: Script -> App
 testScript script = runApp testAppConfig script
 
 -- | Check that we have those wallets after script was run.
-testWallets :: [(UserId, BchWallet)] -> [Act] -> Assertion
+testWallets :: [(UserId, BchWallet)] -> Script -> Assertion
 testWallets wals script = do
   noErrors app
   mapM_ (uncurry $ hasWallet app) wals
@@ -91,81 +91,69 @@ hasWallet :: App -> UserId -> BchWallet -> Assertion
 hasWallet app uid wal = lookupAppWallet uid app @=? Just wal
 
 -- | 3 users deposit 50 coins to lending app
-depositScript :: [Act]
-depositScript =
-  [ UserAct user1 $ DepositAct 50 coin1
-  , UserAct user2 $ DepositAct 50 coin2
-  , UserAct user3 $ DepositAct 50 coin3
-  ]
+depositScript :: Script
+depositScript = do
+  userAct user1 $ DepositAct 50 coin1
+  userAct user2 $ DepositAct 50 coin2
+  userAct user3 $ DepositAct 50 coin3
 
 -- | 3 users deposit 50 coins to lending app
 -- and first user borrows in coin2 that he does not own prior to script run.
-borrowScript :: [Act]
-borrowScript = mconcat
-  [ depositScript
-  , [ UserAct user1 $ SetUserReserveAsCollateralAct
+borrowScript :: Script
+borrowScript = do
+  depositScript
+  userAct user1 $ SetUserReserveAsCollateralAct
         { act'asset           = coin1
         , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1
-        }
-    , UserAct user1 $ BorrowAct
+        , act'portion         = R.fromInteger 1 }
+  userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 30
-        , act'rate            = StableRate
-        }
-    ]
-  ]
+        , act'rate            = StableRate }
 
 -- | Try to borrow without setting up deposit as collateral.
-borrowNoCollateralScript :: [Act]
-borrowNoCollateralScript = mconcat
-  [ depositScript
-  , pure $ UserAct user1 $ BorrowAct
+borrowNoCollateralScript :: Script
+borrowNoCollateralScript = do
+  depositScript
+  userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 30
         , act'rate            = StableRate
         }
-  ]
 
 -- | Try to borrow more than collateral permits
-borrowNotEnoughCollateralScript :: [Act]
-borrowNotEnoughCollateralScript = mconcat
-  [ depositScript
-  , [ UserAct user1 $ SetUserReserveAsCollateralAct
+borrowNotEnoughCollateralScript :: Script
+borrowNotEnoughCollateralScript = do
+  depositScript
+  userAct user1 $ SetUserReserveAsCollateralAct
         { act'asset           = coin1
         , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1
-        }
-    , UserAct user1 $ BorrowAct
+        , act'portion         = R.fromInteger 1 }
+  userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 60
-        , act'rate            = StableRate
-        }
-    ]
-  ]
+        , act'rate            = StableRate }
 
 -- | User1 deposits 50 out of 100 and gets back 25.
 -- So we check that user has 75 coins and 25 aCoins
-withdrawScript :: [Act]
-withdrawScript = mconcat
-  [ depositScript
-  , pure $ UserAct user1 $ WithdrawAct
+withdrawScript :: Script
+withdrawScript = do
+  depositScript
+  userAct user1 $ WithdrawAct
       { act'amount = 25
       , act'asset  = coin1
       }
-  ]
 
 -- | We use borrow script to deposit and borrow for user 1
 -- and then repay part of the borrow.
-repayScript :: [Act]
-repayScript = mconcat
-  [ borrowScript
-  , pure $ UserAct user1 $ RepayAct
+repayScript :: Script
+repayScript = do
+  borrowScript
+  userAct user1 $ RepayAct
       { act'asset   = coin2
       , act'amount  = 20
       , act'rate    = StableRate
       }
-  ]
 
 ---------------------------------
 -- constants

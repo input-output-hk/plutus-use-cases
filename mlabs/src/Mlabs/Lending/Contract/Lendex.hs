@@ -43,7 +43,7 @@ import           PlutusTx.Prelude             hiding (Applicative (..), check, S
 import qualified PlutusTx.Prelude             as PlutusTx
 
 
-import Mlabs.Lending.Logic.Emulator
+import Mlabs.Lending.Logic.Emulator.Blockchain
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
 import qualified Mlabs.Lending.Contract.Forge as Forge
@@ -89,7 +89,7 @@ transition ::
      SM.State LendingPool
   -> Act
   -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State LendingPool)
-transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react 0 input) oldData of
+transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react input) oldData of
   Left _err              -> Nothing
   Right (resps, newData) -> Just ( foldMap toConstraints resps
                                  , SM.State { stateData=newData
@@ -115,12 +115,13 @@ findInputStateDatum = do
 
 userAction :: UserAct -> UserApp ()
 userAction act = do
+  currentTimestamp <- getSlot <$> currentSlot
   pkh <- fmap pubKeyHash ownPubKey
   inputDatum <- findInputStateDatum
   let lookups = monetaryPolicy Forge.currencyPolicy P.<>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
-  t <- SM.mkStep client (UserAct (UserId pkh) act)
+  t <- SM.mkStep client (UserAct currentTimestamp (UserId pkh) act)
   logInfo @String $ "Executes action " P.<> show act
   case t of
     Left _err -> logError ("Action failed" :: String)

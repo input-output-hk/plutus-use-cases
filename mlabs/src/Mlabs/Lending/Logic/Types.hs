@@ -191,7 +191,8 @@ defaultWallet = Wallet 0 0 0 (R.fromInteger 0)
 -- | Acts for lending platform
 data Act
   = UserAct
-      { userAct'userId      :: UserId
+      { userAct'time        :: Integer
+      , userAct'userId      :: UserId
       , userAct'act         :: UserAct
       }                              -- ^ user's actions
   | PriceAct PriceAct                -- ^ price oracle's actions

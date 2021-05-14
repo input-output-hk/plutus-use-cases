@@ -20,7 +20,7 @@ import qualified PlutusTx.AssocMap as M
 import Control.Monad.Except
 import Control.Monad.State.Strict
 
-import Mlabs.Lending.Logic.Emulator
+import Mlabs.Lending.Logic.Emulator.Blockchain
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import Mlabs.Lending.Logic.State
 import Mlabs.Lending.Logic.Types
@@ -29,27 +29,27 @@ import Mlabs.Lending.Logic.Types
 -- | State transitions for lending pool.
 -- For a given action we update internal state of Lending pool and produce
 -- list of responses to simulate change of the balances on blockchain.
-react :: Integer -> Act -> St [Resp]
-react currentTime = \case
-  UserAct uid act -> userAct uid act
-  PriceAct    act -> priceAct act
-  GovernAct   act -> governAct act
+react :: Act -> St [Resp]
+react = \case
+  UserAct t uid act -> userAct t uid act
+  PriceAct      act -> priceAct act
+  GovernAct     act -> governAct act
   where
     -- | User acts
-    userAct uid = \case
-      DepositAct{..}                    -> depositAct uid act'amount act'asset
-      BorrowAct{..}                     -> borrowAct uid act'asset act'amount act'rate
-      RepayAct{..}                      -> repayAct uid act'asset act'amount act'rate
+    userAct time uid = \case
+      DepositAct{..}                    -> depositAct time uid act'amount act'asset
+      BorrowAct{..}                     -> borrowAct time uid act'asset act'amount act'rate
+      RepayAct{..}                      -> repayAct time uid act'asset act'amount act'rate
       SwapBorrowRateModelAct{..}        -> swapBorrowRateModelAct uid act'asset act'rate
       SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion (R.fromInteger 1))
-      WithdrawAct{..}                   -> withdrawAct uid act'amount act'asset
+      WithdrawAct{..}                   -> withdrawAct time uid act'amount act'asset
       FlashLoanAct                      -> flashLoanAct uid
       LiquidationCallAct{..}            -> liquidationCallAct uid act'collateral act'debt act'user act'debtToCover act'receiveAToken
 
     ---------------------------------------------------
     -- deposit
 
-    depositAct uid amount asset = do
+    depositAct currentTime uid amount asset = do
       ni <- getNormalisedIncome asset
       modifyWalletAndReserve' uid asset (addDeposit ni amount)
       aCoin <- aToken asset
@@ -68,7 +68,7 @@ react currentTime = \case
     --  * reserve has enough liquidity
     --  * user does not use collateral reserve to borrow (it's meaningless for the user)
     --  * user has enough collateral for the borrow
-    borrowAct uid asset amount _rate = do
+    borrowAct currentTime uid asset amount _rate = do
       hasEnoughLiquidityToBorrow asset amount
       collateralNonBorrow uid asset
       hasEnoughCollateral uid asset amount
@@ -100,7 +100,7 @@ react currentTime = \case
     ---------------------------------------------------
     -- repay (also called redeem in whitepaper)
 
-    repayAct uid asset amount _rate = do
+    repayAct currentTime uid asset amount _rate = do
       ni <- getNormalisedIncome asset
       bor <- getsWallet uid asset wallet'borrow
       let newBor = bor - amount
@@ -154,7 +154,7 @@ react currentTime = \case
     ---------------------------------------------------
     -- withdraw
 
-    withdrawAct uid amount asset = do
+    withdrawAct currentTime uid amount asset = do
       -- validate withdraw
       hasEnoughDepositToWithdraw uid amount asset
       -- update state on withdraw

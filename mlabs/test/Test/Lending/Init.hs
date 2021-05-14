@@ -11,7 +11,6 @@ module Test.Lending.Init(
 
 import Prelude
 
--- import Data.Default
 import Control.Lens
 
 import Plutus.V1.Ledger.Value (Value, TokenName)
@@ -23,7 +22,7 @@ import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 
 import Mlabs.Lending.Logic.Types (Coin, UserAct(..))
-import qualified Mlabs.Lending.Logic.App as L
+import qualified Mlabs.Lending.Logic.Emulator.App as L
 import qualified Mlabs.Lending.Contract.Lendex as L
 import qualified Mlabs.Lending.Contract.Forge as Forge
 
