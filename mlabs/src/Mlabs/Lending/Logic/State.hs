@@ -6,7 +6,13 @@ module Mlabs.Lending.Logic.State(
     St
   , showt
   , Error
+  , isNonNegative
+  , isPositive
+  , isPositiveRational
+  , isUnitRange
+  , isAsset
   , aToken
+  , updateReserveState
   , initReserve
   , guardError
   , getWallet, getsWallet
@@ -29,6 +35,8 @@ module Mlabs.Lending.Logic.State(
   , modifyUser'
   , modifyWallet'
   , modifyWalletAndReserve'
+  , getNormalisedIncome
+  , getCumulativeBalance
 ) where
 
 import qualified PlutusTx.Ratio as R
@@ -39,6 +47,7 @@ import qualified PlutusTx.AssocMap as M
 import Control.Monad.Except       hiding (Functor(..), mapM)
 import Control.Monad.State.Strict hiding (Functor(..), mapM)
 
+import qualified Mlabs.Lending.Logic.InterestRate as IR
 import Mlabs.Lending.Logic.Types
 
 -- | Type for errors
@@ -62,6 +71,42 @@ instance Applicative St where
 
 ----------------------------------------------------
 -- common functions
+{-# INLINABLE isNonNegative #-}
+isNonNegative :: String -> Integer -> St ()
+isNonNegative msg val
+  | val >= 0  = pure ()
+  | otherwise = throwError $ msg <> " should be non-negative"
+
+{-# INLINABLE isPositive #-}
+isPositive :: String -> Integer -> St ()
+isPositive msg val
+  | val > 0   = pure ()
+  | otherwise = throwError $ msg <> " should be positive"
+
+{-# INLINABLE isPositiveRational #-}
+isPositiveRational :: String -> Rational -> St ()
+isPositiveRational msg val
+  | val > R.fromInteger 0 = pure ()
+  | otherwise             = throwError $ msg <> " should be positive"
+
+{-# INLINABLE isUnitRange #-}
+isUnitRange :: String -> Rational -> St ()
+isUnitRange msg val
+  | val >= R.fromInteger 0 && val <= R.fromInteger 1 = pure ()
+  | otherwise                                        = throwError $ msg <> " should have unit range [0, 1]"
+
+{-# INLINABLE isAsset #-}
+isAsset :: Coin -> St ()
+isAsset asset = do
+  reserves <- gets lp'reserves
+  if M.member asset reserves
+    then pure ()
+    else throwError "Asset not supported"
+
+{-# INLINABLE updateReserveState #-}
+updateReserveState :: Integer -> Coin -> St ()
+updateReserveState currentTime asset =
+  modifyReserve asset $ IR.updateReserveInterestRates currentTime
 
 {-# INLINABLE aToken #-}
 aToken :: Coin -> St Coin
@@ -231,4 +276,15 @@ modifyWallet' :: UserId -> Coin -> (Wallet -> Either Error Wallet) -> St ()
 modifyWallet' uid coin f = modifyUser' uid $ \(User ws) -> do
   wal <- f $ fromMaybe defaultWallet $ M.lookup coin ws
   pure $ User $ M.insert coin wal ws
+
+{-# INLINABLE getNormalisedIncome #-}
+getNormalisedIncome :: Coin -> St Rational
+getNormalisedIncome asset =
+  getsReserve asset $ (ri'normalisedIncome . reserve'interest)
+
+{-# INLINABLE getCumulativeBalance #-}
+getCumulativeBalance :: UserId -> Coin -> St Rational
+getCumulativeBalance uid asset = do
+  ni <- getNormalisedIncome asset
+  getsWallet uid asset (IR.getCumulativeBalance ni)
 

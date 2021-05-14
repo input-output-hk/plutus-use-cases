@@ -1,5 +1,5 @@
 -- | Simple emulation ob blockchain state
-module Mlabs.Lending.Logic.Emulator(
+module Mlabs.Lending.Logic.Emulator.Blockchain(
     BchState(..)
   , BchWallet(..)
   , defaultBchWallet

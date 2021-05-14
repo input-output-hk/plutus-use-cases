@@ -10,15 +10,29 @@ import Test.Tasty.HUnit
 import Plutus.V1.Ledger.Value
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
-import Mlabs.Lending.Logic.App
-import Mlabs.Lending.Logic.Emulator
+import Mlabs.Lending.Logic.Emulator.App
+import Mlabs.Lending.Logic.Emulator.Blockchain
 import Mlabs.Lending.Logic.Types
+
+import Text.Show.Pretty
 
 import qualified Data.Map.Strict as M
 import qualified PlutusTx.Ratio as R
 
-noErrors :: App -> Bool
-noErrors app = null $ app'log app
+noErrors :: App -> Assertion
+noErrors app = case app'log app of
+  [] -> assertBool "no errors" True
+  xs -> do
+    mapM_ printLog xs
+    assertFailure "There are errors"
+  where
+    printLog (act, lp, msg) = do
+      pPrint act
+      pPrint lp
+      print msg
+
+someErrors :: App -> Assertion
+someErrors app = assertBool "Script fails" $ not $ null (app'log app)
 
 -- | Test suite for a logic of lending application
 test :: TestTree
@@ -39,8 +53,8 @@ test = testGroup "Logic"
       where
         wal coin aToken = BchWallet $ M.fromList [(coin, 50), (fromToken aToken, 50)]
 
-    testBorrowNoCollateral = testScript borrowNoCollateralScript @=? False
-    testBorrowNotEnoughCollateral = testScript borrowNotEnoughCollateralScript @=? False
+    testBorrowNoCollateral = someErrors $ testScript borrowNoCollateralScript
+    testBorrowNotEnoughCollateral = someErrors $ testScript borrowNotEnoughCollateralScript
 
     testWithdraw = testWallets [(user1, w1)] withdrawScript
       where
@@ -61,13 +75,13 @@ test = testGroup "Logic"
         w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 10), (fromToken aToken1, 0)]
 
 -- | Checks that script runs without errors
-testScript :: [Act] -> Bool
-testScript script = noErrors $ runApp testAppConfig script
+testScript :: Script -> App
+testScript script = runApp testAppConfig script
 
 -- | Check that we have those wallets after script was run.
-testWallets :: [(UserId, BchWallet)] -> [Act] -> Assertion
+testWallets :: [(UserId, BchWallet)] -> Script -> Assertion
 testWallets wals script = do
-  assertBool "Script has no errors" $ noErrors app
+  noErrors app
   mapM_ (uncurry $ hasWallet app) wals
   where
     app = runApp testAppConfig script
@@ -77,81 +91,69 @@ hasWallet :: App -> UserId -> BchWallet -> Assertion
 hasWallet app uid wal = lookupAppWallet uid app @=? Just wal
 
 -- | 3 users deposit 50 coins to lending app
-depositScript :: [Act]
-depositScript =
-  [ UserAct user1 $ DepositAct 50 coin1
-  , UserAct user2 $ DepositAct 50 coin2
-  , UserAct user3 $ DepositAct 50 coin3
-  ]
+depositScript :: Script
+depositScript = do
+  userAct user1 $ DepositAct 50 coin1
+  userAct user2 $ DepositAct 50 coin2
+  userAct user3 $ DepositAct 50 coin3
 
 -- | 3 users deposit 50 coins to lending app
 -- and first user borrows in coin2 that he does not own prior to script run.
-borrowScript :: [Act]
-borrowScript = mconcat
-  [ depositScript
-  , [ UserAct user1 $ SetUserReserveAsCollateralAct
+borrowScript :: Script
+borrowScript = do
+  depositScript
+  userAct user1 $ SetUserReserveAsCollateralAct
         { act'asset           = coin1
         , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1
-        }
-    , UserAct user1 $ BorrowAct
+        , act'portion         = R.fromInteger 1 }
+  userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 30
-        , act'rate            = StableRate
-        }
-    ]
-  ]
+        , act'rate            = StableRate }
 
 -- | Try to borrow without setting up deposit as collateral.
-borrowNoCollateralScript :: [Act]
-borrowNoCollateralScript = mconcat
-  [ depositScript
-  , pure $ UserAct user1 $ BorrowAct
+borrowNoCollateralScript :: Script
+borrowNoCollateralScript = do
+  depositScript
+  userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 30
         , act'rate            = StableRate
         }
-  ]
 
 -- | Try to borrow more than collateral permits
-borrowNotEnoughCollateralScript :: [Act]
-borrowNotEnoughCollateralScript = mconcat
-  [ depositScript
-  , [ UserAct user1 $ SetUserReserveAsCollateralAct
+borrowNotEnoughCollateralScript :: Script
+borrowNotEnoughCollateralScript = do
+  depositScript
+  userAct user1 $ SetUserReserveAsCollateralAct
         { act'asset           = coin1
         , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1
-        }
-    , UserAct user1 $ BorrowAct
+        , act'portion         = R.fromInteger 1 }
+  userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 60
-        , act'rate            = StableRate
-        }
-    ]
-  ]
+        , act'rate            = StableRate }
 
 -- | User1 deposits 50 out of 100 and gets back 25.
 -- So we check that user has 75 coins and 25 aCoins
-withdrawScript :: [Act]
-withdrawScript = mconcat
-  [ depositScript
-  , pure $ UserAct user1 $ WithdrawAct
+withdrawScript :: Script
+withdrawScript = do
+  depositScript
+  userAct user1 $ WithdrawAct
       { act'amount = 25
       , act'asset  = coin1
       }
-  ]
 
 -- | We use borrow script to deposit and borrow for user 1
 -- and then repay part of the borrow.
-repayScript :: [Act]
-repayScript = mconcat
-  [ borrowScript
-  , pure $ UserAct user1 $ RepayAct
+repayScript :: Script
+repayScript = do
+  borrowScript
+  userAct user1 $ RepayAct
       { act'asset   = coin2
       , act'amount  = 20
       , act'rate    = StableRate
       }
-  ]
 
 ---------------------------------
 -- constants
@@ -188,7 +190,12 @@ aToken3 = tokenName "aLira"
 testAppConfig :: AppConfig
 testAppConfig = AppConfig reserves users lendingPoolCurrency
   where
-    reserves = fmap (\(coin, aCoin) -> CoinCfg coin (R.fromInteger 1) aCoin)
+    reserves = fmap (\(coin, aCoin) -> CoinCfg
+                                        { coinCfg'coin          = coin
+                                        , coinCfg'rate          = R.fromInteger 1
+                                        , coinCfg'aToken        = aCoin
+                                        , coinCfg'interestModel = defaultInterestModel
+                                        })
       [(coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
 
     users =

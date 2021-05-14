@@ -107,7 +107,7 @@ validate ctx = case (getInState, getOutState) of
         checkScriptPays uid = traceIfFalse "User has not received aCoins for Mint" $
           checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue aCoin amount :: TxConstraints () ()) ctx
 
-    isValidBurn (Input st1 stVal1) (Input st2 stVal2) coin aCoin amount =
+    isValidBurn (Input st1 _stVal1) (Input st2 _stVal2) coin _aCoin amount =
       traceIfFalse "No user is allowed to burn" $ any checkUserBurn users
       where
         checkUserBurn uid =

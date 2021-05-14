@@ -19,7 +19,10 @@ module Mlabs.Lending.Logic.Types(
   , defaultUser
   , UserId(..)
   , Reserve(..)
+  , ReserveInterest(..)
   , InterestRate(..)
+  , InterestModel(..)
+  , defaultInterestModel
   , CoinCfg(..)
   , initReserve
   , initLendingPool
@@ -43,6 +46,7 @@ module Mlabs.Lending.Logic.Types(
 
 import Data.Aeson (FromJSON, ToJSON)
 
+import qualified PlutusTx.Ratio as R
 import qualified Prelude as P
 import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
@@ -73,7 +77,7 @@ instance Eq UserId where
 data LendingPool = LendingPool
   { lp'reserves :: !(Map Coin Reserve)   -- ^ list of reserves
   , lp'users    :: !(Map UserId User)    -- ^ internal user wallets on the app
-  , lp'currency :: !CurrencySymbol       -- ^ main correncySymbol of the app
+  , lp'currency :: !CurrencySymbol       -- ^ main currencySymbol of the app
   , lp'coinMap  :: !(Map TokenName Coin) -- ^ maps aTokenNames to actual coins
   }
   deriving (Show, Generic)
@@ -84,17 +88,46 @@ data Reserve = Reserve
   { reserve'wallet               :: !Wallet     -- ^ total amounts of coins deposited to reserve
   , reserve'rate                 :: !Rational   -- ^ ratio of reserve's coin to base currency
   , reserve'liquidationThreshold :: !Rational   -- ^ ratio at which liquidation of collaterals can happen for this coin
-  , reserve'aToken               :: !TokenName  -- ^ aToken coressponding to the coin of the reserve
+  , reserve'aToken               :: !TokenName  -- ^ aToken corresponding to the coin of the reserve
+  , reserve'interest             :: !ReserveInterest -- ^ reserve liquidity params
   }
   deriving (Show, Generic)
 
+-- | Parameters for calculation of interest rates.
+data ReserveInterest = ReserveInterest
+  { ri'interestModel      :: !InterestModel
+  , ri'liquidityRate      :: !Rational
+  , ri'liquidityIndex     :: !Rational
+  , ri'normalisedIncome   :: !Rational
+  , ri'lastUpdateTime     :: !Integer
+  }
+  deriving (Show, Generic)
+
+data InterestModel = InterestModel
+  { im'optimalUtilisation  :: !Rational
+  , im'slope1              :: !Rational
+  , im'slope2              :: !Rational
+  , im'base                :: !Rational
+  }
+  deriving (Show, Generic, P.Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
+defaultInterestModel :: InterestModel
+defaultInterestModel = InterestModel
+  { im'base   = R.fromInteger 0
+  , im'slope1 = 1 % 5
+  , im'slope2 = R.fromInteger 4
+  , im'optimalUtilisation = 8 % 10
+  }
+
 -- | Coin configuration
 data CoinCfg = CoinCfg
-  { coinCfg'coin   :: Coin
-  , coinCfg'rate   :: Rational
-  , coinCfg'aToken :: TokenName
+  { coinCfg'coin          :: Coin
+  , coinCfg'rate          :: Rational
+  , coinCfg'aToken        :: TokenName
+  , coinCfg'interestModel :: InterestModel
   }
-  deriving stock (Show, Generic)
+  deriving stock (Show, Generic, P.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 {-# INLINABLE initLendingPool #-}
@@ -102,21 +135,31 @@ initLendingPool :: CurrencySymbol -> [CoinCfg] -> LendingPool
 initLendingPool curSym coinCfgs = LendingPool reserves M.empty curSym coinMap
   where
     reserves = M.fromList $ fmap (\cfg -> (coinCfg'coin cfg, initReserve cfg)) coinCfgs
-    coinMap  = M.fromList $ fmap (\(CoinCfg coin _ aToken) -> (aToken, coin)) coinCfgs
+    coinMap  = M.fromList $ fmap (\(CoinCfg coin _ aToken _) -> (aToken, coin)) coinCfgs
 
 {-# INLINABLE initReserve #-}
 -- | Initialise empty reserve with given ratio of its coin to ada
 initReserve :: CoinCfg -> Reserve
 initReserve CoinCfg{..} = Reserve
   { reserve'wallet = Wallet
-      { wallet'deposit    = 0
-      , wallet'borrow     = 0
-      , wallet'collateral = 0
+      { wallet'deposit       = 0
+      , wallet'borrow        = 0
+      , wallet'collateral    = 0
+      , wallet'scaledBalance = R.fromInteger 0
       }
   , reserve'rate                 = coinCfg'rate
   , reserve'liquidationThreshold = 8 % 10
   , reserve'aToken               = coinCfg'aToken
+  , reserve'interest             = initInterest coinCfg'interestModel
   }
+  where
+    initInterest interestModel = ReserveInterest
+      { ri'interestModel    = interestModel
+      , ri'liquidityRate    = R.fromInteger 0
+      , ri'liquidityIndex   = R.fromInteger 1
+      , ri'normalisedIncome = R.fromInteger 1
+      , ri'lastUpdateTime   = 0
+      }
 
 -- | User is a set of wallets per currency
 data User = User
@@ -136,19 +179,25 @@ data Wallet = Wallet
   { wallet'deposit       :: !Integer   -- ^ amount of deposit
   , wallet'collateral    :: !Integer   -- ^ amount of collateral
   , wallet'borrow        :: !Integer   -- ^ amount of borrow
+  , wallet'scaledBalance :: !Rational  -- ^ scaled balance
   }
   deriving (Show, Generic)
 
+
 {-# INLINABLE defaultWallet #-}
 defaultWallet :: Wallet
-defaultWallet = Wallet 0 0 0
+defaultWallet = Wallet 0 0 0 (R.fromInteger 0)
 
 -- | Acts for lending platform
 data Act
-  = UserAct UserId UserAct   -- ^ user's actions
-  | PriceAct PriceAct        -- ^ price oracle's actions
-  | GovernAct GovernAct      -- ^ app admin's actions
-  deriving stock (Show, Generic)
+  = UserAct
+      { userAct'time        :: Integer
+      , userAct'userId      :: UserId
+      , userAct'act         :: UserAct
+      }                              -- ^ user's actions
+  | PriceAct PriceAct                -- ^ price oracle's actions
+  | GovernAct GovernAct              -- ^ app admin's actions
+  deriving stock (Show, Generic, P.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Lending pool action
@@ -196,20 +245,20 @@ data UserAct
       , act'receiveAToken  :: Bool
       }
   -- ^ call to liquidate borrows that are unsafe due to health check
-  deriving stock (Show, Generic)
+  deriving stock (Show, Generic, P.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Acts that can be done by admin users.
 data GovernAct
   = AddReserve CoinCfg  -- ^ Adds new reserve
-  deriving stock (Show, Generic)
+  deriving stock (Show, Generic, P.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Updates for the prices of the currencies on the markets
 data PriceAct
   = SetAssetPrice Coin Rational   -- ^ Set asset price
   | SetOracleAddr Coin UserId     -- ^ Provide address of the oracle
-  deriving stock (Show, Generic)
+  deriving stock (Show, Generic, P.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Custom currency
@@ -246,13 +295,16 @@ data PriceOracleProvider = PriceOracleProvider
 data InterestRateStrategy = InterestRateStrategy
 
 data InterestRate = StableRate | VariableRate
-  deriving stock (Show, Generic)
+  deriving stock (Show, Generic, P.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
-------------------------------------------
+---------------------------------------------------------------
+-- boilerplate instances
 
 PlutusTx.unstableMakeIsData ''CoinCfg
+PlutusTx.unstableMakeIsData ''InterestModel
 PlutusTx.unstableMakeIsData ''InterestRate
+PlutusTx.unstableMakeIsData ''ReserveInterest
 PlutusTx.unstableMakeIsData ''UserAct
 PlutusTx.unstableMakeIsData ''PriceAct
 PlutusTx.unstableMakeIsData ''GovernAct

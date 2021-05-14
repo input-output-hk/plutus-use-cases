@@ -1,11 +1,12 @@
 -- | Lending app emulator
-module Mlabs.Lending.Logic.App(
+module Mlabs.Lending.Logic.Emulator.App(
     App(..)
   , runApp
   , AppConfig(..)
   , defaultAppConfig
   , lookupAppWallet
   , toCoin
+  , module X
 ) where
 
 import PlutusTx.Prelude
@@ -16,7 +17,8 @@ import Control.Monad.State.Strict hiding (Functor(..))
 
 import Data.List (foldl')
 
-import Mlabs.Lending.Logic.Emulator
+import Mlabs.Lending.Logic.Emulator.Blockchain
+import Mlabs.Lending.Logic.Emulator.Script as X
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
 import Mlabs.Lending.Logic.State
@@ -27,9 +29,10 @@ import qualified PlutusTx.Ratio as R
 
 -- | Prototype application
 data App = App
-  { app'pool    :: !LendingPool  -- ^ lending pool
-  , app'log     :: ![Error]      -- ^ error log
-  , app'wallets :: !BchState     -- ^ current state of blockchain
+  { app'pool    :: !LendingPool                  -- ^ lending pool
+  , app'log     :: ![(Act, LendingPool, Error)]  -- ^ error log
+                                                 -- ^ it reports on which act and pool state error has happened
+  , app'wallets :: !BchState                     -- ^ current state of blockchain
   }
 
 -- | Lookup state of the blockchain-wallet for a given user-id.
@@ -39,8 +42,8 @@ lookupAppWallet uid App{..} = case app'wallets of
 
 -- | Runs application with the list of actions.
 -- Returns final state of the application.
-runApp :: AppConfig -> [Act] -> App
-runApp cfg acts = foldl' go (initApp cfg) acts
+runApp :: AppConfig -> Script -> App
+runApp cfg acts = foldl' go (initApp cfg) $ runScript acts
   where
     -- There are two possible sources of errors:
     --   * we can not make transition to state (react produces Left)
@@ -48,8 +51,8 @@ runApp cfg acts = foldl' go (initApp cfg) acts
     go (App lp errs wallets) act = case runStateT (react act) lp of
       Right (resp, nextState) -> case foldM (flip applyResp) wallets resp of
         Right nextWallets -> App nextState errs nextWallets
-        Left err          -> App lp (err : errs) wallets
-      Left err                -> App lp (err : errs) wallets
+        Left err          -> App lp ((act, lp, err) : errs) wallets
+      Left err                -> App lp ((act, lp, err) : errs) wallets
 
 -- Configuration paprameters for app.
 data AppConfig = AppConfig
@@ -83,7 +86,7 @@ defaultAppConfig = AppConfig reserves users curSym
     userNames = ["1", "2", "3"]
     coinNames = ["Dollar", "Euro", "Lira"]
 
-    reserves = fmap (\name -> CoinCfg (toCoin name) (R.fromInteger 1) (toAToken name))  coinNames
+    reserves = fmap (\name -> CoinCfg (toCoin name) (R.fromInteger 1) (toAToken name) defaultInterestModel)  coinNames
 
     users = zipWith (\coinName userName -> (UserId (PubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames
     wal cs = BchWallet $ uncurry M.singleton cs
@@ -92,3 +95,4 @@ defaultAppConfig = AppConfig reserves users curSym
 
 toCoin :: ByteString -> Coin
 toCoin str = AssetClass (currencySymbol str, tokenName str)
+
