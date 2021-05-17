@@ -42,8 +42,8 @@ import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
-import           Plutus.Contracts.State           (StateOutput (..))
 import qualified Plutus.Contracts.State           as State
+import           Plutus.State.Select              (StateOutput (..))
 import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
 import qualified Plutus.V1.Ledger.Address         as Addr
 import           Plutus.V1.Ledger.Value           as Value
@@ -99,14 +99,14 @@ type AaveOwnerSchema =
     BlockchainActions
         .\/ Endpoint "start" ()
 
-factory :: forall w s. HasBlockchainActions s => Aave -> Contract w s Text Factory
+factory :: HasBlockchainActions s => Aave -> Contract w s Text Factory
 factory = fmap soDatum . State.findAaveFactory
 
-reserves :: forall w s. HasBlockchainActions s => Aave -> Contract w s Text [Reserve]
-reserves aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (Core.reserveStateToken aave) State.pickReserve
+reserves :: HasBlockchainActions s => Aave -> Contract w s Text [Reserve]
+reserves aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (State.reserveStateToken aave) State.pickReserve
 
-users :: forall w s. HasBlockchainActions s => Aave -> Contract w s Text [UserConfig]
-users aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (Core.userStateToken aave) State.pickUserConfig
+users :: HasBlockchainActions s => Aave -> Contract w s Text [UserConfig]
+users aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (State.userStateToken aave) State.pickUserConfig
 
 valueAt :: HasBlockchainActions s => Address -> Contract w s Text Value
 valueAt address = do
@@ -119,7 +119,7 @@ fundsAt pkh = valueAt (pubKeyHashAddress pkh)
 balanceAt :: HasBlockchainActions s => PubKeyHash -> AssetClass -> Contract w s Text Integer
 balanceAt pkh asset = flip assetClassValueOf asset <$> fundsAt pkh
 
-poolFunds :: forall w s. HasBlockchainActions s => Aave -> Contract w s Text Value
+poolFunds :: HasBlockchainActions s => Aave -> Contract w s Text Value
 poolFunds aave = valueAt (Core.aaveAddress aave)
 
 data DepositParams =
@@ -148,7 +148,7 @@ deposit aave DepositParams {..} = do
     wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
     _ <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
     when wasZeroBalance $ do
-        userOutputs <- State.findOutputsBy aave (Core.userStateToken aave) State.pickUserConfig
+        userOutputs <- State.findOutputsBy aave (State.userStateToken aave) State.pickUserConfig
         case userOutputs of
             [] -> void $
                 State.putUser aave $ UserConfig { ucAddress = dpOnBehalfOf, ucReserveId = rCurrency reserve, ucUsingAsCollateral = True }

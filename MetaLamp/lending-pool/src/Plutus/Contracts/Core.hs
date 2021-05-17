@@ -136,36 +136,3 @@ aaveAddress = Ledger.scriptAddress . aaveScript
 
 aave :: CurrencySymbol -> Aave
 aave protocol = Aave (assetClass protocol aaveProtocolName)
-
--- State token can be only be forged either when input has aave token(first-time creation)
--- or any of the state tokens(modification), assuming that state token was created with aave token at some point
-validateStateForging :: Aave -> TokenName -> ScriptContext -> Bool
-validateStateForging aave tn ctx = case [ i
-                                          | i <- txInfoInputs $ scriptContextTxInfo ctx
-                                          , let v = valueWithin i
-                                          , (assetClassValueOf v aaveToken == 1) ||
-                                            (assetClassValueOf v stateToken == 1)
-                                          ] of
-    [_]    -> True
-    [_, _] -> True
-    _      -> traceError "State forging without Aave input"
-  where
-    aaveToken = aaveProtocolInst aave
-    stateToken = assetClass (ownCurrencySymbol ctx) tn
-    valueWithin = txOutValue . txInInfoResolved
-
-makeStatePolicy :: TokenName -> Aave -> MonetaryPolicy
-makeStatePolicy tokenName aave = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \u t -> Scripts.wrapMonetaryPolicy (validateStateForging u t) ||])
-        `PlutusTx.applyCode` PlutusTx.liftCode aave
-        `PlutusTx.applyCode` PlutusTx.liftCode tokenName
-
-makeStateCurrency :: TokenName -> Aave -> CurrencySymbol
-makeStateCurrency tokenName = scriptCurrencySymbol . makeStatePolicy tokenName
-
-makeStateToken :: TokenName -> Aave -> AssetClass
-makeStateToken tokenName = flip assetClass tokenName . makeStateCurrency tokenName
-
-reserveStateToken, userStateToken :: Aave -> AssetClass
-reserveStateToken = makeStateToken "aaveReserve"
-userStateToken = makeStateToken "aaveUser"
