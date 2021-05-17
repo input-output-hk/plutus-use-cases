@@ -137,11 +137,10 @@ aaveAddress = Ledger.scriptAddress . aaveScript
 aave :: CurrencySymbol -> Aave
 aave protocol = Aave (assetClass protocol aaveProtocolName)
 
--- State forging validator/policy
--- TODO: Fix
+-- State token can be only be forged either when input has aave token(first-time creation)
+-- or any of the state tokens(modification), assuming that state token was created with aave token at some point
 validateStateForging :: Aave -> TokenName -> ScriptContext -> Bool
-validateStateForging aave tn ctx = True
-{-case [ i
+validateStateForging aave tn ctx = case [ i
                                           | i <- txInfoInputs $ scriptContextTxInfo ctx
                                           , let v = valueWithin i
                                           , (assetClassValueOf v aaveToken == 1) ||
@@ -154,7 +153,6 @@ validateStateForging aave tn ctx = True
     aaveToken = aaveProtocolInst aave
     stateToken = assetClass (ownCurrencySymbol ctx) tn
     valueWithin = txOutValue . txInInfoResolved
--}
 
 makeStatePolicy :: TokenName -> Aave -> MonetaryPolicy
 makeStatePolicy tokenName aave = mkMonetaryPolicyScript $

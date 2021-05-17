@@ -120,19 +120,25 @@ findAaveUser aave userAddress reserveId = findOutputBy aave (Core.userStateToken
 data StateHandle a = StateHandle {
     getToken :: Aave -> AssetClass,
     toDatum  :: a -> AaveDatum,
-    toAction :: a -> AaveRedeemer
+    toRedeemer :: a -> AaveRedeemer
 }
 
 putState :: (HasBlockchainActions s) => StateHandle a -> Aave -> a -> Contract w s Text a
-putState StateHandle{..} aave datum = do
+putState StateHandle{..} aave newState = do
+    StateOutput oref otx lps <- findAaveFactory aave
+
     let stateToken = getToken aave
         lookups = Constraints.scriptInstanceLookups (Core.aaveInstance aave)
             <> Constraints.monetaryPolicy (Core.makeStatePolicy (Prelude.snd . unAssetClass $ stateToken) aave)
+            <> Constraints.otherScript (Core.aaveScript aave)
+            <> Constraints.unspentOutputs (Map.singleton oref otx)
         tx = mustForgeValue (assetClassValue stateToken 1)
-            <> mustPayToTheScript (toDatum datum) (assetClassValue stateToken 1)
+            <> mustPayToTheScript (toDatum newState) (assetClassValue stateToken 1)
+            <> mustPayToTheScript (Core.FactoryDatum lps) (assetClassValue (Core.aaveProtocolInst aave) 1)
+            <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ toRedeemer newState)
     ledgerTx <- submitTxConstraintsWith lookups tx
     _ <- awaitTxConfirmed $ txId ledgerTx
-    pure datum
+    pure newState
 
 updateState :: (HasBlockchainActions s) => StateHandle a -> Aave -> StateOutput a -> Contract w s Text a
 updateState StateHandle{..} aave (StateOutput oref o datum) = do
@@ -141,17 +147,17 @@ updateState StateHandle{..} aave (StateOutput oref o datum) = do
             <> Constraints.otherScript (Core.aaveScript aave)
             <> Constraints.unspentOutputs (Map.singleton oref o)
         tx = mustPayToTheScript (toDatum datum) (assetClassValue stateToken 1)
-            <> mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData (toAction datum))
+            <> mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData (toRedeemer datum))
     ledgerTx <- submitTxConstraintsWith lookups tx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure datum
 
 makeReserveHandle :: (Reserve -> AaveRedeemer) -> StateHandle Reserve
-makeReserveHandle toAction =
+makeReserveHandle toRedeemer =
     StateHandle {
         getToken = Core.reserveStateToken,
         toDatum = Core.ReserveDatum,
-        toAction = toAction
+        toRedeemer = toRedeemer
     }
 
 pickReserve :: AaveDatum -> Maybe Reserve
@@ -165,11 +171,11 @@ updateReserve :: (HasBlockchainActions s) => Aave -> StateOutput Reserve -> Cont
 updateReserve = updateState $ makeReserveHandle (const Core.UpdateReserveRedeemer)
 
 makeUserHandle :: (UserConfig -> AaveRedeemer) -> StateHandle UserConfig
-makeUserHandle toAction =
+makeUserHandle toRedeemer =
     StateHandle {
         getToken = Core.userStateToken,
         toDatum = Core.UserConfigDatum,
-        toAction = toAction
+        toRedeemer = toRedeemer
     }
 
 pickUserConfig :: AaveDatum -> Maybe UserConfig
