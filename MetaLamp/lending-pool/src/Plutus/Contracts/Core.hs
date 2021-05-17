@@ -75,7 +75,6 @@ data UserConfig = UserConfig
 PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
 
-type Factory = [ReserveId]
 data AaveRedeemer =
   CreateReserveRedeemer Reserve
   | UpdateReserveRedeemer
@@ -87,7 +86,7 @@ data AaveRedeemer =
 PlutusTx.unstableMakeIsData ''AaveRedeemer
 PlutusTx.makeLift ''AaveRedeemer
 
-data AaveDatum = FactoryDatum Factory | ReserveDatum Reserve | UserConfigDatum UserConfig | DepositDatum deriving stock (Show)
+data AaveDatum = LendingPoolDatum | ReserveDatum Reserve | UserConfigDatum UserConfig | DepositDatum deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
 PlutusTx.makeLift ''AaveDatum

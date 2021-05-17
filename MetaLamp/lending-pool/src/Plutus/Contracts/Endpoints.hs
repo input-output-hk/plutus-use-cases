@@ -36,8 +36,7 @@ import           Plutus.Contract                  hiding (when)
 import qualified Data.ByteString                  as BS
 import qualified Plutus.Contracts.AToken          as AToken
 import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
-                                                   AaveRedeemer (..), Factory,
-                                                   Reserve (..), ReserveId,
+                                                   AaveRedeemer (..), Reserve (..), ReserveId,
                                                    UserConfig (..))
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
@@ -78,13 +77,12 @@ start params = do
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
     let aave = Core.aave aaveToken
-    let reserves = fmap createReserve params
-    let factoryCoin = assetClass aaveToken Core.aaveProtocolName
+    let rootToken = assetClass aaveToken Core.aaveProtocolName
         inst = Core.aaveInstance aave
-        tx = mustPayToTheScript (Core.FactoryDatum (fmap rCurrency reserves)) $ assetClassValue factoryCoin 1
+        tx = mustPayToTheScript Core.LendingPoolDatum $ assetClassValue rootToken 1
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
-    traverse_ (State.putReserve aave) reserves
+    traverse_ (State.putReserve aave) $ fmap createReserve params
     logInfo @String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
 
@@ -98,9 +96,6 @@ ownerEndpoint params = do
 type AaveOwnerSchema =
     BlockchainActions
         .\/ Endpoint "start" ()
-
-factory :: HasBlockchainActions s => Aave -> Contract w s Text Factory
-factory = fmap soDatum . State.findAaveFactory
 
 reserves :: HasBlockchainActions s => Aave -> Contract w s Text [Reserve]
 reserves aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (State.reserveStateToken aave) State.pickReserve
@@ -192,7 +187,6 @@ type AaveUserSchema =
         .\/ Endpoint "withdraw" WithdrawParams
         .\/ Endpoint "fundsAt" PubKeyHash
         .\/ Endpoint "poolFunds" ()
-        .\/ Endpoint "factory" ()
         .\/ Endpoint "reserves" ()
         .\/ Endpoint "users" ()
 
@@ -203,7 +197,6 @@ data UserContractState = Created
     | Withdrawn
     | FundsAt Value
     | PoolFunds Value
-    | FactoryEndpoint Factory
     | Reserves [Reserve]
     | Users [UserConfig]
     deriving (Show, Generic, FromJSON, ToJSON)
@@ -214,7 +207,6 @@ userEndpoints aa = forever $
     `select` f (Proxy @"withdraw") (const Withdrawn) withdraw
     `select` f (Proxy @"fundsAt") FundsAt (\_ pkh -> fundsAt pkh)
     `select` f (Proxy @"poolFunds") PoolFunds (\aave () -> poolFunds aave)
-    `select` f (Proxy @"factory") FactoryEndpoint (\aave () -> factory aave)
     `select` f (Proxy @"reserves") Reserves (\aave () -> reserves aave)
     `select` f (Proxy @"users") Users (\aave () -> users aave)
   where

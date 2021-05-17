@@ -37,8 +37,7 @@ import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import           Plutus.Contracts.Core            (Aave (..), AaveDatum (..),
                                                    AaveRedeemer (..),
-                                                   AaveScript, Factory,
-                                                   Reserve (..), ReserveId,
+                                                   AaveScript, Reserve (..), ReserveId,
                                                    UserConfig (..))
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
@@ -62,12 +61,12 @@ findOutputsBy aave = Select.findOutputsBy (Core.aaveAddress aave)
 findOutputBy :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text (StateOutput a)
 findOutputBy aave = Select.findOutputBy (Core.aaveAddress aave)
 
-pickFactory :: AaveDatum -> Maybe Factory
-pickFactory (FactoryDatum f) = Just f
-pickFactory _                = Nothing
+findAaveRoot :: HasBlockchainActions s => Aave -> Contract w s Text (StateOutput ())
+findAaveRoot aave@Aave{..} = findOutputBy aave aaveProtocolInst pickLendingPool
 
-findAaveFactory :: HasBlockchainActions s => Aave -> Contract w s Text (StateOutput Factory)
-findAaveFactory aave@Aave{..} = findOutputBy aave aaveProtocolInst pickFactory
+pickLendingPool :: AaveDatum -> Maybe ()
+pickLendingPool LendingPoolDatum = Just ()
+pickLendingPool _                = Nothing
 
 reserveStateToken, userStateToken :: Aave -> AssetClass
 reserveStateToken aave = Update.makeStateToken (aaveProtocolInst aave) "aaveReserve"
@@ -93,7 +92,7 @@ findAaveUser aave userAddress reserveId = findOutputBy aave (userStateToken aave
 
 stateRootHandle :: (HasBlockchainActions s) => Aave -> Contract w s Text (RootStateHandle AaveScript AaveDatum)
 stateRootHandle aave = do
-    output <- fmap Core.FactoryDatum <$> findOutputBy aave (aaveProtocolInst aave) pickFactory
+    output <- fmap (const Core.LendingPoolDatum) <$> findAaveRoot aave
     pure $
         RootStateHandle { script = Core.aaveInstance aave, rootToken = aaveProtocolInst aave, output = output }
 
