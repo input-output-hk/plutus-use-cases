@@ -16,14 +16,18 @@ import qualified PlutusTx.Ratio as R
 import qualified PlutusTx.Numeric as N
 import PlutusTx.Prelude
 import qualified PlutusTx.AssocMap as M
+import qualified PlutusTx.These as PlutusTx
 
-import Control.Monad.Except
-import Control.Monad.State.Strict
+import Control.Monad.Except hiding (Functor(..), mapM)
+import Control.Monad.State.Strict hiding (Functor(..), mapM)
 
 import Mlabs.Lending.Logic.Emulator.Blockchain
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import Mlabs.Lending.Logic.State
 import Mlabs.Lending.Logic.Types
+
+import qualified Mlabs.Data.AssocMap as M
+import qualified Mlabs.Data.List as L
 
 {-# INLINABLE react #-}
 -- | State transitions for lending pool.
@@ -33,8 +37,8 @@ react :: Act -> St [Resp]
 react input = do
   checkInput input
   case input of
-    UserAct t uid act -> userAct t uid act
-    PriceAct      act -> priceAct act
+    UserAct t uid act -> withHealthCheck t $ userAct t uid act
+    PriceAct    t act -> withHealthCheck t $ priceAct t act
     GovernAct     act -> governAct act
   where
     -- | User acts
@@ -185,13 +189,16 @@ react input = do
     liquidationCallAct _ _ _ _ _ _ = todo
 
     ---------------------------------------------------
-    priceAct = \case
-      SetAssetPrice coin rate -> setAssetPrice coin rate
+    priceAct currentTime = \case
+      SetAssetPrice coin rate -> setAssetPrice currentTime coin rate
       SetOracleAddr coin addr -> setOracleAddr coin addr
 
     ---------------------------------------------------
     -- update on market price change
-    setAssetPrice _ _ = todo
+
+    setAssetPrice currentTime asset rate = do
+      modifyReserve asset $ \r -> r { reserve'rate = CoinRate rate currentTime }
+      pure []
 
     ---------------------------------------------------
     -- set oracle address
@@ -208,14 +215,51 @@ react input = do
     -- Adds new reserve (new coin/asset)
 
     addReserve cfg@CoinCfg{..} = do
-      LendingPool reserves users curSym coinMap <- get
+      LendingPool reserves users curSym coinMap healthReport <- get
       if M.member coinCfg'coin reserves
         then throwError "Reserve is already present"
         else do
           let newReserves = M.insert coinCfg'coin (initReserve cfg) reserves
               newCoinMap  = M.insert coinCfg'aToken coinCfg'coin coinMap
-          put $ LendingPool newReserves users curSym newCoinMap
+          put $ LendingPool newReserves users curSym newCoinMap healthReport
           return []
+
+    ---------------------------------------------------
+    -- health checks
+
+    withHealthCheck time act = do
+      res <- act
+      updateHealthChecks time
+      return res
+
+    updateHealthChecks currentTime = do
+      us <- getUsersForUpdate
+      newUsers <- M.fromList <$> mapM (updateUserHealth currentTime) us
+      modifyUsers $ \users -> batchInsert newUsers users
+      where
+        getUsersForUpdate = do
+          us <- fmap setTimestamp . M.toList <$> gets lp'users
+          pure $ fmap snd $ L.take userUpdateSpan $ L.sortOn fst us
+
+        setTimestamp (uid, user) = (user'lastUpdateTime user - currentTime, (uid, user))
+
+    updateUserHealth currentTime (uid, user) = do
+      health <- mapM (\asset -> (asset, ) <$> getHealth 0 asset user) userBorrows
+      L.mapM_ (reportUserHealth uid) $ health
+      pure (uid, user { user'lastUpdateTime = currentTime
+                      , user'health = M.fromList health })
+      where
+        userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user'wallets user
+
+    reportUserHealth uid (asset, health)
+      | health >= R.fromInteger 1 = modifyHealthReport $ M.delete (BadBorrow uid asset)
+      | otherwise                 = modifyHealthReport $ M.insert (BadBorrow uid asset) health
+
+    -- insert m1 to m2
+    batchInsert m1 m2 = fmap (PlutusTx.these id id const) $ M.union m1 m2
+
+    -- how many users to update per iteration of update health checks
+    userUpdateSpan = 10
 
     todo = return []
 
@@ -226,7 +270,7 @@ checkInput = \case
   UserAct time _uid act -> do
     isNonNegative "timestamp" time
     checkUserAct act
-  PriceAct act  -> checkPriceAct act
+  PriceAct time act -> checkPriceAct time act
   GovernAct act -> checkGovernAct act
   where
     checkUserAct = \case
@@ -250,12 +294,15 @@ checkInput = \case
       LiquidationCallAct _collateral _debt _user debtToCover _receiveAToken ->
         isPositive "Debt to cover" debtToCover
 
-    checkPriceAct = \case
-      SetAssetPrice asset price -> do
-        isPositiveRational "price" price
-        isAsset asset
-      SetOracleAddr asset _uid ->
-        isAsset asset
+    checkPriceAct time act = do
+      isNonNegative "price rate timestamp" time
+      case act of
+        SetAssetPrice asset price -> do
+          checkCoinRateTimeProgress time asset
+          isPositiveRational "price" price
+          isAsset asset
+        SetOracleAddr asset _uid ->
+          isAsset asset
 
     checkGovernAct = \case
       AddReserve cfg -> checkCoinCfg cfg
@@ -268,4 +315,8 @@ checkInput = \case
       isUnitRange "optimal utilisation" im'optimalUtilisation
       isPositiveRational "slope 1" im'slope1
       isPositiveRational "slope 2" im'slope2
+
+    checkCoinRateTimeProgress time asset = do
+      lastUpdateTime <- coinRate'lastUpdateTime . reserve'rate <$> getReserve asset
+      isNonNegative "Timestamps for price update should grow" (time - lastUpdateTime)
 

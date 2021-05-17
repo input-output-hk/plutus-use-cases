@@ -24,10 +24,13 @@ module Mlabs.Lending.Logic.Types(
   , InterestModel(..)
   , defaultInterestModel
   , CoinCfg(..)
+  , CoinRate(..)
   , initReserve
   , initLendingPool
   , Act(..)
   , UserAct(..)
+  , HealthReport
+  , BadBorrow(..)
   , PriceAct(..)
   , GovernAct(..)
   , LpAddressesProvider(..)
@@ -75,10 +78,11 @@ instance Eq UserId where
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool
-  { lp'reserves :: !(Map Coin Reserve)   -- ^ list of reserves
-  , lp'users    :: !(Map UserId User)    -- ^ internal user wallets on the app
-  , lp'currency :: !CurrencySymbol       -- ^ main currencySymbol of the app
-  , lp'coinMap  :: !(Map TokenName Coin) -- ^ maps aTokenNames to actual coins
+  { lp'reserves     :: !(Map Coin Reserve)     -- ^ list of reserves
+  , lp'users        :: !(Map UserId User)      -- ^ internal user wallets on the app
+  , lp'currency     :: !CurrencySymbol         -- ^ main currencySymbol of the app
+  , lp'coinMap      :: !(Map TokenName Coin)   -- ^ maps aTokenNames to actual coins
+  , lp'healthReport :: !HealthReport           -- ^ map of unhealthy borrows
   }
   deriving (Show, Generic)
 
@@ -86,10 +90,31 @@ data LendingPool = LendingPool
 -- It holds all info on individual collaterals and deposits.
 data Reserve = Reserve
   { reserve'wallet               :: !Wallet     -- ^ total amounts of coins deposited to reserve
-  , reserve'rate                 :: !Rational   -- ^ ratio of reserve's coin to base currency
+  , reserve'rate                 :: !CoinRate   -- ^ ratio of reserve's coin to base currency
   , reserve'liquidationThreshold :: !Rational   -- ^ ratio at which liquidation of collaterals can happen for this coin
   , reserve'aToken               :: !TokenName  -- ^ aToken corresponding to the coin of the reserve
   , reserve'interest             :: !ReserveInterest -- ^ reserve liquidity params
+  }
+  deriving (Show, Generic)
+
+type HealthReport = Map BadBorrow Rational
+
+-- | Borrow that don't has enough collateral.
+-- It has health check ration below one.
+data BadBorrow = BadBorrow
+  { badBorrow'userId :: !UserId   -- ^ user identifier
+  , badBorrow'asset  :: !Coin     -- ^ asset of the borrow
+  }
+  deriving (Show, Generic)
+
+instance Eq BadBorrow where
+  {-# INLINABLE (==) #-}
+  BadBorrow a1 b1 == BadBorrow a2 b2 = a1 == a2 && b1 == b2
+
+-- | Price of the given currency to Ada.
+data CoinRate = CoinRate
+  { coinRate'value          :: !Rational -- ^ ratio to ada
+  , coinRate'lastUpdateTime :: !Integer  -- ^ last time price was updated
   }
   deriving (Show, Generic)
 
@@ -132,7 +157,14 @@ data CoinCfg = CoinCfg
 
 {-# INLINABLE initLendingPool #-}
 initLendingPool :: CurrencySymbol -> [CoinCfg] -> LendingPool
-initLendingPool curSym coinCfgs = LendingPool reserves M.empty curSym coinMap
+initLendingPool curSym coinCfgs =
+  LendingPool
+    { lp'reserves     = reserves
+    , lp'users        = M.empty
+    , lp'currency     = curSym
+    , lp'coinMap      = coinMap
+    , lp'healthReport = M.empty
+    }
   where
     reserves = M.fromList $ fmap (\cfg -> (coinCfg'coin cfg, initReserve cfg)) coinCfgs
     coinMap  = M.fromList $ fmap (\(CoinCfg coin _ aToken _) -> (aToken, coin)) coinCfgs
@@ -147,7 +179,10 @@ initReserve CoinCfg{..} = Reserve
       , wallet'collateral    = 0
       , wallet'scaledBalance = R.fromInteger 0
       }
-  , reserve'rate                 = coinCfg'rate
+  , reserve'rate                 = CoinRate
+                                    { coinRate'value          = coinCfg'rate
+                                    , coinRate'lastUpdateTime = 0
+                                    }
   , reserve'liquidationThreshold = 8 % 10
   , reserve'aToken               = coinCfg'aToken
   , reserve'interest             = initInterest coinCfg'interestModel
@@ -164,13 +199,22 @@ initReserve CoinCfg{..} = Reserve
 -- | User is a set of wallets per currency
 data User = User
   { user'wallets         :: !(Map Coin Wallet)
+  , user'lastUpdateTime  :: !Integer
+  , user'health          :: !Health
   }
   deriving (Show, Generic)
+
+-- | Health ratio for user per borrow
+type Health = Map Coin Rational
 
 {-# INLINABLE defaultUser #-}
 -- | Default user with no wallets.
 defaultUser :: User
-defaultUser = User { user'wallets = M.empty }
+defaultUser = User
+  { user'wallets        = M.empty
+  , user'lastUpdateTime = 0
+  , user'health         = M.empty
+  }
 
 -- | Internal walet of the lending app
 --
@@ -195,7 +239,10 @@ data Act
       , userAct'userId      :: UserId
       , userAct'act         :: UserAct
       }                              -- ^ user's actions
-  | PriceAct PriceAct                -- ^ price oracle's actions
+  | PriceAct
+      { priceAct'time       :: Integer
+      , priceAct'act        :: PriceAct
+      }                              -- ^ price oracle's actions
   | GovernAct GovernAct              -- ^ app admin's actions
   deriving stock (Show, Generic, P.Eq)
   deriving anyclass (FromJSON, ToJSON)
@@ -302,6 +349,7 @@ data InterestRate = StableRate | VariableRate
 -- boilerplate instances
 
 PlutusTx.unstableMakeIsData ''CoinCfg
+PlutusTx.unstableMakeIsData ''CoinRate
 PlutusTx.unstableMakeIsData ''InterestModel
 PlutusTx.unstableMakeIsData ''InterestRate
 PlutusTx.unstableMakeIsData ''ReserveInterest
@@ -312,6 +360,7 @@ PlutusTx.unstableMakeIsData ''UserId
 PlutusTx.unstableMakeIsData ''User
 PlutusTx.unstableMakeIsData ''Wallet
 PlutusTx.unstableMakeIsData ''Reserve
+PlutusTx.unstableMakeIsData ''BadBorrow
 PlutusTx.unstableMakeIsData ''LendingPool
 PlutusTx.unstableMakeIsData ''Act
 

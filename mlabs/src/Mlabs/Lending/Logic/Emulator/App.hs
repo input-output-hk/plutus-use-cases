@@ -69,7 +69,13 @@ data AppConfig = AppConfig
 -- | App is initialised with list of coins and their rates (value relative to base currency, ada for us)
 initApp :: AppConfig -> App
 initApp AppConfig{..} = App
-  { app'pool = LendingPool (AM.fromList (fmap (\x -> (coinCfg'coin x, initReserve x)) appConfig'reserves)) AM.empty appConfig'currencySymbol coinMap
+  { app'pool = LendingPool
+      { lp'reserves     = (AM.fromList (fmap (\x -> (coinCfg'coin x, initReserve x)) appConfig'reserves))
+      , lp'users        = AM.empty
+      , lp'currency     = appConfig'currencySymbol
+      , lp'coinMap      = coinMap
+      , lp'healthReport = AM.empty
+      }
   , app'log  = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appConfig'users
   }

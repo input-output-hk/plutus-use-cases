@@ -73,6 +73,7 @@ machine = (SM.mkStateMachine Nothing transition isFinal)
 
     getInputTime = \case
       UserAct time _ _ -> Just time
+      PriceAct time _  -> Just time
       _                -> Nothing
 
 
@@ -156,7 +157,8 @@ type PriceOracleApp a = Contract () PriceOracleLendexSchema LendexError a
 
 priceOracleAction :: PriceAct -> PriceOracleApp ()
 priceOracleAction act = do
-  void $ SM.runStep client (PriceAct act)
+  currentTimestamp <- getSlot <$> currentSlot
+  void $ SM.runStep client (PriceAct currentTimestamp act)
 
 -- | Endpoints for price oracle
 priceOracleEndpoints :: PriceOracleApp ()
