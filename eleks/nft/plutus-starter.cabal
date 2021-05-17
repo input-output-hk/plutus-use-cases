@@ -24,9 +24,7 @@ maintainer:         Your email
 library
     exposed-modules:
       NFT
-      Contracts.Currency
-      Contracts.PubKey
-      Contracts.Auction
+      Contracts.NFT
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -38,7 +36,9 @@ library
       plutus-contract,
       plutus-tx-plugin,
       plutus-tx,
-      plutus-ledger
+      plutus-ledger,
+      plutus-ledger-api,
+      plutus-use-cases
     hs-source-dirs: src src/Contracts examples/src
     default-language: Haskell2010
     ghc-options:
@@ -77,6 +77,9 @@ executable plutus-starter-pab
   build-depends:
     base >= 4.9 && < 5,
     bytestring,
+    text -any,
+    containers -any,
+    lens -any,
     plutus-contract -any,
     plutus-pab -any,
     plutus-starter -any,
