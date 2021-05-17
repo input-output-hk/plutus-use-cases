@@ -1,4 +1,4 @@
-# Plutus Platform starter project
+# Plutus Platform starter project.
 
 This project gives a simple starter project for using the Plutus Platform.
 
