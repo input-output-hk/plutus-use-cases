@@ -43,15 +43,20 @@ runScript :: Script -> [Act]
 runScript (Script actions) =
   toList $ st'acts $ execState actions (St Seq.empty 0)
 
+getCurrentTime :: ScriptM Integer
+getCurrentTime = gets (getSum . st'time)
+
 -- | Make user act
 userAct :: UserId -> UserAct -> Script
 userAct uid act = do
-  time <- gets (getSum . st'time)
+  time <- getCurrentTime
   putAct $ UserAct time uid act
 
 -- | Make price act
 priceAct :: PriceAct -> Script
-priceAct arg = putAct $ PriceAct arg
+priceAct arg = do
+  t <- getCurrentTime
+  putAct $ PriceAct t arg
 
 -- | Make govern act
 governAct :: GovernAct -> Script

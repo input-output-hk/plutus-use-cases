@@ -25,6 +25,7 @@ module Mlabs.Lending.Logic.State(
   , getLiquidationThreshold
   , getHealth
   , getHealthCheck
+  , modifyUsers
   , modifyReserve
   , modifyReserveWallet
   , modifyUser
@@ -35,6 +36,7 @@ module Mlabs.Lending.Logic.State(
   , modifyUser'
   , modifyWallet'
   , modifyWalletAndReserve'
+  , modifyHealthReport
   , getNormalisedIncome
   , getCumulativeBalance
 ) where
@@ -42,6 +44,7 @@ module Mlabs.Lending.Logic.State(
 import qualified PlutusTx.Ratio as R
 import qualified PlutusTx.Numeric as N
 import PlutusTx.Prelude
+import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
 
 import Control.Monad.Except       hiding (Functor(..), mapM)
@@ -164,7 +167,7 @@ getReserve coin = do
 -- | Convert given currency to base currency
 toAda :: Coin -> Integer -> St Integer
 toAda coin val = do
-  ratio <- fmap reserve'rate $ getReserve coin
+  ratio <- fmap (coinRate'value . reserve'rate) $ getReserve coin
   pure $ R.round $ R.fromInteger val N.* ratio
 
 {-# INLINABLE weightedTotal #-}
@@ -175,7 +178,7 @@ weightedTotal = fmap sum . mapM (uncurry toAda)
 {-# INLINABLE walletTotal #-}
 -- | Collects cumulative value for given wallet field
 walletTotal :: (Wallet -> Integer) -> User -> St Integer
-walletTotal extract (User ws) = weightedTotal $ M.toList $ fmap extract ws
+walletTotal extract (User ws _ _) = weightedTotal $ M.toList $ fmap extract ws
 
 {-# INLINABLE getTotalCollateral #-}
 -- | Gets total collateral for a user.
@@ -213,6 +216,10 @@ getLiquidationThreshold :: Coin -> St Rational
 getLiquidationThreshold coin =
   gets (maybe (R.fromInteger 0) reserve'liquidationThreshold . M.lookup coin . lp'reserves)
 
+{-# INLINABLE modifyUsers #-}
+modifyUsers :: (Map UserId User -> Map UserId User) -> St ()
+modifyUsers f = modify' $ \lp -> lp { lp'users = f $ lp'users lp }
+
 {-# INLINABLE modifyReserve #-}
 -- | Modify reserve for a given asset.
 modifyReserve :: Coin -> (Reserve -> Reserve) -> St ()
@@ -222,9 +229,9 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 -- | Modify reserve for a given asset. It can throw errors.
 modifyReserve' :: Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
-  LendingPool lp users curSym coinMap <- get
+  LendingPool lp users curSym coinMap healthReport <- get
   case M.lookup asset lp of
-    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym coinMap) (f reserve)
+    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym coinMap healthReport) (f reserve)
     Nothing      -> throwError $ "Asset is not supported"
 
 {-# INLINABLE modifyUser #-}
@@ -236,10 +243,14 @@ modifyUser uid f = modifyUser' uid (Right . f)
 -- | Modify user info by id. It can throw errors.
 modifyUser' :: UserId -> (User -> Either Error User) -> St ()
 modifyUser' uid f = do
-  LendingPool lp users curSym coinMap <- get
+  LendingPool lp users curSym coinMap healthReport <- get
   case f $ fromMaybe defaultUser $ M.lookup uid users of
     Left msg   -> throwError msg
-    Right user -> put $ LendingPool lp (M.insert uid user users) curSym coinMap
+    Right user -> put $ LendingPool lp (M.insert uid user users) curSym coinMap healthReport
+
+{-# INLINABLE modifyHealthReport #-}
+modifyHealthReport :: (HealthReport -> HealthReport) -> St ()
+modifyHealthReport f = modify' $ \lp -> lp { lp'healthReport = f $ lp'healthReport lp }
 
 {-# INLINABLE modifyWalletAndReserve #-}
 -- | Modify user wallet and reserve wallet with the same function.
@@ -273,9 +284,9 @@ modifyWallet uid coin f = modifyWallet' uid coin (Right . f)
 -- | Modify internal user wallet that is allocated for a given user id and asset.
 -- It can throw errors.
 modifyWallet' :: UserId -> Coin -> (Wallet -> Either Error Wallet) -> St ()
-modifyWallet' uid coin f = modifyUser' uid $ \(User ws) -> do
+modifyWallet' uid coin f = modifyUser' uid $ \(User ws time health) -> do
   wal <- f $ fromMaybe defaultWallet $ M.lookup coin ws
-  pure $ User $ M.insert coin wal ws
+  pure $ User (M.insert coin wal ws) time health
 
 {-# INLINABLE getNormalisedIncome #-}
 getNormalisedIncome :: Coin -> St Rational
