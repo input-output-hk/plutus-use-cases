@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Plutus Platform starter project.
+=======
+# Plutus Platform starter project...
+>>>>>>> 8aa50abd7d09efc7b1dd72381dbc4c035529802a
 
 This project gives a simple starter project for using the Plutus Platform.
 
