@@ -37,10 +37,10 @@ import qualified Plutus.Contracts.State           as State
 import           Plutus.V1.Ledger.Contexts        (ScriptContext,
                                                    scriptCurrencySymbol)
 import qualified Plutus.V1.Ledger.Scripts         as Scripts
-import           Plutus.V1.Ledger.Value
 import           Plutus.V1.Ledger.Value           (AssetClass (unAssetClass),
                                                    TokenName (..), assetClass,
-                                                   assetClassValue)
+                                                   assetClassValue,
+                                                   assetClassValueOf)
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..))
 import           Prelude                          (Semigroup (..))
@@ -84,7 +84,7 @@ burnATokensFrom aave reserve pkh amount = do
         script = Core.aaveInstance aave
         policy = makeLiquidityPolicy asset
         burnLookups = Constraints.scriptInstanceLookups script
-            <> Constraints.otherScript (Core.aaveScript aave)
+            <> Constraints.otherScript (Core.aaveValidator aave)
             <> Constraints.ownPubKeyHash pkh
             <> Constraints.monetaryPolicy policy
         outValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
@@ -98,7 +98,7 @@ burnATokensFrom aave reserve pkh amount = do
     let balance = mconcat . fmap (txOutValue . txOutTxOut) . map snd . Map.toList $ utxos
         remainder = assetClassValueOf balance asset - aTokenAmount
         withdrawLookups = Constraints.scriptInstanceLookups script
-            <> Constraints.otherScript (Core.aaveScript aave)
+            <> Constraints.otherScript (Core.aaveValidator aave)
             <> Constraints.unspentOutputs utxos
             <> Constraints.ownPubKeyHash pkh
         orefs = fst <$> Map.toList utxos

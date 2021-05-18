@@ -19,6 +19,7 @@
 module Plutus.Contracts.Endpoints where
 
 import           Control.Monad                    hiding (fmap)
+import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
 import           Data.Proxy                       (Proxy (..))
@@ -32,11 +33,10 @@ import qualified Ledger.Scripts                   as Scripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
--- TODO remove that dep Plutus.Contracts.Currency (?)
-import qualified Data.ByteString                  as BS
 import qualified Plutus.Contracts.AToken          as AToken
 import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
-                                                   AaveRedeemer (..), Reserve (..), ReserveId,
+                                                   AaveRedeemer (..),
+                                                   Reserve (..), ReserveId,
                                                    UserConfig (..))
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency

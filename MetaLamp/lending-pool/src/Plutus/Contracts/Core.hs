@@ -124,14 +124,14 @@ aaveInstance aave = Scripts.validator @AaveScript
   where
     wrap = Scripts.wrapValidator @AaveDatum @AaveRedeemer
 
-aaveScript :: Aave -> Validator
-aaveScript = Scripts.validatorScript . aaveInstance
+aaveValidator :: Aave -> Validator
+aaveValidator = Scripts.validatorScript . aaveInstance
 
 aaveHash :: Aave -> Ledger.ValidatorHash
-aaveHash = Scripts.validatorHash . aaveScript
+aaveHash = Scripts.validatorHash . aaveValidator
 
 aaveAddress :: Aave -> Ledger.Address
-aaveAddress = Ledger.scriptAddress . aaveScript
+aaveAddress = Ledger.scriptAddress . aaveValidator
 
 aave :: CurrencySymbol -> Aave
 aave protocol = Aave (assetClass protocol aaveProtocolName)

@@ -5,6 +5,7 @@
 {-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -44,6 +45,7 @@ type RootToken = AssetClass
 
 -- State token can be only be forged either when input has a root token(first-time creation)
 -- or any of the state tokens(modification), assuming that state token was created with a root token at some point
+{-# INLINABLE validateStateForging #-}
 validateStateForging :: RootToken -> TokenName -> ScriptContext -> Bool
 validateStateForging rootToken tn ctx = case [ i
                                           | i <- txInfoInputs $ scriptContextTxInfo ctx
