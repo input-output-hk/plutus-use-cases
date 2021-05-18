@@ -63,8 +63,6 @@ main = void $ Simulator.runSimulationWith handlers $ do
                     _                                             -> Nothing
 
     Simulator.logString @(Builtin NFTMarketContracts) $ "NFT Marketplace instance created: " ++ show market
-
-
     cids <- fmap Map.fromList $ forM wallets $ \w -> do
         cid <- Simulator.activateContract w $ NFTUserContract market
         Simulator.logString @(Builtin NFTMarketContracts) $ "NFT user contract started for " ++ show w
@@ -81,11 +79,30 @@ main = void $ Simulator.runSimulationWith handlers $ do
     _ <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
         Success (Monoid.Last (Just (Right NFTMarket.Created))) -> Just ()
         _                                                      -> Nothing
-    Simulator.logString @(Builtin NFTMarketContracts) "NFT token created"
+    Simulator.logString @(Builtin NFTMarketContracts) $ "Token 1 created"
     Simulator.waitNSlots 1
-    ------------
+
+    let nftTokenParams2 = NFTMarket.CreateParams { cpTokenName = "TestToken2", cpDescription = C.pack "TestDescrition2"}
+    Simulator.logString @(Builtin NFTMarketContracts) $ "nft token create params: " ++ show (encode nftTokenParams2)
+    void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" nftTokenParams2
+    _ <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
+        Success (Monoid.Last (Just (Right NFTMarket.Created))) -> Just ()
+        _                                                      -> Nothing
+    Simulator.logString @(Builtin NFTMarketContracts) $ "Token 2 created"
+    Simulator.waitNSlots 1
+
+    Simulator.waitNSlots 1
+    Simulator.logString @(Builtin NFTMarketContracts) $ "Enter to show user tokens"
     void $ liftIO getLine
-    
+
+    _ <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "userNftTokens" ()
+    v <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
+            Success (Monoid.Last (Just (Right (NFTMarket.Tokens v)))) -> Just v
+            _                                                      -> Nothing
+    Simulator.logString @(Builtin NFTMarketContracts) $ "Wallet 2 nfts " ++ show v
+    Simulator.logString @(Builtin NFTMarketContracts) $ "Enter to continue"
+    void $ liftIO getLine
+
     Simulator.logString @(Builtin NFTMarketContracts) "Balances at the end of the simulation"
     b <- Simulator.currentBalances
     Simulator.logBalances @(Builtin NFTMarketContracts) b

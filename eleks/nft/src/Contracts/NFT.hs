@@ -41,8 +41,9 @@ import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Typed.Scripts             as Scripts
-import           Ledger.Value                     (AssetClass (..), assetClass, assetClassValue, assetClassValueOf,
+import           Ledger.Value                     (AssetClass (..), assetClass, assetClassValue, assetClassValueOf, valueOf,
                                                     symbols, unCurrencySymbol, unTokenName)
+import qualified Ledger.Value                     as Value
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.Currency        as Currency
@@ -197,7 +198,7 @@ create market CreateParams{..} = do
     let nftTokenAssetClass = assetClass nftTokenSymbol cpTokenName
         nftValue = assetClassValue nftTokenAssetClass 1
  
-    let metadataTokenName = TokenName $ C.pack $ (read $ show cpTokenName) ++ "Metadata"
+    let metadataTokenName = TokenName $ C.pack $ read (show cpTokenName) ++ "Metadata"
     nftTokenMetadataSymbol <- fmap Currency.currencySymbol $
         mapError (pack . show @Currency.CurrencyError) $
         Currency.forgeContract ownPK [( metadataTokenName, 1)]
@@ -207,7 +208,7 @@ create market CreateParams{..} = do
             nftTokenName = cpTokenName, 
             nftMetaTokenName = metadataTokenName,
             nftMetaDescription = cpDescription, 
-            nftTokenSymbol = nftTokenSymbol, 
+            nftTokenSymbol = nftTokenSymbol,
             nftMetadataTokenSymbol = nftTokenMetadataSymbol }
 
     let marketInst = marketInstance market
@@ -274,6 +275,17 @@ funds = do
     os  <- map snd . Map.toList <$> utxoAt (pubKeyHashAddress pkh)
     return $ mconcat [txOutValue $ txOutTxOut o | o <- os]
  
+-- | Gets the caller's NFTs.
+userNftTokens :: HasBlockchainActions s => NFTMarket -> Contract w s Text Value
+userNftTokens market = do
+    pkh <- pubKeyHash <$> ownPubKey
+    (oref, o, nftMetas) <- findNFTMarketFactory market
+    let marketNftSymbols =  nftMetas
+    os  <- map snd . Map.toList <$> utxoAt (pubKeyHashAddress pkh)
+    let values = mconcat [txOutValue $ txOutTxOut o | o <- os]
+    let nftValues = [ Value.singleton (nftTokenSymbol meta) (nftTokenName meta) 1 | meta <- nftMetas, valueOf values (nftTokenSymbol meta) (nftTokenName meta) == 1 ]
+    return $ fold nftValues
+
 ownerEndpoint :: Contract (Last (Either Text NFTMarket)) BlockchainActions Void ()
 ownerEndpoint = do
     e <- runError start
@@ -290,6 +302,7 @@ type MarketUserSchema =
     BlockchainActions
         .\/ Endpoint "create" CreateParams
         .\/ Endpoint "funds"  ()
+        .\/ Endpoint "userNftTokens"  ()
         .\/ Endpoint "stop"   ()
 -- | Type of the Uniswap user contract state.
 
@@ -297,6 +310,7 @@ type MarketUserSchema =
 data MarketContractState =
       Created
     | Funds Value
+    | Tokens Value
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
 -- | Provides the following endpoints for users of a NFT marketplace instance:
@@ -307,6 +321,7 @@ userEndpoints market =
     stop
         `select`
     ((f (Proxy @"create") (const Created) create                 `select`
+      f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')                `select`
       f (Proxy @"funds")  Funds           (\market' () -> funds))    >> userEndpoints market)
   where
     f :: forall l a p.
