@@ -92,7 +92,14 @@ defaultAppConfig = AppConfig reserves users curSym
     userNames = ["1", "2", "3"]
     coinNames = ["Dollar", "Euro", "Lira"]
 
-    reserves = fmap (\name -> CoinCfg (toCoin name) (R.fromInteger 1) (toAToken name) defaultInterestModel)  coinNames
+    reserves = fmap (\name ->
+        CoinCfg
+          { coinCfg'coin = toCoin name
+          , coinCfg'rate =  R.fromInteger 1
+          , coinCfg'aToken = toAToken name
+          , coinCfg'interestModel = defaultInterestModel
+          , coinCfg'liquidationBonus = 5 % 100
+          }) coinNames
 
     users = zipWith (\coinName userName -> (UserId (PubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames
     wal cs = BchWallet $ uncurry M.singleton cs

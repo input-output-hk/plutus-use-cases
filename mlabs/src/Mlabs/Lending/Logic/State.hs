@@ -19,10 +19,15 @@ module Mlabs.Lending.Logic.State(
   , getUser, getsUser
   , getReserve, getsReserve
   , toAda
+  , fromAda
+  , Convert(..)
+  , reverseConvert
+  , convertCoin
   , getTotalCollateral
   , getTotalBorrow
   , getTotalDeposit
   , getLiquidationThreshold
+  , getLiquidationBonus
   , getHealth
   , getHealthCheck
   , modifyUsers
@@ -170,6 +175,33 @@ toAda coin val = do
   ratio <- fmap (coinRate'value . reserve'rate) $ getReserve coin
   pure $ R.round $ R.fromInteger val N.* ratio
 
+{-# INLINABLE fromAda #-}
+-- | Convert given currency from base currency
+fromAda :: Coin -> Integer -> St Integer
+fromAda coin val = do
+  ratio <- fmap (coinRate'value . reserve'rate) $ getReserve coin
+  pure $ R.round $ R.fromInteger val N.* R.recip ratio
+
+-- | Conversion between coins
+data Convert = Convert
+  { convert'from :: Coin   -- ^ convert from
+  , convert'to   :: Coin   -- ^ convert to
+  }
+  deriving (Show)
+
+{-# INLINABLE reverseConvert #-}
+reverseConvert :: Convert -> Convert
+reverseConvert Convert{..} = Convert
+  { convert'from = convert'to
+  , convert'to   = convert'from
+  }
+
+{-# INLINABLE convertCoin #-}
+-- | Converts from  one currency to another
+convertCoin :: Convert -> Integer -> St Integer
+convertCoin Convert{..} amount =
+  fromAda convert'to =<< toAda convert'from amount
+
 {-# INLINABLE weightedTotal #-}
 -- | Weigted total of currencies in base currency
 weightedTotal :: [(Coin, Integer)] -> St Integer
@@ -215,6 +247,12 @@ getHealth addToBorrow coin user = do
 getLiquidationThreshold :: Coin -> St Rational
 getLiquidationThreshold coin =
   gets (maybe (R.fromInteger 0) reserve'liquidationThreshold . M.lookup coin . lp'reserves)
+
+{-# INLINABLE getLiquidationBonus #-}
+-- | Reads liquidation bonus for a give asset.
+getLiquidationBonus :: Coin -> St Rational
+getLiquidationBonus coin =
+  gets (maybe (R.fromInteger 0) reserve'liquidationBonus . M.lookup coin . lp'reserves)
 
 {-# INLINABLE modifyUsers #-}
 modifyUsers :: (Map UserId User -> Map UserId User) -> St ()

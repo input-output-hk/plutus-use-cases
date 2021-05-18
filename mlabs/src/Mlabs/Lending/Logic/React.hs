@@ -50,7 +50,7 @@ react input = do
       SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion (R.fromInteger 1))
       WithdrawAct{..}                   -> withdrawAct time uid act'amount act'asset
       FlashLoanAct                      -> flashLoanAct uid
-      LiquidationCallAct{..}            -> liquidationCallAct uid act'collateral act'debt act'user act'debtToCover act'receiveAToken
+      LiquidationCallAct{..}            -> liquidationCallAct time uid act'collateral act'debt act'debtToCover act'receiveAToken
 
     ---------------------------------------------------
     -- deposit
@@ -186,7 +186,73 @@ react input = do
     ---------------------------------------------------
     -- liquidation call
 
-    liquidationCallAct _ _ _ _ _ _ = todo
+    liquidationCallAct currentTime uid collateralAsset debt amountCovered receiveATokens = do
+      isBadBorrow debt
+      wals <- getsUser (badBorrow'userId debt) user'wallets
+      bor  <- getDebtValue wals
+      col  <- getCollateralValue wals
+      isPositive "liquidation collateral" col
+      debtAmountIsLessThanHalf bor amountCovered
+      colCovered <- min col <$> getCollateralCovered amountCovered
+      adaBonus   <- getBonus colCovered
+      aCollateralAsset <- aToken collateralAsset
+      updateBorrowUser colCovered
+      updateRepayUser colCovered
+      pure $ mconcat
+        [ moveFromTo uid Self borrowAsset amountCovered
+        , moveFromTo Self uid (receiveAsset aCollateralAsset) colCovered
+        , moveFromTo Self uid adaCoin adaBonus
+        ]
+      where
+        borrowAsset  = badBorrow'asset debt
+        borrowUserId = badBorrow'userId debt
+
+        receiveAsset aCoin
+          | receiveATokens = aCoin
+          | otherwise      = collateralAsset
+
+        getDebtValue wals = case M.lookup borrowAsset wals of
+          Just wal -> pure $ wallet'borrow wal
+          Nothing  -> throwError "Wallet does not have the debt to liquidate"
+
+        getCollateralValue wals = case M.lookup collateralAsset wals of
+          Just wal -> pure $ wallet'collateral wal
+          Nothing  -> throwError "Wallet does not have collateral for liquidation asset"
+
+        debtToColateral = convertCoin Convert
+          { convert'from = borrowAsset
+          , convert'to   = collateralAsset
+          }
+
+        getCollateralCovered amount = debtToColateral amount
+
+        getBonus amount = do
+          rate <- getLiquidationBonus collateralAsset
+          toAda collateralAsset $ R.round $ R.fromInteger amount * rate
+
+        debtAmountIsLessThanHalf userDebt amount
+          | userDebt >= 2 * amount = pure ()
+          | otherwise              = throwError "Can not cover more than half of the borrow"
+
+        -- we remove part of the borrow from the user and part of the collateral
+        updateBorrowUser colCovered = do
+          modifyWalletAndReserve borrowUserId collateralAsset $ \w ->
+            w { wallet'collateral = wallet'collateral w - colCovered  }
+          modifyWalletAndReserve borrowUserId borrowAsset $ \w ->
+            w { wallet'borrow = wallet'borrow w - amountCovered }
+          updateSingleUserHealth currentTime borrowUserId
+
+        -- we add borrower's collateral to repaier deposit if repaier chooses to receive aTokens.
+        -- if we pay in real currency repaier stays the same.
+        updateRepayUser colCovered
+          | receiveATokens = do
+              ni <- getNormalisedIncome collateralAsset
+              modifyWalletAndReserve' uid collateralAsset $ addDeposit ni colCovered
+          | otherwise      = pure ()
+
+        isBadBorrow bor = do
+          isOk <- M.member bor <$> gets lp'healthReport
+          guardError "Bad borrow not present" isOk
 
     ---------------------------------------------------
     priceAct currentTime = \case
@@ -243,6 +309,11 @@ react input = do
 
         setTimestamp (uid, user) = (user'lastUpdateTime user - currentTime, (uid, user))
 
+    updateSingleUserHealth currentTime uid = do
+      user <- getUser uid
+      newUser <- snd <$> updateUserHealth currentTime (uid, user)
+      modifyUser uid $ const newUser
+
     updateUserHealth currentTime (uid, user) = do
       health <- mapM (\asset -> (asset, ) <$> getHealth 0 asset user) userBorrows
       L.mapM_ (reportUserHealth uid) $ health
@@ -291,7 +362,8 @@ checkInput = \case
         isPositive "withdraw" amount
         isAsset asset
       FlashLoanAct -> pure ()
-      LiquidationCallAct _collateral _debt _user debtToCover _receiveAToken ->
+      LiquidationCallAct collateral _debt debtToCover _recieveAToken -> do
+        isAsset collateral
         isPositive "Debt to cover" debtToCover
 
     checkPriceAct time act = do
@@ -308,8 +380,9 @@ checkInput = \case
       AddReserve cfg -> checkCoinCfg cfg
 
     checkCoinCfg CoinCfg{..} = do
-      isPositiveRational "coin price" coinCfg'rate
+      isPositiveRational "coin price config" coinCfg'rate
       checkInterestModel coinCfg'interestModel
+      isUnitRange "liquidation bonus config" coinCfg'liquidationBonus
 
     checkInterestModel InterestModel{..} = do
       isUnitRange "optimal utilisation" im'optimalUtilisation
