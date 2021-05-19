@@ -172,7 +172,8 @@ type GovernLendexSchema =
     .\/ Endpoint "start-lendex"  StartParams
 
 data StartParams = StartParams
-  { sp'coins  :: [CoinCfg]  -- ^ supported coins with ratios to ADA
+  { sp'coins     :: [CoinCfg]  -- ^ supported coins with ratios to ADA
+  , sp'initValue :: Value      -- ^ init value deposited to the lending app
   }
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -185,9 +186,7 @@ governAction act = do
 
 startLendex :: StartParams -> GovernApp ()
 startLendex StartParams{..} = do
-  void $ SM.runInitialise client (initLendingPool Forge.currencySymbol sp'coins) initValue
-  where
-    initValue = PlutusTx.mempty
+  void $ SM.runInitialise client (initLendingPool Forge.currencySymbol sp'coins) sp'initValue
 
 -- | Endpoints for admin user
 governEndpoints :: GovernApp ()

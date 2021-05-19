@@ -43,11 +43,12 @@ test = testGroup "Logic"
   , testCase "Borrow with not enough collateral" testBorrowNotEnoughCollateral
   , testCase "Withdraw" testWithdraw
   , testCase "Repay" testRepay
+  , testGroup "Borrow liquidation" testLiquidationCall
   ]
   where
     testBorrow = testWallets [(user1, w1)] borrowScript
       where
-        w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 30), (fromToken aToken1, 0)]
+        w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 30), (aCoin1, 0)]
 
     testDeposit = testWallets [(user1, wal coin1 aToken1), (user2, wal coin2 aToken2), (user3, wal coin3 aToken3)] depositScript
       where
@@ -58,7 +59,7 @@ test = testGroup "Logic"
 
     testWithdraw = testWallets [(user1, w1)] withdrawScript
       where
-        w1 = BchWallet $ M.fromList [(coin1, 75), (fromToken aToken1, 25)]
+        w1 = BchWallet $ M.fromList [(coin1, 75), (aCoin1, 25)]
 
     -- User:
     --  * deposits 50 coin1
@@ -73,6 +74,19 @@ test = testGroup "Logic"
     testRepay = testWallets [(user1, w1)] repayScript
       where
         w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 10), (fromToken aToken1, 0)]
+
+    testLiquidationCall =
+      [ testCase "get aTokens for collateral" $
+          testWallets [(user1, w1), (user2, w2a)] $ liquidationCallScript True
+      , testCase "get underlying currency for collateral" $
+          testWallets [(user1, w1), (user2, w2)]  $ liquidationCallScript False
+      ]
+      where
+        w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 30), (fromToken aToken1, 0)]
+        -- receive aTokens
+        w2a = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50) , (aCoin1, 20), (adaCoin, 1)]
+        -- receive underlying currency
+        w2 = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50) , (coin1, 20), (adaCoin, 1)]
 
 -- | Checks that script runs without errors
 testScript :: Script -> App
@@ -155,6 +169,34 @@ repayScript = do
       , act'rate    = StableRate
       }
 
+-- |
+-- * User 1 lends in coin1 and borrows in coin2
+-- * price for coin2 grows so that collateral is not enough
+-- * health check for user 1 becomes bad
+-- * user 2 repays part of the borrow and aquires part of the collateral of the user 1
+--
+-- So we should get the balances
+--
+-- * init           | user1 = 100 $       | user2 = 100 €
+-- * after deposit  | user1 = 50 $, 50 a$ | user2 = 50 €, 50 a€
+-- * after borrow   | user1 = 50 $, 30 €  | user2 = 50 €, 50 a€
+-- * after liq call | user1 = 50 $, 30 €  | user2 = 40 €, 50 a€, 20 a$, 1 ada  : if flag is True
+-- * after liq call | user1 = 50 $, 30 €  | user2 = 40 €, 50 a€, 20 $,  1 ada  : if flag is False
+--
+-- user2 pays 10 € for borrow, because at that time Euro to Dollar is 2:1 user2
+-- gets 20 aDollars, and 1 ada as bonus (5% of the collateral (20) which is rounded).
+-- User gets aDolars because user provides recieveATokens set to True
+liquidationCallScript :: Bool -> Script
+liquidationCallScript receiveAToken = do
+  borrowScript
+  priceAct $ SetAssetPrice coin2 (R.fromInteger 2)
+  userAct user2 $ LiquidationCallAct
+      { act'collateral     = coin1
+      , act'debt           = BadBorrow user1 coin2
+      , act'debtToCover    = 10
+      , act'receiveAToken  = receiveAToken
+      }
+
 ---------------------------------
 -- constants
 
@@ -184,6 +226,11 @@ aToken1 = tokenName "aDollar"
 aToken2 = tokenName "aEuro"
 aToken3 = tokenName "aLira"
 
+aCoin1, aCoin2 :: Coin
+aCoin1 = fromToken aToken1
+aCoin2 = fromToken aToken2
+-- aCoin3 = fromToken aToken3
+
 -- | Default application.
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
@@ -191,15 +238,17 @@ testAppConfig :: AppConfig
 testAppConfig = AppConfig reserves users lendingPoolCurrency
   where
     reserves = fmap (\(coin, aCoin) -> CoinCfg
-                                        { coinCfg'coin          = coin
-                                        , coinCfg'rate          = R.fromInteger 1
-                                        , coinCfg'aToken        = aCoin
-                                        , coinCfg'interestModel = defaultInterestModel
+                                        { coinCfg'coin             = coin
+                                        , coinCfg'rate             = R.fromInteger 1
+                                        , coinCfg'aToken           = aCoin
+                                        , coinCfg'interestModel    = defaultInterestModel
+                                        , coinCfg'liquidationBonus = 5 R.% 100
                                         })
       [(coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
 
     users =
-      [ (user1, wal (coin1, 100))
+      [ (Self, wal (adaCoin, 1000)) -- script starts with some ada on it
+      , (user1, wal (coin1, 100))
       , (user2, wal (coin2, 100))
       , (user3, wal (coin3, 100))
       ]
