@@ -81,7 +81,7 @@ putState ::
     PutStateHandle scriptType ->
     StateHandle scriptType a ->
     a ->
-    Contract w s Text a
+    Contract w s Text ()
 putState PutStateHandle {..} StateHandle{..} newState = do
     let oref = soOutRef ownerTokenOutput
         otx = soOutTx ownerTokenOutput
@@ -95,14 +95,14 @@ putState PutStateHandle {..} StateHandle{..} newState = do
             <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ toRedeemer newState)
     ledgerTx <- submitTxConstraintsWith lookups tx
     _ <- awaitTxConfirmed $ txId ledgerTx
-    pure newState
+    pure ()
 
 updateState ::
     (HasBlockchainActions s, IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
     Scripts.ScriptInstance scriptType ->
     StateHandle scriptType a ->
     StateOutput a ->
-    Contract w s Text a
+    Contract w s Text ()
 updateState script StateHandle{..} (StateOutput oref o datum) = do
     let lookups = Constraints.scriptInstanceLookups script
             <> Constraints.otherScript (Scripts.validatorScript script)
@@ -111,4 +111,4 @@ updateState script StateHandle{..} (StateOutput oref o datum) = do
             <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData (toRedeemer datum))
     ledgerTx <- submitTxConstraintsWith lookups tx
     _ <- awaitTxConfirmed $ txId ledgerTx
-    pure datum
+    pure ()

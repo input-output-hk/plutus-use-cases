@@ -29,6 +29,7 @@ import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import           Plutus.V1.Ledger.Value
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap                as AssocMap
 import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
 import           Prelude                          (Semigroup (..))
@@ -64,9 +65,10 @@ data Reserve = Reserve
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
 
+type UserConfigId = (ReserveId, PubKeyHash)
+
 data UserConfig = UserConfig
-    { ucAddress           :: PubKeyHash,
-      ucReserveId         :: ReserveId,
+    {
       ucUsingAsCollateral :: Bool
     }
     deriving stock (Show, Generic)
@@ -76,17 +78,21 @@ PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
 
 data AaveRedeemer =
-  CreateReserveRedeemer Reserve
-  | UpdateReserveRedeemer
-  | CreateUserRedeemer UserConfig
-  | UpdateUserRedeemer
+  CreateReservesRedeemer (AssocMap.Map ReserveId Reserve)
+  | UpdateReservesRedeemer
+  | CreateUserConfigsRedeemer (AssocMap.Map UserConfigId UserConfig)
+  | UpdateUserConfigsRedeemer
   | WithdrawRedeemer
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
 PlutusTx.makeLift ''AaveRedeemer
 
-data AaveDatum = LendingPoolDatum | ReserveDatum Reserve | UserConfigDatum UserConfig | DepositDatum deriving stock (Show)
+data AaveDatum =
+  LendingPoolDatum
+  | ReservesDatum (AssocMap.Map ReserveId Reserve)
+  | UserConfigsDatum (AssocMap.Map UserConfigId UserConfig)
+  | DepositDatum deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
 PlutusTx.makeLift ''AaveDatum
@@ -106,12 +112,12 @@ makeAaveValidator :: Aave
                    -> AaveRedeemer
                    -> ScriptContext
                    -> Bool
-makeAaveValidator _ _ (CreateReserveRedeemer _) _ = True
-makeAaveValidator _ _ UpdateReserveRedeemer _     = True
-makeAaveValidator _ _ (CreateUserRedeemer _) _    = True
-makeAaveValidator _ _ UpdateUserRedeemer _        = True
-makeAaveValidator _ _ WithdrawRedeemer _          = True
-makeAaveValidator _  _  _  _                      = False
+makeAaveValidator _ _ (CreateReservesRedeemer _) _ = True
+makeAaveValidator _ _ UpdateReservesRedeemer _     = True
+makeAaveValidator _ _ (CreateUserConfigsRedeemer _) _    = True
+makeAaveValidator _ _ UpdateUserConfigsRedeemer _        = True
+makeAaveValidator _ _ WithdrawRedeemer _           = True
+makeAaveValidator _  _  _  _                       = False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

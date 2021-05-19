@@ -37,7 +37,7 @@ import qualified Plutus.Contracts.AToken          as AToken
 import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
                                                    AaveRedeemer (..),
                                                    Reserve (..), ReserveId,
-                                                   UserConfig (..))
+                                                   UserConfig (..), UserConfigId)
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
@@ -47,6 +47,7 @@ import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
 import qualified Plutus.V1.Ledger.Address         as Addr
 import           Plutus.V1.Ledger.Value           as Value
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap                as AssocMap
 import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
 import           Prelude                          (Semigroup (..))
@@ -82,7 +83,11 @@ start params = do
         tx = mustPayToTheScript Core.LendingPoolDatum $ assetClassValue rootToken 1
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
-    traverse_ (State.putReserve aave) $ fmap createReserve params
+
+    let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve params)) params
+    State.putReserves aave reserveMap
+    State.putUserConfigs aave AssocMap.empty
+
     logInfo @String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
 
@@ -97,11 +102,11 @@ type AaveOwnerSchema =
     BlockchainActions
         .\/ Endpoint "start" ()
 
-reserves :: HasBlockchainActions s => Aave -> Contract w s Text [Reserve]
-reserves aave = Prelude.fmap soValue <$> State.findOutputsBy aave (State.reserveStateToken aave) State.pickReserve
+reserves :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map ReserveId Reserve)
+reserves aave = soValue <$> State.findAaveReserves aave
 
-users :: HasBlockchainActions s => Aave -> Contract w s Text [UserConfig]
-users aave = Prelude.fmap soValue <$> State.findOutputsBy aave (State.userStateToken aave) State.pickUserConfig
+users :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map UserConfigId UserConfig)
+users aave = soValue <$> State.findAaveUserConfigs aave
 
 valueAt :: HasBlockchainActions s => Address -> Contract w s Text Value
 valueAt address = do
@@ -131,9 +136,9 @@ PlutusTx.makeLift ''DepositParams
 
 deposit :: (HasBlockchainActions s) => Aave -> DepositParams -> Contract w s Text ()
 deposit aave DepositParams {..} = do
-    reserveOutput <- State.findAaveReserve aave dpAsset
-    let reserve = soValue reserveOutput
-        lookups = Constraints.ownPubKeyHash dpOnBehalfOf
+    reserve <- State.findAaveReserve aave dpAsset
+
+    let lookups = Constraints.ownPubKeyHash dpOnBehalfOf
             <> Constraints.scriptInstanceLookups (Core.aaveInstance aave)
         outValue = assetClassValue (rCurrency reserve) dpAmount
         tx = mustPayToTheScript Core.DepositDatum outValue
@@ -143,15 +148,18 @@ deposit aave DepositParams {..} = do
     wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
     _ <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
     when wasZeroBalance $ do
-        userOutputs <- State.findOutputsBy aave (State.userStateToken aave) State.pickUserConfig
-        case userOutputs of
-            [] -> void $
-                State.putUser aave $ UserConfig { ucAddress = dpOnBehalfOf, ucReserveId = rCurrency reserve, ucUsingAsCollateral = True }
-            [userOutput] -> void $
-                State.updateUser aave $ Prelude.fmap (\u -> u { ucUsingAsCollateral = True }) userOutput
-            _ -> throwError "Invalid state: multiple users"
+        userConfigs <- soValue <$> State.findAaveUserConfigs aave
+        let userConfigId = (rCurrency reserve, dpOnBehalfOf)
+        case AssocMap.lookup userConfigId userConfigs of
+            Nothing ->
+                State.addUserConfig
+                    aave
+                    userConfigId
+                    UserConfig { ucUsingAsCollateral = True }
+            Just userConfig ->
+                State.updateUserConfig aave userConfigId $ userConfig { ucUsingAsCollateral = True }
 
-    void $ State.updateReserve aave $ Prelude.fmap (\r -> r { rAmount = rAmount r + dpAmount }) reserveOutput
+    State.updateReserve aave dpAsset (reserve { rAmount = rAmount reserve + dpAmount })
 
 data WithdrawParams =
     WithdrawParams {
@@ -168,18 +176,17 @@ PlutusTx.makeLift ''WithdrawParams
 
 withdraw :: (HasBlockchainActions s) => Aave -> WithdrawParams -> Contract w s Text ()
 withdraw aave WithdrawParams {..} = do
-    reserveOutput <- State.findAaveReserve aave wpAsset
-    let reserve = soValue reserveOutput
+    reserve <- State.findAaveReserve aave wpAsset
 
     balance <- balanceAt wpFrom (rAToken reserve)
     when (wpAmount == balance) $ do
-        userOutput <- State.findAaveUser aave wpFrom wpAsset
-        void $
-            State.updateUser aave $ Prelude.fmap (\u -> u { ucUsingAsCollateral = False }) userOutput
+        let userConfigId = (wpAsset, wpFrom)
+        userConfig <- State.findAaveUserConfig aave userConfigId
+        State.updateUserConfig aave userConfigId $ userConfig { ucUsingAsCollateral = False }
 
     _ <- AToken.burnATokensFrom aave reserve wpTo wpAmount
 
-    void $ State.updateReserve aave $ Prelude.fmap (\r -> r { rAmount = rAmount r - wpAmount }) reserveOutput
+    State.updateReserve aave wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
 
 type AaveUserSchema =
     BlockchainActions
@@ -197,8 +204,8 @@ data UserContractState = Created
     | Withdrawn
     | FundsAt Value
     | PoolFunds Value
-    | Reserves [Reserve]
-    | Users [UserConfig]
+    | Reserves (AssocMap.Map ReserveId Reserve)
+    | Users (AssocMap.Map UserConfigId UserConfig)
     deriving (Show, Generic, FromJSON, ToJSON)
 
 userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
