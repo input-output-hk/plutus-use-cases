@@ -7,6 +7,7 @@ module Test.Lending.Init(
   , aAda, aToken1, aToken2, aToken3
   , aCoin1, aCoin2, aCoin3
   , initialDistribution
+  , toUserId
 ) where
 
 import Prelude
@@ -16,12 +17,13 @@ import Control.Lens
 import Plutus.V1.Ledger.Value (Value, TokenName)
 import qualified Plutus.V1.Ledger.Ada as Ada
 import qualified Plutus.V1.Ledger.Value as Value
+import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import qualified Data.Map as M
 
 import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 
-import Mlabs.Lending.Logic.Types (Coin, UserAct(..))
+import Mlabs.Lending.Logic.Types (Coin, UserAct(..), UserId(..))
 import qualified Mlabs.Lending.Logic.Emulator.App as L
 import qualified Mlabs.Lending.Contract.Lendex as L
 import qualified Mlabs.Lending.Contract.Forge as Forge
@@ -35,6 +37,9 @@ wAdmin = Wallet 50
 w1 = Wallet 1
 w2 = Wallet 2
 w3 = Wallet 3
+
+toUserId :: Wallet -> UserId
+toUserId = UserId . pubKeyHash . walletPubKey
 
 -- | Showrtcuts for user actions
 userAct1, userAct2, userAct3 :: UserAct -> Trace.EmulatorTrace ()
@@ -71,7 +76,7 @@ aCoin3 = fromToken aToken3
 -- | Initial distribution of wallets for testing
 initialDistribution :: M.Map Wallet Value
 initialDistribution = M.fromList
-  [ (wAdmin, val 1000)
+  [ (wAdmin, val 2000)
   , (w1, val 1000 <> v1 100)
   , (w2, val 1000 <> v2 100)
   , (w3, val 1000 <> v3 100)

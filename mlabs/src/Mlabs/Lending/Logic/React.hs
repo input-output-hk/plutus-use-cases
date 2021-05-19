@@ -197,7 +197,6 @@ react input = do
       adaBonus   <- getBonus colCovered
       aCollateralAsset <- aToken collateralAsset
       updateBorrowUser colCovered
-      updateRepayUser colCovered
       pure $ mconcat
         [ moveFromTo uid Self borrowAsset amountCovered
         , moveFromTo Self uid (receiveAsset aCollateralAsset) colCovered
@@ -241,14 +240,6 @@ react input = do
           modifyWalletAndReserve borrowUserId borrowAsset $ \w ->
             w { wallet'borrow = wallet'borrow w - amountCovered }
           updateSingleUserHealth currentTime borrowUserId
-
-        -- we add borrower's collateral to repaier deposit if repaier chooses to receive aTokens.
-        -- if we pay in real currency repaier stays the same.
-        updateRepayUser colCovered
-          | receiveATokens = do
-              ni <- getNormalisedIncome collateralAsset
-              modifyWalletAndReserve' uid collateralAsset $ addDeposit ni colCovered
-          | otherwise      = pure ()
 
         isBadBorrow bor = do
           isOk <- M.member bor <$> gets lp'healthReport

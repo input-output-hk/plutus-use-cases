@@ -11,8 +11,11 @@ import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx.Ratio as R
 
-import Mlabs.Lending.Logic.Types (UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel)
+import Mlabs.Lending.Logic.Types ( UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel
+                                 , PriceAct(..), BadBorrow(..))
+
 import qualified Mlabs.Lending.Contract.Lendex as L
+import qualified Plutus.V1.Ledger.Value as Value
 
 import Test.Utils
 
@@ -27,6 +30,7 @@ test = testGroup "Contract"
   , testBorrowNotEnoughCollateral
   , testWithdraw
   , testRepay
+  , testLiquidationCall
   ]
   where
     check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
@@ -37,6 +41,11 @@ test = testGroup "Contract"
     testBorrowNotEnoughCollateral = check "Borrow with not enough collateral" borrowNotEnoughCollateralScene borrowNotEnoughCollateralScript
     testWithdraw = check "Withdraw (can burn aTokens)" withdrawScene withdrawScript
     testRepay = check "Repay" repayScene repayScript
+    testLiquidationCall = testGroup "Liquidation"
+      [ check "Liquidation call aToken"        (liquidationCallScene True) (liquidationCallScript True)
+      , check "Liquidation call real currency" (liquidationCallScene False) (liquidationCallScript False)
+      ]
+
 
 --------------------------------------------------------------------------------
 -- deposit test
@@ -53,6 +62,7 @@ depositScript = do
                                           , coinCfg'liquidationBonus = 5 R.% 100
                                           })
           [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
+    , sp'initValue = Value.assetClassValue adaCoin 1000
     }
   wait 5
   userAct1 $ DepositAct 50 coin1
@@ -65,10 +75,11 @@ depositScript = do
 depositScene :: Scene
 depositScene = mconcat
   [ appAddress L.lendexAddress
-  , appOwns [(coin1, 50), (coin2, 50), (coin3, 50)]
+  , appOwns [(coin1, 50), (coin2, 50), (coin3, 50), (adaCoin, 1000)]
   , user w1 coin1 aCoin1
   , user w2 coin2 aCoin2
-  , user w3 coin3 aCoin3  ]
+  , user w3 coin3 aCoin3
+  , wAdmin `owns` [(adaCoin, -1000)] ]
   where
     user wal coin aCoin = wal `owns` [(coin, -50), (aCoin, 50)]
 
@@ -178,9 +189,44 @@ repayScript = do
       , act'amount  = 20
       , act'rate    = StableRate
       }
+  next
 
 repayScene :: Scene
 repayScene = borrowScene <> repayChange
   where
     repayChange = mconcat [w1 `owns` [(coin2, -20)], appOwns [(coin2, 20)]]
+
+--------------------------------------------------------------------------------
+-- liquidation call test
+
+liquidationCallScript :: Bool -> Trace.EmulatorTrace ()
+liquidationCallScript receiveAToken = do
+  borrowScript
+  priceAct $ SetAssetPrice coin2 (R.fromInteger 2)
+  next
+  userAct2 $ LiquidationCallAct
+      { act'collateral     = coin1
+      , act'debt           = BadBorrow (toUserId w1) coin2
+      , act'debtToCover    = 10
+      , act'receiveAToken  = receiveAToken
+      }
+  next
+
+liquidationCallScene :: Bool -> Scene
+liquidationCallScene receiveAToken = borrowScene <> liquidationCallChange
+  where
+    liquidationCallChange = mconcat
+      [ w2 `owns` [(receiveCoin, 20), (coin2, -10), (adaCoin, 1)]
+      , appOwns [(adaCoin, -1), (coin2, 10), (receiveCoin, -20)]
+      ]
+
+    receiveCoin
+      | receiveAToken = aCoin1
+      | otherwise     = coin1
+
+--------------------------------------------------
+-- names as in script test
+
+priceAct :: PriceAct -> Trace.EmulatorTrace ()
+priceAct act = L.callPriceOracleAct w1 act
 
