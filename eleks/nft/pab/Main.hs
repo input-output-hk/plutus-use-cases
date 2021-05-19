@@ -65,7 +65,11 @@ main = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin NFTMarketContracts) $ "NFT Marketplace instance created: " ++ show market
     cids <- fmap Map.fromList $ forM wallets $ \w -> do
         cid <- Simulator.activateContract w $ NFTUserContract market
+        liftIO $ writeFile ('W' : show (getWallet w) ++ ".cid") $ show cid
         Simulator.logString @(Builtin NFTMarketContracts) $ "NFT user contract started for " ++ show w
+        return (w, cid)
+
+    {-
         _ <- Simulator.callEndpointOnInstance cid "funds" ()
         v <- flip Simulator.waitForState cid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
                 Success (Monoid.Last (Just (Right (NFTMarket.Funds v)))) -> Just v
@@ -106,7 +110,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     _ <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
         Success (Monoid.Last (Just (Right NFTMarket.Selling))) -> Just ()
         _                                                      -> Nothing
-
+    -}
     Simulator.waitNSlots 1
     Simulator.logString @(Builtin NFTMarketContracts) $ "Enter to continue"
     void $ liftIO getLine

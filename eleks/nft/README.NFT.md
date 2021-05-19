@@ -64,7 +64,7 @@ We're interested in the `AuctionContract` and `CurrencyContract`.
 # Wallet 1
 curl -s -H "Content-Type: application/json" \
   --request POST \
-  --data '{"caID": "CurrencyContract", "caWallet":{"getWallet": 1}}' \
+  --data '{"caID": "NFTStartContract", "caWallet":{"getWallet": 1}}' \
   http://localhost:8080/api/new/contract/activate | jq
 
 # Wallet 2
@@ -95,29 +95,25 @@ Get forge curremcy parameters
 ```
 cabal repl
 
-import Contracts.Currency
+import Contracts.NFT
 import Ledger.Value   
 import Data.Aeson
-import Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.ByteString.Char8 as B
-args = SimpleMPS { Contracts.Currency.tokenName = TokenName $ B.pack "TestToken", amount = 10 }
+args = CreateParams { cpTokenName = TokenName $ B.pack "TestToken", cpDescription = B.pack "TestDescription" }
 BSL.putStrLn $ encode args
-
-{"tokenName":{"unTokenName":"TestToken"},"amount":10}
+```
+Create token
+```
+export INSTANCE_ID=3cf66611-3a87-42ce-86e2-9b3cd6165eb5
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '{"cpTokenName":{"unTokenName":"TestToken"},"cpDescription":"546573744465736372697074696f6e"}' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/create
 ```
 
-5. Start auction instances
-
+Get response
 ```
-# Wallet 1
-curl -s -H "Content-Type: application/json" \
-  --request POST \
-  --data '{"caID": "AuctionContract", "caWallet":{"getWallet": 1}}' \
-  http://localhost:8080/api/new/contract/activate | jq
-
-# Wallet 2
-curl -s -H "Content-Type: application/json" \
-  --request POST \
-  --data '{"caID": "AuctionContract", "caWallet":{"getWallet": 2}}' \
-  http://localhost:8080/api/new/contract/activate | jq
+curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status
 ```
