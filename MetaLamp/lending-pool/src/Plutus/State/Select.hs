@@ -35,7 +35,7 @@ data StateOutput a =
     StateOutput {
         soOutRef :: TxOutRef,
         soOutTx  :: TxOutTx,
-        soDatum  :: a
+        soValue  :: a
     } deriving (Prelude.Show, Prelude.Functor)
 
 getDatum :: PlutusTx.IsData a => TxOutTx -> Contract w s Text a
@@ -47,7 +47,7 @@ getDatum o = case txOutDatumHash $ txOutTxOut o of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
-getState :: (HasBlockchainActions s, PlutusTx.IsData o) => Address -> Contract w s Text [StateOutput o]
+getState :: (HasBlockchainActions s, PlutusTx.IsData datum) => Address -> Contract w s Text [StateOutput datum]
 getState address = do
     utxos <- utxoAt address
     traverse getDatum' . Map.toList $ utxos
@@ -56,10 +56,10 @@ getState address = do
         d <- getDatum o
         pure $ StateOutput oref o d
 
-findOutputsBy :: (HasBlockchainActions s, PlutusTx.IsData o) =>
+findOutputsBy :: (HasBlockchainActions s, PlutusTx.IsData datum) =>
   Address ->
   AssetClass ->
-  (o -> Maybe a) ->
+  (datum -> Maybe a) ->
   Contract w s Text [StateOutput a]
 findOutputsBy address stateToken mapDatum = mapMaybe checkStateToken <$> getState address
     where
@@ -68,10 +68,10 @@ findOutputsBy address stateToken mapDatum = mapMaybe checkStateToken <$> getStat
                 then fmap (StateOutput oref outTx) (mapDatum datum)
                 else Nothing
 
-findOutputBy :: (HasBlockchainActions s, PlutusTx.IsData o) =>
+findOutputBy :: (HasBlockchainActions s, PlutusTx.IsData datum) =>
   Address ->
   AssetClass ->
-  (o -> Maybe a) ->
+  (datum -> Maybe a) ->
   Contract w s Text (StateOutput a)
 findOutputBy address stateToken mapDatum = do
     outputs <- findOutputsBy address stateToken mapDatum

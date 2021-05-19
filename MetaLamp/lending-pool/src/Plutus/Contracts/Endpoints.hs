@@ -98,10 +98,10 @@ type AaveOwnerSchema =
         .\/ Endpoint "start" ()
 
 reserves :: HasBlockchainActions s => Aave -> Contract w s Text [Reserve]
-reserves aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (State.reserveStateToken aave) State.pickReserve
+reserves aave = Prelude.fmap soValue <$> State.findOutputsBy aave (State.reserveStateToken aave) State.pickReserve
 
 users :: HasBlockchainActions s => Aave -> Contract w s Text [UserConfig]
-users aave = Prelude.fmap soDatum <$> State.findOutputsBy aave (State.userStateToken aave) State.pickUserConfig
+users aave = Prelude.fmap soValue <$> State.findOutputsBy aave (State.userStateToken aave) State.pickUserConfig
 
 valueAt :: HasBlockchainActions s => Address -> Contract w s Text Value
 valueAt address = do
@@ -132,7 +132,7 @@ PlutusTx.makeLift ''DepositParams
 deposit :: (HasBlockchainActions s) => Aave -> DepositParams -> Contract w s Text ()
 deposit aave DepositParams {..} = do
     reserveOutput <- State.findAaveReserve aave dpAsset
-    let reserve = soDatum reserveOutput
+    let reserve = soValue reserveOutput
         lookups = Constraints.ownPubKeyHash dpOnBehalfOf
             <> Constraints.scriptInstanceLookups (Core.aaveInstance aave)
         outValue = assetClassValue (rCurrency reserve) dpAmount
@@ -169,7 +169,7 @@ PlutusTx.makeLift ''WithdrawParams
 withdraw :: (HasBlockchainActions s) => Aave -> WithdrawParams -> Contract w s Text ()
 withdraw aave WithdrawParams {..} = do
     reserveOutput <- State.findAaveReserve aave wpAsset
-    let reserve = soDatum reserveOutput
+    let reserve = soValue reserveOutput
 
     balance <- balanceAt wpFrom (rAToken reserve)
     when (wpAmount == balance) $ do

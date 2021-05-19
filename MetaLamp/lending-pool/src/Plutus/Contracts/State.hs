@@ -4,9 +4,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE RecordWildCards         #-}
 
 module Plutus.Contracts.State where
 
@@ -35,7 +35,7 @@ import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import           Plutus.State.Select              (StateOutput (..))
 import qualified Plutus.State.Select              as Select
-import           Plutus.State.Update              (RootStateHandle (..),
+import           Plutus.State.Update              (PutStateHandle (..),
                                                    StateHandle (..))
 import qualified Plutus.State.Update              as Update
 import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
@@ -52,12 +52,12 @@ findOutputsBy aave = Select.findOutputsBy (Core.aaveAddress aave)
 findOutputBy :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text (StateOutput a)
 findOutputBy aave = Select.findOutputBy (Core.aaveAddress aave)
 
-findAaveRoot :: HasBlockchainActions s => Aave -> Contract w s Text (StateOutput ())
-findAaveRoot aave@Aave{..} = findOutputBy aave aaveProtocolInst pickLendingPool
+findAaveOwnerToken :: HasBlockchainActions s => Aave -> Contract w s Text (StateOutput ())
+findAaveOwnerToken aave@Aave{..} = findOutputBy aave aaveProtocolInst pickOwnerDatum
 
-pickLendingPool :: AaveDatum -> Maybe ()
-pickLendingPool LendingPoolDatum = Just ()
-pickLendingPool _                = Nothing
+pickOwnerDatum :: AaveDatum -> Maybe ()
+pickOwnerDatum LendingPoolDatum = Just ()
+pickOwnerDatum _                = Nothing
 
 reserveStateToken, userStateToken :: Aave -> AssetClass
 reserveStateToken aave = Update.makeStateToken (aaveProtocolInst aave) "aaveReserve"
@@ -81,23 +81,22 @@ findAaveUser aave userAddress reserveId = findOutputBy aave (userStateToken aave
                 else Nothing
         mapState _ = Nothing
 
-stateRootHandle :: (HasBlockchainActions s) => Aave -> Contract w s Text (RootStateHandle AaveScript AaveDatum)
+stateRootHandle :: (HasBlockchainActions s) => Aave -> Contract w s Text (PutStateHandle AaveScript)
 stateRootHandle aave = do
-    output <- fmap (const Core.LendingPoolDatum) <$> findAaveRoot aave
+    ownerTokenOutput <- fmap (const Core.LendingPoolDatum) <$> findAaveOwnerToken aave
     pure $
-        RootStateHandle { script = Core.aaveInstance aave, rootToken = aaveProtocolInst aave, output = output }
+        PutStateHandle { script = Core.aaveInstance aave, ownerToken = aaveProtocolInst aave, ownerTokenOutput = ownerTokenOutput }
 
-putState :: (HasBlockchainActions s) => Aave -> StateHandle AaveRedeemer AaveDatum a -> a -> Contract w s Text a
+putState :: (HasBlockchainActions s) => Aave -> StateHandle AaveScript a -> a -> Contract w s Text a
 putState aave stateHandle newState = do
-    rootHandle <- stateRootHandle aave
+    ownerTokenOutput <- fmap (const Core.LendingPoolDatum) <$> findAaveOwnerToken aave
+    let rootHandle = PutStateHandle { script = Core.aaveInstance aave, ownerToken = aaveProtocolInst aave, ownerTokenOutput = ownerTokenOutput }
     Update.putState rootHandle stateHandle newState
 
-updateState :: (HasBlockchainActions s) => Aave ->  StateHandle AaveRedeemer AaveDatum a -> StateOutput a -> Contract w s Text a
-updateState aave stateHandle newOutput = do
-    rootHandle <- stateRootHandle aave
-    Update.updateState rootHandle stateHandle newOutput
+updateState :: (HasBlockchainActions s) => Aave ->  StateHandle AaveScript a -> StateOutput a -> Contract w s Text a
+updateState aave = Update.updateState (Core.aaveInstance aave)
 
-makeReserveHandle :: Aave -> (Reserve -> AaveRedeemer) -> StateHandle AaveRedeemer AaveDatum Reserve
+makeReserveHandle :: Aave -> (Reserve -> AaveRedeemer) -> StateHandle AaveScript Reserve
 makeReserveHandle aave toRedeemer =
     StateHandle {
         stateToken = reserveStateToken aave,
@@ -115,7 +114,7 @@ putReserve aave = putState aave $ makeReserveHandle aave Core.CreateReserveRedee
 updateReserve :: (HasBlockchainActions s) => Aave -> StateOutput Reserve -> Contract w s Text Reserve
 updateReserve aave = updateState aave $ makeReserveHandle aave (const Core.UpdateReserveRedeemer)
 
-makeUserHandle :: Aave -> (UserConfig -> AaveRedeemer) -> StateHandle AaveRedeemer AaveDatum UserConfig
+makeUserHandle :: Aave -> (UserConfig -> AaveRedeemer) -> StateHandle AaveScript UserConfig
 makeUserHandle aave toRedeemer =
     StateHandle {
         stateToken = userStateToken aave,
