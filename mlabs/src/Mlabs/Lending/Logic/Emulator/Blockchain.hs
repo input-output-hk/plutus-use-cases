@@ -13,7 +13,7 @@ import PlutusTx.Prelude hiding (fromMaybe, maybe)
 
 import Data.Maybe
 import Data.Map.Strict (Map)
-import Mlabs.Lending.Logic.Types
+import Mlabs.Lending.Logic.Types (Coin, UserId(..))
 
 import qualified Data.Map.Strict as M
 

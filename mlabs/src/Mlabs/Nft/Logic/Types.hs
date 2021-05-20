@@ -6,7 +6,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Prelude as Hask
 import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
-import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
+import Plutus.V1.Ledger.Value (TokenName(..))
 import GHC.Generics
 
 import Mlabs.Lending.Logic.Types (UserId(..))
@@ -22,17 +22,19 @@ data Nft = Nft
   }
   deriving (Show, Generic)
 
--- | Acts with NFTs
+-- | Actions with NFTs
 data Act
   = Buy
     { act'userId   :: UserId
     , act'price    :: Integer
     , act'newPrice :: Maybe Integer
     }
+  -- ^ Buy NFT and set new price
   | SetPrice
     { act'userId   :: UserId
     , act'newPrice :: Maybe Integer
     }
+  -- ^ Set new price for NFT
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 

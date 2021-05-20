@@ -5,6 +5,7 @@ import Control.Monad.State.Strict (modify', gets)
 
 import PlutusTx.Prelude
 
+import Mlabs.Control.Check
 import Mlabs.Lending.Logic.Emulator.Blockchain
 import Mlabs.Lending.Logic.Types (adaCoin)
 import Mlabs.Nft.Logic.State
@@ -45,7 +46,7 @@ react inp = do
 {-# INLINABLE checkInputs #-}
 checkInputs :: Act -> St ()
 checkInputs = \case
-  Buy      _uid price newPrice -> do
+  Buy _uid price newPrice -> do
     isPositive "Buy price" price
     mapM_ (isPositive "New price") newPrice
 
