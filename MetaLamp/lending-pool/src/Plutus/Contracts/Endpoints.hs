@@ -226,7 +226,10 @@ userEndpoints aa = forever $
     f _ g c = do
         e <- runError $ do
             p <- endpoint @l
-            c aa p
+            errorHandler `handleError` (c aa p)
         tell $ Last $ Just $ case e of
             Left err -> Left err
             Right a  -> Right $ g a
+    errorHandler e = do
+        logInfo @Text ("Error submiting the transaction: " <> e)
+        throwError e
