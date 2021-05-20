@@ -56,6 +56,9 @@ library
         Mlabs.Lending.Logic.React
         Mlabs.Lending.Logic.State
         Mlabs.Lending.Logic.Types
+        Mlabs.Nft.Logic.React
+        Mlabs.Nft.Logic.State
+        Mlabs.Nft.Logic.Types
   default-extensions: BangPatterns
                       ExplicitForAll
                       FlexibleContexts

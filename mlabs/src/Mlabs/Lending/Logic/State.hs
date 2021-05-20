@@ -86,7 +86,7 @@ isNonNegative msg val
   | otherwise = throwError $ msg <> " should be non-negative"
 
 {-# INLINABLE isPositive #-}
-isPositive :: String -> Integer -> St ()
+isPositive :: (Applicative m, MonadError String m) => String -> Integer -> m ()
 isPositive msg val
   | val > 0   = pure ()
   | otherwise = throwError $ msg <> " should be positive"
@@ -127,7 +127,7 @@ aToken coin = do
 {-# INLINABLE guardError #-}
 -- | Execute further if condition is True or throw error with
 -- given error message.
-guardError :: Error -> Bool -> St ()
+guardError :: (Applicative m, MonadError Error m) => Error -> Bool -> m ()
 guardError msg isTrue
   | isTrue    = pure ()
   | otherwise = throwError msg
