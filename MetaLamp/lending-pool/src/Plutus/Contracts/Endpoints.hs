@@ -78,9 +78,9 @@ start params = do
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
     let aave = Core.aave aaveToken
-    let rootToken = assetClass aaveToken Core.aaveProtocolName
+        ownerToken = Core.aaveProtocolInst aave
         inst = Core.aaveInstance aave
-        tx = mustPayToTheScript Core.LendingPoolDatum $ assetClassValue rootToken 1
+        tx = mustPayToTheScript Core.LendingPoolDatum $ assetClassValue ownerToken 1
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
