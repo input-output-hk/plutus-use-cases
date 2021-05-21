@@ -36,8 +36,11 @@ library
                      , plutus-pab
                      , plutus-use-cases
                      , prettyprinter
+                     , pretty-show
                      , stm
                      , lens
+                     , tasty
+                     , tasty-hunit
                      , text
                      , freer-extras
   default-language: Haskell2010
@@ -48,16 +51,19 @@ library
         Mlabs.Data.AssocMap
         Mlabs.Data.List
         Mlabs.Data.Ord
+        Mlabs.Emulator.App
+        Mlabs.Emulator.Blockchain
+        Mlabs.Emulator.Script
+        Mlabs.Emulator.Types
         Mlabs.Lending.Contract.Forge
         Mlabs.Lending.Contract.Lendex
         Mlabs.Lending.Contract.Utils
-        Mlabs.Lending.Logic.Emulator.App
-        Mlabs.Lending.Logic.Emulator.Blockchain
-        Mlabs.Lending.Logic.Emulator.Script
+        Mlabs.Lending.Logic.App
         Mlabs.Lending.Logic.InterestRate
         Mlabs.Lending.Logic.React
         Mlabs.Lending.Logic.State
         Mlabs.Lending.Logic.Types
+        Mlabs.Nft.Logic.App
         Mlabs.Nft.Logic.React
         Mlabs.Nft.Logic.State
         Mlabs.Nft.Logic.Types
@@ -132,6 +138,7 @@ Test-suite mlabs-plutus-use-cases-tests
                      , pretty-show
                      , tasty
                      , tasty-hunit
+                     , tasty-expected-failure
                      , text
   hs-source-dirs:      test
   Main-is:             Main.hs
@@ -140,6 +147,7 @@ Test-suite mlabs-plutus-use-cases-tests
                        Test.Lending.Init
                        Test.Lending.Logic
                        Test.Lending.Scene
+                       Test.Nft.Logic
                        Test.Utils
   default-extensions:
     RecordWildCards

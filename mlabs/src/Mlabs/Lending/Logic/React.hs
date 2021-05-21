@@ -22,7 +22,7 @@ import Control.Monad.Except hiding (Functor(..), mapM)
 import Control.Monad.State.Strict hiding (Functor(..), mapM)
 
 import Mlabs.Control.Check
-import Mlabs.Lending.Logic.Emulator.Blockchain
+import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import Mlabs.Lending.Logic.State
 import Mlabs.Lending.Logic.Types

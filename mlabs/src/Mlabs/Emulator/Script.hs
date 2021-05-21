@@ -1,10 +1,9 @@
 -- | Helper for testing logic of lending pool
-module Mlabs.Lending.Logic.Emulator.Script(
+module Mlabs.Emulator.Script(
     Script
   , runScript
-  , userAct
-  , priceAct
-  , governAct
+  , getCurrentTime
+  , putAct
 ) where
 
 import Prelude (Semigroup(..), Monoid(..), Applicative(..))
@@ -16,53 +15,36 @@ import Data.Sequence (Seq)
 import Data.Monoid (Sum(..))
 import PlutusTx.Prelude hiding (Monoid(..), Semigroup(..), Functor, Applicative, toList)
 
-import Mlabs.Lending.Logic.Types
 import qualified Data.Sequence as Seq
 
 -- | Collects user actions and allocates timestamps
-type Script = ScriptM ()
+type Script act = ScriptM act ()
 
 -- | Auto-allocation of timestamps, monadic interface for collection of actions
-newtype ScriptM a = Script (State St a)
-  deriving newtype (Functor, Applicative, Monad, MonadState St)
+newtype ScriptM act a = Script (State (St act) a)
+  deriving newtype (Functor, Applicative, Monad, MonadState (St act))
 
 -- | Script accumulator state.
-data St = St
-  { st'acts  :: Seq Act      -- ^ acts so far
+data St act = St
+  { st'acts  :: Seq act      -- ^ acts so far
   , st'time  :: Sum Integer  -- ^ current timestamp
   }
 
-instance Semigroup St where
+instance Semigroup (St a) where
   St a1 t1 <> St a2 t2 = St (a1 <> a2) (t1 <> t2)
 
-instance Monoid St where
+instance Monoid (St a) where
   mempty = St mempty mempty
 
 -- | Extract list of acts from the script
-runScript :: Script -> [Act]
+runScript :: Script act-> [act]
 runScript (Script actions) =
   toList $ st'acts $ execState actions (St Seq.empty 0)
 
-getCurrentTime :: ScriptM Integer
+getCurrentTime :: ScriptM act Integer
 getCurrentTime = gets (getSum . st'time)
 
--- | Make user act
-userAct :: UserId -> UserAct -> Script
-userAct uid act = do
-  time <- getCurrentTime
-  putAct $ UserAct time uid act
-
--- | Make price act
-priceAct :: PriceAct -> Script
-priceAct arg = do
-  t <- getCurrentTime
-  putAct $ PriceAct t arg
-
--- | Make govern act
-governAct :: GovernAct -> Script
-governAct arg = putAct $ GovernAct arg
-
-putAct :: Act -> Script
+putAct :: act -> Script act
 putAct act =
   modify' (<> St (Seq.singleton act) (Sum 1))
 

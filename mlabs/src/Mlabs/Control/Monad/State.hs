@@ -14,7 +14,7 @@ import PlutusTx.Prelude
 import Control.Monad.Except       hiding (Functor(..))
 import Control.Monad.State.Strict hiding (Functor(..))
 
--- | State update of lending pool
+-- | State update of plutus contracts
 type PlutusState st = StateT st (Either String)
 
 instance Functor (PlutusState st) where

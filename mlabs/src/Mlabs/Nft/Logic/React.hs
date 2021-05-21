@@ -6,7 +6,7 @@ import Control.Monad.State.Strict (modify', gets)
 import PlutusTx.Prelude
 
 import Mlabs.Control.Check
-import Mlabs.Lending.Logic.Emulator.Blockchain
+import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.Types (adaCoin)
 import Mlabs.Nft.Logic.State
 import Mlabs.Nft.Logic.Types
@@ -17,8 +17,11 @@ react inp = do
   checkInputs inp
   case inp of
     Buy uid price newPrice -> buyAct uid price newPrice
-    SetPrice uid price     -> setPrice uid price
+    SetPrice uid price     -> setPriceAct uid price
   where
+    -----------------------------------------------
+    -- buy
+
     buyAct uid price newPrice = do
       isRightPrice price
       authorShare <- getAuthorShare price
@@ -38,7 +41,10 @@ react inp = do
             , nft'price = newPrice
             }
 
-    setPrice uid price = do
+    -----------------------------------------------
+    -- set price
+
+    setPriceAct uid price = do
       isOwner uid
       modify' $ \st -> st { nft'price = price }
       pure []

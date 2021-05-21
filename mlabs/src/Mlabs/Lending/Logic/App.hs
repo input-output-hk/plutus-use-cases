@@ -1,58 +1,38 @@
--- | Lending app emulator
-module Mlabs.Lending.Logic.Emulator.App(
-    App(..)
-  , runApp
+-- | Inits logic test suite app emulator
+module Mlabs.Lending.Logic.App(
+  -- * Application
+    LendingApp
+  , runLendingApp
+  , initApp
   , AppConfig(..)
   , defaultAppConfig
-  , lookupAppWallet
   , toCoin
-  , module X
+  -- * Script actions
+  , Script
+  , userAct
+  , priceAct
+  , governAct
 ) where
 
 import PlutusTx.Prelude
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Plutus.V1.Ledger.Value
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
-import Control.Monad.State.Strict hiding (Functor(..))
-
-import Data.List (foldl')
-
-import Mlabs.Lending.Logic.Emulator.Blockchain
-import Mlabs.Lending.Logic.Emulator.Script as X
+import Mlabs.Emulator.App
+import Mlabs.Emulator.Blockchain
+import qualified Mlabs.Emulator.Script as S
+import Mlabs.Emulator.Types
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
-import Mlabs.Lending.Logic.State
 
 import qualified Data.Map.Strict as M
 import qualified PlutusTx.AssocMap as AM
 import qualified PlutusTx.Ratio as R
 
--- | Prototype application
-data App = App
-  { app'pool    :: !LendingPool                  -- ^ lending pool
-  , app'log     :: ![(Act, LendingPool, Error)]  -- ^ error log
-                                                 -- ^ it reports on which act and pool state error has happened
-  , app'wallets :: !BchState                     -- ^ current state of blockchain
-  }
+type LendingApp = App LendingPool Act
 
--- | Lookup state of the blockchain-wallet for a given user-id.
-lookupAppWallet :: UserId -> App -> Maybe BchWallet
-lookupAppWallet uid App{..} = case app'wallets of
-  BchState wals -> M.lookup uid wals
-
--- | Runs application with the list of actions.
--- Returns final state of the application.
-runApp :: AppConfig -> Script -> App
-runApp cfg acts = foldl' go (initApp cfg) $ runScript acts
-  where
-    -- There are two possible sources of errors:
-    --   * we can not make transition to state (react produces Left)
-    --   * the transition produces action on blockchain that leads to negative balances (applyResp produces Left)
-    go (App lp errs wallets) act = case runStateT (react act) lp of
-      Right (resp, nextState) -> case foldM (flip applyResp) wallets resp of
-        Right nextWallets -> App nextState errs nextWallets
-        Left err          -> App lp ((act, lp, err) : errs) wallets
-      Left err                -> App lp ((act, lp, err) : errs) wallets
+runLendingApp :: AppConfig -> Script -> LendingApp
+runLendingApp cfg acts = runApp react (initApp cfg) acts
 
 -- Configuration paprameters for app.
 data AppConfig = AppConfig
@@ -67,9 +47,9 @@ data AppConfig = AppConfig
   }
 
 -- | App is initialised with list of coins and their rates (value relative to base currency, ada for us)
-initApp :: AppConfig -> App
+initApp :: AppConfig -> LendingApp
 initApp AppConfig{..} = App
-  { app'pool = LendingPool
+  { app'st = LendingPool
       { lp'reserves     = (AM.fromList (fmap (\x -> (coinCfg'coin x, initReserve x)) appConfig'reserves))
       , lp'users        = AM.empty
       , lp'currency     = appConfig'currencySymbol
@@ -108,4 +88,25 @@ defaultAppConfig = AppConfig reserves users curSym
 
 toCoin :: ByteString -> Coin
 toCoin str = AssetClass (currencySymbol str, tokenName str)
+
+----------------------------------------------------------
+-- scripts
+
+type Script = S.Script Act
+
+-- | Make user act
+userAct :: UserId -> UserAct -> Script
+userAct uid act = do
+  time <- S.getCurrentTime
+  S.putAct $ UserAct time uid act
+
+-- | Make price act
+priceAct :: PriceAct -> Script
+priceAct arg = do
+  t <- S.getCurrentTime
+  S.putAct $ PriceAct t arg
+
+-- | Make govern act
+governAct :: GovernAct -> Script
+governAct arg = S.putAct $ GovernAct arg
 

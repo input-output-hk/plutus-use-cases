@@ -1,15 +1,19 @@
 -- | Datatypes for NFT state machine.
-module Mlabs.Nft.Logic.Types where
+module Mlabs.Nft.Logic.Types(
+    Nft(..)
+  , toNftToken
+  , Act(..)
+) where
 
 import Data.Aeson (FromJSON, ToJSON)
 
 import qualified Prelude as Hask
 import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
-import Plutus.V1.Ledger.Value (TokenName(..))
+import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
 import GHC.Generics
 
-import Mlabs.Lending.Logic.Types (UserId(..))
+import Mlabs.Emulator.Types (UserId(..))
 
 -- | Data for NFTs
 data Nft = Nft
@@ -21,6 +25,10 @@ data Nft = Nft
   , nft'price  :: Maybe Integer   -- ^ price in ada, if it's nothing then nobody can buy
   }
   deriving (Show, Generic)
+
+{-# INLINABLE toNftToken #-}
+toNftToken :: ByteString -> TokenName
+toNftToken = tokenName . sha2_256
 
 -- | Actions with NFTs
 data Act

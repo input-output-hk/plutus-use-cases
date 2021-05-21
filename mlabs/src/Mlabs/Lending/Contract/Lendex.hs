@@ -43,7 +43,7 @@ import           PlutusTx.Prelude             hiding (Applicative (..), check, S
 import qualified PlutusTx.Prelude             as PlutusTx
 
 
-import Mlabs.Lending.Logic.Emulator.Blockchain
+import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
 import qualified Mlabs.Lending.Contract.Forge as Forge
