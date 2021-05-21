@@ -1,5 +1,5 @@
 -- | Simple emulation ob blockchain state
-module Mlabs.Lending.Logic.Emulator.Blockchain(
+module Mlabs.Emulator.Blockchain(
     BchState(..)
   , BchWallet(..)
   , defaultBchWallet
@@ -13,7 +13,7 @@ import PlutusTx.Prelude hiding (fromMaybe, maybe)
 
 import Data.Maybe
 import Data.Map.Strict (Map)
-import Mlabs.Lending.Logic.Types
+import Mlabs.Emulator.Types (Coin, UserId(..))
 
 import qualified Data.Map.Strict as M
 

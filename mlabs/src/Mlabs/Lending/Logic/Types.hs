@@ -47,7 +47,6 @@ module Mlabs.Lending.Logic.Types(
   , Showt(..)
 ) where
 
-
 import Data.Aeson (FromJSON, ToJSON)
 
 import qualified PlutusTx.Ratio as R
@@ -55,28 +54,16 @@ import qualified Prelude as Hask
 import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
-import qualified Plutus.V1.Ledger.Ada as Ada
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
 import GHC.Generics
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+
+import Mlabs.Emulator.Types
 
 -- | Class that converts to inlinable builtin string
 class Showt a where
   showt :: a -> String
 
--- | Address of the wallet that can hold values of assets
-data UserId
-  = UserId PubKeyHash  -- user address
-  | Self               -- addres of the lending platform
-  deriving stock (Show, Generic, Hask.Eq, Hask.Ord)
-  deriving anyclass (FromJSON, ToJSON)
-
-instance Eq UserId where
-  {-# INLINABLE (==) #-}
-  Self == Self = True
-  UserId a == UserId b = a == b
-  _ == _ = False
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool
@@ -173,10 +160,6 @@ initLendingPool curSym coinCfgs =
   where
     reserves = M.fromList $ fmap (\cfg -> (coinCfg'coin cfg, initReserve cfg)) coinCfgs
     coinMap  = M.fromList $ fmap (\(CoinCfg coin _ aToken _ _) -> (aToken, coin)) coinCfgs
-
-{-# INLINABLE adaCoin #-}
-adaCoin :: Coin
-adaCoin = AssetClass (Ada.adaSymbol, Ada.adaToken)
 
 {-# INLINABLE initReserve #-}
 -- | Initialise empty reserve with given ratio of its coin to ada
@@ -320,9 +303,6 @@ data PriceAct
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
--- | Custom currency
-type Coin = AssetClass
-
 {-# INLINABLE toLendingToken #-}
 toLendingToken :: LendingPool -> Coin -> Maybe Coin
 toLendingToken LendingPool{..} coin =
@@ -368,7 +348,6 @@ PlutusTx.unstableMakeIsData ''ReserveInterest
 PlutusTx.unstableMakeIsData ''UserAct
 PlutusTx.unstableMakeIsData ''PriceAct
 PlutusTx.unstableMakeIsData ''GovernAct
-PlutusTx.unstableMakeIsData ''UserId
 PlutusTx.unstableMakeIsData ''User
 PlutusTx.unstableMakeIsData ''Wallet
 PlutusTx.unstableMakeIsData ''Reserve

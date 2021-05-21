@@ -10,29 +10,14 @@ import Test.Tasty.HUnit
 import Plutus.V1.Ledger.Value
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
-import Mlabs.Lending.Logic.Emulator.App
-import Mlabs.Lending.Logic.Emulator.Blockchain
+import Mlabs.Emulator.App
+import Mlabs.Emulator.Blockchain
+import Mlabs.Lending.Logic.App
 import Mlabs.Lending.Logic.Types
 
-import Text.Show.Pretty
 
 import qualified Data.Map.Strict as M
 import qualified PlutusTx.Ratio as R
-
-noErrors :: App -> Assertion
-noErrors app = case app'log app of
-  [] -> assertBool "no errors" True
-  xs -> do
-    mapM_ printLog xs
-    assertFailure "There are errors"
-  where
-    printLog (act, lp, msg) = do
-      pPrint act
-      pPrint lp
-      print msg
-
-someErrors :: App -> Assertion
-someErrors app = assertBool "Script fails" $ not $ null (app'log app)
 
 -- | Test suite for a logic of lending application
 test :: TestTree
@@ -89,20 +74,16 @@ test = testGroup "Logic"
         w2 = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50) , (coin1, 20), (adaCoin, 1)]
 
 -- | Checks that script runs without errors
-testScript :: Script -> App
-testScript script = runApp testAppConfig script
+testScript :: Script -> LendingApp
+testScript script = runLendingApp testAppConfig script
 
 -- | Check that we have those wallets after script was run.
 testWallets :: [(UserId, BchWallet)] -> Script -> Assertion
 testWallets wals script = do
   noErrors app
-  mapM_ (uncurry $ hasWallet app) wals
+  checkWallets wals app
   where
-    app = runApp testAppConfig script
-
--- | Checks that application state contains concrete wallet for a given user id.
-hasWallet :: App -> UserId -> BchWallet -> Assertion
-hasWallet app uid wal = lookupAppWallet uid app @=? Just wal
+    app = runLendingApp testAppConfig script
 
 -- | 3 users deposit 50 coins to lending app
 depositScript :: Script

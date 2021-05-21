@@ -1,15 +1,10 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | State transitions for Lending app
 module Mlabs.Lending.Logic.State(
     St
   , showt
   , Error
-  , isNonNegative
-  , isPositive
-  , isPositiveRational
-  , isUnitRange
   , isAsset
   , aToken
   , updateReserveState
@@ -58,50 +53,16 @@ import Control.Monad.State.Strict hiding (Functor(..), mapM)
 import qualified Mlabs.Lending.Logic.InterestRate as IR
 import Mlabs.Lending.Logic.Types
 
+import Mlabs.Control.Monad.State
+
 -- | Type for errors
 type Error = String
 
 -- | State update of lending pool
-type St = StateT LendingPool (Either Error)
-
-instance Functor St where
-  {-# INLINABLE fmap #-}
-  fmap f (StateT a) = StateT $ fmap (\(v, st) -> (f v, st)) . a
-
-instance Applicative St where
-  {-# INLINABLE pure #-}
-  pure a = StateT (\st -> Right (a, st))
-
-  {-# INLINABLE (<*>) #-}
-  (StateT f) <*> (StateT a) = StateT $ \st -> case f st of
-    Left err -> Left err
-    Right (f1, st1) -> fmap (\(a1, st2) -> (f1 a1, st2)) $ a st1
+type St = PlutusState LendingPool
 
 ----------------------------------------------------
 -- common functions
-{-# INLINABLE isNonNegative #-}
-isNonNegative :: String -> Integer -> St ()
-isNonNegative msg val
-  | val >= 0  = pure ()
-  | otherwise = throwError $ msg <> " should be non-negative"
-
-{-# INLINABLE isPositive #-}
-isPositive :: String -> Integer -> St ()
-isPositive msg val
-  | val > 0   = pure ()
-  | otherwise = throwError $ msg <> " should be positive"
-
-{-# INLINABLE isPositiveRational #-}
-isPositiveRational :: String -> Rational -> St ()
-isPositiveRational msg val
-  | val > R.fromInteger 0 = pure ()
-  | otherwise             = throwError $ msg <> " should be positive"
-
-{-# INLINABLE isUnitRange #-}
-isUnitRange :: String -> Rational -> St ()
-isUnitRange msg val
-  | val >= R.fromInteger 0 && val <= R.fromInteger 1 = pure ()
-  | otherwise                                        = throwError $ msg <> " should have unit range [0, 1]"
 
 {-# INLINABLE isAsset #-}
 isAsset :: Coin -> St ()
@@ -123,14 +84,6 @@ aToken coin = do
   maybe err pure mCoin
   where
     err = throwError "Coin not supported"
-
-{-# INLINABLE guardError #-}
--- | Execute further if condition is True or throw error with
--- given error message.
-guardError :: Error -> Bool -> St ()
-guardError msg isTrue
-  | isTrue    = pure ()
-  | otherwise = throwError msg
 
 {-# INLINABLE getsWallet #-}
 -- | Read field from the internal wallet for user and on asset.
