@@ -87,6 +87,7 @@ data LendingPool = LendingPool
   , lp'healthReport :: !HealthReport           -- ^ map of unhealthy borrows
   }
   deriving (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Reserve of give coin in the pool.
 -- It holds all info on individual collaterals and deposits.
@@ -99,6 +100,7 @@ data Reserve = Reserve
   , reserve'interest             :: !ReserveInterest -- ^ reserve liquidity params
   }
   deriving (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 type HealthReport = Map BadBorrow Rational
 
@@ -121,6 +123,7 @@ data CoinRate = CoinRate
   , coinRate'lastUpdateTime :: !Integer  -- ^ last time price was updated
   }
   deriving (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Parameters for calculation of interest rates.
 data ReserveInterest = ReserveInterest
@@ -131,6 +134,7 @@ data ReserveInterest = ReserveInterest
   , ri'lastUpdateTime     :: !Integer
   }
   deriving (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 data InterestModel = InterestModel
   { im'optimalUtilisation  :: !Rational
@@ -213,6 +217,7 @@ data User = User
   , user'health          :: !Health
   }
   deriving (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Health ratio for user per borrow
 type Health = Map Coin Rational
@@ -236,6 +241,7 @@ data Wallet = Wallet
   , wallet'scaledBalance :: !Rational  -- ^ scaled balance
   }
   deriving (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 
 {-# INLINABLE defaultWallet #-}

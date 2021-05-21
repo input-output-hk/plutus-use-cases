@@ -86,23 +86,53 @@ library
                       TupleSections
 
 executable mlabs-plutus-use-cases
-  main-is:             app/Main.hs
-  build-depends:       base >=4.14 && <4.15
-                     , aeson
-                     , bytestring
-                     , containers
-                     , playground-common
-                     , plutus-core
-                     , plutus-contract
-                     , plutus-ledger
-                     , plutus-tx
-                     , plutus-tx-plugin
-                     , plutus-pab
-                     , prettyprinter
-                     , lens
-                     , text
-                     , freer-extras
-  default-language:    Haskell2010
+    main-is:             app/Main.hs
+    build-depends:       base >=4.14 && <4.15
+                      , aeson
+                      , bytestring
+                      , containers
+                      , playground-common
+                      , plutus-core
+                      , plutus-contract
+                      , plutus-ledger
+                      , plutus-tx
+                      , plutus-tx-plugin
+                      , plutus-pab
+                      , prettyprinter
+                      , lens
+                      , text
+                      , freer-extras
+    default-language:    Haskell2010
+
+executable demo
+  main-is: Main.hs
+  hs-source-dirs: demo
+  default-extensions: AllowAmbiguousTypes BlockArguments BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveFunctor DeriveGeneric DerivingStrategies DerivingVia DuplicateRecordFields EmptyCase ExplicitNamespaces FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude NumericUnderscores OverloadedLabels OverloadedStrings PatternSynonyms RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators TypeSynonymInstances UndecidableInstances ViewPatterns ImportQualifiedPost RoleAnnotations
+  ghc-options: -Wall -Wcompat -Weverything -Wmissing-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-missing-safe-haskell-mode -Wno-unused-packages -Wno-unsafe -Wno-prepositive-qualified-module -Wno-missing-export-lists -Wno-unused-imports -Werror -Wwarn=redundant-constraints -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fobject-code -fno-strictness -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , cardano-prelude
+    , containers
+    , data-default-class
+    , freer-extras
+    , freer-simple
+    , lens
+    , mlabs-plutus-use-cases
+    , playground-common
+    , plutus-contract
+    , plutus-core
+    , plutus-ledger
+    , plutus-ledger-api
+    , plutus-pab
+    , plutus-tx
+    , plutus-tx-plugin
+    , prettyprinter
+    , row-types
+    , text
+    , vector
+  default-language: Haskell2010
 
 Test-suite mlabs-plutus-use-cases-tests
   Type:                exitcode-stdio-1.0
