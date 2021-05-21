@@ -44,15 +44,6 @@ import           Wallet.API                               (ownPubKey)
 import           Ledger                                   (CurrencySymbol(..), pubKeyAddress)
 import qualified Ledger.Typed.Scripts         as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg         (PABMultiAgentMsg)
--- import Data.ByteString.Base64 as B64
--- import qualified Control.Applicative as Appl
--- import Data.Text
--- instance FromJSON B.ByteString where
---   parseJSON (String t) = pure $ (either (const "") id . B64.decode . encodeUtf8) t
---   parseJSON _ = Appl.empty
-
--- instance ToJSON B.ByteString where
---   toJSON = String . decodeUtf8 . B64.encode
 
 extract :: Maybe a -> a
 extract (Just x) = x          -- Sure, this works, but...

@@ -25,7 +25,7 @@ For now, the only supported tooling setup is to use the provided VSCode devconta
 We have provided an example PAB application in `./pab`. With the PAB we can serve and interact
 with contracts over a web API. You can read more about the PAB here: [PAB Architecture](https://github.com/input-output-hk/plutus/blob/master/plutus-pab/ARCHITECTURE.adoc).
 
-Here, the PAB is configured with two contract, the `Auction` contract from `./src/Plutus/Contracts/Auction.hs` and `Currency` contract from `./src/Plutus/Contracts/Currency.hs`
+Here, the PAB is configured with the `NFT` contract from `./src/Plutus/Contracts/NFT.hs`
 
 Here's an example of running and interacting with this contract via the API. For this it will help if you
 have `jq` installed.
@@ -43,20 +43,6 @@ cabal exec -- plutus-starter-pab
 ````
 
 This will then start up the server on port 8080. The devcontainer process will then automatically expose this port so that you can connect to it from any terminal (it doesn't have to be a terminal running in the devcontainer).
-
-First, let's verify that the contracts are present in the server:
-
-3. Check what contracts are present:
-
-```
-curl -s http://localhost:8080/api/new/contract/definitions | jq
-```
-
-You should receive a list of contracts and the endpoints that can be called on them, and the arguments
-required for those endpoints.
-
-We're interested in the `AuctionContract` and `CurrencyContract`.
-
 
 1. Start the instances:
 
@@ -90,28 +76,13 @@ to call.
 
 3. Start by creating NFT token
 
-Get forge curremcy parameters
 
-```
-cabal repl
-
-import Contracts.NFT
-import Ledger.Value   
-import Data.Aeson
-import qualified Data.ByteString.Char8 as B
-import Data.ByteString.Lazy.Char8 as BSL
-args = CreateParams { cpTokenName = TokenName $ B.pack "TestToken", cpDescription = B.pack "TestDescription1" }
-
-args = TestParams { tpTest =  "Test1", tpDescription = B.pack "TestDescription1" }
-
-
-```
 Create token
 ```
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"cpTokenName":{"unTokenName":"TestToken6"},"cpDescription":"546573744465736372697074696f6e"}' \
+  --data '{"cpTokenName":"TestToken","cpDescription":"TestDescription"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/create
 ```
 
@@ -147,8 +118,8 @@ cabal repl
 import Contracts.NFT
 import Ledger.Value   
 import Data.Aeson
-import qualified Data.ByteString.UTF8 as B
-import Data.ByteString.Lazy.UTF8 as BSL
+import qualified Data.ByteString.Char8 as B
+import Data.ByteString.Lazy.Char8 as BSL
 args = SellParams { spTokenSymbol = CurrencySymbol $ B.pack "642e93f74cc55820874d3fb4e0b8300ef2c351b23260b1250d26d69d2a060c47", spSellPrice = 1000 }
 BSL.putStrLn $ encode args
 ```
