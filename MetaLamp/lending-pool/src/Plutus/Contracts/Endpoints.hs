@@ -37,11 +37,13 @@ import qualified Plutus.Contracts.AToken          as AToken
 import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
                                                    AaveRedeemer (..),
                                                    Reserve (..), ReserveId,
-                                                   UserConfig (..), UserConfigId)
+                                                   UserConfig (..),
+                                                   UserConfigId)
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import qualified Plutus.Contracts.State           as State
+import qualified Plutus.Contracts.TxUtils         as TxUtils
 import           Plutus.State.Select              (StateOutput (..))
 import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
 import qualified Plutus.V1.Ledger.Address         as Addr
@@ -78,10 +80,9 @@ start params = do
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
     let aave = Core.aave aaveToken
-        ownerToken = Core.aaveProtocolInst aave
-        inst = Core.aaveInstance aave
-        tx = mustPayToTheScript Core.LendingPoolDatum $ assetClassValue ownerToken 1
-    ledgerTx <- submitTxConstraints inst tx
+        payment = assetClassValue (Core.aaveProtocolInst aave) 1
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.LendingPoolDatum payment
     void $ awaitTxConfirmed $ txId ledgerTx
 
     let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve params)) params
@@ -137,12 +138,9 @@ PlutusTx.makeLift ''DepositParams
 deposit :: (HasBlockchainActions s) => Aave -> DepositParams -> Contract w s Text ()
 deposit aave DepositParams {..} = do
     reserve <- State.findAaveReserve aave dpAsset
-
-    let lookups = Constraints.ownPubKeyHash dpOnBehalfOf
-            <> Constraints.scriptInstanceLookups (Core.aaveInstance aave)
-        outValue = assetClassValue (rCurrency reserve) dpAmount
-        tx = mustPayToTheScript Core.DepositDatum outValue
-    ledgerTx <- submitTxConstraintsWith lookups tx
+    let payment = assetClassValue (rCurrency reserve) dpAmount
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustPayToScript (Core.aaveInstance aave) dpOnBehalfOf Core.DepositDatum payment
     _ <- awaitTxConfirmed $ txId ledgerTx
 
     wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
@@ -226,7 +224,7 @@ userEndpoints aa = forever $
     f _ g c = do
         e <- runError $ do
             p <- endpoint @l
-            errorHandler `handleError` (c aa p)
+            errorHandler `handleError` c aa p
         tell $ Last $ Just $ case e of
             Left err -> Left err
             Right a  -> Right $ g a

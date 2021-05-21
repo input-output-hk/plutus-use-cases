@@ -29,7 +29,8 @@ import           Plutus.Contract                  hiding (when)
 import           Plutus.Contracts.Core            (Aave (..), AaveDatum (..),
                                                    AaveRedeemer (..),
                                                    AaveScript, Reserve (..),
-                                                   ReserveId, UserConfig (..), UserConfigId)
+                                                   ReserveId, UserConfig (..),
+                                                   UserConfigId)
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
@@ -81,7 +82,7 @@ findAaveUserConfigs aave = findOutputBy aave (userStateToken aave) pickUserConfi
 
 pickUserConfig :: AaveDatum -> Maybe (AssocMap.Map UserConfigId UserConfig)
 pickUserConfig (Core.UserConfigsDatum userConfig) = Just userConfig
-pickUserConfig _                           = Nothing
+pickUserConfig _                                  = Nothing
 
 findAaveUserConfig :: HasBlockchainActions s => Aave -> UserConfigId -> Contract w s Text UserConfig
 findAaveUserConfig aave userConfigId = do

@@ -30,10 +30,12 @@ import           Ledger.Constraints.TxConstraints as Constraints
 import           Ledger.Typed.Scripts             (MonetaryPolicy)
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Plutus.Contract
-import           Plutus.Contracts.Core            (Aave, Reserve (..))
+import           Plutus.Contracts.Core            (Aave, AaveScript,
+                                                   Reserve (..))
 import qualified Plutus.Contracts.Core            as Core
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import qualified Plutus.Contracts.State           as State
+import qualified Plutus.Contracts.TxUtils         as TxUtils
 import           Plutus.V1.Ledger.Contexts        (ScriptContext,
                                                    scriptCurrencySymbol)
 import qualified Plutus.V1.Ledger.Scripts         as Scripts
@@ -65,48 +67,30 @@ makeAToken asset = assetClass (scriptCurrencySymbol . makeLiquidityPolicy $ asse
 
 forgeATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
 forgeATokensFrom aave reserve pkh amount = do
-    let script = Core.aaveInstance aave
-        policy = makeLiquidityPolicy (rCurrency reserve)
-        lookups = Constraints.scriptInstanceLookups script
-            <> Constraints.monetaryPolicy policy
-            <> Constraints.ownPubKeyHash pkh
+    let policy = makeLiquidityPolicy (rCurrency reserve)
         aTokenAmount = amount -- / rLiquidityIndex reserve -- TODO: how should we divide?
-        outValue = assetClassValue (rAToken reserve) aTokenAmount
-        tx = mustForgeValue outValue <> mustPayToPubKey pkh outValue
-    ledgerTx <- submitTxConstraintsWith lookups tx
+        forgeValue = assetClassValue (rAToken reserve) aTokenAmount
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustForgeValue @Scripts.Any policy forgeValue
+        <> (Prelude.mempty, mustPayToPubKey pkh forgeValue)
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
 burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
 burnATokensFrom aave reserve pkh amount = do
     let asset = rCurrency reserve
-        aTokenAmount = amount
-        script = Core.aaveInstance aave
-        policy = makeLiquidityPolicy asset
-        burnLookups = Constraints.scriptInstanceLookups script
-            <> Constraints.otherScript (Core.aaveValidator aave)
-            <> Constraints.ownPubKeyHash pkh
-            <> Constraints.monetaryPolicy policy
-        outValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
-        burnTx = mustForgeValue outValue
-    ledgerTx <- submitTxConstraintsWith burnLookups burnTx
-    _ <- awaitTxConfirmed $ txId ledgerTx
-
     utxos <-
         Map.filter ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut)
         <$> utxoAt (Core.aaveAddress aave)
     let balance = mconcat . fmap (txOutValue . txOutTxOut) . map snd . Map.toList $ utxos
+        aTokenAmount = amount
         remainder = assetClassValueOf balance asset - aTokenAmount
-        withdrawLookups = Constraints.scriptInstanceLookups script
-            <> Constraints.otherScript (Core.aaveValidator aave)
-            <> Constraints.unspentOutputs utxos
-            <> Constraints.ownPubKeyHash pkh
-        orefs = fst <$> Map.toList utxos
-        spendTx = mconcat $ fmap (\ref -> mustSpendScriptOutput ref $ Redeemer $ PlutusTx.toData Core.WithdrawRedeemer) orefs
-        withdrawTx = mustPayToPubKey pkh (assetClassValue asset aTokenAmount)
-            <> spendTx
-            <> mustPayToTheScript Core.DepositDatum (assetClassValue asset remainder)
-    ledgerTx <- submitTxConstraintsWith withdrawLookups withdrawTx
+        policy = makeLiquidityPolicy asset
+        burnValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
+        spendStateInput = (\(ref, tx) -> TxUtils.StateInput ref tx Core.WithdrawRedeemer) <$> Map.toList utxos
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustForgeValue policy burnValue
+        <> TxUtils.mustSpendFromScript (Core.aaveInstance aave) spendStateInput pkh (assetClassValue asset aTokenAmount)
+        <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.DepositDatum (assetClassValue asset remainder)
     _ <- awaitTxConfirmed $ txId ledgerTx
-
     pure ()

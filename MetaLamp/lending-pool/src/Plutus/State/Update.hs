@@ -32,6 +32,7 @@ import qualified Ledger.Typed.Scripts             as Scripts
 
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
+import qualified Plutus.Contracts.TxUtils         as TxUtils
 import           Plutus.State.Select              (StateOutput (..))
 import           Plutus.V1.Ledger.Value
 import           PlutusTx                         (IsData)
@@ -83,17 +84,16 @@ putState ::
     a ->
     Contract w s Text ()
 putState PutStateHandle {..} StateHandle{..} newState = do
-    let oref = soOutRef ownerTokenOutput
-        otx = soOutTx ownerTokenOutput
-        lookups = Constraints.scriptInstanceLookups script
-            <> Constraints.monetaryPolicy (makeStatePolicy ownerToken)
-            <> Constraints.otherScript (Scripts.validatorScript script)
-            <> Constraints.unspentOutputs (Map.singleton oref otx)
-        tx = mustForgeValue (assetClassValue stateToken 1)
-            <> Constraints.mustPayToTheScript (toDatum newState) (assetClassValue stateToken 1)
-            <> Constraints.mustPayToTheScript (soValue ownerTokenOutput) (assetClassValue ownerToken 1)
-            <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ toRedeemer newState)
-    ledgerTx <- submitTxConstraintsWith lookups tx
+    pkh <- pubKeyHash <$> ownPubKey
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustForgeValue (makeStatePolicy ownerToken) (assetClassValue stateToken 1)
+        <> TxUtils.mustPayToScript script pkh (toDatum newState) (assetClassValue stateToken 1)
+        <> TxUtils.mustRoundTripToScript
+            script
+            [TxUtils.StateInput (soOutRef ownerTokenOutput) (soOutTx ownerTokenOutput) (toRedeemer newState)]
+            (soValue ownerTokenOutput)
+            pkh
+            (assetClassValue ownerToken 1)
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
@@ -104,11 +104,13 @@ updateState ::
     StateOutput a ->
     Contract w s Text ()
 updateState script StateHandle{..} (StateOutput oref o datum) = do
-    let lookups = Constraints.scriptInstanceLookups script
-            <> Constraints.otherScript (Scripts.validatorScript script)
-            <> Constraints.unspentOutputs (Map.singleton oref o)
-        tx = Constraints.mustPayToTheScript (toDatum datum) (assetClassValue stateToken 1)
-            <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData (toRedeemer datum))
-    ledgerTx <- submitTxConstraintsWith lookups tx
+    pkh <- pubKeyHash <$> ownPubKey
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustRoundTripToScript
+            script
+            [TxUtils.StateInput oref o (toRedeemer datum)]
+            (toDatum datum)
+            pkh
+            (assetClassValue stateToken 1)
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()

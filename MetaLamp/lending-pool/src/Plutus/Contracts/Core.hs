@@ -112,12 +112,12 @@ makeAaveValidator :: Aave
                    -> AaveRedeemer
                    -> ScriptContext
                    -> Bool
-makeAaveValidator _ _ (CreateReservesRedeemer _) _ = True
-makeAaveValidator _ _ UpdateReservesRedeemer _     = True
-makeAaveValidator _ _ (CreateUserConfigsRedeemer _) _    = True
-makeAaveValidator _ _ UpdateUserConfigsRedeemer _        = True
-makeAaveValidator _ _ WithdrawRedeemer _           = True
-makeAaveValidator _  _  _  _                       = False
+makeAaveValidator _ _ (CreateReservesRedeemer _) _    = True
+makeAaveValidator _ _ UpdateReservesRedeemer _        = True
+makeAaveValidator _ _ (CreateUserConfigsRedeemer _) _ = True
+makeAaveValidator _ _ UpdateUserConfigsRedeemer _     = True
+makeAaveValidator _ _ WithdrawRedeemer _              = True
+makeAaveValidator _  _  _  _                          = False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
