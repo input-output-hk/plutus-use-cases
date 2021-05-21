@@ -43,7 +43,7 @@ type TxPair a = (Constraints.ScriptLookups a, Constraints.TxConstraints (Redeeme
 submitTxPair :: (AsContractError e, HasWriteTx s, PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
     TxPair a
     -> Contract w s e Tx
-submitTxPair (lookups, tx) = submitTxConstraintsWith lookups tx
+submitTxPair = uncurry submitTxConstraintsWith
 
 mustForgeValue :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
     MonetaryPolicy
