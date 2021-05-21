@@ -23,7 +23,7 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Plutus.Contracts.Endpoints Plutus.Contracts.FungibleToken Plutus.Contracts.AToken Plutus.Contracts.Core Plutus.Contracts.State Plutus.State.Select Plutus.State.Update Plutus.Contracts.TxUtils
+      Plutus.Contracts.Endpoints Plutus.Contracts.FungibleToken Plutus.Contracts.AToken Plutus.Contracts.Core Plutus.Contracts.State Plutus.State.Select Plutus.State.Update Plutus.Contracts.TxUtils Plutus.OutputValue
     build-depends:
       base >= 4.9 && < 5,
       aeson,

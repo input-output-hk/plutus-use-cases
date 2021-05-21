@@ -36,6 +36,7 @@ import qualified Plutus.Contracts.Core            as Core
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import qualified Plutus.Contracts.State           as State
 import qualified Plutus.Contracts.TxUtils         as TxUtils
+import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Contexts        (ScriptContext,
                                                    scriptCurrencySymbol)
 import qualified Plutus.V1.Ledger.Scripts         as Scripts
@@ -87,10 +88,10 @@ burnATokensFrom aave reserve pkh amount = do
         remainder = assetClassValueOf balance asset - aTokenAmount
         policy = makeLiquidityPolicy asset
         burnValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
-        spendStateInput = (\(ref, tx) -> TxUtils.StateInput ref tx Core.WithdrawRedeemer) <$> Map.toList utxos
+        spendInputs = (\(ref, tx) -> OutputValue ref tx Core.WithdrawRedeemer) <$> Map.toList utxos
     ledgerTx <- TxUtils.submitTxPair $
         TxUtils.mustForgeValue policy burnValue
-        <> TxUtils.mustSpendFromScript (Core.aaveInstance aave) spendStateInput pkh (assetClassValue asset aTokenAmount)
+        <> TxUtils.mustSpendFromScript (Core.aaveInstance aave) spendInputs pkh (assetClassValue asset aTokenAmount)
         <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.DepositDatum (assetClassValue asset remainder)
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()

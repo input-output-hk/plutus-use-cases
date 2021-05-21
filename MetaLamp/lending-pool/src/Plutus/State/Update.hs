@@ -33,7 +33,7 @@ import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.TxUtils         as TxUtils
-import           Plutus.State.Select              (StateOutput (..))
+import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Value
 import           PlutusTx                         (IsData)
 import qualified PlutusTx
@@ -68,7 +68,7 @@ makeStateToken ownerToken = assetClass (makeStateCurrency ownerToken)
 data PutStateHandle scriptType = PutStateHandle {
     script           :: Scripts.ScriptInstance scriptType,
     ownerToken       :: AssetClass,
-    ownerTokenOutput :: StateOutput (DatumType scriptType)
+    ownerTokenOutput :: OutputValue (DatumType scriptType)
 }
 
 data StateHandle scriptType a = StateHandle {
@@ -90,8 +90,8 @@ putState PutStateHandle {..} StateHandle{..} newState = do
         <> TxUtils.mustPayToScript script pkh (toDatum newState) (assetClassValue stateToken 1)
         <> TxUtils.mustRoundTripToScript
             script
-            [TxUtils.StateInput (soOutRef ownerTokenOutput) (soOutTx ownerTokenOutput) (toRedeemer newState)]
-            (soValue ownerTokenOutput)
+            [toRedeemer newState Prelude.<$ ownerTokenOutput]
+            (ovValue ownerTokenOutput)
             pkh
             (assetClassValue ownerToken 1)
     _ <- awaitTxConfirmed $ txId ledgerTx
@@ -101,15 +101,15 @@ updateState ::
     (HasBlockchainActions s, IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
     Scripts.ScriptInstance scriptType ->
     StateHandle scriptType a ->
-    StateOutput a ->
+    OutputValue a ->
     Contract w s Text ()
-updateState script StateHandle{..} (StateOutput oref o datum) = do
+updateState script StateHandle{..} output = do
     pkh <- pubKeyHash <$> ownPubKey
     ledgerTx <- TxUtils.submitTxPair $
         TxUtils.mustRoundTripToScript
             script
-            [TxUtils.StateInput oref o (toRedeemer datum)]
-            (toDatum datum)
+            [toRedeemer Prelude.<$> output]
+            (toDatum . ovValue $ output)
             pkh
             (assetClassValue stateToken 1)
     _ <- awaitTxConfirmed $ txId ledgerTx

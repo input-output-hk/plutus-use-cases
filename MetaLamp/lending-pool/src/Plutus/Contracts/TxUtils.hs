@@ -25,6 +25,7 @@ import           Plutus.Contract
 import           Plutus.Contracts.Core            (Aave, Reserve (..))
 import qualified Plutus.Contracts.Core            as Core
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
+import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Contexts        (ScriptContext,
                                                    scriptCurrencySymbol)
 import qualified Plutus.V1.Ledger.Scripts         as Scripts
@@ -64,39 +65,33 @@ mustPayToScript script pkh datum value = (lookups, tx)
         lookups = Constraints.ownPubKeyHash pkh <> Constraints.scriptInstanceLookups script
         tx = Constraints.mustPayToTheScript datum value
 
-data StateInput a = StateInput {
-    txOutRef :: TxOutRef,
-    txOutTx  :: TxOutTx,
-    redeemer :: a
-}
-
 mustSpendScriptOutputs :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
     ScriptInstance a
-    -> [StateInput (RedeemerType a)]
+    -> [OutputValue (RedeemerType a)]
     -> TxPair a
-mustSpendScriptOutputs script hmm = (lookups, tx)
+mustSpendScriptOutputs script inputs = (lookups, tx)
     where
-        unspent = Map.fromList $ fmap (\(StateInput ref tx _) -> (ref, tx)) hmm
+        unspent = Map.fromList $ fmap (\(OutputValue ref tx _) -> (ref, tx)) inputs
         lookups = Constraints.otherScript (Scripts.validatorScript script) <> Constraints.unspentOutputs unspent
         tx = Prelude.mconcat $
-            fmap (\(StateInput ref _ redeemer) -> Constraints.mustSpendScriptOutput ref (Redeemer $ PlutusTx.toData redeemer)) hmm
+            fmap (\(OutputValue ref _ redeemer) -> Constraints.mustSpendScriptOutput ref (Redeemer $ PlutusTx.toData redeemer)) inputs
 
 mustSpendFromScript :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
   ScriptInstance a
-  -> [StateInput (RedeemerType a)]
+  -> [OutputValue (RedeemerType a)]
   -> PubKeyHash
   -> Value
   -> TxPair a
-mustSpendFromScript script hmm pkh value = (lookups, tx) <> mustSpendScriptOutputs script hmm
+mustSpendFromScript script inputs pkh value = (lookups, tx) <> mustSpendScriptOutputs script inputs
     where
         lookups = Constraints.ownPubKeyHash pkh
         tx = Constraints.mustPayToPubKey pkh value
 
 mustRoundTripToScript :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
   ScriptInstance a
-  -> [StateInput (RedeemerType a)]
+  -> [OutputValue (RedeemerType a)]
   -> DatumType a
   -> PubKeyHash
   -> Value
   -> TxPair a
-mustRoundTripToScript script hmm datum pkh value = mustSpendScriptOutputs script hmm <> mustPayToScript script pkh datum value
+mustRoundTripToScript script inputs datum pkh value = mustSpendScriptOutputs script inputs <> mustPayToScript script pkh datum value

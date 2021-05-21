@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -24,19 +23,13 @@ import qualified Ledger.Scripts                   as Scripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
+import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Value
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
-
-data StateOutput a =
-    StateOutput {
-        soOutRef :: TxOutRef,
-        soOutTx  :: TxOutTx,
-        soValue  :: a
-    } deriving (Prelude.Show, Prelude.Functor)
 
 getDatum :: PlutusTx.IsData a => TxOutTx -> Contract w s Text a
 getDatum o = case txOutDatumHash $ txOutTxOut o of
@@ -47,32 +40,32 @@ getDatum o = case txOutDatumHash $ txOutTxOut o of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
-getState :: (HasBlockchainActions s, PlutusTx.IsData datum) => Address -> Contract w s Text [StateOutput datum]
+getState :: (HasBlockchainActions s, PlutusTx.IsData datum) => Address -> Contract w s Text [OutputValue datum]
 getState address = do
     utxos <- utxoAt address
     traverse getDatum' . Map.toList $ utxos
   where
     getDatum' (oref, o) = do
         d <- getDatum o
-        pure $ StateOutput oref o d
+        pure $ OutputValue oref o d
 
 findOutputsBy :: (HasBlockchainActions s, PlutusTx.IsData datum) =>
   Address ->
   AssetClass ->
   (datum -> Maybe a) ->
-  Contract w s Text [StateOutput a]
+  Contract w s Text [OutputValue a]
 findOutputsBy address stateToken mapDatum = mapMaybe checkStateToken <$> getState address
     where
-        checkStateToken (StateOutput oref outTx datum) =
+        checkStateToken (OutputValue oref outTx datum) =
             if assetClassValueOf (txOutValue $ txOutTxOut outTx) stateToken == 1
-                then fmap (StateOutput oref outTx) (mapDatum datum)
+                then fmap (OutputValue oref outTx) (mapDatum datum)
                 else Nothing
 
 findOutputBy :: (HasBlockchainActions s, PlutusTx.IsData datum) =>
   Address ->
   AssetClass ->
   (datum -> Maybe a) ->
-  Contract w s Text (StateOutput a)
+  Contract w s Text (OutputValue a)
 findOutputBy address stateToken mapDatum = do
     outputs <- findOutputsBy address stateToken mapDatum
     let stateName = Text.pack . Prelude.show . Prelude.snd . unAssetClass $ stateToken

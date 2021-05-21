@@ -44,7 +44,7 @@ import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import qualified Plutus.Contracts.State           as State
 import qualified Plutus.Contracts.TxUtils         as TxUtils
-import           Plutus.State.Select              (StateOutput (..))
+import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
 import qualified Plutus.V1.Ledger.Address         as Addr
 import           Plutus.V1.Ledger.Value           as Value
@@ -104,10 +104,10 @@ type AaveOwnerSchema =
         .\/ Endpoint "start" ()
 
 reserves :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map ReserveId Reserve)
-reserves aave = soValue <$> State.findAaveReserves aave
+reserves aave = ovValue <$> State.findAaveReserves aave
 
 users :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map UserConfigId UserConfig)
-users aave = soValue <$> State.findAaveUserConfigs aave
+users aave = ovValue <$> State.findAaveUserConfigs aave
 
 valueAt :: HasBlockchainActions s => Address -> Contract w s Text Value
 valueAt address = do
@@ -146,7 +146,7 @@ deposit aave DepositParams {..} = do
     wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
     _ <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
     when wasZeroBalance $ do
-        userConfigs <- soValue <$> State.findAaveUserConfigs aave
+        userConfigs <- ovValue <$> State.findAaveUserConfigs aave
         let userConfigId = (rCurrency reserve, dpOnBehalfOf)
         case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
