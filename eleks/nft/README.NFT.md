@@ -99,15 +99,19 @@ import Contracts.NFT
 import Ledger.Value   
 import Data.Aeson
 import qualified Data.ByteString.Char8 as B
-args = CreateParams { cpTokenName = TokenName $ B.pack "TestToken", cpDescription = B.pack "TestDescription" }
-BSL.putStrLn $ encode args
+import Data.ByteString.Lazy.Char8 as BSL
+args = CreateParams { cpTokenName = TokenName $ B.pack "TestToken", cpDescription = B.pack "TestDescription1" }
+
+args = TestParams { tpTest =  "Test1", tpDescription = B.pack "TestDescription1" }
+
+
 ```
 Create token
 ```
-export INSTANCE_ID=3cf66611-3a87-42ce-86e2-9b3cd6165eb5
+export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"cpTokenName":{"unTokenName":"TestToken"},"cpDescription":"546573744465736372697074696f6e"}' \
+  --data '{"cpTokenName":{"unTokenName":"TestToken6"},"cpDescription":"546573744465736372697074696f6e"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/create
 ```
 
@@ -115,5 +119,52 @@ Get response
 ```
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+```
+
+4. Query my tokens
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '[]' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/userNftTokens
+```
+
+Get response
+```
+curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+```
+
+5. Set token for sell
+    let nftTokenSellParams = NFTMarket.SellParams { spTokenSymbol = nftTokenSymbol token1Meta, spSellPrice = 1000}
+Create sell parameters
+```
+cabal repl
+
+import Contracts.NFT
+import Ledger.Value   
+import Data.Aeson
+import qualified Data.ByteString.UTF8 as B
+import Data.ByteString.Lazy.UTF8 as BSL
+args = SellParams { spTokenSymbol = CurrencySymbol $ B.pack "642e93f74cc55820874d3fb4e0b8300ef2c351b23260b1250d26d69d2a060c47", spSellPrice = 1000 }
+BSL.putStrLn $ encode args
+```
+
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '{"spSellPrice":1000,"spTokenSymbol":{"unCurrencySymbol":"36343265393366373463633535383230383734643366623465306238333030656632633335316232333236306231323530643236643639643261303630633437"}}' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sell
+```
+
+Get response
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```

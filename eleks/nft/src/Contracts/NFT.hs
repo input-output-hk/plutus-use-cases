@@ -25,6 +25,7 @@ module Contracts.NFT
     , NFTMetadata (..)
     , CreateParams (..)
     , SellParams (..)
+    , TestParams (..)
     , MarketUserSchema, MarketContractState (..)
     , MarketOwnerSchema
     , start, create
@@ -52,7 +53,6 @@ import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.Currency        as Currency
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
-import           PlutusTx.Sqrt
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
@@ -66,13 +66,13 @@ deriving anyclass instance ToSchema AssetClass
 
 data NFTMetadata = NFTMetadata
     { 
-      nftTokenName:: !TokenName
-    , nftMetaTokenName:: !TokenName
-    , nftMetaDescription:: !ByteString
-    , nftTokenSymbol :: !CurrencySymbol
-    , nftMetaTokenSymbol :: !CurrencySymbol
-    , nftSeller :: !(Maybe PubKeyHash)
-    , nftSellPrice:: !(Maybe Integer)
+      nftTokenName:: TokenName
+    , nftMetaTokenName:: TokenName
+    , nftMetaDescription:: ByteString
+    , nftTokenSymbol :: CurrencySymbol
+    , nftMetaTokenSymbol :: CurrencySymbol
+    , nftSeller :: Maybe PubKeyHash
+    , nftSellPrice:: Maybe Integer
     }
     deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
@@ -217,6 +217,12 @@ data CreateParams = CreateParams
     , cpDescription   :: !ByteString    -- ^ metadata
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
+    -- | Parameters for the @create@-endpoint, which creates a new NFT.
+data TestParams = TestParams
+    { tpTest   :: !String
+    , tpDescription   :: !ByteString 
+    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
 -- | Parameters for the @create@-endpoint, which creates a new NFT.
 data SellParams = SellParams
     { spTokenSymbol   :: CurrencySymbol
@@ -342,7 +348,6 @@ findNFTMartketInstance market asset f = do
                 logInfo @String $ printf "found NFTMarket instance with datum: %s" (show d)
                 return (oref, o, a)
 
-
 findNFTMarketFactory :: HasBlockchainActions s => NFTMarket -> Contract w s Text (TxOutRef, TxOutTx, [NFTMetadata])
 findNFTMarketFactory nftm@NFTMarket{..} = findNFTMartketInstance nftm marketId $ \case
     Factory nfts -> Just nfts
@@ -377,20 +382,25 @@ findMarketFactoryAndNftMeta market tokenSymbol = do
 -- | Gets the caller's funds.
 funds :: HasBlockchainActions s => Contract w s Text Value
 funds = do
+    logInfo @String $ printf "start getting funds"
     pkh <- pubKeyHash <$> ownPubKey
     os  <- map snd . Map.toList <$> utxoAt (pubKeyHashAddress pkh)
     return $ mconcat [txOutValue $ txOutTxOut o | o <- os]
  
 -- | Gets the caller's NFTs.
-userNftTokens :: HasBlockchainActions s => NFTMarket -> Contract w s Text Value
+userNftTokens :: HasBlockchainActions s => NFTMarket -> Contract w s Text [(TokenName, CurrencySymbol, ByteString, (Maybe PubKeyHash), (Maybe Integer))]
 userNftTokens market = do
+    logInfo @String $ printf "start userNftTokens"
     pkh <- pubKeyHash <$> ownPubKey
-    (oref, o, nftMetas) <- findNFTMarketFactory market
-    let marketNftSymbols =  nftMetas
-    os  <- map snd . Map.toList <$> utxoAt (pubKeyHashAddress pkh)
+    let ownAddress = pubKeyHashAddress pkh
+    ownerUtxos <- utxoAt ownAddress
+    let os = map snd $ Map.toList ownerUtxos
     let values = mconcat [txOutValue $ txOutTxOut o | o <- os]
-    let nftValues = [ Value.singleton (nftTokenSymbol meta) (nftTokenName meta) 1 | meta <- nftMetas, valueOf values (nftTokenSymbol meta) (nftTokenName meta) == 1 ]
-    return $ fold nftValues
+    logInfo @String $ printf "load owner values"
+    (oref, o, nftMetas) <- findNFTMarketFactory market
+    logInfo @String $ printf "load market factory"
+    let result = map (\m -> (nftTokenName m, nftTokenSymbol m, nftMetaDescription m, nftSeller m, nftSellPrice m)) $ [ meta | meta <- nftMetas, valueOf values (nftTokenSymbol meta) (nftTokenName meta) == 1 ]
+    return result
 
 ownerEndpoint :: Contract (Last (Either Text NFTMarket)) BlockchainActions Void ()
 ownerEndpoint = do
@@ -403,7 +413,7 @@ type MarketOwnerSchema =
     BlockchainActions
         .\/ Endpoint "start" ()
 
-        -- | Schema for the endpoints for users of Uniswap.
+-- | Schema for the endpoints for users of NFTMarket.
 type MarketUserSchema =
     BlockchainActions
         .\/ Endpoint "create" CreateParams
@@ -411,13 +421,12 @@ type MarketUserSchema =
         .\/ Endpoint "funds"  ()
         .\/ Endpoint "userNftTokens"  ()
         .\/ Endpoint "stop"   ()
--- | Type of the Uniswap user contract state.
 
 
 data MarketContractState =
       Created NFTMetadata
     | Funds Value
-    | Tokens Value
+    | Tokens [(TokenName, CurrencySymbol, ByteString, Maybe PubKeyHash, Maybe Integer)]
     | Selling
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
@@ -428,9 +437,9 @@ userEndpoints :: NFTMarket -> Contract (Last (Either Text MarketContractState)) 
 userEndpoints market =
     stop
         `select`
-    ((f (Proxy @"create") Created create                 `select`
-      f (Proxy @"sell") (const Selling) sell                 `select`
-      f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')                `select`
+    ((f (Proxy @"create") Created create                                                `select`
+      f (Proxy @"sell") (const Selling) sell                                            `select`
+      f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')        `select`
       f (Proxy @"funds")  Funds           (\market' () -> funds))    >> userEndpoints market)
   where
     f :: forall l a p.
