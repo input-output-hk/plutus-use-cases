@@ -186,6 +186,24 @@ withdraw aave WithdrawParams {..} = do
 
     State.updateReserve aave wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
 
+data BorrowParams =
+    BorrowParams {
+        bpAsset      :: AssetClass,
+        bpAmount     :: Integer,
+        bpOnBehalfOf :: PubKeyHash
+    }
+    deriving stock    (Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''BorrowParams
+PlutusTx.makeLift ''BorrowParams
+
+borrow :: (HasBlockchainActions s) => Aave -> BorrowParams -> Contract w s Text ()
+borrow aave BorrowParams {..} = do
+    reserve <- State.findAaveReserve aave bpAsset
+
+    pure ()
+
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "deposit" DepositParams
