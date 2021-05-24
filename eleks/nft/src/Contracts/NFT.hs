@@ -22,7 +22,7 @@
 --   the forging of a fixed amount of units.
 module Contracts.NFT
     ( NFTMarket (..)
-    , NFTMetadata (..)
+    , NFTMetadataDto (..)
     , CreateParams (..)
     , SellParams (..)
     , MarketUserSchema, MarketContractState (..)
@@ -234,7 +234,7 @@ nftMetadataToDto:: NFTMetadata -> NFTMetadataDto
 nftMetadataToDto nftMeta = NFTMetadataDto 
     { nftDtoTokenName = read.show $ nftTokenName nftMeta
     , nftDtoMetaDescription = B.unpack $ nftMetaDescription nftMeta
-    , nftDtoTokenSymbol = show $ nftTokenSymbol nftMeta
+    , nftDtoTokenSymbol = B.unpack $ unCurrencySymbol $ nftTokenSymbol nftMeta
     , nftDtoSeller = nftSeller nftMeta
     , nftDtoSellPrice = nftSellPrice nftMeta
     }
@@ -328,7 +328,9 @@ sell market SellParams{..} = do
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "selling NFT: " ++ show nftMetadata
+    let nftMetaDto = nftMetadataToDto nftMetadata
+    logInfo $ "selling NFT: " ++ show nftMetaDto
+    return nftMetaDto
 
 marketplace :: CurrencySymbol -> NFTMarket
 marketplace cs = NFTMarket $ assetClass cs marketplaceTokenName
