@@ -68,6 +68,8 @@ data NFTMetadata = NFTMetadata
       nftTokenName:: TokenName
     , nftMetaTokenName:: TokenName
     , nftMetaDescription:: ByteString
+    , nftMetaAuthor:: ByteString
+    , nftMetaFile:: ByteString
     , nftTokenSymbol :: CurrencySymbol
     , nftMetaTokenSymbol :: CurrencySymbol
     , nftSeller :: Maybe PubKeyHash
@@ -212,8 +214,10 @@ marketAddress = Ledger.scriptAddress . marketScript
 
 -- | Parameters for the @create@-endpoint, which creates a new NFT.
 data CreateParams = CreateParams
-    { cpTokenName   :: !String    -- ^ NFT name
-    , cpDescription   :: !String    -- ^ metadata
+    { cpTokenName   :: !String  -- ^ NFT name
+    , cpDescription :: !String  -- ^ NFT description
+    , cpAuthor      :: !String  -- ^ NFT author
+    , cpFile        :: !String  -- ^ NFT file path
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @create@-endpoint, which creates a new NFT.
@@ -225,6 +229,8 @@ data SellParams = SellParams
 data NFTMetadataDto = NFTMetadataDto
     { nftDtoTokenName:: String
     , nftDtoMetaDescription:: String
+    , nftDtoMetaAuthor:: String
+    , nftDtoMetaFile:: String
     , nftDtoTokenSymbol :: String
     , nftDtoSeller :: Maybe PubKeyHash
     , nftDtoSellPrice:: Maybe Integer
@@ -234,6 +240,8 @@ nftMetadataToDto:: NFTMetadata -> NFTMetadataDto
 nftMetadataToDto nftMeta = NFTMetadataDto 
     { nftDtoTokenName = read.show $ nftTokenName nftMeta
     , nftDtoMetaDescription = B.unpack $ nftMetaDescription nftMeta
+    , nftDtoMetaAuthor = B.unpack $ nftMetaAuthor nftMeta
+    , nftDtoMetaFile = B.unpack $ nftMetaFile nftMeta
     , nftDtoTokenSymbol = show $ nftTokenSymbol nftMeta
     , nftDtoSeller = nftSeller nftMeta
     , nftDtoSellPrice = nftSellPrice nftMeta
@@ -277,6 +285,8 @@ create market CreateParams{..} = do
             nftTokenName = tokenName, 
             nftMetaTokenName = metadataTokenName,
             nftMetaDescription = B.pack cpDescription, 
+            nftMetaAuthor = B.pack cpAuthor,
+            nftMetaFile = B.pack cpFile,
             nftTokenSymbol = nftTokenSymbol,
             nftMetaTokenSymbol = tokenMetadataSymbol,
             nftSeller = Nothing,
