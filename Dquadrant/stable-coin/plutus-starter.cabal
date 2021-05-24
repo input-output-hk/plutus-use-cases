@@ -1,67 +1,51 @@
-cabal-version:      2.4
-name:               plutus-starter
-version:            0.1.0.0
-
--- A short (one-line) description of the package.
--- synopsis:
-
--- A longer description of the package.
--- description:
-
--- A URL where users can report bugs.
--- bug-reports:
-
-license: Apache-2.0
-license-files: LICENSE
-author:             Your name
-maintainer:         Your email
-
--- A copyright notice.
--- copyright:
--- category:
--- extra-source-files: CHANGELOG.md
+Cabal-Version:      2.4
+Name:               stable-coin-starter
+Version:            0.1.0.0
+Author:              Nabin Pokhrel
+Maintainer:          nabin6246@gmail.com
+Build-Type:          Simple
+Copyright:           © 2021 Nabin Pokhrel
+License:             Apache-2.0
+License-files:       LICENSE
 
 library
-    exposed-modules:
-      Plutus.Contracts.LendingPool
-    build-depends:
-      base >= 4.9 && < 5,
-      aeson,
-      bytestring,
-      containers,
-      text,
-      -- Plutus:
-      playground-common,
-      plutus-contract,
-      plutus-tx-plugin,
-      plutus-tx,
-      plutus-ledger,
-      plutus-ledger-api,
-      plutus-use-cases
-    hs-source-dirs: src
-    default-language: Haskell2010
-    ghc-options:
-            -- See Plutus Tx readme
-            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+  hs-source-dirs:      src examples/src
+  exposed-modules:     Plutus.Contracts.StableCoin
+                     
+  build-depends:       aeson
+                     , base ^>=4.14.1.0
+                     , containers
+                     , freer-extras
+                     , playground-common
+                     , plutus-contract
+                     , plutus-ledger
+                     , plutus-ledger-api
+                     , plutus-tx-plugin
+                     , plutus-tx
+                     , text
+                     , bytestring
+  default-language:    Haskell2010
+  ghc-options:         -Wall -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr -fno-specialise
 
-executable plutus-starter-pab
+executable stablecoin-pab
   main-is: Main.hs
   hs-source-dirs: pab
-  ghc-options:
-    -threaded
-  build-depends:
-    base >= 4.9 && < 5,
-    aeson,
-    freer-simple,
-    freer-extras,
-    prettyprinter,
-    containers,
-    row-types,
-    text,
-    -- Plutus:
-    plutus-ledger,
-    plutus-contract,
-    plutus-pab,
-    plutus-starter,
-    playground-common,
-    plutus-use-cases
+  ghc-options:         -Wall
+  build-depends:       aeson
+                     , base ^>= 4.14.1.0
+                     , plutus-ledger
+                     , plutus-pab
+                     , req ^>= 3.9.0
+                     , text -any
+                     , uuid
+                     , containers
+                     , freer-extras
+                     , freer-simple -any
+                     , prettyprinter -any
+                     , plutus-contract -any
+                     , stable-coin-starter
+                     , plutus-use-cases
+
+
+
+
