@@ -316,7 +316,7 @@ create market CreateParams{..} = do
     return nftMetaDto
 
 -- | Set token for selling
-sell :: HasBlockchainActions s => NFTMarket -> SellParams -> Contract w s Text ()
+sell :: HasBlockchainActions s => NFTMarket -> SellParams -> Contract w s Text NFTMetadataDto
 sell market SellParams{..} = do
     pkh                     <- pubKeyHash <$> ownPubKey
     let tokenSymbol = CurrencySymbol $ B.pack spTokenSymbol
@@ -449,7 +449,7 @@ data MarketContractState =
       Created NFTMetadataDto
     | Funds Value
     | Tokens [NFTMetadataDto]
-    | Selling
+    | Selling NFTMetadataDto
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
 -- | Provides the following endpoints for users of a NFT marketplace instance:
@@ -460,7 +460,7 @@ userEndpoints market =
     stop
         `select`
     ((f (Proxy @"create") Created create                                                `select`
-      f (Proxy @"sell") (const Selling) sell                                            `select`
+      f (Proxy @"sell") Selling sell                                            `select`
       f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')        `select`
       f (Proxy @"funds")  Funds           (\market' () -> funds))    >> userEndpoints market)
   where
