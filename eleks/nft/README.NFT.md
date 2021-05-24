@@ -44,25 +44,7 @@ cabal exec -- plutus-starter-pab
 
 This will then start up the server on port 8080. The devcontainer process will then automatically expose this port so that you can connect to it from any terminal (it doesn't have to be a terminal running in the devcontainer).
 
-1. Start the instances:
-
-```
-# Wallet 1
-curl -s -H "Content-Type: application/json" \
-  --request POST \
-  --data '{"caID": "NFTStartContract", "caWallet":{"getWallet": 1}}' \
-  http://localhost:8080/api/new/contract/activate | jq
-
-# Wallet 2
-curl -s -H "Content-Type: application/json" \
-  --request POST \
-  --data '{"caID": "CurrencyContract", "caWallet":{"getWallet": 2}}' \
-  http://localhost:8080/api/new/contract/activate | jq
-```
-
-From these two queries you will get back two contract instance IDs. These will be needed
-in the subsequent steps for running actions against. We can optionally take a look at the state
-of the contract with the `status` API:
+1. Contract started in the server start script
 
 2. Get the status
 
