@@ -23,11 +23,16 @@ maintainer:         IOHK
 
 library
     exposed-modules:
-      Plutus.Contract.Wallet.Erc20
-      Plutus.Contract.Wallet.Stepper
-    other-modules:
-      Plutus.Contract.Blockchain.Erc20
-      Plutus.Contract.Blockchain.Stepper
+      -- Plutus.Contract.Wallet.Erc20
+      -- Plutus.Contract.Wallet.NFT
+      -- Plutus.Contract.Wallet.NFTHolder
+      Plutus.Contract.Blockchain.MarketPlace
+
+    -- other-modules:
+    --   Plutus.Contract.Blockchain.Erc20
+    --   Plutus.Contract.Blockchain.NFT
+    --   Plutus.Contract.Blockchain.NFTHolder
+
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -37,7 +42,9 @@ library
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
-      lens
+      lens,
+      text,
+      containers
     hs-source-dirs: src
     default-language: Haskell2010
     ghc-options:
@@ -73,6 +80,7 @@ executable tokens-pab
   hs-source-dirs: pab
   ghc-options:
     -threaded
+  default-language: Haskell2010
   build-depends:
     base >= 4.9 && < 5,
     plutus-contract -any,
@@ -82,4 +90,6 @@ executable tokens-pab
     prettyprinter -any,
     freer-extras -any,
     plutus-ledger -any,
-    plutus-tokens -any
+    plutus-tokens -any,
+    text -any,
+    prettyprinter -any

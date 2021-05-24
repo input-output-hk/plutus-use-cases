@@ -18,6 +18,7 @@
     
     // IDs of extensions inside container
     "extensions": [
-        "haskell.haskell"
-    ],
+		"haskell.haskell",
+		"vigoo.stylish-haskell"
+	],
 }

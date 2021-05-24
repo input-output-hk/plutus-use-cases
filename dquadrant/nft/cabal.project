@@ -25,7 +25,7 @@ source-repository-package
     plutus-use-cases
     prettyprinter-configurable
     quickcheck-dynamic
-  tag: 6561720746cc5a47df5d11571619abd41b749de2
+  tag: 82373935e3fcfb8743da721fb7fadc3c79c30b32
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above. 

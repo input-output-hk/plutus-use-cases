@@ -11,14 +11,14 @@
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE ViewPatterns       #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DeriveGeneric #-}
-module Plutus.Contract.Blockchain.Stepper
+module Plutus.Contract.Blockchain.NFTHolder
 
 where
 import           Control.Lens
 import           PlutusTx.Prelude        hiding (Monoid (..), Semigroup (..))
 
 import           Plutus.Contract         as Contract
+
 import           Ledger                  (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), pubKeyHash,
                                           scriptCurrencySymbol, txId)
 import qualified Ledger.Ada              as Ada
@@ -39,26 +39,4 @@ import           Prelude                 (Semigroup (..))
 import qualified Prelude
 import           Schema                  (ToSchema)
 import           Ledger.Contexts          (ScriptContext (..), TxInfo (..))
-import Data.Void (Void)
-import Data.Text.Lens
-
-    
-
-newtype StepperData=StepperData {
-  step ::Integer
-}
-PlutusTx.unstableMakeIsData ''StepperData
-
-type Erc20Schema=
-    BlockchainActions 
-     .\/ Endpoint "makeStep" Integer
-
-data StepperType 
-instance Scripts.ScriptType StepperType where
-    type instance RedeemerType StepperType = ()
-    type instance DatumType StepperType = StepperData 
-
-{-# INLINABLE stepperValidator #-}
-stepperValidator:: StepperData->()->ScriptContext ->Bool
-stepperValidator _ _ _ = True
-
+ 

@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE ViewPatterns       #-}
 {-# LANGUAGE TypeFamilies #-}
-module Plutus.Contract.Blockchain.Erc20
+module Plutus.Contract.Wallet.NFTHolder
 
 where
 import           Control.Lens
@@ -40,5 +40,3 @@ import qualified Prelude
 import           Schema                  (ToSchema)
 import           Ledger.Contexts          (ScriptContext (..), TxInfo (..))
  
-policy:: ScriptContext -> Bool 
-policy _ = True
