@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -52,12 +53,15 @@ instance Prelude.Ord Aave where
 
 type ReserveId = AssetClass
 
+deriving anyclass instance ToSchema Rational
+
 data Reserve = Reserve
-    { rCurrency       :: ReserveId,
-      rAToken         :: AssetClass,
-      rAmount         :: Integer,
-      rDebtToken      :: AssetClass,
-      rLiquidityIndex :: Integer
+    { rCurrency                :: ReserveId,
+      rAToken                  :: AssetClass,
+      rAmount                  :: Integer,
+      rDebtToken               :: AssetClass,
+      rLiquidityIndex          :: Integer,
+      rCurrentStableBorrowRate :: Rational
     }
     deriving stock (Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -67,9 +71,22 @@ PlutusTx.makeLift ''Reserve
 
 type UserConfigId = (ReserveId, PubKeyHash)
 
+-- TODO data Insentifized a = Insentifized { iDatum :: a, iSlotTimestamp :: Integer }
+data Debt = Debt
+    {
+      dAmount           :: Integer,
+      dStableBorrowRate :: Rational
+    }
+    deriving stock (Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''Debt
+PlutusTx.makeLift ''Debt
+
 data UserConfig = UserConfig
     {
-      ucUsingAsCollateral :: Bool
+      ucUsingAsCollateral :: Bool,
+      ucDebt              :: [Debt]
     }
     deriving stock (Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -83,6 +100,7 @@ data AaveRedeemer =
   | CreateUserConfigsRedeemer (AssocMap.Map UserConfigId UserConfig)
   | UpdateUserConfigsRedeemer
   | WithdrawRedeemer
+  | BorrowRedeemer
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
@@ -92,7 +110,9 @@ data AaveDatum =
   LendingPoolDatum
   | ReservesDatum (AssocMap.Map ReserveId Reserve)
   | UserConfigsDatum (AssocMap.Map UserConfigId UserConfig)
-  | DepositDatum deriving stock (Show)
+  | DepositDatum
+  | BorrowDatum
+  deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
 PlutusTx.makeLift ''AaveDatum

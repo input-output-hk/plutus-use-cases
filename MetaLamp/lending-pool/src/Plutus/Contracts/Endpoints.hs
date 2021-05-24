@@ -71,7 +71,9 @@ createReserve CreateParams {..} =
           rAmount = 0,
           rAToken = AToken.makeAToken cpAsset,
           rDebtToken = cpAsset,
-          rLiquidityIndex = 1 }
+          rLiquidityIndex = 1,
+          rCurrentStableBorrowRate = 11 % 10 -- TODO configure borrow rate when lending core will be ready
+           }
 
 start :: HasBlockchainActions s => [CreateParams] -> Contract w s Text Aave
 start params = do
@@ -153,7 +155,7 @@ deposit aave DepositParams {..} = do
                 State.addUserConfig
                     aave
                     userConfigId
-                    UserConfig { ucUsingAsCollateral = True }
+                    UserConfig { ucUsingAsCollateral = True, ucDebt = [] }
             Just userConfig ->
                 State.updateUserConfig aave userConfigId $ userConfig { ucUsingAsCollateral = True }
 
@@ -201,6 +203,33 @@ PlutusTx.makeLift ''BorrowParams
 borrow :: (HasBlockchainActions s) => Aave -> BorrowParams -> Contract w s Text ()
 borrow aave BorrowParams {..} = do
     reserve <- State.findAaveReserve aave bpAsset
+
+    userConfigs <- ovValue <$> State.findAaveUserConfigs aave
+    let userConfigId = (rCurrency reserve, bpOnBehalfOf)
+    let debt = Core.Debt
+            {
+            dAmount = bpAmount,
+            dStableBorrowRate = rCurrentStableBorrowRate reserve
+            }
+    case AssocMap.lookup userConfigId userConfigs of
+            Nothing ->
+                State.addUserConfig
+                    aave
+                    userConfigId
+                    UserConfig { ucUsingAsCollateral = False, ucDebt = [debt] }
+            Just userConfig ->
+                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = debt : ucDebt userConfig }
+
+    State.updateReserve aave bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
+
+    utxos <-
+        Map.filter ((> 0) . flip assetClassValueOf bpAsset . txOutValue . txOutTxOut)
+        <$> utxoAt (Core.aaveAddress aave)
+    let inputs = (\(ref, tx) -> OutputValue ref tx Core.BorrowRedeemer) <$> Map.toList utxos
+    let payment = assetClassValue (rCurrency reserve) bpAmount
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment
+    _ <- awaitTxConfirmed $ txId ledgerTx
 
     pure ()
 
