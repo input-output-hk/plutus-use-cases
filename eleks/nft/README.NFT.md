@@ -64,7 +64,7 @@ Create token
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"cpTokenName":"TestToken","cpDescription":"TestDescription"}' \
+  --data '{"cpTokenName":"TestToken","cpDescription":"Test description","cpAuthor":"John Smith","cpFile":"https://ipfs.io/ipfs/bafybeieznanm2s27u2okty2xgorltsfoegtgvamovfjx56ctgijtz4caoy"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/create
 ```
 
