@@ -105,8 +105,8 @@ transition ::
 transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react input) oldData of
   Left _err              -> Nothing
   Right (resps, newData) -> Just ( foldMap toConstraints resps
-                                 , SM.State { stateData=newData
-                                            , stateValue= updateLendexValue resps oldValue })
+                                 , SM.State { stateData  = newData
+                                            , stateValue = updateRespValue resps oldValue })
 
 -----------------------------------------------------------------------
 -- endpoints and schemas
@@ -196,30 +196,6 @@ governEndpoints = startLendex' >> forever governAction'
     startLendex'  = endpoint @"start-lendex"  >>= startLendex
 
 ---------------------------------------------------------
-
-{-# INLINABLE toConstraints #-}
-toConstraints :: Resp -> TxConstraints SM.Void SM.Void
-toConstraints = \case
-  Move addr coin amount | amount > 0 -> case addr of
-    -- pays to lendex app
-    Self       -> PlutusTx.mempty -- we already check this constraint with StateMachine
-    -- pays to the user
-    UserId pkh -> mustPayToPubKey pkh (assetClassValue coin amount)
-  Mint coin amount      -> mustForgeValue (assetClassValue coin amount)
-  Burn coin amount      -> mustForgeValue (assetClassValue coin $ negate amount)
-  _ -> PlutusTx.mempty
-
-{-# INLINABLE updateLendexValue #-}
-updateLendexValue :: [Resp] -> Value -> Value
-updateLendexValue rs val = foldMap toLendexValue rs PlutusTx.<> val
-
-{-# INLINABLE toLendexValue #-}
-toLendexValue :: Resp -> Value
-toLendexValue = \case
-  Move Self coin amount -> assetClassValue coin amount
-  Mint coin amount      -> assetClassValue coin amount
-  Burn coin amount      -> assetClassValue coin (negate amount)
-  _                     -> PlutusTx.mempty
 
 ---------------------------------------------------------
 -- call endpoints (for debug and testing)

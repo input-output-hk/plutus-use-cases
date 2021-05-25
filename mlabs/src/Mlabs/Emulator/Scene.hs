@@ -1,5 +1,5 @@
 -- | Set of balances for tests
-module Test.Lending.Scene(
+module Mlabs.Emulator.Scene(
     Scene(..)
   , owns
   , appOwns
@@ -7,6 +7,8 @@ module Test.Lending.Scene(
   , checkScene
   , coinDiff
 ) where
+
+import Prelude
 
 import Control.Applicative (Alternative(..))
 
@@ -17,8 +19,7 @@ import Plutus.Contract.Test hiding (tx)
 import Mlabs.Lending.Logic.Types (Coin)
 import qualified Plutus.V1.Ledger.Value as Value
 import qualified Data.Map as M
-
-import Test.Utils
+import qualified Data.List as L
 
 -- | Scene is users with balances and value that is owned by application script.
 -- It can be built with Monoid instance from parts with handy functions:
@@ -64,3 +65,5 @@ checkScene Scene{..} = withAddressCheck $
 coinDiff :: [(Coin, Integer)] -> Value
 coinDiff = foldMap (uncurry Value.assetClassValue)
 
+concatPredicates :: [TracePredicate] -> TracePredicate
+concatPredicates = L.foldl1' (.&&.)

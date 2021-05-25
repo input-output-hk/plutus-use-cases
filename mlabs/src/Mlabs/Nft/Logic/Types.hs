@@ -1,8 +1,18 @@
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 -- | Datatypes for NFT state machine.
 module Mlabs.Nft.Logic.Types(
     Nft(..)
-  , toNftToken
+  , NftId(..)
+  , initNft
+  , toNftId
   , Act(..)
+  , UserAct(..)
 ) where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -17,7 +27,7 @@ import Mlabs.Emulator.Types (UserId(..))
 
 -- | Data for NFTs
 data Nft = Nft
-  { nft'id     :: TokenName       -- ^ token name, unique identifier for NFT
+  { nft'id     :: NftId           -- ^ token name, unique identifier for NFT
   , nft'data   :: ByteString      -- ^ data (media, audio, photo, etc)
   , nft'share  :: Rational        -- ^ share for the author on each sell
   , nft'author :: UserId          -- ^ author
@@ -26,21 +36,39 @@ data Nft = Nft
   }
   deriving (Show, Generic)
 
-{-# INLINABLE toNftToken #-}
-toNftToken :: ByteString -> TokenName
-toNftToken = tokenName . sha2_256
+-- | Unique identifier of NFT.
+newtype NftId = NftId TokenName
+  deriving newtype (Show, Eq, PlutusTx.IsData)
+
+{-# INLINABLE initNft #-}
+initNft :: UserId -> ByteString -> Rational -> Maybe Integer -> Nft
+initNft author content share mPrice = Nft
+  { nft'id     = toNftId content
+  , nft'data   = content
+  , nft'share  = share
+  , nft'author = author
+  , nft'owner  = author
+  , nft'price  = mPrice
+  }
+
+{-# INLINABLE toNftId #-}
+-- | Calculate NFT identifier from it's content (data).
+toNftId :: ByteString -> NftId
+toNftId = NftId . tokenName . sha2_256
+
+data Act = UserAct UserId UserAct
+  deriving stock (Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Actions with NFTs
-data Act
+data UserAct
   = Buy
-    { act'userId   :: UserId
-    , act'price    :: Integer
-    , act'newPrice :: Maybe Integer
+    { act'price    :: Integer       -- ^ price to buy
+    , act'newPrice :: Maybe Integer -- ^ new price for NFT (Nothing locks NFT)
     }
   -- ^ Buy NFT and set new price
   | SetPrice
-    { act'userId   :: UserId
-    , act'newPrice :: Maybe Integer
+    { act'newPrice :: Maybe Integer -- ^ new price for NFT (Nothing locks NFT)
     }
   -- ^ Set new price for NFT
   deriving stock (Show, Generic, Hask.Eq)
@@ -50,4 +78,6 @@ data Act
 -- boiler plate instances
 
 PlutusTx.unstableMakeIsData ''Nft
-
+PlutusTx.unstableMakeIsData ''UserAct
+PlutusTx.unstableMakeIsData ''Act
+PlutusTx.makeLift ''NftId

@@ -1,3 +1,8 @@
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 -- | Simple emulation ob blockchain state
 module Mlabs.Emulator.Blockchain(
     BchState(..)
@@ -6,16 +11,21 @@ module Mlabs.Emulator.Blockchain(
   , Resp(..)
   , applyResp
   , moveFromTo
+  , toConstraints
+  , updateRespValue
 ) where
 
 import qualified Prelude as P
 import PlutusTx.Prelude hiding (fromMaybe, maybe)
+import Plutus.V1.Ledger.Value (assetClassValue, Value)
+import Ledger.Constraints
 
 import Data.Maybe
 import Data.Map.Strict (Map)
 import Mlabs.Emulator.Types (Coin, UserId(..))
 
 import qualified Data.Map.Strict as M
+import qualified Plutus.Contract.StateMachine as SM
 
 -- | Blockchain state is a set of wallets
 newtype BchState = BchState (Map UserId BchWallet)
@@ -76,4 +86,30 @@ applyResp resp (BchState wallets) = fmap BchState $ case resp of
       | otherwise = Left  $ "Negative balance"
       where
         res = fromMaybe 0 x + amt
+
+---------------------------------------------------------------
+
+{-# INLINABLE toConstraints #-}
+toConstraints :: Resp -> SM.TxConstraints SM.Void SM.Void
+toConstraints = \case
+  Move addr coin amount | amount > 0 -> case addr of
+    -- pays to lendex app
+    Self       -> mempty -- we already check this constraint with StateMachine
+    -- pays to the user
+    UserId pkh -> mustPayToPubKey pkh (assetClassValue coin amount)
+  Mint coin amount      -> mustForgeValue (assetClassValue coin amount)
+  Burn coin amount      -> mustForgeValue (assetClassValue coin $ negate amount)
+  _ -> mempty
+
+{-# INLINABLE updateRespValue #-}
+updateRespValue :: [Resp] -> Value -> Value
+updateRespValue rs val = foldMap toRespValue rs <> val
+
+{-# INLINABLE toRespValue #-}
+toRespValue :: Resp -> Value
+toRespValue = \case
+  Move Self coin amount -> assetClassValue coin amount
+  Mint coin amount      -> assetClassValue coin amount
+  Burn coin amount      -> assetClassValue coin (negate amount)
+  _                     -> mempty
 

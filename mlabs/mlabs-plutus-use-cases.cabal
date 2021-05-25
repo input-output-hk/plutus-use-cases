@@ -50,9 +50,11 @@ library
         Mlabs.Control.Monad.State
         Mlabs.Data.AssocMap
         Mlabs.Data.List
+        Mlabs.Data.Maybe
         Mlabs.Data.Ord
         Mlabs.Emulator.App
         Mlabs.Emulator.Blockchain
+        Mlabs.Emulator.Scene
         Mlabs.Emulator.Script
         Mlabs.Emulator.Types
         Mlabs.Lending.Contract.Forge
@@ -67,6 +69,8 @@ library
         Mlabs.Nft.Logic.React
         Mlabs.Nft.Logic.State
         Mlabs.Nft.Logic.Types
+        Mlabs.Nft.Contract.Nft
+        Mlabs.Nft.Contract.Forge
   default-extensions: BangPatterns
                       ExplicitForAll
                       FlexibleContexts
@@ -146,7 +150,8 @@ Test-suite mlabs-plutus-use-cases-tests
                        Test.Lending.Contract
                        Test.Lending.Init
                        Test.Lending.Logic
-                       Test.Lending.Scene
+                       Test.Nft.Contract
+                       Test.Nft.Init
                        Test.Nft.Logic
                        Test.Utils
   default-extensions:

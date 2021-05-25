@@ -27,4 +27,3 @@ wait = void . Trace.waitNSlots . fromInteger
 concatPredicates :: [TracePredicate] -> TracePredicate
 concatPredicates = L.foldl1' (.&&.)
 
-
