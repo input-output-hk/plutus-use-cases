@@ -10,11 +10,16 @@ import { getMyTokens, getMyTokensFetching } from '../reducers';
 
 import '../styles/MyCollection.scss';
 
-const MyCollection = ({ ownedTokens, tokensOnTrade, myTokensFetching }) => (
+const MyCollection = ({
+  ownedTokens,
+  tokensOnTrade,
+  myTokensFetching,
+  myTokens,
+}) => (
   <div className='MyCollection'>
     <h3 className='heading'>My collection</h3>
 
-    {!myTokensFetching ? (
+    {!myTokensFetching && (
       <React.Fragment>
         {tokensOnTrade.length !== 0 && (
           <React.Fragment>
@@ -31,8 +36,11 @@ const MyCollection = ({ ownedTokens, tokensOnTrade, myTokensFetching }) => (
           </React.Fragment>
         )}
       </React.Fragment>
-    ) : (
-      <Loader />
+    )}
+
+    {myTokensFetching && <Loader />}
+    {myTokens.length === 0 && !myTokensFetching && (
+      <h5 className='no-text-message'>You have no tokens yet</h5>
     )}
   </div>
 );

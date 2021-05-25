@@ -1,14 +1,21 @@
+import { withHandlers } from 'recompose';
+
 import Coin from '../icons/coin.gif';
 import Card from 'react-bootstrap/Card';
 import { Link } from 'react-router-dom';
 
 import '../styles/TokensList.scss';
 
-const TokensList = ({ tokens }) => (
+const TokensList = ({ tokens, onTokenClick }) => (
   <section className='TokensList'>
     {tokens &&
       tokens.map((token, i) => (
-        <Link to={`/:${token.name}`} className='token-link' key={i}>
+        <Link
+          to={`/:${token.name}`}
+          className='token-link'
+          key={i}
+          onClick={() => onTokenClick(token)}
+        >
           <Card>
             <Card.Img
               className='image'
@@ -35,4 +42,10 @@ const TokensList = ({ tokens }) => (
   </section>
 );
 
-export default TokensList;
+const enhancer = withHandlers({
+  onTokenClick: () => (token) => {
+    localStorage.setItem('viewSingleToken', JSON.stringify(token));
+  },
+});
+
+export default enhancer(TokensList);

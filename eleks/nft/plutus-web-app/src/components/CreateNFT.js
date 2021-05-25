@@ -73,9 +73,10 @@ const CreateNFT = ({
       </Button>
     </Form>
     {addTokenFetching && (
-      <div className='loader'>
-        <Loader />
-      </div>
+      <Loader
+        disableBackground={true}
+        text={'Please, be patient. Token is creating...'}
+      />
     )}
   </div>
 );

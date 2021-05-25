@@ -1,7 +1,7 @@
 import { toast } from 'react-toastify';
 
 import * as fromApi from '../api/myTokens';
-import { formatArrayResponse } from '../helpers/utils';
+import { formatResponse } from '../helpers/utils';
 import {
   FETCH_MY_TOKENS_START,
   FETCH_MY_TOKENS_SUCCESS,
@@ -43,7 +43,7 @@ export const fetchMyTokens = (wallet) => async (dispatch) => {
   const tokens = await fromApi.fetchMyTokens(wallet);
   tokens.error
     ? dispatch(fetchMyTokensFailed(tokens.error))
-    : dispatch(fetchMyTokensSuccess(formatArrayResponse(tokens)));
+    : dispatch(fetchMyTokensSuccess(formatResponse(tokens)));
 };
 
 export const fetchAddToken = (wallet, data) => async (dispatch) => {

@@ -1,0 +1,28 @@
+.SellModal {
+  .modal-body {
+    padding-bottom: 0.2em;
+  }
+
+  .form-control.error {
+    border: 1px solid #c87373;
+  }
+
+  .text-error {
+    visibility: hidden;
+    font-size: 0.9em;
+    color: #c87373;
+
+    &.visible {
+      visibility: visible;
+    }
+  }
+
+  .modal-footer {
+    justify-content: space-between;
+  }
+
+  .btn-danger {
+    background-color: #c77373;
+    border-color: #9e5959;
+  }
+}

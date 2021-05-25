@@ -1,9 +1,12 @@
 import { ReactComponent as Spinner } from '../icons/spinner.svg';
 import '../styles/Loader.scss';
 
-const Loader = () => (
+const Loader = ({ disableBackground, text }) => (
   <div className='Loader'>
-    <h5 className='heading'>Loading...</h5>
+    {disableBackground && <div className='cover' />}
+    <h5 className={`heading ${disableBackground && 'dark'}`}>
+      {text ? text : 'Loading...'}
+    </h5>
     <Spinner className='spinner' width='100' />
   </div>
 );

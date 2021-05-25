@@ -5,6 +5,11 @@ export const formatForAPI = (data) => ({
   cpFile: data.image,
 });
 
+export const formatSellData = (data) => ({
+  spSellPrice: +data.price,
+  spTokenSymbol: data.id,
+});
+
 const dataMap = (token) => ({
   id: token.nftDtoTokenSymbol,
   name: token.nftDtoTokenName,
@@ -14,7 +19,9 @@ const dataMap = (token) => ({
   description: token.nftDtoMetaDescription,
 });
 
-export const formatArrayResponse = (data) => {
+export const formatResponse = (data) => {
   const tokens = data.cicCurrentState.observableState.Right.contents;
   return tokens.map((token) => dataMap(token));
 };
+
+export const wait = (ms) => new Promise((r) => setTimeout(() => r(), ms));
