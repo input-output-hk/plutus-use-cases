@@ -35,6 +35,7 @@ module Contracts.NFT
 import           Control.Monad                    hiding (fmap)
 import qualified Data.Map                         as Map
 import qualified Data.ByteString.Char8            as B
+import qualified Data.ByteString.Base64           as B64
 import qualified Data.Text                        as T
 import qualified Ledger.Ada                       as Ada
 import           Data.Monoid                      (Last (..))
@@ -297,7 +298,7 @@ nftMetadataToDto nftMeta = NFTMetadataDto
     , nftDtoMetaDescription = B.unpack $ nftMetaDescription nftMeta
     , nftDtoMetaAuthor = B.unpack $ nftMetaAuthor nftMeta
     , nftDtoMetaFile = B.unpack $ nftMetaFile nftMeta
-    , nftDtoTokenSymbol = B.unpack $ unCurrencySymbol $ nftTokenSymbol nftMeta
+    , nftDtoTokenSymbol = B.unpack $ B64.encode $ unCurrencySymbol $ nftTokenSymbol nftMeta
     , nftDtoSeller = getPubKeyHash <$> nftSeller nftMeta
     , nftDtoSellPrice = nftSellPrice nftMeta
     }
@@ -374,7 +375,7 @@ create market CreateParams{..} = do
 sell :: HasBlockchainActions s => NFTMarket -> SellParams -> Contract w s Text NFTMetadataDto
 sell market SellParams{..} = do
     pkh                     <- pubKeyHash <$> ownPubKey
-    let tokenSymbol = CurrencySymbol $ B.pack spTokenSymbol
+    let tokenSymbol = CurrencySymbol $ B64.decodeLenient $ B.pack spTokenSymbol
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
     let marketInst = marketInstance market
         nftMetadata' = nftMetadata { nftSeller = Just pkh, nftSellPrice = spSellPrice }
@@ -400,7 +401,7 @@ sell market SellParams{..} = do
 buy :: HasBlockchainActions s => NFTMarket -> BuyParams -> Contract w s Text NFTMetadataDto
 buy market BuyParams{..} = do
     pkh                     <- pubKeyHash <$> ownPubKey
-    let tokenSymbol = CurrencySymbol $ B.pack bpTokenSymbol  
+    let tokenSymbol = CurrencySymbol $ B64.decodeLenient $ B.pack bpTokenSymbol
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
     -- when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
     --     throwError $ pack $ printf "NFT is not selling"
@@ -408,8 +409,6 @@ buy market BuyParams{..} = do
         nftMetadata' = nftMetadata { nftSeller = Nothing, nftSellPrice = 0 }
         nftSeller' = fromMaybe "" $ nftSeller nftMetadata
         nftMetadataDatum = NFTMeta nftMetadata'
-    logInfo @String $ printf "seller %s" (show nftSeller')
-    logInfo @String $ printf "price %s" (show $ nftSellPrice nftMetadata)
     let mrScript = marketScript market
         redeemer = Redeemer $ PlutusTx.toData Buy
         nftValue = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1

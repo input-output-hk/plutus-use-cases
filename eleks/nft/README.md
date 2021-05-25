@@ -131,7 +131,7 @@ curl -H "Content-Type: application/json" \
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"bpTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
+  --data '{"bpTokenSymbol": "staQbIJe11Om2KUvRt1+1SivJXo4H+u6Wc8Nekh7VQA="}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/buy
 ```
 
