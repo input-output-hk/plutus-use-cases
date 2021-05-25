@@ -1,0 +1,38 @@
+.CreateNFT {
+  text-align: left;
+
+  .heading {
+    margin-left: 0.6em;
+    color: #6c757d;
+  }
+
+  .form {
+    width: 40%;
+    margin: auto;
+    margin-top: 2em;
+  }
+
+  .form-control.error {
+    border-color: #c87373;
+  }
+
+  .error-text {
+    color: #c87373;
+    font-size: 0.9em;
+    margin-bottom: 1em;
+    visibility: hidden;
+  }
+
+  .error-text.visible {
+    visibility: visible;
+  }
+
+  .loader {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(161, 161, 161, 0.5);
+  }
+}
