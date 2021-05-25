@@ -92,31 +92,35 @@ curl -H "Content-Type: application/json" \
 ```
 
 5. Set token for sell
-    let nftTokenSellParams = NFTMarket.SellParams { spTokenSymbol = nftTokenSymbol token1Meta, spSellPrice = 1000}
-Create sell parameters
-```
-cabal repl
-
-import Contracts.NFT
-import Ledger.Value   
-import Data.Aeson
-import qualified Data.ByteString.Char8 as B
-import Data.ByteString.Lazy.Char8 as BSL
-args = SellParams { spTokenSymbol = CurrencySymbol $ B.pack "642e93f74cc55820874d3fb4e0b8300ef2c351b23260b1250d26d69d2a060c47", spSellPrice = 1000 }
-BSL.putStrLn $ encode args
-```
+    let nftTokenSellParams = NFTMarket.SellParams { spTokenSymbol = "nftTokenSymbol", spSellPrice = 1000}
 
 ```
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"spSellPrice":1000,"spTokenSymbol":{"unCurrencySymbol":"36343265393366373463633535383230383734643366623465306238333030656632633335316232333236306231323530643236643639643261303630633437"}}' \
+  --data '{"spSellPrice":1000,"spTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sell
 ```
 
 Get response
 ```
 export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+```
+
+6. Query selling tokens
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '[]' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sellingTokens
+```
+
+Get response
+```
 curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'

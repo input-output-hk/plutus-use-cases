@@ -232,7 +232,7 @@ data NFTMetadataDto = NFTMetadataDto
     , nftDtoMetaAuthor:: String
     , nftDtoMetaFile:: String
     , nftDtoTokenSymbol :: String
-    , nftDtoSeller :: Maybe PubKeyHash
+    , nftDtoSeller :: Maybe ByteString
     , nftDtoSellPrice:: Maybe Integer
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
@@ -243,7 +243,7 @@ nftMetadataToDto nftMeta = NFTMetadataDto
     , nftDtoMetaAuthor = B.unpack $ nftMetaAuthor nftMeta
     , nftDtoMetaFile = B.unpack $ nftMetaFile nftMeta
     , nftDtoTokenSymbol = B.unpack $ unCurrencySymbol $ nftTokenSymbol nftMeta
-    , nftDtoSeller = nftSeller nftMeta
+    , nftDtoSeller = getPubKeyHash <$> nftSeller nftMeta
     , nftDtoSellPrice = nftSellPrice nftMeta
     }
 -- | Creates a Marketplace "factory". This factory will keep track of the existing nft tokens
@@ -400,6 +400,28 @@ findMarketFactoryAndNftMeta market tokenSymbol = do
                 )
         _    -> throwError "nft token not found"
 
+-- | Finds all nft metadatas belonging to the market
+queryNftMetadatas :: forall w s. HasBlockchainActions s => NFTMarket -> Contract w s Text [NFTMetadata]
+queryNftMetadatas market = do
+    (_, _, nftMarketMetas) <- findNFTMarketFactory market
+    utxos <- utxoAt (marketAddress market)
+    query nftMarketMetas $ snd <$> Map.toList utxos
+  where
+    query :: [NFTMetadata] -> [TxOutTx] -> Contract w s Text [NFTMetadata]
+    query nftMarketMetas []       = return []
+    query nftMarketMetas (o : os) = do
+        let v = txOutValue $ txOutTxOut o
+        if any (\meta -> assetClassValueOf v (assetClass (nftMetaTokenSymbol meta) (nftMetaTokenName meta)) == 1) nftMarketMetas
+            then do
+                d <- getNFTMarketDatum o
+                case d of
+                    Factory _ -> query nftMarketMetas os
+                    NFTMeta nftMeta -> do
+                        logInfo $ "found nftMetadata: " ++ show nftMeta
+                        nftMetas <- query nftMarketMetas os
+                        return $ nftMeta : nftMetas
+            else query nftMarketMetas os
+
 --
 -- | Gets the caller's funds.
 funds :: HasBlockchainActions s => Contract w s Text Value
@@ -419,9 +441,22 @@ userNftTokens market = do
     let os = map snd $ Map.toList ownerUtxos
     let values = mconcat [txOutValue $ txOutTxOut o | o <- os]
     logInfo @String $ printf "load owner values"
-    (oref, o, nftMetas) <- findNFTMarketFactory market
+    nftMetas <- queryNftMetadatas market
     logInfo @String $ printf "load market factory"
-    let result = map nftMetadataToDto $ [ meta | meta <- nftMetas, valueOf values (nftTokenSymbol meta) (nftTokenName meta) == 1 ]
+    logInfo @String $ printf "pkh" ++ show pkh
+    let ownUserTokens = [ meta | meta <- nftMetas, valueOf values (nftTokenSymbol meta) (nftTokenName meta) == 1 ]
+        sellingUserTokens = flip filter nftMetas (\ nftMetadata -> case nftSeller nftMetadata of 
+            Just seller -> seller == pkh
+            _           -> False)
+        result = map nftMetadataToDto $ ownUserTokens <> sellingUserTokens
+    return result
+
+-- | Gets the caller's NFTs.
+sellingTokens :: HasBlockchainActions s => NFTMarket -> Contract w s Text [NFTMetadataDto]
+sellingTokens market = do
+    logInfo @String $ printf "start sellingTokens"
+    nftMetas <- queryNftMetadatas market
+    let result = map nftMetadataToDto $ filter (PlutusTx.Prelude.isJust . nftSeller) nftMetas
     return result
 
 ownerEndpoint :: Contract (Last (Either Text NFTMarket)) BlockchainActions Void ()
@@ -442,6 +477,7 @@ type MarketUserSchema =
         .\/ Endpoint "sell" SellParams
         .\/ Endpoint "funds"  ()
         .\/ Endpoint "userNftTokens"  ()
+        .\/ Endpoint "sellingTokens"  ()
         .\/ Endpoint "stop"   ()
 
 
@@ -449,6 +485,7 @@ data MarketContractState =
       Created NFTMetadataDto
     | Funds Value
     | Tokens [NFTMetadataDto]
+    | SellingTokens [NFTMetadataDto]
     | Selling NFTMetadataDto
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
@@ -462,6 +499,7 @@ userEndpoints market =
     ((f (Proxy @"create") Created create                                                `select`
       f (Proxy @"sell") Selling sell                                            `select`
       f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')        `select`
+      f (Proxy @"sellingTokens") SellingTokens (\market'' () -> sellingTokens market'')        `select`
       f (Proxy @"funds")  Funds           (\market' () -> funds))    >> userEndpoints market)
   where
     f :: forall l a p.
