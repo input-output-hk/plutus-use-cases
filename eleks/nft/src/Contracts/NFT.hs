@@ -25,6 +25,7 @@ module Contracts.NFT
     , NFTMetadataDto (..)
     , CreateParams (..)
     , SellParams (..)
+    , BuyParams (..)
     , MarketUserSchema, MarketContractState (..)
     , MarketOwnerSchema
     , start, create
@@ -33,8 +34,9 @@ module Contracts.NFT
 
 import           Control.Monad                    hiding (fmap)
 import qualified Data.Map                         as Map
-import qualified Data.ByteString.Char8        as B
-import qualified Data.Text               as T
+import qualified Data.ByteString.Char8            as B
+import qualified Data.Text                        as T
+import qualified Ledger.Ada                       as Ada
 import           Data.Monoid                      (Last (..))
 import           Data.Proxy                       (Proxy (..))
 import           Data.Text                        (Text, pack)
@@ -47,6 +49,7 @@ import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Value                     (AssetClass (..), assetClass, assetClassValue, assetClassValueOf, valueOf,
                                                     symbols, unCurrencySymbol, unTokenName, CurrencySymbol (..))
 import qualified Ledger.Value                     as Value
+import qualified Ledger.Contexts                  as Validation
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.Currency        as Currency
@@ -73,7 +76,7 @@ data NFTMetadata = NFTMetadata
     , nftTokenSymbol :: CurrencySymbol
     , nftMetaTokenSymbol :: CurrencySymbol
     , nftSeller :: Maybe PubKeyHash
-    , nftSellPrice:: Maybe Integer
+    , nftSellPrice:: Integer
     }
     deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
@@ -94,11 +97,12 @@ newtype NFTMarket = NFTMarket
 
 PlutusTx.makeLift ''NFTMarket
     
-data NFTMarketAction = Create NFTMetadata | Sell
+data NFTMarketAction = Create NFTMetadata | Sell | Buy
     deriving Show
 
 PlutusTx.makeIsDataIndexed ''NFTMarketAction [ ('Create , 0)
                                            , ('Sell,   1)
+                                           , ('Buy,   2)
                                            ]
 PlutusTx.makeLift ''NFTMarketAction
 
@@ -156,8 +160,9 @@ validateSell :: NFTMarket
 validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} ctx =
     traceIfFalse "owner should sign" ownerSigned &&
     traceIfFalse "nft metadata token missing from input"          (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)  &&
-   -- traceIfFalse "nft token missing from input"          (valueOf inVal nftTokenSymbol nftTokenName == 1)                           &&
-    traceIfFalse "output pool for same liquidity pair expected" (nftMeta == outDatum)                                     
+    -- traceIfFalse "nft token missing from input"          (valueOf inVal nftTokenSymbol nftTokenName == 1)                           &&
+    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)     &&
+    traceIfFalse "price should be grater 0" (nftSellPrice outDatum > 0)                                      
   where
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -188,14 +193,59 @@ validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenN
         Nothing      -> False
         Just pkh -> txSignedBy info pkh
 
+{-# INLINABLE validateBuy #-}
+validateBuy :: NFTMarket
+               -> NFTMetadata
+               -> ScriptContext
+               -> Bool
+validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} ctx =
+    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)  &&
+    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum) -- &&
+  --  traceIfFalse "expected seller to get money" (getsValue (nftSeller outDatum) $ Ada.lovelaceValueOf (nftSellPrice outDatum)) -- &&   
+  --  traceIfFalse "expected buyer to get nft token" (getsValue (nftSeller outDatum) $ Value.singleton nftTokenSymbol nftTokenName 1)  
+  where
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    ownInput :: TxInInfo
+    ownInput = findOwnInput' ctx
+
+    ownOutput :: TxOut
+    ownOutput = case [ o
+                     | o <- getContinuingOutputs ctx
+                     , valueOf (txOutValue o) nftMetaTokenSymbol nftMetaTokenName == 1
+                     ] of
+        [o] -> o
+        _   -> traceError "expected exactly one nft metadata output"
+
+    outDatum :: (NFTMetadata)
+    outDatum = case txOutDatum ownOutput of
+        Nothing -> traceError "nft metadata not found"
+        Just h  -> findMarketDatum info h
+
+    inVal, outVal :: Value
+    inVal  = valueWithin ownInput
+    outVal = txOutValue ownOutput
+
+    getsValue :: Maybe PubKeyHash -> Value -> Bool
+    getsValue h v =
+        let
+        [o] = [ o'
+                | o' <- txInfoOutputs info
+                , txOutValue o' == v
+                ]
+        in
+        fromMaybe False $ (==) <$> h <*> Validation.pubKeyOutput o
+
 mkNFTMarketValidator :: NFTMarket
       -> NFTMarketDatum
       -> NFTMarketAction
       -> ScriptContext
       -> Bool
 mkNFTMarketValidator market (Factory nftMetas) (Create nftMeta) ctx = validateCreate market nftMetas nftMeta ctx
-mkNFTMarketValidator market (NFTMeta nftMeta) Sell ctx = validateSell market nftMeta ctx
-mkNFTMarketValidator _      _              _            _   = False
+mkNFTMarketValidator market (NFTMeta nftMeta)  Sell             ctx = validateSell market nftMeta ctx
+mkNFTMarketValidator market (NFTMeta nftMeta)  Buy              ctx = validateBuy market nftMeta ctx
+mkNFTMarketValidator _      _                  _                _   = False
  
 
 marketInstance :: NFTMarket -> Scripts.ScriptInstance Market
@@ -220,10 +270,15 @@ data CreateParams = CreateParams
     , cpFile        :: !String  -- ^ NFT file path
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
--- | Parameters for the @create@-endpoint, which creates a new NFT.
+-- | Parameters for the @sell@-endpoint, which creates a new NFT.
 data SellParams = SellParams
     { spTokenSymbol   :: String
     , spSellPrice :: Integer
+    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
+-- | Parameters for the @buy@-endpoint, which creates a new NFT.
+data BuyParams = BuyParams
+    { bpTokenSymbol   :: String
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 data NFTMetadataDto = NFTMetadataDto
@@ -233,7 +288,7 @@ data NFTMetadataDto = NFTMetadataDto
     , nftDtoMetaFile:: String
     , nftDtoTokenSymbol :: String
     , nftDtoSeller :: Maybe ByteString
-    , nftDtoSellPrice:: Maybe Integer
+    , nftDtoSellPrice:: Integer
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 nftMetadataToDto:: NFTMetadata -> NFTMetadataDto
@@ -290,7 +345,7 @@ create market CreateParams{..} = do
             nftTokenSymbol = nftTokenSymbol,
             nftMetaTokenSymbol = tokenMetadataSymbol,
             nftSeller = Nothing,
-            nftSellPrice = Nothing
+            nftSellPrice = 0
             }
 
     let marketInst = marketInstance market
@@ -300,13 +355,13 @@ create market CreateParams{..} = do
         marketVal    = assetClassValue (marketId market) 1
    
         lookups  = Constraints.scriptInstanceLookups marketInst        <>
-                   Constraints.otherScript mrScript                <>
+                   Constraints.otherScript mrScript                    <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
-        tx       = Constraints.mustPayToTheScript marketFactoryData marketVal                                  <>
-                   Constraints.mustPayToTheScript nftMetadataData nftMetadataVal                                   <>
-                   -- Constraints.mustPayToTheScript () nftValue                                                  <>
-                   Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create nftMetadata)    <>
+        tx       = Constraints.mustPayToTheScript marketFactoryData marketVal                                   <>
+                   Constraints.mustPayToTheScript nftMetadataData nftMetadataVal                                <>
+                   -- Constraints.mustPayToTheScript () nftValue                                                <>
+                   Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create nftMetadata)     <>
                    Constraints.mustPayToPubKey ownPK nftValue
 
     ledgerTx <- submitTxConstraintsWith lookups tx
@@ -321,9 +376,8 @@ sell market SellParams{..} = do
     pkh                     <- pubKeyHash <$> ownPubKey
     let tokenSymbol = CurrencySymbol $ B.pack spTokenSymbol
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
-
     let marketInst = marketInstance market
-        nftMetadata' = nftMetadata { nftSeller = Just pkh, nftSellPrice = Just spSellPrice }
+        nftMetadata' = nftMetadata { nftSeller = Just pkh, nftSellPrice = spSellPrice }
         nftMetadataDatum = NFTMeta nftMetadata'
         mrScript = marketScript market
         redeemer     = Redeemer $ PlutusTx.toData Sell
@@ -337,9 +391,43 @@ sell market SellParams{..} = do
                    Constraints.mustSpendScriptOutput oref redeemer
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
-
-    let nftMetaDto = nftMetadataToDto nftMetadata
+    logInfo $ "selling datum: " ++ show nftMetadataDatum
+    let nftMetaDto = nftMetadataToDto nftMetadata'
     logInfo $ "selling NFT: " ++ show nftMetaDto
+    return nftMetaDto
+
+-- | Byt token
+buy :: HasBlockchainActions s => NFTMarket -> BuyParams -> Contract w s Text NFTMetadataDto
+buy market BuyParams{..} = do
+    pkh                     <- pubKeyHash <$> ownPubKey
+    let tokenSymbol = CurrencySymbol $ B.pack bpTokenSymbol  
+    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
+    -- when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
+    --     throwError $ pack $ printf "NFT is not selling"
+    let marketInst = marketInstance market
+        nftMetadata' = nftMetadata { nftSeller = Nothing, nftSellPrice = 0 }
+        nftSeller' = fromMaybe "" $ nftSeller nftMetadata
+        nftMetadataDatum = NFTMeta nftMetadata'
+    logInfo @String $ printf "seller %s" (show nftSeller')
+    logInfo @String $ printf "price %s" (show $ nftSellPrice nftMetadata)
+    let mrScript = marketScript market
+        redeemer = Redeemer $ PlutusTx.toData Buy
+        nftValue = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
+        nftMetadataValue = Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
+        nftSellPriceValue = Ada.lovelaceValueOf $ nftSellPrice nftMetadata
+ 
+        lookups  = Constraints.scriptInstanceLookups marketInst        <>
+                   Constraints.otherScript mrScript                    <>
+                   Constraints.unspentOutputs (Map.singleton oref o)
+
+        tx       = Constraints.mustPayToTheScript nftMetadataDatum nftMetadataValue <>
+                   Constraints.mustSpendScriptOutput oref redeemer                  <>
+                   Constraints.mustPayToPubKey pkh nftValue                       <>
+                   Constraints.mustPayToPubKey nftSeller' nftSellPriceValue
+    ledgerTx <- submitTxConstraintsWith lookups tx
+    void $ awaitTxConfirmed $ txId ledgerTx
+    let nftMetaDto = nftMetadataToDto nftMetadata
+    logInfo $ "buying NFT: " ++ show nftMetaDto
     return nftMetaDto
 
 marketplace :: CurrencySymbol -> NFTMarket
@@ -378,7 +466,7 @@ findNFTMarketFactory nftm@NFTMarket{..} = findNFTMartketInstance nftm marketId $
 findNftMetadata :: HasBlockchainActions s => NFTMarket -> NFTMetadata -> Contract w s Text (TxOutRef, TxOutTx, NFTMetadata)
 findNftMetadata market nftMeta = findNFTMartketInstance market (assetClass (nftMetaTokenSymbol nftMeta) (nftMetaTokenName nftMeta)) $ \case
         NFTMeta nftMeta'
-            | nftMeta == nftMeta' -> Just nftMeta
+            | nftMeta == nftMeta' -> Just nftMeta'
         _               -> Nothing
         
 findMarketFactoryAndNftMeta :: HasBlockchainActions s
@@ -394,9 +482,9 @@ findMarketFactoryAndNftMeta market tokenSymbol = do
          , nftTokenSymbol nftMeta' == tokenSymbol
          ] of
         [nftMeta] -> do
-            (oref2, o2, nftMeta'') <- findNftMetadata market nftMeta
+            (oref2, o2, nftMeta1) <- findNftMetadata market nftMeta
             return ( (oref1, o1, nftMetas)
-                , (oref2, o2,  nftMeta'')
+                , (oref2, o2, nftMeta1)
                 )
         _    -> throwError "nft token not found"
 
@@ -475,6 +563,7 @@ type MarketUserSchema =
     BlockchainActions
         .\/ Endpoint "create" CreateParams
         .\/ Endpoint "sell" SellParams
+        .\/ Endpoint "buy" BuyParams
         .\/ Endpoint "funds"  ()
         .\/ Endpoint "userNftTokens"  ()
         .\/ Endpoint "sellingTokens"  ()
@@ -487,6 +576,7 @@ data MarketContractState =
     | Tokens [NFTMetadataDto]
     | SellingTokens [NFTMetadataDto]
     | Selling NFTMetadataDto
+    | Buyed NFTMetadataDto
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
 -- | Provides the following endpoints for users of a NFT marketplace instance:
@@ -496,9 +586,10 @@ userEndpoints :: NFTMarket -> Contract (Last (Either Text MarketContractState)) 
 userEndpoints market =
     stop
         `select`
-    ((f (Proxy @"create") Created create                                                `select`
-      f (Proxy @"sell") Selling sell                                            `select`
-      f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')        `select`
+    ((f (Proxy @"create") Created create                                                       `select`
+      f (Proxy @"sell") Selling sell                                                           `select`
+      f (Proxy @"buy") Buyed buy                                                           `select`
+      f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')               `select`
       f (Proxy @"sellingTokens") SellingTokens (\market'' () -> sellingTokens market'')        `select`
       f (Proxy @"funds")  Funds           (\market' () -> funds))    >> userEndpoints market)
   where
