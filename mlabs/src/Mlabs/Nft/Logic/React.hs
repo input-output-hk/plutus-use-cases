@@ -1,3 +1,10 @@
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 --  |Transition function for NFTs
 module Mlabs.Nft.Logic.React where
 
@@ -11,13 +18,15 @@ import Mlabs.Lending.Logic.Types (adaCoin)
 import Mlabs.Nft.Logic.State
 import Mlabs.Nft.Logic.Types
 
+import qualified Mlabs.Data.Maybe as Maybe
+
 {-# INLINABLE react #-}
 react :: Act -> St [Resp]
 react inp = do
   checkInputs inp
   case inp of
-    Buy uid price newPrice -> buyAct uid price newPrice
-    SetPrice uid price     -> setPriceAct uid price
+    UserAct uid (Buy price newPrice) -> buyAct uid price newPrice
+    UserAct uid (SetPrice price)     -> setPriceAct uid price
   where
     -----------------------------------------------
     -- buy
@@ -51,10 +60,10 @@ react inp = do
 
 {-# INLINABLE checkInputs #-}
 checkInputs :: Act -> St ()
-checkInputs = \case
-  Buy _uid price newPrice -> do
+checkInputs (UserAct _uid act) = case act of
+  Buy price newPrice -> do
     isPositive "Buy price" price
-    mapM_ (isPositive "New price") newPrice
+    Maybe.mapM_ (isPositive "New price") newPrice
 
-  SetPrice _uid price -> mapM_ (isPositive "Set price") price
+  SetPrice price -> Maybe.mapM_ (isPositive "Set price") price
 

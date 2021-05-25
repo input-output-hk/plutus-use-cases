@@ -11,6 +11,7 @@ import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx.Ratio as R
 
+import Mlabs.Emulator.Scene
 import Mlabs.Lending.Logic.Types ( UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel
                                  , PriceAct(..), BadBorrow(..))
 
@@ -20,7 +21,6 @@ import qualified Plutus.V1.Ledger.Value as Value
 import Test.Utils
 
 import Test.Lending.Init
-import Test.Lending.Scene
 
 test :: TestTree
 test = testGroup "Contract"
@@ -45,7 +45,6 @@ test = testGroup "Contract"
       [ check "Liquidation call aToken"        (liquidationCallScene True) (liquidationCallScript True)
       , check "Liquidation call real currency" (liquidationCallScene False) (liquidationCallScript False)
       ]
-
 
 --------------------------------------------------------------------------------
 -- deposit test

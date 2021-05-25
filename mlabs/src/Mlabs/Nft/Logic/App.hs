@@ -40,19 +40,9 @@ runNftApp cfg acts = runApp react (initApp cfg) acts
 -- | Initialise NFT application.
 initApp :: AppCfg -> NftApp
 initApp AppCfg{..} = App
-  { app'st  = initNft appCfg'nftAuthor appCfg'nftData
+  { app'st  = initNft appCfg'nftAuthor appCfg'nftData (1 % 10) Nothing
   , app'log = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appCfg'users
-  }
-
-initNft :: UserId -> ByteString -> Nft
-initNft author content = Nft
-  { nft'id     = toNftToken content
-  , nft'data   = content
-  , nft'share  = 1 % 10
-  , nft'author = author
-  , nft'owner  = author
-  , nft'price  = Nothing
   }
 
 -- | Default application.
@@ -73,9 +63,9 @@ type Script = S.Script Act
 
 -- | User buys NFTs
 buy :: UserId -> Integer -> Maybe Integer -> Script
-buy uid price newPrice = S.putAct $ Buy uid price newPrice
+buy uid price newPrice = S.putAct $ UserAct uid (Buy price newPrice)
 
 -- | Set price of NFT
 setPrice :: UserId -> Maybe Integer -> Script
-setPrice uid newPrice = S.putAct $ SetPrice uid newPrice
+setPrice uid newPrice = S.putAct $ UserAct uid (SetPrice newPrice)
 

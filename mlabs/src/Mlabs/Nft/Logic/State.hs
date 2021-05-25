@@ -1,5 +1,10 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | State transitions for Lending app
 module Mlabs.Nft.Logic.State(
@@ -34,7 +39,7 @@ isOwner uid = do
 -- | Check if price is enough to buy NFT
 isRightPrice :: Integer -> St ()
 isRightPrice inputPrice = do
-  isOk <- maybe False (inputPrice >= ) <$> gets nft'price
+  isOk <- any (inputPrice >= ) <$> gets nft'price
   guardError "Price not enough" isOk
 
 {-# INLINABLE getAuthorShare #-}
