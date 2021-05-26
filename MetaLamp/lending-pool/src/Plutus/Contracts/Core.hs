@@ -71,22 +71,10 @@ PlutusTx.makeLift ''Reserve
 
 type UserConfigId = (ReserveId, PubKeyHash)
 
--- TODO data Insentifized a = Insentifized { iDatum :: a, iSlotTimestamp :: Integer }
-data Debt = Debt
-    {
-      dAmount           :: Integer,
-      dStableBorrowRate :: Rational
-    }
-    deriving stock (Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, ToSchema)
-
-PlutusTx.unstableMakeIsData ''Debt
-PlutusTx.makeLift ''Debt
-
 data UserConfig = UserConfig
     {
       ucUsingAsCollateral :: Bool,
-      ucDebt              :: [Debt]
+      ucDebt              :: Maybe Integer
     }
     deriving stock (Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -112,6 +100,7 @@ data AaveDatum =
   | UserConfigsDatum (AssocMap.Map UserConfigId UserConfig)
   | DepositDatum
   | BorrowDatum
+  | RepayDatum
   deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
