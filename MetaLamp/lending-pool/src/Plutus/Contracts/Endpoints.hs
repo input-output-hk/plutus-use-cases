@@ -209,8 +209,10 @@ borrow aave BorrowParams {..} = do
         <$> utxoAt (Core.aaveAddress aave)
     let inputs = (\(ref, tx) -> OutputValue ref tx Core.BorrowRedeemer) <$> Map.toList utxos
     let payment = assetClassValue (rCurrency reserve) bpAmount
+    let remainder = assetClassValue (rCurrency reserve) (rAmount reserve - bpAmount)
     ledgerTx <- TxUtils.submitTxPair $
-        TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment
+        TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment <>
+        TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.BorrowDatum remainder
     _ <- awaitTxConfirmed $ txId ledgerTx
 
     userConfigs <- ovValue <$> State.findAaveUserConfigs aave
@@ -255,7 +257,7 @@ repay aave RepayParams {..} = do
             Nothing ->
                 throwError "User does not have any debt."
             Just userConfig ->
-                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = (`subtract` rpAmount) <$> ucDebt userConfig }
+                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
 
     State.updateReserve aave rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
 
