@@ -29,4 +29,7 @@ export const formatResponse = (data) => {
   return tokens.map((token) => dataMap(token));
 };
 
+export const formatKeyResponse = (data) =>
+  data.cicCurrentState.observableState.Right.contents;
+
 export const wait = (ms) => new Promise((r) => setTimeout(() => r(), ms));

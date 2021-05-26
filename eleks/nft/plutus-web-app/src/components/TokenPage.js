@@ -23,85 +23,78 @@ const TokenPage = ({
   fetchSellToken,
   tokenActionFetching,
 }) => (
-  console.log(token),
-  (
-    <div className='TokenPage'>
-      <h3 className='heading'>Token view page</h3>
-      <div className='card-container'>
-        <Card.Img
-          src={token.image ? `https://ipfs.io/ipfs/${token.image}` : Coin}
-        />
-        <Card>
-          <Card.Body>
-            <Card.Title>{token.name}</Card.Title>
-            <Card.Text>{token.description}</Card.Text>
-          </Card.Body>
-
-          <Card.Body>
-            <ListGroup className='list-group-flush'>
-              <ListGroupItem>
-                <Card.Subtitle className='mb-2 text-muted'>
-                  Author:
-                </Card.Subtitle>
-                {token.author || 'No author'}
-              </ListGroupItem>
-              <ListGroupItem>
-                <Card.Subtitle className='mb-2 text-muted'>
-                  Seller id:
-                </Card.Subtitle>
-                {token.seller || 'No seller'}
-              </ListGroupItem>
-              <ListGroupItem>
-                <Card.Subtitle className='mb-2 text-muted'>
-                  Price:
-                </Card.Subtitle>
-                {token.price ? `${token.price} ADA` : 'Token is not selling'}
-              </ListGroupItem>
-            </ListGroup>
-          </Card.Body>
-
-          {!token.price && (
-            <Card.Body>
-              <Button variant='secondary' onClick={() => setShowModal('sell')}>
-                Sell token
-              </Button>
-            </Card.Body>
-          )}
-
-          {!!token.price && (
-            <Card.Body>
-              <Button variant='secondary' onClick={() => setShowModal('buy')}>
-                Buy token
-              </Button>
-            </Card.Body>
-          )}
-        </Card>
-      </div>
-
-      <SellModal
-        show={showModal === 'sell'}
-        setShowModal={setShowModal}
-        token={token}
-        fetchSellToken={fetchSellToken}
+  <div className='TokenPage'>
+    <h3 className='heading'>Token view page</h3>
+    <div className='card-container'>
+      <Card.Img
+        src={token.image ? `https://ipfs.io/ipfs/${token.image}` : Coin}
       />
+      <Card>
+        <Card.Body>
+          <Card.Title>{token.name}</Card.Title>
+          <Card.Text>{token.description}</Card.Text>
+        </Card.Body>
 
-      <ConfirmModal
-        show={showModal === 'buy'}
-        setShowModal={setShowModal}
-        token={token}
-        fetchBuyToken={fetchBuyToken}
-        header='Buy token'
-        text={`Do you want to buy ${token.name} token for ${token.price} ADA?`}
-      />
+        <Card.Body>
+          <ListGroup className='list-group-flush'>
+            <ListGroupItem>
+              <Card.Subtitle className='mb-2 text-muted'>Author:</Card.Subtitle>
+              {token.author || 'No author'}
+            </ListGroupItem>
+            <ListGroupItem>
+              <Card.Subtitle className='mb-2 text-muted'>
+                Seller id:
+              </Card.Subtitle>
+              {token.seller || 'No seller'}
+            </ListGroupItem>
+            <ListGroupItem>
+              <Card.Subtitle className='mb-2 text-muted'>Price:</Card.Subtitle>
+              {token.price ? `${token.price} ADA` : 'Token is not selling'}
+            </ListGroupItem>
+          </ListGroup>
+        </Card.Body>
 
-      {tokenActionFetching && (
-        <Loader
-          disableBackground={true}
-          text={'Please, be patient. Token is selling...'}
-        />
-      )}
+        {!token.price && (
+          <Card.Body>
+            <Button variant='secondary' onClick={() => setShowModal('sell')}>
+              Sell token
+            </Button>
+          </Card.Body>
+        )}
+
+        {!!token.price && (
+          <Card.Body>
+            <Button variant='secondary' onClick={() => setShowModal('buy')}>
+              Buy token
+            </Button>
+          </Card.Body>
+        )}
+      </Card>
     </div>
-  )
+
+    <SellModal
+      show={showModal === 'sell'}
+      setShowModal={setShowModal}
+      token={token}
+      fetchSellToken={fetchSellToken}
+    />
+
+    <ConfirmModal
+      show={showModal === 'buy'}
+      setShowModal={setShowModal}
+      token={token}
+      fetchBuyToken={fetchBuyToken}
+      header='Buy token'
+      text={`Do you want to buy ${token.name} token for ${token.price} ADA?`}
+    />
+
+    {tokenActionFetching && (
+      <Loader
+        disableBackground={true}
+        text={'Please, be patient. Token is selling...'}
+      />
+    )}
+  </div>
 );
 
 const enhancer = compose(
