@@ -142,3 +142,20 @@ curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
+7. Get user key
+
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '[]' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/userPubKeyHash
+```
+
+Get response
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+```

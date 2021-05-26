@@ -288,7 +288,7 @@ data NFTMetadataDto = NFTMetadataDto
     , nftDtoMetaAuthor:: String
     , nftDtoMetaFile:: String
     , nftDtoTokenSymbol :: String
-    , nftDtoSeller :: Maybe ByteString
+    , nftDtoSeller :: String
     , nftDtoSellPrice:: Integer
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
@@ -298,8 +298,8 @@ nftMetadataToDto nftMeta = NFTMetadataDto
     , nftDtoMetaDescription = B.unpack $ nftMetaDescription nftMeta
     , nftDtoMetaAuthor = B.unpack $ nftMetaAuthor nftMeta
     , nftDtoMetaFile = B.unpack $ nftMetaFile nftMeta
-    , nftDtoTokenSymbol = B.unpack $ B64.encode $ unCurrencySymbol $ nftTokenSymbol nftMeta
-    , nftDtoSeller = getPubKeyHash <$> nftSeller nftMeta
+    , nftDtoTokenSymbol = B.unpack . B64.encode . unCurrencySymbol $ nftTokenSymbol nftMeta
+    , nftDtoSeller = fromMaybe ("" ::String) $ B.unpack . B64.encode . getPubKeyHash <$> nftSeller nftMeta
     , nftDtoSellPrice = nftSellPrice nftMeta
     }
 -- | Creates a Marketplace "factory". This factory will keep track of the existing nft tokens
@@ -511,12 +511,11 @@ queryNftMetadatas market = do
 
 --
 -- | Gets the caller's funds.
-funds :: HasBlockchainActions s => Contract w s Text Value
-funds = do
-    logInfo @String $ printf "start getting funds"
+userPubKeyHash :: HasBlockchainActions s => Contract w s Text [Char]
+userPubKeyHash = do
+    logInfo @String $ printf "start getting userPubKeyHash"
     pkh <- pubKeyHash <$> ownPubKey
-    os  <- map snd . Map.toList <$> utxoAt (pubKeyHashAddress pkh)
-    return $ mconcat [txOutValue $ txOutTxOut o | o <- os]
+    return $ B.unpack . B64.encode . getPubKeyHash $ pkh
  
 -- | Gets the caller's NFTs.
 userNftTokens :: HasBlockchainActions s => NFTMarket -> Contract w s Text [NFTMetadataDto]
@@ -527,10 +526,7 @@ userNftTokens market = do
     ownerUtxos <- utxoAt ownAddress
     let os = map snd $ Map.toList ownerUtxos
     let values = mconcat [txOutValue $ txOutTxOut o | o <- os]
-    logInfo @String $ printf "load owner values"
     nftMetas <- queryNftMetadatas market
-    logInfo @String $ printf "load market factory"
-    logInfo @String $ printf "pkh" ++ show pkh
     let ownUserTokens = [ meta | meta <- nftMetas, valueOf values (nftTokenSymbol meta) (nftTokenName meta) == 1 ]
         sellingUserTokens = flip filter nftMetas (\ nftMetadata -> case nftSeller nftMetadata of 
             Just seller -> seller == pkh
@@ -563,7 +559,7 @@ type MarketUserSchema =
         .\/ Endpoint "create" CreateParams
         .\/ Endpoint "sell" SellParams
         .\/ Endpoint "buy" BuyParams
-        .\/ Endpoint "funds"  ()
+        .\/ Endpoint "userPubKeyHash"  ()
         .\/ Endpoint "userNftTokens"  ()
         .\/ Endpoint "sellingTokens"  ()
         .\/ Endpoint "stop"   ()
@@ -571,11 +567,11 @@ type MarketUserSchema =
 
 data MarketContractState =
       Created NFTMetadataDto
-    | Funds Value
     | Tokens [NFTMetadataDto]
     | SellingTokens [NFTMetadataDto]
     | Selling NFTMetadataDto
     | Buyed NFTMetadataDto
+    | UserPubKeyHash String
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
 -- | Provides the following endpoints for users of a NFT marketplace instance:
@@ -590,7 +586,7 @@ userEndpoints market =
       f (Proxy @"buy") Buyed buy                                                           `select`
       f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')               `select`
       f (Proxy @"sellingTokens") SellingTokens (\market'' () -> sellingTokens market'')        `select`
-      f (Proxy @"funds")  Funds           (\market' () -> funds))    >> userEndpoints market)
+      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints market)
   where
     f :: forall l a p.
          HasEndpoint l p MarketUserSchema
