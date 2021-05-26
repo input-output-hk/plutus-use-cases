@@ -137,11 +137,12 @@ instance Scripts.ScriptType Market where
     type instance DatumType Market = NFTMarketDatum
 
 {-# INLINABLE validateCreate #-}
-validateCreate :: NFTMarket
-               -> [NFTMetadata]
-               -> NFTMetadata
-               -> ScriptContext
-               -> Bool
+validateCreate :: 
+    NFTMarket
+    -> [NFTMetadata]
+    -> NFTMetadata
+    -> ScriptContext
+    -> Bool
 validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
     traceIfFalse "Marketplace not present" (assetClassValueOf (valueWithin $ findOwnInput' ctx) marketId == 1) &&
     all (/= nftMeta) nftMetas &&                                                                                 
@@ -154,10 +155,11 @@ validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
         _   -> traceError "expected exactly one market output"
 
 {-# INLINABLE validateSell #-}
-validateSell :: NFTMarket
-               -> NFTMetadata
-               -> ScriptContext
-               -> Bool
+validateSell :: 
+    NFTMarket
+    -> NFTMetadata
+    -> ScriptContext
+    -> Bool
 validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} ctx =
     traceIfFalse "owner should sign" ownerSigned &&
     traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1) &&
@@ -194,11 +196,12 @@ validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenN
         Just pkh -> txSignedBy info pkh
 
 {-# INLINABLE validateBuy #-}
-validateBuy :: NFTMarket
-               -> NFTMetadata
-               -> PubKeyHash
-               -> ScriptContext
-               -> Bool
+validateBuy :: 
+    NFTMarket
+    -> NFTMetadata
+    -> PubKeyHash
+    -> ScriptContext
+    -> Bool
 validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} buyer ctx =
     traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)  &&
     traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum) &&
@@ -232,17 +235,18 @@ validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenNa
     getsValue h v =
         let
         [o] = [ o'
-                | o' <- txInfoOutputs info
-                , txOutValue o' == v
-                ]
+              | o' <- txInfoOutputs info
+              , txOutValue o' == v
+              ]
         in
         fromMaybe False ((==) <$> h <*> Validation.pubKeyOutput o)
 
-mkNFTMarketValidator :: NFTMarket
-      -> NFTMarketDatum
-      -> NFTMarketAction
-      -> ScriptContext
-      -> Bool
+mkNFTMarketValidator :: 
+    NFTMarket
+    -> NFTMarketDatum
+    -> NFTMarketAction
+    -> ScriptContext
+    -> Bool
 mkNFTMarketValidator market (Factory nftMetas) (Create nftMeta) ctx = validateCreate market nftMetas nftMeta ctx
 mkNFTMarketValidator market (NFTMeta nftMeta)  Sell             ctx = validateSell market nftMeta ctx
 mkNFTMarketValidator market (NFTMeta nftMeta)  (Buy buyer)      ctx = validateBuy market nftMeta buyer ctx
@@ -299,7 +303,7 @@ nftMetadataToDto nftMeta = NFTMetadataDto
     , nftDtoMetaAuthor = B.unpack $ nftMetaAuthor nftMeta
     , nftDtoMetaFile = B.unpack $ nftMetaFile nftMeta
     , nftDtoTokenSymbol = B.unpack . B64.encode . unCurrencySymbol $ nftTokenSymbol nftMeta
-    , nftDtoSeller = fromMaybe ("" ::String) $ B.unpack . B64.encode . getPubKeyHash <$> nftSeller nftMeta
+    , nftDtoSeller = fromMaybe ("" :: String) $ B.unpack . B64.encode . getPubKeyHash <$> nftSeller nftMeta
     , nftDtoSellPrice = nftSellPrice nftMeta
     }
 -- | Creates a Marketplace "factory". This factory will keep track of the existing nft tokens
@@ -320,7 +324,11 @@ start = do
     return market
 
 -- | Creates an NFT token
-create :: HasBlockchainActions s => NFTMarket -> CreateParams -> Contract w s Text NFTMetadataDto
+create :: 
+    HasBlockchainActions s 
+    => NFTMarket 
+    -> CreateParams 
+    -> Contract w s Text NFTMetadataDto
 create market CreateParams{..} = do
     (oref, o, nftMetas) <- findNFTMarketFactory market
     let tokenName = TokenName $ B.pack cpTokenName
@@ -360,8 +368,7 @@ create market CreateParams{..} = do
                    Constraints.unspentOutputs (Map.singleton oref o)
 
         tx       = Constraints.mustPayToTheScript marketFactoryData marketVal                                   <>
-                   Constraints.mustPayToTheScript nftMetadataData nftMetadataVal                                <>
-                   -- Constraints.mustPayToTheScript () nftValue                                                <>
+                   Constraints.mustPayToTheScript nftMetadataData nftMetadataVal                                <>                                              <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create nftMetadata)     <>
                    Constraints.mustPayToPubKey ownPK nftValue
 
@@ -372,7 +379,11 @@ create market CreateParams{..} = do
     return nftMetaDto
 
 -- | Set token for selling
-sell :: HasBlockchainActions s => NFTMarket -> SellParams -> Contract w s Text NFTMetadataDto
+sell :: 
+    HasBlockchainActions s 
+    => NFTMarket 
+    -> SellParams 
+    -> Contract w s Text NFTMetadataDto
 sell market SellParams{..} = do
     pkh                     <- pubKeyHash <$> ownPubKey
     let tokenSymbol = CurrencySymbol $ B64.decodeLenient $ B.pack spTokenSymbol
@@ -398,7 +409,11 @@ sell market SellParams{..} = do
     return nftMetaDto
 
 -- | Byt token
-buy :: HasBlockchainActions s => NFTMarket -> BuyParams -> Contract w s Text NFTMetadataDto
+buy :: 
+    HasBlockchainActions s 
+    => NFTMarket 
+    -> BuyParams 
+    -> Contract w s Text NFTMetadataDto
 buy market BuyParams{..} = do
     pkh                     <- pubKeyHash <$> ownPubKey
     let tokenSymbol = CurrencySymbol $ B64.decodeLenient $ B.pack bpTokenSymbol
@@ -441,7 +456,12 @@ getNFTMarketDatum o = case txOutDatumHash $ txOutTxOut o of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
-findNFTMartketInstance :: HasBlockchainActions s => NFTMarket -> AssetClass -> (NFTMarketDatum -> Maybe a) -> Contract w s Text (TxOutRef, TxOutTx, a)
+findNFTMartketInstance :: 
+    HasBlockchainActions s 
+    => NFTMarket 
+    -> AssetClass 
+    -> (NFTMarketDatum -> Maybe a) 
+    -> Contract w s Text (TxOutRef, TxOutTx, a)
 findNFTMartketInstance market asset f = do
     let addr = marketAddress market
     logInfo @String $ printf "looking for NFTMarket instance at address %s containing asset %s " (show addr) (show asset)
@@ -457,23 +477,30 @@ findNFTMartketInstance market asset f = do
                 logInfo @String $ printf "found NFTMarket instance with datum: %s" (show d)
                 return (oref, o, a)
 
-findNFTMarketFactory :: HasBlockchainActions s => NFTMarket -> Contract w s Text (TxOutRef, TxOutTx, [NFTMetadata])
+findNFTMarketFactory :: 
+    HasBlockchainActions s 
+    => NFTMarket 
+    -> Contract w s Text (TxOutRef, TxOutTx, [NFTMetadata])
 findNFTMarketFactory nftm@NFTMarket{..} = findNFTMartketInstance nftm marketId $ \case
     Factory nfts -> Just nfts
     NFTMeta _    -> Nothing
 
-findNftMetadata :: HasBlockchainActions s => NFTMarket -> NFTMetadata -> Contract w s Text (TxOutRef, TxOutTx, NFTMetadata)
+findNftMetadata :: 
+    HasBlockchainActions s 
+    => NFTMarket 
+    -> NFTMetadata 
+    -> Contract w s Text (TxOutRef, TxOutTx, NFTMetadata)
 findNftMetadata market nftMeta = findNFTMartketInstance market (assetClass (nftMetaTokenSymbol nftMeta) (nftMetaTokenName nftMeta)) $ \case
         NFTMeta nftMeta'
             | nftMeta == nftMeta' -> Just nftMeta'
         _               -> Nothing
         
-findMarketFactoryAndNftMeta :: HasBlockchainActions s
+findMarketFactoryAndNftMeta :: 
+    HasBlockchainActions s
     => NFTMarket
     -> CurrencySymbol
-    -> Contract w s Text ( (TxOutRef, TxOutTx, [NFTMetadata])
-                         , (TxOutRef, TxOutTx, NFTMetadata)
-                         )
+    -> Contract w s Text ((TxOutRef, TxOutTx, [NFTMetadata])
+                          ,(TxOutRef, TxOutTx, NFTMetadata))
 findMarketFactoryAndNftMeta market tokenSymbol = do
     (oref1, o1, nftMetas) <- findNFTMarketFactory market
     case [ nftMeta'
@@ -488,7 +515,10 @@ findMarketFactoryAndNftMeta market tokenSymbol = do
         _    -> throwError "nft token not found"
 
 -- | Finds all nft metadatas belonging to the market
-queryNftMetadatas :: forall w s. HasBlockchainActions s => NFTMarket -> Contract w s Text [NFTMetadata]
+queryNftMetadatas :: 
+    forall w s. HasBlockchainActions s 
+    => NFTMarket 
+    -> Contract w s Text [NFTMetadata]
 queryNftMetadatas market = do
     (_, _, nftMarketMetas) <- findNFTMarketFactory market
     utxos <- utxoAt (marketAddress market)
@@ -518,7 +548,10 @@ userPubKeyHash = do
     return $ B.unpack . B64.encode . getPubKeyHash $ pkh
  
 -- | Gets the caller's NFTs.
-userNftTokens :: HasBlockchainActions s => NFTMarket -> Contract w s Text [NFTMetadataDto]
+userNftTokens :: 
+    HasBlockchainActions s 
+    => NFTMarket 
+    -> Contract w s Text [NFTMetadataDto]
 userNftTokens market = do
     logInfo @String $ printf "start userNftTokens"
     pkh <- pubKeyHash <$> ownPubKey
@@ -535,7 +568,10 @@ userNftTokens market = do
     return result
 
 -- | Gets the caller's NFTs.
-sellingTokens :: HasBlockchainActions s => NFTMarket -> Contract w s Text [NFTMetadataDto]
+sellingTokens :: 
+    HasBlockchainActions s
+    => NFTMarket 
+    -> Contract w s Text [NFTMetadataDto]
 sellingTokens market = do
     logInfo @String $ printf "start sellingTokens"
     nftMetas <- queryNftMetadatas market
@@ -577,7 +613,9 @@ data MarketContractState =
 -- | Provides the following endpoints for users of a NFT marketplace instance:
 --
 -- [@create@]: Creates an nft token.
-userEndpoints :: NFTMarket -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
+userEndpoints :: 
+    NFTMarket 
+    -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
 userEndpoints market =
     stop
         `select`
