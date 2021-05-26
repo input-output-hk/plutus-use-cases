@@ -8,9 +8,37 @@
     color: #b36262;
   }
 
+  .user {
+    display: flex;
+    margin-left: 3em;
+  }
+
+  .dropdown-toggle {
+    padding-left: 0.3em;
+    color: #424242
+  }
+
+  .dropdown-menu {
+    width: 15em;
+    right: 0;
+    left: auto;
+  }
+
+  .card-body {
+    padding-top: 0.5em;
+    padding-bottom: 0.5em;
+
+    &.button {
+      text-align: center;
+    }
+  }
+
+  .card-subtitle {
+    font-weight: 300;
+  }
+
   .btn {
-      margin-left: 3em;
-      background-color: #c77373;
-      border-color: #9e5959;
+    background-color: #c77373;
+    border-color: #9e5959;
   }
 }

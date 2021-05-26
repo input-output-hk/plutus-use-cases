@@ -1,21 +1,42 @@
+import { connect } from 'react-redux';
+import { compose, lifecycle } from 'recompose';
+
+import { fetchStorefront } from '../actions/storefront';
+import { getStorefront, getStorefrontFetching } from '../reducers';
+
+import Loader from './Loader';
 import TokensList from './TokensList';
 
 import '../styles/HomePage.scss';
 
-const data = [
-  { name: 'Cool token', price: '100' },
-  { name: 'Golden kitten', price: '1000' },
-  { name: 'Hero', price: '0.4' },
-  { name: 'Mad head', price: '4' },
-  { name: 'Naughty dog', price: '75' },
-  { name: 'Gabriel', price: '999' },
-];
-
-const HomePage = () => (
+const HomePage = ({ storefront, storefrontFetching }) => (
   <div className='HomePage'>
     <h3 className='heading'>Storefront</h3>
-    <TokensList tokens={data} />
+    {!storefrontFetching && <TokensList tokens={storefront} />}
+
+    {storefrontFetching && <Loader />}
+    {storefront.length === 0 && !storefrontFetching && (
+      <h5 className='no-text-message'>There is no selling tokens yet</h5>
+    )}
   </div>
 );
 
-export default HomePage;
+const enhancer = compose(
+  connect(
+    (state) => ({
+      storefront: getStorefront(state),
+      storefrontFetching: getStorefrontFetching(state),
+    }),
+    (dispatch, props) => ({
+      fetchStorefront: () =>
+        dispatch(fetchStorefront(props.currentUser)),
+    })
+  ),
+  lifecycle({
+    componentDidMount() {
+      this.props.fetchStorefront();
+    },
+  })
+);
+
+export default enhancer(HomePage);

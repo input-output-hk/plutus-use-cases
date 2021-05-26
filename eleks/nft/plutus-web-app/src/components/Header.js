@@ -1,13 +1,15 @@
 import { withRouter } from 'react-router-dom';
 
 import Nav from 'react-bootstrap/Nav';
+import Card from 'react-bootstrap/Card';
 import Button from 'react-bootstrap/Button';
 import Navbar from 'react-bootstrap/Navbar';
+import NavDropdown from 'react-bootstrap/NavDropdown';
 
 import '../styles/Header.scss';
 import { withAuth } from '../helpers/withAuth';
 
-const Header = ({ location, logout }) => (
+const Header = ({ location, logout, currentUser }) => (
   <Navbar className='Header'>
     <Navbar.Brand className='brand mr-auto'>NFT case</Navbar.Brand>
     <Nav activeKey={location.pathname}>
@@ -21,9 +23,25 @@ const Header = ({ location, logout }) => (
         <Nav.Link href='/my-collection'>My collection</Nav.Link>
       </Nav.Item>
     </Nav>
-    <Button variant='danger' onClick={logout}>
-      Logout
-    </Button>
+    {currentUser.id && (
+      <div className='user'>
+        <Navbar.Text>Signed in as:</Navbar.Text>
+        <NavDropdown title={currentUser.name} id='basic-nav-dropdown'>
+          <Card.Body>
+            <Card.Subtitle className='mb-2 text-muted'>
+              Wallet id:
+            </Card.Subtitle>
+            {currentUser.id}
+          </Card.Body>
+          <NavDropdown.Divider />
+          <Card.Body className='button'>
+            <Button variant='danger' onClick={logout}>
+              Logout
+            </Button>
+          </Card.Body>
+        </NavDropdown>
+      </div>
+    )}
   </Navbar>
 );
 

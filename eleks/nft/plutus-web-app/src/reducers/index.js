@@ -3,6 +3,7 @@ import { connectRouter } from 'connected-react-router';
 
 import currentUser, * as fromCurrentUser from './currentUser';
 import myTokens, * as fromMyTokens from './myTokens';
+import storefront, * as fromStorefront from './storefront';
 import tokenActions, * as fromTokenActions from './tokenActions';
 
 export const getCurrentUser = (state) =>
@@ -14,6 +15,13 @@ export const getMyTokensFetching = (state) =>
 export const getMyTokensError = (state) =>
   fromMyTokens.getMyTokensError(state.myTokens);
 
+export const getStorefront = (state) =>
+  fromStorefront.getStorefront(state.storefront);
+export const getStorefrontFetching = (state) =>
+  fromStorefront.getStorefrontFetching(state.storefront);
+export const getStorefrontError = (state) =>
+  fromStorefront.getStorefrontError(state.storefront);
+
 export const getTokenActionsFetching = (state) =>
   fromTokenActions.getTokenActionsFetching(state.tokenActions);
 export const getTokenActionsError = (state) =>
@@ -24,5 +32,6 @@ export default (history) =>
     router: connectRouter(history),
     currentUser,
     myTokens,
+    storefront,
     tokenActions,
   });

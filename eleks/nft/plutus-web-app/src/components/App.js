@@ -31,7 +31,7 @@ const PrivateRoute = ({ component: Component, currentUser, ...rest }) => (
 
 const App = ({ currentUser }) => (
   <div className='App'>
-    <Header />
+    <Header currentUser={currentUser} />
     <main className='container'>
       <Switch>
         <Route path='/login'>
