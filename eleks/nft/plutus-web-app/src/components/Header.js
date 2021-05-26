@@ -23,7 +23,7 @@ const Header = ({ location, logout, currentUser }) => (
         <Nav.Link href='/my-collection'>My collection</Nav.Link>
       </Nav.Item>
     </Nav>
-    {currentUser.id && (
+    {currentUser && currentUser.id && (
       <div className='user'>
         <Navbar.Text>Signed in as:</Navbar.Text>
         <NavDropdown title={currentUser.name} id='basic-nav-dropdown'>
