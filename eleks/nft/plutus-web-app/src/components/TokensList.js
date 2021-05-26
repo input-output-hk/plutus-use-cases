@@ -27,7 +27,7 @@ const TokensList = ({ tokens, onTokenClick }) => (
                 <Card.Subtitle className='mb-2 text-muted'>Name:</Card.Subtitle>
                 <Card.Title>{token.name}</Card.Title>
               </div>
-              {token.price && (
+              {!!token.price && (
                 <div className='price'>
                   <Card.Subtitle className='mb-2 text-muted'>
                     Price:
