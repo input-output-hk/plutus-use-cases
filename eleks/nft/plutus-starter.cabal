@@ -29,6 +29,7 @@ library
       base >= 4.9 && < 5,
       aeson,
       bytestring,
+      base64-bytestring,
       text -any,
       lens -any,
       containers -any,

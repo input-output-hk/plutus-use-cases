@@ -14,15 +14,15 @@ module Main(main) where
 
 import           Control.Monad                       (void, forM)
 import           Control.Monad.Freer                 (Eff, Member, interpret, type (~>))
-import qualified Control.Concurrent.STM                         as STM
+import qualified Control.Concurrent.STM              as STM
 import           Control.Monad.Freer.Error           (Error)
-import           Control.Monad.Freer.Extras.Log          (LogMsg)
+import           Control.Monad.Freer.Extras.Log      (LogMsg)
 import           Control.Monad.IO.Class              (MonadIO (..))
-import qualified Data.Monoid                             as Monoid
-import qualified Data.Map.Strict                         as Map
-import           Data.Text                        (Text, pack)
-import qualified Data.Text               as T
-import qualified Data.ByteString.Char8        as C
+import qualified Data.Monoid                         as Monoid
+import qualified Data.Map.Strict                     as Map
+import           Data.Text                           (Text, pack)
+import qualified Data.Text                           as T
+import qualified Data.ByteString.Char8               as C
 import           Data.Aeson                          (FromJSON (..), Result (..), ToJSON (..), genericToJSON, genericParseJSON
                                                      , defaultOptions, Options(..), decode, encode, parseJSON, fromJSON)
 import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
@@ -38,7 +38,7 @@ import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Contracts.NFT                       as NFTMarket
 import           Wallet.Emulator.Types               (Wallet (..))
 import qualified Data.ByteString.Char8               as B
-import qualified Ledger.Value            as Value
+import qualified Ledger.Value                        as Value
 import           Ledger.Value                        (TokenName (..), Value)
 import           Wallet.API                               (ownPubKey)
 import           Ledger                                   (CurrencySymbol(..), pubKeyAddress)
@@ -46,7 +46,7 @@ import qualified Ledger.Typed.Scripts         as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg         (PABMultiAgentMsg)
 
 extract :: Maybe a -> a
-extract (Just x) = x          -- Sure, this works, but...
+extract (Just x) = x
 extract Nothing  = undefined 
 
 main :: IO ()
@@ -103,7 +103,15 @@ main = void $ Simulator.runSimulationWith handlers $ do
     -- nftSellingMetaDto <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
     --     Success (Monoid.Last (Just (Right (NFTMarket.Selling metadDto)))) -> Just metadDto
     --     _                                                      -> Nothing
+    -- Simulator.logString @(Builtin NFTMarketContracts) $ "Selling metadata" ++ show nftSellingMetaDto
+    -- Simulator.waitNSlots 1
 
+    -- let nftTokenBuyParams = NFTMarket.BuyParams { bpTokenSymbol = nftDtoTokenSymbol token1Meta }
+    -- Simulator.logString @(Builtin NFTMarketContracts) $ "buy token: " ++ show (encode nftTokenSellParams)
+    -- void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 1) "buy" nftTokenBuyParams
+    -- nftButingMetaDto <- flip Simulator.waitForState (cids Map.! Wallet 1) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
+    --     Success (Monoid.Last (Just (Right (NFTMarket.Buyed metadDto)))) -> Just metadDto
+    --     _                                                      -> Nothing
     -- _ <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "userNftTokens" ()
     -- metas1 <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
     --         Success (Monoid.Last (Just (Right (NFTMarket.Tokens metas)))) -> Just metas
