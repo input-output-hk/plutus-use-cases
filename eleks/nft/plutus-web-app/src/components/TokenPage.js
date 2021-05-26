@@ -22,6 +22,7 @@ const TokenPage = ({
   fetchBuyToken,
   fetchSellToken,
   tokenActionFetching,
+  currentUser,
 }) => (
   <div className='TokenPage'>
     <h3 className='heading'>Token view page</h3>
@@ -62,10 +63,18 @@ const TokenPage = ({
           </Card.Body>
         )}
 
-        {!!token.price && (
+        {!!token.price && currentUser.publicKey !== token.seller && (
           <Card.Body>
             <Button variant='secondary' onClick={() => setShowModal('buy')}>
               Buy token
+            </Button>
+          </Card.Body>
+        )}
+
+        {!!token.price && currentUser.publicKey === token.seller && (
+          <Card.Body>
+            <Button variant='secondary' disabled>
+              Cancel sell
             </Button>
           </Card.Body>
         )}
