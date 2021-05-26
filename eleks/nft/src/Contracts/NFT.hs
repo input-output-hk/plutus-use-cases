@@ -160,8 +160,8 @@ validateSell :: NFTMarket
                -> Bool
 validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} ctx =
     traceIfFalse "owner should sign" ownerSigned &&
-    traceIfFalse "nft metadata token missing from input"          (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)  &&                          &&
-    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)     &&
+    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1) &&
+    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum) &&
     traceIfFalse "price should be grater 0" (nftSellPrice outDatum > 0)                                      
   where
     info :: TxInfo
