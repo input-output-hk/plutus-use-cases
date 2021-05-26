@@ -59,7 +59,7 @@ wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 4]]
 
 testCurrencyNames :: [TokenName]
-testCurrencyNames = ["MOGUS"]
+testCurrencyNames = ["MOGUS", "USD"]
 
 toAsset :: TokenName -> AssetClass
 toAsset tokenName =
@@ -125,6 +125,22 @@ main = void $ Simulator.runSimulationWith handlers $ do
         Success (Monoid.Last (Just (Right Aave.Withdrawn))) -> Just ()
         _                                                   -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful withdraw"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "borrow" $
+            Aave.BorrowParams { Aave.bpAsset = testAssets !! 1, Aave.bpAmount = 35, Aave.bpOnBehalfOf = sender }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Borrowed))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful borrow"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "repay" $
+            Aave.RepayParams { Aave.rpAsset = testAssets !! 1, Aave.rpAmount = 25, Aave.rpOnBehalfOf = sender }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Repaid))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful repay"
 
     _ <- Simulator.callEndpointOnInstance userCid "fundsAt" sender
     v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of

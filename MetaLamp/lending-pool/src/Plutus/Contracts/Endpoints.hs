@@ -265,6 +265,8 @@ type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "deposit" DepositParams
         .\/ Endpoint "withdraw" WithdrawParams
+        .\/ Endpoint "borrow" BorrowParams
+        .\/ Endpoint "repay" RepayParams
         .\/ Endpoint "fundsAt" PubKeyHash
         .\/ Endpoint "poolFunds" ()
         .\/ Endpoint "reserves" ()
@@ -275,6 +277,8 @@ data UserContractState = Created
     | Stopped
     | Deposited
     | Withdrawn
+    | Borrowed
+    | Repaid
     | FundsAt Value
     | PoolFunds Value
     | Reserves (AssocMap.Map ReserveId Reserve)
@@ -285,6 +289,8 @@ userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUse
 userEndpoints aa = forever $
     f (Proxy @"deposit") (const Deposited) deposit
     `select` f (Proxy @"withdraw") (const Withdrawn) withdraw
+    `select` f (Proxy @"borrow") (const Borrowed) borrow
+    `select` f (Proxy @"repay") (const Repaid) repay
     `select` f (Proxy @"fundsAt") FundsAt (\_ pkh -> fundsAt pkh)
     `select` f (Proxy @"poolFunds") PoolFunds (\aave () -> poolFunds aave)
     `select` f (Proxy @"reserves") Reserves (\aave () -> reserves aave)

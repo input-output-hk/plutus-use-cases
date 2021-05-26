@@ -89,6 +89,7 @@ data AaveRedeemer =
   | UpdateUserConfigsRedeemer
   | WithdrawRedeemer
   | BorrowRedeemer
+  | RepayRedeemer
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
@@ -126,6 +127,8 @@ makeAaveValidator _ _ UpdateReservesRedeemer _        = True
 makeAaveValidator _ _ (CreateUserConfigsRedeemer _) _ = True
 makeAaveValidator _ _ UpdateUserConfigsRedeemer _     = True
 makeAaveValidator _ _ WithdrawRedeemer _              = True
+makeAaveValidator _ _ BorrowRedeemer _              = True
+makeAaveValidator _ _ RepayRedeemer _              = True
 makeAaveValidator _  _  _  _                          = False
 
 aaveProtocolName :: TokenName
