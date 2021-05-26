@@ -368,7 +368,7 @@ create market CreateParams{..} = do
                    Constraints.unspentOutputs (Map.singleton oref o)
 
         tx       = Constraints.mustPayToTheScript marketFactoryData marketVal                                   <>
-                   Constraints.mustPayToTheScript nftMetadataData nftMetadataVal                                <>                                              <>
+                   Constraints.mustPayToTheScript nftMetadataData nftMetadataVal                                <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create nftMetadata)     <>
                    Constraints.mustPayToPubKey ownPK nftValue
 
