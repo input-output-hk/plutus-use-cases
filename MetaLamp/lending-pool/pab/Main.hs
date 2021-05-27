@@ -141,7 +141,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
             Aave.BorrowParams { Aave.bpAsset = testAssets !! 1, Aave.bpAmount = 35, Aave.bpOnBehalfOf = sender }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (Right Aave.Borrowed))) -> Just ()
-        _                                                   -> Nothing
+        _                                                  -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful borrow"
 
     _  <-
@@ -149,7 +149,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
             Aave.RepayParams { Aave.rpAsset = testAssets !! 1, Aave.rpAmount = 25, Aave.rpOnBehalfOf = sender }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (Right Aave.Repaid))) -> Just ()
-        _                                                   -> Nothing
+        _                                                -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful repay"
 
     _ <- Simulator.callEndpointOnInstance userCid "fundsAt" sender
