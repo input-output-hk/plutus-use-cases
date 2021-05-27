@@ -22,6 +22,7 @@ import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
 import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
 import GHC.Generics
+import Playground.Contract (TxOutRef)
 
 import Mlabs.Emulator.Types (UserId(..))
 
@@ -37,13 +38,24 @@ data Nft = Nft
   deriving (Show, Generic)
 
 -- | Unique identifier of NFT.
-newtype NftId = NftId TokenName
-  deriving newtype (Show, Eq, PlutusTx.IsData)
+data NftId = NftId
+  { nftId'token  :: TokenName     -- ^ token name is identified by content of the NFT (it's hash of it)
+  , nftId'outRef :: TxOutRef      -- ^ TxOutRef that is used for minting of NFT,
+                                  -- with it we can guarantee unqiqueness of NFT
+  }
+  deriving stock (Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
+instance Eq NftId where
+  {-# INLINABLE (==) #-}
+  (==) (NftId tok1 oref1) (NftId tok2 oref2) =
+    tok1 == tok2 && oref1 == oref2
 
 {-# INLINABLE initNft #-}
-initNft :: UserId -> ByteString -> Rational -> Maybe Integer -> Nft
-initNft author content share mPrice = Nft
-  { nft'id     = toNftId content
+-- | Initialise NFT
+initNft :: TxOutRef -> UserId -> ByteString -> Rational -> Maybe Integer -> Nft
+initNft nftInRef author content share mPrice = Nft
+  { nft'id     = toNftId nftInRef content
   , nft'data   = content
   , nft'share  = share
   , nft'author = author
@@ -53,9 +65,10 @@ initNft author content share mPrice = Nft
 
 {-# INLINABLE toNftId #-}
 -- | Calculate NFT identifier from it's content (data).
-toNftId :: ByteString -> NftId
-toNftId = NftId . tokenName . sha2_256
+toNftId :: TxOutRef -> ByteString -> NftId
+toNftId oref content = NftId (tokenName $ sha2_256 content) oref
 
+-- | Actions with NFTs with UserId.
 data Act = UserAct UserId UserAct
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
@@ -80,4 +93,5 @@ data UserAct
 PlutusTx.unstableMakeIsData ''Nft
 PlutusTx.unstableMakeIsData ''UserAct
 PlutusTx.unstableMakeIsData ''Act
+PlutusTx.unstableMakeIsData ''NftId
 PlutusTx.makeLift ''NftId

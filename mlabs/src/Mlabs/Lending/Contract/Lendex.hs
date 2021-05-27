@@ -36,11 +36,9 @@ import           Plutus.Contract
 import qualified Plutus.Contract.StateMachine as SM
 import           Ledger                       hiding (singleton)
 import qualified Ledger.Typed.Scripts         as Scripts
-import           Ledger.Value                 (assetClassValue)
 import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-import qualified PlutusTx.Prelude             as PlutusTx
 
 
 import Mlabs.Emulator.Blockchain

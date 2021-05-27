@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
---  |Transition function for NFTs
+-- | Transition function for NFTs
 module Mlabs.Nft.Logic.React where
 
 import Control.Monad.State.Strict (modify', gets)
@@ -21,6 +21,7 @@ import Mlabs.Nft.Logic.Types
 import qualified Mlabs.Data.Maybe as Maybe
 
 {-# INLINABLE react #-}
+-- | State transitions for NFT contract logic.
 react :: Act -> St [Resp]
 react inp = do
   checkInputs inp
@@ -59,6 +60,7 @@ react inp = do
       pure []
 
 {-# INLINABLE checkInputs #-}
+-- | Check inputs for valid values.
 checkInputs :: Act -> St ()
 checkInputs (UserAct _uid act) = case act of
   Buy price newPrice -> do

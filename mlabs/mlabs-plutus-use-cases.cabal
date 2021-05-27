@@ -25,6 +25,7 @@ library
                      , bytestring
                      , containers
                      , extra
+                     , freer-simple
                      , mtl
                      , playground-common
                      , plutus-core
@@ -71,6 +72,7 @@ library
         Mlabs.Nft.Logic.Types
         Mlabs.Nft.Contract.Nft
         Mlabs.Nft.Contract.Forge
+        Mlabs.Plutus.Contract.StateMachine
   default-extensions: BangPatterns
                       ExplicitForAll
                       FlexibleContexts
@@ -125,8 +127,11 @@ Test-suite mlabs-plutus-use-cases-tests
   Default-Language:    Haskell2010
   Build-Depends:       base              >=4.9 && <5
                      , data-default
+                     , freer-extras
+                     , freer-simple
                      , lens
                      , mlabs-plutus-use-cases
+                     , mtl
                      , containers
                      , playground-common
                      , plutus-core
