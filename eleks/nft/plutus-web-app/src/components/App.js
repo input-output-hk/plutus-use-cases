@@ -15,7 +15,7 @@ const PrivateRoute = ({ component: Component, currentUser, ...rest }) => (
   <Route
     {...rest}
     render={(props) =>
-      currentUser === null ? (
+      !currentUser ? (
         <Redirect
           to={{
             pathname: '/login',
@@ -35,7 +35,7 @@ const App = ({ currentUser }) => (
     <main className='container'>
       <Switch>
         <Route path='/login'>
-          <Login />
+          <Login currentUser={currentUser} />
         </Route>
         <PrivateRoute
           path='/my-collection'

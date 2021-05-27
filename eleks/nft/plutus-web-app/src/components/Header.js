@@ -11,7 +11,7 @@ import { withAuth } from '../helpers/withAuth';
 
 const Header = ({ location, logout, currentUser }) => (
   <Navbar className='Header'>
-    <Navbar.Brand className='brand mr-auto'>NFT case</Navbar.Brand>
+    <Navbar.Brand className='brand mr-auto'>NFT Marketplace</Navbar.Brand>
     <Nav activeKey={location.pathname}>
       <Nav.Item>
         <Nav.Link href='/'>Home</Nav.Link>
@@ -32,6 +32,13 @@ const Header = ({ location, logout, currentUser }) => (
               Wallet id:
             </Card.Subtitle>
             {currentUser.id}
+          </Card.Body>
+          <NavDropdown.Divider />
+          <Card.Body>
+            <Card.Subtitle className='mb-2 text-muted'>
+              Wallet public key:
+            </Card.Subtitle>
+            {currentUser.publicKey}
           </Card.Body>
           <NavDropdown.Divider />
           <Card.Body className='button'>

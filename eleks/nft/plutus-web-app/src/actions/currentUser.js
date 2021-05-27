@@ -1,10 +1,41 @@
-import { LOGIN_USER, LOGOUT_USER } from '../helpers/actionTypes';
+import * as fromApi from '../api/currentUser';
+import { formatKeyResponse } from '../helpers/utils';
+import {
+  LOGOUT,
+  FETCH_LOGIN_START,
+  FETCH_LOGIN_SUCCESS,
+  FETCH_LOGIN_FAILED,
+} from '../helpers/actionTypes';
 
-export const loginUser = (user) => ({
-  type: LOGIN_USER,
+export const logoutUser = () => ({
+  type: LOGOUT,
+});
+
+export const fetchUserPublicKeyStart = () => ({
+  type: FETCH_LOGIN_START,
+});
+
+export const fetchUserPublicKeySuccess = (user) => ({
+  type: FETCH_LOGIN_SUCCESS,
   user,
 });
 
-export const logoutUser = () => ({
-  type: LOGOUT_USER,
+export const fetchUserPublicKeyFailed = (error) => ({
+  type: FETCH_LOGIN_FAILED,
+  error,
 });
+
+export const fetchLoginUser = (wallet) => async (dispatch) => {
+  dispatch(fetchUserPublicKeyStart());
+  const response = await fromApi.fetchUserPublicKey(wallet);
+  if (response.error) {
+    dispatch(fetchUserPublicKeyFailed(response.error));
+  } else {
+    const user = {
+      ...wallet,
+      publicKey: formatKeyResponse(response),
+    };
+    dispatch(fetchUserPublicKeySuccess(user));
+    localStorage.setItem('currentUser', JSON.stringify(user));
+  }
+};

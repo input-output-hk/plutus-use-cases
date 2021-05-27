@@ -19,7 +19,7 @@
   }
 
   .dropdown-menu {
-    width: 15em;
+    width: 17em;
     right: 0;
     left: auto;
   }
@@ -27,6 +27,7 @@
   .card-body {
     padding-top: 0.5em;
     padding-bottom: 0.5em;
+    word-break: break-word;
 
     &.button {
       text-align: center;
