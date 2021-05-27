@@ -228,8 +228,6 @@ borrow aave BorrowParams {..} = do
 
     State.updateReserve aave bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
 
-    pure ()
-
 data RepayParams =
     RepayParams {
         rpAsset      :: AssetClass,
@@ -260,8 +258,6 @@ repay aave RepayParams {..} = do
                 State.updateUserConfig aave userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
 
     State.updateReserve aave rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
-
-    pure ()
 
 type AaveUserSchema =
     BlockchainActions
