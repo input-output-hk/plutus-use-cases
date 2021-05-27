@@ -16,6 +16,7 @@ import Control.Monad.State.Strict (runStateT)
 import Data.List.Extra (firstJust)
 
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Monoid (Last(..))
 import Data.Functor (void)
 
 import GHC.Generics
@@ -27,43 +28,53 @@ import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-import qualified PlutusTx.Prelude             as PlutusTx
-
+import qualified Control.Monad.Freer.Error    as F
 
 import Mlabs.Emulator.Blockchain
 import Mlabs.Emulator.Types
 import Mlabs.Nft.Logic.React
 import Mlabs.Nft.Logic.Types
 import qualified Mlabs.Nft.Contract.Forge as Forge
+import qualified Mlabs.Plutus.Contract.StateMachine as SM
 import Mlabs.Lending.Contract.Utils
 
-import Plutus.Trace.Emulator (EmulatorTrace, callEndpoint, activateContractWallet)
+import Plutus.Trace.Emulator (EmulatorTrace)
+import qualified Plutus.Trace.Emulator as Trace
 import qualified Wallet.Emulator as Emulator
 
 import qualified Data.Map as M
+import Plutus.V1.Ledger.Value
+
+--------------------------------------
 
 type NftMachine = SM.StateMachine Nft Act
 type NftMachineClient = SM.StateMachineClient Nft Act
 
 {-# INLINABLE machine #-}
+-- | State machine definition
 machine :: NftId -> NftMachine
 machine nftId = (SM.mkStateMachine Nothing (transition nftId) isFinal)
   where
     isFinal = const False
 
 {-# INLINABLE mkValidator #-}
+-- | State machine validator
 mkValidator :: NftId -> Scripts.ValidatorType NftMachine
 mkValidator nftId = SM.mkValidator (machine nftId)
 
+-- | State machine client
 client :: NftId -> NftMachineClient
 client nftId = SM.mkStateMachineClient $ SM.StateMachineInstance (machine nftId) (scriptInstance nftId)
 
+-- | NFT validator hash
 nftValidatorHash :: NftId -> ValidatorHash
 nftValidatorHash nftId = Scripts.scriptHash (scriptInstance nftId)
 
+-- | NFT script address
 nftAddress :: NftId -> Address
 nftAddress nftId = scriptHashAddress (nftValidatorHash nftId)
 
+-- | NFT script instance
 scriptInstance :: NftId -> Scripts.ScriptInstance NftMachine
 scriptInstance nftId = Scripts.validator @NftMachine
   ($$(PlutusTx.compile [|| mkValidator ||])
@@ -74,6 +85,7 @@ scriptInstance nftId = Scripts.validator @NftMachine
     wrap = Scripts.wrapValidator
 
 {-# INLINABLE transition #-}
+-- | State transitions for NFT
 transition ::
      NftId
   -> SM.State Nft
@@ -91,16 +103,39 @@ transition nftId SM.State{stateData=oldData, stateValue=oldValue} input
     idIsValid = nftId == nft'id oldData
 
 -----------------------------------------------------------------------
+-- NFT forge policy
+
+-- | NFT monetary policy
+nftPolicy :: NftId -> MonetaryPolicy
+nftPolicy nid = Forge.currencyPolicy (nftAddress nid)  nid
+
+-- | NFT currency symbol
+nftSymbol :: NftId -> CurrencySymbol
+nftSymbol nid = Forge.currencySymbol (nftAddress nid) nid
+
+-- | NFT coin (AssetClass)
+nftCoin :: NftId -> AssetClass
+nftCoin nid = AssetClass (nftSymbol nid, nftId'token nid)
+
+-- | Single value of NFT coin. We check that there is only one NFT-coin can be minted.
+nftValue :: NftId -> Value
+nftValue nid = assetClassValue (nftCoin nid) 1
+
+-----------------------------------------------------------------------
 -- endpoints and schemas
 
+-- | NFT errors
 type NftError = SM.SMContractError
 
+-- | User schema. Owner can set the price and the buyer can try to buy.
 type NftSchema =
   BlockchainActions
     .\/ Endpoint "user-action" UserAct
 
+-- | NFT contract for the user
 type NftContract a = Contract () NftSchema NftError a
 
+-- | Finds Datum for NFT state machine script.
 findInputStateDatum :: NftId -> NftContract Datum
 findInputStateDatum nid = do
   utxos <- utxoAt (nftAddress nid)
@@ -108,14 +143,16 @@ findInputStateDatum nid = do
   where
     err = throwError $ SM.SMCContractError "Can not find NFT app instance"
 
-getUserId :: HasBlockchainActions s => Contract () s NftError UserId
+-- | Get user id of the wallet owner.
+getUserId :: HasBlockchainActions s => Contract w s NftError UserId
 getUserId = fmap (UserId . pubKeyHash) ownPubKey
 
+-- | User action endpoint
 userAction :: NftId -> UserAct -> NftContract ()
 userAction nid act = do
   pkh <- fmap pubKeyHash ownPubKey
   inputDatum <- findInputStateDatum nid
-  let lookups = monetaryPolicy (Forge.currencyPolicy nid) P.<>
+  let lookups = monetaryPolicy (nftPolicy nid) P.<>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
   t <- SM.mkStep (client nid) (UserAct (UserId pkh) act)
@@ -133,29 +170,38 @@ userEndpoints nid = forever userAction'
   where
     userAction' = endpoint @"user-action" >>= (userAction nid)
 
+-- | Parameters to init NFT
 data StartParams = StartParams
-  { sp'content :: ByteString
-  , sp'share   :: Rational
-  , sp'price   :: Maybe Integer
+  { sp'content :: ByteString        -- ^ NFT content
+  , sp'share   :: Rational          -- ^ author share [0, 1] on reselling of the NFT
+  , sp'price   :: Maybe Integer     -- ^ current price of NFT, if it's nothing then nobody can buy it.
   }
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
-type AuthorContract a = Contract () AuthorScheme NftError a
+-- | Contract for the author of NFT
+type AuthorContract a = Contract (Last NftId) AuthorScheme NftError a
 
+-- | Schema for the author of NFT
 type AuthorScheme =
   BlockchainActions
     .\/ Endpoint "start-nft"  StartParams
 
+-- | Initialise NFt endpoint.
+-- We save NftId to the contract writer.
 startNft :: StartParams -> AuthorContract ()
 startNft StartParams{..} = do
-  authorId <- getUserId
-  void $ SM.runInitialise (client nid) (initNft authorId sp'content sp'share sp'price) PlutusTx.mempty
-  where
-    nid = toNftId sp'content
-
-startParamsToNftId :: StartParams -> NftId
-startParamsToNftId = toNftId . sp'content
+  orefs <- M.keys <$> (utxoAt =<< pubKeyAddress <$> ownPubKey)
+  case orefs of
+    []        -> logError @String "No UTXO found"
+    oref : _ -> do
+      let nftId   = toNftId oref sp'content
+          val     = nftValue nftId
+          lookups = monetaryPolicy $ nftPolicy nftId
+          tx      = mustForgeValue val
+      authorId <- getUserId
+      void $ SM.runInitialiseWith (client nftId) (initNft oref authorId sp'content sp'share sp'price) val lookups tx
+      tell $ Last $ Just nftId
 
 -- | Endpoints for admin user
 authorEndpoints :: AuthorContract ()
@@ -169,15 +215,17 @@ authorEndpoints = forever startNft'
 -- | Calls user act
 callUserAct :: NftId -> Emulator.Wallet -> UserAct -> EmulatorTrace ()
 callUserAct nid wal act = do
-  hdl <- activateContractWallet wal (userEndpoints nid)
-  void $ callEndpoint @"user-action" hdl act
+  hdl <- Trace.activateContractWallet wal (userEndpoints nid)
+  void $ Trace.callEndpoint @"user-action" hdl act
 
 -- | Calls initialisation of state for Lending pool
 callStartNft :: Emulator.Wallet -> StartParams -> EmulatorTrace NftId
 callStartNft wal sp = do
-  hdl <- activateContractWallet wal authorEndpoints
-  void $ callEndpoint @"start-nft" hdl sp
-  return nid
+  hdl <- Trace.activateContractWallet wal authorEndpoints
+  void $ Trace.callEndpoint @"start-nft" hdl sp
+  void $ Trace.waitNSlots 10
+  Last nid <- Trace.observableState hdl
+  maybe err P.pure nid
   where
-    nid = startParamsToNftId sp
+    err = F.throwError $ Trace.GenericError "No NFT started in emulator"
 

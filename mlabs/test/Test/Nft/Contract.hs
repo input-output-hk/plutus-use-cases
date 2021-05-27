@@ -3,20 +3,14 @@ module Test.Nft.Contract(
 ) where
 
 import Prelude
-import Data.Functor (void)
-
 import Test.Tasty
+import Test.Nft.Init
 
 import Plutus.Contract.Test hiding (tx)
-import qualified Plutus.Trace.Emulator as Trace
-import qualified PlutusTx.Ratio as R
 
 import Mlabs.Emulator.Scene
 import Mlabs.Nft.Logic.Types ( UserAct(..))
-import qualified Mlabs.Nft.Contract.Nft as N
 
-import Test.Utils
-import Test.Nft.Init
 
 test :: TestTree
 test = testGroup "Contract"
@@ -27,7 +21,7 @@ test = testGroup "Contract"
   , check "Buy not enough price"          noChangesScene failToBuyNotEnoughPriceScript
   ]
   where
-    check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
+    check msg scene script = checkPredicateOptions checkOptions msg (checkScene scene) (runScript script)
 
 --------------------------------------------------------------------------------
 -- buy test
@@ -39,23 +33,15 @@ noChangesScene :: Scene
 noChangesScene = foldMap ( `ownsAda` 0) [w1, w2, w3]
 
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
-buyScript :: Trace.EmulatorTrace ()
+buyScript :: Script
 buyScript = do
-  void $ N.callStartNft w1 $ N.StartParams
-    { sp'content = nftContent
-    , sp'share   = 1 R.% 10
-    , sp'price   = Nothing
-    }
-  next
-  userAct1 $ SetPrice (Just 100)
-  userAct2 $ Buy 100 Nothing
-  userAct2 $ SetPrice (Just 500)
+  userAct w1 $ SetPrice (Just 100)
+  userAct w2 $ Buy 100 Nothing
+  userAct w2 $ SetPrice (Just 500)
 
 buyScene :: Scene
 buyScene = mconcat
-  [ appAddress $ N.nftAddress nftId
-  -- , appOwns [(nftCoin, 1)]
-  , w1 `ownsAda` 110
+  [ w1 `ownsAda` 110
   , w2 `ownsAda` (-110)
   ]
 
@@ -64,10 +50,10 @@ buyScene = mconcat
 -- |
 -- * User 2 buys from user 1
 -- * User 3 buys from user 2
-buyTwiceScript :: Trace.EmulatorTrace ()
+buyTwiceScript :: Script
 buyTwiceScript = do
   buyScript
-  userAct3 $ Buy 500 (Just 1000)
+  userAct w3 $ Buy 500 (Just 1000)
 
 buyTwiceScene :: Scene
 buyTwiceScene = buyScene <> buyTwiceChange
@@ -78,31 +64,30 @@ buyTwiceScene = buyScene <> buyTwiceChange
       , w3 `ownsAda` (-550)
       ]
 
-
 --------------------------------------------------------------------------------
 -- fail to set price
 
 -- | User 1 tries to set price after user 2 owned the NFT.
 -- It should fail.
-failToSetPriceScript :: Trace.EmulatorTrace ()
+failToSetPriceScript :: Script
 failToSetPriceScript = do
   buyScript
-  userAct1 $ SetPrice (Just 200)
+  userAct w1 $ SetPrice (Just 200)
 
 --------------------------------------------------------------------------------
 -- fail to buy locked
 
 -- | User 2 tries to buy NFT which is locked (no price is set)
-failToBuyLockedScript :: Trace.EmulatorTrace ()
+failToBuyLockedScript :: Script
 failToBuyLockedScript = do
-  userAct2 $ Buy 1000 Nothing
+  userAct w2 $ Buy 1000 Nothing
 
 --------------------------------------------------------------------------------
 -- fail to buy with not enough money
 
 -- | User 2 tries to buy open NFT with not enough money
-failToBuyNotEnoughPriceScript :: Trace.EmulatorTrace ()
+failToBuyNotEnoughPriceScript :: Script
 failToBuyNotEnoughPriceScript = do
-  userAct1 $ SetPrice (Just 100)
-  userAct2 $ Buy 10 Nothing
+  userAct w1 $ SetPrice (Just 100)
+  userAct w2 $ Buy 10 Nothing
 

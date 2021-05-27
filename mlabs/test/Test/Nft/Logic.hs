@@ -6,7 +6,6 @@ module Test.Nft.Logic(
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Plutus.V1.Ledger.Value
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
 import Mlabs.Emulator.App
@@ -14,10 +13,8 @@ import Mlabs.Emulator.Blockchain
 import Mlabs.Emulator.Types
 
 import Mlabs.Nft.Logic.App
-import Mlabs.Nft.Logic.Types
 
 import qualified Data.Map.Strict as M
-import qualified PlutusTx.Ratio as R
 
 -- | Test suite for a logic of lending application
 test :: TestTree
@@ -57,6 +54,7 @@ initWallets = [(user1, wal), (user2, wal)]
 
 -- buy
 
+-- | Buy script
 buyScript :: Script
 buyScript = do
   setPrice user1 (Just 100)

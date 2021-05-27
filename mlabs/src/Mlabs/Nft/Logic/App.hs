@@ -12,6 +12,8 @@ module Mlabs.Nft.Logic.App(
 
 import PlutusTx.Prelude
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import Playground.Contract (TxOutRef(..))
+import Plutus.V1.Ledger.TxId
 
 import Mlabs.Emulator.App
 import Mlabs.Emulator.Blockchain
@@ -29,6 +31,7 @@ type NftApp = App Nft Act
 -- | Config for NFT test emulator
 data AppCfg = AppCfg
   { appCfg'users     :: [(UserId, BchWallet)] -- ^ state of blockchain
+  , appCfg'nftInRef  :: TxOutRef
   , appCfg'nftData   :: ByteString            -- ^ nft content
   , appCfg'nftAuthor :: UserId                -- ^ author of nft
   }
@@ -40,8 +43,8 @@ runNftApp cfg acts = runApp react (initApp cfg) acts
 -- | Initialise NFT application.
 initApp :: AppCfg -> NftApp
 initApp AppCfg{..} = App
-  { app'st  = initNft appCfg'nftAuthor appCfg'nftData (1 % 10) Nothing
-  , app'log = []
+  { app'st      = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (1 % 10) Nothing
+  , app'log     = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appCfg'users
   }
 
@@ -49,8 +52,10 @@ initApp AppCfg{..} = App
 -- It allocates three users each of them has 1000 ada coins.
 -- The first user is author and the owner of NFT. NFT is locked with no price.
 defaultAppCfg :: AppCfg
-defaultAppCfg = AppCfg users "mona-lisa" (fst $ users !! 0)
+defaultAppCfg = AppCfg users dummyOutRef "mona-lisa" (fst $ users !! 0)
   where
+    dummyOutRef = TxOutRef (TxId "") 0
+
     userNames = ["1", "2", "3"]
 
     users = fmap (\userName -> (UserId (PubKeyHash userName), wal (adaCoin, 1000))) userNames
