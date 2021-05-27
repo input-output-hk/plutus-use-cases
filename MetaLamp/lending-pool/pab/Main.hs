@@ -59,7 +59,7 @@ wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 4]]
 
 testCurrencyNames :: [TokenName]
-testCurrencyNames = ["MOGUS"]
+testCurrencyNames = ["MOGUS", "USD"]
 
 toAsset :: TokenName -> AssetClass
 toAsset tokenName =
@@ -126,11 +126,43 @@ main = void $ Simulator.runSimulationWith handlers $ do
         _                                                   -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful withdraw"
 
+    let lenderCid = cids Map.! Wallet 3
+    let lender = pubKeyHash . walletPubKey $ Wallet 3
+    _  <-
+        Simulator.callEndpointOnInstance lenderCid "deposit" $
+            Aave.DepositParams { Aave.dpAsset = testAssets !! 1, Aave.dpOnBehalfOf = lender, Aave.dpAmount = 200 }
+    flip Simulator.waitForState lenderCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Deposited))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful deposit from lender"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "borrow" $
+            Aave.BorrowParams { Aave.bpAsset = testAssets !! 1, Aave.bpAmount = 35, Aave.bpOnBehalfOf = sender }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Borrowed))) -> Just ()
+        _                                                  -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful borrow"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "repay" $
+            Aave.RepayParams { Aave.rpAsset = testAssets !! 1, Aave.rpAmount = 25, Aave.rpOnBehalfOf = sender }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Repaid))) -> Just ()
+        _                                                -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful repay"
+
     _ <- Simulator.callEndpointOnInstance userCid "fundsAt" sender
     v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
             Success (Monoid.Last (Just (Right (Aave.FundsAt v)))) -> Just v
             _                                                     -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Final user funds: " <> show v
+
+    _ <- Simulator.callEndpointOnInstance lenderCid "fundsAt" lender
+    v <- flip Simulator.waitForState lenderCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+            Success (Monoid.Last (Just (Right (Aave.FundsAt v)))) -> Just v
+            _                                                     -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Final lender funds: " <> show v
 
     _ <- Simulator.callEndpointOnInstance userCid "reserves" ()
     reserves <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of

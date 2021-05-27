@@ -71,7 +71,9 @@ createReserve CreateParams {..} =
           rAmount = 0,
           rAToken = AToken.makeAToken cpAsset,
           rDebtToken = cpAsset,
-          rLiquidityIndex = 1 }
+          rLiquidityIndex = 1,
+          rCurrentStableBorrowRate = 11 % 10 -- TODO configure borrow rate when lending core will be ready
+           }
 
 start :: HasBlockchainActions s => [CreateParams] -> Contract w s Text Aave
 start params = do
@@ -153,7 +155,7 @@ deposit aave DepositParams {..} = do
                 State.addUserConfig
                     aave
                     userConfigId
-                    UserConfig { ucUsingAsCollateral = True }
+                    UserConfig { ucUsingAsCollateral = True, ucDebt = Nothing }
             Just userConfig ->
                 State.updateUserConfig aave userConfigId $ userConfig { ucUsingAsCollateral = True }
 
@@ -186,10 +188,83 @@ withdraw aave WithdrawParams {..} = do
 
     State.updateReserve aave wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
 
+data BorrowParams =
+    BorrowParams {
+        bpAsset      :: AssetClass,
+        bpAmount     :: Integer,
+        bpOnBehalfOf :: PubKeyHash
+    }
+    deriving stock    (Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''BorrowParams
+PlutusTx.makeLift ''BorrowParams
+
+borrow :: (HasBlockchainActions s) => Aave -> BorrowParams -> Contract w s Text ()
+borrow aave BorrowParams {..} = do
+    reserve <- State.findAaveReserve aave bpAsset
+
+    utxos <-
+        Map.filter ((> 0) . flip assetClassValueOf bpAsset . txOutValue . txOutTxOut)
+        <$> utxoAt (Core.aaveAddress aave)
+    let inputs = (\(ref, tx) -> OutputValue ref tx Core.BorrowRedeemer) <$> Map.toList utxos
+    let payment = assetClassValue (rCurrency reserve) bpAmount
+    let remainder = assetClassValue (rCurrency reserve) (rAmount reserve - bpAmount)
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment <>
+        TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.BorrowDatum remainder
+    _ <- awaitTxConfirmed $ txId ledgerTx
+
+    userConfigs <- ovValue <$> State.findAaveUserConfigs aave
+    let userConfigId = (rCurrency reserve, bpOnBehalfOf)
+    case AssocMap.lookup userConfigId userConfigs of
+            Nothing ->
+                State.addUserConfig
+                    aave
+                    userConfigId
+                    UserConfig { ucUsingAsCollateral = False, ucDebt = Just bpAmount }
+            Just userConfig ->
+                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = (+ bpAmount) <$> ucDebt userConfig }
+
+    State.updateReserve aave bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
+
+data RepayParams =
+    RepayParams {
+        rpAsset      :: AssetClass,
+        rpAmount     :: Integer,
+        rpOnBehalfOf :: PubKeyHash
+    }
+    deriving stock    (Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''RepayParams
+PlutusTx.makeLift ''RepayParams
+
+repay :: (HasBlockchainActions s) => Aave -> RepayParams -> Contract w s Text ()
+repay aave RepayParams {..} = do
+    reserve <- State.findAaveReserve aave rpAsset
+
+    let payment = assetClassValue (rCurrency reserve) rpAmount
+    ledgerTx <- TxUtils.submitTxPair $
+        TxUtils.mustPayToScript (Core.aaveInstance aave) rpOnBehalfOf Core.RepayDatum payment
+    _ <- awaitTxConfirmed $ txId ledgerTx
+
+    userConfigs <- ovValue <$> State.findAaveUserConfigs aave
+    let userConfigId = (rCurrency reserve, rpOnBehalfOf)
+    case AssocMap.lookup userConfigId userConfigs of
+            Nothing ->
+                throwError "User does not have any debt."
+            Just userConfig ->
+                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
+
+    State.updateReserve aave rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
+
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "deposit" DepositParams
         .\/ Endpoint "withdraw" WithdrawParams
+        .\/ Endpoint "borrow" BorrowParams
+        .\/ Endpoint "repay" RepayParams
         .\/ Endpoint "fundsAt" PubKeyHash
         .\/ Endpoint "poolFunds" ()
         .\/ Endpoint "reserves" ()
@@ -200,6 +275,8 @@ data UserContractState = Created
     | Stopped
     | Deposited
     | Withdrawn
+    | Borrowed
+    | Repaid
     | FundsAt Value
     | PoolFunds Value
     | Reserves (AssocMap.Map ReserveId Reserve)
@@ -210,6 +287,8 @@ userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUse
 userEndpoints aa = forever $
     f (Proxy @"deposit") (const Deposited) deposit
     `select` f (Proxy @"withdraw") (const Withdrawn) withdraw
+    `select` f (Proxy @"borrow") (const Borrowed) borrow
+    `select` f (Proxy @"repay") (const Repaid) repay
     `select` f (Proxy @"fundsAt") FundsAt (\_ pkh -> fundsAt pkh)
     `select` f (Proxy @"poolFunds") PoolFunds (\aave () -> poolFunds aave)
     `select` f (Proxy @"reserves") Reserves (\aave () -> reserves aave)

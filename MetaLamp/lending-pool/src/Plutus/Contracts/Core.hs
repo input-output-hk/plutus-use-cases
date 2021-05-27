@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -52,12 +53,15 @@ instance Prelude.Ord Aave where
 
 type ReserveId = AssetClass
 
+deriving anyclass instance ToSchema Rational
+
 data Reserve = Reserve
-    { rCurrency       :: ReserveId,
-      rAToken         :: AssetClass,
-      rAmount         :: Integer,
-      rDebtToken      :: AssetClass,
-      rLiquidityIndex :: Integer
+    { rCurrency                :: ReserveId,
+      rAToken                  :: AssetClass,
+      rAmount                  :: Integer,
+      rDebtToken               :: AssetClass,
+      rLiquidityIndex          :: Integer,
+      rCurrentStableBorrowRate :: Rational
     }
     deriving stock (Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -69,7 +73,8 @@ type UserConfigId = (ReserveId, PubKeyHash)
 
 data UserConfig = UserConfig
     {
-      ucUsingAsCollateral :: Bool
+      ucUsingAsCollateral :: Bool,
+      ucDebt              :: Maybe Integer
     }
     deriving stock (Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -83,6 +88,8 @@ data AaveRedeemer =
   | CreateUserConfigsRedeemer (AssocMap.Map UserConfigId UserConfig)
   | UpdateUserConfigsRedeemer
   | WithdrawRedeemer
+  | BorrowRedeemer
+  | RepayRedeemer
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
@@ -92,7 +99,10 @@ data AaveDatum =
   LendingPoolDatum
   | ReservesDatum (AssocMap.Map ReserveId Reserve)
   | UserConfigsDatum (AssocMap.Map UserConfigId UserConfig)
-  | DepositDatum deriving stock (Show)
+  | DepositDatum
+  | BorrowDatum
+  | RepayDatum
+  deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
 PlutusTx.makeLift ''AaveDatum
@@ -117,6 +127,8 @@ makeAaveValidator _ _ UpdateReservesRedeemer _        = True
 makeAaveValidator _ _ (CreateUserConfigsRedeemer _) _ = True
 makeAaveValidator _ _ UpdateUserConfigsRedeemer _     = True
 makeAaveValidator _ _ WithdrawRedeemer _              = True
+makeAaveValidator _ _ BorrowRedeemer _                = True
+makeAaveValidator _ _ RepayRedeemer _                 = True
 makeAaveValidator _  _  _  _                          = False
 
 aaveProtocolName :: TokenName
