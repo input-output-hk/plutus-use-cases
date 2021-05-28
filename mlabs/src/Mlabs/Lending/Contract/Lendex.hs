@@ -39,7 +39,7 @@ import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-
+import qualified PlutusTx.Prelude             as Plutus
 
 import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.React
@@ -68,12 +68,10 @@ machine = (SM.mkStateMachine Nothing transition isFinal)
         check t = member (Slot t) range
         range = txInfoValidRange $ scriptContextTxInfo ctx
 
-
     getInputTime = \case
-      UserAct time _ _ -> Just time
-      PriceAct time _  -> Just time
-      _                -> Nothing
-
+      UserAct time _ _  -> Just time
+      PriceAct time _ _ -> Just time
+      _                 -> Nothing
 
 {-# INLINABLE mkValidator #-}
 mkValidator :: Scripts.ValidatorType Lendex
@@ -102,9 +100,16 @@ transition ::
   -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State LendingPool)
 transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react input) oldData of
   Left _err              -> Nothing
-  Right (resps, newData) -> Just ( foldMap toConstraints resps
+  Right (resps, newData) -> Just ( foldMap toConstraints resps Plutus.<> ctxConstraints
                                  , SM.State { stateData  = newData
                                             , stateValue = updateRespValue resps oldValue })
+  where
+    -- we check that user indeed signed the transaction with his own key
+    ctxConstraints = maybe Plutus.mempty mustBeSignedBy userId
+
+    userId = case input of
+      UserAct _ (UserId uid) _ -> Just uid
+      _                        -> Nothing
 
 -----------------------------------------------------------------------
 -- endpoints and schemas
@@ -155,8 +160,9 @@ type PriceOracleApp a = Contract () PriceOracleLendexSchema LendexError a
 
 priceOracleAction :: PriceAct -> PriceOracleApp ()
 priceOracleAction act = do
+  pkh <- fmap pubKeyHash ownPubKey
   currentTimestamp <- getSlot <$> currentSlot
-  void $ SM.runStep client (PriceAct currentTimestamp act)
+  void $ SM.runStep client (PriceAct currentTimestamp (UserId pkh) act)
 
 -- | Endpoints for price oracle
 priceOracleEndpoints :: PriceOracleApp ()
@@ -172,6 +178,7 @@ type GovernLendexSchema =
 data StartParams = StartParams
   { sp'coins     :: [CoinCfg]  -- ^ supported coins with ratios to ADA
   , sp'initValue :: Value      -- ^ init value deposited to the lending app
+  , sp'oracles   :: [UserId]   -- ^ trusted oracles
   }
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -184,7 +191,7 @@ governAction act = do
 
 startLendex :: StartParams -> GovernApp ()
 startLendex StartParams{..} = do
-  void $ SM.runInitialise client (initLendingPool Forge.currencySymbol sp'coins) sp'initValue
+  void $ SM.runInitialise client (initLendingPool Forge.currencySymbol sp'coins sp'oracles) sp'initValue
 
 -- | Endpoints for admin user
 governEndpoints :: GovernApp ()

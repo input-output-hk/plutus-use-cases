@@ -44,17 +44,20 @@ data AppConfig = AppConfig
   -- no need to include it here
   , appConfig'currencySymbol :: CurrencySymbol
   -- ^ lending app main currency symbol
+  , appConfig'oracles :: [UserId]
+  -- ^ users that can submit price changes
   }
 
 -- | App is initialised with list of coins and their rates (value relative to base currency, ada for us)
 initApp :: AppConfig -> LendingApp
 initApp AppConfig{..} = App
   { app'st = LendingPool
-      { lp'reserves     = (AM.fromList (fmap (\x -> (coinCfg'coin x, initReserve x)) appConfig'reserves))
-      , lp'users        = AM.empty
-      , lp'currency     = appConfig'currencySymbol
-      , lp'coinMap      = coinMap
-      , lp'healthReport = AM.empty
+      { lp'reserves       = (AM.fromList (fmap (\x -> (coinCfg'coin x, initReserve x)) appConfig'reserves))
+      , lp'users          = AM.empty
+      , lp'currency       = appConfig'currencySymbol
+      , lp'coinMap        = coinMap
+      , lp'healthReport   = AM.empty
+      , lp'trustedOracles = appConfig'oracles
       }
   , app'log  = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appConfig'users
@@ -66,8 +69,9 @@ initApp AppConfig{..} = App
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 defaultAppConfig :: AppConfig
-defaultAppConfig = AppConfig reserves users curSym
+defaultAppConfig = AppConfig reserves users curSym oracles
   where
+    oracles = [UserId $ PubKeyHash "1"]  -- only user 1 can set the price
     curSym = currencySymbol "lending-app"
     userNames = ["1", "2", "3"]
     coinNames = ["Dollar", "Euro", "Lira"]
@@ -101,10 +105,10 @@ userAct uid act = do
   S.putAct $ UserAct time uid act
 
 -- | Make price act
-priceAct :: PriceAct -> Script
-priceAct arg = do
+priceAct :: UserId -> PriceAct -> Script
+priceAct uid arg = do
   t <- S.getCurrentTime
-  S.putAct $ PriceAct t arg
+  S.putAct $ PriceAct t uid arg
 
 -- | Make govern act
 governAct :: GovernAct -> Script

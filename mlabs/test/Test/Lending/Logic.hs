@@ -29,6 +29,7 @@ test = testGroup "Logic"
   , testCase "Withdraw" testWithdraw
   , testCase "Repay" testRepay
   , testGroup "Borrow liquidation" testLiquidationCall
+  , testCase "Wrong user sets the price" testWrongUserPriceSet
   ]
   where
     testBorrow = testWallets [(user1, w1)] borrowScript
@@ -72,6 +73,8 @@ test = testGroup "Logic"
         w2a = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50) , (aCoin1, 20), (adaCoin, 1)]
         -- receive underlying currency
         w2 = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50) , (coin1, 20), (adaCoin, 1)]
+
+    testWrongUserPriceSet = someErrors $ testScript wrongUserPriceSetScript
 
 -- | Checks that script runs without errors
 testScript :: Script -> LendingApp
@@ -170,13 +173,19 @@ repayScript = do
 liquidationCallScript :: Bool -> Script
 liquidationCallScript receiveAToken = do
   borrowScript
-  priceAct $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct user1 $ SetAssetPrice coin2 (R.fromInteger 2)
   userAct user2 $ LiquidationCallAct
       { act'collateral     = coin1
       , act'debt           = BadBorrow user1 coin2
       , act'debtToCover    = 10
       , act'receiveAToken  = receiveAToken
       }
+
+-- oracles
+
+wrongUserPriceSetScript :: Script
+wrongUserPriceSetScript = do
+  priceAct user2 $ SetAssetPrice coin2 (R.fromInteger 2)
 
 ---------------------------------
 -- constants
@@ -216,8 +225,10 @@ aCoin2 = fromToken aToken2
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 testAppConfig :: AppConfig
-testAppConfig = AppConfig reserves users lendingPoolCurrency
+testAppConfig = AppConfig reserves users lendingPoolCurrency oracles
   where
+    oracles = [user1]
+
     reserves = fmap (\(coin, aCoin) -> CoinCfg
                                         { coinCfg'coin             = coin
                                         , coinCfg'rate             = R.fromInteger 1
