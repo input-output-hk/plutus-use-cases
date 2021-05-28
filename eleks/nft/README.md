@@ -142,7 +142,26 @@ curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
-7. Get user key
+
+8. Сancel token selling
+
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '{"cspTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/cancelSell
+```
+
+Get response
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+```
+
+9. Get user key
 
 ```
 export INSTANCE_ID=...

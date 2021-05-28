@@ -25,6 +25,7 @@ module Contracts.NFT
     , NFTMetadataDto (..)
     , CreateParams (..)
     , SellParams (..)
+    , CancelSellParams (..)
     , BuyParams (..)
     , MarketUserSchema, MarketContractState (..)
     , MarketOwnerSchema
@@ -98,12 +99,13 @@ newtype NFTMarket = NFTMarket
 
 PlutusTx.makeLift ''NFTMarket
     
-data NFTMarketAction = Create NFTMetadata | Sell | Buy PubKeyHash
+data NFTMarketAction = Create NFTMetadata | Sell | CancelSell | Buy PubKeyHash
     deriving Show
 
 PlutusTx.makeIsDataIndexed ''NFTMarketAction [ ('Create , 0)
                                            , ('Sell,   1)
-                                           , ('Buy,   2)
+                                           , ('CancelSell,   2)
+                                           , ('Buy,   3)
                                            ]
 PlutusTx.makeLift ''NFTMarketAction
 
@@ -161,9 +163,9 @@ validateSell ::
     -> ScriptContext
     -> Bool
 validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} ctx =
-    traceIfFalse "owner should sign" ownerSigned &&
-    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1) &&
-    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum) &&
+    traceIfFalse "owner should sign" ownerSigned                                                                    &&
+    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)   &&
+    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                          &&
     traceIfFalse "price should be grater 0" (nftSellPrice outDatum > 0)                                      
   where
     info :: TxInfo
@@ -195,6 +197,48 @@ validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenN
         Nothing      -> False
         Just pkh -> txSignedBy info pkh
 
+{-# INLINABLE validateCancelSell #-}
+validateCancelSell :: 
+    NFTMarket
+    -> NFTMetadata
+    -> ScriptContext
+    -> Bool
+validateCancelSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} ctx =
+    traceIfFalse "owner should sign" ownerSigned                                                                       &&
+    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)   &&
+    traceIfFalse "nft token missing from input" (valueOf inVal nftTokenSymbol nftTokenName == 1)                    &&
+    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                          &&
+    traceIfFalse "price should be grater 0" (nftSellPrice outDatum == 0)                                            &&
+    traceIfFalse "seller should be emptied" (PlutusTx.Prelude.isNothing $ nftSeller outDatum)                                       
+  where
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    ownInput :: TxInInfo
+    ownInput = findOwnInput' ctx
+
+    ownOutput :: TxOut
+    ownOutput = case [ o
+                     | o <- getContinuingOutputs ctx
+                     , valueOf (txOutValue o) nftMetaTokenSymbol nftMetaTokenName == 1
+                     ] of
+        [o] -> o
+        _   -> traceError "expected exactly one nft metadata output"
+
+    outDatum :: NFTMetadata
+    outDatum = case txOutDatum ownOutput of
+        Nothing -> traceError "nft metadata not found"
+        Just h  -> findMarketDatum info h
+
+    inVal, outVal :: Value
+    inVal  = valueWithin ownInput
+    outVal = txOutValue ownOutput
+
+    ownerSigned :: Bool
+    ownerSigned = case nftSeller nftMeta of
+        Nothing      -> False
+        Just pkh -> txSignedBy info pkh
+
 {-# INLINABLE validateBuy #-}
 validateBuy :: 
     NFTMarket
@@ -203,10 +247,12 @@ validateBuy ::
     -> ScriptContext
     -> Bool
 validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} buyer ctx =
-    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)  &&
-    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum) &&
-    traceIfFalse "expected seller to get money" (getsValue (nftSeller nftMeta) $ Ada.lovelaceValueOf (nftSellPrice nftMeta)) &&   
-    traceIfFalse "expected buyer to get NFT token" (getsValue (Just buyer) $ Value.singleton nftTokenSymbol nftTokenName 1)  
+    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)               &&
+    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                                      &&
+    traceIfFalse "expected seller to get money" (getsValue (nftSeller nftMeta) $ Ada.lovelaceValueOf (nftSellPrice nftMeta))    &&   
+    traceIfFalse "expected buyer to get NFT token" (getsValue (Just buyer) $ Value.singleton nftTokenSymbol nftTokenName 1)     && 
+    traceIfFalse "price should be grater 0" (nftSellPrice outDatum == 0)                                                        && 
+    traceIfFalse "seller should be emptied" (PlutusTx.Prelude.isNothing $ nftSeller outDatum)
   where
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -249,6 +295,7 @@ mkNFTMarketValidator ::
     -> Bool
 mkNFTMarketValidator market (Factory nftMetas) (Create nftMeta) ctx = validateCreate market nftMetas nftMeta ctx
 mkNFTMarketValidator market (NFTMeta nftMeta)  Sell             ctx = validateSell market nftMeta ctx
+mkNFTMarketValidator market (NFTMeta nftMeta)  CancelSell      ctx = validateCancelSell market nftMeta ctx
 mkNFTMarketValidator market (NFTMeta nftMeta)  (Buy buyer)      ctx = validateBuy market nftMeta buyer ctx
 mkNFTMarketValidator _      _                  _                _   = False
  
@@ -279,6 +326,11 @@ data CreateParams = CreateParams
 data SellParams = SellParams
     { spTokenSymbol   :: String
     , spSellPrice :: Integer
+    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
+-- | Parameters for the @sell@-endpoint, which creates a new NFT.
+data CancelSellParams = CancelSellParams
+    { cspTokenSymbol   :: String
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @buy@-endpoint, which creates a new NFT.
@@ -406,6 +458,40 @@ sell market SellParams{..} = do
     logInfo $ "selling datum: " ++ show nftMetadataDatum
     let nftMetaDto = nftMetadataToDto nftMetadata'
     logInfo $ "selling NFT: " ++ show nftMetaDto
+    return nftMetaDto
+
+-- | Cacnel token selling
+cancelSell :: 
+    HasBlockchainActions s 
+    => NFTMarket 
+    -> CancelSellParams 
+    -> Contract w s Text NFTMetadataDto
+cancelSell market CancelSellParams{..} = do
+    pkh                     <- pubKeyHash <$> ownPubKey
+    let tokenSymbol = CurrencySymbol $ B64.decodeLenient $ B.pack cspTokenSymbol
+    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
+    when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
+        throwError $ pack $ printf "NFT is not on sale"
+    let marketInst = marketInstance market
+        nftMetadata' = nftMetadata { nftSeller = Nothing, nftSellPrice = 0 }
+        nftSeller' = fromMaybe "" $ nftSeller nftMetadata
+        nftMetadataDatum = NFTMeta nftMetadata'
+    let mrScript = marketScript market
+        redeemer = Redeemer $ PlutusTx.toData CancelSell
+        nftValue = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
+        nftMetadataValue = Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
+ 
+        lookups  = Constraints.scriptInstanceLookups marketInst        <>
+                   Constraints.otherScript mrScript                    <>
+                   Constraints.unspentOutputs (Map.singleton oref o)
+
+        tx       = Constraints.mustPayToTheScript nftMetadataDatum nftMetadataValue <>
+                   Constraints.mustSpendScriptOutput oref redeemer                  <>
+                   Constraints.mustPayToPubKey pkh nftValue
+    ledgerTx <- submitTxConstraintsWith lookups tx
+    void $ awaitTxConfirmed $ txId ledgerTx
+    let nftMetaDto = nftMetadataToDto nftMetadata
+    logInfo $ "cancel sell NFT: " ++ show nftMetaDto
     return nftMetaDto
 
 -- | Byt token
@@ -594,6 +680,7 @@ type MarketUserSchema =
     BlockchainActions
         .\/ Endpoint "create" CreateParams
         .\/ Endpoint "sell" SellParams
+        .\/ Endpoint "cancelSell" CancelSellParams
         .\/ Endpoint "buy" BuyParams
         .\/ Endpoint "userPubKeyHash"  ()
         .\/ Endpoint "userNftTokens"  ()
@@ -606,6 +693,7 @@ data MarketContractState =
     | Tokens [NFTMetadataDto]
     | SellingTokens [NFTMetadataDto]
     | Selling NFTMetadataDto
+    | CancelSelling NFTMetadataDto
     | Buyed NFTMetadataDto
     | UserPubKeyHash String
     | Stopped
@@ -621,7 +709,8 @@ userEndpoints market =
         `select`
     ((f (Proxy @"create") Created create                                                       `select`
       f (Proxy @"sell") Selling sell                                                           `select`
-      f (Proxy @"buy") Buyed buy                                                           `select`
+      f (Proxy @"cancelSell") CancelSelling cancelSell                                         `select`
+      f (Proxy @"buy") Buyed buy                                                               `select`
       f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')               `select`
       f (Proxy @"sellingTokens") SellingTokens (\market'' () -> sellingTokens market'')        `select`
       f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints market)
