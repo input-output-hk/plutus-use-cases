@@ -8,6 +8,7 @@ module Test.Lending.Init(
   , aCoin1, aCoin2, aCoin3
   , initialDistribution
   , toUserId
+  , lendexId
 ) where
 
 import Prelude
@@ -23,7 +24,7 @@ import qualified Data.Map as M
 import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 
-import Mlabs.Lending.Logic.Types (Coin, UserAct(..), UserId(..))
+import Mlabs.Lending.Logic.Types (LendexId(..), Coin, UserAct(..), UserId(..))
 import qualified Mlabs.Lending.Logic.App as L
 import qualified Mlabs.Lending.Contract.Lendex as L
 import qualified Mlabs.Lending.Contract.Forge as Forge
@@ -41,11 +42,15 @@ w3 = Wallet 3
 toUserId :: Wallet -> UserId
 toUserId = UserId . pubKeyHash . walletPubKey
 
+-- | Identifier for our lendex platform
+lendexId :: LendexId
+lendexId = LendexId "MLabs lending platform"
+
 -- | Showrtcuts for user actions
 userAct1, userAct2, userAct3 :: UserAct -> Trace.EmulatorTrace ()
-userAct1 = L.callUserAct w1
-userAct2 = L.callUserAct w2
-userAct3 = L.callUserAct w3
+userAct1 = L.callUserAct lendexId w1
+userAct2 = L.callUserAct lendexId w2
+userAct3 = L.callUserAct lendexId w3
 
 -- | Coins which are used for testing
 adaCoin, coin1, coin2, coin3 :: Coin
@@ -65,7 +70,7 @@ adaCoin = Value.AssetClass (Ada.adaSymbol, Ada.adaToken)
 
 -- | Convert aToken to aCoin
 fromToken :: TokenName -> Coin
-fromToken aToken = Value.AssetClass (Forge.currencySymbol, aToken)
+fromToken aToken = Value.AssetClass (Forge.currencySymbol lendexId, aToken)
 
 -- | aCoins that correspond to real coins
 aCoin1, aCoin2, aCoin3 :: Coin

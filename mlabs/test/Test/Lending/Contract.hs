@@ -52,7 +52,7 @@ test = testGroup "Contract"
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
 depositScript :: Trace.EmulatorTrace ()
 depositScript = do
-  L.callStartLendex wAdmin $ L.StartParams
+  L.callStartLendex lendexId wAdmin $ L.StartParams
     { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
                                           { coinCfg'coin = coin
                                           , coinCfg'rate = R.fromInteger 1
@@ -74,7 +74,7 @@ depositScript = do
 
 depositScene :: Scene
 depositScene = mconcat
-  [ appAddress L.lendexAddress
+  [ appAddress (L.lendexAddress lendexId)
   , appOwns [(coin1, 50), (coin2, 50), (coin3, 50), (adaCoin, 1000)]
   , user w1 coin1 aCoin1
   , user w2 coin2 aCoin2
@@ -228,5 +228,5 @@ liquidationCallScene receiveAToken = borrowScene <> liquidationCallChange
 -- names as in script test
 
 priceAct :: Wallet -> PriceAct -> Trace.EmulatorTrace ()
-priceAct wal act = L.callPriceOracleAct wal act
+priceAct wal act = L.callPriceOracleAct lendexId wal act
 

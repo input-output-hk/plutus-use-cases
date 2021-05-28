@@ -20,8 +20,9 @@ import Mlabs.Lending.Logic.Types
 import Mlabs.Lending.Logic.State
 
 data Input = Input
-  { input'state :: !LendingPool
-  , input'value :: !Value.Value
+  { input'lendexId :: !LendexId
+  , input'state    :: !LendingPool
+  , input'value    :: !Value.Value
   }
 
 {-# INLINABLE validate #-}
@@ -45,13 +46,18 @@ data Input = Input
 --
 -- Note that during burn user does not pay aTokens to the app they just get burned.
 -- Only app pays to user in compensation for burn.
-validate :: ScriptContext -> Bool
-validate ctx = case (getInState, getOutState) of
-  (Just st1, Just st2) -> all (isValidForge st1 st2) $ Value.flattenValue $ txInfoForge info
+validate :: LendexId -> ScriptContext -> Bool
+validate lendexId ctx = case (getInState, getOutState) of
+  (Just st1, Just st2) ->
+        if (hasLendexId  st1 && hasLendexId st2)
+          then all (isValidForge st1 st2) $ Value.flattenValue $ txInfoForge info
+          else traceIfFalse "Bad Lendex identifier" False
   (Just _  , Nothing)  -> traceIfFalse "Failed to find LendingPool state in outputs" False
   (Nothing,  Just _)   -> traceIfFalse "Failed to find LendingPool state in inputs" False
   _                    -> traceIfFalse "Failed to find TxOut with LendingPool state" False
   where
+    hasLendexId x = input'lendexId x == lendexId
+
     -- find datum of lending app state in the inputs
     getInState = getStateForOuts $ fmap txInInfoResolved $ txInfoInputs info
 
@@ -64,8 +70,8 @@ validate ctx = case (getInState, getOutState) of
     stateForTxOut out = do
       dHash <- txOutDatumHash out
       dat   <- Scripts.getDatum <$> findDatum dHash info
-      st    <- PlutusTx.fromData dat
-      pure $ Input st (txOutValue out)
+      (lid, st) <- PlutusTx.fromData dat
+      pure $ Input lid st (txOutValue out)
 
     isValidForge :: Input -> Input -> (Value.CurrencySymbol, Value.TokenName, Integer) -> Bool
     isValidForge st1 st2 (cur, token, amount) = case getTokenCoin st1 st2 cur token of
@@ -86,7 +92,7 @@ validate ctx = case (getInState, getOutState) of
     -- checks that user deposit becomes larger on given amount of minted tokens
     -- and user pays given amount to the lending app. We go through the list of all signatures
     -- to see if anyone acts as a user (satisfy constraints).
-    isValidMint (Input st1 stVal1) (Input st2 stVal2) coin aCoin amount =
+    isValidMint (Input _ st1 stVal1) (Input _ st2 stVal2) coin aCoin amount =
       traceIfFalse "No user is allowed to mint" $ any checkUserMint users
       where
         checkUserMint uid =
@@ -107,7 +113,7 @@ validate ctx = case (getInState, getOutState) of
         checkScriptPays uid = traceIfFalse "User has not received aCoins for Mint" $
           checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue aCoin amount :: TxConstraints () ()) ctx
 
-    isValidBurn (Input st1 _stVal1) (Input st2 _stVal2) coin _aCoin amount =
+    isValidBurn (Input _lendexId1 st1 _stVal1) (Input _lendexId2 st2 _stVal2) coin _aCoin amount =
       traceIfFalse "No user is allowed to burn" $ any checkUserBurn users
       where
         checkUserBurn uid =
@@ -135,10 +141,11 @@ validate ctx = case (getInState, getOutState) of
 
 -------------------------------------------------------------------------------
 
-currencyPolicy :: MonetaryPolicy
-currencyPolicy = Scripts.mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy validate ||])
+currencyPolicy :: LendexId -> MonetaryPolicy
+currencyPolicy lid = Scripts.mkMonetaryPolicyScript $
+  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validate ||])
+  `PlutusTx.applyCode` (PlutusTx.liftCode lid)
 
-currencySymbol :: CurrencySymbol
-currencySymbol = scriptCurrencySymbol currencyPolicy
+currencySymbol :: LendexId -> CurrencySymbol
+currencySymbol lid = scriptCurrencySymbol (currencyPolicy lid)
 
