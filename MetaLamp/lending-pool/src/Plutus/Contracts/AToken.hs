@@ -40,31 +40,51 @@ import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Contexts        (ScriptContext,
                                                    scriptCurrencySymbol)
 import qualified Plutus.V1.Ledger.Scripts         as Scripts
-import           Plutus.V1.Ledger.Value           (AssetClass (unAssetClass),
+import           Plutus.V1.Ledger.Value           (AssetClass (..),
                                                    TokenName (..), assetClass,
                                                    assetClassValue,
                                                    assetClassValueOf)
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..))
+import qualified PlutusTx.Semigroup               as Semigroup
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 
 {-# INLINABLE validator #-}
--- TODO: check that ScriptContext has enough liquidity
-validator :: AssetClass -> ScriptContext -> Bool
-validator _ _ = True
+validator :: AssetClass -> TokenName -> ScriptContext -> Bool
+validator underlyingAsset aTokenName ctx = hasEnoughUnderlyingAsset
+    where
+        txInfo :: TxInfo
+        txInfo = scriptContextTxInfo ctx
+
+        aTokenCurrency :: AssetClass
+        aTokenCurrency = assetClass (ownCurrencySymbol ctx) aTokenName
+
+        amountMinted :: Integer
+        amountMinted = assetClassValueOf (txInfoForge txInfo) aTokenCurrency
+        amountAsset :: Integer
+        amountAsset = assetClassValueOf (valueSpent txInfo) underlyingAsset
+
+        hasEnoughUnderlyingAsset :: Bool
+        hasEnoughUnderlyingAsset =  amountMinted <= amountAsset
 
 makeLiquidityPolicy :: AssetClass -> MonetaryPolicy
 makeLiquidityPolicy asset = Scripts.mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validator ||])
+  $$(PlutusTx.compile [|| \a t -> Scripts.wrapMonetaryPolicy $ validator a t||])
     `PlutusTx.applyCode`
         PlutusTx.liftCode asset
+    `PlutusTx.applyCode`
+        PlutusTx.liftCode aToken
+        where
+            aToken = aTokenName asset
 
 makeAToken :: AssetClass -> AssetClass
-makeAToken asset = assetClass (scriptCurrencySymbol . makeLiquidityPolicy $ asset) (TokenName aTokenName)
-  where
-    (_, tokenName) = unAssetClass asset
-    aTokenName = "a" <> unTokenName tokenName
+makeAToken asset = assetClass (scriptCurrencySymbol . makeLiquidityPolicy $ asset) (aTokenName asset)
+
+{-# INLINABLE aTokenName #-}
+aTokenName :: AssetClass -> TokenName
+aTokenName asset = TokenName $ "a" Semigroup.<> case asset of
+    AssetClass (_,TokenName n) -> n
 
 forgeATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
 forgeATokensFrom aave reserve pkh amount = do
