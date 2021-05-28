@@ -20,6 +20,7 @@ import Data.Monoid (Last(..))
 import Data.Functor (void)
 
 import GHC.Generics
+import qualified PlutusTx.Prelude as Plutus
 
 import           Plutus.Contract
 import qualified Plutus.Contract.StateMachine as SM
@@ -95,12 +96,19 @@ transition nftId SM.State{stateData=oldData, stateValue=oldValue} input
   | idIsValid =
       case runStateT (react input) oldData of
         Left _err              -> Nothing
-        Right (resps, newData) -> Just ( foldMap toConstraints resps
+        Right (resps, newData) -> Just ( foldMap toConstraints resps Plutus.<> ctxConstraints
                                       , SM.State { stateData  = newData
                                                   , stateValue = updateRespValue resps oldValue })
   | otherwise = Nothing
   where
     idIsValid = nftId == nft'id oldData
+
+    -- we check that user indeed signed the transaction with his own key
+    ctxConstraints = maybe Plutus.mempty mustBeSignedBy userId
+
+    userId = case input of
+      UserAct (UserId uid) _ -> Just uid
+      _                      -> Nothing
 
 -----------------------------------------------------------------------
 -- NFT forge policy

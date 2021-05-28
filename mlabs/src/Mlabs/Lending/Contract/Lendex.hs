@@ -39,7 +39,7 @@ import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-
+import qualified PlutusTx.Prelude             as Plutus
 
 import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.React
@@ -102,9 +102,16 @@ transition ::
   -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State LendingPool)
 transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react input) oldData of
   Left _err              -> Nothing
-  Right (resps, newData) -> Just ( foldMap toConstraints resps
+  Right (resps, newData) -> Just ( foldMap toConstraints resps Plutus.<> ctxConstraints
                                  , SM.State { stateData  = newData
                                             , stateValue = updateRespValue resps oldValue })
+  where
+    -- we check that user indeed signed the transaction with his own key
+    ctxConstraints = maybe Plutus.mempty mustBeSignedBy userId
+
+    userId = case input of
+      UserAct _ (UserId uid) _ -> Just uid
+      _                        -> Nothing
 
 -----------------------------------------------------------------------
 -- endpoints and schemas
