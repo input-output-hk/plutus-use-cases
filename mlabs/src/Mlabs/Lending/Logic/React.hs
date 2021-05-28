@@ -137,7 +137,7 @@ react input = do
       | otherwise                  = do
           ni <- getNormalisedIncome asset
           amount <- getAmountBy wallet'deposit uid asset portion
-          modifyWalletAndReserve' uid asset $ \w -> do
+          modifyWallet' uid asset $ \w -> do
             w1 <- addDeposit ni (negate amount) w
             pure $ w1 { wallet'collateral = wallet'collateral w + amount }
           aCoin <- aToken asset
