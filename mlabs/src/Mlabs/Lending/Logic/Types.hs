@@ -67,11 +67,12 @@ class Showt a where
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool
-  { lp'reserves     :: !(Map Coin Reserve)     -- ^ list of reserves
-  , lp'users        :: !(Map UserId User)      -- ^ internal user wallets on the app
-  , lp'currency     :: !CurrencySymbol         -- ^ main currencySymbol of the app
-  , lp'coinMap      :: !(Map TokenName Coin)   -- ^ maps aTokenNames to actual coins
-  , lp'healthReport :: !HealthReport           -- ^ map of unhealthy borrows
+  { lp'reserves       :: !(Map Coin Reserve)     -- ^ list of reserves
+  , lp'users          :: !(Map UserId User)      -- ^ internal user wallets on the app
+  , lp'currency       :: !CurrencySymbol         -- ^ main currencySymbol of the app
+  , lp'coinMap        :: !(Map TokenName Coin)   -- ^ maps aTokenNames to actual coins
+  , lp'healthReport   :: !HealthReport           -- ^ map of unhealthy borrows
+  , lp'trustedOracles :: ![UserId]               -- ^ we accept price changes only for those users
   }
   deriving (Show, Generic)
 
@@ -148,14 +149,15 @@ data CoinCfg = CoinCfg
   deriving anyclass (FromJSON, ToJSON)
 
 {-# INLINABLE initLendingPool #-}
-initLendingPool :: CurrencySymbol -> [CoinCfg] -> LendingPool
-initLendingPool curSym coinCfgs =
+initLendingPool :: CurrencySymbol -> [CoinCfg] -> [UserId] -> LendingPool
+initLendingPool curSym coinCfgs oracles =
   LendingPool
-    { lp'reserves     = reserves
-    , lp'users        = M.empty
-    , lp'currency     = curSym
-    , lp'coinMap      = coinMap
-    , lp'healthReport = M.empty
+    { lp'reserves       = reserves
+    , lp'users          = M.empty
+    , lp'currency       = curSym
+    , lp'coinMap        = coinMap
+    , lp'healthReport   = M.empty
+    , lp'trustedOracles = oracles
     }
   where
     reserves = M.fromList $ fmap (\cfg -> (coinCfg'coin cfg, initReserve cfg)) coinCfgs
@@ -234,6 +236,7 @@ data Act
       }                              -- ^ user's actions
   | PriceAct
       { priceAct'time       :: Integer
+      , priceAct'userId     :: UserId
       , priceAct'act        :: PriceAct
       }                              -- ^ price oracle's actions
   | GovernAct GovernAct              -- ^ app admin's actions

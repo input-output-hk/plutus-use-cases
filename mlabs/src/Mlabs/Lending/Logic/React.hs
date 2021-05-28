@@ -38,9 +38,9 @@ react :: Act -> St [Resp]
 react input = do
   checkInput input
   case input of
-    UserAct t uid act -> withHealthCheck t $ userAct t uid act
-    PriceAct    t act -> withHealthCheck t $ priceAct t act
-    GovernAct     act -> governAct act
+    UserAct  t uid act -> withHealthCheck t $ userAct t uid act
+    PriceAct t uid act -> withHealthCheck t $ priceAct t uid act
+    GovernAct      act -> governAct act
   where
     -- | User acts
     userAct time uid = \case
@@ -247,9 +247,11 @@ react input = do
           guardError "Bad borrow not present" isOk
 
     ---------------------------------------------------
-    priceAct currentTime = \case
-      SetAssetPrice coin rate -> setAssetPrice currentTime coin rate
-      SetOracleAddr coin addr -> setOracleAddr coin addr
+    priceAct currentTime uid act = do
+      isTrustedOracle uid
+      case act of
+        SetAssetPrice coin rate -> setAssetPrice currentTime coin rate
+        SetOracleAddr coin addr -> setOracleAddr coin addr
 
     ---------------------------------------------------
     -- update on market price change
@@ -273,13 +275,13 @@ react input = do
     -- Adds new reserve (new coin/asset)
 
     addReserve cfg@CoinCfg{..} = do
-      LendingPool reserves users curSym coinMap healthReport <- get
+      LendingPool reserves users curSym coinMap healthReport oracles <- get
       if M.member coinCfg'coin reserves
         then throwError "Reserve is already present"
         else do
           let newReserves = M.insert coinCfg'coin (initReserve cfg) reserves
               newCoinMap  = M.insert coinCfg'aToken coinCfg'coin coinMap
-          put $ LendingPool newReserves users curSym newCoinMap healthReport
+          put $ LendingPool newReserves users curSym newCoinMap healthReport oracles
           return []
 
     ---------------------------------------------------
@@ -333,7 +335,7 @@ checkInput = \case
   UserAct time _uid act -> do
     isNonNegative "timestamp" time
     checkUserAct act
-  PriceAct time act -> checkPriceAct time act
+  PriceAct time _uid act -> checkPriceAct time act
   GovernAct act -> checkGovernAct act
   where
     checkUserAct = \case

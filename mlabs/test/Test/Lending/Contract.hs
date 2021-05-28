@@ -62,6 +62,7 @@ depositScript = do
                                           })
           [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
     , sp'initValue = Value.assetClassValue adaCoin 1000
+    , sp'oracles   = [toUserId wAdmin]
     }
   wait 5
   userAct1 $ DepositAct 50 coin1
@@ -201,7 +202,7 @@ repayScene = borrowScene <> repayChange
 liquidationCallScript :: Bool -> Trace.EmulatorTrace ()
 liquidationCallScript receiveAToken = do
   borrowScript
-  priceAct $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct wAdmin $ SetAssetPrice coin2 (R.fromInteger 2)
   next
   userAct2 $ LiquidationCallAct
       { act'collateral     = coin1
@@ -226,6 +227,6 @@ liquidationCallScene receiveAToken = borrowScene <> liquidationCallChange
 --------------------------------------------------
 -- names as in script test
 
-priceAct :: PriceAct -> Trace.EmulatorTrace ()
-priceAct act = L.callPriceOracleAct w1 act
+priceAct :: Wallet -> PriceAct -> Trace.EmulatorTrace ()
+priceAct wal act = L.callPriceOracleAct wal act
 

@@ -68,12 +68,10 @@ machine = (SM.mkStateMachine Nothing transition isFinal)
         check t = member (Slot t) range
         range = txInfoValidRange $ scriptContextTxInfo ctx
 
-
     getInputTime = \case
-      UserAct time _ _ -> Just time
-      PriceAct time _  -> Just time
-      _                -> Nothing
-
+      UserAct time _ _  -> Just time
+      PriceAct time _ _ -> Just time
+      _                 -> Nothing
 
 {-# INLINABLE mkValidator #-}
 mkValidator :: Scripts.ValidatorType Lendex
@@ -162,8 +160,9 @@ type PriceOracleApp a = Contract () PriceOracleLendexSchema LendexError a
 
 priceOracleAction :: PriceAct -> PriceOracleApp ()
 priceOracleAction act = do
+  pkh <- fmap pubKeyHash ownPubKey
   currentTimestamp <- getSlot <$> currentSlot
-  void $ SM.runStep client (PriceAct currentTimestamp act)
+  void $ SM.runStep client (PriceAct currentTimestamp (UserId pkh) act)
 
 -- | Endpoints for price oracle
 priceOracleEndpoints :: PriceOracleApp ()
@@ -179,6 +178,7 @@ type GovernLendexSchema =
 data StartParams = StartParams
   { sp'coins     :: [CoinCfg]  -- ^ supported coins with ratios to ADA
   , sp'initValue :: Value      -- ^ init value deposited to the lending app
+  , sp'oracles   :: [UserId]   -- ^ trusted oracles
   }
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -191,7 +191,7 @@ governAction act = do
 
 startLendex :: StartParams -> GovernApp ()
 startLendex StartParams{..} = do
-  void $ SM.runInitialise client (initLendingPool Forge.currencySymbol sp'coins) sp'initValue
+  void $ SM.runInitialise client (initLendingPool Forge.currencySymbol sp'coins sp'oracles) sp'initValue
 
 -- | Endpoints for admin user
 governEndpoints :: GovernApp ()

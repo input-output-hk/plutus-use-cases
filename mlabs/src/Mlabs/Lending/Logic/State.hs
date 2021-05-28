@@ -12,6 +12,7 @@ module Mlabs.Lending.Logic.State(
   , Error
   , isAsset
   , aToken
+  , isTrustedOracle
   , updateReserveState
   , initReserve
   , guardError
@@ -81,6 +82,12 @@ isAsset asset = do
 updateReserveState :: Integer -> Coin -> St ()
 updateReserveState currentTime asset =
   modifyReserve asset $ IR.updateReserveInterestRates currentTime
+
+{-# INLINABLE isTrustedOracle #-}
+isTrustedOracle :: UserId -> St ()
+isTrustedOracle uid = do
+  oracles <- gets lp'trustedOracles
+  guardError "Is not trusted oracle" $ elem uid oracles
 
 {-# INLINABLE aToken #-}
 aToken :: Coin -> St Coin
@@ -225,9 +232,9 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 -- | Modify reserve for a given asset. It can throw errors.
 modifyReserve' :: Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
-  LendingPool lp users curSym coinMap healthReport <- get
+  LendingPool lp users curSym coinMap healthReport oracles <- get
   case M.lookup asset lp of
-    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym coinMap healthReport) (f reserve)
+    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym coinMap healthReport oracles) (f reserve)
     Nothing      -> throwError $ "Asset is not supported"
 
 {-# INLINABLE modifyUser #-}
@@ -239,10 +246,10 @@ modifyUser uid f = modifyUser' uid (Right . f)
 -- | Modify user info by id. It can throw errors.
 modifyUser' :: UserId -> (User -> Either Error User) -> St ()
 modifyUser' uid f = do
-  LendingPool lp users curSym coinMap healthReport <- get
+  LendingPool lp users curSym coinMap healthReport oracles <- get
   case f $ fromMaybe defaultUser $ M.lookup uid users of
     Left msg   -> throwError msg
-    Right user -> put $ LendingPool lp (M.insert uid user users) curSym coinMap healthReport
+    Right user -> put $ LendingPool lp (M.insert uid user users) curSym coinMap healthReport oracles
 
 {-# INLINABLE modifyHealthReport #-}
 modifyHealthReport :: (HealthReport -> HealthReport) -> St ()
