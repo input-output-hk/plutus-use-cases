@@ -8,6 +8,10 @@ import tokenActions, * as fromTokenActions from './tokenActions';
 
 export const getCurrentUser = (state) =>
   fromCurrentUser.getCurrentUser(state.currentUser);
+export const getCurrentUserFetching = (state) =>
+  fromCurrentUser.getCurrentUserFetching(state.currentUser);
+export const getCurrentUserError = (state) =>
+  fromCurrentUser.getCurrentUserError(state.currentUser);
 
 export const getMyTokens = (state) => fromMyTokens.getMyTokens(state.myTokens);
 export const getMyTokensFetching = (state) =>

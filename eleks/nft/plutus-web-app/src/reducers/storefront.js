@@ -3,14 +3,14 @@ import {
   FETCH_STOREFRONT_START,
   FETCH_STOREFRONT_SUCCESS,
   FETCH_STOREFRONT_FAILED,
-  LOGOUT_USER
+  LOGOUT
 } from '../helpers/actionTypes';
 
 export const data = (state = [], action) => {
   switch (action.type) {
     case FETCH_STOREFRONT_SUCCESS:
       return action.tokens;
-    case LOGOUT_USER:
+    case LOGOUT:
       return [];
     default:
       return state;
