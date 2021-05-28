@@ -48,7 +48,7 @@ import  Plutus.Contract.Blockchain.MarketPlace
 
 
 newtype MarketContract = MarketContract Market
-    deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
+    deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
 instance Pretty MarketContract where
     pretty = viaShow
@@ -60,8 +60,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     shutdown <- PAB.Server.startServerDebug
 
 
-    forM_ wallets $ \w ->
-        when (w /= Wallet 1) $ do
+    forM_ wallets $ \w -> do
             cid <- Simulator.activateContract w $ MarketContract defaultMarket
             liftIO $ writeFile ('W' : show (getWallet w) ++ ".cid") $ show $ unContractInstanceId cid
     void $ liftIO getLine
@@ -74,7 +73,7 @@ waitForLast cid =
         _                       -> Nothing
 
 wallets :: [Wallet]
-wallets = [Wallet i | i <- [1 .. 10]]
+wallets = [Wallet i | i <- [1 .. 9]]
 
 defaultMarket :: Market
 defaultMarket = Market 
@@ -90,8 +89,8 @@ handleMarketContracts ::
     => ContractEffect (Builtin MarketContract)
     ~> Eff effs
 handleMarketContracts = handleBuiltin getSchema getContract where
-    getSchema _= endpointsToSchemas @(MarketSchema .\\ BlockchainActions)
-    getContract (MarketContract m)= SomeBuiltin $ openTheMarket m
+    getSchema =  \ _ -> endpointsToSchemas @Empty
+    getContract  (MarketContract m) =  SomeBuiltin   (openTheMarket m)
 
 handlers :: SimulatorEffectHandlers (Builtin MarketContract)
 handlers =

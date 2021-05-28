@@ -53,10 +53,10 @@ library
 
 test-suite tokens-test
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
+  main-is: Main.hs
   hs-source-dirs: test
   other-modules:
-    Spec.Game
+    Test.MarketPlace
   default-language: Haskell2010
   ghc-options: -Wall -Wnoncanonical-monad-instances
               -Wincomplete-uni-patterns -Wincomplete-record-updates
@@ -68,7 +68,10 @@ test-suite tokens-test
     plutus-tx-plugin,
     plutus-contract -any,
     plutus-ledger -any,
-    plutus-tokens -any
+    plutus-tokens -any,
+    playground-common -any,
+    aeson -any,
+
   build-depends:
     base >=4.9 && <5,
     tasty -any,
