@@ -13,6 +13,7 @@
 -- * https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool
 module Mlabs.Lending.Logic.Types(
     LendingPool(..)
+  , LendexId(..)
   , Wallet(..)
   , defaultWallet
   , User(..)
@@ -52,6 +53,12 @@ import qualified PlutusTx.AssocMap as M
 import GHC.Generics
 
 import Mlabs.Emulator.Types
+
+-- | Unique identifier of the lending pool state.
+newtype LendexId = LendexId ByteString
+  deriving stock (Show, Generic)
+  deriving newtype (Eq)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool
@@ -328,3 +335,5 @@ PlutusTx.unstableMakeIsData ''BadBorrow
 PlutusTx.unstableMakeIsData ''LendingPool
 PlutusTx.unstableMakeIsData ''Act
 
+PlutusTx.unstableMakeIsData ''LendexId
+PlutusTx.makeLift ''LendexId
