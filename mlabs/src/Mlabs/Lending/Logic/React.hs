@@ -251,7 +251,6 @@ react input = do
       isTrustedOracle uid
       case act of
         SetAssetPrice coin rate -> setAssetPrice currentTime coin rate
-        SetOracleAddr coin addr -> setOracleAddr coin addr
 
     ---------------------------------------------------
     -- update on market price change
@@ -259,11 +258,6 @@ react input = do
     setAssetPrice currentTime asset rate = do
       modifyReserve asset $ \r -> r { reserve'rate = CoinRate rate currentTime }
       pure []
-
-    ---------------------------------------------------
-    -- set oracle address
-    --
-    setOracleAddr _ _ = todo
 
     ---------------------------------------------------
     -- Govern acts
@@ -366,8 +360,6 @@ checkInput = \case
         SetAssetPrice asset price -> do
           checkCoinRateTimeProgress time asset
           isPositiveRational "price" price
-          isAsset asset
-        SetOracleAddr asset _uid ->
           isAsset asset
 
     checkGovernAct = \case

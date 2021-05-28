@@ -8,7 +8,6 @@
 -- | State transitions for Lending app
 module Mlabs.Lending.Logic.State(
     St
-  , showt
   , Error
   , isAsset
   , aToken

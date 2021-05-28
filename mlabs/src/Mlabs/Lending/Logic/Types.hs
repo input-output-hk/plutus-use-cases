@@ -34,17 +34,10 @@ module Mlabs.Lending.Logic.Types(
   , BadBorrow(..)
   , PriceAct(..)
   , GovernAct(..)
-  , LpAddressesProvider(..)
-  , LpAddressesProviderRegistry(..)
   , Coin
   , toLendingToken
   , fromLendingToken
   , fromAToken
-  , LpCollateralManager(..)
-  , LpConfigurator(..)
-  , PriceOracleProvider(..)
-  , InterestRateStrategy(..)
-  , Showt(..)
 ) where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -59,11 +52,6 @@ import qualified PlutusTx.AssocMap as M
 import GHC.Generics
 
 import Mlabs.Emulator.Types
-
--- | Class that converts to inlinable builtin string
-class Showt a where
-  showt :: a -> String
-
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool
@@ -302,7 +290,6 @@ data GovernAct
 -- | Updates for the prices of the currencies on the markets
 data PriceAct
   = SetAssetPrice Coin Rational   -- ^ Set asset price
-  | SetOracleAddr Coin UserId     -- ^ Provide address of the oracle
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -318,23 +305,6 @@ fromAToken LendingPool{..} tn = M.lookup tn lp'coinMap
 {-# INLINABLE fromLendingToken #-}
 fromLendingToken :: LendingPool -> Coin -> Maybe Coin
 fromLendingToken lp (AssetClass (_ ,tn)) = fromAToken lp tn
-
-----------------------------------------------------
--- some types specific to aave
---
-
-data LpAddressesProvider = LpAddressesProvider
-
-newtype LpAddressesProviderRegistry
-  = LpAddressesProviderRegistry [LpAddressesProvider]
-
-data LpCollateralManager = LpCollateralManager
-
-data LpConfigurator = LpConfigurator
-
-data PriceOracleProvider = PriceOracleProvider
-
-data InterestRateStrategy = InterestRateStrategy
 
 data InterestRate = StableRate | VariableRate
   deriving stock (Show, Generic, Hask.Eq)
