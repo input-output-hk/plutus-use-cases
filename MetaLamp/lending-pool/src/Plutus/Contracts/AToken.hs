@@ -62,8 +62,10 @@ validator underlyingAsset aTokenName ctx = hasEnoughUnderlyingAsset
 
         amountMinted :: Integer
         amountMinted = assetClassValueOf (txInfoForge txInfo) aTokenCurrency
+
+        -- TODO how to check if value spent comes from pub key when aTokens are minted and comes from aave script when aTokens are burned?
         amountAsset :: Integer
-        amountAsset = assetClassValueOf (valueSpent txInfo) underlyingAsset -- TODO how to check if value spent does not come from aave script?
+        amountAsset = assetClassValueOf (valueSpent txInfo) underlyingAsset
 
         hasEnoughUnderlyingAsset :: Bool
         hasEnoughUnderlyingAsset =  amountMinted <= amountAsset
@@ -91,11 +93,13 @@ forgeATokensFrom aave reserve pkh amount = do
     let policy = makeLiquidityPolicy (rCurrency reserve)
         aTokenAmount = amount -- / rLiquidityIndex reserve -- TODO: how should we divide?
         forgeValue = assetClassValue (rAToken reserve) aTokenAmount
+    let payment = assetClassValue (rCurrency reserve) amount
     pure $
         TxUtils.mustForgeValue @AaveScript policy forgeValue
         <> (Prelude.mempty, mustPayToPubKey pkh forgeValue)
+        <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.DepositDatum payment
 
-burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
+burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
 burnATokensFrom aave reserve pkh amount = do
     let asset = rCurrency reserve
     utxos <-
@@ -107,9 +111,7 @@ burnATokensFrom aave reserve pkh amount = do
         policy = makeLiquidityPolicy asset
         burnValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
         spendInputs = (\(ref, tx) -> OutputValue ref tx Core.WithdrawRedeemer) <$> Map.toList utxos
-    ledgerTx <- TxUtils.submitTxPair $
+    pure $
         TxUtils.mustForgeValue policy burnValue
         <> TxUtils.mustSpendFromScript (Core.aaveInstance aave) spendInputs pkh (assetClassValue asset aTokenAmount)
         <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.DepositDatum (assetClassValue asset remainder)
-    _ <- awaitTxConfirmed $ txId ledgerTx
-    pure ()
