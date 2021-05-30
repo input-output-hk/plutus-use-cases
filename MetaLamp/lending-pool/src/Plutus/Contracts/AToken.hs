@@ -63,7 +63,7 @@ validator underlyingAsset aTokenName ctx = hasEnoughUnderlyingAsset
         amountMinted :: Integer
         amountMinted = assetClassValueOf (txInfoForge txInfo) aTokenCurrency
         amountAsset :: Integer
-        amountAsset = assetClassValueOf (valueSpent txInfo) underlyingAsset
+        amountAsset = assetClassValueOf (valueSpent txInfo) underlyingAsset -- TODO how to check if value spent does not come from aave script?
 
         hasEnoughUnderlyingAsset :: Bool
         hasEnoughUnderlyingAsset =  amountMinted <= amountAsset
@@ -86,16 +86,14 @@ aTokenName :: AssetClass -> TokenName
 aTokenName asset = TokenName $ "a" Semigroup.<> case asset of
     AssetClass (_,TokenName n) -> n
 
-forgeATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
+forgeATokensFrom :: forall w s. (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
 forgeATokensFrom aave reserve pkh amount = do
     let policy = makeLiquidityPolicy (rCurrency reserve)
         aTokenAmount = amount -- / rLiquidityIndex reserve -- TODO: how should we divide?
         forgeValue = assetClassValue (rAToken reserve) aTokenAmount
-    ledgerTx <- TxUtils.submitTxPair $
-        TxUtils.mustForgeValue @Scripts.Any policy forgeValue
+    pure $
+        TxUtils.mustForgeValue @AaveScript policy forgeValue
         <> (Prelude.mempty, mustPayToPubKey pkh forgeValue)
-    _ <- awaitTxConfirmed $ txId ledgerTx
-    pure ()
 
 burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text ()
 burnATokensFrom aave reserve pkh amount = do

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -39,6 +40,8 @@ import           Prelude                          (Semigroup (..))
 import qualified Prelude
 
 type TxPair a = (Constraints.ScriptLookups a, Constraints.TxConstraints (RedeemerType a) (DatumType a))
+
+type HasTxData a = (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a))
 
 submitTxPair :: (AsContractError e, HasWriteTx s, PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
     TxPair a

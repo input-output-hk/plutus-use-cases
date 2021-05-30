@@ -140,13 +140,13 @@ PlutusTx.makeLift ''DepositParams
 deposit :: (HasBlockchainActions s) => Aave -> DepositParams -> Contract w s Text ()
 deposit aave DepositParams {..} = do
     reserve <- State.findAaveReserve aave dpAsset
+    forgeTxPair <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
     let payment = assetClassValue (rCurrency reserve) dpAmount
     ledgerTx <- TxUtils.submitTxPair $
-        TxUtils.mustPayToScript (Core.aaveInstance aave) dpOnBehalfOf Core.DepositDatum payment
+        TxUtils.mustPayToScript (Core.aaveInstance aave) dpOnBehalfOf Core.DepositDatum payment <> forgeTxPair
     _ <- awaitTxConfirmed $ txId ledgerTx
 
     wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
-    _ <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
     when wasZeroBalance $ do
         userConfigs <- ovValue <$> State.findAaveUserConfigs aave
         let userConfigId = (rCurrency reserve, dpOnBehalfOf)
