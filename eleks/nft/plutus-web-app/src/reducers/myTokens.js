@@ -8,7 +8,8 @@ import {
   FETCH_ADD_TOKEN_FAILED,
   FETCH_SELL_TOKEN_SUCCESS,
   FETCH_BUY_TOKEN_SUCCESS,
-  LOGOUT
+  FETCH_CANCEL_SELL_TOKEN_SUCCESS,
+  LOGOUT,
 } from '../helpers/actionTypes';
 
 export const data = (state = [], action) => {
@@ -19,6 +20,7 @@ export const data = (state = [], action) => {
     case FETCH_BUY_TOKEN_SUCCESS:
       return [...state, action.token];
     case FETCH_SELL_TOKEN_SUCCESS:
+    case FETCH_CANCEL_SELL_TOKEN_SUCCESS:
       return state.map((token) => {
         if (token.id === action.token.id) {
           return action.token;

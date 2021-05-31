@@ -5,6 +5,7 @@ import {
   FETCH_STOREFRONT_FAILED,
   FETCH_SELL_TOKEN_SUCCESS,
   FETCH_BUY_TOKEN_SUCCESS,
+  FETCH_CANCEL_SELL_TOKEN_SUCCESS,
   LOGOUT,
 } from '../helpers/actionTypes';
 
@@ -15,6 +16,7 @@ export const data = (state = [], action) => {
     case FETCH_SELL_TOKEN_SUCCESS:
       return [...state, action.token];
     case FETCH_BUY_TOKEN_SUCCESS:
+    case FETCH_CANCEL_SELL_TOKEN_SUCCESS:
       return state.filter(token => token.id !== action.token.id)
     case LOGOUT:
       return [];

@@ -1,8 +1,12 @@
 import { connect } from 'react-redux';
-import { compose, withState, withProps } from 'recompose';
+import { compose, withProps, withState } from 'recompose';
 
-import { getTokenActionsFetching } from '../reducers';
-import { fetchSellToken, fetchBuyToken } from '../actions/tokenActions';
+import { getToken, getTokenActionsFetching } from '../reducers';
+import {
+  fetchSellToken,
+  fetchBuyToken,
+  fetchCancelSellToken,
+} from '../actions/tokenActions';
 
 import Loader from './Loader';
 import SellModal from './SellModal';
@@ -21,8 +25,10 @@ const TokenPage = ({
   setShowModal,
   fetchBuyToken,
   fetchSellToken,
+  fetchCancelSellToken,
   tokenActionFetching,
   currentUser,
+  isBuy,
 }) => (
   <div className='TokenPage'>
     <h3 className='heading'>Token view page</h3>
@@ -73,7 +79,7 @@ const TokenPage = ({
 
         {!!token.price && currentUser.publicKey === token.seller && (
           <Card.Body>
-            <Button variant='secondary' disabled>
+            <Button variant='secondary' onClick={() => setShowModal('cancel')}>
               Cancel sell
             </Button>
           </Card.Body>
@@ -89,12 +95,16 @@ const TokenPage = ({
     />
 
     <ConfirmModal
-      show={showModal === 'buy'}
+      show={isBuy || showModal === 'cancel'}
       setShowModal={setShowModal}
       token={token}
-      fetchBuyToken={fetchBuyToken}
-      header='Buy token'
-      text={`Do you want to buy ${token.name} token for ${token.price} ADA?`}
+      fetchTokenAction={isBuy ? fetchBuyToken : fetchCancelSellToken}
+      header={isBuy ? 'Buy token' : 'Cancel sell'}
+      text={
+        isBuy
+          ? `Do you want to buy ${token.name} token for ${token.price} ADA?`
+          : `Do you want to cancel sell ${token.name} token?`
+      }
     />
 
     {tokenActionFetching && (
@@ -108,19 +118,20 @@ const TokenPage = ({
 
 const enhancer = compose(
   withState('showModal', 'setShowModal', false),
+  withProps(({ showModal }) => ({ isBuy: showModal === 'buy' })),
   connect(
     (state) => ({
+      token: getToken(state),
       tokenActionFetching: getTokenActionsFetching(state),
     }),
     (dispatch, props) => ({
       fetchSellToken: (data) =>
         dispatch(fetchSellToken(props.currentUser, data)),
       fetchBuyToken: (data) => dispatch(fetchBuyToken(props.currentUser, data)),
+      fetchCancelSellToken: (data) =>
+        dispatch(fetchCancelSellToken(props.currentUser, data)),
     })
-  ),
-  withProps(() => ({
-    token: JSON.parse(localStorage.getItem('viewSingleToken')),
-  }))
+  )
 );
 
 export default enhancer(TokenPage);

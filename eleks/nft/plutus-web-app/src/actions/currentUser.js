@@ -1,7 +1,6 @@
 import { toast } from 'react-toastify';
 
 import * as fromApi from '../api/currentUser';
-import { formatKeyResponse } from '../helpers/utils';
 import {
   LOGOUT,
   FETCH_LOGIN_START,

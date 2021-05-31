@@ -10,10 +10,6 @@ export const formatSellData = (data) => ({
   spTokenSymbol: data.id,
 });
 
-export const formatBuyData = (data) => ({
-  bpTokenSymbol: data.id,
-});
-
 const dataMap = (token) => ({
   id: token.nftDtoTokenSymbol,
   name: token.nftDtoTokenName,

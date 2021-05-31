@@ -33,9 +33,9 @@ const ConfirmModal = ({ show, setShowModal, submitSell, header, text }) => (
 
 const enhancer = compose(
   withHandlers({
-    submitSell: ({ token, fetchBuyToken, setShowModal }) => () => {
+    submitSell: ({ token, fetchTokenAction, setShowModal }) => () => {
       setShowModal(false);
-      fetchBuyToken({ id: token.id });
+      fetchTokenAction({ id: token.id });
     },
   })
 );

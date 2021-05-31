@@ -3,9 +3,8 @@ import * as fromApi from '../api/tokenActions';
 
 import {
   formatSellData,
-  formatBuyData,
   formatObjectResponse,
-  formatBuyResponse
+  formatBuyResponse,
 } from '../helpers/utils';
 import {
   FETCH_SELL_TOKEN_START,
@@ -14,6 +13,9 @@ import {
   FETCH_BUY_TOKEN_START,
   FETCH_BUY_TOKEN_SUCCESS,
   FETCH_BUY_TOKEN_FAILED,
+  FETCH_CANCEL_SELL_TOKEN_START,
+  FETCH_CANCEL_SELL_TOKEN_SUCCESS,
+  FETCH_CANCEL_SELL_TOKEN_FAILED,
 } from '../helpers/actionTypes';
 
 export const fetchSellTokenStart = () => ({
@@ -22,7 +24,7 @@ export const fetchSellTokenStart = () => ({
 
 export const fetchSellTokenSuccess = (token) => ({
   type: FETCH_SELL_TOKEN_SUCCESS,
-  token
+  token,
 });
 
 export const fetchSellTokenFailed = (error) => ({
@@ -36,11 +38,25 @@ export const fetchBuyTokenStart = () => ({
 
 export const fetchBuyTokenSuccess = (token) => ({
   type: FETCH_BUY_TOKEN_SUCCESS,
-  token
+  token,
 });
 
 export const fetchBuyTokenFailed = (error) => ({
   type: FETCH_BUY_TOKEN_FAILED,
+  error,
+});
+
+export const fetchCancelSellStart = () => ({
+  type: FETCH_CANCEL_SELL_TOKEN_START,
+});
+
+export const fetchCancelSellSuccess = (token) => ({
+  type: FETCH_CANCEL_SELL_TOKEN_SUCCESS,
+  token,
+});
+
+export const fetchCancelSellFailed = (error) => ({
+  type: FETCH_CANCEL_SELL_TOKEN_FAILED,
   error,
 });
 
@@ -51,19 +67,37 @@ export const fetchSellToken = (wallet, data) => async (dispatch) => {
     dispatch(fetchSellTokenFailed(response.error));
     toast.error(response.error);
   } else {
-    dispatch(fetchSellTokenSuccess(formatObjectResponse(response)));
-    toast.success('Token has been selled');
+    const token = formatObjectResponse(response);
+    localStorage.setItem('viewSingleToken', JSON.stringify(token));
+    dispatch(fetchSellTokenSuccess(token));
+    toast.success('Token has been sold');
   }
 };
 
 export const fetchBuyToken = (wallet, tokenId) => async (dispatch) => {
   dispatch(fetchBuyTokenStart());
-  const response = await fromApi.fetchBuyToken(wallet, formatBuyData(tokenId));
+  const response = await fromApi.fetchBuyToken(wallet, tokenId);
   if (response.error) {
     dispatch(fetchBuyTokenFailed(response.error));
     toast.error(response.error);
   } else {
-    dispatch(fetchBuyTokenSuccess(formatBuyResponse(response)));
+    const token = formatBuyResponse(response);
+    localStorage.setItem('viewSingleToken', JSON.stringify(token));
+    dispatch(fetchBuyTokenSuccess(token));
     toast.success('Token has been bought');
+  }
+};
+
+export const fetchCancelSellToken = (wallet, tokenId) => async (dispatch) => {
+  dispatch(fetchCancelSellStart());
+  const response = await fromApi.fetchCancelSellToken(wallet, tokenId);
+  if (response.error) {
+    dispatch(fetchCancelSellFailed(response.error));
+    toast.error(response.error);
+  } else {
+    const token = formatBuyResponse(response);
+    localStorage.setItem('viewSingleToken', JSON.stringify(token));
+    dispatch(fetchCancelSellSuccess(token));
+    toast.success('Token sell has been canceled');
   }
 };
