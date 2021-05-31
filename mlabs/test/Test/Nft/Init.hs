@@ -44,7 +44,7 @@ import Control.Monad.Freer.Extras.Log
 import Control.Monad.Freer.Error
 import Plutus.Trace.Emulator
 
-import qualified PlutusTx.Ratio as R
+import qualified Mlabs.Data.Ray as R
 
 checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution

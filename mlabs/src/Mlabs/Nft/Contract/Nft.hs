@@ -7,6 +7,10 @@ module Mlabs.Nft.Contract.Nft(
   , callUserAct
   , callStartNft
   , StartParams(..)
+  , UserSchema
+  , AuthorSchema
+  , startNft
+  , userEndpoints
 ) where
 
 import qualified Prelude as P
@@ -30,6 +34,7 @@ import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
 import qualified Control.Monad.Freer.Error    as F
+import Playground.Contract (ToSchema)
 
 import Mlabs.Emulator.Blockchain
 import Mlabs.Emulator.Types
@@ -45,6 +50,8 @@ import qualified Wallet.Emulator as Emulator
 
 import qualified Data.Map as M
 import Plutus.V1.Ledger.Value
+
+import Mlabs.Data.Ray (Ray)
 
 --------------------------------------
 
@@ -136,12 +143,26 @@ nftValue nid = assetClassValue (nftCoin nid) 1
 type NftError = SM.SMContractError
 
 -- | User schema. Owner can set the price and the buyer can try to buy.
-type NftSchema =
+type UserSchema =
   BlockchainActions
-    .\/ Endpoint "user-action" UserAct
+    .\/ Endpoint "buy-act"       BuyAct
+    .\/ Endpoint "set-price-act" SetPriceAct
+
+data BuyAct = BuyAct
+  { buy'price     :: Integer
+  , buy'newPrice  :: Maybe Integer
+  }
+  deriving stock (Show, Generic, P.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+
+data SetPriceAct = SetPriceAct
+  { setPrice'newPrice :: Maybe Integer
+  }
+  deriving stock (Show, Generic, P.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | NFT contract for the user
-type NftContract a = Contract () NftSchema NftError a
+type NftContract a = Contract () UserSchema NftError a
 
 -- | Finds Datum for NFT state machine script.
 findInputStateDatum :: NftId -> NftContract Datum
@@ -176,22 +197,26 @@ userAction nid act = do
 userEndpoints :: NftId -> NftContract ()
 userEndpoints nid = forever userAction'
   where
-    userAction' = endpoint @"user-action" >>= (userAction nid)
+    userAction' = buy `select` setPrice
+
+    buy      = endpoint @"buy-act"       >>= (\BuyAct{..}      -> userAction nid (Buy buy'price buy'newPrice))
+    setPrice = endpoint @"set-price-act" >>= (\SetPriceAct{..} -> userAction nid (SetPrice setPrice'newPrice))
+
 
 -- | Parameters to init NFT
 data StartParams = StartParams
-  { sp'content :: ByteString        -- ^ NFT content
-  , sp'share   :: Rational          -- ^ author share [0, 1] on reselling of the NFT
-  , sp'price   :: Maybe Integer     -- ^ current price of NFT, if it's nothing then nobody can buy it.
+  { sp'content :: ByteString      -- ^ NFT content
+  , sp'share   :: Ray             -- ^ author share [0, 1] on reselling of the NFT
+  , sp'price   :: Maybe Integer   -- ^ current price of NFT, if it's nothing then nobody can buy it.
   }
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Contract for the author of NFT
-type AuthorContract a = Contract (Last NftId) AuthorScheme NftError a
+type AuthorContract a = Contract (Last NftId) AuthorSchema NftError a
 
 -- | Schema for the author of NFT
-type AuthorScheme =
+type AuthorSchema =
   BlockchainActions
     .\/ Endpoint "start-nft"  StartParams
 
@@ -224,7 +249,9 @@ authorEndpoints = forever startNft'
 callUserAct :: NftId -> Emulator.Wallet -> UserAct -> EmulatorTrace ()
 callUserAct nid wal act = do
   hdl <- Trace.activateContractWallet wal (userEndpoints nid)
-  void $ Trace.callEndpoint @"user-action" hdl act
+  case act of
+    Buy{..}      -> void $ Trace.callEndpoint @"buy-act"       hdl (BuyAct act'price act'newPrice)
+    SetPrice{..} -> void $ Trace.callEndpoint @"set-price-act" hdl (SetPriceAct act'newPrice)
 
 -- | Calls initialisation of state for Lending pool
 callStartNft :: Emulator.Wallet -> StartParams -> EmulatorTrace NftId
