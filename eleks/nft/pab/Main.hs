@@ -87,6 +87,14 @@ main = void $ Simulator.runSimulationWith handlers $ do
     --     _                                                      -> Nothing
     -- Simulator.logString @(Builtin NFTMarketContracts) $ "Token 2 created"
 
+    -- let nftTransferParams = NFTMarket.TransferParams { tpTokenSymbol = nftDtoTokenSymbol token1Meta, tpReceiverWallet = 1 }
+    -- Simulator.logString @(Builtin NFTMarketContracts) $ "nft token transfer params: " ++ show (encode nftTransferParams)
+    -- void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "transfer" nftTransferParams
+    -- transferedTokenMeta <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
+    --     Success (Monoid.Last (Just (Right (NFTMarket.Transfered nftMeta)))) -> Just nftMeta
+    --     _                                                                   -> Nothing
+    -- Simulator.logString @(Builtin NFTMarketContracts) $ "Token transfered"
+
     -- Simulator.waitNSlots 1
     -- Simulator.logString @(Builtin NFTMarketContracts) $ "Enter to show user tokens"
     -- void $ liftIO getLine

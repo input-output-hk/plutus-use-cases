@@ -178,3 +178,21 @@ curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
+
+9. Transfer Token
+
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '{"tpTokenSymbol": "staQbIJe11Om2KUvRt1+1SivJXo4H+u6Wc8Nekh7VQA=", "tpReceiverWallet": 1}' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/transfer
+```
+
+Get response
+```
+export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+```
