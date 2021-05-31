@@ -1,7 +1,12 @@
 import { toast } from 'react-toastify';
 import * as fromApi from '../api/tokenActions';
 
-import { formatSellData, formatBuyData } from '../helpers/utils';
+import {
+  formatSellData,
+  formatBuyData,
+  formatObjectResponse,
+  formatBuyResponse
+} from '../helpers/utils';
 import {
   FETCH_SELL_TOKEN_START,
   FETCH_SELL_TOKEN_SUCCESS,
@@ -15,8 +20,9 @@ export const fetchSellTokenStart = () => ({
   type: FETCH_SELL_TOKEN_START,
 });
 
-export const fetchSellTokenSuccess = () => ({
+export const fetchSellTokenSuccess = (token) => ({
   type: FETCH_SELL_TOKEN_SUCCESS,
+  token
 });
 
 export const fetchSellTokenFailed = (error) => ({
@@ -28,8 +34,9 @@ export const fetchBuyTokenStart = () => ({
   type: FETCH_BUY_TOKEN_START,
 });
 
-export const fetchBuyTokenSuccess = () => ({
+export const fetchBuyTokenSuccess = (token) => ({
   type: FETCH_BUY_TOKEN_SUCCESS,
+  token
 });
 
 export const fetchBuyTokenFailed = (error) => ({
@@ -44,7 +51,7 @@ export const fetchSellToken = (wallet, data) => async (dispatch) => {
     dispatch(fetchSellTokenFailed(response.error));
     toast.error(response.error);
   } else {
-    dispatch(fetchSellTokenSuccess());
+    dispatch(fetchSellTokenSuccess(formatObjectResponse(response)));
     toast.success('Token has been selled');
   }
 };
@@ -56,7 +63,7 @@ export const fetchBuyToken = (wallet, tokenId) => async (dispatch) => {
     dispatch(fetchBuyTokenFailed(response.error));
     toast.error(response.error);
   } else {
-    dispatch(fetchBuyTokenSuccess());
+    dispatch(fetchBuyTokenSuccess(formatBuyResponse(response)));
     toast.success('Token has been bought');
   }
 };

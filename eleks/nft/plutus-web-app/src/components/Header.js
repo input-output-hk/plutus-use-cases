@@ -1,4 +1,5 @@
 import { withRouter } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
 import Nav from 'react-bootstrap/Nav';
 import Card from 'react-bootstrap/Card';
@@ -14,13 +15,19 @@ const Header = ({ location, logout, currentUser }) => (
     <Navbar.Brand className='brand mr-auto'>NFT Marketplace</Navbar.Brand>
     <Nav activeKey={location.pathname}>
       <Nav.Item>
-        <Nav.Link href='/'>Home</Nav.Link>
+        <NavLink exact className='link' activeClassName='active' to='/'>
+          Home
+        </NavLink>
       </Nav.Item>
       <Nav.Item>
-        <Nav.Link href='/create-nft'>Create NFT</Nav.Link>
+        <NavLink className='link' activeClassName='active' to='/create-nft'>
+          Create NFT
+        </NavLink>
       </Nav.Item>
       <Nav.Item>
-        <Nav.Link href='/my-collection'>My collection</Nav.Link>
+        <NavLink className='link' activeClassName='active' to='/my-collection'>
+          My collection
+        </NavLink>
       </Nav.Item>
     </Nav>
     {currentUser && currentUser.id && (

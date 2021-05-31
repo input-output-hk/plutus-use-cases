@@ -1,3 +1,5 @@
+import { toast } from 'react-toastify';
+
 import * as fromApi from '../api/storefront';
 import { formatResponse } from '../helpers/utils';
 import {
@@ -23,7 +25,10 @@ export const fetchStorefrontFailed = (error) => ({
 export const fetchStorefront = (wallet) => async (dispatch) => {
   dispatch(fetchStorefrontStart());
   const tokens = await fromApi.fetchStorefront(wallet);
-  tokens.error
-    ? dispatch(fetchStorefrontFailed(tokens.error))
-    : dispatch(fetchStorefrontSuccess(formatResponse(tokens)));
+  if (tokens.error) {
+    dispatch(fetchStorefrontFailed(tokens.error));
+    toast.error(tokens.error);
+  } else {
+    dispatch(fetchStorefrontSuccess(formatResponse(tokens)));
+  }
 };

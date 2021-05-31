@@ -6,12 +6,26 @@ import {
   FETCH_ADD_TOKEN_START,
   FETCH_ADD_TOKEN_SUCCESS,
   FETCH_ADD_TOKEN_FAILED,
+  FETCH_SELL_TOKEN_SUCCESS,
+  FETCH_BUY_TOKEN_SUCCESS,
+  LOGOUT
 } from '../helpers/actionTypes';
 
 export const data = (state = [], action) => {
   switch (action.type) {
     case FETCH_MY_TOKENS_SUCCESS:
       return action.tokens;
+    case FETCH_ADD_TOKEN_SUCCESS:
+    case FETCH_BUY_TOKEN_SUCCESS:
+      return [...state, action.token];
+    case FETCH_SELL_TOKEN_SUCCESS:
+      return state.map((token) => {
+        if (token.id === action.token.id) {
+          return action.token;
+        } else return token;
+      });
+    case LOGOUT:
+      return [];
     default:
       return state;
   }
@@ -48,7 +62,7 @@ export const error = (state = '', action) => {
 const myTokens = combineReducers({
   data,
   fetching,
-  error
+  error,
 });
 
 export const getMyTokens = (state) => state.data;

@@ -1,5 +1,4 @@
 import { fetchStatus } from './status';
-import { wait } from '../helpers/utils';
 
 export async function fetchSellToken(wallet, data) {
   const response = await fetch(
@@ -14,8 +13,7 @@ export async function fetchSellToken(wallet, data) {
   );
 
   if (response.status === 200) {
-    await wait(1000);
-    return await fetchStatus(wallet);
+    return await fetchStatus(wallet, "Selling");
   } else {
     return {
       error: 'Unable to sell token',
@@ -36,8 +34,7 @@ export async function fetchBuyToken(wallet, data) {
   );
 
   if (response.status === 200) {
-    await wait(1000);
-    return await fetchStatus(wallet);
+    return await fetchStatus(wallet, "Buyed");
   } else {
     return {
       error: 'Unable to buy token',

@@ -3,13 +3,19 @@ import {
   FETCH_STOREFRONT_START,
   FETCH_STOREFRONT_SUCCESS,
   FETCH_STOREFRONT_FAILED,
-  LOGOUT
+  FETCH_SELL_TOKEN_SUCCESS,
+  FETCH_BUY_TOKEN_SUCCESS,
+  LOGOUT,
 } from '../helpers/actionTypes';
 
 export const data = (state = [], action) => {
   switch (action.type) {
     case FETCH_STOREFRONT_SUCCESS:
       return action.tokens;
+    case FETCH_SELL_TOKEN_SUCCESS:
+      return [...state, action.token];
+    case FETCH_BUY_TOKEN_SUCCESS:
+      return state.filter(token => token.id !== action.token.id)
     case LOGOUT:
       return [];
     default:

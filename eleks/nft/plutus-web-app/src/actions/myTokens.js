@@ -1,7 +1,7 @@
 import { toast } from 'react-toastify';
 
 import * as fromApi from '../api/myTokens';
-import { formatResponse } from '../helpers/utils';
+import { formatResponse, formatObjectResponse } from '../helpers/utils';
 import {
   FETCH_MY_TOKENS_START,
   FETCH_MY_TOKENS_SUCCESS,
@@ -29,8 +29,9 @@ export const fetchAddTokenStart = () => ({
   type: FETCH_ADD_TOKEN_START,
 });
 
-export const fetchAddTokenSuccess = () => ({
+export const fetchAddTokenSuccess = (token) => ({
   type: FETCH_ADD_TOKEN_SUCCESS,
+  token,
 });
 
 export const fetchAddTokenFailed = (error) => ({
@@ -41,9 +42,12 @@ export const fetchAddTokenFailed = (error) => ({
 export const fetchMyTokens = (wallet) => async (dispatch) => {
   dispatch(fetchMyTokensStart());
   const tokens = await fromApi.fetchMyTokens(wallet);
-  tokens.error
-    ? dispatch(fetchMyTokensFailed(tokens.error))
-    : dispatch(fetchMyTokensSuccess(formatResponse(tokens)));
+  if (tokens.error) {
+    dispatch(fetchMyTokensFailed(tokens.error));
+    toast.error(tokens.error);
+  } else {
+    dispatch(fetchMyTokensSuccess(formatResponse(tokens)));
+  }
 };
 
 export const fetchAddToken = (wallet, data) => async (dispatch) => {
@@ -53,7 +57,7 @@ export const fetchAddToken = (wallet, data) => async (dispatch) => {
     dispatch(fetchAddTokenFailed(token.error));
     toast.error(token.error);
   } else {
-    dispatch(fetchAddTokenSuccess());
-    toast.success("Token has been created");
+    dispatch(fetchAddTokenSuccess(formatObjectResponse(token)));
+    toast.success('Token has been created');
   }
 };
