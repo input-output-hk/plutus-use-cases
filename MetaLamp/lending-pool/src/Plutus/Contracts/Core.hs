@@ -82,6 +82,24 @@ data UserConfig = UserConfig
 PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
 
+newtype InstanceReserves = InstanceReserves {
+  getInstanceReserves :: AssocMap.Map ReserveId Reserve
+}
+    deriving stock (Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''InstanceReserves
+PlutusTx.makeLift ''InstanceReserves
+
+newtype InstanceUsers = InstanceUsers {
+  getInstanceUsers :: AssocMap.Map UserConfigId UserConfig
+}
+    deriving stock (Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''InstanceUsers
+PlutusTx.makeLift ''InstanceUsers
+
 data AaveRedeemer =
   CreateReservesRedeemer (AssocMap.Map ReserveId Reserve)
   | UpdateReservesRedeemer
