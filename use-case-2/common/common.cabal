@@ -1,0 +1,24 @@
+name: common
+version: 0.1
+cabal-version: >= 1.2
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  build-depends: base
+               , aeson
+               , obelisk-route
+               , monoidal-containers
+               , mtl
+               , reflex
+               , rhyolite-common
+               , text
+               , these
+  default-extensions:
+    TypeFamilies
+    PolyKinds
+  exposed-modules:
+    Common.Api
+    Common.App
+    Common.Route
+    Common.Schema
