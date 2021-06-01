@@ -11,6 +11,8 @@ module Mlabs.Nft.Contract.Nft(
   , AuthorSchema
   , startNft
   , userEndpoints
+  , BuyAct(..)
+  , SetPriceAct(..)
 ) where
 
 import qualified Prelude as P
@@ -148,6 +150,7 @@ type UserSchema =
     .\/ Endpoint "buy-act"       BuyAct
     .\/ Endpoint "set-price-act" SetPriceAct
 
+-- | User buys NFT
 data BuyAct = BuyAct
   { buy'price     :: Integer
   , buy'newPrice  :: Maybe Integer
@@ -155,6 +158,7 @@ data BuyAct = BuyAct
   deriving stock (Show, Generic, P.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
+-- | User sets new price for NFT
 data SetPriceAct = SetPriceAct
   { setPrice'newPrice :: Maybe Integer
   }
@@ -210,7 +214,7 @@ data StartParams = StartParams
   , sp'price   :: Maybe Integer   -- ^ current price of NFT, if it's nothing then nobody can buy it.
   }
   deriving stock (Show, Generic)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Contract for the author of NFT
 type AuthorContract a = Contract (Last NftId) AuthorSchema NftError a
@@ -263,4 +267,5 @@ callStartNft wal sp = do
   maybe err P.pure nid
   where
     err = F.throwError $ Trace.GenericError "No NFT started in emulator"
+
 

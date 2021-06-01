@@ -31,7 +31,7 @@ import Playground.Contract (ToSchema)
 import qualified PlutusTx.Ratio as R
 
 {-# INLINABLE base #-}
--- | Base precision
+-- | Base precision (27 precision digits are allowed)
 base :: Integer
 base = 1_000_000_000_000_000_000_000_000_000
 

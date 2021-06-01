@@ -5,6 +5,7 @@
 {-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | Datatypes for NFT state machine.
 module Mlabs.Nft.Logic.Types(
     Nft(..)
@@ -22,7 +23,8 @@ import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
 import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
 import GHC.Generics
-import Playground.Contract (TxOutRef)
+import Playground.Contract (TxOutRef, ToSchema)
+import Plutus.V1.Ledger.TxId
 
 import Mlabs.Emulator.Types (UserId(..))
 import Mlabs.Data.Ray (Ray)
@@ -46,7 +48,10 @@ data NftId = NftId
                                   -- with it we can guarantee unqiqueness of NFT
   }
   deriving stock (Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+
+deriving newtype instance ToSchema TxId
+deriving instance ToSchema TxOutRef
 
 instance Eq NftId where
   {-# INLINABLE (==) #-}

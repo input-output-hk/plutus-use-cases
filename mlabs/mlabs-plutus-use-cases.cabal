@@ -75,9 +75,9 @@ library
         Mlabs.Nft.Logic.Types
         Mlabs.Nft.Contract.Nft
         Mlabs.Nft.Contract.Forge
-        Mlabs.Nft.Contract.Pab
         Mlabs.Plutus.Contract.StateMachine
         Mlabs.System.Console.PrettyLogger
+        Mlabs.System.Console.Utils
   default-extensions: BangPatterns
                       ExplicitForAll
                       FlexibleContexts
@@ -143,6 +143,7 @@ executable nft-demo
                      , plutus-pab
                      , prettyprinter
                      , lens
+                     , mtl
                      , text
                      , freer-extras
                      , freer-simple
