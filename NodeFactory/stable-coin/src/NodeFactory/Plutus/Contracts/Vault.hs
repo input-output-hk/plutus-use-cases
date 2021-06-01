@@ -49,7 +49,7 @@ PlutusTx.unstableMakeIsData ''VaultRedeemer
 
 data Vaulting
 instance Scripts.ScriptType Vaulting where
-    type instance DatumType Vaulting = Integer
+    type instance DatumType Vaulting = Vault
     type instance RedeemerType Vaulting = VaultRedeemer
 
 vaultInst :: Vault -> Scripts.ScriptInstance Vaulting
@@ -57,7 +57,7 @@ vaultInst oracle = Scripts.validator @Oracling
     ($$(PlutusTx.compile [|| mkOracleValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode oracle)
     $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator @Integer @VaultRedeemer
+    wrap = Scripts.wrapValidator @Vault @VaultRedeemer
 
 vaultValidator :: Vault -> Validator
 vaultValidator = Scripts.validatorScript . vaultInst
