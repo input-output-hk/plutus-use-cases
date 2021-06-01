@@ -108,18 +108,18 @@ makeReserveHandle aave toRedeemer =
         toRedeemer = toRedeemer
     }
 
-putReserves :: (HasBlockchainActions s) => Aave -> AssocMap.Map ReserveId Reserve -> Contract w s Text ()
-putReserves aave = putState aave $ makeReserveHandle aave Core.CreateReservesRedeemer
+putReserves :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> AssocMap.Map ReserveId Reserve -> Contract w s Text ()
+putReserves aave redeemer = putState aave $ makeReserveHandle aave (const redeemer)
 
-updateReserves :: (HasBlockchainActions s) => Aave -> OutputValue (AssocMap.Map ReserveId Reserve) -> Contract w s Text ()
-updateReserves aave = updateState aave $ makeReserveHandle aave (const Core.UpdateReservesRedeemer)
+updateReserves :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> OutputValue (AssocMap.Map ReserveId Reserve) -> Contract w s Text ()
+updateReserves aave redeemer = updateState aave $ makeReserveHandle aave (const redeemer)
 
-updateReserve :: (HasBlockchainActions s) => Aave -> ReserveId -> Reserve -> Contract w s Text ()
-updateReserve aave reserveId reserve = do
+updateReserve :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> ReserveId -> Reserve -> Contract w s Text ()
+updateReserve aave redeemer reserveId reserve = do
     reservesOutput <- findAaveReserves aave
     _ <- maybe (throwError "Update failed: reserve not found") pure $
         AssocMap.lookup reserveId (ovValue reservesOutput)
-    updateReserves aave $ Prelude.fmap (AssocMap.insert reserveId reserve) reservesOutput
+    updateReserves aave redeemer $ Prelude.fmap (AssocMap.insert reserveId reserve) reservesOutput
 
 makeUserHandle :: Aave -> (AssocMap.Map UserConfigId UserConfig -> AaveRedeemer) -> StateHandle AaveScript (AssocMap.Map UserConfigId UserConfig)
 makeUserHandle aave toRedeemer =
@@ -129,22 +129,22 @@ makeUserHandle aave toRedeemer =
         toRedeemer = toRedeemer
     }
 
-putUserConfigs :: (HasBlockchainActions s) => Aave -> AssocMap.Map UserConfigId UserConfig -> Contract w s Text ()
-putUserConfigs aave = putState aave $ makeUserHandle aave Core.CreateUserConfigsRedeemer
+putUserConfigs :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> AssocMap.Map UserConfigId UserConfig -> Contract w s Text ()
+putUserConfigs aave redeemer = putState aave $ makeUserHandle aave (const redeemer)
 
-updateUserConfigs :: (HasBlockchainActions s) => Aave -> OutputValue (AssocMap.Map UserConfigId UserConfig) -> Contract w s Text ()
-updateUserConfigs aave = updateState aave $ makeUserHandle aave (const Core.UpdateUserConfigsRedeemer)
+updateUserConfigs :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> OutputValue (AssocMap.Map UserConfigId UserConfig) -> Contract w s Text ()
+updateUserConfigs aave redeemer = updateState aave $ makeUserHandle aave (const redeemer)
 
-addUserConfig :: (HasBlockchainActions s) => Aave -> UserConfigId -> UserConfig -> Contract w s Text ()
-addUserConfig aave userConfigId userConfig = do
+addUserConfig :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> UserConfigId -> UserConfig -> Contract w s Text ()
+addUserConfig aave redeemer userConfigId userConfig = do
     configsOutput <- findAaveUserConfigs aave
     _ <- maybe (pure ()) (const $ throwError "Add user config failed: config exists") $
         AssocMap.lookup userConfigId (ovValue configsOutput)
-    updateUserConfigs aave $ Prelude.fmap (AssocMap.insert userConfigId userConfig) configsOutput
+    updateUserConfigs aave redeemer $ Prelude.fmap (AssocMap.insert userConfigId userConfig) configsOutput
 
-updateUserConfig :: (HasBlockchainActions s) => Aave -> UserConfigId -> UserConfig -> Contract w s Text ()
-updateUserConfig aave userConfigId userConfig = do
+updateUserConfig :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> UserConfigId -> UserConfig -> Contract w s Text ()
+updateUserConfig aave redeemer userConfigId userConfig = do
     configsOutput <- findAaveUserConfigs aave
     _ <- maybe (throwError "Update failed: user config not found") pure $
         AssocMap.lookup userConfigId (ovValue configsOutput)
-    updateUserConfigs aave $ Prelude.fmap (AssocMap.insert userConfigId userConfig) configsOutput
+    updateUserConfigs aave redeemer $ Prelude.fmap (AssocMap.insert userConfigId userConfig) configsOutput

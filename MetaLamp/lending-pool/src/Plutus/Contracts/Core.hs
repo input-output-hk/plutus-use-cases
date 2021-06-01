@@ -82,29 +82,9 @@ data UserConfig = UserConfig
 PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
 
-newtype InstanceReserves = InstanceReserves {
-  getInstanceReserves :: AssocMap.Map ReserveId Reserve
-}
-    deriving stock (Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, ToSchema)
-
-PlutusTx.unstableMakeIsData ''InstanceReserves
-PlutusTx.makeLift ''InstanceReserves
-
-newtype InstanceUsers = InstanceUsers {
-  getInstanceUsers :: AssocMap.Map UserConfigId UserConfig
-}
-    deriving stock (Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, ToSchema)
-
-PlutusTx.unstableMakeIsData ''InstanceUsers
-PlutusTx.makeLift ''InstanceUsers
-
 data AaveRedeemer =
-  CreateReservesRedeemer (AssocMap.Map ReserveId Reserve)
-  | UpdateReservesRedeemer
-  | CreateUserConfigsRedeemer (AssocMap.Map UserConfigId UserConfig)
-  | UpdateUserConfigsRedeemer
+    StartRedeemer
+  | DepositRedeemer
   | WithdrawRedeemer
   | BorrowRedeemer
   | RepayRedeemer
@@ -118,6 +98,7 @@ data AaveDatum =
   | ReservesDatum (AssocMap.Map ReserveId Reserve)
   | UserConfigsDatum (AssocMap.Map UserConfigId UserConfig)
   | DepositDatum
+  | WithdrawDatum
   | BorrowDatum
   | RepayDatum
   deriving stock (Show)
@@ -140,14 +121,12 @@ makeAaveValidator :: Aave
                    -> AaveRedeemer
                    -> ScriptContext
                    -> Bool
-makeAaveValidator _ _ (CreateReservesRedeemer _) _    = True
-makeAaveValidator _ _ UpdateReservesRedeemer _        = True
-makeAaveValidator _ _ (CreateUserConfigsRedeemer _) _ = True
-makeAaveValidator _ _ UpdateUserConfigsRedeemer _     = True
-makeAaveValidator _ _ WithdrawRedeemer _              = True
-makeAaveValidator _ _ BorrowRedeemer _                = True
-makeAaveValidator _ _ RepayRedeemer _                 = True
-makeAaveValidator _  _  _  _                          = False
+makeAaveValidator _ _ StartRedeemer _    = True
+makeAaveValidator _ _ DepositRedeemer _  = True
+makeAaveValidator _ _ WithdrawRedeemer _ = True
+makeAaveValidator _ _ BorrowRedeemer _   = True
+makeAaveValidator _ _ RepayRedeemer _    = True
+-- makeAaveValidator _  _  _  _                          = False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

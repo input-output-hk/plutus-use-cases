@@ -88,8 +88,8 @@ start params = do
     void $ awaitTxConfirmed $ txId ledgerTx
 
     let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve params)) params
-    State.putReserves aave reserveMap
-    State.putUserConfigs aave AssocMap.empty
+    State.putReserves aave Core.StartRedeemer reserveMap
+    State.putUserConfigs aave Core.StartRedeemer AssocMap.empty
 
     logInfo @String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
@@ -151,13 +151,13 @@ deposit aave DepositParams {..} = do
         case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
                 State.addUserConfig
-                    aave
+                    aave Core.DepositRedeemer
                     userConfigId
                     UserConfig { ucUsingAsCollateral = True, ucDebt = Nothing }
             Just userConfig ->
-                State.updateUserConfig aave userConfigId $ userConfig { ucUsingAsCollateral = True }
+                State.updateUserConfig aave Core.DepositRedeemer userConfigId $ userConfig { ucUsingAsCollateral = True }
 
-    State.updateReserve aave dpAsset (reserve { rAmount = rAmount reserve + dpAmount })
+    State.updateReserve aave Core.DepositRedeemer dpAsset (reserve { rAmount = rAmount reserve + dpAmount })
 
 data WithdrawParams =
     WithdrawParams {
@@ -180,13 +180,13 @@ withdraw aave WithdrawParams {..} = do
     when (wpAmount == balance) $ do
         let userConfigId = (wpAsset, wpFrom)
         userConfig <- State.findAaveUserConfig aave userConfigId
-        State.updateUserConfig aave userConfigId $ userConfig { ucUsingAsCollateral = False }
+        State.updateUserConfig aave Core.WithdrawRedeemer userConfigId $ userConfig { ucUsingAsCollateral = False }
 
     burnTx <- AToken.burnATokensFrom aave reserve wpTo wpAmount
     ledgerTx <- TxUtils.submitTxPair burnTx
     _ <- awaitTxConfirmed $ txId ledgerTx
 
-    State.updateReserve aave wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
+    State.updateReserve aave Core.WithdrawRedeemer wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
 
 data BorrowParams =
     BorrowParams {
@@ -220,13 +220,13 @@ borrow aave BorrowParams {..} = do
     case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
                 State.addUserConfig
-                    aave
+                    aave Core.BorrowRedeemer
                     userConfigId
                     UserConfig { ucUsingAsCollateral = False, ucDebt = Just bpAmount }
             Just userConfig ->
-                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = (+ bpAmount) <$> ucDebt userConfig }
+                State.updateUserConfig aave Core.BorrowRedeemer userConfigId $ userConfig { ucDebt = (+ bpAmount) <$> ucDebt userConfig }
 
-    State.updateReserve aave bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
+    State.updateReserve aave Core.BorrowRedeemer bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
 
 data RepayParams =
     RepayParams {
@@ -255,9 +255,9 @@ repay aave RepayParams {..} = do
             Nothing ->
                 throwError "User does not have any debt."
             Just userConfig ->
-                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
+                State.updateUserConfig aave Core.RepayRedeemer userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
 
-    State.updateReserve aave rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
+    State.updateReserve aave Core.RepayRedeemer rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
 
 type AaveUserSchema =
     BlockchainActions

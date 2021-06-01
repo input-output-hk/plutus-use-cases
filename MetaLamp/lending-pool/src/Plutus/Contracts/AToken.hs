@@ -114,4 +114,4 @@ burnATokensFrom aave reserve pkh amount = do
     pure $
         TxUtils.mustForgeValue policy burnValue
         <> TxUtils.mustSpendFromScript (Core.aaveInstance aave) spendInputs pkh (assetClassValue asset aTokenAmount)
-        <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.DepositDatum (assetClassValue asset remainder)
+        <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.WithdrawDatum (assetClassValue asset remainder)
