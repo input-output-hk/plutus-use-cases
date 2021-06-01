@@ -36,6 +36,18 @@ import           Wallet.Emulator.Wallet
 mkPolicy :: PubKeyHash -> ScriptContext -> Bool
 mkPolicy pkh ctx = txSignedBy (scriptContextTxInfo ctx) pkh
 
+-- TODO
+-- policy should read value from nft in inputs and determine 
+-- amount of minted stable coins
+{-
+stableCoinPolicy :: ScriptContext -> Bool
+stableCoinPolicy ctx =
+    let txinfo = scriptContextTxInfo ctx
+        forged = txInfoForge txinfo
+    in ....
+-}
+
+
 policy :: PubKeyHash -> Scripts.MonetaryPolicy
 policy pkh = mkMonetaryPolicyScript $
     $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . mkPolicy ||])

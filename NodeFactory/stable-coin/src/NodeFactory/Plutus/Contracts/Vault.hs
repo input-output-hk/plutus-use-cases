@@ -32,7 +32,6 @@ import           Plutus.Contracts.Currency as Currency
 import           Prelude                   (Semigroup (..))
 import qualified Prelude                   as Prelude
 
--- contract param structure
 data Vault = Vault
     { owner  :: !PubKeyHash      -- owner of the of the vault
     , amount :: !Integer         -- amount of ADA in vault
@@ -47,17 +46,24 @@ PlutusTx.unstableMakeIsData ''VaultRedeemer
 
 -- 
 
+{-# INLINABLE mkVaultValidator #-} -- validator functions
+mkVaultValidator :: Vault -> () -> VaultRedeemer -> ScriptContext -> Bool
+mkVaultValidator oracle x r ctx =
+    traceIfFalse "check vault constraints" True  -- TODO - add validation logic
+
+-- 
+
 data Vaulting
 instance Scripts.ScriptType Vaulting where
-    type instance DatumType Vaulting = Vault
+    type instance DatumType Vaulting = ()
     type instance RedeemerType Vaulting = VaultRedeemer
 
 vaultInst :: Vault -> Scripts.ScriptInstance Vaulting
-vaultInst oracle = Scripts.validator @Oracling
-    ($$(PlutusTx.compile [|| mkOracleValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode oracle)
+vaultInst oracle = Scripts.validator @Vaulting
+    ($$(PlutusTx.compile [|| mkVaultValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode oracle)
     $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator @Vault @VaultRedeemer
+    wrap = Scripts.wrapValidator @() @VaultRedeemer
 
 vaultValidator :: Vault -> Validator
 vaultValidator = Scripts.validatorScript . vaultInst
