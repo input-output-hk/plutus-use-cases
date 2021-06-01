@@ -12,7 +12,6 @@ module Mlabs.Lending.Logic.React(
 
 import qualified Prelude as Hask
 
-import qualified PlutusTx.Ratio as R
 import qualified PlutusTx.Numeric as N
 import PlutusTx.Prelude
 import qualified PlutusTx.AssocMap as M
@@ -21,6 +20,7 @@ import qualified PlutusTx.These as PlutusTx
 import Control.Monad.Except hiding (Functor(..), mapM)
 import Control.Monad.State.Strict hiding (Functor(..), mapM)
 
+import qualified Mlabs.Data.Ray as R
 import Mlabs.Control.Check
 import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
@@ -345,7 +345,7 @@ checkInput = \case
       SwapBorrowRateModelAct asset _rate -> isAsset asset
       SetUserReserveAsCollateralAct asset _useAsCollateral portion -> do
         isAsset asset
-        isUnitRange "deposit portion" portion
+        isUnitRangeRay "deposit portion" portion
       WithdrawAct amount asset -> do
         isPositive "withdraw" amount
         isAsset asset
@@ -359,21 +359,21 @@ checkInput = \case
       case act of
         SetAssetPrice asset price -> do
           checkCoinRateTimeProgress time asset
-          isPositiveRational "price" price
+          isPositiveRay "price" price
           isAsset asset
 
     checkGovernAct = \case
       AddReserve cfg -> checkCoinCfg cfg
 
     checkCoinCfg CoinCfg{..} = do
-      isPositiveRational "coin price config" coinCfg'rate
+      isPositiveRay "coin price config" coinCfg'rate
       checkInterestModel coinCfg'interestModel
-      isUnitRange "liquidation bonus config" coinCfg'liquidationBonus
+      isUnitRangeRay "liquidation bonus config" coinCfg'liquidationBonus
 
     checkInterestModel InterestModel{..} = do
-      isUnitRange "optimal utilisation" im'optimalUtilisation
-      isPositiveRational "slope 1" im'slope1
-      isPositiveRational "slope 2" im'slope2
+      isUnitRangeRay "optimal utilisation" im'optimalUtilisation
+      isPositiveRay "slope 1" im'slope1
+      isPositiveRay "slope 2" im'slope2
 
     checkCoinRateTimeProgress time asset = do
       lastUpdateTime <- coinRate'lastUpdateTime . reserve'rate <$> getReserve asset

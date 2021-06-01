@@ -14,7 +14,7 @@ module Mlabs.Lending.Logic.App(
   , governAct
 ) where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude hiding ((%))
 import Plutus.V1.Ledger.Value
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
@@ -27,7 +27,8 @@ import Mlabs.Lending.Logic.Types
 
 import qualified Data.Map.Strict as M
 import qualified PlutusTx.AssocMap as AM
-import qualified PlutusTx.Ratio as R
+import Mlabs.Data.Ray ((%))
+import qualified Mlabs.Data.Ray as R
 
 type LendingApp = App LendingPool Act
 

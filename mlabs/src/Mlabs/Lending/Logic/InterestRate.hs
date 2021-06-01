@@ -9,7 +9,8 @@ module Mlabs.Lending.Logic.InterestRate(
 )  where
 
 import PlutusTx.Prelude
-import qualified PlutusTx.Ratio as R
+import Mlabs.Data.Ray (Ray)
+import qualified Mlabs.Data.Ray as R
 
 import Mlabs.Lending.Logic.Types
 
@@ -29,37 +30,37 @@ updateReserveInterestRates currentTime reserve = reserve { reserve'interest = ne
         lastUpdateTime = ri'lastUpdateTime reserve'interest
 
 {-# INLINABLE getYearDelta #-}
-getYearDelta :: Integer -> Integer -> Rational
+getYearDelta :: Integer -> Integer -> Ray
 getYearDelta t0 t1 = R.fromInteger (max 0 $ t1 - t0) * secondsPerSlot * R.recip secondsPerYear
   where
     secondsPerSlot = R.fromInteger 1
     secondsPerYear = R.fromInteger 31622400
 
 {-# INLINABLE getCumulatedLiquidityIndex #-}
-getCumulatedLiquidityIndex :: Rational -> Rational -> Rational -> Rational
+getCumulatedLiquidityIndex :: Ray -> Ray -> Ray -> Ray
 getCumulatedLiquidityIndex liquidityRate yearDelta prevLiquidityIndex =
   (liquidityRate * yearDelta + R.fromInteger 1) * prevLiquidityIndex
 
 {-# INLINABLE getNormalisedIncome #-}
-getNormalisedIncome :: Rational -> Rational -> Rational -> Rational
+getNormalisedIncome :: Ray -> Ray -> Ray -> Ray
 getNormalisedIncome liquidityRate yearDelta prevLiquidityIndex =
   (liquidityRate * yearDelta + R.fromInteger 1) * prevLiquidityIndex
 
 {-# INLINABLE getLiquidityRate #-}
-getLiquidityRate :: Reserve -> Rational
+getLiquidityRate :: Reserve -> Ray
 getLiquidityRate Reserve{..} = r * u
   where
     u = getUtilisation reserve'wallet
     r = getBorrowRate (ri'interestModel reserve'interest) u
 
 {-# INLINABLE getUtilisation #-}
-getUtilisation :: Wallet -> Rational
-getUtilisation Wallet{..} = wallet'borrow % liquidity
+getUtilisation :: Wallet -> Ray
+getUtilisation Wallet{..} = wallet'borrow R.% liquidity
   where
     liquidity = wallet'deposit + wallet'borrow
 
 {-# INLINABLE getBorrowRate #-}
-getBorrowRate :: InterestModel -> Rational -> Rational
+getBorrowRate :: InterestModel -> Ray -> Ray
 getBorrowRate InterestModel{..} u
   | u <= uOptimal = im'base + im'slope1 * (u * R.recip uOptimal)
   | otherwise     = im'base + im'slope2 * (u - uOptimal) * R.recip (R.fromInteger 1 - uOptimal)
@@ -67,7 +68,7 @@ getBorrowRate InterestModel{..} u
     uOptimal = im'optimalUtilisation
 
 {-# INLINABLE addDeposit #-}
-addDeposit :: Rational -> Integer -> Wallet -> Either String Wallet
+addDeposit :: Ray -> Integer -> Wallet -> Either String Wallet
 addDeposit normalisedIncome amount wal
   | newDeposit >= 0 = Right wal
       { wallet'deposit       = max 0 newDeposit
@@ -78,7 +79,7 @@ addDeposit normalisedIncome amount wal
     newDeposit = wallet'deposit wal + amount
 
 {-# INLINABLE getCumulativeBalance #-}
-getCumulativeBalance :: Rational -> Wallet -> Rational
+getCumulativeBalance :: Ray -> Wallet -> Ray
 getCumulativeBalance normalisedIncome Wallet{..} =
   wallet'scaledBalance * normalisedIncome
 

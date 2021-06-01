@@ -46,7 +46,6 @@ module Mlabs.Lending.Logic.State(
   , getCumulativeBalance
 ) where
 
-import qualified PlutusTx.Ratio as R
 import qualified PlutusTx.Numeric as N
 import PlutusTx.Prelude
 import PlutusTx.AssocMap (Map)
@@ -59,6 +58,8 @@ import qualified Mlabs.Lending.Logic.InterestRate as IR
 import Mlabs.Lending.Logic.Types
 
 import Mlabs.Control.Monad.State
+import Mlabs.Data.Ray (Ray)
+import qualified Mlabs.Data.Ray as R
 
 -- | Type for errors
 type Error = String
@@ -199,7 +200,7 @@ getHealthCheck addToBorrow coin user =
 
 {-# INLINABLE getHealth #-}
 -- | Check borrowing health for the user by given currency
-getHealth :: Integer -> Coin -> User -> St Rational
+getHealth :: Integer -> Coin -> User -> St Ray
 getHealth addToBorrow coin user = do
   col <- getTotalCollateral user
   bor <- fmap (+ addToBorrow) $ getTotalBorrow user
@@ -208,13 +209,13 @@ getHealth addToBorrow coin user = do
 
 {-# INLINABLE getLiquidationThreshold #-}
 -- | Reads liquidation threshold for a give asset.
-getLiquidationThreshold :: Coin -> St Rational
+getLiquidationThreshold :: Coin -> St Ray
 getLiquidationThreshold coin =
   gets (maybe (R.fromInteger 0) reserve'liquidationThreshold . M.lookup coin . lp'reserves)
 
 {-# INLINABLE getLiquidationBonus #-}
 -- | Reads liquidation bonus for a give asset.
-getLiquidationBonus :: Coin -> St Rational
+getLiquidationBonus :: Coin -> St Ray
 getLiquidationBonus coin =
   gets (maybe (R.fromInteger 0) reserve'liquidationBonus . M.lookup coin . lp'reserves)
 
@@ -291,12 +292,12 @@ modifyWallet' uid coin f = modifyUser' uid $ \(User ws time health) -> do
   pure $ User (M.insert coin wal ws) time health
 
 {-# INLINABLE getNormalisedIncome #-}
-getNormalisedIncome :: Coin -> St Rational
+getNormalisedIncome :: Coin -> St Ray
 getNormalisedIncome asset =
   getsReserve asset $ (ri'normalisedIncome . reserve'interest)
 
 {-# INLINABLE getCumulativeBalance #-}
-getCumulativeBalance :: UserId -> Coin -> St Rational
+getCumulativeBalance :: UserId -> Coin -> St Ray
 getCumulativeBalance uid asset = do
   ni <- getNormalisedIncome asset
   getsWallet uid asset (IR.getCumulativeBalance ni)
