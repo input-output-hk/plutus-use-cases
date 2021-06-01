@@ -160,6 +160,39 @@ executable nft-demo
   default-language:    Haskell2010
   default-extensions: AllowAmbiguousTypes BlockArguments BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveFunctor DeriveGeneric DerivingStrategies DerivingVia DuplicateRecordFields EmptyCase ExplicitNamespaces FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude NumericUnderscores OverloadedLabels OverloadedStrings PatternSynonyms RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators TypeSynonymInstances UndecidableInstances ViewPatterns ImportQualifiedPost RoleAnnotations
 
+executable lendex-demo
+  main-is:             lendex-demo/Main.hs
+  build-depends:       base >=4.14 && <4.15
+                     , aeson
+                     , bytestring
+                     , containers
+                     , playground-common
+                     , plutus-core
+                     , plutus-contract
+                     , plutus-ledger
+                     , plutus-ledger-api
+                     , plutus-tx
+                     , plutus-tx-plugin
+                     , plutus-pab
+                     , prettyprinter
+                     , lens
+                     , mtl
+                     , text
+                     , freer-extras
+                     , freer-simple
+                     , mlabs-plutus-use-cases
+                     , ansi-terminal
+                     , bytestring
+                     , cardano-prelude
+                     , data-default-class
+                     , lens
+                     , playground-common
+                     , prettyprinter
+                     , row-types
+                     , vector
+  default-language:    Haskell2010
+  default-extensions: AllowAmbiguousTypes BlockArguments BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveFunctor DeriveGeneric DerivingStrategies DerivingVia DuplicateRecordFields EmptyCase ExplicitNamespaces FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude NumericUnderscores OverloadedLabels OverloadedStrings PatternSynonyms RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators TypeSynonymInstances UndecidableInstances ViewPatterns ImportQualifiedPost RoleAnnotations
+
 
 Test-suite mlabs-plutus-use-cases-tests
   Type:                exitcode-stdio-1.0

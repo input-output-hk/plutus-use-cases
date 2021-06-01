@@ -1,11 +1,11 @@
 -- | Simulator demo for NFTs
 module Main where
 
-import Control.Monad.Reader
-
 import Prelude
 import GHC.Generics
 
+import Control.Monad.IO.Class
+import Data.Functor
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import PlutusTx.Prelude (ByteString)
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
