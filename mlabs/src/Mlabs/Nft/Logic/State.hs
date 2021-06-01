@@ -14,7 +14,7 @@ module Mlabs.Nft.Logic.State(
   , getAuthorShare
 ) where
 
-import qualified PlutusTx.Ratio as R
+import qualified Mlabs.Data.Ray as R
 import PlutusTx.Prelude
 
 import Mlabs.Control.Monad.State

@@ -28,6 +28,7 @@ data UserId
   deriving stock (Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON)
 
+
 instance Eq UserId where
   {-# INLINABLE (==) #-}
   Self == Self = True

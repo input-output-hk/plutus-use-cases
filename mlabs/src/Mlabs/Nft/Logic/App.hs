@@ -24,6 +24,7 @@ import Mlabs.Nft.Logic.React
 import Mlabs.Nft.Logic.Types
 
 import qualified Data.Map.Strict as M
+import qualified Mlabs.Data.Ray as R
 
 -- | NFT test emulator. We use it test the logic.
 type NftApp = App Nft Act
@@ -43,7 +44,7 @@ runNftApp cfg acts = runApp react (initApp cfg) acts
 -- | Initialise NFT application.
 initApp :: AppCfg -> NftApp
 initApp AppCfg{..} = App
-  { app'st      = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (1 % 10) Nothing
+  { app'st      = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (R.fromRational $ 1 % 10) Nothing
   , app'log     = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appCfg'users
   }

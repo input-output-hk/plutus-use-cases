@@ -5,6 +5,7 @@
 {-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | Datatypes for NFT state machine.
 module Mlabs.Nft.Logic.Types(
     Nft(..)
@@ -22,20 +23,23 @@ import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
 import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
 import GHC.Generics
-import Playground.Contract (TxOutRef)
+import Playground.Contract (TxOutRef, ToSchema)
+import Plutus.V1.Ledger.TxId
 
 import Mlabs.Emulator.Types (UserId(..))
+import Mlabs.Data.Ray (Ray)
 
 -- | Data for NFTs
 data Nft = Nft
   { nft'id     :: NftId           -- ^ token name, unique identifier for NFT
   , nft'data   :: ByteString      -- ^ data (media, audio, photo, etc)
-  , nft'share  :: Rational        -- ^ share for the author on each sell
+  , nft'share  :: Ray             -- ^ share for the author on each sell
   , nft'author :: UserId          -- ^ author
   , nft'owner  :: UserId          -- ^ current owner
   , nft'price  :: Maybe Integer   -- ^ price in ada, if it's nothing then nobody can buy
   }
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Unique identifier of NFT.
 data NftId = NftId
@@ -44,7 +48,10 @@ data NftId = NftId
                                   -- with it we can guarantee unqiqueness of NFT
   }
   deriving stock (Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+
+deriving newtype instance ToSchema TxId
+deriving instance ToSchema TxOutRef
 
 instance Eq NftId where
   {-# INLINABLE (==) #-}
@@ -53,7 +60,7 @@ instance Eq NftId where
 
 {-# INLINABLE initNft #-}
 -- | Initialise NFT
-initNft :: TxOutRef -> UserId -> ByteString -> Rational -> Maybe Integer -> Nft
+initNft :: TxOutRef -> UserId -> ByteString -> Ray -> Maybe Integer -> Nft
 initNft nftInRef author content share mPrice = Nft
   { nft'id     = toNftId nftInRef content
   , nft'data   = content
