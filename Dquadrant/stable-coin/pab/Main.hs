@@ -42,7 +42,7 @@ import           Ledger.Constraints
 import qualified Ledger.Value                        as Value
 import qualified Plutus.Contracts.Currency as Currency
 
-import qualified Plutus.Contracts.StableCoin as StableCoin
+import qualified Plutus.Contracts.CoinsStateMachine as StableCoin
 
 main :: IO ()
 main =  
@@ -81,7 +81,7 @@ handleTokenContract ::
     ~> Eff effs
 handleTokenContract = Builtin.handleBuiltin getSchema getContract where
     getSchema = \case
-      TokenContract -> Builtin.endpointsToSchemas @(StableCoin.StableCoinSchema .\\ BlockchainActions)
+      TokenContract -> Builtin.endpointsToSchemas @(StableCoin.BankStateSchema .\\ BlockchainActions)
     getContract = \case
       TokenContract -> SomeBuiltin StableCoin.endpoints
 

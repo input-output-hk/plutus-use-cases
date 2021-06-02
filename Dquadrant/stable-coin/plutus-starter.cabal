@@ -10,11 +10,12 @@ License-files:       LICENSE
 
 library
   hs-source-dirs:      src examples/src
-  exposed-modules:     Plutus.Contracts.StableCoin
+  exposed-modules:     Plutus.Contracts.CoinsStateMachine
                      
   build-depends:       aeson
                      , base ^>=4.14.1.0
                      , containers
+                     , lens
                      , freer-extras
                      , playground-common
                      , plutus-contract
@@ -33,6 +34,7 @@ executable stablecoin-pab
   ghc-options:         -Wall
   build-depends:       aeson
                      , base ^>= 4.14.1.0
+                     , lens
                      , plutus-ledger
                      , plutus-pab
                      , req ^>= 3.9.0
