@@ -34,7 +34,6 @@ module Plutus.Contracts.CoinsStateMachine(
 
 import           Control.Monad                   (guard, void)
 import           Data.Text                    (Text, pack)
-import Data.Fixed ( Fixed(MkFixed) )
 import           Data.Aeson                      (FromJSON, ToJSON)
 import           GHC.Generics                    (Generic)
 import           Ledger                          hiding (to)
