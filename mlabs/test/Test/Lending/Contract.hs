@@ -11,6 +11,7 @@ import Plutus.Contract.Test hiding (tx)
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx.Ratio as R
 
+import Mlabs.Emulator.Scene
 import Mlabs.Lending.Logic.Types ( UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel
                                  , PriceAct(..), BadBorrow(..))
 
@@ -20,7 +21,6 @@ import qualified Plutus.V1.Ledger.Value as Value
 import Test.Utils
 
 import Test.Lending.Init
-import Test.Lending.Scene
 
 test :: TestTree
 test = testGroup "Contract"
@@ -46,14 +46,13 @@ test = testGroup "Contract"
       , check "Liquidation call real currency" (liquidationCallScene False) (liquidationCallScript False)
       ]
 
-
 --------------------------------------------------------------------------------
 -- deposit test
 
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
 depositScript :: Trace.EmulatorTrace ()
 depositScript = do
-  L.callStartLendex wAdmin $ L.StartParams
+  L.callStartLendex lendexId wAdmin $ L.StartParams
     { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
                                           { coinCfg'coin = coin
                                           , coinCfg'rate = R.fromInteger 1
@@ -63,6 +62,7 @@ depositScript = do
                                           })
           [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
     , sp'initValue = Value.assetClassValue adaCoin 1000
+    , sp'oracles   = [toUserId wAdmin]
     }
   wait 5
   userAct1 $ DepositAct 50 coin1
@@ -74,7 +74,7 @@ depositScript = do
 
 depositScene :: Scene
 depositScene = mconcat
-  [ appAddress L.lendexAddress
+  [ appAddress (L.lendexAddress lendexId)
   , appOwns [(coin1, 50), (coin2, 50), (coin3, 50), (adaCoin, 1000)]
   , user w1 coin1 aCoin1
   , user w2 coin2 aCoin2
@@ -202,7 +202,7 @@ repayScene = borrowScene <> repayChange
 liquidationCallScript :: Bool -> Trace.EmulatorTrace ()
 liquidationCallScript receiveAToken = do
   borrowScript
-  priceAct $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct wAdmin $ SetAssetPrice coin2 (R.fromInteger 2)
   next
   userAct2 $ LiquidationCallAct
       { act'collateral     = coin1
@@ -227,6 +227,6 @@ liquidationCallScene receiveAToken = borrowScene <> liquidationCallChange
 --------------------------------------------------
 -- names as in script test
 
-priceAct :: PriceAct -> Trace.EmulatorTrace ()
-priceAct act = L.callPriceOracleAct w1 act
+priceAct :: Wallet -> PriceAct -> Trace.EmulatorTrace ()
+priceAct wal act = L.callPriceOracleAct lendexId wal act
 

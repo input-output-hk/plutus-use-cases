@@ -21,7 +21,8 @@ import qualified PlutusTx.These as PlutusTx
 import Control.Monad.Except hiding (Functor(..), mapM)
 import Control.Monad.State.Strict hiding (Functor(..), mapM)
 
-import Mlabs.Lending.Logic.Emulator.Blockchain
+import Mlabs.Control.Check
+import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import Mlabs.Lending.Logic.State
 import Mlabs.Lending.Logic.Types
@@ -37,9 +38,9 @@ react :: Act -> St [Resp]
 react input = do
   checkInput input
   case input of
-    UserAct t uid act -> withHealthCheck t $ userAct t uid act
-    PriceAct    t act -> withHealthCheck t $ priceAct t act
-    GovernAct     act -> governAct act
+    UserAct  t uid act -> withHealthCheck t $ userAct t uid act
+    PriceAct t uid act -> withHealthCheck t $ priceAct t uid act
+    GovernAct      act -> governAct act
   where
     -- | User acts
     userAct time uid = \case
@@ -136,7 +137,7 @@ react input = do
       | otherwise                  = do
           ni <- getNormalisedIncome asset
           amount <- getAmountBy wallet'deposit uid asset portion
-          modifyWalletAndReserve' uid asset $ \w -> do
+          modifyWallet' uid asset $ \w -> do
             w1 <- addDeposit ni (negate amount) w
             pure $ w1 { wallet'collateral = wallet'collateral w + amount }
           aCoin <- aToken asset
@@ -246,9 +247,10 @@ react input = do
           guardError "Bad borrow not present" isOk
 
     ---------------------------------------------------
-    priceAct currentTime = \case
-      SetAssetPrice coin rate -> setAssetPrice currentTime coin rate
-      SetOracleAddr coin addr -> setOracleAddr coin addr
+    priceAct currentTime uid act = do
+      isTrustedOracle uid
+      case act of
+        SetAssetPrice coin rate -> setAssetPrice currentTime coin rate
 
     ---------------------------------------------------
     -- update on market price change
@@ -256,11 +258,6 @@ react input = do
     setAssetPrice currentTime asset rate = do
       modifyReserve asset $ \r -> r { reserve'rate = CoinRate rate currentTime }
       pure []
-
-    ---------------------------------------------------
-    -- set oracle address
-    --
-    setOracleAddr _ _ = todo
 
     ---------------------------------------------------
     -- Govern acts
@@ -272,13 +269,13 @@ react input = do
     -- Adds new reserve (new coin/asset)
 
     addReserve cfg@CoinCfg{..} = do
-      LendingPool reserves users curSym coinMap healthReport <- get
+      LendingPool reserves users curSym coinMap healthReport oracles <- get
       if M.member coinCfg'coin reserves
         then throwError "Reserve is already present"
         else do
           let newReserves = M.insert coinCfg'coin (initReserve cfg) reserves
               newCoinMap  = M.insert coinCfg'aToken coinCfg'coin coinMap
-          put $ LendingPool newReserves users curSym newCoinMap healthReport
+          put $ LendingPool newReserves users curSym newCoinMap healthReport oracles
           return []
 
     ---------------------------------------------------
@@ -332,7 +329,7 @@ checkInput = \case
   UserAct time _uid act -> do
     isNonNegative "timestamp" time
     checkUserAct act
-  PriceAct time act -> checkPriceAct time act
+  PriceAct time _uid act -> checkPriceAct time act
   GovernAct act -> checkGovernAct act
   where
     checkUserAct = \case
@@ -363,8 +360,6 @@ checkInput = \case
         SetAssetPrice asset price -> do
           checkCoinRateTimeProgress time asset
           isPositiveRational "price" price
-          isAsset asset
-        SetOracleAddr asset _uid ->
           isAsset asset
 
     checkGovernAct = \case

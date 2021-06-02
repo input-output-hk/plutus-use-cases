@@ -1,17 +1,17 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 -- | State transitions for Lending app
 module Mlabs.Lending.Logic.State(
     St
-  , showt
   , Error
-  , isNonNegative
-  , isPositive
-  , isPositiveRational
-  , isUnitRange
   , isAsset
   , aToken
+  , isTrustedOracle
   , updateReserveState
   , initReserve
   , guardError
@@ -58,50 +58,16 @@ import Control.Monad.State.Strict hiding (Functor(..), mapM)
 import qualified Mlabs.Lending.Logic.InterestRate as IR
 import Mlabs.Lending.Logic.Types
 
+import Mlabs.Control.Monad.State
+
 -- | Type for errors
 type Error = String
 
 -- | State update of lending pool
-type St = StateT LendingPool (Either Error)
-
-instance Functor St where
-  {-# INLINABLE fmap #-}
-  fmap f (StateT a) = StateT $ fmap (\(v, st) -> (f v, st)) . a
-
-instance Applicative St where
-  {-# INLINABLE pure #-}
-  pure a = StateT (\st -> Right (a, st))
-
-  {-# INLINABLE (<*>) #-}
-  (StateT f) <*> (StateT a) = StateT $ \st -> case f st of
-    Left err -> Left err
-    Right (f1, st1) -> fmap (\(a1, st2) -> (f1 a1, st2)) $ a st1
+type St = PlutusState LendingPool
 
 ----------------------------------------------------
 -- common functions
-{-# INLINABLE isNonNegative #-}
-isNonNegative :: String -> Integer -> St ()
-isNonNegative msg val
-  | val >= 0  = pure ()
-  | otherwise = throwError $ msg <> " should be non-negative"
-
-{-# INLINABLE isPositive #-}
-isPositive :: String -> Integer -> St ()
-isPositive msg val
-  | val > 0   = pure ()
-  | otherwise = throwError $ msg <> " should be positive"
-
-{-# INLINABLE isPositiveRational #-}
-isPositiveRational :: String -> Rational -> St ()
-isPositiveRational msg val
-  | val > R.fromInteger 0 = pure ()
-  | otherwise             = throwError $ msg <> " should be positive"
-
-{-# INLINABLE isUnitRange #-}
-isUnitRange :: String -> Rational -> St ()
-isUnitRange msg val
-  | val >= R.fromInteger 0 && val <= R.fromInteger 1 = pure ()
-  | otherwise                                        = throwError $ msg <> " should have unit range [0, 1]"
 
 {-# INLINABLE isAsset #-}
 isAsset :: Coin -> St ()
@@ -116,6 +82,12 @@ updateReserveState :: Integer -> Coin -> St ()
 updateReserveState currentTime asset =
   modifyReserve asset $ IR.updateReserveInterestRates currentTime
 
+{-# INLINABLE isTrustedOracle #-}
+isTrustedOracle :: UserId -> St ()
+isTrustedOracle uid = do
+  oracles <- gets lp'trustedOracles
+  guardError "Is not trusted oracle" $ elem uid oracles
+
 {-# INLINABLE aToken #-}
 aToken :: Coin -> St Coin
 aToken coin = do
@@ -123,14 +95,6 @@ aToken coin = do
   maybe err pure mCoin
   where
     err = throwError "Coin not supported"
-
-{-# INLINABLE guardError #-}
--- | Execute further if condition is True or throw error with
--- given error message.
-guardError :: Error -> Bool -> St ()
-guardError msg isTrue
-  | isTrue    = pure ()
-  | otherwise = throwError msg
 
 {-# INLINABLE getsWallet #-}
 -- | Read field from the internal wallet for user and on asset.
@@ -267,9 +231,9 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 -- | Modify reserve for a given asset. It can throw errors.
 modifyReserve' :: Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
-  LendingPool lp users curSym coinMap healthReport <- get
+  LendingPool lp users curSym coinMap healthReport oracles <- get
   case M.lookup asset lp of
-    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym coinMap healthReport) (f reserve)
+    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym coinMap healthReport oracles) (f reserve)
     Nothing      -> throwError $ "Asset is not supported"
 
 {-# INLINABLE modifyUser #-}
@@ -281,10 +245,10 @@ modifyUser uid f = modifyUser' uid (Right . f)
 -- | Modify user info by id. It can throw errors.
 modifyUser' :: UserId -> (User -> Either Error User) -> St ()
 modifyUser' uid f = do
-  LendingPool lp users curSym coinMap healthReport <- get
+  LendingPool lp users curSym coinMap healthReport oracles <- get
   case f $ fromMaybe defaultUser $ M.lookup uid users of
     Left msg   -> throwError msg
-    Right user -> put $ LendingPool lp (M.insert uid user users) curSym coinMap healthReport
+    Right user -> put $ LendingPool lp (M.insert uid user users) curSym coinMap healthReport oracles
 
 {-# INLINABLE modifyHealthReport #-}
 modifyHealthReport :: (HealthReport -> HealthReport) -> St ()

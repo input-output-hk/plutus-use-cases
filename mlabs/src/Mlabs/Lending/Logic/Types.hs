@@ -13,6 +13,7 @@
 -- * https://docs.aave.com/developers/v/2.0/the-core-protocol/lendingpool
 module Mlabs.Lending.Logic.Types(
     LendingPool(..)
+  , LendexId(..)
   , Wallet(..)
   , defaultWallet
   , User(..)
@@ -34,19 +35,11 @@ module Mlabs.Lending.Logic.Types(
   , BadBorrow(..)
   , PriceAct(..)
   , GovernAct(..)
-  , LpAddressesProvider(..)
-  , LpAddressesProviderRegistry(..)
   , Coin
   , toLendingToken
   , fromLendingToken
   , fromAToken
-  , LpCollateralManager(..)
-  , LpConfigurator(..)
-  , PriceOracleProvider(..)
-  , InterestRateStrategy(..)
-  , Showt(..)
 ) where
-
 
 import Data.Aeson (FromJSON, ToJSON)
 
@@ -55,36 +48,26 @@ import qualified Prelude as Hask
 import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
-import qualified Plutus.V1.Ledger.Ada as Ada
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
 import GHC.Generics
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
--- | Class that converts to inlinable builtin string
-class Showt a where
-  showt :: a -> String
+import Mlabs.Emulator.Types
 
--- | Address of the wallet that can hold values of assets
-data UserId
-  = UserId PubKeyHash  -- user address
-  | Self               -- addres of the lending platform
-  deriving stock (Show, Generic, Hask.Eq, Hask.Ord)
-  deriving anyclass (FromJSON, ToJSON)
-
-instance Eq UserId where
-  {-# INLINABLE (==) #-}
-  Self == Self = True
-  UserId a == UserId b = a == b
-  _ == _ = False
+-- | Unique identifier of the lending pool state.
+newtype LendexId = LendexId ByteString
+  deriving stock (Show, Generic)
+  deriving newtype (Eq)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Lending pool is a list of reserves
 data LendingPool = LendingPool
-  { lp'reserves     :: !(Map Coin Reserve)     -- ^ list of reserves
-  , lp'users        :: !(Map UserId User)      -- ^ internal user wallets on the app
-  , lp'currency     :: !CurrencySymbol         -- ^ main currencySymbol of the app
-  , lp'coinMap      :: !(Map TokenName Coin)   -- ^ maps aTokenNames to actual coins
-  , lp'healthReport :: !HealthReport           -- ^ map of unhealthy borrows
+  { lp'reserves       :: !(Map Coin Reserve)     -- ^ list of reserves
+  , lp'users          :: !(Map UserId User)      -- ^ internal user wallets on the app
+  , lp'currency       :: !CurrencySymbol         -- ^ main currencySymbol of the app
+  , lp'coinMap        :: !(Map TokenName Coin)   -- ^ maps aTokenNames to actual coins
+  , lp'healthReport   :: !HealthReport           -- ^ map of unhealthy borrows
+  , lp'trustedOracles :: ![UserId]               -- ^ we accept price changes only for those users
   }
   deriving (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -165,22 +148,19 @@ data CoinCfg = CoinCfg
   deriving anyclass (FromJSON, ToJSON)
 
 {-# INLINABLE initLendingPool #-}
-initLendingPool :: CurrencySymbol -> [CoinCfg] -> LendingPool
-initLendingPool curSym coinCfgs =
+initLendingPool :: CurrencySymbol -> [CoinCfg] -> [UserId] -> LendingPool
+initLendingPool curSym coinCfgs oracles =
   LendingPool
-    { lp'reserves     = reserves
-    , lp'users        = M.empty
-    , lp'currency     = curSym
-    , lp'coinMap      = coinMap
-    , lp'healthReport = M.empty
+    { lp'reserves       = reserves
+    , lp'users          = M.empty
+    , lp'currency       = curSym
+    , lp'coinMap        = coinMap
+    , lp'healthReport   = M.empty
+    , lp'trustedOracles = oracles
     }
   where
     reserves = M.fromList $ fmap (\cfg -> (coinCfg'coin cfg, initReserve cfg)) coinCfgs
     coinMap  = M.fromList $ fmap (\(CoinCfg coin _ aToken _ _) -> (aToken, coin)) coinCfgs
-
-{-# INLINABLE adaCoin #-}
-adaCoin :: Coin
-adaCoin = AssetClass (Ada.adaSymbol, Ada.adaToken)
 
 {-# INLINABLE initReserve #-}
 -- | Initialise empty reserve with given ratio of its coin to ada
@@ -257,6 +237,7 @@ data Act
       }                              -- ^ user's actions
   | PriceAct
       { priceAct'time       :: Integer
+      , priceAct'userId     :: UserId
       , priceAct'act        :: PriceAct
       }                              -- ^ price oracle's actions
   | GovernAct GovernAct              -- ^ app admin's actions
@@ -322,12 +303,8 @@ data GovernAct
 -- | Updates for the prices of the currencies on the markets
 data PriceAct
   = SetAssetPrice Coin Rational   -- ^ Set asset price
-  | SetOracleAddr Coin UserId     -- ^ Provide address of the oracle
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
-
--- | Custom currency
-type Coin = AssetClass
 
 {-# INLINABLE toLendingToken #-}
 toLendingToken :: LendingPool -> Coin -> Maybe Coin
@@ -341,23 +318,6 @@ fromAToken LendingPool{..} tn = M.lookup tn lp'coinMap
 {-# INLINABLE fromLendingToken #-}
 fromLendingToken :: LendingPool -> Coin -> Maybe Coin
 fromLendingToken lp (AssetClass (_ ,tn)) = fromAToken lp tn
-
-----------------------------------------------------
--- some types specific to aave
---
-
-data LpAddressesProvider = LpAddressesProvider
-
-newtype LpAddressesProviderRegistry
-  = LpAddressesProviderRegistry [LpAddressesProvider]
-
-data LpCollateralManager = LpCollateralManager
-
-data LpConfigurator = LpConfigurator
-
-data PriceOracleProvider = PriceOracleProvider
-
-data InterestRateStrategy = InterestRateStrategy
 
 data InterestRate = StableRate | VariableRate
   deriving stock (Show, Generic, Hask.Eq)
@@ -374,7 +334,6 @@ PlutusTx.unstableMakeIsData ''ReserveInterest
 PlutusTx.unstableMakeIsData ''UserAct
 PlutusTx.unstableMakeIsData ''PriceAct
 PlutusTx.unstableMakeIsData ''GovernAct
-PlutusTx.unstableMakeIsData ''UserId
 PlutusTx.unstableMakeIsData ''User
 PlutusTx.unstableMakeIsData ''Wallet
 PlutusTx.unstableMakeIsData ''Reserve
@@ -382,3 +341,5 @@ PlutusTx.unstableMakeIsData ''BadBorrow
 PlutusTx.unstableMakeIsData ''LendingPool
 PlutusTx.unstableMakeIsData ''Act
 
+PlutusTx.unstableMakeIsData ''LendexId
+PlutusTx.makeLift ''LendexId

@@ -36,14 +36,12 @@ import           Plutus.Contract
 import qualified Plutus.Contract.StateMachine as SM
 import           Ledger                       hiding (singleton)
 import qualified Ledger.Typed.Scripts         as Scripts
-import           Ledger.Value                 (assetClassValue)
 import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-import qualified PlutusTx.Prelude             as PlutusTx
+import qualified PlutusTx.Prelude             as Plutus
 
-
-import Mlabs.Lending.Logic.Emulator.Blockchain
+import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
 import qualified Mlabs.Lending.Contract.Forge as Forge
@@ -55,12 +53,11 @@ import qualified Wallet.Emulator as Emulator
 import qualified Data.Map as M
 -- import Data.Text.Prettyprint.Doc.Extras
 
-
-type Lendex = SM.StateMachine LendingPool Act
+type Lendex = SM.StateMachine (LendexId, LendingPool) Act
 
 {-# INLINABLE machine #-}
-machine :: Lendex
-machine = (SM.mkStateMachine Nothing transition isFinal)
+machine :: LendexId -> Lendex
+machine lid = (SM.mkStateMachine Nothing (transition lid) isFinal)
   { SM.smCheck = checkTimestamp }
   where
     isFinal = const False
@@ -70,43 +67,55 @@ machine = (SM.mkStateMachine Nothing transition isFinal)
         check t = member (Slot t) range
         range = txInfoValidRange $ scriptContextTxInfo ctx
 
-
     getInputTime = \case
-      UserAct time _ _ -> Just time
-      PriceAct time _  -> Just time
-      _                -> Nothing
-
+      UserAct time _ _  -> Just time
+      PriceAct time _ _ -> Just time
+      _                 -> Nothing
 
 {-# INLINABLE mkValidator #-}
-mkValidator :: Scripts.ValidatorType Lendex
-mkValidator = SM.mkValidator machine
+mkValidator :: LendexId -> Scripts.ValidatorType Lendex
+mkValidator lid = SM.mkValidator (machine lid)
 
-client :: SM.StateMachineClient LendingPool Act
-client = SM.mkStateMachineClient $ SM.StateMachineInstance machine scriptInstance
+client :: LendexId -> SM.StateMachineClient (LendexId, LendingPool) Act
+client lid = SM.mkStateMachineClient $ SM.StateMachineInstance (machine lid) (scriptInstance lid)
 
-lendexValidatorHash :: ValidatorHash
-lendexValidatorHash = Scripts.scriptHash scriptInstance
+lendexValidatorHash :: LendexId -> ValidatorHash
+lendexValidatorHash lid = Scripts.scriptHash (scriptInstance lid)
 
-lendexAddress :: Address
-lendexAddress = scriptHashAddress lendexValidatorHash
+lendexAddress :: LendexId -> Address
+lendexAddress lid = scriptHashAddress (lendexValidatorHash lid)
 
-scriptInstance :: Scripts.ScriptInstance Lendex
-scriptInstance = Scripts.validator @Lendex
-  $$(PlutusTx.compile [|| mkValidator ||])
+scriptInstance :: LendexId -> Scripts.ScriptInstance Lendex
+scriptInstance lid = Scripts.validator @Lendex
+  ($$(PlutusTx.compile [|| mkValidator ||])
+      `PlutusTx.applyCode` (PlutusTx.liftCode lid)
+  )
   $$(PlutusTx.compile [|| wrap ||])
   where
     wrap = Scripts.wrapValidator
 
 {-# INLINABLE transition #-}
 transition ::
-     SM.State LendingPool
+     LendexId
+  -> SM.State (LendexId, LendingPool)
   -> Act
-  -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State LendingPool)
-transition SM.State{stateData=oldData, stateValue=oldValue} input = case runStateT (react input) oldData of
-  Left _err              -> Nothing
-  Right (resps, newData) -> Just ( foldMap toConstraints resps
-                                 , SM.State { stateData=newData
-                                            , stateValue= updateLendexValue resps oldValue })
+  -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State (LendexId, LendingPool))
+transition lid SM.State{stateData=oldData, stateValue=oldValue} input
+  | lid == inputLid = case runStateT (react input) (snd oldData) of
+      Left _err              -> Nothing
+      Right (resps, newData) -> Just ( foldMap toConstraints resps Plutus.<> ctxConstraints
+                                    , SM.State { stateData  = (lid, newData)
+                                                , stateValue = updateRespValue resps oldValue })
+  | otherwise = Nothing
+  where
+    inputLid = fst oldData
+
+    -- we check that user indeed signed the transaction with his own key
+    ctxConstraints = maybe Plutus.mempty mustBeSignedBy userId
+
+    userId = case input of
+      UserAct _ (UserId uid) _ -> Just uid
+      _                        -> Nothing
 
 -----------------------------------------------------------------------
 -- endpoints and schemas
@@ -119,22 +128,22 @@ type UserLendexSchema =
 
 type UserApp a = Contract () UserLendexSchema LendexError a
 
-findInputStateDatum :: UserApp Datum
-findInputStateDatum = do
-  utxos <- utxoAt lendexAddress
+findInputStateDatum :: LendexId -> UserApp Datum
+findInputStateDatum lid = do
+  utxos <- utxoAt (lendexAddress lid)
   maybe err P.pure $ firstJust (readDatum . snd) $ M.toList utxos
   where
     err = throwError $ SM.SMCContractError "Can not find Lending app instance"
 
-userAction :: UserAct -> UserApp ()
-userAction act = do
+userAction :: LendexId -> UserAct -> UserApp ()
+userAction lid act = do
   currentTimestamp <- getSlot <$> currentSlot
   pkh <- fmap pubKeyHash ownPubKey
-  inputDatum <- findInputStateDatum
-  let lookups = monetaryPolicy Forge.currencyPolicy P.<>
+  inputDatum <- findInputStateDatum lid
+  let lookups = monetaryPolicy (Forge.currencyPolicy lid) P.<>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
-  t <- SM.mkStep client (UserAct currentTimestamp (UserId pkh) act)
+  t <- SM.mkStep (client lid) (UserAct currentTimestamp (UserId pkh) act)
   logInfo @String $ "Executes action " P.<> show act
   case t of
     Left _err -> logError ("Action failed" :: String)
@@ -144,10 +153,10 @@ userAction act = do
         awaitTxConfirmed (txId tx)
 
 -- | Endpoints for user
-userEndpoints :: UserApp ()
-userEndpoints = forever userAction'
+userEndpoints :: LendexId -> UserApp ()
+userEndpoints lid = forever userAction'
   where
-    userAction' = endpoint @"user-action" >>= userAction
+    userAction' = endpoint @"user-action" >>= userAction lid
 
 type PriceOracleLendexSchema =
   BlockchainActions
@@ -155,16 +164,17 @@ type PriceOracleLendexSchema =
 
 type PriceOracleApp a = Contract () PriceOracleLendexSchema LendexError a
 
-priceOracleAction :: PriceAct -> PriceOracleApp ()
-priceOracleAction act = do
+priceOracleAction :: LendexId -> PriceAct -> PriceOracleApp ()
+priceOracleAction lid act = do
+  pkh <- fmap pubKeyHash ownPubKey
   currentTimestamp <- getSlot <$> currentSlot
-  void $ SM.runStep client (PriceAct currentTimestamp act)
+  void $ SM.runStep (client lid) (PriceAct currentTimestamp (UserId pkh) act)
 
 -- | Endpoints for price oracle
-priceOracleEndpoints :: PriceOracleApp ()
-priceOracleEndpoints = forever priceOracleAction'
+priceOracleEndpoints :: LendexId -> PriceOracleApp ()
+priceOracleEndpoints lid = forever priceOracleAction'
   where
-    priceOracleAction' = endpoint @"price-oracle-action" >>= priceOracleAction
+    priceOracleAction' = endpoint @"price-oracle-action" >>= priceOracleAction lid
 
 type GovernLendexSchema =
   BlockchainActions
@@ -174,77 +184,52 @@ type GovernLendexSchema =
 data StartParams = StartParams
   { sp'coins     :: [CoinCfg]  -- ^ supported coins with ratios to ADA
   , sp'initValue :: Value      -- ^ init value deposited to the lending app
+  , sp'oracles   :: [UserId]   -- ^ trusted oracles
   }
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 type GovernApp a = Contract () GovernLendexSchema LendexError a
 
-governAction :: GovernAct -> GovernApp ()
-governAction act = do
-  void $ SM.runStep client (GovernAct act)
+governAction :: LendexId -> GovernAct -> GovernApp ()
+governAction lid act = do
+  void $ SM.runStep (client lid) (GovernAct act)
 
-startLendex :: StartParams -> GovernApp ()
-startLendex StartParams{..} = do
-  void $ SM.runInitialise client (initLendingPool Forge.currencySymbol sp'coins) sp'initValue
+startLendex :: LendexId -> StartParams -> GovernApp ()
+startLendex lid StartParams{..} = do
+  void $ SM.runInitialise (client lid) (lid, initLendingPool (Forge.currencySymbol lid) sp'coins sp'oracles) sp'initValue
 
 -- | Endpoints for admin user
-governEndpoints :: GovernApp ()
-governEndpoints = startLendex' >> forever governAction'
+governEndpoints :: LendexId -> GovernApp ()
+governEndpoints lid = startLendex' >> forever governAction'
   where
-    governAction' = endpoint @"govern-action" >>= governAction
-    startLendex'  = endpoint @"start-lendex"  >>= startLendex
-
----------------------------------------------------------
-
-{-# INLINABLE toConstraints #-}
-toConstraints :: Resp -> TxConstraints SM.Void SM.Void
-toConstraints = \case
-  Move addr coin amount | amount > 0 -> case addr of
-    -- pays to lendex app
-    Self       -> PlutusTx.mempty -- we already check this constraint with StateMachine
-    -- pays to the user
-    UserId pkh -> mustPayToPubKey pkh (assetClassValue coin amount)
-  Mint coin amount      -> mustForgeValue (assetClassValue coin amount)
-  Burn coin amount      -> mustForgeValue (assetClassValue coin $ negate amount)
-  _ -> PlutusTx.mempty
-
-{-# INLINABLE updateLendexValue #-}
-updateLendexValue :: [Resp] -> Value -> Value
-updateLendexValue rs val = foldMap toLendexValue rs PlutusTx.<> val
-
-{-# INLINABLE toLendexValue #-}
-toLendexValue :: Resp -> Value
-toLendexValue = \case
-  Move Self coin amount -> assetClassValue coin amount
-  Mint coin amount      -> assetClassValue coin amount
-  Burn coin amount      -> assetClassValue coin (negate amount)
-  _                     -> PlutusTx.mempty
+    governAction' = endpoint @"govern-action" >>= (governAction lid)
+    startLendex'  = endpoint @"start-lendex"  >>= (startLendex lid)
 
 ---------------------------------------------------------
 -- call endpoints (for debug and testing)
 
 -- | Calls user act
-callUserAct :: Emulator.Wallet -> UserAct -> EmulatorTrace ()
-callUserAct wal act = do
-  hdl <- activateContractWallet wal userEndpoints
+callUserAct :: LendexId -> Emulator.Wallet -> UserAct -> EmulatorTrace ()
+callUserAct lid wal act = do
+  hdl <- activateContractWallet wal (userEndpoints lid)
   void $ callEndpoint @"user-action" hdl act
 
 -- | Calls price oracle act
-callPriceOracleAct :: Emulator.Wallet -> PriceAct -> EmulatorTrace ()
-callPriceOracleAct wal act = do
-  hdl <- activateContractWallet wal priceOracleEndpoints
+callPriceOracleAct :: LendexId -> Emulator.Wallet -> PriceAct -> EmulatorTrace ()
+callPriceOracleAct lid wal act = do
+  hdl <- activateContractWallet wal (priceOracleEndpoints lid)
   void $ callEndpoint @"price-oracle-action" hdl act
 
 -- | Calls govern act
-callGovernAct :: Emulator.Wallet -> GovernAct -> EmulatorTrace ()
-callGovernAct wal act = do
-  hdl <- activateContractWallet wal governEndpoints
+callGovernAct :: LendexId -> Emulator.Wallet -> GovernAct -> EmulatorTrace ()
+callGovernAct lid wal act = do
+  hdl <- activateContractWallet wal (governEndpoints lid)
   void $ callEndpoint @"govern-action" hdl act
 
 -- | Calls initialisation of state for Lending pool
-callStartLendex :: Emulator.Wallet -> StartParams -> EmulatorTrace ()
-callStartLendex wal sp = do
-  hdl <- activateContractWallet wal governEndpoints
+callStartLendex :: LendexId -> Emulator.Wallet -> StartParams -> EmulatorTrace ()
+callStartLendex lid wal sp = do
+  hdl <- activateContractWallet wal (governEndpoints lid)
   void $ callEndpoint @"start-lendex" hdl sp
 

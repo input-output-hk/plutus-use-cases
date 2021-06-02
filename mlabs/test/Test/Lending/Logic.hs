@@ -10,29 +10,14 @@ import Test.Tasty.HUnit
 import Plutus.V1.Ledger.Value
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
-import Mlabs.Lending.Logic.Emulator.App
-import Mlabs.Lending.Logic.Emulator.Blockchain
+import Mlabs.Emulator.App
+import Mlabs.Emulator.Blockchain
+import Mlabs.Lending.Logic.App
 import Mlabs.Lending.Logic.Types
 
-import Text.Show.Pretty
 
 import qualified Data.Map.Strict as M
 import qualified PlutusTx.Ratio as R
-
-noErrors :: App -> Assertion
-noErrors app = case app'log app of
-  [] -> assertBool "no errors" True
-  xs -> do
-    mapM_ printLog xs
-    assertFailure "There are errors"
-  where
-    printLog (act, lp, msg) = do
-      pPrint act
-      pPrint lp
-      print msg
-
-someErrors :: App -> Assertion
-someErrors app = assertBool "Script fails" $ not $ null (app'log app)
 
 -- | Test suite for a logic of lending application
 test :: TestTree
@@ -44,6 +29,7 @@ test = testGroup "Logic"
   , testCase "Withdraw" testWithdraw
   , testCase "Repay" testRepay
   , testGroup "Borrow liquidation" testLiquidationCall
+  , testCase "Wrong user sets the price" testWrongUserPriceSet
   ]
   where
     testBorrow = testWallets [(user1, w1)] borrowScript
@@ -88,21 +74,19 @@ test = testGroup "Logic"
         -- receive underlying currency
         w2 = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50) , (coin1, 20), (adaCoin, 1)]
 
+    testWrongUserPriceSet = someErrors $ testScript wrongUserPriceSetScript
+
 -- | Checks that script runs without errors
-testScript :: Script -> App
-testScript script = runApp testAppConfig script
+testScript :: Script -> LendingApp
+testScript script = runLendingApp testAppConfig script
 
 -- | Check that we have those wallets after script was run.
 testWallets :: [(UserId, BchWallet)] -> Script -> Assertion
 testWallets wals script = do
   noErrors app
-  mapM_ (uncurry $ hasWallet app) wals
+  checkWallets wals app
   where
-    app = runApp testAppConfig script
-
--- | Checks that application state contains concrete wallet for a given user id.
-hasWallet :: App -> UserId -> BchWallet -> Assertion
-hasWallet app uid wal = lookupAppWallet uid app @=? Just wal
+    app = runLendingApp testAppConfig script
 
 -- | 3 users deposit 50 coins to lending app
 depositScript :: Script
@@ -189,13 +173,19 @@ repayScript = do
 liquidationCallScript :: Bool -> Script
 liquidationCallScript receiveAToken = do
   borrowScript
-  priceAct $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct user1 $ SetAssetPrice coin2 (R.fromInteger 2)
   userAct user2 $ LiquidationCallAct
       { act'collateral     = coin1
       , act'debt           = BadBorrow user1 coin2
       , act'debtToCover    = 10
       , act'receiveAToken  = receiveAToken
       }
+
+-- oracles
+
+wrongUserPriceSetScript :: Script
+wrongUserPriceSetScript = do
+  priceAct user2 $ SetAssetPrice coin2 (R.fromInteger 2)
 
 ---------------------------------
 -- constants
@@ -235,8 +225,10 @@ aCoin2 = fromToken aToken2
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 testAppConfig :: AppConfig
-testAppConfig = AppConfig reserves users lendingPoolCurrency
+testAppConfig = AppConfig reserves users lendingPoolCurrency oracles
   where
+    oracles = [user1]
+
     reserves = fmap (\(coin, aCoin) -> CoinCfg
                                         { coinCfg'coin             = coin
                                         , coinCfg'rate             = R.fromInteger 1

@@ -22,9 +22,11 @@ library
   Ghc-Options:    -Wall
   build-depends:       base >=4.14 && <4.15
                      , aeson
+                     , ansi-terminal
                      , bytestring
                      , containers
                      , extra
+                     , freer-simple
                      , mtl
                      , playground-common
                      , plutus-core
@@ -36,26 +38,46 @@ library
                      , plutus-pab
                      , plutus-use-cases
                      , prettyprinter
+                     , pretty-show
                      , stm
                      , lens
+                     , tasty
+                     , tasty-hunit
                      , text
                      , freer-extras
+                     , insert-ordered-containers
   default-language: Haskell2010
   hs-source-dirs:      src/
   exposed-modules:
+        Mlabs.Control.Check
+        Mlabs.Control.Monad.State
         Mlabs.Data.AssocMap
         Mlabs.Data.List
+        Mlabs.Data.Maybe
+        Mlabs.Data.Ray
         Mlabs.Data.Ord
+        Mlabs.Emulator.App
+        Mlabs.Emulator.Blockchain
+        Mlabs.Emulator.Scene
+        Mlabs.Emulator.Script
+        Mlabs.Emulator.Types
         Mlabs.Lending.Contract.Forge
         Mlabs.Lending.Contract.Lendex
         Mlabs.Lending.Contract.Utils
-        Mlabs.Lending.Logic.Emulator.App
-        Mlabs.Lending.Logic.Emulator.Blockchain
-        Mlabs.Lending.Logic.Emulator.Script
+        Mlabs.Lending.Logic.App
         Mlabs.Lending.Logic.InterestRate
         Mlabs.Lending.Logic.React
         Mlabs.Lending.Logic.State
         Mlabs.Lending.Logic.Types
+        Mlabs.Nft.Logic.App
+        Mlabs.Nft.Logic.React
+        Mlabs.Nft.Logic.State
+        Mlabs.Nft.Logic.Types
+        Mlabs.Nft.Contract.Nft
+        Mlabs.Nft.Contract.Forge
+        Mlabs.Plutus.Contract.StateMachine
+        Mlabs.System.Console.PrettyLogger
+        Mlabs.System.Console.Utils
   default-extensions: BangPatterns
                       ExplicitForAll
                       FlexibleContexts
@@ -84,6 +106,7 @@ library
                       FlexibleInstances
                       TypeSynonymInstances
                       TupleSections
+                      NumericUnderscores
 
 executable mlabs-plutus-use-cases
     main-is:             app/Main.hs
@@ -134,14 +157,51 @@ executable demo
     , vector
   default-language: Haskell2010
 
+executable nft-demo
+  main-is:             nft-demo/Main.hs
+  build-depends:       base >=4.14 && <4.15
+                     , aeson
+                     , bytestring
+                     , containers
+                     , playground-common
+                     , plutus-core
+                     , plutus-contract
+                     , plutus-ledger
+                     , plutus-ledger-api
+                     , plutus-tx
+                     , plutus-tx-plugin
+                     , plutus-pab
+                     , prettyprinter
+                     , lens
+                     , mtl
+                     , text
+                     , freer-extras
+                     , freer-simple
+                     , mlabs-plutus-use-cases
+                     , ansi-terminal
+                     , bytestring
+                     , cardano-prelude
+                     , data-default-class
+                     , lens
+                     , playground-common
+                     , prettyprinter
+                     , row-types
+                     , vector
+  default-language:    Haskell2010
+  default-extensions: AllowAmbiguousTypes BlockArguments BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveFunctor DeriveGeneric DerivingStrategies DerivingVia DuplicateRecordFields EmptyCase ExplicitNamespaces FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude NumericUnderscores OverloadedLabels OverloadedStrings PatternSynonyms RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators TypeSynonymInstances UndecidableInstances ViewPatterns ImportQualifiedPost RoleAnnotations
+
+
 Test-suite mlabs-plutus-use-cases-tests
   Type:                exitcode-stdio-1.0
   Ghc-options:         -Wall -threaded -rtsopts
   Default-Language:    Haskell2010
   Build-Depends:       base              >=4.9 && <5
                      , data-default
+                     , freer-extras
+                     , freer-simple
                      , lens
                      , mlabs-plutus-use-cases
+                     , mtl
                      , containers
                      , playground-common
                      , plutus-core
@@ -157,6 +217,7 @@ Test-suite mlabs-plutus-use-cases-tests
                      , pretty-show
                      , tasty
                      , tasty-hunit
+                     , tasty-expected-failure
                      , text
   hs-source-dirs:      test
   Main-is:             Main.hs
@@ -164,7 +225,9 @@ Test-suite mlabs-plutus-use-cases-tests
                        Test.Lending.Contract
                        Test.Lending.Init
                        Test.Lending.Logic
-                       Test.Lending.Scene
+                       Test.Nft.Contract
+                       Test.Nft.Init
+                       Test.Nft.Logic
                        Test.Utils
   default-extensions:
     RecordWildCards
