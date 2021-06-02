@@ -82,10 +82,10 @@ putState ::
     PutStateHandle scriptType ->
     StateHandle scriptType a ->
     a ->
-    Contract w s Text ()
+    Contract w s Text (TxUtils.TxPair scriptType)
 putState PutStateHandle {..} StateHandle{..} newState = do
     pkh <- pubKeyHash <$> ownPubKey
-    ledgerTx <- TxUtils.submitTxPair $
+    pure $
         TxUtils.mustForgeValue (makeStatePolicy ownerToken) (assetClassValue stateToken 1)
         <> TxUtils.mustPayToScript script pkh (toDatum newState) (assetClassValue stateToken 1)
         <> TxUtils.mustRoundTripToScript
@@ -94,23 +94,19 @@ putState PutStateHandle {..} StateHandle{..} newState = do
             (ovValue ownerTokenOutput)
             pkh
             (assetClassValue ownerToken 1)
-    _ <- awaitTxConfirmed $ txId ledgerTx
-    pure ()
 
 updateState ::
     (HasBlockchainActions s, IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
     Scripts.ScriptInstance scriptType ->
     StateHandle scriptType a ->
     OutputValue a ->
-    Contract w s Text ()
+    Contract w s Text (TxUtils.TxPair scriptType)
 updateState script StateHandle{..} output = do
     pkh <- pubKeyHash <$> ownPubKey
-    ledgerTx <- TxUtils.submitTxPair $
+    pure $
         TxUtils.mustRoundTripToScript
             script
             [toRedeemer Prelude.<$> output]
             (toDatum . ovValue $ output)
             pkh
             (assetClassValue stateToken 1)
-    _ <- awaitTxConfirmed $ txId ledgerTx
-    pure ()
