@@ -15,6 +15,7 @@
 
 module Plutus.Contracts.Core where
 
+import qualified Control.Lens                     as Lens
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
@@ -105,6 +106,7 @@ data AaveDatum =
 
 PlutusTx.unstableMakeIsData ''AaveDatum
 PlutusTx.makeLift ''AaveDatum
+Lens.makeClassyPrisms ''AaveDatum
 
 data AaveScript
 instance Scripts.ScriptType AaveScript where

@@ -10,6 +10,7 @@
 
 module Plutus.Contracts.State where
 
+import           Control.Lens                     ((^?))
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
@@ -55,22 +56,14 @@ findOutputBy :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Ma
 findOutputBy aave = Select.findOutputBy (Core.aaveAddress aave)
 
 findAaveOwnerToken :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue ())
-findAaveOwnerToken aave@Aave{..} = findOutputBy aave aaveProtocolInst pickOwnerDatum
-
-pickOwnerDatum :: AaveDatum -> Maybe ()
-pickOwnerDatum LendingPoolDatum = Just ()
-pickOwnerDatum _                = Nothing
+findAaveOwnerToken aave@Aave{..} = findOutputBy aave aaveProtocolInst (^? Core._LendingPoolDatum)
 
 reserveStateToken, userStateToken :: Aave -> AssetClass
 reserveStateToken aave = Update.makeStateToken (aaveProtocolInst aave) "aaveReserve"
 userStateToken aave = Update.makeStateToken (aaveProtocolInst aave) "aaveUser"
 
 findAaveReserves :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue (AssocMap.Map ReserveId Reserve))
-findAaveReserves aave = findOutputBy aave (reserveStateToken aave) pickReserves
-
-pickReserves :: AaveDatum -> Maybe (AssocMap.Map ReserveId Reserve)
-pickReserves (Core.ReservesDatum r) = Just r
-pickReserves _                      = Nothing
+findAaveReserves aave = findOutputBy aave (reserveStateToken aave) (^? Core._ReservesDatum)
 
 findAaveReserve :: HasBlockchainActions s => Aave -> ReserveId -> Contract w s Text Reserve
 findAaveReserve aave reserveId = do
@@ -78,11 +71,7 @@ findAaveReserve aave reserveId = do
     maybe (throwError "Reserve not found") pure $ AssocMap.lookup reserveId reserves
 
 findAaveUserConfigs :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue (AssocMap.Map UserConfigId UserConfig))
-findAaveUserConfigs aave = findOutputBy aave (userStateToken aave) pickUserConfig
-
-pickUserConfig :: AaveDatum -> Maybe (AssocMap.Map UserConfigId UserConfig)
-pickUserConfig (Core.UserConfigsDatum userConfig) = Just userConfig
-pickUserConfig _                                  = Nothing
+findAaveUserConfigs aave = findOutputBy aave (userStateToken aave) (^? Core._UserConfigsDatum)
 
 findAaveUserConfig :: HasBlockchainActions s => Aave -> UserConfigId -> Contract w s Text UserConfig
 findAaveUserConfig aave userConfigId = do

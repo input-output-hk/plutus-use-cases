@@ -30,6 +30,7 @@ library
       bytestring,
       containers,
       text,
+      lens,
       -- Plutus:
       playground-common,
       plutus-contract,
