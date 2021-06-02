@@ -85,13 +85,17 @@ start params = do
     let aave = Core.aave aaveToken
         payment = assetClassValue (Core.aaveProtocolInst aave) 1
     let aaveTokenTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.LendingPoolDatum payment
+    ledgerTx <- TxUtils.submitTxPair aaveTokenTx
+    void $ awaitTxConfirmed $ txId ledgerTx
 
     let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve params)) params
     reservesTx <- State.putReserves aave Core.StartRedeemer reserveMap
-    userConfigsTx <- State.putUserConfigs aave Core.StartRedeemer AssocMap.empty
-
-    ledgerTx <- TxUtils.submitTxPair $ aaveTokenTx <> reservesTx <> userConfigsTx
+    ledgerTx <- TxUtils.submitTxPair reservesTx
     void $ awaitTxConfirmed $ txId ledgerTx
+    userConfigsTx <- State.putUserConfigs aave Core.StartRedeemer AssocMap.empty
+    ledgerTx <- TxUtils.submitTxPair userConfigsTx
+    void $ awaitTxConfirmed $ txId ledgerTx
+
     logInfo @String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
 
