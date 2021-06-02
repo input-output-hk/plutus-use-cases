@@ -1,12 +1,3 @@
-h3 {
-  background-color: #f8f8f8;
-  padding-top: 30px;
-  padding-left: 80px;
-  padding-bottom: 30px;
-}
-
-.sign-in {
-  margin: 0 auto;
-  padding-top: 200px;
-  width: 400px;
+p {
+  color: red;  
 }

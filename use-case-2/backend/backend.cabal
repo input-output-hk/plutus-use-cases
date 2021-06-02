@@ -7,39 +7,43 @@ library
   hs-source-dirs: src
   if impl(ghcjs)
     buildable: False
-  build-depends: base
-               , aeson
+  build-depends: aeson
                , aeson-gadt-th
+               , base
+               , beam-automigrate
+               , beam-core
+               , beam-postgres
+               , bytestring
                , common
                , constraints-extras
-               , clientsession
                , dependent-sum
                , dependent-sum-template
                , frontend
-               , groundhog
-               , groundhog-postgresql
-               , monad-control
+               , gargoyle-postgresql
+               , gargoyle-postgresql-connect
+               , http-client
+               , lens
+               , lens-aeson
                , monad-logger
-               , monoidal-containers
-               , obelisk-backend
-               , obelisk-route
+               , mtl
+               , postgresql-simple
                , resource-pool
-               , rhyolite-common
                , rhyolite-backend
                , rhyolite-backend-db
-               , rhyolite-backend-db-gargoyle
-               , text
+               , rhyolite-backend-notification-postgres
+               , obelisk-backend
+               , obelisk-route
+               , vessel
   exposed-modules:
     Backend
     Backend.Notification
-    Backend.RequestHandler
     Backend.Schema
-    Backend.ViewSelector
-  ghc-options: -Wall
+  ghc-options: -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -O -fno-show-valid-hole-fits
 
 executable backend
   main-is: main.hs
   hs-source-dirs: src-bin
+  ghc-options: -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -O -threaded -fno-show-valid-hole-fits
   if impl(ghcjs)
     buildable: False
   build-depends: base

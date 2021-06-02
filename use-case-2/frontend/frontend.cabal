@@ -7,18 +7,18 @@ library
   hs-source-dirs: src
   build-depends: base
                , common
-               , jsaddle
                , obelisk-frontend
-               , obelisk-generated-static
-               , obelisk-executable-config
                , obelisk-route
+               , jsaddle
                , reflex-dom
+               , obelisk-executable-config-lookup
+               , obelisk-generated-static
                , rhyolite-frontend
-               , rhyolite-common
                , text
+               , vessel
   exposed-modules:
     Frontend
-  ghc-options: -Wall
+  ghc-options: -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -O -fno-show-valid-hole-fits
 
 executable frontend
   main-is: main.hs
@@ -30,7 +30,9 @@ executable frontend
                , reflex-dom
                , obelisk-generated-static
                , frontend
-  --TODO: Make these ghc-options optional
-  ghc-options: -threaded
+  ghc-options: -threaded -O -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -fno-show-valid-hole-fits
+  if impl(ghcjs)
+    ghc-options: -dedupe
+    cpp-options: -DGHCJS_BROWSER
   if os(darwin)
-     ghc-options: -dynamic
+    ghc-options: -dynamic

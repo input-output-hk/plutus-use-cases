@@ -1,7 +1,8 @@
 {
   "owner": "obsidiansystems",
-  "repo": "rhyolite",
-  "branch": "master",
-  "rev": "873e9811dea1dd2a1a54eca6af0652d3512042be",
-  "sha256": "1z39bkdk3dxh1p3c3n1a9mq0l627fnafx1p1zpgapdcnw20vi7vq"
+  "repo": "obelisk",
+  "branch": "develop",
+  "private": false,
+  "rev": "51f9c759f7e2182daae8d7725840ca0dd30fd771",
+  "sha256": "05mjqmycbwvimff78ccw0x53ay17njkmjzkiwlj5mk0w1a89airz"
 }

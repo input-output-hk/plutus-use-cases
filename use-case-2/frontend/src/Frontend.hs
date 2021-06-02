@@ -1,77 +1,72 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
-
 
 module Frontend where
 
-import Common.Route
-import Control.Monad (void, join)
-import Control.Monad.IO.Class
-import Data.Either.Combinators (rightToMaybe)
-import Data.Functor.Identity
+import Prelude hiding (id, (.), filter)
+import Control.Category
+
+import Control.Monad
+import Data.Int
+import Data.Semigroup (First(..))
 import qualified Data.Text as T
-import Frontend.App
+import qualified Data.Text.Encoding as T
+import Data.Vessel
+import Data.Vessel.Identity
+import Data.Vessel.Vessel
+import Data.Vessel.ViewMorphism
+import Language.Javascript.JSaddle (eval, liftJSM)
+import Obelisk.Configs
 import Obelisk.Frontend
 import Obelisk.Route
-import Reflex.Dom
-import qualified Obelisk.ExecutableConfig as Cfg
-import Common.App
-import Rhyolite.Account
-import Rhyolite.Api
+import Obelisk.Generated.Static
+import Reflex.Dom.Core
 import Rhyolite.Frontend.App
-import Rhyolite.Frontend.Cookie
-import Rhyolite.Sign
 
+import Common.Api
+import Common.Route
+
+
+-- This runs in a monad that can be run on the client or the server.
+-- To run code in a pure client or pure server context, use one of the
+-- `prerender` functions.
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
   { _frontend_head = do
-    el "title" $ text "User App Template"
+      el "title" $ text "Obelisk Minimal Example"
+      elAttr "link" ("href" =: $(static "main.css") <> "type" =: "text/css" <> "rel" =: "stylesheet") blank
   , _frontend_body = do
-    configRoute <- liftIO $ Cfg.get "config/common/route"
-    let websocketUrl = case configRoute of
-          Nothing -> error "Invalid websocket route"
-          Just wsroute -> mkWebSocketUri $ wsroute <> (renderBackendRoute checkedRouteEncoder $ BackendRoute_Listen :/ ())
-    _ <- prerender blank $ void $ runRhyoliteWidget @DefApp websocketUrl entryPage
-    return ()
+      el "h1" $ text "Welcome to Obelisk!"
+      el "p" $ text $ T.pack commonStuff
+      
+      -- `prerender` and `prerender_` let you choose a widget to run on the server
+      -- during prerendering and a different widget to run on the client with
+      -- JavaScript. The following will generate a `blank` widget on the server and
+      -- print "Hello, World!" on the client.
+      prerender_ blank $ liftJSM $ void $ eval ("console.log('Hello, World!')" :: T.Text)
+      let errorLeft e = case e of
+            Left _ -> error "runFrontend: Unexpected non-app ObeliskRoute reached the frontend. This shouldn't happen."
+            Right x -> x
+      let validFullEncoder = errorLeft $ checkEncoder fullRouteEncoder
+      _ <- runObeliskRhyoliteWidget vesselToWire "common/route" validFullEncoder (BackendRoute_Listen :/ ()) app
+      elAttr "img" ("src" =: $(static "obelisk.jpg")) blank
+      el "div" $ do
+        exampleConfig <- getConfig "common/example"
+        case exampleConfig of
+          Nothing -> text "No config file found in config/common/example"
+          Just s -> text $ T.decodeUtf8 s
+      return ()
   }
-  where
-    mkWebSocketUri address = case T.unpack address of
-      'h':'t':'t':'p':'s':uri -> T.pack $ 'w':'s':'s':uri
-      'h':'t':'t':'p':uri -> T.pack $ 'w':'s':uri
-      'f':'i':'l':'e':uri -> T.pack $ 'w':'s':uri
-      _ -> error "Invalid protocol, cannot produce websocket route"
 
-entryPage :: AppWidget t m => m ()
-entryPage = do
-  -- Check cookies for application authorization token
-  doc <- askDocument
-  mAuthToken :: Maybe (Signed (AuthToken Identity)) <- do
-    cookie <- getCookieJson doc cookieKey
-    return $ join $ rightToMaybe <$> cookie
-  case mAuthToken of
-    Nothing -> do -- When there isn't a authorization token present, show signIn widgets
-      email <- inputElement def
-      password <- inputElement $ def & initialAttributes .~ ("type" =: "password")
-      login <- button "Login"
-      let requestPrep = (\e p -> ApiRequest_Public $ PublicRequest_Login e p)
-            <$> value email
-            <*> value password
-          loginReq = tagPromptlyDyn requestPrep login
-      loginResp <- requestingIdentity loginReq
-      widgetHold_ blank $ ffor loginResp $ \case
-        Left _ -> text "Login Failed"
-        Right token -> do
-          -- Receive token and create cookie with token
-          cookie <- defaultCookieJson cookieKey $ Just token
-          setPermanentCookie doc cookie
-          text "Login Success"
-          -- TODO: when login successful, redirect to a login page (use actual route or widgets?)
-          -- -- TODO: Make a version with just workflow for quick set ups
-          -- -- TODO: Make another version with actual routes for projects with more depth
-    Just _token -> return () -- TODO: show authorized application dashboard
+app :: MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m => m ()
+app = do
+  increment <- button "+"
+  requesting_ $ Api_IncrementCounter <$ increment
+  el "div" $ display =<< viewCounter
+  return ()
+
+viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))
+viewCounter = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_Counter . identityV

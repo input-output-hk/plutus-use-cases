@@ -5,20 +5,18 @@ build-type: Simple
 
 library
   hs-source-dirs: src
-  build-depends: base
-               , aeson
-               , obelisk-route
-               , monoidal-containers
+  build-depends: aeson
+               , aeson-gadt-th
+               , base
+               , beam-core
+               , constraints-extras
+               , dependent-sum-template
                , mtl
-               , reflex
-               , rhyolite-common
+               , obelisk-route
                , text
-               , these
-  default-extensions:
-    TypeFamilies
-    PolyKinds
+               , vessel
   exposed-modules:
     Common.Api
-    Common.App
     Common.Route
     Common.Schema
+  ghc-options: -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -O -fno-show-valid-hole-fits
