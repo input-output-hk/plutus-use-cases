@@ -11,6 +11,7 @@ module Mlabs.Lending.Logic.State(
   , Error
   , isAsset
   , aToken
+  , isAdmin
   , isTrustedOracle
   , updateReserveState
   , initReserve
@@ -71,6 +72,7 @@ type St = PlutusState LendingPool
 -- common functions
 
 {-# INLINABLE isAsset #-}
+-- | Check that lending pool supports given asset
 isAsset :: Coin -> St ()
 isAsset asset = do
   reserves <- gets lp'reserves
@@ -79,15 +81,27 @@ isAsset asset = do
     else throwError "Asset not supported"
 
 {-# INLINABLE updateReserveState #-}
+-- | Updates all iterative parameters of reserve.
+-- Reserve state controls interest rates and health checks for all users.
 updateReserveState :: Integer -> Coin -> St ()
 updateReserveState currentTime asset =
   modifyReserve asset $ IR.updateReserveInterestRates currentTime
 
 {-# INLINABLE isTrustedOracle #-}
+-- | check that user is allowed to do oracle actions
 isTrustedOracle :: UserId -> St ()
-isTrustedOracle uid = do
-  oracles <- gets lp'trustedOracles
-  guardError "Is not trusted oracle" $ elem uid oracles
+isTrustedOracle = checkRole "Is not trusted oracle" lp'trustedOracles
+
+{-# INLINABLE isAdmin #-}
+-- | check that user is allowed to do admin actions
+isAdmin :: UserId -> St ()
+isAdmin = checkRole "Is not admin" lp'admins
+
+{-# INLINABLE checkRole #-}
+checkRole :: String -> (LendingPool -> [UserId]) -> UserId -> St ()
+checkRole msg extract uid = do
+  users <- gets extract
+  guardError msg $ elem uid users
 
 {-# INLINABLE aToken #-}
 aToken :: Coin -> St Coin
@@ -232,9 +246,9 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 -- | Modify reserve for a given asset. It can throw errors.
 modifyReserve' :: Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
-  LendingPool lp users curSym coinMap healthReport oracles <- get
-  case M.lookup asset lp of
-    Just reserve -> either throwError (\x -> put $ LendingPool (M.insert asset x lp) users curSym coinMap healthReport oracles) (f reserve)
+  st <- get
+  case M.lookup asset $ lp'reserves st of
+    Just reserve -> either throwError (\x -> put $ st { lp'reserves = M.insert asset x $ lp'reserves st}) (f reserve)
     Nothing      -> throwError $ "Asset is not supported"
 
 {-# INLINABLE modifyUser #-}
@@ -246,10 +260,10 @@ modifyUser uid f = modifyUser' uid (Right . f)
 -- | Modify user info by id. It can throw errors.
 modifyUser' :: UserId -> (User -> Either Error User) -> St ()
 modifyUser' uid f = do
-  LendingPool lp users curSym coinMap healthReport oracles <- get
-  case f $ fromMaybe defaultUser $ M.lookup uid users of
+  st <- get
+  case f $ fromMaybe defaultUser $ M.lookup uid $ lp'users st of
     Left msg   -> throwError msg
-    Right user -> put $ LendingPool lp (M.insert uid user users) curSym coinMap healthReport oracles
+    Right user -> put $ st { lp'users = M.insert uid user $ lp'users st }
 
 {-# INLINABLE modifyHealthReport #-}
 modifyHealthReport :: (HealthReport -> HealthReport) -> St ()

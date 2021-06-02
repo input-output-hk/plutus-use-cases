@@ -40,7 +40,7 @@ react input = do
   case input of
     UserAct  t uid act -> withHealthCheck t $ userAct t uid act
     PriceAct t uid act -> withHealthCheck t $ priceAct t uid act
-    GovernAct      act -> governAct act
+    GovernAct  uid act -> governAct uid act
   where
     -- | User acts
     userAct time uid = \case
@@ -262,20 +262,22 @@ react input = do
     ---------------------------------------------------
     -- Govern acts
 
-    governAct = \case
-      AddReserve cfg -> addReserve cfg
+    governAct uid act = do
+      isAdmin uid
+      case act of
+        AddReserve cfg -> addReserve cfg
 
     ---------------------------------------------------
     -- Adds new reserve (new coin/asset)
 
     addReserve cfg@CoinCfg{..} = do
-      LendingPool reserves users curSym coinMap healthReport oracles <- get
-      if M.member coinCfg'coin reserves
+      st <- get
+      if M.member coinCfg'coin (lp'reserves st)
         then throwError "Reserve is already present"
         else do
-          let newReserves = M.insert coinCfg'coin (initReserve cfg) reserves
-              newCoinMap  = M.insert coinCfg'aToken coinCfg'coin coinMap
-          put $ LendingPool newReserves users curSym newCoinMap healthReport oracles
+          let newReserves = M.insert coinCfg'coin (initReserve cfg) $ lp'reserves st
+              newCoinMap  = M.insert coinCfg'aToken coinCfg'coin $ lp'coinMap st
+          put $ st { lp'reserves = newReserves, lp'coinMap = newCoinMap }
           return []
 
     ---------------------------------------------------
@@ -330,7 +332,7 @@ checkInput = \case
     isNonNegative "timestamp" time
     checkUserAct act
   PriceAct time _uid act -> checkPriceAct time act
-  GovernAct act -> checkGovernAct act
+  GovernAct _uid act -> checkGovernAct act
   where
     checkUserAct = \case
       DepositAct amount asset -> do

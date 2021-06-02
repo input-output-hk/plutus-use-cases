@@ -226,8 +226,9 @@ aCoin2 = fromToken aToken2
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 testAppConfig :: AppConfig
-testAppConfig = AppConfig reserves users lendingPoolCurrency oracles
+testAppConfig = AppConfig reserves users lendingPoolCurrency admins oracles
   where
+    admins  = [user1]
     oracles = [user1]
 
     reserves = fmap (\(coin, aCoin) -> CoinCfg

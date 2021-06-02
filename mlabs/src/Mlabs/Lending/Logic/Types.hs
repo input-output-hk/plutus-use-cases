@@ -68,6 +68,7 @@ data LendingPool = LendingPool
   , lp'currency       :: !CurrencySymbol         -- ^ main currencySymbol of the app
   , lp'coinMap        :: !(Map TokenName Coin)   -- ^ maps aTokenNames to actual coins
   , lp'healthReport   :: !HealthReport           -- ^ map of unhealthy borrows
+  , lp'admins         :: ![UserId]               -- ^ we accept govern acts only for those users
   , lp'trustedOracles :: ![UserId]               -- ^ we accept price changes only for those users
   }
   deriving (Show, Generic)
@@ -145,14 +146,15 @@ data CoinCfg = CoinCfg
   deriving anyclass (FromJSON, ToJSON)
 
 {-# INLINABLE initLendingPool #-}
-initLendingPool :: CurrencySymbol -> [CoinCfg] -> [UserId] -> LendingPool
-initLendingPool curSym coinCfgs oracles =
+initLendingPool :: CurrencySymbol -> [CoinCfg] -> [UserId] -> [UserId] -> LendingPool
+initLendingPool curSym coinCfgs admins oracles =
   LendingPool
     { lp'reserves       = reserves
     , lp'users          = M.empty
     , lp'currency       = curSym
     , lp'coinMap        = coinMap
     , lp'healthReport   = M.empty
+    , lp'admins         = admins
     , lp'trustedOracles = oracles
     }
   where
@@ -235,7 +237,10 @@ data Act
       , priceAct'userId     :: UserId
       , priceAct'act        :: PriceAct
       }                              -- ^ price oracle's actions
-  | GovernAct GovernAct              -- ^ app admin's actions
+  | GovernAct
+      { governAct'userd     :: UserId
+      , goverAct'act        :: GovernAct
+      }                              -- ^ app admin's actions
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 

@@ -176,10 +176,6 @@ findInputStateDatum nid = do
   where
     err = throwError $ SM.SMCContractError "Can not find NFT app instance"
 
--- | Get user id of the wallet owner.
-getUserId :: HasBlockchainActions s => Contract w s NftError UserId
-getUserId = fmap (UserId . pubKeyHash) ownPubKey
-
 -- | User action endpoint
 userAction :: NftId -> UserAct -> NftContract ()
 userAction nid act = do
@@ -236,7 +232,7 @@ startNft StartParams{..} = do
           val     = nftValue nftId
           lookups = monetaryPolicy $ nftPolicy nftId
           tx      = mustForgeValue val
-      authorId <- getUserId
+      authorId <- ownUserId
       void $ SM.runInitialiseWith (client nftId) (initNft oref authorId sp'content sp'share sp'price) val lookups tx
       tell $ Last $ Just nftId
 

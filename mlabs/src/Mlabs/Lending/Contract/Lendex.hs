@@ -42,6 +42,7 @@ import           PlutusTx.Prelude             hiding (Applicative (..), check, S
 import qualified PlutusTx.Prelude             as Plutus
 
 import Mlabs.Emulator.Blockchain
+import Mlabs.Emulator.Types
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
 import qualified Mlabs.Lending.Contract.Forge as Forge
@@ -184,6 +185,7 @@ type GovernLendexSchema =
 data StartParams = StartParams
   { sp'coins     :: [CoinCfg]  -- ^ supported coins with ratios to ADA
   , sp'initValue :: Value      -- ^ init value deposited to the lending app
+  , sp'admins    :: [UserId]   -- ^ admins
   , sp'oracles   :: [UserId]   -- ^ trusted oracles
   }
   deriving stock (Show, Generic)
@@ -193,11 +195,12 @@ type GovernApp a = Contract () GovernLendexSchema LendexError a
 
 governAction :: LendexId -> GovernAct -> GovernApp ()
 governAction lid act = do
-  void $ SM.runStep (client lid) (GovernAct act)
+  uid <- ownUserId
+  void $ SM.runStep (client lid) (GovernAct uid act)
 
 startLendex :: LendexId -> StartParams -> GovernApp ()
 startLendex lid StartParams{..} = do
-  void $ SM.runInitialise (client lid) (lid, initLendingPool (Forge.currencySymbol lid) sp'coins sp'oracles) sp'initValue
+  void $ SM.runInitialise (client lid) (lid, initLendingPool (Forge.currencySymbol lid) sp'coins sp'admins sp'oracles) sp'initValue
 
 -- | Endpoints for admin user
 governEndpoints :: LendexId -> GovernApp ()
