@@ -1,14 +1,16 @@
 {-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE MonoLocalBinds     #-}
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE NoImplicitPrelude  #-}
-{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeOperators      #-}
+{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE ViewPatterns       #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -31,7 +33,7 @@ import           Plutus.Trace.Emulator  as Emulator
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
-import           Ledger                 hiding (singleton)
+import           Ledger                 hiding (singleton,fee)
 import qualified PlutusTx.Prelude  as PlutusPrelude
 import           Ledger.Constraints     as Constraints
 import qualified Ledger.Typed.Scripts   as Scripts
@@ -40,13 +42,18 @@ import           Playground.Contract    (printJson, printSchemas, ensureKnownCur
 import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
 import           Playground.Types       (KnownCurrency (..))
 import qualified Prelude
-import           Prelude                (Semigroup (..))
+import           Prelude                (Semigroup (..), Show (show), String)
 import           Text.Printf            (printf)
+import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.UTF8
 import Data.Aeson (FromJSON, ToJSON, Value (Bool))
 import  Ledger.Ada
 import qualified Ledger.Ada as Ada
 import Data.Semigroup (Last)
 import PlutusTx.These
+import qualified Data.ByteString as Builtins
+import qualified Data.ByteString.UTF8 as U8
+import qualified Plutus.Contract as Extras
 
 newtype Payment = Payment ( AssocMap.Map PubKeyHash Ledger.Value )
     deriving stock (Generic)
@@ -91,36 +98,50 @@ emptyPayment ::Payment
 emptyPayment = Payment AssocMap.empty
 
 data MarketOperation =MarketOperation{
-    action:: MarketOperation,
-    asset  :: AssetClass,
-    lovelaceCost  :: Integer
+    action:: !String,
+    asset  :: !AssetClass,
+    lovelaceCost  :: !Integer
 } deriving(Show ,Generic,FromJSON,ToJSON)
 
 data Market = Market
-    { operator   :: !PubKeyHash
-    , fee      :: !Integer
+    {   operator   :: !PubKeyHash
+    ,   fee      :: !Integer
     } deriving (Show,Generic, FromJSON, ToJSON, Prelude.Eq)
 
-data SellParam =SellParam
-    {
-        sellParamAsset :: AssetClass
-    ,    sellParamCost  :: Integer
-    } deriving(Show, Generic , FromJSON,ToJSON)
 
-PlutusTx.makeLift ''SellParam
+instance ToSchema AssetClass
+
+data SellParams =SellParams
+    {
+        spCurrency        :: !String,
+        spToken           :: !String,
+        spCost   :: !Integer
+    } deriving(GHC.Generics.Generic ,ToJSON,FromJSON,ToSchema)
+
+spAsset sp@SellParams{spCost,spCurrency,spToken}=
+    assetClass   currency token
+    where
+        currency=currencySymbol $ U8.fromString   spCurrency
+        token= tokenName $ U8.fromString    spToken
+
+
+data MintParams = MintParams
+    { mpTokenName :: !TokenName
+    , mpAmount    :: !Integer
+    } deriving (GHC.Generics.Generic , ToJSON, FromJSON, ToSchema)
+
 PlutusTx.makeLift ''Market
 
-sellParam :: AssetClass -> Integer -> SellParam
-sellParam = SellParam
 
 data MarketAction = Showcase | Buy | ClaimFees deriving (FromJSON,ToJSON,Show,Generic)
 
 PlutusTx.makeLift ''MarketAction
 PlutusTx.unstableMakeIsData ''MarketAction
 
-newtype MarketUtxoData=MarketUtxoData (Maybe (Integer,PubKeyHash))
+newtype MarketUtxoData=MarketUtxoData{ unmarketUtxoData::Maybe (Integer,PubKeyHash)}
 PlutusTx.unstableMakeIsData ''MarketUtxoData
 PlutusTx.makeLift ''MarketUtxoData
+
 
 marketUtxoData::forall w s e. (HasOwnPubKey  s,AsContractError e )=>Integer  -> Contract w s e MarketUtxoData
 marketUtxoData cost=do
@@ -159,12 +180,18 @@ mkMarket nft@Market{operator=operator,fee=fee} x action ctx@ScriptContext{script
         totalPayment =foldPaymnents $ map (\a->paymentInfo a) marketInputs
 
         paymentInfo :: TxOut  ->  Payment
-        paymentInfo  ( TxOut _ _ (Just x)) = case findDatum x info of
-                        Just (Datum d) ->  case PlutusTx.fromData  d of
-                                                Just (MarketUtxoData (Just (v,hash))) -> lovelacePayment hash v
-                                                _ -> traceError "No cost info"
-                        _ -> traceError "No Cost info"
-        costOf  _                      = traceError "No Cost info"
+        paymentInfo  txOut = case findCost txOut  of
+            Just (value,hash) ->  lovelacePayment hash value
+            _                 -> traceError "No Cost info"
+
+        findCost :: TxOut ->Maybe (Integer,PubKeyHash)
+        findCost txOut= do
+            dHash<-txOutDatumHash txOut
+            datum<-findDatum dHash info
+            marketUtxoData <-PlutusTx.fromData (getDatum datum)
+            unmarketUtxoData marketUtxoData
+
+
 
 data MarketType
 instance Scripts.ScriptType MarketType where
@@ -184,17 +211,29 @@ marketValidator = Scripts.validatorScript . marketScript
 marketAddress :: Market -> Ledger.Address
 marketAddress = scriptAddress . marketValidator
 
-moveToMarket :: forall w s e. (HasOwnPubKey s, HasBlockchainActions s,HasWriteTx s,AsContractError e ) =>Market  -> AssetClass ->Integer -> Contract w s e ()
-moveToMarket market@Market{operator=operator,fee=fee} asset price= do
+moveToMarket' :: forall s e. ( HasBlockchainActions s,
+                                AsContractError e ) 
+        =>Market  -> AssetClass ->Integer
+             -> Contract [MarketOperation] s e ()  
+moveToMarket' market@Market{operator=operator,fee=fee} asset price= do
+    Contract.logInfo @String "Oh yeh, doing the move"
     cost <- marketUtxoData fee
     ledgerTx <- submitTxConstraints inst (Constraints.mustPayToTheScript cost value)
-    awaitTxConfirmed ( txId ledgerTx)
-    Contract.logInfo @String "Wow"
+    tell [MarketOperation "PutOnSale" asset price]
+    Extras.logInfo @String "yeh we did it"
+    -- awaitTxConfirmed ( txId ledgerTx)
+    Contract.logInfo @String "Yeh it's confirmed"
+    -- return $ txId ledgeTx
     where
         value  = assetClassValue asset 1
         inst = marketScript market
 
-buyFromMarket :: forall w s. HasBlockchainActions s => Market -> AssetClass -> Contract w s Text ()
+moveToMarket :: forall w s e. (HasBlockchainActions s,AsContractError e )
+     =>Market  -> SellParams -> Contract [MarketOperation] s e () 
+moveToMarket market sp=
+    moveToMarket' market (spAsset sp) (spCost sp)
+
+buyFromMarket :: forall w s. HasBlockchainActions s => Market -> AssetClass -> Contract [MarketOperation] s Text ()
 buyFromMarket market asset = do
     utxoInfo <- findInMarket market asset
     case utxoInfo of
@@ -210,7 +249,9 @@ buyFromMarket market asset = do
             awaitTxConfirmed $ txId ledgerTx
             logInfo @String $ "Bought asset "++ show asset ++ "at the cost of " ++ show (marketUtxoCost cost) ++" Lovelace"
 
-findInMarket :: forall w s. HasBlockchainActions s => Market -> AssetClass  -> Contract w s Text (Maybe (TxOutRef, TxOutTx, Integer))
+findInMarket :: forall w s. HasBlockchainActions s =>
+             Market -> AssetClass  
+             -> Contract [MarketOperation] s Text (Maybe (TxOutRef, TxOutTx, Integer))
 findInMarket market asset = do
     utxos <- Map.filter hasAsset <$> utxoAt (marketAddress market)
     return $ case Map.toList utxos of
@@ -228,24 +269,45 @@ findInMarket market asset = do
         Datum d <- f dh
         PlutusTx.fromData d
 
+-- myNFTsOnSale :: forall w s. HasBlockchainActions s =>
+--              Market  -> Contract w s Text (Maybe (TxOutRef, TxOutTx, Integer))
+-- myNFTsOnSale market=do
+--     utxos <- Map.filter isMine <$> utxoAt (marketAddress market)
+--     return $ case Map.toList utxos of
+--         [(oref, o)] -> do
+--             x <- nftCost (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
+--             return (oref, o, x)
+--         _           -> Nothing
+--     where 
+--         isMine :: TxOut  -> Bool
+--         isMine utxo= txOutDatumHash
+
+--         findOwner :: TxOut ->Maybe PubKeyHash
+--         findOwner txOut= do
+--             dHash<-txOutDatumHash txOut
+--             datum<-findDatum dHash info
+--             marketUtxoData <-PlutusTx.fromData (getDatum datum)
+--             (case marketUtxoData of 
+--                         MarketUtxoData (Just(_,pk)) ->Just pk
+--                         _                         -> Nothing)
+
+
 type MarketSchema =
     BlockchainActions
-        .\/ Endpoint "sell"     SellParam
+        .\/ Endpoint "sell" SellParams
 --        .\/ Endpoint "withdraw" (AssetClass)
-        .\/ Endpoint "buy"      AssetClass
+        .\/ Endpoint "buy"  AssetClass
 --        .\/ Endpoint "collect"  ()
 
-openTheMarket :: Market -> Contract () MarketSchema Text  ()
-openTheMarket market = (sell `select` buy ) >> openTheMarket market
-  where
-    sell :: Contract w MarketSchema Text ()
-    sell= h $ do
-        sp <- endpoint @"sell"
-        moveToMarket market (sellParamAsset sp) (sellParamCost sp)
-    buy ::  Contract w MarketSchema Text ()
-    buy = h $ do
-        asset <-endpoint @"buy"
-        buyFromMarket market asset
+mkSchemaDefinitions ''MarketSchema
 
-    h :: Contract w MarketSchema Text () -> Contract w MarketSchema Text ()
-    h = handleError logError
+
+endpoints :: Market -> Contract [MarketOperation] MarketSchema Text  ()
+endpoints market = (
+                                moveToMarket''
+                        `select`    buyFromMarket''
+                    ) >> endpoints market
+  where
+    buyFromMarket''= (endpoint @"buy")  >>=buyFromMarket market
+    moveToMarket''=  (endpoint @"sell") >>= moveToMarket market
+

@@ -37,21 +37,22 @@ import           Plutus.Contract.Blockchain.MarketPlace
 import           Wallet.Emulator.Wallet
 import Data.Void
 import Data.Aeson
+import qualified Prelude
 
 
 defaultMarket ::Market
 defaultMarket=Market (pubKeyHash ( walletPubKey (Wallet 10))) 2
 
 
-
-test :: IO ()
+test :: Prelude.IO ()
 test= runEmulatorTraceIO test1
 
 defaultAsset=assetClass  (CurrencySymbol "abcd") (TokenName "")
 
+test1::EmulatorTrace ()
 test1=do
-        h1 <- activateContractWallet (Wallet 1) (openTheMarket  defaultMarket)
-        h2 <- activateContractWallet (Wallet 2) (openTheMarket  defaultMarket)
+        h1 <- activateContractWallet (Wallet 1) (endpoints  defaultMarket)
+        h2 <- activateContractWallet (Wallet 2) (endpoints  defaultMarket)
         void $ Emulator.waitNSlots 1
-        void $ callEndpoint   h1 @"sell"  (sellParam  defaultAsset 100)
-
+-- I am not sure what's the error here, I am not familiar with the effect system.
+        void $ callEndpoint  h2 @"sell" (SellParams defaultAsset 32)
