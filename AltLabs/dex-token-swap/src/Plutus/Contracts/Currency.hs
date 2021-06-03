@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE MonoLocalBinds     #-}
 {-# LANGUAGE NamedFieldPuns     #-}
@@ -18,7 +18,7 @@
 -- | Implements a custom currency with a monetary policy that allows
 --   the forging of a fixed amount of units.
 module Plutus.Contracts.Currency(
-      Currency(..)
+      OneShotCurrency(..)
     , CurrencySchema
     , CurrencyError(..)
     , AsCurrencyError(..)
@@ -30,6 +30,8 @@ module Plutus.Contracts.Currency(
     -- * Simple monetary policy currency
     , SimpleMPS(..)
     , forgeCurrency
+    -- * Creating thread tokens
+    , createThreadToken
     ) where
 
 import           Control.Lens
@@ -48,7 +50,7 @@ import           Ledger.Scripts
 import qualified PlutusTx                as PlutusTx
 
 import qualified Ledger.Typed.Scripts    as Scripts
-import           Ledger.Value            (TokenName, Value)
+import           Ledger.Value            (AssetClass, TokenName, Value)
 import qualified Ledger.Value            as Value
 
 import           Data.Aeson              (FromJSON, ToJSON)
@@ -62,7 +64,8 @@ import           Schema                  (ToSchema)
 
 {-# ANN module ("HLint: ignore Use uncurry" :: String) #-}
 
-data Currency = Currency
+-- | A currency that can be created exactly once
+data OneShotCurrency = OneShotCurrency
   { curRefTransactionOutput :: (TxId, Integer)
   -- ^ Transaction input that must be spent when
   --   the currency is forged.
@@ -73,23 +76,23 @@ data Currency = Currency
   deriving stock (Generic, Prelude.Show)
   deriving anyclass (ToJSON, FromJSON)
 
-PlutusTx.makeLift ''Currency
+PlutusTx.makeLift ''OneShotCurrency
 
-currencyValue :: CurrencySymbol -> Currency -> Value
-currencyValue s Currency{curAmounts = amts} =
+currencyValue :: CurrencySymbol -> OneShotCurrency -> Value
+currencyValue s OneShotCurrency{curAmounts = amts} =
     let
         values = map (\(tn, i) -> (Value.singleton s tn i)) (AssocMap.toList amts)
     in fold values
 
-mkCurrency :: TxOutRef -> [(TokenName, Integer)] -> Currency
+mkCurrency :: TxOutRef -> [(TokenName, Integer)] -> OneShotCurrency
 mkCurrency (TxOutRef h i) amts =
-    Currency
+    OneShotCurrency
         { curRefTransactionOutput = (h, i)
         , curAmounts              = AssocMap.fromList amts
         }
 
-validate :: Currency -> V.ScriptContext -> Bool
-validate c@(Currency (refHash, refIdx) _) ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
+validate :: OneShotCurrency -> V.ScriptContext -> Bool
+validate c@(OneShotCurrency (refHash, refIdx) _) ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
     let
         -- see note [Obtaining the currency symbol]
         ownSymbol = V.ownCurrencySymbol ctx
@@ -111,7 +114,7 @@ validate c@(Currency (refHash, refIdx) _) ctx@V.ScriptContext{V.scriptContextTxI
 
     in forgeOK && txOutputSpent
 
-curPolicy :: Currency -> MonetaryPolicy
+curPolicy :: OneShotCurrency -> MonetaryPolicy
 curPolicy cur = mkMonetaryPolicyScript $
     $$(PlutusTx.compile [|| \c -> Scripts.wrapMonetaryPolicy (validate c) ||])
         `PlutusTx.applyCode`
@@ -130,11 +133,11 @@ is why we use 'V.ownCurrencySymbol', which obtains the hash from the
 
 -}
 
--- | The 'Value' forged by the 'curPolicy' contract
-forgedValue :: Currency -> Value
+-- | The 'Value' forged by the 'OneShotCurrency' contract
+forgedValue :: OneShotCurrency -> Value
 forgedValue cur = currencyValue (currencySymbol cur) cur
 
-currencySymbol :: Currency -> CurrencySymbol
+currencySymbol :: OneShotCurrency -> CurrencySymbol
 currencySymbol = scriptCurrencySymbol . curPolicy
 
 data CurrencyError =
@@ -164,7 +167,7 @@ forgeContract
     )
     => PubKeyHash
     -> [(TokenName, Integer)]
-    -> Contract w s e Currency
+    -> Contract w s e OneShotCurrency
 forgeContract pk amounts = mapError (review _CurrencyError) $ do
     (txOutRef, txOutTx, pkInst) <- PK.pubKeyContract pk (Ada.lovelaceValueOf 1)
     let theCurrency = mkCurrency txOutRef amounts
@@ -194,10 +197,24 @@ type CurrencySchema =
 
 -- | Use 'forgeContract' to create the currency specified by a 'SimpleMPS'
 forgeCurrency
-    :: Contract (Maybe (Last Currency)) CurrencySchema CurrencyError Currency
+    :: Contract (Maybe (Last OneShotCurrency)) CurrencySchema CurrencyError OneShotCurrency
 forgeCurrency = do
     SimpleMPS{tokenName, amount} <- endpoint @"Create native token"
     ownPK <- pubKeyHash <$> ownPubKey
     cur <- forgeContract ownPK [(tokenName, amount)]
     tell (Just (Last cur))
     pure cur
+
+-- | Create a thread token for a state machine
+createThreadToken ::
+    forall s w.
+    ( HasOwnPubKey s
+    , HasTxConfirmation s
+    , HasWriteTx s
+    )
+    => Contract w s CurrencyError AssetClass
+createThreadToken = do
+    ownPK <- pubKeyHash <$> ownPubKey
+    let tokenName :: TokenName = "thread token"
+    s <- forgeContract ownPK [(tokenName, 1)]
+    pure $ Value.assetClass (currencySymbol s) tokenName

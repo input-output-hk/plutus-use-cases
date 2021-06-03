@@ -16,6 +16,7 @@ module Main
 import           Control.Monad                           (forM, void)
 import           Control.Monad.Freer                     (Eff, Member, interpret, type (~>))
 import           Control.Monad.Freer.Error               (Error)
+import           Control.Monad.Freer.Extras.Log          (LogMsg)
 import           Control.Monad.IO.Class                  (MonadIO (..))
 import           Data.Aeson                              (FromJSON, Result (..), ToJSON, encode, fromJSON)
 import qualified Data.Map.Strict                         as Map
@@ -31,7 +32,8 @@ import qualified Plutus.Contracts.Uniswap                as Uniswap
 import           Plutus.PAB.Effects.Contract             (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin     (Builtin, SomeBuiltin (..), type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin     as Builtin
-import qualified Plutus.PAB.Effects.ContractTest.Uniswap as US
+import           Plutus.PAB.Effects.ContractTest.Uniswap as US
+import           Plutus.PAB.Monitoring.PABLogMsg         (PABMultiAgentMsg)
 import           Plutus.PAB.Simulator                    (SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                    as Simulator
 import           Plutus.PAB.Types                        (PABError (..))
@@ -53,8 +55,8 @@ main = void $ Simulator.runSimulationWith handlers $ do
 
     Simulator.logString @(Builtin UniswapContracts) $ "Initialization finished. Minted: " ++ show cs
 
-    let coins = Map.fromList [(tn, Uniswap.Coin cs tn) | tn <- US.tokenNames]
-        ada   = Uniswap.Coin adaSymbol adaToken
+    let coins = Map.fromList [(tn, Uniswap.mkCoin cs tn) | tn <- tokenNames]
+        ada   = Uniswap.mkCoin adaSymbol adaToken
 
     cidStart <- Simulator.activateContract (Wallet 1) UniswapStart
     us       <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Uniswap.Uniswap))) of
@@ -62,7 +64,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
                     _                                       -> Nothing
     Simulator.logString @(Builtin UniswapContracts) $ "Uniswap instance created: " ++ show us
 
-    cids <- fmap Map.fromList $ forM US.wallets $ \w -> do
+    cids <- fmap Map.fromList $ forM wallets $ \w -> do
         cid <- Simulator.activateContract w $ UniswapUser us
         Simulator.logString @(Builtin UniswapContracts) $ "Uniswap user contract started for " ++ show w
         _ <- Simulator.callEndpointOnInstance cid "funds" ()
@@ -95,6 +97,7 @@ instance Pretty UniswapContracts where
 
 handleUniswapContract ::
     ( Member (Error PABError) effs
+    , Member (LogMsg (PABMultiAgentMsg (Builtin UniswapContracts))) effs
     )
     => ContractEffect (Builtin UniswapContracts)
     ~> Eff effs
