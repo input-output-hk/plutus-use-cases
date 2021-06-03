@@ -1,4 +1,7 @@
-import { withHandlers } from 'recompose';
+import { connect } from 'react-redux';
+import { compose, withHandlers } from 'recompose';
+
+import { setToken } from '../actions/tokenActions';
 
 import Coin from '../icons/coin.gif';
 import Card from 'react-bootstrap/Card';
@@ -42,10 +45,16 @@ const TokensList = ({ tokens, onTokenClick }) => (
   </section>
 );
 
-const enhancer = withHandlers({
-  onTokenClick: () => (token) => {
-    localStorage.setItem('viewSingleToken', JSON.stringify(token));
-  },
-});
+const enhancer = compose(
+  connect(null, (dispatch) => ({
+    setToken: (token) => dispatch(setToken(token)),
+  })),
+  withHandlers({
+    onTokenClick: ({ setToken }) => (token) => {
+      localStorage.setItem('viewSingleToken', JSON.stringify(token));
+      setToken(token);
+    },
+  })
+);
 
 export default enhancer(TokensList);

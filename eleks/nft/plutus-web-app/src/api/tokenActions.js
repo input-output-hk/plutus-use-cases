@@ -62,3 +62,27 @@ export async function fetchCancelSellToken(wallet, data) {
     };
   }
 }
+
+export async function fetchTransferToken(wallet, data) {
+  const response = await fetch(
+    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/transfer`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        tpTokenSymbol: data.tokenId,
+        tpReceiverWallet: data.walletNumber,
+      }),
+    }
+  );
+
+  if (response.status === 200) {
+    return await fetchStatus(wallet, 'Transfered');
+  } else {
+    return {
+      error: 'Unable to transfer token',
+    };
+  }
+}

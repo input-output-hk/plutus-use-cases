@@ -1,3 +1,4 @@
+import React from 'react';
 import { connect } from 'react-redux';
 import { compose, withProps, withState } from 'recompose';
 
@@ -6,6 +7,7 @@ import {
   fetchSellToken,
   fetchBuyToken,
   fetchCancelSellToken,
+  fetchTransferToken,
 } from '../actions/tokenActions';
 
 import Loader from './Loader';
@@ -13,6 +15,7 @@ import SellModal from './SellModal';
 import Coin from '../icons/coin.gif';
 import Card from 'react-bootstrap/Card';
 import ConfirmModal from './ConfirmModal';
+import TransferModal from './TransferModal';
 import Button from 'react-bootstrap/Button';
 import ListGroup from 'react-bootstrap/ListGroup';
 import ListGroupItem from 'react-bootstrap/ListGroupItem';
@@ -26,6 +29,7 @@ const TokenPage = ({
   fetchBuyToken,
   fetchSellToken,
   fetchCancelSellToken,
+  fetchTransferToken,
   tokenActionFetching,
   currentUser,
   isBuy,
@@ -60,29 +64,45 @@ const TokenPage = ({
             </ListGroupItem>
           </ListGroup>
         </Card.Body>
+        {!token.transfered && (
+          <React.Fragment>
+            {!token.price && (
+              <Card.Body>
+                <Button
+                  variant='secondary'
+                  onClick={() => setShowModal('sell')}
+                >
+                  Sell token
+                </Button>
+                <Button
+                  variant='secondary'
+                  onClick={() => setShowModal('transfer')}
+                  className='margin-left'
+                >
+                  Transfer token
+                </Button>
+              </Card.Body>
+            )}
 
-        {!token.price && (
-          <Card.Body>
-            <Button variant='secondary' onClick={() => setShowModal('sell')}>
-              Sell token
-            </Button>
-          </Card.Body>
-        )}
+            {!!token.price && currentUser.publicKey !== token.seller && (
+              <Card.Body>
+                <Button variant='secondary' onClick={() => setShowModal('buy')}>
+                  Buy token
+                </Button>
+              </Card.Body>
+            )}
 
-        {!!token.price && currentUser.publicKey !== token.seller && (
-          <Card.Body>
-            <Button variant='secondary' onClick={() => setShowModal('buy')}>
-              Buy token
-            </Button>
-          </Card.Body>
-        )}
-
-        {!!token.price && currentUser.publicKey === token.seller && (
-          <Card.Body>
-            <Button variant='secondary' onClick={() => setShowModal('cancel')}>
-              Cancel sell
-            </Button>
-          </Card.Body>
+            {!!token.price && currentUser.publicKey === token.seller && (
+              <Card.Body>
+                <Button
+                  variant='secondary'
+                  onClick={() => setShowModal('cancel')}
+                >
+                  Cancel sell
+                </Button>
+              </Card.Body>
+            )}
+          </React.Fragment>
         )}
       </Card>
     </div>
@@ -92,6 +112,14 @@ const TokenPage = ({
       setShowModal={setShowModal}
       token={token}
       fetchSellToken={fetchSellToken}
+    />
+
+    <TransferModal
+      show={showModal === 'transfer'}
+      setShowModal={setShowModal}
+      token={token}
+      fetchTransferToken={fetchTransferToken}
+      currentUser={currentUser}
     />
 
     <ConfirmModal
@@ -130,6 +158,8 @@ const enhancer = compose(
       fetchBuyToken: (data) => dispatch(fetchBuyToken(props.currentUser, data)),
       fetchCancelSellToken: (data) =>
         dispatch(fetchCancelSellToken(props.currentUser, data)),
+      fetchTransferToken: (data) =>
+        dispatch(fetchTransferToken(props.currentUser, data)),
     })
   )
 );

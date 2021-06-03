@@ -1,19 +1,23 @@
 export const WALLETS = [
   {
     name: 'Wallet1',
-    id: '01535cb8-e21b-4918-b3df-a6af2bab67fa',
+    id: 'a0d1ecc5-5ac9-4270-b629-6049adc95bf5',
+    number: 1,
   },
   {
     name: 'Wallet2',
-    id: 'f6236378-b9c9-49c6-9e1c-0837b17b147d',
+    id: 'a824e372-45bf-4724-b777-8bf307e30961',
+    number: 2,
   },
   {
     name: 'Wallet3',
-    id: '72381873-32bc-46c6-9e0c-f953a5967067',
+    id: 'ac0a88bc-6f9c-462f-a255-e4a2145cb330',
+    number: 3,
   },
   {
     name: 'Wallet4',
-    id: '0fc45d99-3e57-44e4-bfa3-f016dcf7528f',
+    id: '50e65ec7-18e5-45de-b2b8-47fb26103741',
+    number: 4,
   },
 ];
 

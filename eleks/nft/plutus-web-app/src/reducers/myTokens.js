@@ -9,6 +9,7 @@ import {
   FETCH_SELL_TOKEN_SUCCESS,
   FETCH_BUY_TOKEN_SUCCESS,
   FETCH_CANCEL_SELL_TOKEN_SUCCESS,
+  FETCH_TRANSFER_TOKEN_SUCCESS,
   LOGOUT,
 } from '../helpers/actionTypes';
 
@@ -26,6 +27,8 @@ export const data = (state = [], action) => {
           return action.token;
         } else return token;
       });
+    case FETCH_TRANSFER_TOKEN_SUCCESS:
+      return state.filter(token => token.id !== action.token.id)
     case LOGOUT:
       return [];
     default:

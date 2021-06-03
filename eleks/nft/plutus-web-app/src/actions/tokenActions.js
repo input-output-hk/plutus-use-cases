@@ -7,6 +7,7 @@ import {
   formatBuyResponse,
 } from '../helpers/utils';
 import {
+  SET_TOKEN,
   FETCH_SELL_TOKEN_START,
   FETCH_SELL_TOKEN_SUCCESS,
   FETCH_SELL_TOKEN_FAILED,
@@ -16,7 +17,15 @@ import {
   FETCH_CANCEL_SELL_TOKEN_START,
   FETCH_CANCEL_SELL_TOKEN_SUCCESS,
   FETCH_CANCEL_SELL_TOKEN_FAILED,
+  FETCH_TRANSFER_TOKEN_START,
+  FETCH_TRANSFER_TOKEN_SUCCESS,
+  FETCH_TRANSFER_TOKEN_FAILED,
 } from '../helpers/actionTypes';
+
+export const setToken = (token) => ({
+  type: SET_TOKEN,
+  token
+});
 
 export const fetchSellTokenStart = () => ({
   type: FETCH_SELL_TOKEN_START,
@@ -60,6 +69,20 @@ export const fetchCancelSellFailed = (error) => ({
   error,
 });
 
+export const fetchTransferStart = () => ({
+  type: FETCH_TRANSFER_TOKEN_START,
+});
+
+export const fetchTransferSuccess = (token) => ({
+  type: FETCH_TRANSFER_TOKEN_SUCCESS,
+  token,
+});
+
+export const fetchTransferFailed = (error) => ({
+  type: FETCH_TRANSFER_TOKEN_FAILED,
+  error,
+});
+
 export const fetchSellToken = (wallet, data) => async (dispatch) => {
   dispatch(fetchSellTokenStart());
   const response = await fromApi.fetchSellToken(wallet, formatSellData(data));
@@ -99,5 +122,22 @@ export const fetchCancelSellToken = (wallet, tokenId) => async (dispatch) => {
     localStorage.setItem('viewSingleToken', JSON.stringify(token));
     dispatch(fetchCancelSellSuccess(token));
     toast.success('Token sell has been canceled');
+  }
+};
+
+export const fetchTransferToken = (wallet, data) => async (dispatch) => {
+  dispatch(fetchTransferStart());
+  const response = await fromApi.fetchTransferToken(wallet, data);
+  if (response.error) {
+    dispatch(fetchTransferFailed(response.error));
+    toast.error(response.error);
+  } else {
+    dispatch(
+      fetchTransferSuccess({
+        ...formatObjectResponse(response),
+        transfered: true,
+      })
+    );
+    toast.success('Token has been transfered');
   }
 };

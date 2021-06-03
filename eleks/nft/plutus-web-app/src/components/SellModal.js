@@ -57,15 +57,19 @@ const enhancer = compose(
       setError,
       fetchSellToken,
       setShowModal,
+      setPrice,
     }) => () => {
-      var reg = new RegExp('^[0-9]+$');
+      var reg = new RegExp('^((-)?(0|([1-9][0-9]*))(.[0-9]+)?)$');
       if (!price) {
         setError('Price should be filled');
+      } else if (price <= 0) {
+        setError('Price should be larger than zero');
       } else if (!reg.test(price)) {
         setError('Price should be a number');
       } else {
         setShowModal(false);
         setError(false);
+        setPrice('');
         fetchSellToken({ id: token.id, price });
       }
     },
