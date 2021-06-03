@@ -21,6 +21,12 @@ maintainer:         Your email
 -- category:
 -- extra-source-files: CHANGELOG.md
 
+flag defer-plugin-errors
+    description:
+        Defer errors from the plugin, useful for things like Haddock that can't handle it.
+    default: False
+    manual: True
+    
 source-repository this
     type: git
     location: https://github.com/input-output-hk/plutus-use-cases
@@ -30,42 +36,24 @@ library
     exposed-modules:
       MyModule
       Plutus.Contracts
-      Plutus.Contracts.Auction
-      Plutus.Contracts.TokenAccount
-      Plutus.Contracts.Crowdfunding
-      Plutus.Contracts.Currency
-      Plutus.Contracts.ErrorHandling
-      Plutus.Contracts.Escrow
-      Plutus.Contracts.SimpleEscrow
-      Plutus.Contracts.Future
-      Plutus.Contracts.GameStateMachine
-      Plutus.Contracts.Governance
-      Plutus.Contracts.MultiSig
-      Plutus.Contracts.MultiSigStateMachine
-      Plutus.Contracts.PingPong
-      Plutus.Contracts.Prism
-      Plutus.Contracts.Prism.Credential
-      Plutus.Contracts.Prism.CredentialManager
-      Plutus.Contracts.Prism.STO
-      Plutus.Contracts.Prism.Mirror
-      Plutus.Contracts.Prism.StateMachine
-      Plutus.Contracts.Prism.Unlock
-      Plutus.Contracts.PubKey
-      Plutus.Contracts.RPC
-      Plutus.Contracts.Stablecoin
-      Plutus.Contracts.Swap
+      -- Plutus.PAB.Effects.ContractTest.Uniswap
       Plutus.Contracts.Uniswap
-      Plutus.Contracts.Vesting
+      Plutus.Contracts.Currency
     build-depends:
       base >= 4.9 && < 5,
       aeson,
+      containers,
+      text,
+      lens -any,
       bytestring,
       playground-common,
       plutus-contract,
       plutus-tx-plugin,
       plutus-tx,
-      plutus-ledger
-    hs-source-dirs: src examples/src
+      plutus-ledger,
+      playground-common -any,
+      -- plutus-use-cases -any
+    hs-source-dirs: src
     default-language: Haskell2010
     ghc-options:
             -- See Plutus Tx readme
@@ -78,23 +66,32 @@ test-suite plutus-example-projects-test
   other-modules:
     Spec.Game
   default-language: Haskell2010
+  default-extensions: ExplicitForAll ScopedTypeVariables
+                        DeriveGeneric StandaloneDeriving DeriveLift
+                        GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
+                        DeriveTraversable
   ghc-options: -Wall -Wnoncanonical-monad-instances
               -Wincomplete-uni-patterns -Wincomplete-record-updates
-              -Wredundant-constraints -Widentities -rtsopts
+              -Wredundant-constraints -Widentities
               -- See Plutus Tx readme
               -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+  if flag(defer-plugin-errors)
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
   build-depends:
     plutus-tx -any,
     plutus-tx-plugin,
     plutus-contract -any,
     plutus-ledger -any,
-    plutus-starter -any
+    plutus-starter -any,
+    lens -any,
   build-depends:
     base >=4.9 && <5,
     tasty -any,
     tasty-hunit -any,
     tasty-hedgehog >=0.2.0.0
 
+-- | The PAB
 executable plutus-starter-pab
   main-is: Main.hs
   hs-source-dirs: pab
@@ -102,6 +99,9 @@ executable plutus-starter-pab
     -threaded
   build-depends:
     base >= 4.9 && < 5,
+    containers,
+    text -any,
+    lens -any,
     plutus-contract -any,
     plutus-pab -any,
     plutus-starter -any,
@@ -109,4 +109,8 @@ executable plutus-starter-pab
     freer-simple -any,
     prettyprinter -any,
     freer-extras -any,
-    plutus-ledger -any
+    plutus-ledger -any,
+    row-types -any,
+    playground-common -any,
+    -- plutus-use-cases -any
+
