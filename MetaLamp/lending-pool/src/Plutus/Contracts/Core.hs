@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -15,6 +16,7 @@
 
 module Plutus.Contracts.Core where
 
+import           Control.Lens                     ((^?))
 import qualified Control.Lens                     as Lens
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString                  as BS
@@ -94,8 +96,10 @@ data AaveRedeemer =
 PlutusTx.unstableMakeIsData ''AaveRedeemer
 PlutusTx.makeLift ''AaveRedeemer
 
+type LendingPoolOperator = PubKeyHash
+
 data AaveDatum =
-  LendingPoolDatum
+  LendingPoolDatum LendingPoolOperator
   | ReservesDatum (AssocMap.Map ReserveId Reserve)
   | UserConfigsDatum (AssocMap.Map UserConfigId UserConfig)
   | DepositDatum
@@ -123,12 +127,25 @@ makeAaveValidator :: Aave
                    -> AaveRedeemer
                    -> ScriptContext
                    -> Bool
-makeAaveValidator _ _ StartRedeemer _    = True
+makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
 makeAaveValidator _ _ DepositRedeemer _  = True
 makeAaveValidator _ _ WithdrawRedeemer _ = True
 makeAaveValidator _ _ BorrowRedeemer _   = True
 makeAaveValidator _ _ RepayRedeemer _    = True
 -- makeAaveValidator _  _  _  _                          = False
+
+validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
+validateStart aave (LendingPoolDatum operator) ctx = traceIfFalse "Lending Pool Datum management is not authorized by operator" (isSignedByOperator && hasOutputWithSameOperator)
+  where
+    txInfo = scriptContextTxInfo ctx
+    isSignedByOperator = txSignedBy txInfo operator
+
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    hasOutputWithSameOperator = case scriptOutputsAt scriptsHash txInfo of
+      outs -> isJust $ AssocMap.lookup scriptsDatumHash $ AssocMap.fromList outs
+validateStart aave (ReservesDatum reserves) ctx = trace "ReservesDatum" False
+validateStart aave (UserConfigsDatum configs) ctx = trace "UserConfigsDatum" False
+validateStart aave _ ctx = trace "OtherDatum" False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

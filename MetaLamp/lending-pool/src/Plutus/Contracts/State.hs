@@ -56,7 +56,7 @@ findOutputsBy aave = Select.findOutputsBy (Core.aaveAddress aave)
 findOutputBy :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text (OutputValue a)
 findOutputBy aave = Select.findOutputBy (Core.aaveAddress aave)
 
-findAaveOwnerToken :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue ())
+findAaveOwnerToken :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue Core.LendingPoolOperator)
 findAaveOwnerToken aave@Aave{..} = findOutputBy aave aaveProtocolInst (^? Core._LendingPoolDatum)
 
 reserveStateToken, userStateToken :: Aave -> AssetClass
@@ -81,7 +81,7 @@ findAaveUserConfig aave userConfigId = do
 
 putState :: (HasBlockchainActions s) => Aave -> StateHandle AaveScript a -> a -> Contract w s Text (TxUtils.TxPair AaveScript)
 putState aave stateHandle newState = do
-    ownerTokenOutput <- fmap (const Core.LendingPoolDatum) <$> findAaveOwnerToken aave
+    ownerTokenOutput <- fmap Core.LendingPoolDatum <$> findAaveOwnerToken aave
     Update.putState
         PutStateHandle { script = Core.aaveInstance aave, ownerToken = aaveProtocolInst aave, ownerTokenOutput = ownerTokenOutput }
         stateHandle
