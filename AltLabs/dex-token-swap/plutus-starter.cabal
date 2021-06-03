@@ -21,6 +21,10 @@ maintainer:         Your email
 -- category:
 -- extra-source-files: CHANGELOG.md
 
+source-repository AltLabs/dex-token-swap
+    type: git
+    location: https://github.com/input-output-hk/plutus-use-cases
+
 library
     exposed-modules:
       MyModule
