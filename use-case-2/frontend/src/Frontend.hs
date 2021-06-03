@@ -12,6 +12,7 @@ import Control.Category
 import Control.Monad
 import Data.Int
 import Data.Semigroup (First(..))
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Vessel
@@ -66,7 +67,11 @@ app = do
   increment <- button "+"
   requesting_ $ Api_IncrementCounter <$ increment
   el "div" $ display =<< viewCounter
+  el "div" $ display =<< viewContracts
   return ()
 
 viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))
 viewCounter = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_Counter . identityV
+
+viewContracts :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe [Text])))
+viewContracts = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_ContractList . identityV

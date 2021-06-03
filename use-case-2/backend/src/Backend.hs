@@ -45,8 +45,8 @@ backend :: Backend BackendRoute FrontendRoute
 backend = Backend
   { _backend_run = \serve -> do
       withDb "db" $ \pool -> do
-        getWallets pool
         withResource pool runMigrations
+        getWallets pool
         withResource pool $ \conn -> runBeamPostgres conn ensureCounterExists
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
@@ -92,11 +92,10 @@ queryHandler pool v = buildV v $ \case
   Q_Counter -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
     counter <- runSelectReturningOne $ lookup_ (_db_counter db) (CounterId 0)
     return $ IdentityV $ Identity $ First $ _counter_amount <$> counter
-  Q_Counter -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
-    -- TODO: ask mock chain for contract instances
-    -- TODO: store contract instances in DB
-    counter <- runSelectReturningOne $ lookup_ (_db_counter db) (CounterId 0)
-    return $ IdentityV $ Identity $ First $ _counter_amount <$> counter
+  -- Handle View to see list of available wallet contracts
+  Q_ContractList -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+    contracts <- runSelectReturningList $ select $ all_ (_db_contracts db)
+    return $ IdentityV $ Identity $ First $ Just $ _contract_id <$> contracts
 
 getWallets :: Pool Pg.Connection -> IO ()
 getWallets pool = do
@@ -111,15 +110,12 @@ getWallets pool = do
       let contractInstanceIds = obj ^.. values . key "cicContract". key "unContractInstanceId" . _String
           walletIds = obj ^.. values . key "cicWallet". key "getWallet" . _Integer
           walletContracts = zipWith (\a b -> Contract a (fromIntegral b)) contractInstanceIds walletIds
-      print walletContracts
+      print walletContracts -- DEBUG: Logging incoming wallets/contract ids
+      -- Parse response and place in DB
       runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
         runInsert $ insertOnConflict (_db_contracts db) (insertValues walletContracts)
           (conflictingFields _contract_id)
           onConflictDoNothing
-
-
-
-  -- TODO: Parse response and place in DB
   return ()
 
 
