@@ -19,4 +19,5 @@ library
     Common.Api
     Common.Route
     Common.Schema
+    Common.Plutus.Contracts.Uniswap.Types
   ghc-options: -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -O -fno-show-valid-hole-fits

@@ -37,6 +37,7 @@ import Backend.Schema
 import Common.Api
 import Common.Route
 import Common.Schema
+import Common.Plutus.Contracts.Uniswap.Types
 
 import Network.HTTP.Client hiding (Proxy)
 import Control.Lens
@@ -69,14 +70,13 @@ requestHandler pool = RequestHandler $ \case
         (\counter -> _counter_amount counter <-. current_ (_counter_amount counter) + val_ 1)
         (\counter -> _counter_id counter ==. val_ 0)
     mapM_ (notify NotificationType_Update Notification_Counter . _counter_amount) rows
-  -- TODO: Make API for swap instead
-  -- Api_ListWalletAccounts -> runNoLoggingT $ runDb (Identity pool) $ do
-  --   -- TODO: acquire all cicContractIds from "http://localhost:8080/api/new/contract/instances"
-  --   rows <- runBeamSerializable $ do
-  --     runUpdateReturningList $ update (_db_counter db)
-  --       (\counter -> _counter_amount counter <-. current_ (_counter_amount counter) + val_ 1)
-  --       (\counter -> _counter_id counter ==. val_ 0)
-  --   mapM_ (notify NotificationType_Update Notification_Counter . _counter_amount) rows
+  Api_Swap _ _ _ _ -> runNoLoggingT $ runDb (Identity pool) $ do
+    -- TODO: make use of executeswap here
+    rows <- runBeamSerializable $ do
+      runUpdateReturningList $ update (_db_counter db)
+        (\counter -> _counter_amount counter <-. current_ (_counter_amount counter) + val_ 1)
+        (\counter -> _counter_id counter ==. val_ 0)
+    mapM_ (notify NotificationType_Update Notification_Counter . _counter_amount) rows
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler dbNotification _ = case _dbNotification_message dbNotification of
@@ -118,6 +118,22 @@ getWallets pool = do
           onConflictDoNothing
   return ()
 
+  -- This function's is modeled after the following curl that submits a request to perform a swap against PAB.
+  {-
+  curl -H "Content-Type: application/json"      --request POST   --data '{"spAmountA":112,"spAmountB":0,"spCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"spCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/36951109-aacc-4504-89cc-6002cde36e04/endpoint/swap
+  -}
+-- executeSwap :: IO ()
+executeSwap contractId (coinA, amountA) (coinB, amountB) = do
+  let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/swap"
+      reqBody =  RequestBodyLBS $ Aeson.encode $ SwapParams {
+          spCoinA = coinA
+        , spCoinB = coinB
+        , spAmountA = amountA
+        , spAmountB = amountB
+        }
+  initReq <- parseRequest requestUrl
+  let req = initReq { method = "POST", requestBody = reqBody }
+  return ()
 
 ensureCounterExists :: MonadBeam Postgres m => m ()
 ensureCounterExists = do
