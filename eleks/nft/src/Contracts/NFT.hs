@@ -33,6 +33,8 @@ module Contracts.NFT
     , forgeNftToken
     , start, create
     , ownerEndpoint, userEndpoints
+    , marketplaceTokenName
+    , marketAddress
     ) where
 
 import           Control.Monad                    hiding (fmap)
