@@ -49,24 +49,25 @@ type OwnerToken = AssetClass
 -- 1. output contains same owner token with same owner (aave script)
 -- 2. output contains the forged state token with same owner (aave script)
 {-# INLINABLE validateStateForging #-}
-validateStateForging :: OwnerToken -> ScriptContext -> Bool
-validateStateForging ownerToken ctx =
+validateStateForging :: OwnerToken -> TokenName -> ScriptContext -> Bool
+validateStateForging ownerToken tokenName ctx =
     any hasOwnerToken inputValues || traceError "State forging without OwnerToken input"
   where
     inputs = txInfoInputs (scriptContextTxInfo ctx)
     inputValues = txOutValue . txInInfoResolved <$> inputs
     hasOwnerToken value = assetClassValueOf value ownerToken == 1
 
-makeStatePolicy :: OwnerToken -> MonetaryPolicy
-makeStatePolicy ownerToken = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validateStateForging ||])
+makeStatePolicy :: OwnerToken -> TokenName -> MonetaryPolicy
+makeStatePolicy ownerToken tokenName = mkMonetaryPolicyScript $
+    $$(PlutusTx.compile [|| \ot tn -> Scripts.wrapMonetaryPolicy $ validateStateForging ot tn||])
         `PlutusTx.applyCode` PlutusTx.liftCode ownerToken
+        `PlutusTx.applyCode` PlutusTx.liftCode tokenName
 
-makeStateCurrency :: OwnerToken -> CurrencySymbol
-makeStateCurrency = scriptCurrencySymbol . makeStatePolicy
+makeStateCurrency :: OwnerToken -> TokenName -> CurrencySymbol
+makeStateCurrency ownerToken tokenName = scriptCurrencySymbol $ makeStatePolicy ownerToken tokenName
 
 makeStateToken :: OwnerToken -> TokenName -> AssetClass
-makeStateToken ownerToken = assetClass (makeStateCurrency ownerToken)
+makeStateToken ownerToken tokenName = assetClass (makeStateCurrency ownerToken tokenName) tokenName
 
 data PutStateHandle scriptType = PutStateHandle {
     script           :: Scripts.ScriptInstance scriptType,
@@ -88,8 +89,9 @@ putState ::
     Contract w s Text (TxUtils.TxPair scriptType)
 putState PutStateHandle {..} StateHandle{..} newState = do
     pkh <- pubKeyHash <$> ownPubKey
+    let (_, stateTokenName) = unAssetClass stateToken
     pure $
-        TxUtils.mustForgeValue (makeStatePolicy ownerToken) (assetClassValue stateToken 1)
+        TxUtils.mustForgeValue (makeStatePolicy ownerToken stateTokenName) (assetClassValue stateToken 1)
         <> TxUtils.mustPayToScript script pkh (toDatum newState) (assetClassValue stateToken 1)
         <> TxUtils.mustRoundTripToScript
             script

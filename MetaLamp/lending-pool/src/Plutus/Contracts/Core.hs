@@ -88,7 +88,7 @@ PlutusTx.makeLift ''UserConfig
 
 data AaveRedeemer =
     StartRedeemer
-  | DepositRedeemer
+  | DepositRedeemer UserConfigId
   | WithdrawRedeemer
   | BorrowRedeemer
   | RepayRedeemer
@@ -114,8 +114,8 @@ PlutusTx.makeLift ''AaveDatum
 Lens.makeClassyPrisms ''AaveDatum
 
 {-# INLINABLE pickUserConfigs #-}
-pickUserConfigs :: AaveDatum -> Maybe (AssocMap.Map UserConfigId UserConfig)
-pickUserConfigs (UserConfigsDatum _ configs) = Just configs
+pickUserConfigs :: AaveDatum -> Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
+pickUserConfigs (UserConfigsDatum stateToken configs) = Just (stateToken, configs)
 pickUserConfigs _ = Nothing
 
 data AaveScript
@@ -134,7 +134,7 @@ makeAaveValidator :: Aave
                    -> ScriptContext
                    -> Bool
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
-makeAaveValidator aave datum DepositRedeemer ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx
+makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator _ _ WithdrawRedeemer _ = True
 makeAaveValidator _ _ BorrowRedeemer _   = True
 makeAaveValidator _ _ RepayRedeemer _    = True
@@ -153,20 +153,37 @@ validateStart aave (LendingPoolDatum operator) ctx =
       outs -> isJust $ AssocMap.lookup scriptsDatumHash $ AssocMap.fromList outs
 validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management is not allowed" False
 
-validateDeposit :: Aave -> AaveDatum -> ScriptContext -> Bool
-validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx = trace "UserConfigsDatum" $ isNothing userConfigsOutputDatum
+validateDeposit :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
+validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
+  traceIfFalse "validateDeposit: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
-    userConfigsOutputDatumHash = findDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
-    userConfigsOutputDatum :: Maybe (AssocMap.Map UserConfigId UserConfig)
-    userConfigsOutputDatum = userConfigsOutputDatumHash >>= (`findDatum` txInfo) >>= (PlutusTx.fromData . getDatum) >>= pickUserConfigs
-validateDeposit aave (LendingPoolDatum _) ctx = trace "LendingPoolDatum" False
-validateDeposit aave (ReservesDatum _) ctx = trace "ReservesDatum" False
-validateDeposit aave DepositDatum ctx = trace "DepositDatum" False
-validateDeposit aave WithdrawDatum ctx = trace "WithdrawDatum" False
-validateDeposit aave BorrowDatum ctx = trace "BorrowDatum" False
-validateDeposit aave RepayDatum ctx = trace "RepayDatum" False
+    userConfigsOutputDatumHash =
+      findDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
+    userConfigsOutputDatum ::
+         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
+    userConfigsOutputDatum =
+      userConfigsOutputDatumHash >>= (`findDatum` txInfo) >>= (PlutusTx.fromData . getDatum) >>= pickUserConfigs
+
+    isValidUserConfigsTransformation :: Bool
+    isValidUserConfigsTransformation =
+      maybe False checkUserConfigs userConfigsOutputDatum
+    checkUserConfigs ::
+         (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
+    checkUserConfigs (newStateToken, newUserConfigs) =
+      newStateToken == stateToken &&
+      maybe False checkRedeemerConfig (AssocMap.lookup userConfigId newUserConfigs)
+    checkRedeemerConfig :: UserConfig -> Bool
+    checkRedeemerConfig UserConfig{..} = ucUsingAsCollateral
+
+validateDeposit aave (LendingPoolDatum _) ctx userConfigId = trace "LendingPoolDatum" False
+validateDeposit aave (ReservesDatum _) ctx userConfigId = trace "ReservesDatum" False
+validateDeposit aave DepositDatum ctx userConfigId = trace "DepositDatum" False
+validateDeposit aave WithdrawDatum ctx userConfigId = trace "WithdrawDatum" False
+validateDeposit aave BorrowDatum ctx userConfigId = trace "BorrowDatum" False
+validateDeposit aave RepayDatum ctx userConfigId = trace "RepayDatum" False
+
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

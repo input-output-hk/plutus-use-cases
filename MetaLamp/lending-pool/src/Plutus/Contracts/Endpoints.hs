@@ -148,21 +148,22 @@ deposit aave DepositParams {..} = do
     reserve <- State.findAaveReserve aave dpAsset
     forgeTx <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
 
+    let userConfigId = (rCurrency reserve, dpOnBehalfOf)
     wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
     userConfigsTx <- if wasZeroBalance then do
         userConfigs <- ovValue <$> State.findAaveUserConfigs aave
-        let userConfigId = (rCurrency reserve, dpOnBehalfOf)
         case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
                 State.addUserConfig
-                    aave Core.DepositRedeemer
+                    aave
+                    (Core.DepositRedeemer userConfigId)
                     userConfigId
                     UserConfig { ucUsingAsCollateral = True, ucDebt = Nothing }
             Just userConfig ->
-                State.updateUserConfig aave Core.DepositRedeemer userConfigId $ userConfig { ucUsingAsCollateral = True }
+                State.updateUserConfig aave (Core.DepositRedeemer userConfigId) userConfigId $ userConfig { ucUsingAsCollateral = True }
         else pure mempty
 
-    reservesTx <- State.updateReserve aave Core.DepositRedeemer dpAsset (reserve { rAmount = rAmount reserve + dpAmount })
+    reservesTx <- State.updateReserve aave (Core.DepositRedeemer userConfigId) dpAsset (reserve { rAmount = rAmount reserve + dpAmount })
 
     ledgerTx <- TxUtils.submitTxPair $ forgeTx <> reservesTx <> userConfigsTx
     _ <- awaitTxConfirmed $ txId ledgerTx
