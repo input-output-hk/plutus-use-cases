@@ -10,7 +10,7 @@
 
 module Plutus.Contracts.State where
 
-import           Control.Lens                     ((^?))
+import           Control.Lens
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
@@ -36,7 +36,7 @@ import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import qualified Plutus.Contracts.TxUtils         as TxUtils
-import           Plutus.OutputValue               (OutputValue (..))
+import           Plutus.OutputValue               (OutputValue (..),_ovValue)
 import qualified Plutus.State.Select              as Select
 import           Plutus.State.Update              (PutStateHandle (..),
                                                    StateHandle (..))
@@ -72,7 +72,7 @@ findAaveReserve aave reserveId = do
     maybe (throwError "Reserve not found") pure $ AssocMap.lookup reserveId reserves
 
 findAaveUserConfigs :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue (AssocMap.Map UserConfigId UserConfig))
-findAaveUserConfigs aave = findOutputBy aave (userStateToken aave) (^? Core._UserConfigsDatum)
+findAaveUserConfigs aave = findOutputBy aave (userStateToken aave) (^? Core._UserConfigsDatum . _2)
 
 findAaveUserConfig :: HasBlockchainActions s => Aave -> UserConfigId -> Contract w s Text UserConfig
 findAaveUserConfig aave userConfigId = do
@@ -113,9 +113,10 @@ updateReserve aave redeemer reserveId reserve = do
 
 makeUserHandle :: Aave -> (AssocMap.Map UserConfigId UserConfig -> AaveRedeemer) -> StateHandle AaveScript (AssocMap.Map UserConfigId UserConfig)
 makeUserHandle aave toRedeemer =
+    let stateToken = userStateToken aave in
     StateHandle {
-        stateToken = userStateToken aave,
-        toDatum = Core.UserConfigsDatum,
+        stateToken = stateToken,
+        toDatum = Core.UserConfigsDatum stateToken,
         toRedeemer = toRedeemer
     }
 

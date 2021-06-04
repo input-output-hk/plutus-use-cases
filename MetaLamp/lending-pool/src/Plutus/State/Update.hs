@@ -45,6 +45,9 @@ import qualified Prelude
 type OwnerToken = AssetClass
 
 -- State token can be only be forged when there is an input containing an owner token
+-- TODO: add rules:
+-- 1. output contains same owner token with same owner (aave script)
+-- 2. output contains the forged state token with same owner (aave script)
 {-# INLINABLE validateStateForging #-}
 validateStateForging :: OwnerToken -> ScriptContext -> Bool
 validateStateForging ownerToken ctx =

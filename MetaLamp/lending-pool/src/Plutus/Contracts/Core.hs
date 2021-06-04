@@ -23,6 +23,7 @@ import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void)
+import           Ext.Plutus.Ledger.Contexts       (findDatumHashByValue)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
@@ -101,7 +102,7 @@ type LendingPoolOperator = PubKeyHash
 data AaveDatum =
   LendingPoolDatum LendingPoolOperator
   | ReservesDatum (AssocMap.Map ReserveId Reserve)
-  | UserConfigsDatum (AssocMap.Map UserConfigId UserConfig)
+  | UserConfigsDatum AssetClass (AssocMap.Map UserConfigId UserConfig)
   | DepositDatum
   | WithdrawDatum
   | BorrowDatum
@@ -111,6 +112,11 @@ data AaveDatum =
 PlutusTx.unstableMakeIsData ''AaveDatum
 PlutusTx.makeLift ''AaveDatum
 Lens.makeClassyPrisms ''AaveDatum
+
+{-# INLINABLE pickUserConfigs #-}
+pickUserConfigs :: AaveDatum -> Maybe (AssocMap.Map UserConfigId UserConfig)
+pickUserConfigs (UserConfigsDatum _ configs) = Just configs
+pickUserConfigs _ = Nothing
 
 data AaveScript
 instance Scripts.ScriptType AaveScript where
@@ -128,7 +134,7 @@ makeAaveValidator :: Aave
                    -> ScriptContext
                    -> Bool
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
-makeAaveValidator _ _ DepositRedeemer _  = True
+makeAaveValidator aave datum DepositRedeemer ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx
 makeAaveValidator _ _ WithdrawRedeemer _ = True
 makeAaveValidator _ _ BorrowRedeemer _   = True
 makeAaveValidator _ _ RepayRedeemer _    = True
@@ -146,6 +152,21 @@ validateStart aave (LendingPoolDatum operator) ctx =
     hasOutputWithSameOperator = case scriptOutputsAt scriptsHash txInfo of
       outs -> isJust $ AssocMap.lookup scriptsDatumHash $ AssocMap.fromList outs
 validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management is not allowed" False
+
+validateDeposit :: Aave -> AaveDatum -> ScriptContext -> Bool
+validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx = trace "UserConfigsDatum" $ isNothing userConfigsOutputDatum
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    userConfigsOutputDatumHash = findDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
+    userConfigsOutputDatum :: Maybe (AssocMap.Map UserConfigId UserConfig)
+    userConfigsOutputDatum = userConfigsOutputDatumHash >>= (`findDatum` txInfo) >>= (PlutusTx.fromData . getDatum) >>= pickUserConfigs
+validateDeposit aave (LendingPoolDatum _) ctx = trace "LendingPoolDatum" False
+validateDeposit aave (ReservesDatum _) ctx = trace "ReservesDatum" False
+validateDeposit aave DepositDatum ctx = trace "DepositDatum" False
+validateDeposit aave WithdrawDatum ctx = trace "WithdrawDatum" False
+validateDeposit aave BorrowDatum ctx = trace "BorrowDatum" False
+validateDeposit aave RepayDatum ctx = trace "RepayDatum" False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
