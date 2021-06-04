@@ -30,6 +30,7 @@ module Contracts.NFT
     , TransferParams (..)
     , MarketUserSchema, MarketContractState (..)
     , MarketOwnerSchema
+    , forgeNftToken
     , start, create
     , ownerEndpoint, userEndpoints
     ) where
@@ -297,7 +298,7 @@ mkNFTMarketValidator ::
     -> Bool
 mkNFTMarketValidator market (Factory nftMetas) (Create nftMeta) ctx = validateCreate market nftMetas nftMeta ctx
 mkNFTMarketValidator market (NFTMeta nftMeta)  Sell             ctx = validateSell market nftMeta ctx
-mkNFTMarketValidator market (NFTMeta nftMeta)  CancelSell      ctx = validateCancelSell market nftMeta ctx
+mkNFTMarketValidator market (NFTMeta nftMeta)  CancelSell       ctx = validateCancelSell market nftMeta ctx
 mkNFTMarketValidator market (NFTMeta nftMeta)  (Buy buyer)      ctx = validateBuy market nftMeta buyer ctx
 mkNFTMarketValidator _      _                  _                _   = False
  
@@ -373,14 +374,26 @@ byteStrToDto = B.unpack . B64.encode
 dtoStrToByteStr :: String -> ByteString
 dtoStrToByteStr = B64.decodeLenient . B.pack 
 
+forgeNftToken:: 
+    forall w s. HasBlockchainActions s 
+    => TokenName
+    -> PubKeyHash
+    -> Contract w s Text CurrencySymbol
+forgeNftToken tokenName pk = fmap Currency.currencySymbol $
+    mapError (pack . show @Currency.CurrencyError) $
+    Currency.forgeContract pk [(tokenName, 1)]
+
 -- | Creates a Marketplace "factory". This factory will keep track of the existing nft tokens
-start :: HasBlockchainActions s => Contract w s Text NFTMarket
-start = do
+start ::
+    forall w w' s. 
+    (HasBlockchainActions s
+    )
+    => (TokenName -> PubKeyHash -> Contract w s Text CurrencySymbol)
+    -> Contract w s Text NFTMarket
+start forgeNft = do
     pkh <- pubKeyHash <$> ownPubKey
-    cs  <- fmap Currency.currencySymbol $
-           mapError (pack . show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(marketplaceTokenName, 1)]
-    let c    = assetClass cs marketplaceTokenName
+    cs  <- forgeNft marketplaceTokenName pkh
+    let c = assetClass cs marketplaceTokenName
         market   = marketplace cs
         inst = marketInstance market
         tx   = mustPayToTheScript (Factory []) $ assetClassValue c 1
@@ -393,23 +406,20 @@ start = do
 -- | Creates an NFT token
 create :: 
     HasBlockchainActions s 
-    => NFTMarket 
+    => (TokenName -> PubKeyHash -> Contract w s Text CurrencySymbol)
+    -> NFTMarket 
     -> CreateParams 
     -> Contract w s Text NFTMetadataDto
-create market CreateParams{..} = do
+create forgeNft market CreateParams{..} = do
     (oref, o, nftMetas) <- findNFTMarketFactory market
     let tokenName = TokenName $ B.pack cpTokenName
     ownPK <- pubKeyHash <$> ownPubKey
-    nftTokenSymbol  <- fmap Currency.currencySymbol $
-        mapError (pack . show @Currency.CurrencyError) $
-        Currency.forgeContract ownPK [(tokenName, 1)]
+    nftTokenSymbol <- forgeNft tokenName ownPK 
     let nftTokenAssetClass = assetClass nftTokenSymbol tokenName
         nftValue = assetClassValue nftTokenAssetClass 1
  
     let metadataTokenName = TokenName $ B.pack $ read (show tokenName) ++ "Metadata"
-    tokenMetadataSymbol <- fmap Currency.currencySymbol $
-        mapError (pack . show @Currency.CurrencyError) $
-        Currency.forgeContract ownPK [( metadataTokenName, 1)]
+    tokenMetadataSymbol <- forgeNft metadataTokenName ownPK
     let nftTokenMetadataAssetClass = assetClass tokenMetadataSymbol metadataTokenName
         nftMetadataVal    = assetClassValue nftTokenMetadataAssetClass 1
         nftMetadata       = NFTMetadata {
@@ -537,7 +547,7 @@ buy market BuyParams{..} = do
 
         tx       = Constraints.mustPayToTheScript nftMetadataDatum nftMetadataValue <>
                    Constraints.mustSpendScriptOutput oref redeemer                  <>
-                   Constraints.mustPayToPubKey pkh nftValue                       <>
+                   Constraints.mustPayToPubKey pkh nftValue                         <>
                    Constraints.mustPayToPubKey nftSeller' nftSellPriceValue
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
@@ -696,12 +706,22 @@ sellingTokens market = do
     let result = map nftMetadataToDto $ filter (PlutusTx.Prelude.isJust . nftSeller) nftMetas
     return result
 
-ownerEndpoint :: Contract (Last (Either Text NFTMarket)) BlockchainActions Void ()
-ownerEndpoint = do
-    e <- runError start
-    tell $ Last $ Just $ case e of
-        Left err -> Left err
-        Right market -> Right market
+
+ownerEndpoint :: 
+    (TokenName 
+    -> PubKeyHash 
+    -> Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Text CurrencySymbol
+    )
+    -> Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Void ()
+ownerEndpoint forgeNft = start' forgeNft >> ownerEndpoint forgeNft
+    where 
+        start' forgeNft = do
+            e <- runError $ do 
+                 endpoint @"start"
+                 start forgeNft
+            tell $ Last $ Just $ case e of
+                Left err -> Left err
+                Right market -> Right market
 
 type MarketOwnerSchema =
     BlockchainActions
@@ -735,20 +755,24 @@ data MarketContractState =
 -- | Provides the following endpoints for users of a NFT marketplace instance:
 --
 -- [@create@]: Creates an nft token.
-userEndpoints :: 
-    NFTMarket 
+userEndpoints ::
+    (TokenName 
+    -> PubKeyHash 
+    -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Text CurrencySymbol
+    )
+    -> NFTMarket 
     -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
-userEndpoints market =
+userEndpoints forgeNft market =
     stop
         `select`
-    ((f (Proxy @"create") Created create                                                       `select`
+    ((f (Proxy @"create") Created (\market' createParams -> create forgeNft market' createParams)                                                                  `select`
       f (Proxy @"sell") Selling sell                                                           `select`
       f (Proxy @"cancelSell") CancelSelling cancelSell                                         `select`
       f (Proxy @"buy") Buyed buy                                                               `select`
       f (Proxy @"transfer") Transfered transfer                                               `select`
-      f (Proxy @"userNftTokens") Tokens (\market'' () -> userNftTokens market'')               `select`
-      f (Proxy @"sellingTokens") SellingTokens (\market'' () -> sellingTokens market'')        `select`
-      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints market)
+      f (Proxy @"userNftTokens") Tokens (\market' () -> userNftTokens market')               `select`
+      f (Proxy @"sellingTokens") SellingTokens (\market' () -> sellingTokens market')        `select`
+      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints forgeNft market)
   where
     f :: forall l a p.
          HasEndpoint l p MarketUserSchema
