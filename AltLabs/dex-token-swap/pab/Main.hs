@@ -67,6 +67,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     cids <- fmap Map.fromList $ forM wallets $ \w -> do
         cid <- Simulator.activateContract w $ UniswapUser us
         Simulator.logString @(Builtin UniswapContracts) $ "Uniswap user contract started for " ++ show w
+        Simulator.waitForEndpoint cid "funds"
         _ <- Simulator.callEndpointOnInstance cid "funds" ()
         v <- flip Simulator.waitForState cid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Uniswap.UserContractState))) of
                 Success (Monoid.Last (Just (Right (Uniswap.Funds v)))) -> Just v
@@ -76,7 +77,10 @@ main = void $ Simulator.runSimulationWith handlers $ do
 
     let cp = Uniswap.CreateParams ada (coins Map.! "A") 100000 500000
     Simulator.logString @(Builtin UniswapContracts) $ "creating liquidity pool: " ++ show (encode cp)
-    _  <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" cp
+    -- _  <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" cp
+    let cid2 = cids Map.! Wallet 2
+    Simulator.waitForEndpoint cid2 "create"
+    _  <- Simulator.callEndpointOnInstance cid2 "create" cp
     flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Uniswap.UserContractState))) of
         Success (Monoid.Last (Just (Right Uniswap.Created))) -> Just ()
         _                                                    -> Nothing
