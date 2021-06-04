@@ -135,7 +135,9 @@ makeAaveValidator _ _ RepayRedeemer _    = True
 -- makeAaveValidator _  _  _  _                          = False
 
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
-validateStart aave (LendingPoolDatum operator) ctx = traceIfFalse "Lending Pool Datum management is not authorized by operator" (isSignedByOperator && hasOutputWithSameOperator)
+validateStart aave (LendingPoolDatum operator) ctx =
+  traceIfFalse "validateStart: Lending Pool Datum management is not authorized by operator"
+    (isSignedByOperator && hasOutputWithSameOperator)
   where
     txInfo = scriptContextTxInfo ctx
     isSignedByOperator = txSignedBy txInfo operator
@@ -143,9 +145,7 @@ validateStart aave (LendingPoolDatum operator) ctx = traceIfFalse "Lending Pool 
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
     hasOutputWithSameOperator = case scriptOutputsAt scriptsHash txInfo of
       outs -> isJust $ AssocMap.lookup scriptsDatumHash $ AssocMap.fromList outs
-validateStart aave (ReservesDatum reserves) ctx = trace "ReservesDatum" False
-validateStart aave (UserConfigsDatum configs) ctx = trace "UserConfigsDatum" False
-validateStart aave _ ctx = trace "OtherDatum" False
+validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management is not allowed" False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
