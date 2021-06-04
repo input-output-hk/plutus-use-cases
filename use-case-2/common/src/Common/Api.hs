@@ -33,7 +33,7 @@ data Api :: * -> * where
   -- TODO: Coin and Amount will eventually be imported from plutus itself.
   -- Once GHC 8.10 is supported in Obelisk, we will be able to reference
   -- plutus ADTs directly. For now, they will come from Common.Plutus.Contracts.Uniswap.Types
-  Api_Swap :: Coin (Text,Text) -> Coin (Text,Text) -> Amount Integer -> Amount Integer -> Api ()
+  Api_Swap :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String [Text])
 
 deriveJSONGADT ''Api
 deriveArgDict ''Api

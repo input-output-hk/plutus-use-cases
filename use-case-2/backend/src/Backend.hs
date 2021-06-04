@@ -18,6 +18,8 @@ import Data.Maybe
 import Data.Pool
 import Data.Proxy
 import Data.Semigroup (First(..))
+import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Vessel
 import Database.Beam (MonadBeam)
 import Database.Beam.Backend.SQL.BeamExtensions
@@ -45,13 +47,14 @@ import Control.Lens
 backend :: Backend BackendRoute FrontendRoute
 backend = Backend
   { _backend_run = \serve -> do
+      httpManager <- newManager defaultManagerSettings
       withDb "db" $ \pool -> do
         withResource pool runMigrations
-        getWallets pool
+        getWallets httpManager pool
         withResource pool $ \conn -> runBeamPostgres conn ensureCounterExists
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
-          (requestHandler pool)
+          (requestHandler httpManager pool)
           (\(nm :: DbNotification Notification) q -> fmap (fromMaybe emptyV) $ mapDecomposedV (notifyHandler nm) q)
           (QueryHandler $ \q -> fmap (fromMaybe emptyV) $ mapDecomposedV (queryHandler pool) q)
           vesselFromWire
@@ -62,21 +65,16 @@ backend = Backend
   , _backend_routeEncoder = fullRouteEncoder
   }
 
-requestHandler :: Pool Pg.Connection -> RequestHandler Api IO
-requestHandler pool = RequestHandler $ \case
+requestHandler :: Manager -> Pool Pg.Connection -> RequestHandler Api IO
+requestHandler httpManager pool = RequestHandler $ \case
   Api_IncrementCounter -> runNoLoggingT $ runDb (Identity pool) $ do
     rows <- runBeamSerializable $ do
       runUpdateReturningList $ update (_db_counter db)
         (\counter -> _counter_amount counter <-. current_ (_counter_amount counter) + val_ 1)
         (\counter -> _counter_id counter ==. val_ 0)
     mapM_ (notify NotificationType_Update Notification_Counter . _counter_amount) rows
-  Api_Swap _ _ _ _ -> runNoLoggingT $ runDb (Identity pool) $ do
-    -- TODO: make use of executeswap here
-    rows <- runBeamSerializable $ do
-      runUpdateReturningList $ update (_db_counter db)
-        (\counter -> _counter_amount counter <-. current_ (_counter_amount counter) + val_ 1)
-        (\counter -> _counter_id counter ==. val_ 0)
-    mapM_ (notify NotificationType_Update Notification_Counter . _counter_amount) rows
+  Api_Swap contractId coinA coinB amountA amountB ->
+    executeSwap httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler dbNotification _ = case _dbNotification_message dbNotification of
@@ -97,11 +95,10 @@ queryHandler pool v = buildV v $ \case
     contracts <- runSelectReturningList $ select $ all_ (_db_contracts db)
     return $ IdentityV $ Identity $ First $ Just $ _contract_id <$> contracts
 
-getWallets :: Pool Pg.Connection -> IO ()
-getWallets pool = do
+getWallets :: Manager -> Pool Pg.Connection -> IO ()
+getWallets httpManager pool = do
   initReq <- parseRequest "http://localhost:8080/api/new/contract/instances"
   let req = initReq { method = "GET" }
-  httpManager <- newManager defaultManagerSettings
   resp <- httpLbs req httpManager
   let val = Aeson.eitherDecode (responseBody resp) :: Either String Aeson.Value
   case val of
@@ -122,18 +119,45 @@ getWallets pool = do
   {-
   curl -H "Content-Type: application/json"      --request POST   --data '{"spAmountA":112,"spAmountB":0,"spCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"spCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/36951109-aacc-4504-89cc-6002cde36e04/endpoint/swap
   -}
--- executeSwap :: IO ()
-executeSwap contractId (coinA, amountA) (coinB, amountB) = do
+executeSwap :: Manager -> String -> (Coin AssetClass , Amount Integer) -> (Coin AssetClass, Amount Integer) -> IO (Either String [Text])
+executeSwap httpManager contractId (coinA, amountA) (coinB, amountB) = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/swap"
-      reqBody =  RequestBodyLBS $ Aeson.encode $ SwapParams {
+      reqBody = SwapParams {
           spCoinA = coinA
         , spCoinB = coinB
         , spAmountA = amountA
         , spAmountB = amountB
         }
+  print $ "executeSwap: requestUrl ..."  <> (show requestUrl)
   initReq <- parseRequest requestUrl
-  let req = initReq { method = "POST", requestBody = reqBody }
-  return ()
+  let req = initReq
+        { method = "POST"
+        , requestHeaders = ("Content-Type","application/json"):(requestHeaders initReq)
+        , requestBody = RequestBodyLBS $ Aeson.encode reqBody
+        }
+  print $ "executeSwap: Json encoded SwapParams ..."  <> (show $ Aeson.encode reqBody)
+  -- The response to this request does not return anything but an empty list.
+  -- A useful response must be fetched from "observableState"
+  print ("are we hanging?" :: String)
+  _ <- httpLbs req httpManager
+  print ("no we are not hanging" :: String)
+  fetchObservableState httpManager contractId
+
+-- Grabs `observaleState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
+fetchObservableState :: Manager -> String -> IO (Either String [Text])
+fetchObservableState httpManager contractId = do
+  let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/status"
+  initReq <- parseRequest requestUrl
+  resp <- httpLbs initReq httpManager
+  let val = Aeson.eitherDecode (responseBody resp) :: Either String Aeson.Value
+  case val of
+    Left err -> do
+      print $ "fetchObservableState: Left ..."  <> (show err)
+      return $ Left err
+    Right obj -> do
+      let observableState = obj ^.. values . key "cicCurrentState" . key "observableState" . _String
+      print $ "fetchObservableState: Right ..."  <> (show observableState)
+      return $ Right observableState
 
 ensureCounterExists :: MonadBeam Postgres m => m ()
 ensureCounterExists = do

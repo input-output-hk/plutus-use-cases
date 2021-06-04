@@ -29,6 +29,7 @@ import Rhyolite.Frontend.App
 
 import Common.Api
 import Common.Route
+import Common.Plutus.Contracts.Uniswap.Types
 
 
 -- This runs in a monad that can be run on the client or the server.
@@ -42,7 +43,7 @@ frontend = Frontend
   , _frontend_body = do
       el "h1" $ text "Welcome to Obelisk!"
       el "p" $ text $ T.pack commonStuff
-      
+
       -- `prerender` and `prerender_` let you choose a widget to run on the server
       -- during prerendering and a different widget to run on the client with
       -- JavaScript. The following will generate a `blank` widget on the server and
@@ -67,7 +68,21 @@ app = do
   increment <- button "+"
   requesting_ $ Api_IncrementCounter <$ increment
   el "div" $ display =<< viewCounter
-  el "div" $ display =<< viewContracts
+
+  el "div" $ do
+    el "h3" $ text "Wallet Accounts"
+    el "p" $ text "Here is the list of available wallets: "
+    display =<< viewContracts
+  el "div" $ do
+    el "h3" $ text "Swap"
+    swap <- button "swap"
+    -- TODO: Values passed to swap should not be hard coded.
+    requesting_ $ Api_Swap
+      (ContractInstanceId "0eb3011f-40e7-4d38-a4af-7602df8c3bb3")
+      (Coin $ AssetClass (CurrencySymbol "", TokenName ""))
+      (Coin (AssetClass (CurrencySymbol "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e", TokenName "A")))
+      (Amount 112)
+      (Amount 0) <$ swap
   return ()
 
 viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))
