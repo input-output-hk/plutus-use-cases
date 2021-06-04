@@ -16,6 +16,8 @@ import Data.Semigroup (First(..))
 import Data.Text (Text)
 import Data.Vessel
 
+import Common.Plutus.Contracts.Uniswap.Types
+
 commonStuff :: String
 commonStuff = "Here is a string defined in Common.Api"
 
@@ -28,8 +30,10 @@ data Q (v :: (* -> *) -> *) where
 
 data Api :: * -> * where
   Api_IncrementCounter :: Api ()
-  -- TODO make api for swap here instead
-  -- Api_ListWalletAccounts :: Api ()
+  -- TODO: Coin and Amount will eventually be imported from plutus itself.
+  -- Once GHC 8.10 is supported in Obelisk, we will be able to reference
+  -- plutus ADTs directly. For now, they will come from Common.Plutus.Contracts.Uniswap.Types
+  Api_Swap :: Coin (Text,Text) -> Coin (Text,Text) -> Amount Integer -> Amount Integer -> Api ()
 
 deriveJSONGADT ''Api
 deriveArgDict ''Api
