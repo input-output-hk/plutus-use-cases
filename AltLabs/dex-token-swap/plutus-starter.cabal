@@ -37,6 +37,7 @@ library
       MyModule
       Plutus.Contracts
       -- Plutus.PAB.Effects.ContractTest.Uniswap
+      Effects.Uniswap
       Plutus.Contracts.PubKey
       Plutus.Contracts.Uniswap
       Plutus.Contracts.Currency

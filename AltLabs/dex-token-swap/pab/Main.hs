@@ -32,7 +32,7 @@ import qualified Plutus.Contracts.Uniswap                as Uniswap
 import           Plutus.PAB.Effects.Contract             (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin     (Builtin, SomeBuiltin (..), type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin     as Builtin
-import           Plutus.PAB.Effects.ContractTest.Uniswap as US
+import           Effects.Uniswap as US
 import           Plutus.PAB.Monitoring.PABLogMsg         (PABMultiAgentMsg)
 import           Plutus.PAB.Simulator                    (SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                    as Simulator
