@@ -26,6 +26,8 @@ export const getStorefrontFetching = (state) =>
 export const getStorefrontError = (state) =>
   fromStorefront.getStorefrontError(state.storefront);
 
+export const getToken = (state) =>
+  fromTokenActions.getToken(state.tokenActions);
 export const getTokenActionsFetching = (state) =>
   fromTokenActions.getTokenActionsFetching(state.tokenActions);
 export const getTokenActionsError = (state) =>

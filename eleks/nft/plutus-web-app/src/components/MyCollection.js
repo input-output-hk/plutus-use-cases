@@ -64,7 +64,10 @@ export const enhancer = compose(
   }),
   lifecycle({
     componentDidMount() {
-      this.props.fetchMyTokens();
+      const { myTokens, myTokensFetching, fetchMyTokens } = this.props;
+      if (myTokens.length === 0 && !myTokensFetching) {
+        fetchMyTokens();
+      }
     },
   })
 );

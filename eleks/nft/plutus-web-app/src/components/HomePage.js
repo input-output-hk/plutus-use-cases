@@ -28,13 +28,15 @@ const enhancer = compose(
       storefrontFetching: getStorefrontFetching(state),
     }),
     (dispatch, props) => ({
-      fetchStorefront: () =>
-        dispatch(fetchStorefront(props.currentUser)),
+      fetchStorefront: () => dispatch(fetchStorefront(props.currentUser)),
     })
   ),
   lifecycle({
     componentDidMount() {
-      this.props.fetchStorefront();
+      const { storefront, storefrontFetching, fetchStorefront } = this.props;
+      if (storefront.length === 0 && !storefrontFetching) {
+        fetchStorefront();
+      }
     },
   })
 );

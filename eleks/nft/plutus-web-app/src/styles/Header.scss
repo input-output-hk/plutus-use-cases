@@ -8,6 +8,20 @@
     color: #b36262;
   }
 
+  .link {
+    color: #00000080;
+    margin: 0 0.3em;
+
+    &.active {
+      color: #3d3d3d
+    }
+
+    &:hover {
+      text-decoration: none;
+      color: #3d3d3d;
+    }
+  }
+
   .user {
     display: flex;
     margin-left: 3em;

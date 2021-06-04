@@ -1,5 +1,4 @@
 import { fetchStatus } from './status';
-import { wait } from '../helpers/utils';
 
 export async function fetchStorefront(wallet) {
   const response = await fetch(
@@ -14,8 +13,7 @@ export async function fetchStorefront(wallet) {
   );
 
   if (response.status === 200) {
-    await wait(1000);
-    return await fetchStatus(wallet);
+    return await fetchStatus(wallet, "SellingTokens");
   } else {
     return {
       error: 'Unable to fetch storefront tokens',

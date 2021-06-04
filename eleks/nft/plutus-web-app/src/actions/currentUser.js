@@ -1,5 +1,6 @@
+import { toast } from 'react-toastify';
+
 import * as fromApi from '../api/currentUser';
-import { formatKeyResponse } from '../helpers/utils';
 import {
   LOGOUT,
   FETCH_LOGIN_START,
@@ -30,10 +31,11 @@ export const fetchLoginUser = (wallet) => async (dispatch) => {
   const response = await fromApi.fetchUserPublicKey(wallet);
   if (response.error) {
     dispatch(fetchUserPublicKeyFailed(response.error));
+    toast.error(response.error);
   } else {
     const user = {
       ...wallet,
-      publicKey: formatKeyResponse(response),
+      publicKey: response.contents,
     };
     dispatch(fetchUserPublicKeySuccess(user));
     localStorage.setItem('currentUser', JSON.stringify(user));

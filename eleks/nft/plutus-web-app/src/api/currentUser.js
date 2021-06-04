@@ -1,5 +1,4 @@
 import { fetchStatus } from './status';
-import { wait } from '../helpers/utils';
 
 export async function fetchUserPublicKey(wallet) {
   const response = await fetch(
@@ -14,8 +13,7 @@ export async function fetchUserPublicKey(wallet) {
   );
 
   if (response.status === 200) {
-    await wait(1000);
-    return await fetchStatus(wallet);
+    return await fetchStatus(wallet, "UserPubKeyHash");
   } else {
     return {
       error: 'Unable to fetch public key',

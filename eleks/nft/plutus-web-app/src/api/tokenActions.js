@@ -1,5 +1,4 @@
 import { fetchStatus } from './status';
-import { wait } from '../helpers/utils';
 
 export async function fetchSellToken(wallet, data) {
   const response = await fetch(
@@ -14,8 +13,7 @@ export async function fetchSellToken(wallet, data) {
   );
 
   if (response.status === 200) {
-    await wait(1000);
-    return await fetchStatus(wallet);
+    return await fetchStatus(wallet, 'Selling');
   } else {
     return {
       error: 'Unable to sell token',
@@ -31,16 +29,60 @@ export async function fetchBuyToken(wallet, data) {
       headers: {
         'Content-type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ bpTokenSymbol: data.id }),
     }
   );
 
   if (response.status === 200) {
-    await wait(1000);
-    return await fetchStatus(wallet);
+    return await fetchStatus(wallet, 'Buyed');
   } else {
     return {
       error: 'Unable to buy token',
+    };
+  }
+}
+
+export async function fetchCancelSellToken(wallet, data) {
+  const response = await fetch(
+    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/cancelSell`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json',
+      },
+      body: JSON.stringify({ cspTokenSymbol: data.id }),
+    }
+  );
+
+  if (response.status === 200) {
+    return await fetchStatus(wallet, 'CancelSelling');
+  } else {
+    return {
+      error: 'Unable to cancel sell token',
+    };
+  }
+}
+
+export async function fetchTransferToken(wallet, data) {
+  const response = await fetch(
+    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/transfer`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        tpTokenSymbol: data.tokenId,
+        tpReceiverWallet: data.walletNumber,
+      }),
+    }
+  );
+
+  if (response.status === 200) {
+    return await fetchStatus(wallet, 'Transfered');
+  } else {
+    return {
+      error: 'Unable to transfer token',
     };
   }
 }

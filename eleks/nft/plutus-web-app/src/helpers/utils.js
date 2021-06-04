@@ -10,10 +10,6 @@ export const formatSellData = (data) => ({
   spTokenSymbol: data.id,
 });
 
-export const formatBuyData = (data) => ({
-  bpTokenSymbol: data.id,
-});
-
 const dataMap = (token) => ({
   id: token.nftDtoTokenSymbol,
   name: token.nftDtoTokenName,
@@ -24,12 +20,15 @@ const dataMap = (token) => ({
   description: token.nftDtoMetaDescription,
 });
 
-export const formatResponse = (data) => {
-  const tokens = data.cicCurrentState.observableState.Right.contents;
-  return tokens.map((token) => dataMap(token));
-};
+export const formatResponse = (data) =>
+  data.contents.map((token) => dataMap(token));
 
-export const formatKeyResponse = (data) =>
-  data.cicCurrentState.observableState.Right.contents;
+export const formatObjectResponse = (data) => dataMap(data.contents);
+
+export const formatBuyResponse = (data) => ({
+  ...dataMap(data.contents),
+  seller: null,
+  price: null,
+});
 
 export const wait = (ms) => new Promise((r) => setTimeout(() => r(), ms));

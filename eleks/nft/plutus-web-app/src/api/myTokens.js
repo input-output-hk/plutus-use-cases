@@ -1,8 +1,6 @@
 import { NFTStorage } from 'nft.storage';
 import { IPFS_API_TOKEN } from '../helpers/constants';
-
 import { fetchStatus } from './status';
-import { wait } from '../helpers/utils';
 
 export async function fetchAddToken(wallet, data) {
   const clientIPFS = new NFTStorage({ token: IPFS_API_TOKEN });
@@ -13,15 +11,14 @@ export async function fetchAddToken(wallet, data) {
     {
       method: 'POST',
       headers: {
-        'Content-type': 'application/json'
+        'Content-type': 'application/json',
       },
       body: JSON.stringify({ ...data, cpFile }),
     }
   );
 
   if (response.status === 200) {
-    await wait(1000);
-    return {};
+    return await fetchStatus(wallet, 'Created');
   } else {
     return {
       error: 'Unable to add token',
@@ -42,8 +39,7 @@ export async function fetchMyTokens(wallet) {
   );
 
   if (response.status === 200) {
-    await wait(1000);
-    return await fetchStatus(wallet);
+    return await fetchStatus(wallet, 'Tokens');
   } else {
     return {
       error: 'Unable to fetch tokens',
