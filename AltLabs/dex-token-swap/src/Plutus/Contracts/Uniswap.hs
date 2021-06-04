@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE StandaloneDeriving              #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -61,9 +61,15 @@ import qualified Prelude
 import           Text.Printf                      (printf)
 
 uniswapTokenName, poolStateTokenName :: TokenName
+-- state token for the "factory" (unique token)
+-- "factory" is first created, this token gets minted
+-- and put to the UTXO of the "factory" and stays there forever
 uniswapTokenName = "Uniswap"
+
+-- state token of the liquidity pools (each pool has same token)
 poolStateTokenName = "Pool State"
 
+-- uniswapTokenName and poolStateTokenName share the same minting policy
 -- | A handy alias to put things in the language of "Coins" instead of
 -- "AssetClass".
 type Coin = AssetClass
@@ -71,14 +77,20 @@ type Coin = AssetClass
 -- Note: An orphan instance here because of the alias above.
 deriving anyclass instance ToSchema AssetClass
 
+-- helper function to construct Values
+-- Value (Cardano) is a "bag" of coins (1 ADA, 3 NFT etc...)
+-- Dictionary of Dictionary of Int { CurrencySymbol: { TokenName: Int }}
 {-# INLINABLE coin #-}
 coin :: AssetClass -> Integer -> Value
 coin = assetClassValue
 
+-- How many pieces of this Coin are contained in Value
 {-# INLINABLE coinValueOf #-}
 coinValueOf :: Value -> AssetClass -> Integer
 coinValueOf = assetClassValueOf
 
+-- CurrencySymbol = hash of the pliutus script (which is run when you mint/burn token)
+-- TokenName = bytestring (aka "Uniswap")
 {-# INLINABLE mkCoin #-}
 mkCoin:: CurrencySymbol -> TokenName -> AssetClass
 mkCoin = assetClass
@@ -92,6 +104,10 @@ calculateInitialLiquidity outA outB = case isqrt (outA * outB) of
         | l > 0 -> l + 1
     _           -> traceError "insufficient liquidity"
 
+-- helper for if you have an existing Pool, and someone adds liquidity to it
+-- eg. A (n) tokens, B (n) tokens
+-- someone adds (n) A or B, computes how many
+--  liquidity tokens the person should receive
 {-# INLINABLE calculateAdditionalLiquidity #-}
 calculateAdditionalLiquidity :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer
 calculateAdditionalLiquidity oldA oldB liquidity delA delB =
@@ -104,6 +120,7 @@ calculateAdditionalLiquidity oldA oldB liquidity delA delB =
     oldProd = oldA * oldB
     newProd = (oldA + delA) * (oldB + delB)
 
+-- same as above just opposite
 {-# INLINABLE calculateRemoval #-}
 calculateRemoval :: Integer -> Integer -> Integer -> Integer -> (Integer, Integer)
 calculateRemoval inA inB liquidity diff = (f inA, f inB)
@@ -111,6 +128,8 @@ calculateRemoval inA inB liquidity diff = (f inA, f inB)
     f :: Integer -> Integer
     f x = x - divide (x * diff) liquidity
 
+-- 2 token liquidity Pool
+-- Order does not matter A/B == B/A pool
 data LiquidityPool = LiquidityPool
     { lpCoinA :: Coin
     , lpCoinB :: Coin
@@ -125,6 +144,7 @@ instance Eq LiquidityPool where
     x == y = (lpCoinA x == lpCoinA y && lpCoinB x == lpCoinB y) ||
              (lpCoinA x == lpCoinB y && lpCoinB x == lpCoinA y)
 
+-- just a wrapper around the "Coin" type (CurrencySymbol + TokenNAme)
 newtype Uniswap = Uniswap
     { usCoin :: Coin
     } deriving stock    (Show, Generic)
@@ -133,15 +153,19 @@ newtype Uniswap = Uniswap
 
 PlutusTx.makeLift ''Uniswap
 
+-- Redeemer
+-- possible actions AFTER the "factory" is setup
 data UniswapAction = Create LiquidityPool | Close | Swap | Remove | Add
     deriving Show
 
 PlutusTx.unstableMakeIsData ''UniswapAction
 PlutusTx.makeLift ''UniswapAction
 
+-- DATUM that each UTXO carries
+--
 data UniswapDatum =
-      Factory [LiquidityPool]
-    | Pool LiquidityPool Integer
+      Factory [LiquidityPool] -- list of existing liquidity pools
+    | Pool LiquidityPool Integer -- Integer is the amount of tokens that have been minted for this LP
     deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''UniswapDatum
@@ -161,6 +185,10 @@ findOwnInput' ctx = fromMaybe (error ()) (findOwnInput ctx)
 valueWithin :: TxInInfo -> Value
 valueWithin = txOutValue . txInInfoResolved
 
+-- Checks if swap is possible
+-- oldA, oldB = existing amount
+-- newA, newB = amount after the swap
+-- calculates that the product does NOT decrease
 {-# INLINABLE checkSwap #-}
 checkSwap :: Integer -> Integer -> Integer -> Integer -> Bool
 checkSwap oldA oldB newA newB =
@@ -182,11 +210,17 @@ checkSwap oldA oldB newA newB =
     feeNum = 3
     feeDen = 1000
 
+-- LiquidityPool = UTXO we consume
+-- Coin = pool state coin that must be there
+-- 1 of output(s) = new state of the pool
+-- must make sure the amounts of liqudity pool are correct
 {-# INLINABLE validateSwap #-}
 validateSwap :: LiquidityPool -> Coin -> ScriptContext -> Bool
 validateSwap LiquidityPool{..} c ctx =
-    checkSwap oldA oldB newA newB                                                                &&
-    traceIfFalse "expected pool state token to be present in input" (coinValueOf inVal c == 1)   &&
+
+    checkSwap oldA oldB newA newB  -- first check products and fees
+                                                                 &&
+    traceIfFalse "expected pool state token to be present in input" (coinValueOf inVal c == 1)   && -- identify that we are dealing with the right UTXO (by means of a token)
     traceIfFalse "expected pool state token to be present in output" (coinValueOf outVal c == 1) &&
     traceIfFalse "did not expect Uniswap forging" noUniswapForging
   where
@@ -406,6 +440,8 @@ lpTicker LiquidityPool{..} = TokenName $
         | lpCoinA < lpCoinB = (lpCoinA, lpCoinB)
         | otherwise         = (lpCoinB, lpCoinA)
 
+-- the actual Validator
+-- basically a sub-function switch
 mkUniswapValidator :: Uniswap
                    -> Coin
                    -> UniswapDatum
@@ -520,6 +556,9 @@ data AddParams = AddParams
 
 -- | Creates a Uniswap "factory". This factory will keep track of the existing liquidity pools and enforce that there will be at most one liquidity pool
 -- for any pair of tokens at any given time.
+-- "factory" only exists once, to keep track which pools already exist
+-- it doesn't carry any value, it only keeps track of existing pools in it's DATUM
+-- this factory can be identified by 1 NFT (hence the forgeContract)
 start :: HasBlockchainActions s => Contract w s Text Uniswap
 start = do
     pkh <- pubKeyHash <$> ownPubKey
@@ -537,6 +576,9 @@ start = do
     return us
 
 -- | Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
+-- Each Liquidity pool creates another UTXO with a different token from the factory (state token)
+-- each time a pool is created a new token is minted
+-- CurrencySymbol uniquely identifies this "factory", sits at the specific address
 create :: HasBlockchainActions s => Uniswap -> CreateParams -> Contract w s Text ()
 create us CreateParams{..} = do
     when (cpCoinA == cpCoinB)               $ throwError "coins must be different"
