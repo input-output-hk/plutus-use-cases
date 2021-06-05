@@ -23,7 +23,7 @@ import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void)
-import           Ext.Plutus.Ledger.Contexts       (findDatumHashByValue)
+import           Ext.Plutus.Ledger.Contexts       (findDatumHashByValue, findValueByDatumHash)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
@@ -101,7 +101,7 @@ type LendingPoolOperator = PubKeyHash
 
 data AaveDatum =
   LendingPoolDatum LendingPoolOperator
-  | ReservesDatum (AssocMap.Map ReserveId Reserve)
+  | ReservesDatum AssetClass (AssocMap.Map ReserveId Reserve)
   | UserConfigsDatum AssetClass (AssocMap.Map UserConfigId UserConfig)
   | DepositDatum
   | WithdrawDatum
@@ -117,6 +117,11 @@ Lens.makeClassyPrisms ''AaveDatum
 pickUserConfigs :: AaveDatum -> Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
 pickUserConfigs (UserConfigsDatum stateToken configs) = Just (stateToken, configs)
 pickUserConfigs _ = Nothing
+
+{-# INLINABLE pickReserves #-}
+pickReserves :: AaveDatum -> Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
+pickReserves (ReservesDatum stateToken configs) = Just (stateToken, configs)
+pickReserves _ = Nothing
 
 data AaveScript
 instance Scripts.ScriptType AaveScript where
@@ -177,8 +182,31 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     checkRedeemerConfig :: UserConfig -> Bool
     checkRedeemerConfig UserConfig{..} = ucUsingAsCollateral
 
+validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) = trace "ReservesDatum" $ isNothing investmentValue
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    reservesOutputDatumHash =
+      findDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
+    reservesOutputDatum ::
+         Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
+    reservesOutputDatum =
+      reservesOutputDatumHash >>= (`findDatum` txInfo) >>= (PlutusTx.fromData . getDatum) >>= pickReserves
+
+    investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData DepositDatum) txInfo
+    investmentValue = investmentDatumHash >>= (`findValueByDatumHash` scriptOutputsAt scriptsHash txInfo)
+
+    isValidReservesTransformation :: Bool
+    isValidReservesTransformation =
+      maybe False checkreserves reservesOutputDatum
+    checkreserves ::
+         (AssetClass, AssocMap.Map ReserveId Reserve) -> Bool
+    checkreserves (newStateToken, newReserves) =
+      newStateToken == stateToken &&
+      maybe False checkRedeemerConfig (AssocMap.lookup reserveId newReserves)
+    checkRedeemerConfig :: Reserve -> Bool
+    checkRedeemerConfig Reserve{..} = False
 validateDeposit aave (LendingPoolDatum _) ctx userConfigId = trace "LendingPoolDatum" False
-validateDeposit aave (ReservesDatum _) ctx userConfigId = trace "ReservesDatum" False
 validateDeposit aave DepositDatum ctx userConfigId = trace "DepositDatum" False
 validateDeposit aave WithdrawDatum ctx userConfigId = trace "WithdrawDatum" False
 validateDeposit aave BorrowDatum ctx userConfigId = trace "BorrowDatum" False

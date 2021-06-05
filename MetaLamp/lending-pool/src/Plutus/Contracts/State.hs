@@ -64,7 +64,7 @@ reserveStateToken aave = Update.makeStateToken (aaveProtocolInst aave) "aaveRese
 userStateToken aave = Update.makeStateToken (aaveProtocolInst aave) "aaveUser"
 
 findAaveReserves :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue (AssocMap.Map ReserveId Reserve))
-findAaveReserves aave = findOutputBy aave (reserveStateToken aave) (^? Core._ReservesDatum)
+findAaveReserves aave = findOutputBy aave (reserveStateToken aave) (^? Core._ReservesDatum . _2)
 
 findAaveReserve :: HasBlockchainActions s => Aave -> ReserveId -> Contract w s Text Reserve
 findAaveReserve aave reserveId = do
@@ -92,9 +92,10 @@ updateState aave = Update.updateState (Core.aaveInstance aave)
 
 makeReserveHandle :: Aave -> (AssocMap.Map ReserveId Reserve -> AaveRedeemer) -> StateHandle AaveScript (AssocMap.Map ReserveId Reserve)
 makeReserveHandle aave toRedeemer =
+    let stateToken = reserveStateToken aave in
     StateHandle {
         stateToken = reserveStateToken aave,
-        toDatum = Core.ReservesDatum,
+        toDatum = Core.ReservesDatum stateToken,
         toRedeemer = toRedeemer
     }
 
