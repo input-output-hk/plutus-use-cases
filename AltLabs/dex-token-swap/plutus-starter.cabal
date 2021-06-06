@@ -43,7 +43,10 @@ library
       Plutus.Contracts.Currency
     build-depends:
       base >= 4.9 && < 5,
+      directory,
+      filepath,
       aeson,
+      aeson-pretty -any,
       containers,
       text,
       lens -any,
@@ -54,6 +57,7 @@ library
       plutus-tx,
       plutus-ledger,
       playground-common -any,
+      bytestring -any
       -- plutus-use-cases -any
     hs-source-dirs: src
     default-language: Haskell2010
@@ -101,13 +105,17 @@ executable plutus-starter-pab
     -threaded
   build-depends:
     base >= 4.9 && < 5,
+    directory,
+    filepath,
     containers,
     text -any,
     lens -any,
+    bytestring -any,
     plutus-contract -any,
     plutus-pab -any,
     plutus-starter -any,
     aeson -any,
+    aeson-pretty -any,
     freer-simple -any,
     prettyprinter -any,
     freer-extras -any,
