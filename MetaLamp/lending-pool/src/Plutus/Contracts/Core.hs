@@ -100,7 +100,7 @@ PlutusTx.makeLift ''AaveRedeemer
 type LendingPoolOperator = PubKeyHash
 
 data AaveDatum =
-  LendingPoolDatum LendingPoolOperator
+    LendingPoolDatum LendingPoolOperator
   | ReservesDatum AssetClass (AssocMap.Map ReserveId Reserve)
   | UserConfigsDatum AssetClass (AssocMap.Map UserConfigId UserConfig)
   | DepositDatum
@@ -132,7 +132,6 @@ instance Scripts.ScriptType AaveScript where
 -- Main validator
 -- Each state field must have one or more associated actions(Redeemer types),
 -- produced on state update, which are then validated here
--- TODO: write validations
 makeAaveValidator :: Aave
                    -> AaveDatum
                    -> AaveRedeemer
@@ -212,11 +211,8 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) 
     checkReserveState :: (Value, Reserve, Reserve) -> Bool
     checkReserveState (value, oldState, newState) =
       assetClassValueOf value reserveId == (rAmount newState - rAmount oldState)
-validateDeposit aave (LendingPoolDatum _) ctx userConfigId = trace "LendingPoolDatum" False
-validateDeposit aave DepositDatum ctx userConfigId = trace "DepositDatum" False
-validateDeposit aave WithdrawDatum ctx userConfigId = trace "WithdrawDatum" False
-validateDeposit aave BorrowDatum ctx userConfigId = trace "BorrowDatum" False
-validateDeposit aave RepayDatum ctx userConfigId = trace "RepayDatum" False
+
+validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
