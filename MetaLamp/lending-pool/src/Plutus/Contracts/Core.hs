@@ -23,7 +23,9 @@ import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void)
-import           Ext.Plutus.Ledger.Contexts       (findDatumHashByValue, findValueByDatumHash)
+import           Ext.Plutus.Ledger.Contexts       (findDatumHashByValue,
+                                                   findValueByDatumHash,
+                                                   parseDatum)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
@@ -121,7 +123,7 @@ pickUserConfigs _ = Nothing
 {-# INLINABLE pickReserves #-}
 pickReserves :: AaveDatum -> Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
 pickReserves (ReservesDatum stateToken configs) = Just (stateToken, configs)
-pickReserves _ = Nothing
+pickReserves _                                  = Nothing
 
 data AaveScript
 instance Scripts.ScriptType AaveScript where
@@ -139,10 +141,9 @@ makeAaveValidator :: Aave
                    -> Bool
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
-makeAaveValidator _ _ WithdrawRedeemer _ = True
+makeAaveValidator aave datum WithdrawRedeemer ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx
 makeAaveValidator _ _ BorrowRedeemer _   = True
 makeAaveValidator _ _ RepayRedeemer _    = True
--- makeAaveValidator _  _  _  _                          = False
 
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
 validateStart aave (LendingPoolDatum operator) ctx =
@@ -168,7 +169,7 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     userConfigsOutputDatum ::
          Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
     userConfigsOutputDatum =
-      userConfigsOutputDatumHash >>= (`findDatum` txInfo) >>= (PlutusTx.fromData . getDatum) >>= pickUserConfigs
+      userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
@@ -193,7 +194,7 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) 
     reservesOutputDatum ::
          Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
     reservesOutputDatum =
-      reservesOutputDatumHash >>= (`findDatum` txInfo) >>= (PlutusTx.fromData . getDatum) >>= pickReserves
+      reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
 
     investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData DepositDatum) txInfo
     investmentValue = investmentDatumHash >>= (`findValueByDatumHash` scriptOutputs)
@@ -213,6 +214,15 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) 
       assetClassValueOf value reserveId == (rAmount newState - rAmount oldState)
 
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
+
+validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> Bool
+validateWithdraw aave (LendingPoolDatum _) _ = trace "validateWithdraw: LendingPoolDatum" False
+validateWithdraw aave (ReservesDatum _ _) _ = trace "validateWithdraw: ReservesDatum" False
+validateWithdraw aave (UserConfigsDatum _ _) _ = trace "validateWithdraw: UserConfigsDatum" False
+validateWithdraw aave DepositDatum _ = trace "validateWithdraw: DepositDatum" False
+validateWithdraw aave WithdrawDatum _ = trace "validateWithdraw: WithdrawDatum" False
+validateWithdraw aave BorrowDatum _ = trace "validateWithdraw: BorrowDatum" False
+validateWithdraw aave RepayDatum _ = trace "validateWithdraw: RepayDatum" False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

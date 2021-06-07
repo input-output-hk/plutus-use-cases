@@ -3,8 +3,11 @@
 
 module Ext.Plutus.Ledger.Contexts where
 
-import           Ledger           (DatumHash, Value)
-import           PlutusTx.Prelude (Eq ((==)), Maybe, find, fst, snd, (<$>))
+import           Ledger           (Datum (getDatum), DatumHash, TxInfo, Value,
+                                   findDatum)
+import qualified PlutusTx
+import           PlutusTx.Prelude (Eq ((==)), Maybe, Monad ((>>=)), find, fst,
+                                   snd, (.), (<$>))
 
 {-# INLINABLE findDatumHashByValue #-}
 -- | Find the hash of a datum, if it is part of the pending transaction's
@@ -21,3 +24,7 @@ findValueByDatumHash :: DatumHash -> [(DatumHash, Value)] -> Maybe Value
 findValueByDatumHash dh outs = snd <$> find f outs
   where
     f (dh', _) = dh' == dh
+
+{-# INLINABLE parseDatum #-}
+parseDatum :: PlutusTx.IsData a => TxInfo -> DatumHash -> Maybe a
+parseDatum txInfo dh = findDatum dh txInfo >>= (PlutusTx.fromData . getDatum)
