@@ -172,8 +172,7 @@ deposit aave DepositParams {..} = do
 data WithdrawParams =
     WithdrawParams {
         wpAsset  :: AssetClass,
-        wpTo     :: PubKeyHash,
-        wpFrom   :: PubKeyHash,
+        wpUser   :: PubKeyHash,
         wpAmount :: Integer
     }
     deriving stock    (Show, Generic)
@@ -186,16 +185,16 @@ withdraw :: (HasBlockchainActions s) => Aave -> WithdrawParams -> Contract w s T
 withdraw aave WithdrawParams {..} = do
     reserve <- State.findAaveReserve aave wpAsset
 
-    balance <- balanceAt wpFrom (rAToken reserve)
-    userConfigsTx <- if (wpAmount == balance) then do
-        let userConfigId = (wpAsset, wpFrom)
+    let userConfigId = (wpAsset, wpUser)
+    balance <- balanceAt wpUser (rAToken reserve)
+    userConfigsTx <- if wpAmount == balance then do
         userConfig <- State.findAaveUserConfig aave userConfigId
-        State.updateUserConfig aave Core.WithdrawRedeemer userConfigId $ userConfig { ucUsingAsCollateral = False }
+        State.updateUserConfig aave (Core.WithdrawRedeemer userConfigId) userConfigId $ userConfig { ucUsingAsCollateral = False }
         else pure mempty
 
-    burnTx <- AToken.burnATokensFrom aave reserve wpTo wpAmount
+    burnTx <- AToken.burnATokensFrom aave reserve wpUser wpAmount
 
-    reservesTx <- State.updateReserve aave Core.WithdrawRedeemer wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
+    reservesTx <- State.updateReserve aave (Core.WithdrawRedeemer userConfigId) wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
 
     ledgerTx <- TxUtils.submitTxPair $ burnTx <> reservesTx <> userConfigsTx
     _ <- awaitTxConfirmed $ txId ledgerTx

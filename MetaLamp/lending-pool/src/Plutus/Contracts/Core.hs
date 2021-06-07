@@ -91,7 +91,7 @@ PlutusTx.makeLift ''UserConfig
 data AaveRedeemer =
     StartRedeemer
   | DepositRedeemer UserConfigId
-  | WithdrawRedeemer
+  | WithdrawRedeemer UserConfigId
   | BorrowRedeemer
   | RepayRedeemer
     deriving Show
@@ -138,7 +138,7 @@ makeAaveValidator :: Aave
                    -> Bool
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
-makeAaveValidator aave datum WithdrawRedeemer ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx
+makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
 makeAaveValidator _ _ BorrowRedeemer _   = True
 makeAaveValidator _ _ RepayRedeemer _    = True
 
@@ -214,13 +214,13 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) 
 
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
 
-validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> Bool
-validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx =
+validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
+validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   traceIfFalse "validateWithdraw: User Configs Datum change is not valid" False
-validateWithdraw aave (ReservesDatum stateToken reserves) ctx =
+validateWithdraw aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateWithdraw: Reserves Datum change is not valid" True
-validateWithdraw aave ReserveFundsDatum _ = trace "validateWithdraw: ReserveFundsDatum" False
-validateWithdraw aave (LendingPoolDatum _) _ = trace "validateWithdraw: LendingPoolDatum" False
+validateWithdraw aave ReserveFundsDatum _ userConfigId = trace "validateWithdraw: ReserveFundsDatum" True
+validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

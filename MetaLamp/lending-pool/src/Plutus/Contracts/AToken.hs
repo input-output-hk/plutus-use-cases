@@ -102,6 +102,7 @@ forgeATokensFrom aave reserve pkh amount = do
 burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
 burnATokensFrom aave reserve pkh amount = do
     let asset = rCurrency reserve
+    let userConfigId = (asset, pkh)
     utxos <-
         Map.filter ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut)
         <$> utxoAt (Core.aaveAddress aave)
@@ -110,7 +111,7 @@ burnATokensFrom aave reserve pkh amount = do
         remainder = assetClassValueOf balance asset - aTokenAmount
         policy = makeLiquidityPolicy asset
         burnValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
-        spendInputs = (\(ref, tx) -> OutputValue ref tx Core.WithdrawRedeemer) <$> Map.toList utxos
+        spendInputs = (\(ref, tx) -> OutputValue ref tx (Core.WithdrawRedeemer userConfigId)) <$> Map.toList utxos
     pure $
         TxUtils.mustForgeValue policy burnValue
         <> TxUtils.mustSpendFromScript (Core.aaveInstance aave) spendInputs pkh (assetClassValue asset aTokenAmount)
