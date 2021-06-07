@@ -33,13 +33,13 @@ have `jq` installed.
 1. Build the PAB executable:
 
 ```
-cabal build plutus-starter-pab
+cabal build nft-market-pab
 ```
 
 2. Run the PAB binary:
 
 ```
-cabal exec -- plutus-starter-pab
+cabal exec -- nft-market-pab
 ````
 
 This will then start up the server on port 8080. The devcontainer process will then automatically expose this port so that you can connect to it from any terminal (it doesn't have to be a terminal running in the devcontainer).

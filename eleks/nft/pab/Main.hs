@@ -40,10 +40,10 @@ import           Wallet.Emulator.Types               (Wallet (..))
 import qualified Data.ByteString.Char8               as B
 import qualified Ledger.Value                        as Value
 import           Ledger.Value                        (TokenName (..), Value)
-import           Wallet.API                               (ownPubKey)
-import           Ledger                                   (CurrencySymbol(..), pubKeyAddress)
-import qualified Ledger.Typed.Scripts         as Scripts
-import           Plutus.PAB.Monitoring.PABLogMsg         (PABMultiAgentMsg)
+import           Wallet.API                          (ownPubKey)
+import           Ledger                              (CurrencySymbol(..), pubKeyAddress)
+import qualified Ledger.Typed.Scripts                as Scripts
+import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
 
 extract :: Maybe a -> a
 extract (Just x) = x
@@ -58,6 +58,8 @@ main = void $ Simulator.runSimulationWith handlers $ do
     w1Address <- pubKeyAddress <$> Simulator.handleAgentThread w1 ownPubKey
 
     nftMarketInstance1 <- Simulator.activateContract w1 NFTStartContract
+    void $ Simulator.callEndpointOnInstance nftMarketInstance1 "start" ()
+    Simulator.waitNSlots 1
     market       <- flip Simulator.waitForState nftMarketInstance1 $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.NFTMarket))) of
                     Success (Monoid.Last (Just (Right market))) -> Just market
                     _                                             -> Nothing
@@ -69,7 +71,6 @@ main = void $ Simulator.runSimulationWith handlers $ do
         Simulator.logString @(Builtin NFTMarketContracts) $ "NFT user contract started for " ++ show w
         return (w, cid)
 
-    
     -- let nftTokenParams = NFTMarket.CreateParams { cpTokenName = "TestToken", cpDescription = "TestDescrition", cpAuthor = "Author1", cpFile = "file1" }
     -- Simulator.logString @(Builtin NFTMarketContracts) $ "nft token create params: " ++ show (encode nftTokenParams)
     -- void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" nftTokenParams
@@ -166,10 +167,10 @@ handleNFTMarketContract ::
 handleNFTMarketContract = Builtin.handleBuiltin getSchema getContract where
     getSchema = \case
         NFTStartContract -> Builtin.endpointsToSchemas @(NFTMarket.MarketOwnerSchema .\\ BlockchainActions)
-        NFTUserContract _  -> Builtin.endpointsToSchemas @(NFTMarket.MarketUserSchema .\\ BlockchainActions)
+        NFTUserContract _ -> Builtin.endpointsToSchemas @(NFTMarket.MarketUserSchema .\\ BlockchainActions)
     getContract = \case
-        NFTStartContract -> SomeBuiltin NFTMarket.ownerEndpoint
-        NFTUserContract market -> SomeBuiltin $ NFTMarket.userEndpoints market
+        NFTStartContract -> SomeBuiltin (NFTMarket.ownerEndpoint NFTMarket.forgeNftToken)
+        NFTUserContract market -> SomeBuiltin (NFTMarket.userEndpoints NFTMarket.forgeNftToken market)
 
 handlers :: SimulatorEffectHandlers (Builtin NFTMarketContracts)
 handlers =
