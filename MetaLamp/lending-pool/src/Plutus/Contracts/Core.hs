@@ -40,16 +40,10 @@ deriving anyclass instance ToSchema AssetClass
 
 newtype Aave = Aave
     { aaveProtocolInst :: AssetClass
-    } deriving stock    (Show, Generic)
+    } deriving stock    (Prelude.Eq, Show, Generic)
       deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.makeLift ''Aave
-
-instance Prelude.Eq Aave where
-    u == v = aaveProtocolInst u Prelude.== aaveProtocolInst v
-
-instance Prelude.Ord Aave where
-    compare u v = Prelude.compare (aaveProtocolInst u) (aaveProtocolInst v)
 
 type ReserveId = AssetClass
 
@@ -63,7 +57,7 @@ data Reserve = Reserve
       rLiquidityIndex          :: Integer,
       rCurrentStableBorrowRate :: Rational
     }
-    deriving stock (Show, Generic)
+    deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''Reserve
@@ -76,7 +70,7 @@ data UserConfig = UserConfig
       ucUsingAsCollateral :: Bool,
       ucDebt              :: Maybe Integer
     }
-    deriving stock (Show, Generic)
+    deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''UserConfig

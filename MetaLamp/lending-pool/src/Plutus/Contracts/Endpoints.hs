@@ -55,11 +55,12 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
+import qualified Data.Text as Text
 
 newtype CreateParams =
     CreateParams
         { cpAsset :: AssetClass }
-    deriving (Show, Generic)
+    deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 PlutusTx.makeLift ''CreateParams
@@ -116,6 +117,9 @@ valueAt address = do
     os <- map snd . Map.toList <$> utxoAt address
     pure $ mconcat [txOutValue $ txOutTxOut o | o <- os]
 
+getOwnPubKey :: HasBlockchainActions s => Contract w s Text PubKeyHash
+getOwnPubKey = pubKeyHash <$> ownPubKey
+
 fundsAt :: HasBlockchainActions s => PubKeyHash -> Contract w s Text Value
 fundsAt pkh = valueAt (pubKeyHashAddress pkh)
 
@@ -131,7 +135,7 @@ data DepositParams =
     dpOnBehalfOf :: PubKeyHash,
     dpAmount     :: Integer
   }
-    deriving stock    (Show, Generic)
+    deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''DepositParams
@@ -168,7 +172,7 @@ data WithdrawParams =
         wpFrom   :: PubKeyHash,
         wpAmount :: Integer
     }
-    deriving stock    (Show, Generic)
+    deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''WithdrawParams
@@ -194,7 +198,7 @@ data BorrowParams =
         bpAmount     :: Integer,
         bpOnBehalfOf :: PubKeyHash
     }
-    deriving stock    (Show, Generic)
+    deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''BorrowParams
@@ -234,7 +238,7 @@ data RepayParams =
         rpAmount     :: Integer,
         rpOnBehalfOf :: PubKeyHash
     }
-    deriving stock    (Show, Generic)
+    deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''RepayParams
@@ -269,8 +273,14 @@ type AaveUserSchema =
         .\/ Endpoint "poolFunds" ()
         .\/ Endpoint "reserves" ()
         .\/ Endpoint "users" ()
+        .\/ Endpoint "ownPubKey" ()
 
-data UserContractState = Created
+instance (Prelude.Eq k, Prelude.Eq v) => Prelude.Eq (AssocMap.Map k v) where
+    a == b = (AssocMap.toList a) Prelude.== (AssocMap.toList b)
+
+data UserContractState =
+    Pending
+    | Created
     | Closed
     | Stopped
     | Deposited
@@ -281,7 +291,8 @@ data UserContractState = Created
     | PoolFunds Value
     | Reserves (AssocMap.Map ReserveId Reserve)
     | Users (AssocMap.Map UserConfigId UserConfig)
-    deriving (Show, Generic, FromJSON, ToJSON)
+    | GetPubKey PubKeyHash
+    deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
 userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
 userEndpoints aa = forever $
@@ -293,9 +304,10 @@ userEndpoints aa = forever $
     `select` f (Proxy @"poolFunds") PoolFunds (\aave () -> poolFunds aave)
     `select` f (Proxy @"reserves") Reserves (\aave () -> reserves aave)
     `select` f (Proxy @"users") Users (\aave () -> users aave)
+    `select` f (Proxy @"ownPubKey") GetPubKey (\_ () -> getOwnPubKey)
   where
     f :: forall l a p.
-         HasEndpoint l p AaveUserSchema
+        HasEndpoint l p AaveUserSchema
       => Proxy l
       -> (a -> UserContractState)
       -> (Aave -> p -> Contract (Last (Either Text UserContractState)) AaveUserSchema Text a)
@@ -303,6 +315,7 @@ userEndpoints aa = forever $
     f _ g c = do
         e <- runError $ do
             p <- endpoint @l
+            _ <- tell $ Last $ Just $ Right $ Pending
             errorHandler `handleError` c aa p
         tell $ Last $ Just $ case e of
             Left err -> Left err

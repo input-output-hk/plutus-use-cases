@@ -23,13 +23,16 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Plutus.Contracts.Endpoints Plutus.Contracts.FungibleToken Plutus.Contracts.AToken Plutus.Contracts.Core Plutus.Contracts.State Plutus.State.Select Plutus.State.Update Plutus.Contracts.TxUtils Plutus.OutputValue
+      Plutus.Contracts.Endpoints Plutus.Contracts.FungibleToken Plutus.Contracts.AToken Plutus.Contracts.Core Plutus.Contracts.State Plutus.State.Select Plutus.State.Update Plutus.Contracts.TxUtils Plutus.OutputValue Plutus.PAB.Simulation
     build-depends:
       base >= 4.9 && < 5,
       aeson,
       bytestring,
       containers,
       text,
+      freer-simple,
+      freer-extras,
+      prettyprinter,
       -- Plutus:
       playground-common,
       plutus-contract,
@@ -37,7 +40,8 @@ library
       plutus-tx,
       plutus-ledger,
       plutus-ledger-api,
-      plutus-use-cases
+      plutus-use-cases,
+      plutus-pab
     hs-source-dirs: src
     default-language: Haskell2010
     ghc-options:
@@ -51,19 +55,33 @@ executable plutus-starter-pab
     -threaded
   build-depends:
     base >= 4.9 && < 5,
+    plutus-starter
+
+executable generate-purs
+  main-is: Main.hs
+  hs-source-dirs: generate-purs
+  other-modules: AaveTypes
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
     aeson,
-    freer-simple,
+    directory,
+    servant-purescript,
+    filepath,
+    servant-server,
+    bytestring,
+    aeson-pretty,
     freer-extras,
-    prettyprinter,
-    containers,
-    row-types,
+    lens,
     text,
     -- Plutus:
-    plutus-ledger,
-    plutus-contract,
-    plutus-pab,
-    plutus-starter,
-    playground-common,
-    plutus-use-cases,
     plutus-ledger-api,
-    bytestring
+    purescript-bridge,
+    playground-common,
+    plutus-starter,
+    plutus-pab,
+    plutus-contract,
+    plutus-use-cases,
+    plutus-ledger,
+    plutus-tx
