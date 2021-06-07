@@ -59,10 +59,10 @@ tests = testGroup "nft"
         ( 
            assertNoFailedTransactions
            .&&. valueAtAddress (marketAddress nftMarketMock) 
-                (== (assetClassValue nftTokenMetadata 1 
+                (== (assetClassValue nftTestTokenMetadata 1 
                     <> assetClassValue (marketId nftMarketMock) 1)
                 )
-           .&&. walletFundsChange (Wallet 1) (assetClassValue nftToken 1)
+           .&&. walletFundsChange (Wallet 1) (assetClassValue nftTestToken 1)
         )
         createNftTokenFlowTrace
         ,
@@ -70,8 +70,8 @@ tests = testGroup "nft"
         ( 
            assertNoFailedTransactions
            .&&. valueAtAddress (marketAddress nftMarketMock) 
-                (== (assetClassValue nftToken 1 
-                    <> assetClassValue nftTokenMetadata 1 
+                (== (assetClassValue nftTestToken 1 
+                    <> assetClassValue nftTestTokenMetadata 1 
                     <> assetClassValue (marketId nftMarketMock) 1))
             -- create and send token in one trace
            .&&. walletFundsChange (Wallet 1) (Ada.lovelaceValueOf 0)
@@ -81,9 +81,9 @@ tests = testGroup "nft"
         checkPredicate "Should buy NFT token"
         ( 
            assertNoFailedTransactions
-           .&&. valueAtAddress (marketAddress nftMarketMock) (== (assetClassValue nftTokenMetadata 1 <> assetClassValue (marketId nftMarketMock) 1))
+           .&&. valueAtAddress (marketAddress nftMarketMock) (== (assetClassValue nftTestTokenMetadata 1 <> assetClassValue (marketId nftMarketMock) 1))
            .&&. walletFundsChange (Wallet 1) (Ada.lovelaceValueOf 1000)
-           .&&. walletFundsChange (Wallet 2) (Ada.lovelaceValueOf (-1000) <> assetClassValue nftToken 1)
+           .&&. walletFundsChange (Wallet 2) (Ada.lovelaceValueOf (-1000) <> assetClassValue nftTestToken 1)
         )
         buyNftTokenFlowTrace
     ]
@@ -124,15 +124,15 @@ forgeMockNftToken tokenName pk =
 nftMarketMock :: NFTMarket
 nftMarketMock = NFTMarket{ marketId = createNFTTokenMock NFTMarket.marketplaceTokenName } 
 
-nftTokenName :: TokenName
-nftTokenName = "testToken"
-nftToken :: AssetClass
-nftToken = createNFTTokenMock nftTokenName
+nftTestTokenName :: TokenName
+nftTestTokenName = "testToken"
+nftTestToken :: AssetClass
+nftTestToken = createNFTTokenMock nftTestTokenName
 
-nftTokenMetadataName :: TokenName
-nftTokenMetadataName = "testTokenMetadata"
-nftTokenMetadata :: AssetClass
-nftTokenMetadata = createNFTTokenMock nftTokenMetadataName
+nftTestTokenMetadataName :: TokenName
+nftTestTokenMetadataName = "testTokenMetadata"
+nftTestTokenMetadata :: AssetClass
+nftTestTokenMetadata = createNFTTokenMock nftTestTokenMetadataName
 
 createNFTTokenMock:: TokenName -> AssetClass
 createNFTTokenMock tokenName = AssetClass (NFTCurrency.currencySymbol $ TestNFTCurrency tokenName, tokenName)
