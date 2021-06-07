@@ -5,6 +5,7 @@
 {-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Mlabs.Emulator.Types(
     UserId(..)
   , Coin
@@ -24,6 +25,7 @@ import qualified PlutusTx as PlutusTx
 
 import Plutus.Contract (HasBlockchainActions, AsContractError, Contract, ownPubKey)
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
+import Playground.Contract (ToSchema)
 
 -- | Address of the wallet that can hold values of assets
 data UserId
@@ -45,6 +47,8 @@ adaCoin = AssetClass (Ada.adaSymbol, Ada.adaToken)
 
 -- | Custom currency
 type Coin = AssetClass
+
+deriving newtype instance ToSchema AssetClass
 
 PlutusTx.unstableMakeIsData ''UserId
 

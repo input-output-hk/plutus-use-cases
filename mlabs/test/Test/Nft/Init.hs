@@ -31,7 +31,8 @@ import qualified Plutus.Trace.Emulator as Trace
 
 import Mlabs.Emulator.Types
 import Mlabs.Nft.Logic.Types (UserAct(..), NftId)
-import qualified Mlabs.Nft.Contract.Nft as N
+import qualified Mlabs.Nft.Contract as N
+import qualified Mlabs.Nft.Contract.Emulator.Client as N
 
 import Test.Utils (next)
 

@@ -17,7 +17,6 @@ import Mlabs.Lending.Logic.Types
 
 
 import qualified Data.Map.Strict as M
-import Mlabs.Data.Ray ((%))
 import qualified Mlabs.Data.Ray as R
 
 -- | Test suite for a logic of lending application
@@ -174,7 +173,7 @@ repayScript = do
 liquidationCallScript :: Bool -> Script
 liquidationCallScript receiveAToken = do
   borrowScript
-  priceAct user1 $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct user1 $ SetAssetPriceAct coin2 (R.fromInteger 2)
   userAct user2 $ LiquidationCallAct
       { act'collateral     = coin1
       , act'debt           = BadBorrow user1 coin2
@@ -186,7 +185,7 @@ liquidationCallScript receiveAToken = do
 
 wrongUserPriceSetScript :: Script
 wrongUserPriceSetScript = do
-  priceAct user2 $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct user2 $ SetAssetPriceAct coin2 (R.fromInteger 2)
 
 ---------------------------------
 -- constants

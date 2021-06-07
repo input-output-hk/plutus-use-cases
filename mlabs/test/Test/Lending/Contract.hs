@@ -16,7 +16,8 @@ import Mlabs.Emulator.Scene
 import Mlabs.Lending.Logic.Types ( UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel
                                  , PriceAct(..), BadBorrow(..))
 
-import qualified Mlabs.Lending.Contract.Lendex as L
+import qualified Mlabs.Lending.Contract as L
+import qualified Mlabs.Lending.Contract.Emulator.Client as L
 import qualified Plutus.V1.Ledger.Value as Value
 
 import Test.Utils
@@ -63,8 +64,8 @@ depositScript = do
                                           })
           [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
     , sp'initValue = Value.assetClassValue adaCoin 1000
-    , sp'admins    = [toUserId wAdmin]
-    , sp'oracles   = [toUserId wAdmin]
+    , sp'admins    = [toPubKeyHash wAdmin]
+    , sp'oracles   = [toPubKeyHash wAdmin]
     }
   wait 5
   userAct1 $ DepositAct 50 coin1
@@ -204,7 +205,7 @@ repayScene = borrowScene <> repayChange
 liquidationCallScript :: Bool -> Trace.EmulatorTrace ()
 liquidationCallScript receiveAToken = do
   borrowScript
-  priceAct wAdmin $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct wAdmin $ SetAssetPriceAct coin2 (R.fromInteger 2)
   next
   userAct2 $ LiquidationCallAct
       { act'collateral     = coin1
@@ -230,5 +231,5 @@ liquidationCallScene receiveAToken = borrowScene <> liquidationCallChange
 -- names as in script test
 
 priceAct :: Wallet -> PriceAct -> Trace.EmulatorTrace ()
-priceAct wal act = L.callPriceOracleAct lendexId wal act
+priceAct wal act = L.callPriceAct lendexId wal act
 

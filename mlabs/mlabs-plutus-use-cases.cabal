@@ -39,6 +39,7 @@ library
                      , plutus-use-cases
                      , prettyprinter
                      , pretty-show
+                     , row-types
                      , stm
                      , lens
                      , tasty
@@ -61,9 +62,13 @@ library
         Mlabs.Emulator.Scene
         Mlabs.Emulator.Script
         Mlabs.Emulator.Types
+        Mlabs.Lending.Contract
+        Mlabs.Lending.Contract.Api
         Mlabs.Lending.Contract.Forge
-        Mlabs.Lending.Contract.Lendex
-        Mlabs.Lending.Contract.Utils
+        Mlabs.Lending.Contract.Emulator.Client
+        Mlabs.Lending.Contract.Simulator.Handler
+        Mlabs.Lending.Contract.Server
+        Mlabs.Lending.Contract.StateMachine
         Mlabs.Lending.Logic.App
         Mlabs.Lending.Logic.InterestRate
         Mlabs.Lending.Logic.React
@@ -73,9 +78,16 @@ library
         Mlabs.Nft.Logic.React
         Mlabs.Nft.Logic.State
         Mlabs.Nft.Logic.Types
-        Mlabs.Nft.Contract.Nft
+        Mlabs.Nft.Contract
+        Mlabs.Nft.Contract.Emulator.Client
+        Mlabs.Nft.Contract.Simulator.Handler
+        Mlabs.Nft.Contract.Api
         Mlabs.Nft.Contract.Forge
+        Mlabs.Nft.Contract.Server
+        Mlabs.Nft.Contract.StateMachine
+        Mlabs.Plutus.Contract
         Mlabs.Plutus.Contract.StateMachine
+        Mlabs.Plutus.PAB
         Mlabs.System.Console.PrettyLogger
         Mlabs.System.Console.Utils
   default-extensions: BangPatterns
@@ -107,6 +119,8 @@ library
                       TypeSynonymInstances
                       TupleSections
                       NumericUnderscores
+                      ImportQualifiedPost
+                      RankNTypes
 
 executable mlabs-plutus-use-cases
   main-is:             app/Main.hs
@@ -174,6 +188,7 @@ executable lendex-demo
                      , plutus-tx
                      , plutus-tx-plugin
                      , plutus-pab
+                     , plutus-use-cases
                      , prettyprinter
                      , lens
                      , mtl

@@ -250,7 +250,7 @@ react input = do
     priceAct currentTime uid act = do
       isTrustedOracle uid
       case act of
-        SetAssetPrice coin rate -> setAssetPrice currentTime coin rate
+        SetAssetPriceAct coin rate -> setAssetPrice currentTime coin rate
 
     ---------------------------------------------------
     -- update on market price change
@@ -265,7 +265,7 @@ react input = do
     governAct uid act = do
       isAdmin uid
       case act of
-        AddReserve cfg -> addReserve cfg
+        AddReserveAct cfg -> addReserve cfg
 
     ---------------------------------------------------
     -- Adds new reserve (new coin/asset)
@@ -338,10 +338,10 @@ checkInput = \case
       DepositAct amount asset -> do
         isPositive "deposit" amount
         isAsset asset
-      BorrowAct asset amount _rate -> do
+      BorrowAct amount asset _rate -> do
         isPositive "borrow" amount
         isAsset asset
-      RepayAct asset amount _rate -> do
+      RepayAct amount asset _rate -> do
         isPositive "repay" amount
         isAsset asset
       SwapBorrowRateModelAct asset _rate -> isAsset asset
@@ -359,13 +359,13 @@ checkInput = \case
     checkPriceAct time act = do
       isNonNegative "price rate timestamp" time
       case act of
-        SetAssetPrice asset price -> do
+        SetAssetPriceAct asset price -> do
           checkCoinRateTimeProgress time asset
           isPositiveRay "price" price
           isAsset asset
 
     checkGovernAct = \case
-      AddReserve cfg -> checkCoinCfg cfg
+      AddReserveAct cfg -> checkCoinCfg cfg
 
     checkCoinCfg CoinCfg{..} = do
       isPositiveRay "coin price config" coinCfg'rate

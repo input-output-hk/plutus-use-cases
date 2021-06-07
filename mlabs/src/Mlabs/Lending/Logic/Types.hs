@@ -49,6 +49,7 @@ import PlutusTx.Prelude hiding ((%))
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
+import Playground.Contract (ToSchema)
 import GHC.Generics
 
 import Mlabs.Emulator.Types
@@ -124,7 +125,7 @@ data InterestModel = InterestModel
   , im'base                :: !Ray
   }
   deriving (Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 defaultInterestModel :: InterestModel
 defaultInterestModel = InterestModel
@@ -143,7 +144,7 @@ data CoinCfg = CoinCfg
   , coinCfg'liquidationBonus :: Ray
   }
   deriving stock (Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 {-# INLINABLE initLendingPool #-}
 initLendingPool :: CurrencySymbol -> [CoinCfg] -> [UserId] -> [UserId] -> LendingPool
@@ -252,14 +253,14 @@ data UserAct
       }
   -- ^ deposit funds
   | BorrowAct
-      { act'asset           :: Coin
-      , act'amount          :: Integer
+      { act'amount          :: Integer
+      , act'asset           :: Coin
       , act'rate            :: InterestRate
       }
   -- ^ borrow funds. We have to allocate collateral to be able to borrow
   | RepayAct
-      { act'asset           :: Coin
-      , act'amount          :: Integer
+      { act'amount          :: Integer
+      , act'asset           :: Coin
       , act'rate            :: InterestRate
       }
   -- ^ repay part of the borrow
@@ -296,13 +297,13 @@ data UserAct
 
 -- | Acts that can be done by admin users.
 data GovernAct
-  = AddReserve CoinCfg  -- ^ Adds new reserve
+  = AddReserveAct CoinCfg  -- ^ Adds new reserve
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Updates for the prices of the currencies on the markets
 data PriceAct
-  = SetAssetPrice Coin Ray        -- ^ Set asset price
+  = SetAssetPriceAct Coin Ray        -- ^ Set asset price
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
