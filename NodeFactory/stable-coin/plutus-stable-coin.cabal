@@ -29,7 +29,7 @@ library
     NodeFactory.Plutus.Contracts.Oracle.PAB
     NodeFactory.Plutus.Contracts.Oracle.Swap
     NodeFactory.Plutus.Contracts.StableCoin
-    NodeFactory.Plutus.Contracts.Vault
+    NodeFactory.Plutus.Contracts.Coin
   build-depends:      aeson
                     , base ^>=4.14.1.0
                     , containers
