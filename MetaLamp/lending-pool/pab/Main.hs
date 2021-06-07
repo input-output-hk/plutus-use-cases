@@ -1,4 +1,4 @@
-import Plutus.PAB.Simulation (runLendingPoolSimulation)
+import           Plutus.PAB.Simulation (runLendingPool)
 
 main :: IO ()
-main = runLendingPoolSimulation
+main = runLendingPool

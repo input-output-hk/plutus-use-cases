@@ -48,9 +48,18 @@ library
             -- See Plutus Tx readme
             -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
 
-executable plutus-starter-pab
+executable pab
   main-is: Main.hs
   hs-source-dirs: pab
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter
+
+executable pab-simulation
+  main-is: Main.hs
+  hs-source-dirs: pab-simulation
   ghc-options:
     -threaded
   build-depends:

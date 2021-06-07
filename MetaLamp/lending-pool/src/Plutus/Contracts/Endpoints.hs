@@ -24,6 +24,7 @@ import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
 import           Data.Proxy                       (Proxy (..))
 import           Data.Text                        (Text, pack)
+import qualified Data.Text                        as Text
 import           Data.Void                        (Void)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
@@ -55,7 +56,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
-import qualified Data.Text as Text
 
 newtype CreateParams =
     CreateParams

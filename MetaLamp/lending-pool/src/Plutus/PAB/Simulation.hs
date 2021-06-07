@@ -10,10 +10,7 @@
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
 
-module Plutus.PAB.Simulation
-    ( runLendingPoolSimulation,
-      AaveContracts(..)
-    ) where
+module Plutus.PAB.Simulation where
 
 import           Control.Monad                       (forM, forM_, void, when)
 import           Control.Monad.Freer                 (Eff, Member, interpret,
@@ -48,13 +45,15 @@ import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..),
                                                       type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
-import           Plutus.PAB.Simulator                (SimulatorEffectHandlers)
+import           Plutus.PAB.Simulator                (Simulation,
+                                                      SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                as Simulator
 import           Plutus.PAB.Types                    (PABError (..))
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Plutus.V1.Ledger.Crypto             (getPubKeyHash, pubKeyHash)
 import           Prelude                             hiding (init)
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
+import           Wallet.Types                        (ContractInstanceId)
 
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 4]]
@@ -86,14 +85,10 @@ initContract = do
   where
     amount = 1000000
 
-runLendingPoolSimulation :: IO ()
-runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
-    shutdown <- PAB.Server.startServerDebug
-
+activateContracts :: Simulation (Builtin AaveContracts) (Map.Map Wallet ContractInstanceId)
+activateContracts = do
     cidInit  <- Simulator.activateContract (Wallet 1) Init
     _        <- Simulator.waitUntilFinished cidInit
-
     Simulator.logString @(Builtin AaveContracts) "Initialization finished."
 
     let params = fmap Aave.CreateParams testAssets
@@ -103,11 +98,98 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
                     _                                       -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Aave instance created: " ++ show aa
 
-    cids <- fmap Map.fromList $ forM wallets $ \w -> do
+    fmap Map.fromList $ forM wallets $ \w -> do
         cid <- Simulator.activateContract w $ AaveUser aa
         Simulator.logString @(Builtin AaveContracts) $ "Aave user contract started for " ++ show w
         return (w, cid)
 
+runLendingPool :: IO ()
+runLendingPool = void $ Simulator.runSimulationWith handlers $ do
+    Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
+    shutdown <- PAB.Server.startServerDebug
+    _ <- activateContracts
+    _ <- liftIO getLine
+    shutdown
+
+runLendingPoolSimulation :: IO ()
+runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
+    Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
+    shutdown <- PAB.Server.startServerDebug
+    cids <- activateContracts
+    let userCid = cids Map.! Wallet 2
+        sender = pubKeyHash . walletPubKey $ Wallet 2
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "deposit" $
+            Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 100 }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Deposited))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful deposit"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "withdraw" $
+            Aave.WithdrawParams { Aave.wpAsset = head testAssets, Aave.wpTo = sender, Aave.wpFrom = sender, Aave.wpAmount = 30 }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Withdrawn))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful withdraw"
+
+    let lenderCid = cids Map.! Wallet 3
+    let lender = pubKeyHash . walletPubKey $ Wallet 3
+    _  <-
+        Simulator.callEndpointOnInstance lenderCid "deposit" $
+            Aave.DepositParams { Aave.dpAsset = testAssets !! 1, Aave.dpOnBehalfOf = lender, Aave.dpAmount = 200 }
+    flip Simulator.waitForState lenderCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Deposited))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful deposit from lender"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "borrow" $
+            Aave.BorrowParams { Aave.bpAsset = testAssets !! 1, Aave.bpAmount = 35, Aave.bpOnBehalfOf = sender }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Borrowed))) -> Just ()
+        _                                                  -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful borrow"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "repay" $
+            Aave.RepayParams { Aave.rpAsset = testAssets !! 1, Aave.rpAmount = 25, Aave.rpOnBehalfOf = sender }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (Right Aave.Repaid))) -> Just ()
+        _                                                -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful repay"
+
+    _ <- Simulator.callEndpointOnInstance userCid "fundsAt" sender
+    v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+            Success (Monoid.Last (Just (Right (Aave.FundsAt v)))) -> Just v
+            _                                                     -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Final user funds: " <> show v
+
+    _ <- Simulator.callEndpointOnInstance lenderCid "fundsAt" lender
+    v <- flip Simulator.waitForState lenderCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+            Success (Monoid.Last (Just (Right (Aave.FundsAt v)))) -> Just v
+            _                                                     -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Final lender funds: " <> show v
+
+    _ <- Simulator.callEndpointOnInstance userCid "reserves" ()
+    reserves <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+            Success (Monoid.Last (Just (Right (Aave.Reserves reserves)))) -> Just reserves
+            _                                                      -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Final reserves: " <> show reserves
+
+    _ <- Simulator.callEndpointOnInstance userCid "poolFunds" ()
+    v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+            Success (Monoid.Last (Just (Right (Aave.PoolFunds v)))) -> Just v
+            _                                                       -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Final pool funds: " <> show v
+
+    _ <- Simulator.callEndpointOnInstance userCid "users" ()
+    v <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
+            Success (Monoid.Last (Just (Right (Aave.Users v)))) -> Just v
+            _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Final users: " <> show v
     _ <- liftIO getLine
     shutdown
 
