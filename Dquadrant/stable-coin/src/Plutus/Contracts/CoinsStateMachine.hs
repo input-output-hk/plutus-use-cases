@@ -29,17 +29,24 @@ module Plutus.Contracts.CoinsStateMachine
     BankInputAction (..),
     BankStateSchema,
     BankStateError,
+    EndpointInput (..)
   )
 where
 
-import Control.Monad (guard, void)
+import Control.Monad (forever, guard, void)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text, pack)
 import GHC.Generics (Generic)
 import Ledger hiding (to)
+import qualified Ledger as Interval
 import qualified Ledger.Ada as Ada
 import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Constraints as Constraints
+import Ledger.Oracle
+  ( Observation (Observation, obsSlot, obsValue),
+    SignedMessage,
+    verifySignedMessageConstraints,
+  )
 import Ledger.Typed.Scripts (scriptHash)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (forwardingMPS)
@@ -48,7 +55,10 @@ import Plutus.Contract.StateMachine (SMContractError, State (..), StateMachine, 
 import qualified Plutus.Contract.StateMachine as SM
 import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
+import PlutusTx.Ratio as Ratio
 import qualified Prelude
+import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
+import           Playground.Contract    (printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema, adaCurrency)
 
 --
 data BankState = BankState
@@ -63,7 +73,11 @@ data BankState = BankState
 --
 data BankParam = BankParam
   { stableCoinTokenName :: TokenName,
-    reserveCoinTokenName :: TokenName
+    reserveCoinTokenName :: TokenName,
+    -- oracleAddress :: PubKey,
+    minReserveRatio :: Ratio Integer,
+    maxReserveRatio :: Ratio Integer,
+    rcDefaultRate :: Ratio Integer
   }
   deriving stock (Generic, Prelude.Eq, Prelude.Show)
   deriving anyclass (ToJSON, FromJSON)
@@ -71,135 +85,167 @@ data BankParam = BankParam
 --
 data BankInputAction
   = MintStableCoin Integer
-  | ReedemStableCoin Integer
+  | RedeemStableCoin Integer
   | MintReserveCoin Integer
-  | ReedemReserveCoin Integer
+  | RedeemReserveCoin Integer
   deriving stock (Generic, Prelude.Eq, Prelude.Show)
   deriving anyclass (ToJSON, FromJSON)
 
--- type Rate = Ratio Integer
+type Rate = Ratio Integer
+
 --
 data BankInput = BankInput
-  { 
-    --   rate :: Rate, -- TODO integrate oracle
-      bankInputAction :: BankInputAction
+  { --Signed message from oracle provider  for exchange rate
+    rate :: Rate,
+    bankInputAction :: BankInputAction
   }
+  deriving stock (Generic, Prelude.Eq, Prelude.Show)
+  deriving anyclass (ToJSON, FromJSON)
 
 {-# INLINEABLE lovelaces #-}
 lovelaces :: Value -> Integer
 lovelaces = Ada.getLovelace . Ada.fromValue
 
+{-# INLINEABLE calcLiablities #-}
+calcLiablities :: BankState -> Rate -> Ratio Integer
+calcLiablities BankState {baseReserveAmount, stableCoinAmount} rate =
+  let reserveNeeded = rate * fromInteger stableCoinAmount
+   in min (fromInteger baseReserveAmount) reserveNeeded
 
+{-# INLINEABLE calcStableCoinRate #-}
+calcStableCoinRate :: BankState -> Rate -> Ratio Integer
+calcStableCoinRate bs@BankState {stableCoinAmount} rate
+  | stableCoinAmount == 0 = rate
+  | otherwise = min rate liableRate
+  where
+    liablities = calcLiablities bs rate
+    liableRate = liablities * Ratio.recip (fromInteger stableCoinAmount)
 
--- calcLiablities:: BankState -> Rate -> Integer
--- calcLiablities bs rate=
+{-# INLINEABLE calcEquity #-}
+calcEquity :: BankState -> Rate -> Ratio Integer
+calcEquity bs@BankState {baseReserveAmount} rate =
+  let liablities = calcLiablities bs rate
+   in fromInteger baseReserveAmount - liablities
 
+{-# INLINEABLE calcReserveCoinRate #-}
+calcReserveCoinRate :: BankParam -> BankState -> Rate -> Ratio Integer
+calcReserveCoinRate BankParam {rcDefaultRate} bs@BankState {reserveCoinAmount} rate
+  | reserveCoinAmount /= 0 = rcRate
+  | otherwise = rcDefaultRate
+  where
+    equity = calcEquity bs rate
+    rcRate = equity * Ratio.recip (fromInteger reserveCoinAmount)
 
--- {-# INLINEABLE calcStableCoinRate #-}
--- calcStableCoinRate :: BankState -> Rate -> Integer
--- calcStableCoinRate bs@BankState{stableCoinAmount} rate
---     | stableCoinAmount == 0 = rate
---     | otherwise = min rate liableRate
---     where
---         defaultRate = rate
---         liableRate = calcLiablities bs rate
-     
 --TODO refactor to functions for remove duplicate code
 --TODO check for observation slot for oracle so apply date constraints must validate in
 --TODO conversion of rc amount and sc amount to base currency
 {-# INLINEABLE transition #-}
 transition :: BankParam -> State BankState -> BankInput -> Maybe (TxConstraints Void Void, State BankState)
-transition bankParam State {stateData = oldStateData} BankInput {bankInputAction} = do
-  let (newConstraints, newStateData) = case bankInputAction of
+transition bankParam@BankParam {} State {stateData = oldStateData} BankInput {bankInputAction, rate} = do
+  --   (Observation {obsValue = rate, obsSlot}, oracleConstraints) <- either (const Nothing) pure (verifySignedMessageConstraints oracleAddress rateObs)
+  let rcRate = calcReserveCoinRate bankParam oldStateData rate
+      scRate = calcStableCoinRate oldStateData rate
+      (newConstraints, newStateData) = case bankInputAction of
         MintReserveCoin rcAmt ->
           let constraints = Constraints.mustForgeCurrency (policyScript oldStateData) (reserveCoinTokenName bankParam) rcAmt
-              valueInBaseCurrency = rcAmt * 1 -- TODO currently one calculate rate
-              newBaseReserve = baseReserveAmount oldStateData + valueInBaseCurrency -- TODO currently one calculate rate
+              valueInBaseCurrency = fromInteger rcAmt * rcRate
+              newBaseReserve = baseReserveAmount oldStateData + round valueInBaseCurrency
            in ( constraints,
                 oldStateData
                   { reserveCoinAmount = reserveCoinAmount oldStateData + rcAmt,
                     baseReserveAmount = newBaseReserve
                   }
               )
-        MintStableCoin scAmt ->
-          let constraints = Constraints.mustForgeCurrency (policyScript oldStateData) (stableCoinTokenName bankParam) scAmt
-              valueInBaseCurrency = scAmt * 1 -- TODO currently one calculate rate
-              newBaseReserve = baseReserveAmount oldStateData + valueInBaseCurrency -- TODO currently one calculate rate
-           in ( constraints,
-                oldStateData
-                  { stableCoinAmount = stableCoinAmount oldStateData + scAmt,
-                    baseReserveAmount = newBaseReserve
-                  }
-              )
-        ReedemStableCoin scAmt ->
-          let constraints = Constraints.mustForgeCurrency (policyScript oldStateData) (stableCoinTokenName bankParam) (negate scAmt)
-              valueInBaseCurrency = scAmt * 1 -- TODO currently one calculate rate
-              newBaseReserve = baseReserveAmount oldStateData - valueInBaseCurrency
-           in ( constraints,
-                oldStateData
-                  { stableCoinAmount = stableCoinAmount oldStateData - scAmt,
-                    baseReserveAmount = newBaseReserve
-                  }
-              )
-        ReedemReserveCoin rcAmt ->
+        RedeemReserveCoin rcAmt ->
           let constraints = Constraints.mustForgeCurrency (policyScript oldStateData) (reserveCoinTokenName bankParam) (negate rcAmt)
-              valueInBaseCurrency = rcAmt * 1 -- TODO currently one calculate rate
-              newBaseReserve = baseReserveAmount oldStateData - valueInBaseCurrency
+              valueInBaseCurrency = fromInteger rcAmt * rcRate
+              newBaseReserve = baseReserveAmount oldStateData - round valueInBaseCurrency
            in ( constraints,
                 oldStateData
                   { reserveCoinAmount = reserveCoinAmount oldStateData - rcAmt,
                     baseReserveAmount = newBaseReserve
                   }
               )
+        MintStableCoin scAmt ->
+          let constraints = Constraints.mustForgeCurrency (policyScript oldStateData) (stableCoinTokenName bankParam) scAmt
+              valueInBaseCurrency = fromInteger scAmt * scRate
+              newBaseReserve = baseReserveAmount oldStateData + round valueInBaseCurrency -- TODO currently one calculate rate
+           in ( constraints,
+                oldStateData
+                  { stableCoinAmount = stableCoinAmount oldStateData + scAmt,
+                    baseReserveAmount = newBaseReserve
+                  }
+              )
+        RedeemStableCoin scAmt ->
+          let constraints = Constraints.mustForgeCurrency (policyScript oldStateData) (stableCoinTokenName bankParam) (negate scAmt)
+              valueInBaseCurrency = fromInteger scAmt * scRate
+              newBaseReserve = baseReserveAmount oldStateData - round valueInBaseCurrency
+           in ( constraints,
+                oldStateData
+                  { stableCoinAmount = stableCoinAmount oldStateData - scAmt,
+                    baseReserveAmount = newBaseReserve
+                  }
+              )
 
-  guard $ isNewStateValid bankParam newStateData
+  guard $ isNewStateValid bankParam newStateData rate
   let state =
         State
           { stateData = newStateData,
             stateValue = Ada.lovelaceValueOf (baseReserveAmount newStateData)
           }
-  pure (newConstraints, state)
+  --   dateConstraints = Constraints.mustValidateIn $ Interval.from obsSlot
+
+  pure
+    ( newConstraints,
+      -- <> oracleConstraints,
+      -- <>   dateConstraints
+      state
+    )
 
 {-# INLINEABLE isNewStateValid #-}
-isNewStateValid :: BankParam -> BankState -> Bool
-isNewStateValid bankParam bankState = isRight (checkForValidState bankParam bankState)
+isNewStateValid :: BankParam -> BankState -> Rate -> Bool
+isNewStateValid bankParam bankState rate = isRight (checkForValidState bankParam bankState rate)
 
 {-# INLINEABLE checkForValidState #-}
-checkForValidState :: BankParam -> BankState -> Either ErrorState ()
-checkForValidState bankParam bankState@BankState {baseReserveAmount, stableCoinAmount, reserveCoinAmount} = do
+checkForValidState :: BankParam -> BankState -> Rate -> Either ErrorState ()
+checkForValidState bankParam bankState@BankState {baseReserveAmount, stableCoinAmount, reserveCoinAmount} rate = do
   unless (baseReserveAmount >= 0) (Left NegativeReserves)
   unless (reserveCoinAmount >= 0) (Left NegativeReserveCoins)
   unless (stableCoinAmount >= 0) (Left NegativeStablecoins)
+  unless (calcLiablities bankState rate >= zero) (Left NegativeLiabilities)
+  unless (calcEquity bankState rate >= zero) (Left NegativeEquity)
 
--- unless (liabilities bankState >= zero) (Left NegativeLiabilities)
--- unless (equity bankState >= zero) (Left NegativeEquity)
+  let actualReserves = fromInteger baseReserveAmount
+      allowedReserves = (,) <$> minReserve bankParam bankState rate <*> maxReserve bankParam bankState rate
 
--- let allowedReserves = (,) <$> minReserve bankParam bankState <*> maxReserve bankParam bankState
+  case allowedReserves of
+    Just (minReserves, maxReserves) -> do
+      unless (actualReserves >= minReserves) (Left $ MinReserves minReserves actualReserves)
+      unless (actualReserves <= maxReserves) (Left $ MaxReserves maxReserves actualReserves)
+    Nothing -> pure ()
 
--- case allowedReserves of
---     Just (minReserves, maxReserves) -> do
---         unless (baseReserveAmount >= minReserves) (Left $ MinReserves minReserves actualReserves)
---         unless (baseReserveAmount <= maxReserves) (Left $ MaxReserves maxReserves actualReserves)
---     Nothing -> pure ()
+{-# INLINEABLE minReserve #-}
+minReserve :: BankParam -> BankState -> Rate -> Maybe (Ratio Integer)
+minReserve BankParam {minReserveRatio} BankState {stableCoinAmount} rate
+  | stableCoinAmount == zero = Nothing
+  | otherwise =
+    let currentScValue = rate * fromInteger stableCoinAmount
+     in Just $ minReserveRatio * currentScValue
 
--- {-# INLINEABLE liabilities #-}
--- liabilities ::    BankState    -> ConversionRate    -> BC (Ratio Integer)
--- liabilities BankState{baseReserveAmount, stableCoinAmount, reserveCoinAmount} cr =
---     let stableCoinLiabilities = convert cr (PC $ fromInteger stablecoins) stableCoinAmount * 1
---     in BC (min (fromInteger reserves) stableCoinLiabilities)
-
--- {-# INLINEABLE equity #-}
--- equity ::    BankState    -> ConversionRate    -> BC (Ratio Integer)
--- equity r@BankState{bsReserves=BC reserves} cr =
---     let BC l = liabilities r cr
---     in BC (fromInteger reserves - l)
+{-# INLINEABLE maxReserve #-}
+maxReserve :: BankParam -> BankState -> Rate -> Maybe (Ratio Integer)
+maxReserve BankParam {maxReserveRatio} BankState {stableCoinAmount} rate
+  | stableCoinAmount == zero = Nothing
+  | otherwise =
+    let currentScValue = rate * fromInteger stableCoinAmount
+     in Just $ maxReserveRatio * currentScValue
 
 data ErrorState
   = NegativeReserveCoins
   | NegativeReserves
   | NegativeStablecoins
-  | MinReserves {allowed :: Integer, actual :: Integer}
-  | MaxReserves {allowed :: Integer, actual :: Integer}
+  | MinReserves {allowed :: Ratio Integer, actual :: Ratio Integer}
+  | MaxReserves {allowed :: Ratio Integer, actual :: Ratio Integer}
   | NegativeLiabilities
   | NegativeEquity
   deriving (Show)
@@ -240,14 +286,6 @@ data BankStateError
   deriving stock (Prelude.Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
--- makeClassyPrisms ''BankStateError
-
--- instance AsContractError BankStateError where
---     _ContractError = _MSContractError
-
--- instance AsSMContractError BankStateError where
---     _SMContractError = _MSStateMachineError
-
 stableCoinName :: TokenName
 stableCoinName = "StableToken"
 
@@ -258,7 +296,10 @@ bp :: BankParam
 bp =
   BankParam
     { stableCoinTokenName = stableCoinName,
-      reserveCoinTokenName = reserveCoinName
+      reserveCoinTokenName = reserveCoinName,
+      minReserveRatio = zero,
+      maxReserveRatio = 4 % 1,
+      rcDefaultRate = 1 % 1
     }
 
 client :: StateMachineClient BankState BankInput
@@ -268,48 +309,67 @@ mapError' :: Contract w s SMContractError a -> Contract w s Text a
 mapError' = mapError $ pack . show
 
 start :: HasBlockchainActions s => Integer -> Contract w s Text ()
-start i = do
+start _ = do
   void $ mapError' $ SM.runInitialise client (initialState client) mempty
 
-mintStableCoin :: HasBlockchainActions s => Integer -> Contract w s Text ()
-mintStableCoin noOfStableCoins = do
+mintStableCoin :: HasBlockchainActions s => EndpointInput -> Contract w s Text ()
+mintStableCoin endpointInput@EndpointInput {tokenAmount} = do
   let input =
         BankInput
-          { bankInputAction = MintStableCoin noOfStableCoins
+          { rate = getRatioFromInput endpointInput,
+            bankInputAction = MintStableCoin tokenAmount
+          }
+  logInfo @String $ "calling mint" ++ (show endpointInput)
+  void $ mapError' $ SM.runStep client input
+
+redeemStableCoin :: HasBlockchainActions s => EndpointInput -> Contract w s Text ()
+redeemStableCoin endpointInput@EndpointInput {tokenAmount} = do
+  let input =
+        BankInput
+          { rate = getRatioFromInput endpointInput,
+            bankInputAction = RedeemStableCoin tokenAmount
           }
   void $ mapError' $ SM.runStep client input
 
-redeemStableCoin :: HasBlockchainActions s => Integer -> Contract w s Text ()
-redeemStableCoin noOfStableCoins = do
+mintReserveCoin :: HasBlockchainActions s => EndpointInput -> Contract w s Text ()
+mintReserveCoin endpointInput@EndpointInput {tokenAmount} = do
   let input =
         BankInput
-          { bankInputAction = ReedemStableCoin noOfStableCoins
+          { rate = getRatioFromInput endpointInput,
+            bankInputAction = MintReserveCoin tokenAmount
           }
   void $ mapError' $ SM.runStep client input
 
-mintReserveCoin :: HasBlockchainActions s => Integer -> Contract w s Text ()
-mintReserveCoin noOfStableCoins = do
+redeemReserveCoin :: HasBlockchainActions s => EndpointInput -> Contract w s Text ()
+redeemReserveCoin endpointInput@EndpointInput {tokenAmount} = do
   let input =
         BankInput
-          { bankInputAction = MintStableCoin noOfStableCoins
+          { rate = getRatioFromInput endpointInput,
+            bankInputAction = RedeemReserveCoin tokenAmount
           }
   void $ mapError' $ SM.runStep client input
 
-redeemReserveCoin :: HasBlockchainActions s => Integer -> Contract w s Text ()
-redeemReserveCoin noOfStableCoins = do
-  let input =
-        BankInput
-          { bankInputAction = ReedemStableCoin noOfStableCoins
-          }
-  void $ mapError' $ SM.runStep client input
+getRatioFromInput :: EndpointInput -> Ratio Integer
+getRatioFromInput EndpointInput{rateNume,rateDeno} = rateNume % rateDeno
+
+data EndpointInput = EndpointInput
+  { --Signed message from oracle provider  for exchange rate
+    rateNume :: Integer,
+    rateDeno :: Integer,
+    tokenAmount :: Integer
+  }
+  deriving stock (Generic, Prelude.Eq, Prelude.Show)
+  deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 type BankStateSchema =
   BlockchainActions
     .\/ Endpoint "start" Integer
-    .\/ Endpoint "mintStableCoin" Integer
-    .\/ Endpoint "redeemStableCoin" Integer
-    .\/ Endpoint "mintReserveCoin" Integer
-    .\/ Endpoint "redeemReserveCoin" Integer
+    .\/ Endpoint "mintStableCoin" EndpointInput
+    .\/ Endpoint "redeemStableCoin" EndpointInput
+    .\/ Endpoint "mintReserveCoin" EndpointInput
+    .\/ Endpoint "redeemReserveCoin" EndpointInput
+
+mkSchemaDefinitions ''BankStateSchema
 
 endpoints :: Contract () BankStateSchema Text ()
 endpoints =
@@ -326,36 +386,6 @@ endpoints =
     redeemStableCoin' = endpoint @"redeemStableCoin" >>= redeemStableCoin
     mintReserveCoin' = endpoint @"mintReserveCoin" >>= mintReserveCoin
     redeemReserveCoin' = endpoint @"redeemReserveCoin" >>= redeemReserveCoin
-
--- contract ::
---     ( AsContractError e
---     , AsSMContractError e
---     )
---     => Contract () BankStateSchema e ()
--- contract = forever endpoints  where
---     bankParam = BankParam
---                 {   stableCoinTokenName = stableCoinName
---                 ,   reserveCoinTokenName = reserveCoinName
---                 }
-
---     client = machineClient (scriptInstance bankParam) bankParam
---     endpoints = (TransitionSuccess <$> start) `select` mintStableCoin `select` mintReserveCoin
---     start = do
---         mapError StateMachineError $ SM.runInitialise client (initialState client) mempty
-
---     mintStableCoin  = do
---         noOfStableCoins <- mapError RunStepError (endpoint @"mintStableCoin")
---         let input = BankInput{
---                     bankInputAction = MintStableCoin noOfStableCoins
---                 }
---         mapError StateMachineError $ SM.runStep client input
-
---     mintReserveCoin = do
---         noOfReserveCoins <- mapError RunStepError (endpoint @"mintReserveCoin")
---         let input = BankInput{
---                     bankInputAction = MintReserveCoin noOfReserveCoins
---                 }
---         mapError StateMachineError $ SM.runStep client input
 
 PlutusTx.makeLift ''BankState
 PlutusTx.makeLift ''BankParam
