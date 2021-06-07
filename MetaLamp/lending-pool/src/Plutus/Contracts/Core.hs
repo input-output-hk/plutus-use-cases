@@ -24,7 +24,7 @@ import qualified Data.Map                         as Map
 import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void)
 import           Ext.Plutus.Ledger.Contexts       (findDatumHashByValue,
-                                                   findValueByDatumHash,
+                                                   findValueByDatumHash,valueSpentFrom,
                                                    parseDatum)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
@@ -256,13 +256,16 @@ validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
     scriptOutputs = scriptOutputsAt scriptsHash txInfo
 
-    spentValue = txOutValue . txInInfoResolved <$> findOwnInput ctx
-    remainderValue = findValueByDatumHash scriptsDatumHash scriptOutputs
-    paidValue = valuePaidTo txInfo actor
+    scriptSpentValue = txOutValue . txInInfoResolved <$> findOwnInput ctx
+    scriptRemainderValue = findValueByDatumHash scriptsDatumHash scriptOutputs
+    actorSpentValue = valueSpentFrom txInfo actor
+    actorRemainderValue = valuePaidTo txInfo actor
 
-    isValidFundsTransformation = maybe False checkFundsState $ (,) <$> spentValue <*> remainderValue
+    isValidFundsTransformation = maybe False checkFundsState $ (,) <$> scriptSpentValue <*> scriptRemainderValue
     checkFundsState :: (Value, Value) -> Bool
-    checkFundsState (oldFunds, newFunds) = assetClassValueOf oldFunds reserveId - assetClassValueOf newFunds reserveId == assetClassValueOf paidValue reserveId
+    checkFundsState (oldFunds, newFunds) =
+      let paidAmout = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
+       in assetClassValueOf oldFunds reserveId - assetClassValueOf newFunds reserveId == paidAmout
 
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
