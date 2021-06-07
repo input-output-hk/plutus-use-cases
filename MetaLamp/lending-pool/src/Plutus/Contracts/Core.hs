@@ -182,36 +182,41 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     checkRedeemerConfig :: UserConfig -> Bool
     checkRedeemerConfig UserConfig{..} = ucUsingAsCollateral
 
-validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) = trace "ReservesDatum" $ isNothing investmentValue
+validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) =
+  traceIfFalse "validateDeposit: Reserves Datum change is not valid" isValidReservesTransformation
   where
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    scriptOutputs = scriptOutputsAt scriptsHash txInfo
+
     reservesOutputDatumHash =
-      findDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
+      findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     reservesOutputDatum ::
          Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
     reservesOutputDatum =
       reservesOutputDatumHash >>= (`findDatum` txInfo) >>= (PlutusTx.fromData . getDatum) >>= pickReserves
 
     investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData DepositDatum) txInfo
-    investmentValue = investmentDatumHash >>= (`findValueByDatumHash` scriptOutputsAt scriptsHash txInfo)
+    investmentValue = investmentDatumHash >>= (`findValueByDatumHash` scriptOutputs)
 
     isValidReservesTransformation :: Bool
     isValidReservesTransformation =
       maybe False checkreserves reservesOutputDatum
-    checkreserves ::
-         (AssetClass, AssocMap.Map ReserveId Reserve) -> Bool
+    checkreserves :: (AssetClass, AssocMap.Map ReserveId Reserve) -> Bool
     checkreserves (newStateToken, newReserves) =
       newStateToken == stateToken &&
-      maybe False checkRedeemerConfig (AssocMap.lookup reserveId newReserves)
-    checkRedeemerConfig :: Reserve -> Bool
-    checkRedeemerConfig Reserve{..} = False
+      maybe
+        False
+        checkReserveState
+        ((,,) <$> investmentValue <*> AssocMap.lookup reserveId reserves <*> AssocMap.lookup reserveId newReserves)
+    checkReserveState :: (Value, Reserve, Reserve) -> Bool
+    checkReserveState (value, oldState, newState) =
+      assetClassValueOf value reserveId == (rAmount newState - rAmount oldState)
 validateDeposit aave (LendingPoolDatum _) ctx userConfigId = trace "LendingPoolDatum" False
 validateDeposit aave DepositDatum ctx userConfigId = trace "DepositDatum" False
 validateDeposit aave WithdrawDatum ctx userConfigId = trace "WithdrawDatum" False
 validateDeposit aave BorrowDatum ctx userConfigId = trace "BorrowDatum" False
 validateDeposit aave RepayDatum ctx userConfigId = trace "RepayDatum" False
-
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
