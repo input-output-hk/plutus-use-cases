@@ -33,6 +33,7 @@ library
                , rhyolite-backend-notification-postgres
                , obelisk-backend
                , obelisk-route
+               , vector
                , vessel
   exposed-modules:
     Backend

@@ -17,6 +17,7 @@ import Data.Text (Text)
 import Data.Vessel
 
 import Common.Plutus.Contracts.Uniswap.Types
+import Common.Schema
 
 commonStuff :: String
 commonStuff = "Here is a string defined in Common.Api"
@@ -27,6 +28,7 @@ type DexV = Vessel Q
 data Q (v :: (* -> *) -> *) where
   Q_Counter :: Q (IdentityV (First (Maybe Int32)))
   Q_ContractList :: Q (IdentityV (First (Maybe [Text])))
+  Q_PooledTokens :: Q (IdentityV (First (Maybe [PooledToken])))
 
 data Api :: * -> * where
   Api_IncrementCounter :: Api ()

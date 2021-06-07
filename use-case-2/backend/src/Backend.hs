@@ -20,6 +20,7 @@ import Data.Proxy
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import Data.Vessel
 import Database.Beam (MonadBeam)
 import Database.Beam.Backend.SQL.BeamExtensions
@@ -51,6 +52,7 @@ backend = Backend
       withDb "db" $ \pool -> do
         withResource pool runMigrations
         getWallets httpManager pool
+        getPooledTokens httpManager pool
         withResource pool $ \conn -> runBeamPostgres conn ensureCounterExists
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
@@ -94,6 +96,9 @@ queryHandler pool v = buildV v $ \case
   Q_ContractList -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
     contracts <- runSelectReturningList $ select $ all_ (_db_contracts db)
     return $ IdentityV $ Identity $ First $ Just $ _contract_id <$> contracts
+  Q_PooledTokens -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+    pooledTokens <- runSelectReturningList $ select $ all_ (_db_pooledTokens db)
+    return $ IdentityV $ Identity $ First $ Just $ pooledTokens
 
 getWallets :: Manager -> Pool Pg.Connection -> IO ()
 getWallets httpManager pool = do
@@ -107,12 +112,37 @@ getWallets httpManager pool = do
       let contractInstanceIds = obj ^.. values . key "cicContract". key "unContractInstanceId" . _String
           walletIds = obj ^.. values . key "cicWallet". key "getWallet" . _Integer
           walletContracts = zipWith (\a b -> Contract a (fromIntegral b)) contractInstanceIds walletIds
-      print walletContracts -- DEBUG: Logging incoming wallets/contract ids
-      -- Parse response and place in DB
+      print $ "Wallet Ids persisted: " ++ show walletContracts -- DEBUG: Logging incoming wallets/contract ids
+      -- Persist participating wallet addresses to Postgresql
       runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
         runInsert $ insertOnConflict (_db_contracts db) (insertValues walletContracts)
           (conflictingFields _contract_id)
           onConflictDoNothing
+  return ()
+
+getPooledTokens :: Manager -> Pool Pg.Connection -> IO ()
+getPooledTokens httpManager pool = do
+  initReq <- parseRequest "http://localhost:8080/api/new/contract/instances"
+  let req = initReq { method = "GET" }
+  resp <- httpLbs req httpManager
+  let val = Aeson.eitherDecode (responseBody resp) :: Either String Aeson.Value
+  case val of
+    Left _ -> return () -- TODO: Handle error properly
+    Right obj -> do
+      -- aeson-lens happened here in order to get currency symbols and token names from json
+      let objList = obj ^..
+            values . key "cicCurrentState". key "observableState" . key "Right" . key "contents" . values . values . _Array
+          tokenInfo = (V.! 0) <$> objList
+          currencySymbols = tokenInfo ^.. traverse . key "unAssetClass" . values . key "unCurrencySymbol" . _String
+          tokenNames = tokenInfo ^.. traverse . key "unAssetClass" . values . key "unTokenName" . _String
+          pooledTokens = zipWith (\a b -> PooledToken a b) currencySymbols tokenNames
+      print $ "Pool tokens persisted: " ++ show pooledTokens -- DEBUG: Logging incoming pooled tokens
+      -- Persist current state of pool tokens to Postgresql
+      runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+        runInsert $ insertOnConflict (_db_pooledTokens db) (insertValues pooledTokens)
+          (conflictingFields _pooledToken_symbol)
+          onConflictDoNothing
+      return ()
   return ()
 
   -- This function's is modeled after the following curl that submits a request to perform a swap against PAB.

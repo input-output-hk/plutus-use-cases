@@ -30,6 +30,7 @@ import Rhyolite.Frontend.App
 import Common.Api
 import Common.Route
 import Common.Plutus.Contracts.Uniswap.Types
+import Common.Schema
 
 
 -- This runs in a monad that can be run on the client or the server.
@@ -73,6 +74,12 @@ app = do
     el "h3" $ text "Wallet Accounts"
     el "p" $ text "Here is the list of available wallets: "
     display =<< viewContracts
+  -- TODO: Get a list of coins that are supported in the token pool
+  el "div" $ do
+    el "h3" $ text "List of Swappable Tokens"
+    el "p" $ text "Here is the list of tokens we support: "
+    display =<< viewPooledTokens
+  -- Example of making a swap call
   el "div" $ do
     el "h3" $ text "Swap"
     swap <- button "swap"
@@ -90,3 +97,6 @@ viewCounter = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ 
 
 viewContracts :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe [Text])))
 viewContracts = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_ContractList . identityV
+
+viewPooledTokens :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe [PooledToken])))
+viewPooledTokens = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
