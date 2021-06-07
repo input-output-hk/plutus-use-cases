@@ -65,7 +65,6 @@ data Reserve = Reserve
     { rCurrency                :: ReserveId,
       rAToken                  :: AssetClass,
       rAmount                  :: Integer,
-      rDebtToken               :: AssetClass,
       rLiquidityIndex          :: Integer,
       rCurrentStableBorrowRate :: Rational
     }
@@ -171,14 +170,18 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
-    checkUserConfigs ::
-         (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
+    checkUserConfigs :: (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
-      maybe False checkRedeemerConfig (AssocMap.lookup userConfigId newUserConfigs)
-    -- TODO check that other fields are not changed
-    checkRedeemerConfig :: UserConfig -> Bool
-    checkRedeemerConfig UserConfig{..} = ucUsingAsCollateral
+      maybe
+        False
+        (checkRedeemerConfig (AssocMap.lookup userConfigId userConfigs))
+        (AssocMap.lookup userConfigId newUserConfigs)
+
+    checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
+    checkRedeemerConfig oldState newState =
+      ucUsingAsCollateral newState &&
+      maybe True ((ucDebt newState ==) . ucDebt) oldState
 
 validateDeposit aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateDeposit: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
@@ -222,13 +225,13 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
       maybe False (checkRedeemerConfig $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
-    -- TODO check that other fields are not changed
     checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
       let oldDebt = fromMaybe 0 $ oldState >>= ucDebt
           debtAmount = maybe 0 (flip (-) oldDebt) (ucDebt newState)
           disbursementAmount = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
-       in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0
+       in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0 &&
+          maybe (not $ ucUsingAsCollateral newState) ((ucUsingAsCollateral newState ==) . ucUsingAsCollateral) oldState
 
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
@@ -263,12 +266,12 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
       newStateToken == stateToken &&
       (Just True ==
        (checkRedeemerConfig <$> AssocMap.lookup userConfigId userConfigs <*> AssocMap.lookup userConfigId newUserConfigs))
-    -- TODO check that other fields are not changed
     checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
       let debtChange = fromMaybe 0 $ (-) <$> ucDebt oldState <*> ucDebt newState
           reimbursementAmount = assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
-       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0
+       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 &&
+          ucUsingAsCollateral oldState == ucUsingAsCollateral newState
 
 validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
@@ -322,11 +325,10 @@ checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
         False
         checkReserveState
         ((,,) <$> remainderValue <*> AssocMap.lookup reserveId reserves <*> AssocMap.lookup reserveId newReserves)
-    -- TODO check that other fields are not changed
     checkReserveState :: (Value, Reserve, Reserve) -> Bool
     checkReserveState (value, oldState, newState) =
       let fundsAmount = rAmount newState
-      in  assetClassValueOf value reserveId == fundsAmount && fundsAmount >= 0
+      in  assetClassValueOf value reserveId == fundsAmount && fundsAmount >= 0 && checkReservesConsistency oldState newState
 
 checkPositiveReservesTransformation :: AssetClass
   -> AssocMap.Map AssetClass Reserve
@@ -356,11 +358,17 @@ checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = may
         False
         checkReserveState
         ((,,) <$> investmentValue <*> AssocMap.lookup reserveId reserves <*> AssocMap.lookup reserveId newReserves)
-    -- TODO check that other fields are not changed
     checkReserveState :: (Value, Reserve, Reserve) -> Bool
     checkReserveState (value, oldState, newState) =
       let fundsChange = rAmount newState - rAmount oldState
-      in  assetClassValueOf value reserveId == fundsChange && fundsChange > 0
+      in  assetClassValueOf value reserveId == fundsChange && fundsChange > 0 && checkReservesConsistency oldState newState
+
+checkReservesConsistency :: Reserve -> Reserve -> Bool
+checkReservesConsistency oldState newState =
+  rCurrency oldState == rCurrency newState &&
+  rAToken oldState == rAToken newState &&
+  rLiquidityIndex oldState == rLiquidityIndex newState &&
+  rCurrentStableBorrowRate oldState == rCurrentStableBorrowRate newState
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

@@ -71,7 +71,6 @@ createReserve CreateParams {..} =
         { rCurrency = cpAsset,
           rAmount = 0,
           rAToken = AToken.makeAToken cpAsset,
-          rDebtToken = cpAsset,
           rLiquidityIndex = 1,
           rCurrentStableBorrowRate = 11 % 10 -- TODO configure borrow rate when lending core will be ready
            }
