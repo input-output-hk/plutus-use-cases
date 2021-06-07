@@ -17,7 +17,7 @@ import Mlabs.Lending.Logic.Types
 
 
 import qualified Data.Map.Strict as M
-import qualified PlutusTx.Ratio as R
+import qualified Mlabs.Data.Ray as R
 
 -- | Test suite for a logic of lending application
 test :: TestTree
@@ -173,7 +173,7 @@ repayScript = do
 liquidationCallScript :: Bool -> Script
 liquidationCallScript receiveAToken = do
   borrowScript
-  priceAct user1 $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct user1 $ SetAssetPriceAct coin2 (R.fromInteger 2)
   userAct user2 $ LiquidationCallAct
       { act'collateral     = coin1
       , act'debt           = BadBorrow user1 coin2
@@ -185,7 +185,7 @@ liquidationCallScript receiveAToken = do
 
 wrongUserPriceSetScript :: Script
 wrongUserPriceSetScript = do
-  priceAct user2 $ SetAssetPrice coin2 (R.fromInteger 2)
+  priceAct user2 $ SetAssetPriceAct coin2 (R.fromInteger 2)
 
 ---------------------------------
 -- constants
@@ -225,8 +225,9 @@ aCoin2 = fromToken aToken2
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 testAppConfig :: AppConfig
-testAppConfig = AppConfig reserves users lendingPoolCurrency oracles
+testAppConfig = AppConfig reserves users lendingPoolCurrency admins oracles
   where
+    admins  = [user1]
     oracles = [user1]
 
     reserves = fmap (\(coin, aCoin) -> CoinCfg

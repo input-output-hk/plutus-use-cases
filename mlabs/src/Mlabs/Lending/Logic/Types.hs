@@ -43,16 +43,18 @@ module Mlabs.Lending.Logic.Types(
 
 import Data.Aeson (FromJSON, ToJSON)
 
-import qualified PlutusTx.Ratio as R
 import qualified Prelude as Hask
 import qualified PlutusTx as PlutusTx
-import PlutusTx.Prelude
+import PlutusTx.Prelude hiding ((%))
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
+import Playground.Contract (ToSchema)
 import GHC.Generics
 
 import Mlabs.Emulator.Types
+import Mlabs.Data.Ray (Ray, (%))
+import qualified Mlabs.Data.Ray as R
 
 -- | Unique identifier of the lending pool state.
 newtype LendexId = LendexId ByteString
@@ -67,6 +69,7 @@ data LendingPool = LendingPool
   , lp'currency       :: !CurrencySymbol         -- ^ main currencySymbol of the app
   , lp'coinMap        :: !(Map TokenName Coin)   -- ^ maps aTokenNames to actual coins
   , lp'healthReport   :: !HealthReport           -- ^ map of unhealthy borrows
+  , lp'admins         :: ![UserId]               -- ^ we accept govern acts only for those users
   , lp'trustedOracles :: ![UserId]               -- ^ we accept price changes only for those users
   }
   deriving (Show, Generic)
@@ -77,15 +80,15 @@ data LendingPool = LendingPool
 data Reserve = Reserve
   { reserve'wallet               :: !Wallet     -- ^ total amounts of coins deposited to reserve
   , reserve'rate                 :: !CoinRate   -- ^ ratio of reserve's coin to base currency
-  , reserve'liquidationThreshold :: !Rational   -- ^ ratio at which liquidation of collaterals can happen for this coin
-  , reserve'liquidationBonus     :: !Rational   -- ^ ratio of bonus for liquidation of the borrow in collateral of this asset
+  , reserve'liquidationThreshold :: !Ray        -- ^ ratio at which liquidation of collaterals can happen for this coin
+  , reserve'liquidationBonus     :: !Ray        -- ^ ratio of bonus for liquidation of the borrow in collateral of this asset
   , reserve'aToken               :: !TokenName  -- ^ aToken corresponding to the coin of the reserve
   , reserve'interest             :: !ReserveInterest -- ^ reserve liquidity params
   }
   deriving (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
-type HealthReport = Map BadBorrow Rational
+type HealthReport = Map BadBorrow Ray
 
 -- | Borrow that don't has enough collateral.
 -- It has health check ration below one.
@@ -102,7 +105,7 @@ instance Eq BadBorrow where
 
 -- | Price of the given currency to Ada.
 data CoinRate = CoinRate
-  { coinRate'value          :: !Rational -- ^ ratio to ada
+  { coinRate'value          :: !Ray      -- ^ ratio to ada
   , coinRate'lastUpdateTime :: !Integer  -- ^ last time price was updated
   }
   deriving (Show, Generic)
@@ -111,22 +114,22 @@ data CoinRate = CoinRate
 -- | Parameters for calculation of interest rates.
 data ReserveInterest = ReserveInterest
   { ri'interestModel      :: !InterestModel
-  , ri'liquidityRate      :: !Rational
-  , ri'liquidityIndex     :: !Rational
-  , ri'normalisedIncome   :: !Rational
+  , ri'liquidityRate      :: !Ray
+  , ri'liquidityIndex     :: !Ray
+  , ri'normalisedIncome   :: !Ray
   , ri'lastUpdateTime     :: !Integer
   }
   deriving (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 data InterestModel = InterestModel
-  { im'optimalUtilisation  :: !Rational
-  , im'slope1              :: !Rational
-  , im'slope2              :: !Rational
-  , im'base                :: !Rational
+  { im'optimalUtilisation  :: !Ray
+  , im'slope1              :: !Ray
+  , im'slope2              :: !Ray
+  , im'base                :: !Ray
   }
   deriving (Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 defaultInterestModel :: InterestModel
 defaultInterestModel = InterestModel
@@ -139,23 +142,24 @@ defaultInterestModel = InterestModel
 -- | Coin configuration
 data CoinCfg = CoinCfg
   { coinCfg'coin             :: Coin
-  , coinCfg'rate             :: Rational
+  , coinCfg'rate             :: Ray
   , coinCfg'aToken           :: TokenName
   , coinCfg'interestModel    :: InterestModel
-  , coinCfg'liquidationBonus :: Rational
+  , coinCfg'liquidationBonus :: Ray
   }
   deriving stock (Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 {-# INLINABLE initLendingPool #-}
-initLendingPool :: CurrencySymbol -> [CoinCfg] -> [UserId] -> LendingPool
-initLendingPool curSym coinCfgs oracles =
+initLendingPool :: CurrencySymbol -> [CoinCfg] -> [UserId] -> [UserId] -> LendingPool
+initLendingPool curSym coinCfgs admins oracles =
   LendingPool
     { lp'reserves       = reserves
     , lp'users          = M.empty
     , lp'currency       = curSym
     , lp'coinMap        = coinMap
     , lp'healthReport   = M.empty
+    , lp'admins         = admins
     , lp'trustedOracles = oracles
     }
   where
@@ -200,7 +204,7 @@ data User = User
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Health ratio for user per borrow
-type Health = Map Coin Rational
+type Health = Map Coin Ray
 
 {-# INLINABLE defaultUser #-}
 -- | Default user with no wallets.
@@ -218,7 +222,7 @@ data Wallet = Wallet
   { wallet'deposit       :: !Integer   -- ^ amount of deposit
   , wallet'collateral    :: !Integer   -- ^ amount of collateral
   , wallet'borrow        :: !Integer   -- ^ amount of borrow
-  , wallet'scaledBalance :: !Rational  -- ^ scaled balance
+  , wallet'scaledBalance :: !Ray       -- ^ scaled balance
   }
   deriving (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -240,7 +244,10 @@ data Act
       , priceAct'userId     :: UserId
       , priceAct'act        :: PriceAct
       }                              -- ^ price oracle's actions
-  | GovernAct GovernAct              -- ^ app admin's actions
+  | GovernAct
+      { governAct'userd     :: UserId
+      , goverAct'act        :: GovernAct
+      }                              -- ^ app admin's actions
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -252,14 +259,14 @@ data UserAct
       }
   -- ^ deposit funds
   | BorrowAct
-      { act'asset           :: Coin
-      , act'amount          :: Integer
+      { act'amount          :: Integer
+      , act'asset           :: Coin
       , act'rate            :: InterestRate
       }
   -- ^ borrow funds. We have to allocate collateral to be able to borrow
   | RepayAct
-      { act'asset           :: Coin
-      , act'amount          :: Integer
+      { act'amount          :: Integer
+      , act'asset           :: Coin
       , act'rate            :: InterestRate
       }
   -- ^ repay part of the borrow
@@ -271,7 +278,7 @@ data UserAct
   | SetUserReserveAsCollateralAct
       { act'asset           :: Coin       -- ^ which asset to use as collateral or not
       , act'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
-      , act'portion         :: Rational   -- ^ poriton of deposit/collateral to change status (0, 1)
+      , act'portion         :: Ray        -- ^ poriton of deposit/collateral to change status (0, 1)
       }
   -- ^ set some portion of deposit as collateral or some portion of collateral as deposit
   | WithdrawAct
@@ -296,13 +303,13 @@ data UserAct
 
 -- | Acts that can be done by admin users.
 data GovernAct
-  = AddReserve CoinCfg  -- ^ Adds new reserve
+  = AddReserveAct CoinCfg  -- ^ Adds new reserve
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Updates for the prices of the currencies on the markets
 data PriceAct
-  = SetAssetPrice Coin Rational   -- ^ Set asset price
+  = SetAssetPriceAct Coin Ray        -- ^ Set asset price
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 

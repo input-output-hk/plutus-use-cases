@@ -8,6 +8,7 @@ module Test.Lending.Init(
   , aCoin1, aCoin2, aCoin3
   , initialDistribution
   , toUserId
+  , toPubKeyHash
   , lendexId
 ) where
 
@@ -18,6 +19,7 @@ import Control.Lens
 import Plutus.V1.Ledger.Value (Value, TokenName)
 import qualified Plutus.V1.Ledger.Ada as Ada
 import qualified Plutus.V1.Ledger.Value as Value
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import qualified Data.Map as M
 
@@ -26,7 +28,7 @@ import qualified Plutus.Trace.Emulator as Trace
 
 import Mlabs.Lending.Logic.Types (LendexId(..), Coin, UserAct(..), UserId(..))
 import qualified Mlabs.Lending.Logic.App as L
-import qualified Mlabs.Lending.Contract.Lendex as L
+import qualified Mlabs.Lending.Contract.Emulator.Client as L
 import qualified Mlabs.Lending.Contract.Forge as Forge
 
 checkOptions :: CheckOptions
@@ -41,6 +43,9 @@ w3 = Wallet 3
 
 toUserId :: Wallet -> UserId
 toUserId = UserId . pubKeyHash . walletPubKey
+
+toPubKeyHash :: Wallet -> PubKeyHash
+toPubKeyHash = pubKeyHash . walletPubKey
 
 -- | Identifier for our lendex platform
 lendexId :: LendexId

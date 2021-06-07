@@ -82,12 +82,12 @@ data Act = UserAct UserId UserAct
 
 -- | Actions with NFTs
 data UserAct
-  = Buy
+  = BuyAct
     { act'price    :: Integer       -- ^ price to buy
     , act'newPrice :: Maybe Integer -- ^ new price for NFT (Nothing locks NFT)
     }
   -- ^ Buy NFT and set new price
-  | SetPrice
+  | SetPriceAct
     { act'newPrice :: Maybe Integer -- ^ new price for NFT (Nothing locks NFT)
     }
   -- ^ Set new price for NFT
