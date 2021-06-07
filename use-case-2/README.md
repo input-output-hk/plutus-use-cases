@@ -28,7 +28,7 @@
           sudo launchctl stop org.nixos.nix-daemon
           sudo launchctl start org.nixos.nix-daemon
           ```
-1. Install obelisk: 
+1. Install obelisk:
    ```bash
    nix-env -f https://github.com/obsidiansystems/obelisk/archive/master.tar.gz -iA command
    ```
@@ -40,3 +40,6 @@
   1. Then run `cabal new-repl exe:plutus-starter-pab`
   1. And finally `main` to lauch the PAB and have it listen on port 8080
 
+1. Starting up obelisk Frontend:
+  1. After running the Plutus Application Backend, in a different terminal, run `ob run --no-interpret ./dep/plutus-starter`
+  1. The frontend should be running on localhost:8000 when successful and visible via your browser.
