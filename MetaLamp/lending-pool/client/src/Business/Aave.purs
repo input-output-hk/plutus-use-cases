@@ -1,9 +1,11 @@
-module Aave where
+module Business.Aave where
 
 import Prelude
 
-import Capability (class Contract, APIError(..), ContractId, ContractUnit(..), Endpoint(..), callEndpoint, delay, getContractStatus, getContracts)
-import Control.Monad.Except (lift, runExcept, runExceptT, throwError)
+import Capability.Contract (class Contract, APIError(..), ContractId, ContractUnit(..), Endpoint(..), callEndpoint, getContractStatus, getContracts)
+import Capability.Delay (class Delay, delay)
+import Control.Monad.Except (runExcept, runExceptT, throwError)
+import Control.Monad.Trans.Class (lift)
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..), either)
 import Data.Json.JsonTuple (JsonTuple)
@@ -20,6 +22,7 @@ import Plutus.PAB.Webserver.Types (ContractInstanceClientState(..))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass, Value)
 import PlutusTx.AssocMap (Map)
+
 getAaveContracts :: forall m. Contract m => m (Either APIError (Array (ContractInstanceClientState AaveContracts)))
 getAaveContracts = getContracts
 
@@ -38,6 +41,7 @@ getAaveResponse (ContractInstanceClientState { cicCurrentState: PartiallyDecoded
 
 getAaveResponseWith :: forall m a p.
   Contract m =>
+  Delay m =>
   Encode p =>
   Endpoint ->
   Prism' UserContractState a ->
@@ -50,6 +54,7 @@ getAaveResponseWith endpoint pick cid param = runExceptT $ do
 
 pollStatus :: forall m a.
   Contract m =>
+  Delay m =>
   Endpoint ->
   Prism' UserContractState a ->
   ContractId ->
@@ -64,29 +69,29 @@ pollStatus endpoint pick cid = runExceptT $ do
         Just v -> pure v
         Nothing -> throwError $ AjaxCallError $ "Invalid state: " <> (show res)
 
-deposit :: forall m. Contract m => ContractId -> DepositParams -> m (Either APIError Unit)
+deposit :: forall m. Contract m => Delay m => ContractId -> DepositParams -> m (Either APIError Unit)
 deposit = getAaveResponseWith (Endpoint "deposit") _Deposited
 
-withdraw :: forall m. Contract m => ContractId -> WithdrawParams -> m (Either APIError Unit)
+withdraw :: forall m. Contract m => Delay m => ContractId -> WithdrawParams -> m (Either APIError Unit)
 withdraw = getAaveResponseWith (Endpoint "withdraw") _Withdrawn
 
-borrow :: forall m. Contract m => ContractId -> BorrowParams -> m (Either APIError Unit)
+borrow :: forall m. Contract m => Delay m => ContractId -> BorrowParams -> m (Either APIError Unit)
 borrow = getAaveResponseWith (Endpoint "borrow") _Borrowed
 
-repay :: forall m. Contract m => ContractId -> RepayParams -> m (Either APIError Unit)
+repay :: forall m. Contract m => Delay m => ContractId -> RepayParams -> m (Either APIError Unit)
 repay = getAaveResponseWith (Endpoint "repay") _Repaid
 
-fundsAt :: forall m. Contract m => ContractId -> PubKeyHash -> m (Either APIError Value)
+fundsAt :: forall m. Contract m => Delay m => ContractId -> PubKeyHash -> m (Either APIError Value)
 fundsAt = getAaveResponseWith (Endpoint "fundsAt") _FundsAt
 
-poolFunds :: forall m. Contract m => ContractId -> m (Either APIError Value)
+poolFunds :: forall m. Contract m => Delay m => ContractId -> m (Either APIError Value)
 poolFunds cid = getAaveResponseWith (Endpoint "poolFunds") _PoolFunds cid ContractUnit
 
-reserves :: forall m. Contract m => ContractId -> m (Either APIError (Map AssetClass Reserve))
+reserves :: forall m. Contract m => Delay m => ContractId -> m (Either APIError (Map AssetClass Reserve))
 reserves cid = getAaveResponseWith (Endpoint "reserves") _Reserves cid ContractUnit
 
-users :: forall m. Contract m => ContractId -> m (Either APIError (Map (JsonTuple AssetClass PubKeyHash) UserConfig))
+users :: forall m. Contract m => Delay m => ContractId -> m (Either APIError (Map (JsonTuple AssetClass PubKeyHash) UserConfig))
 users cid = getAaveResponseWith (Endpoint "users") _Users cid ContractUnit
 
-ownPubKey :: forall m. Contract m => ContractId -> m (Either APIError PubKeyHash)
+ownPubKey :: forall m. Contract m => Delay m => ContractId -> m (Either APIError PubKeyHash)
 ownPubKey cid = getAaveResponseWith (Endpoint "ownPubKey") _GetPubKey cid ContractUnit

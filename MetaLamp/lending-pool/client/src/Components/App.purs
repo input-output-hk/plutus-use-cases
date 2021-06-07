@@ -1,11 +1,14 @@
-module AppComponent where
+module Components.App where
 
 import Prelude
 
-import Aave as Aave
-import AmountForm as AmountForm
-import Capability (class Contract, class LogMessages, APIError(..), ContractId(..), logError, logInfo)
-import Control.Monad.Except (class MonadError, lift, runExceptT, throwError)
+import Business.Aave as Aave
+import Capability.Contract (class Contract, ContractId(..))
+import Capability.Delay (class Delay)
+import Capability.LogMessages (class LogMessages, logError)
+import Components.AmountForm as AmountForm
+import Control.Monad.Except (lift, runExceptT, throwError)
+import Data.Array (mapWithIndex)
 import Data.Bifunctor (bimap, lmap)
 import Data.BigInteger (BigInteger, fromInt)
 import Data.Either (Either(..), either)
@@ -20,12 +23,16 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Network.RemoteData (RemoteData(..), fromEither)
+import Network.RemoteData as RD
 import Plutus.Contracts.Core (Reserve(..))
 import Plutus.Contracts.Endpoints (BorrowParams(..), DepositParams(..), RepayParams(..), WithdrawParams(..))
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState(..))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), Value(..))
+import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), Value)
 import PlutusTx.AssocMap as Map
+import View.FundsTable (fundsTable)
+import View.RemoteDataState (remoteDataState)
+import View.ReserveInfo (reserveInfo)
 import Wallet.Emulator.Wallet (Wallet(..))
 import Wallet.Types (ContractInstanceId(..))
 
@@ -63,21 +70,8 @@ data SubmitOperation = SubmitDeposit | SubmitWithdraw | SubmitBorrow | SubmitRep
 toContractIdParam :: ContractInstanceId -> ContractId
 toContractIdParam (ContractInstanceId { unContractInstanceId: JsonUUID uuid }) = ContractId <<< UUID.toString $ uuid
 
-handleExcept :: forall e a m. LogMessages m => Show e => Either e a -> m Unit
-handleExcept = either (show >>> logError) (const $ pure unit)
-
-getRD :: forall e a m. MonadError String m => Show e => Show a => String -> RemoteData e a -> m a
-getRD _ (Success s) = pure s
-getRD tag rd = throwError $ tag <> " is not available: " <> (show rd)
-
-getContractId :: forall e a m. MonadError String m => Show e => Show a => RemoteData e a -> m a
-getContractId = getRD "contractId"
-
-getPubKey :: forall e a m. MonadError String m => Show e => Show a => RemoteData e a -> m a
-getPubKey = getRD "pubKey"
-
-getReserves :: forall e a m. MonadError String m => Show e => Show a => RemoteData e a -> m a
-getReserves = getRD "reserves"
+handleException :: forall e a m. LogMessages m => Show e => Either e a -> m Unit
+handleException = either (logError <<< show) (const $ pure unit)
 
 type Slots = ( amountForm :: forall query. H.Slot query AmountForm.Output Int )
 _amountForm = SProxy :: SProxy "amountForm"
@@ -85,6 +79,7 @@ _amountForm = SProxy :: SProxy "amountForm"
 component :: forall input m query output.
   LogMessages m =>
   Contract m =>
+  Delay m =>
   H.Component HH.HTML query input output m
 component =
   H.mkComponent
@@ -111,57 +106,62 @@ component =
               Nothing -> H.modify_ _ { contractId = Failure "Contract instance not found" }
               Just (ContractInstanceClientState i) ->
                 H.modify_ _ { contractId = Success (toContractIdParam i.cicContract) }
-      GetWalletPubKey -> handleExcept <=< runExceptT $ do
+      GetWalletPubKey -> handleException <=< runExceptT $ do
         lift $ H.modify_ _ { walletPubKey = Loading }
-        { contractId } <- lift H.get
-        cid <- getContractId contractId
+        state <- lift H.get
+        cid <- RD.maybe (throwError "Failed to get wallet public key") pure $ state.contractId
         pkh <- lift $ Aave.ownPubKey cid
         lift $ H.modify_ _ { walletPubKey = fromEither <<< lmap show $ pkh }
-      GetUserFunds -> handleExcept <=< runExceptT $ do
+      GetUserFunds -> handleException <=< runExceptT $ do
         lift $ H.modify_ _ { userFunds = Loading }
-        { contractId, walletPubKey } <- lift H.get
-        cid <- getContractId contractId
-        pkh <- getPubKey walletPubKey
+        state <- lift H.get
+        { cid, pkh } <-
+          RD.maybe (throwError "Failed to get user funds") pure $
+            { cid: _, pkh: _ } <$> state.contractId <*> state.walletPubKey
         funds <- lift $ Aave.fundsAt cid pkh
         lift $ H.modify_ _ { userFunds = fromEither <<< lmap show $ funds }
-      GetReserves -> handleExcept <=< runExceptT $ do
+      GetReserves -> handleException <=< runExceptT $ do
         lift $ H.modify_ _ { reserves = Loading }
-        { contractId } <- lift H.get
-        cid <- getContractId contractId
+        state <- lift H.get
+        cid <- RD.maybe (throwError "Failed to get reserves") pure $ state.contractId
         reserves <- lift $ Aave.reserves cid
         lift $ H.modify_ _ { reserves = fromEither <<< lmap show $ reserves }
       GetFunds -> do
         handleAction GetUserFunds
         handleAction GetReserves
 
-      Deposit { amount, asset } -> handleExcept <=< runExceptT $ do
-        { contractId, walletPubKey } <- lift H.get
-        cid <- getContractId contractId
-        pkh <- getPubKey walletPubKey
+      Deposit { amount, asset } -> handleException <=< runExceptT $ do
+        state <- lift H.get
+        { cid, pkh } <-
+          RD.maybe (throwError "Failed to deposit") pure $
+            { cid: _, pkh: _ } <$> state.contractId <*> state.walletPubKey
         res <- lift $ Aave.deposit cid $ DepositParams { dpAmount: amount, dpAsset: asset, dpOnBehalfOf: pkh }
         lift $ H.modify_ _ { lastStatus = fromEither <<< bimap show show $ res }
-      Withdraw { amount, asset } -> handleExcept <=< runExceptT $ do
-        { contractId, walletPubKey } <- lift H.get
-        cid <- getContractId contractId
-        pkh <- getPubKey walletPubKey
+      Withdraw { amount, asset } -> handleException <=< runExceptT $ do
+        state <- lift H.get
+        { cid, pkh } <-
+          RD.maybe (throwError "Failed to deposit") pure $
+            { cid: _, pkh: _ } <$> state.contractId <*> state.walletPubKey
         res <- lift $ Aave.withdraw cid $ WithdrawParams { wpAmount: amount, wpAsset: asset, wpTo: pkh, wpFrom: pkh }
         lift $ H.modify_ _ { lastStatus = fromEither <<< bimap show show $ res }
-      Borrow { amount, asset } -> handleExcept <=< runExceptT $ do
-        { contractId, walletPubKey } <- lift H.get
-        cid <- getContractId contractId
-        pkh <- getPubKey walletPubKey
+      Borrow { amount, asset } -> handleException <=< runExceptT $ do
+        state <- lift H.get
+        { cid, pkh } <-
+          RD.maybe (throwError "Failed to deposit") pure $
+            { cid: _, pkh: _ } <$> state.contractId <*> state.walletPubKey
         res <- lift $ Aave.borrow cid $ BorrowParams { bpAmount: amount, bpAsset: asset, bpOnBehalfOf: pkh }
         lift $ H.modify_ _ { lastStatus = fromEither <<< bimap show show $ res }
-      Repay { amount, asset } -> handleExcept <=< runExceptT $ do
-        { contractId, walletPubKey } <- lift H.get
-        cid <- getContractId contractId
-        pkh <- getPubKey walletPubKey
+      Repay { amount, asset } -> handleException <=< runExceptT $ do
+        state <- lift H.get
+        { cid, pkh } <-
+          RD.maybe (throwError "Failed to deposit") pure $
+            { cid: _, pkh: _ } <$> state.contractId <*> state.walletPubKey
         res <- lift $ Aave.repay cid $ RepayParams { rpAmount: amount, rpAsset: asset, rpOnBehalfOf: pkh }
         lift $ H.modify_ _ { lastStatus = fromEither <<< bimap show show $ res }
 
-      SubmitAmount operation (AmountForm.Submit { name, amount }) -> handleExcept <=< runExceptT $ do
-        { reserves: rs } <- lift H.get
-        reserves <- getReserves rs
+      SubmitAmount operation (AmountForm.Submit { name, amount }) -> handleException <=< runExceptT $ do
+        state <- lift H.get
+        reserves <- RD.maybe (throwError "Failed to submit") pure $ state.reserves
         case find (\(Tuple k _) -> getAssetName k == name) (Map.toTuples reserves) of
           Just (Tuple asset _) -> do
             case operation of
@@ -175,58 +175,29 @@ component =
     render :: State -> H.ComponentHTML Action Slots m
     render state =
       HH.div_
-        [ HH.button [ HE.onClick \_ -> Just Init ] [ HH.text "Start" ]
-        , remoteDataState (\v -> HH.div_ [HH.h2_ [HH.text "User funds"], fundsTable v]) state.userFunds
+        [ HH.button [HE.onClick \_ -> Just Init] [HH.text "Start"]
         , remoteDataState
-            (\v -> HH.div_ $ [HH.h2_ [HH.text "Pool funds"]] <> map (\(Tuple a r) -> reserveTab a r) v)
+            (\userFunds -> HH.div_ [HH.h2_ [HH.text "User funds"], fundsTable userFunds])
+            state.userFunds
+        , remoteDataState
+            (\reserves -> HH.div_ $
+              [HH.h2_ [HH.text "Pool funds"]] <>
+              map (\(Tuple a r) -> reserveInfo a r) reserves
+            )
             (map Map.toTuples state.reserves)
         , remoteDataState
-            (\v -> HH.h2_ [HH.text "Deposit", HH.slot _amountForm 0 AmountForm.amountForm v (Just <<< (SubmitAmount SubmitDeposit))])
-            (map reservesToAmounts state.reserves)
-        , remoteDataState
-            (\v -> HH.h2_ [HH.text "Withdraw", HH.slot _amountForm 1 AmountForm.amountForm v (Just <<< (SubmitAmount SubmitWithdraw))])
-            (map reservesToAmounts state.reserves)
-        , remoteDataState
-            (\v -> HH.h2_ [HH.text "Borrow", HH.slot _amountForm 1 AmountForm.amountForm v (Just <<< (SubmitAmount SubmitBorrow))])
-            (map reservesToAmounts state.reserves)
-        , remoteDataState
-            (\v -> HH.h2_ [HH.text "Repay", HH.slot _amountForm 1 AmountForm.amountForm v (Just <<< (SubmitAmount SubmitRepay))])
+            (\amounts -> HH.div_ $ mapWithIndex
+              (\index (Tuple title operation) ->
+                HH.h2_ [HH.text title, HH.slot _amountForm index AmountForm.amountForm amounts (Just <<< (SubmitAmount operation))])
+              [Tuple "Deposit" SubmitDeposit, Tuple "Withdraw" SubmitWithdraw, Tuple "Borrow" SubmitBorrow, Tuple "Repay" SubmitRepay]
+            )
             (map reservesToAmounts state.reserves)
         ]
-
-remoteDataState :: forall props act e a. Show e => (a -> HH.HTML props act) -> RemoteData e a -> HH.HTML props act
-remoteDataState _ NotAsked = HH.div_ [HH.text ""]
-remoteDataState _ Loading = HH.div_ [HH.text "Loading..."]
-remoteDataState _ (Failure e) = HH.div_ [HH.text $ "Error: " <> show e]
-remoteDataState f (Success s) = f s
-
-getAssetName :: AssetClass -> String
-getAssetName (AssetClass { unAssetClass: JsonTuple (Tuple _ (TokenName { unTokenName: name })) }) = name
 
 reservesToAmounts :: Map.Map AssetClass Reserve -> Array AmountForm.AmountInfo
 reservesToAmounts = map toInfo <<< Map.toTuples
   where
     toInfo (Tuple k (Reserve { rAmount })) = { name: getAssetName k, amount: rAmount }
 
-reserveTab :: forall props act. AssetClass -> Reserve -> HH.HTML props act
-reserveTab (AssetClass { unAssetClass: JsonTuple (Tuple _ name)}) (Reserve { rAmount }) =
-  poolTab name rAmount
-
-poolTab :: forall props act. TokenName -> BigInteger -> HH.HTML props act
-poolTab (TokenName { unTokenName: name }) amount =
-  HH.div_ $ [HH.h4_ [HH.text (name <> " pool balance")], HH.text $ show amount]
-
-fundsTable :: forall props act. Value -> HH.HTML props act
-fundsTable (Value ({ getValue: m })) = HH.div_ $ do
-  (Tuple _ amounts) <- Map.toTuples m
-  (Tuple name amount) <- Map.toTuples amounts
-  if amount > (fromInt 0)
-    then pure $ amountTab name amount
-    else []
-
-amountTab :: forall props act. TokenName -> BigInteger -> HH.HTML props act
-amountTab (TokenName { unTokenName: name }) amount =
-  HH.div_ $ [HH.text (showName name <> " " <> show amount)]
-    where
-      showName "" = "ADA"
-      showName n = n
+getAssetName :: AssetClass -> String
+getAssetName (AssetClass { unAssetClass: JsonTuple (Tuple _ (TokenName { unTokenName: name })) }) = name

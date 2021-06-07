@@ -4,7 +4,9 @@ import Prelude
 
 import Affjax (Response, defaultRequest)
 import Affjax.RequestBody (RequestBody, string)
-import Capability (class Contract, class LogMessages, APIError(..), ContractId(..), Endpoint(..))
+import Capability.Contract (class Contract, ContractId(..), Endpoint(..), APIError(..))
+import Capability.Delay (class Delay)
+import Capability.LogMessages (class LogMessages)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader.Trans (class MonadAsk, ReaderT, asks, runReaderT)
 import Data.Bifunctor (bimap)
@@ -37,7 +39,7 @@ instance monadAskAppM :: TypeEquals e Env => MonadAsk e AppM where
 runAppM :: Env -> AppM ~> Aff
 runAppM env (AppM m) = runReaderT m env
 
-instance logMessages :: LogMessages AppM where
+instance logMessagesAppM :: LogMessages AppM where
   logInfo = Console.log >>> liftEffect
   logError = Console.error >>> liftEffect
 
@@ -69,9 +71,11 @@ post path body = do
   let affReq = defaultRequest { method = fromString "POST", url = url, content = Just body }
   runAjax $ ajax decode affReq
 
-instance contract :: Contract AppM where
+instance contractAppM :: Contract AppM where
   getContracts = get "/api/new/contract/instances"
   getContractStatus (ContractId cid) = get $ "/api/new/contract/instance/" <> cid <> "/status"
   callEndpoint (Endpoint endpoint) (ContractId cid) params =
     post ("/api/new/contract/instance/" <> cid <> "/endpoint/" <> endpoint) (string <<< encodeJSON $ params)
-  delay = delay >>> liftAff
+
+instance delayAppM :: Delay AppM where
+  delay = liftAff <<< delay

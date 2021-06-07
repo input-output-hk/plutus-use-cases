@@ -1,7 +1,8 @@
-module AmountForm where
+module Components.AmountForm where
 
 import Prelude
 
+import Data.Array (head)
 import Data.BigInteger (BigInteger, fromString)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Halogen as H
@@ -20,7 +21,7 @@ type State = { amounts :: Array AmountInfo, name :: Maybe String, amount :: Mayb
 type Input = Array AmountInfo
 
 initialState :: Input -> State
-initialState amounts = { amounts, name: Nothing, amount: Nothing }
+initialState amounts = { amounts, name: _.name <$> head amounts, amount: Nothing }
 
 amountForm :: forall query m. H.Component HH.HTML query Input Output m
 amountForm =
@@ -46,11 +47,8 @@ amountForm =
   handleAction = case _ of
     SubmitClick -> do
       { name, amount } <- H.get
-      case name of
-        Just n ->
-          case amount of
-            Just a -> H.raise $ Submit { name: n, amount: a }
-            _ -> pure unit
+      case { name: _, amount: _ } <$> name <*> amount of
+        Just params -> H.raise <<< Submit $ params
         _ -> pure unit
     EnterName name -> H.modify_ _ { name = Just name }
     EnterAmount amount -> H.modify_ _ { amount = fromString amount }
