@@ -1,5 +1,5 @@
 cabal-version:      2.4
-name:               plutus-starter
+name:               nft-market
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
@@ -66,7 +66,7 @@ test-suite plutus-example-projects-test
     plutus-tx-plugin,
     plutus-contract -any,
     plutus-ledger -any,
-    plutus-starter -any
+    nft-market -any
   build-depends:
     aeson -any,
     base >=4.9 && <5,
@@ -77,7 +77,7 @@ test-suite plutus-example-projects-test
     tasty-hunit -any,
     tasty-hedgehog >=0.2.0.0
 
-executable plutus-starter-pab
+executable nft-market-pab
   main-is: Main.hs
   hs-source-dirs: pab
   ghc-options:
@@ -91,7 +91,7 @@ executable plutus-starter-pab
     lens -any,
     plutus-contract -any,
     plutus-pab -any,
-    plutus-starter -any,
+    nft-market -any,
     aeson -any,
     freer-simple -any,
     prettyprinter -any,
