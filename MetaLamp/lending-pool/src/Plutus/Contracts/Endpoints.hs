@@ -267,9 +267,9 @@ repay aave RepayParams {..} = do
             Nothing ->
                 throwError "User does not have any debt."
             Just userConfig ->
-                State.updateUserConfig aave Core.RepayRedeemer userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
+                State.updateUserConfig aave (Core.RepayRedeemer userConfigId) userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
 
-    reservesTx <- State.updateReserve aave Core.RepayRedeemer rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
+    reservesTx <- State.updateReserve aave (Core.RepayRedeemer userConfigId) rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
 
     ledgerTx <- TxUtils.submitTxPair $ reimbursementTx <> reservesTx <> userConfigsTx
     _ <- awaitTxConfirmed $ txId ledgerTx
