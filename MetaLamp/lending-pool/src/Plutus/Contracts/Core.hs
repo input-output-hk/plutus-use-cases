@@ -92,7 +92,7 @@ data AaveRedeemer =
     StartRedeemer
   | DepositRedeemer UserConfigId
   | WithdrawRedeemer UserConfigId
-  | BorrowRedeemer
+  | BorrowRedeemer UserConfigId
   | RepayRedeemer
     deriving Show
 
@@ -131,6 +131,7 @@ instance Scripts.ScriptType AaveScript where
 -- Main validator
 -- Each state field must have one or more associated actions(Redeemer types),
 -- produced on state update, which are then validated here
+-- TODO Check amounts are > 0
 makeAaveValidator :: Aave
                    -> AaveDatum
                    -> AaveRedeemer
@@ -139,7 +140,7 @@ makeAaveValidator :: Aave
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
-makeAaveValidator _ _ BorrowRedeemer _   = True
+makeAaveValidator aave datum (BorrowRedeemer userConfigId) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId
 makeAaveValidator _ _ RepayRedeemer _    = True
 
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
@@ -219,7 +220,7 @@ validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId
   -- TODO add implementation for this case
   traceIfFalse "validateWithdraw: User Configs Datum change is not valid" False
 validateWithdraw aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) =
-  traceIfFalse "validateDeposit: Reserves Datum change is not valid" isValidReservesTransformation
+  traceIfFalse "validateWithdraw: Reserves Datum change is not valid" isValidReservesTransformation
   where
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
@@ -249,6 +250,7 @@ validateWithdraw aave (ReservesDatum stateToken reserves) ctx (reserveId, actor)
     checkReserveState :: (Value, Reserve, Reserve) -> Bool
     checkReserveState (value, oldState, newState) =
       assetClassValueOf value reserveId == rAmount newState
+
 validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
   traceIfFalse "validateWithdraw: Reserve Funds Datum change is not valid" isValidFundsTransformation
   where
@@ -268,6 +270,91 @@ validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
        in assetClassValueOf oldFunds reserveId - assetClassValueOf newFunds reserveId == paidAmout
 
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
+
+validateBorrow :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
+validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
+  traceIfFalse "validateBorrow: User Configs Datum change is not valid" isValidUserConfigsTransformation
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    scriptOutputs = scriptOutputsAt scriptsHash txInfo
+    userConfigsOutputDatumHash =
+      findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+    userConfigsOutputDatum ::
+         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
+    userConfigsOutputDatum =
+      userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
+
+    actorSpentValue = valueSpentFrom txInfo actor
+    actorRemainderValue = valuePaidTo txInfo actor
+
+    isValidUserConfigsTransformation :: Bool
+    isValidUserConfigsTransformation =
+      maybe False checkUserConfigs userConfigsOutputDatum
+    checkUserConfigs ::
+         (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
+    checkUserConfigs (newStateToken, newUserConfigs) =
+      newStateToken == stateToken &&
+      maybe False (checkRedeemerConfig $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
+    -- TODO check that other fields are not changed
+    checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
+    checkRedeemerConfig oldState newState =
+      let oldDebt = fromMaybe 0 $ oldState >>= ucDebt
+          debtAmount = maybe 0 (flip (-) oldDebt) (ucDebt newState)
+          disbursementAmout = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
+       in debtAmount == disbursementAmout
+
+validateBorrow aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) =
+  traceIfFalse "validateBorrow: Reserves Datum change is not valid" isValidReservesTransformation
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    scriptOutputs = scriptOutputsAt scriptsHash txInfo
+
+    reservesOutputDatumHash =
+      findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+    reservesOutputDatum ::
+         Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
+    reservesOutputDatum =
+      reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
+
+    remainderDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
+    remainderValue = remainderDatumHash >>= (`findValueByDatumHash` scriptOutputs)
+
+    isValidReservesTransformation :: Bool
+    isValidReservesTransformation =
+      maybe False checkreserves reservesOutputDatum
+    checkreserves :: (AssetClass, AssocMap.Map ReserveId Reserve) -> Bool
+    checkreserves (newStateToken, newReserves) =
+      newStateToken == stateToken &&
+      maybe
+        False
+        checkReserveState
+        ((,,) <$> remainderValue <*> AssocMap.lookup reserveId reserves <*> AssocMap.lookup reserveId newReserves)
+    -- TODO check that other fields are not changed
+    checkReserveState :: (Value, Reserve, Reserve) -> Bool
+    checkReserveState (value, oldState, newState) =
+      assetClassValueOf value reserveId == rAmount newState
+
+validateBorrow aave ReserveFundsDatum ctx (reserveId, actor) =
+  traceIfFalse "validateBorrow: Reserve Funds Datum change is not valid" isValidFundsTransformation
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    scriptOutputs = scriptOutputsAt scriptsHash txInfo
+
+    scriptSpentValue = txOutValue . txInInfoResolved <$> findOwnInput ctx
+    scriptRemainderValue = findValueByDatumHash scriptsDatumHash scriptOutputs
+    actorSpentValue = valueSpentFrom txInfo actor
+    actorRemainderValue = valuePaidTo txInfo actor
+
+    isValidFundsTransformation = maybe False checkFundsState $ (,) <$> scriptSpentValue <*> scriptRemainderValue
+    checkFundsState :: (Value, Value) -> Bool
+    checkFundsState (oldFunds, newFunds) =
+      let paidAmout = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
+       in assetClassValueOf oldFunds reserveId - assetClassValueOf newFunds reserveId == paidAmout
+
+validateBorrow _ _ _ _ = trace "validateBorrow: Lending Pool Datum management is not allowed" False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

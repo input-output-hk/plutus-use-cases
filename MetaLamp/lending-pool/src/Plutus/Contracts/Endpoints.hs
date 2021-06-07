@@ -219,24 +219,24 @@ borrow aave BorrowParams {..} = do
     utxos <-
         Map.filter ((> 0) . flip assetClassValueOf bpAsset . txOutValue . txOutTxOut)
         <$> utxoAt (Core.aaveAddress aave)
-    let inputs = (\(ref, tx) -> OutputValue ref tx Core.BorrowRedeemer) <$> Map.toList utxos
+    let userConfigId = (rCurrency reserve, bpOnBehalfOf)
+    let inputs = (\(ref, tx) -> OutputValue ref tx (Core.BorrowRedeemer userConfigId)) <$> Map.toList utxos
     let payment = assetClassValue (rCurrency reserve) bpAmount
     let remainder = assetClassValue (rCurrency reserve) (rAmount reserve - bpAmount)
     let disbursementTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment <>
                             TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.ReserveFundsDatum remainder
 
     userConfigs <- ovValue <$> State.findAaveUserConfigs aave
-    let userConfigId = (rCurrency reserve, bpOnBehalfOf)
     userConfigsTx <- case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
                 State.addUserConfig
-                    aave Core.BorrowRedeemer
+                    aave (Core.BorrowRedeemer userConfigId)
                     userConfigId
                     UserConfig { ucUsingAsCollateral = False, ucDebt = Just bpAmount }
             Just userConfig ->
-                State.updateUserConfig aave Core.BorrowRedeemer userConfigId $ userConfig { ucDebt = (+ bpAmount) <$> ucDebt userConfig }
+                State.updateUserConfig aave (Core.BorrowRedeemer userConfigId) userConfigId $ userConfig { ucDebt = (+ bpAmount) <$> ucDebt userConfig }
 
-    reservesTx <- State.updateReserve aave Core.BorrowRedeemer bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
+    reservesTx <- State.updateReserve aave (Core.BorrowRedeemer userConfigId) bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
 
     ledgerTx <- TxUtils.submitTxPair $ disbursementTx <> reservesTx <> userConfigsTx
     _ <- awaitTxConfirmed $ txId ledgerTx
