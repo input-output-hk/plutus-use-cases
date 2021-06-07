@@ -131,7 +131,6 @@ instance Scripts.ScriptType AaveScript where
 -- Main validator
 -- Each state field must have one or more associated actions(Redeemer types),
 -- produced on state update, which are then validated here
--- TODO Check amounts are > 0
 makeAaveValidator :: Aave
                    -> AaveDatum
                    -> AaveRedeemer
@@ -228,8 +227,8 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     checkRedeemerConfig oldState newState =
       let oldDebt = fromMaybe 0 $ oldState >>= ucDebt
           debtAmount = maybe 0 (flip (-) oldDebt) (ucDebt newState)
-          disbursementAmout = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
-       in debtAmount == disbursementAmout
+          disbursementAmount = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
+       in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0
 
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
@@ -268,8 +267,8 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
     checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
       let debtChange = fromMaybe 0 $ (-) <$> ucDebt oldState <*> ucDebt newState
-          reimbursementAmout = assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
-       in debtChange == reimbursementAmout
+          reimbursementAmount = assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
+       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0
 
 validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
@@ -291,7 +290,8 @@ checkNegativeFundsTransformation ctx (reserveId, actor) = maybe False checkFunds
     checkFundsState :: (Value, Value) -> Bool
     checkFundsState (oldFunds, newFunds) =
       let paidAmout = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
-       in assetClassValueOf oldFunds reserveId - assetClassValueOf newFunds reserveId == paidAmout
+          fundsChange = assetClassValueOf oldFunds reserveId - assetClassValueOf newFunds reserveId
+       in fundsChange == paidAmout && fundsChange > 0 && paidAmout > 0
 
 checkNegativeReservesTransformation :: AssetClass
   -> AssocMap.Map AssetClass Reserve
@@ -325,7 +325,8 @@ checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
     -- TODO check that other fields are not changed
     checkReserveState :: (Value, Reserve, Reserve) -> Bool
     checkReserveState (value, oldState, newState) =
-      assetClassValueOf value reserveId == rAmount newState
+      let fundsAmount = rAmount newState
+      in  assetClassValueOf value reserveId == fundsAmount && fundsAmount >= 0
 
 checkPositiveReservesTransformation :: AssetClass
   -> AssocMap.Map AssetClass Reserve
@@ -358,7 +359,8 @@ checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = may
     -- TODO check that other fields are not changed
     checkReserveState :: (Value, Reserve, Reserve) -> Bool
     checkReserveState (value, oldState, newState) =
-      assetClassValueOf value reserveId == (rAmount newState - rAmount oldState)
+      let fundsChange = rAmount newState - rAmount oldState
+      in  assetClassValueOf value reserveId == fundsChange && fundsChange > 0
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

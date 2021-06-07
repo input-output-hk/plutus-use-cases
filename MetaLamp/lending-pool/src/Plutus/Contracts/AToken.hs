@@ -51,6 +51,7 @@ import           Prelude                          (Semigroup (..))
 import qualified Prelude
 
 {-# INLINABLE validator #-}
+-- TODO Check amounts are > 0
 validator :: AssetClass -> TokenName -> ScriptContext -> Bool
 validator underlyingAsset aTokenName ctx = hasEnoughUnderlyingAsset
     where
