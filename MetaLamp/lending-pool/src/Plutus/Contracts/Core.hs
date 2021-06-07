@@ -105,10 +105,7 @@ data AaveDatum =
     LendingPoolDatum LendingPoolOperator
   | ReservesDatum AssetClass (AssocMap.Map ReserveId Reserve)
   | UserConfigsDatum AssetClass (AssocMap.Map UserConfigId UserConfig)
-  | DepositDatum
-  | WithdrawDatum
-  | BorrowDatum
-  | RepayDatum
+  | ReserveFundsDatum
   deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
@@ -179,6 +176,7 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
       maybe False checkRedeemerConfig (AssocMap.lookup userConfigId newUserConfigs)
+    -- TODO check that other fields are not changed
     checkRedeemerConfig :: UserConfig -> Bool
     checkRedeemerConfig UserConfig{..} = ucUsingAsCollateral
 
@@ -196,7 +194,7 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) 
     reservesOutputDatum =
       reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
 
-    investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData DepositDatum) txInfo
+    investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
     investmentValue = investmentDatumHash >>= (`findValueByDatumHash` scriptOutputs)
 
     isValidReservesTransformation :: Bool
@@ -209,6 +207,7 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) 
         False
         checkReserveState
         ((,,) <$> investmentValue <*> AssocMap.lookup reserveId reserves <*> AssocMap.lookup reserveId newReserves)
+    -- TODO check that other fields are not changed
     checkReserveState :: (Value, Reserve, Reserve) -> Bool
     checkReserveState (value, oldState, newState) =
       assetClassValueOf value reserveId == (rAmount newState - rAmount oldState)
@@ -216,13 +215,12 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx (reserveId, actor) 
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
 
 validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> Bool
+validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx =
+  traceIfFalse "validateWithdraw: User Configs Datum change is not valid" False
+validateWithdraw aave (ReservesDatum stateToken reserves) ctx =
+  traceIfFalse "validateWithdraw: Reserves Datum change is not valid" True
+validateWithdraw aave ReserveFundsDatum _ = trace "validateWithdraw: ReserveFundsDatum" False
 validateWithdraw aave (LendingPoolDatum _) _ = trace "validateWithdraw: LendingPoolDatum" False
-validateWithdraw aave (ReservesDatum _ _) _ = trace "validateWithdraw: ReservesDatum" False
-validateWithdraw aave (UserConfigsDatum _ _) _ = trace "validateWithdraw: UserConfigsDatum" False
-validateWithdraw aave DepositDatum _ = trace "validateWithdraw: DepositDatum" False
-validateWithdraw aave WithdrawDatum _ = trace "validateWithdraw: WithdrawDatum" False
-validateWithdraw aave BorrowDatum _ = trace "validateWithdraw: BorrowDatum" False
-validateWithdraw aave RepayDatum _ = trace "validateWithdraw: RepayDatum" False
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"

@@ -97,7 +97,7 @@ forgeATokensFrom aave reserve pkh amount = do
     pure $
         TxUtils.mustForgeValue @AaveScript policy forgeValue
         <> (Prelude.mempty, mustPayToPubKey pkh forgeValue)
-        <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.DepositDatum payment
+        <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.ReserveFundsDatum payment
 
 burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
 burnATokensFrom aave reserve pkh amount = do
@@ -114,4 +114,4 @@ burnATokensFrom aave reserve pkh amount = do
     pure $
         TxUtils.mustForgeValue policy burnValue
         <> TxUtils.mustSpendFromScript (Core.aaveInstance aave) spendInputs pkh (assetClassValue asset aTokenAmount)
-        <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.WithdrawDatum (assetClassValue asset remainder)
+        <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.ReserveFundsDatum (assetClassValue asset remainder)

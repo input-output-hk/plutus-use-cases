@@ -224,7 +224,7 @@ borrow aave BorrowParams {..} = do
     let payment = assetClassValue (rCurrency reserve) bpAmount
     let remainder = assetClassValue (rCurrency reserve) (rAmount reserve - bpAmount)
     let disbursementTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment <>
-                            TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.BorrowDatum remainder
+                            TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.ReserveFundsDatum remainder
 
     userConfigs <- ovValue <$> State.findAaveUserConfigs aave
     let userConfigId = (rCurrency reserve, bpOnBehalfOf)
@@ -260,7 +260,7 @@ repay aave RepayParams {..} = do
     reserve <- State.findAaveReserve aave rpAsset
 
     let payment = assetClassValue (rCurrency reserve) rpAmount
-    let reimbursementTx = TxUtils.mustPayToScript (Core.aaveInstance aave) rpOnBehalfOf Core.RepayDatum payment
+    let reimbursementTx = TxUtils.mustPayToScript (Core.aaveInstance aave) rpOnBehalfOf Core.ReserveFundsDatum payment
 
     userConfigs <- ovValue <$> State.findAaveUserConfigs aave
     let userConfigId = (rCurrency reserve, rpOnBehalfOf)
