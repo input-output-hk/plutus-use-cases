@@ -12,7 +12,6 @@ module Mlabs.Lending.Logic.React(
 
 import qualified Prelude as Hask
 
-import qualified PlutusTx.Ratio as R
 import qualified PlutusTx.Numeric as N
 import PlutusTx.Prelude
 import qualified PlutusTx.AssocMap as M
@@ -21,6 +20,7 @@ import qualified PlutusTx.These as PlutusTx
 import Control.Monad.Except hiding (Functor(..), mapM)
 import Control.Monad.State.Strict hiding (Functor(..), mapM)
 
+import qualified Mlabs.Data.Ray as R
 import Mlabs.Control.Check
 import Mlabs.Emulator.Blockchain
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
@@ -40,7 +40,7 @@ react input = do
   case input of
     UserAct  t uid act -> withHealthCheck t $ userAct t uid act
     PriceAct t uid act -> withHealthCheck t $ priceAct t uid act
-    GovernAct      act -> governAct act
+    GovernAct  uid act -> governAct uid act
   where
     -- | User acts
     userAct time uid = \case
@@ -250,7 +250,7 @@ react input = do
     priceAct currentTime uid act = do
       isTrustedOracle uid
       case act of
-        SetAssetPrice coin rate -> setAssetPrice currentTime coin rate
+        SetAssetPriceAct coin rate -> setAssetPrice currentTime coin rate
 
     ---------------------------------------------------
     -- update on market price change
@@ -262,20 +262,22 @@ react input = do
     ---------------------------------------------------
     -- Govern acts
 
-    governAct = \case
-      AddReserve cfg -> addReserve cfg
+    governAct uid act = do
+      isAdmin uid
+      case act of
+        AddReserveAct cfg -> addReserve cfg
 
     ---------------------------------------------------
     -- Adds new reserve (new coin/asset)
 
     addReserve cfg@CoinCfg{..} = do
-      LendingPool reserves users curSym coinMap healthReport oracles <- get
-      if M.member coinCfg'coin reserves
+      st <- get
+      if M.member coinCfg'coin (lp'reserves st)
         then throwError "Reserve is already present"
         else do
-          let newReserves = M.insert coinCfg'coin (initReserve cfg) reserves
-              newCoinMap  = M.insert coinCfg'aToken coinCfg'coin coinMap
-          put $ LendingPool newReserves users curSym newCoinMap healthReport oracles
+          let newReserves = M.insert coinCfg'coin (initReserve cfg) $ lp'reserves st
+              newCoinMap  = M.insert coinCfg'aToken coinCfg'coin $ lp'coinMap st
+          put $ st { lp'reserves = newReserves, lp'coinMap = newCoinMap }
           return []
 
     ---------------------------------------------------
@@ -330,22 +332,22 @@ checkInput = \case
     isNonNegative "timestamp" time
     checkUserAct act
   PriceAct time _uid act -> checkPriceAct time act
-  GovernAct act -> checkGovernAct act
+  GovernAct _uid act -> checkGovernAct act
   where
     checkUserAct = \case
       DepositAct amount asset -> do
         isPositive "deposit" amount
         isAsset asset
-      BorrowAct asset amount _rate -> do
+      BorrowAct amount asset _rate -> do
         isPositive "borrow" amount
         isAsset asset
-      RepayAct asset amount _rate -> do
+      RepayAct amount asset _rate -> do
         isPositive "repay" amount
         isAsset asset
       SwapBorrowRateModelAct asset _rate -> isAsset asset
       SetUserReserveAsCollateralAct asset _useAsCollateral portion -> do
         isAsset asset
-        isUnitRange "deposit portion" portion
+        isUnitRangeRay "deposit portion" portion
       WithdrawAct amount asset -> do
         isPositive "withdraw" amount
         isAsset asset
@@ -357,23 +359,23 @@ checkInput = \case
     checkPriceAct time act = do
       isNonNegative "price rate timestamp" time
       case act of
-        SetAssetPrice asset price -> do
+        SetAssetPriceAct asset price -> do
           checkCoinRateTimeProgress time asset
-          isPositiveRational "price" price
+          isPositiveRay "price" price
           isAsset asset
 
     checkGovernAct = \case
-      AddReserve cfg -> checkCoinCfg cfg
+      AddReserveAct cfg -> checkCoinCfg cfg
 
     checkCoinCfg CoinCfg{..} = do
-      isPositiveRational "coin price config" coinCfg'rate
+      isPositiveRay "coin price config" coinCfg'rate
       checkInterestModel coinCfg'interestModel
-      isUnitRange "liquidation bonus config" coinCfg'liquidationBonus
+      isUnitRangeRay "liquidation bonus config" coinCfg'liquidationBonus
 
     checkInterestModel InterestModel{..} = do
-      isUnitRange "optimal utilisation" im'optimalUtilisation
-      isPositiveRational "slope 1" im'slope1
-      isPositiveRational "slope 2" im'slope2
+      isUnitRangeRay "optimal utilisation" im'optimalUtilisation
+      isPositiveRay "slope 1" im'slope1
+      isPositiveRay "slope 2" im'slope2
 
     checkCoinRateTimeProgress time asset = do
       lastUpdateTime <- coinRate'lastUpdateTime . reserve'rate <$> getReserve asset

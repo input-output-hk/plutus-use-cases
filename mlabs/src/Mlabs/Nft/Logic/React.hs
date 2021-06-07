@@ -26,8 +26,8 @@ react :: Act -> St [Resp]
 react inp = do
   checkInputs inp
   case inp of
-    UserAct uid (Buy price newPrice) -> buyAct uid price newPrice
-    UserAct uid (SetPrice price)     -> setPriceAct uid price
+    UserAct uid (BuyAct price newPrice) -> buyAct uid price newPrice
+    UserAct uid (SetPriceAct price)     -> setPriceAct uid price
   where
     -----------------------------------------------
     -- buy
@@ -63,9 +63,9 @@ react inp = do
 -- | Check inputs for valid values.
 checkInputs :: Act -> St ()
 checkInputs (UserAct _uid act) = case act of
-  Buy price newPrice -> do
+  BuyAct price newPrice -> do
     isPositive "Buy price" price
     Maybe.mapM_ (isPositive "New price") newPrice
 
-  SetPrice price -> Maybe.mapM_ (isPositive "Set price") price
+  SetPriceAct price -> Maybe.mapM_ (isPositive "Set price") price
 

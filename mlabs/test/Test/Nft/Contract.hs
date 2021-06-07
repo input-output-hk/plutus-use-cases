@@ -35,9 +35,9 @@ noChangesScene = foldMap ( `ownsAda` 0) [w1, w2, w3]
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
 buyScript :: Script
 buyScript = do
-  userAct w1 $ SetPrice (Just 100)
-  userAct w2 $ Buy 100 Nothing
-  userAct w2 $ SetPrice (Just 500)
+  userAct w1 $ SetPriceAct (Just 100)
+  userAct w2 $ BuyAct 100 Nothing
+  userAct w2 $ SetPriceAct (Just 500)
 
 buyScene :: Scene
 buyScene = mconcat
@@ -53,7 +53,7 @@ buyScene = mconcat
 buyTwiceScript :: Script
 buyTwiceScript = do
   buyScript
-  userAct w3 $ Buy 500 (Just 1000)
+  userAct w3 $ BuyAct 500 (Just 1000)
 
 buyTwiceScene :: Scene
 buyTwiceScene = buyScene <> buyTwiceChange
@@ -72,7 +72,7 @@ buyTwiceScene = buyScene <> buyTwiceChange
 failToSetPriceScript :: Script
 failToSetPriceScript = do
   buyScript
-  userAct w1 $ SetPrice (Just 200)
+  userAct w1 $ SetPriceAct (Just 200)
 
 --------------------------------------------------------------------------------
 -- fail to buy locked
@@ -80,7 +80,7 @@ failToSetPriceScript = do
 -- | User 2 tries to buy NFT which is locked (no price is set)
 failToBuyLockedScript :: Script
 failToBuyLockedScript = do
-  userAct w2 $ Buy 1000 Nothing
+  userAct w2 $ BuyAct 1000 Nothing
 
 --------------------------------------------------------------------------------
 -- fail to buy with not enough money
@@ -88,6 +88,6 @@ failToBuyLockedScript = do
 -- | User 2 tries to buy open NFT with not enough money
 failToBuyNotEnoughPriceScript :: Script
 failToBuyNotEnoughPriceScript = do
-  userAct w1 $ SetPrice (Just 100)
-  userAct w2 $ Buy 10 Nothing
+  userAct w1 $ SetPriceAct (Just 100)
+  userAct w2 $ BuyAct 10 Nothing
 

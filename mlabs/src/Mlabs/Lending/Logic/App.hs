@@ -14,7 +14,7 @@ module Mlabs.Lending.Logic.App(
   , governAct
 ) where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude hiding ((%))
 import Plutus.V1.Ledger.Value
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 
@@ -27,7 +27,8 @@ import Mlabs.Lending.Logic.Types
 
 import qualified Data.Map.Strict as M
 import qualified PlutusTx.AssocMap as AM
-import qualified PlutusTx.Ratio as R
+import Mlabs.Data.Ray ((%))
+import qualified Mlabs.Data.Ray as R
 
 type LendingApp = App LendingPool Act
 
@@ -44,6 +45,8 @@ data AppConfig = AppConfig
   -- no need to include it here
   , appConfig'currencySymbol :: CurrencySymbol
   -- ^ lending app main currency symbol
+  , appConfig'admins  :: [UserId]
+  -- ^ users that can do govern actions
   , appConfig'oracles :: [UserId]
   -- ^ users that can submit price changes
   }
@@ -57,6 +60,7 @@ initApp AppConfig{..} = App
       , lp'currency       = appConfig'currencySymbol
       , lp'coinMap        = coinMap
       , lp'healthReport   = AM.empty
+      , lp'admins         = appConfig'admins
       , lp'trustedOracles = appConfig'oracles
       }
   , app'log  = []
@@ -69,9 +73,11 @@ initApp AppConfig{..} = App
 -- It allocates three users nad three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 defaultAppConfig :: AppConfig
-defaultAppConfig = AppConfig reserves users curSym oracles
+defaultAppConfig = AppConfig reserves users curSym admins oracles
   where
-    oracles = [UserId $ PubKeyHash "1"]  -- only user 1 can set the price
+    admins  = [user1]
+    oracles = [user1]
+    user1 = UserId $ PubKeyHash "1"  -- only user 1 can set the price and be admin
     curSym = currencySymbol "lending-app"
     userNames = ["1", "2", "3"]
     coinNames = ["Dollar", "Euro", "Lira"]
@@ -111,6 +117,6 @@ priceAct uid arg = do
   S.putAct $ PriceAct t uid arg
 
 -- | Make govern act
-governAct :: GovernAct -> Script
-governAct arg = S.putAct $ GovernAct arg
+governAct :: UserId -> GovernAct -> Script
+governAct uid arg = S.putAct $ GovernAct uid arg
 

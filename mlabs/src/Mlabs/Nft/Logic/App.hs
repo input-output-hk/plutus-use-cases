@@ -69,9 +69,9 @@ type Script = S.Script Act
 
 -- | User buys NFTs
 buy :: UserId -> Integer -> Maybe Integer -> Script
-buy uid price newPrice = S.putAct $ UserAct uid (Buy price newPrice)
+buy uid price newPrice = S.putAct $ UserAct uid (BuyAct price newPrice)
 
 -- | Set price of NFT
 setPrice :: UserId -> Maybe Integer -> Script
-setPrice uid newPrice = S.putAct $ UserAct uid (SetPrice newPrice)
+setPrice uid newPrice = S.putAct $ UserAct uid (SetPriceAct newPrice)
 
