@@ -1,70 +1,114 @@
-# Getting Started with Create React App
+# NFT Marketplace
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Frontend part of NFT-case implementation. 
 
-## Available Scripts
+## Installation
 
-In the project directory, you can run:
+Firstly, go to the directory below.
 
-### `yarn start`
+```bash
+./eleks/nft/plutus-web-app
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+Then run this command to install all needed for the project packages.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+```bash
+npm install
+```
 
-### `yarn test`
+## Run app
+Run this command to run the application. The app will run on **:3000** port.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash 
+npm start
+```
 
-### `yarn build`
+## Open in browser
+You need to enable cross-origin policies in the browser for local app development. For example, you can open Google Chrome with this command.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash 
+open -n -a /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --args --user-data-dir="/tmp/chrome_dev_test" --disable-web-security
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Set wallets
+You need to set on frontend part right wallets ids.
+Wallets ids can be found here:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+./eleks/nft
+```
+Open files with these names and obtain ids.
 
-### `yarn eject`
+```bash
+W1.cid
+W2.cid
+W3.cid
+W4.cid
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+The insert properly ids in file with directory:
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+./eleks/nft/plutus-web-app/src/helpers/constants.js
+```
+## App usage
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## Login
+You should login before start using the system. Just choose any of wallets.
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+![Login screenshot](./screenshots/login.png)
 
-## Learn More
+## Create token
+If you want to test the system, you should start with creating new token. It can be done in *Create NFT* tab. 
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+![Create screenshot](./screenshots/create.png)
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Navigate to **My collection** page to check created token. It should appear in *Owned tokens* section.
 
-### Code Splitting
+## My collection
+My collection page purpose is to display both owned and your selling tokens. Thus this page has two different sections *Owned tokens* and *My tokens on trade* sections. 
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+For more info about certain token you can click on it. It will navigate you to token page, where you will be able to perform more actions with token.
 
-### Analyzing the Bundle Size
+![My collection screenshot](./screenshots/mycollection.png)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## View single token
+Here you can see more details about token, including description, autor name, price and seller. Note that seller and price is present only if token is on trade at this moment. 
 
-### Making a Progressive Web App
+Also here you will be able to perform various actions with token like buy it, transfer, sell and cancel selling. 
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+![Cancel sell screenshot](./screenshots/cancelsell.png)
 
-### Advanced Configuration
+## Storefront
+Storefront displays all tokens that are on trande right now. It also displays both your tokens on trade and tokens from other users. 
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+All tokens are clickable like it is on **My collection** page.
 
-### Deployment
+![Storefront screenshot](./screenshots/storefront.png)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Sell token
+The way to sell token is:
+Go to **My collection** page and click on any of tokens from *Owned tokens* section. Tokens from other section will have other available actions as they are already on sale. After navigating to *single token page* just push the button *Sell token* and follow instructions.
 
-### `yarn build` fails to minify
+## Cancel sell token
+You can also cancel sell action on token:
+Go to **My collection** page and click on token from *My tokens on trade* section. After navigating to *single token page* just push the button *Cancel sell token*.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Another way is to find your token via **Storefront** page. You can click on token and if it is your token on trade you will have the same *Cancel sell* button.
+
+## Buy token
+The way to buy token is:
+Go to **Storefront** page and click on the token, that you want to buy. After navigating to *single token page* just push the button *Buy token* and follow instructions.
+
+Remember that this page contains not only others tokens, but also your tokens on sale, so you will not be able to buy them.
+
+## Transfer token
+You can also transfer your token to the other wallet without sell flow. 
+Go to **My collection** page and click on token from *Owned tokens* section. After navigating to *single token page* just push the button *Transfer token* and follow instructions.
+
+Note that you are able to transfer only your tokens, that are not on trade.
+
+
+
+
+
