@@ -54,6 +54,7 @@ import System.Directory                                  (getCurrentDirectory)
 import System.FilePath                                   ((</>))
 import Plutus.PAB.Core                                   (PABEffects)
 import Ledger                                            (CurrencySymbol)
+import Plutus.Contracts.Data
 
 uniswapMintingContract :: Eff (PABEffects
      (Builtin UniswapContracts)
@@ -99,7 +100,7 @@ uniswapLiquidityPoolContract cids cs = do
     let coins = Map.fromList [(tn, Uniswap.mkCoin cs tn) | tn <- tokenNames]
         ada   = Uniswap.mkCoin adaSymbol adaToken
 
-    let cp = Uniswap.CreateParams ada (coins Map.! "A") 100000 500000
+    let cp = CreateParams ada (coins Map.! "A") 100000 500000
     Simulator.logString @(Builtin UniswapContracts) $ "creating liquidity pool: " ++ show (encode cp)
     -- _  <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" cp
     let cid2 = cids Map.! Wallet 2
@@ -141,7 +142,7 @@ main = do
     outputDir <- getCurrentDirectory
     print outputDir    
     BSL.writeFile
-        (outputDir </> "full_report_response.json")
+        (outputDir </> "./log/full_report_response.json")
         (JSON.encodePretty fullReport)
 
 data UniswapContracts =

@@ -39,10 +39,14 @@ library
       -- Plutus.PAB.Effects.ContractTest.Uniswap
       Effects.Uniswap
       Plutus.Contracts.Data
+      Plutus.Contracts.Helpers
+      -- Plutus.Contracts.UniswapHelpers
+      Plutus.Contracts.Validators
       Plutus.Contracts.PubKey
       Plutus.Contracts.Uniswap
       Plutus.Contracts.Currency
       Plutus.Contracts.LiquidityPool
+      Plutus.Contracts.PoolForgery
     build-depends:
       base >= 4.9 && < 5,
       directory,

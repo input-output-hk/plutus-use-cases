@@ -6,9 +6,6 @@ module Plutus.Contracts.LiquidityPool
   ( calculateAdditionalLiquidity
   , calculateInitialLiquidity
   , calculateRemoval
-  -- , checkSwap
-  -- , lpTicker
-  , LiquidityPool
   ) where
   
 import           Ledger.Value                   (TokenName (..), unAssetClass, unCurrencySymbol)
