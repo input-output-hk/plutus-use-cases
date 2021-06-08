@@ -23,6 +23,7 @@ import           Data.ByteString                  (ByteString)
 import qualified Data.Map                         as Map
 import           Data.Text                        (Text)
 import           Data.Void                        (Void)
+import           Ext.Plutus.Ledger.Contexts       (scriptInputsAt)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
@@ -49,7 +50,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..))
 import qualified PlutusTx.Semigroup               as Semigroup
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
-import Ext.Plutus.Ledger.Contexts (scriptInputsAt)
 
 {-# INLINABLE validator #-}
 validator :: ValidatorHash -> AssetClass -> TokenName -> ScriptContext -> Bool

@@ -36,7 +36,7 @@ import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import qualified Plutus.Contracts.TxUtils         as TxUtils
-import           Plutus.OutputValue               (OutputValue (..),_ovValue)
+import           Plutus.OutputValue               (OutputValue (..), _ovValue)
 import qualified Plutus.State.Select              as Select
 import           Plutus.State.Update              (PutStateHandle (..),
                                                    StateHandle (..))

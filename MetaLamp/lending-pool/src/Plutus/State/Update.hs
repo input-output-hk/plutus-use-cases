@@ -30,6 +30,7 @@ import qualified Ledger.Scripts                   as Scripts
 import           Ledger.Typed.Scripts             (ScriptType (..))
 import qualified Ledger.Typed.Scripts             as Scripts
 
+import           Ext.Plutus.Ledger.Contexts       (scriptInputsAt)
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.TxUtils         as TxUtils
@@ -41,7 +42,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
-import Ext.Plutus.Ledger.Contexts (scriptInputsAt)
 
 type OwnerToken = AssetClass
 
