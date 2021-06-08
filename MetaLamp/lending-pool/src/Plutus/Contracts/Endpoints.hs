@@ -37,9 +37,8 @@ import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.AToken          as AToken
 import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
                                                    AaveRedeemer (..),
-                                                   Reserve (..), ReserveId,
-                                                   UserConfig (..),
-                                                   UserConfigId)
+                                                   Reserve (..),
+                                                   UserConfig (..))
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
@@ -106,10 +105,10 @@ type AaveOwnerSchema =
     BlockchainActions
         .\/ Endpoint "start" ()
 
-reserves :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map ReserveId Reserve)
+reserves :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map AssetClass Reserve)
 reserves aave = ovValue <$> State.findAaveReserves aave
 
-users :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map UserConfigId UserConfig)
+users :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
 users aave = ovValue <$> State.findAaveUserConfigs aave
 
 valueAt :: HasBlockchainActions s => Address -> Contract w s Text Value
@@ -289,8 +288,8 @@ data UserContractState =
     | Repaid
     | FundsAt Value
     | PoolFunds Value
-    | Reserves (AssocMap.Map ReserveId Reserve)
-    | Users (AssocMap.Map UserConfigId UserConfig)
+    | Reserves (AssocMap.Map AssetClass Reserve)
+    | Users (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     | GetPubKey PubKeyHash
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 

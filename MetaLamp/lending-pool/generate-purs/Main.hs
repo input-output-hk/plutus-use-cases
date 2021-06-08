@@ -64,7 +64,7 @@ import           Servant.PureScript                         (HasBridge, Settings
 import           System.FilePath                            ((</>))
 import           Wallet.Effects                             (AddressChangeRequest (..), AddressChangeResponse (..))
 import           Wallet.Emulator.Wallet                     (Wallet (..))
-import AaveTypes (aaveTypes)
+import AaveTypes (aaveTypes, ratioBridge)
 import System.Directory (removeDirectoryRecursive, doesDirectoryExist)
 import           Plutus.V1.Ledger.Value           (AssetClass, TokenName (..))
 import Control.Monad (when)
@@ -77,6 +77,7 @@ myBridge =
     PSGenerator.Common.ledgerBridge <|>
     PSGenerator.Common.servantBridge <|>
     PSGenerator.Common.miscBridge <|>
+    ratioBridge <|>
     metadataBridge <|>
     defaultBridge
 

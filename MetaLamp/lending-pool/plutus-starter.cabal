@@ -84,6 +84,7 @@ executable generate-purs
     freer-extras,
     lens,
     text,
+    mtl,
     -- Plutus:
     plutus-ledger-api,
     purescript-bridge,

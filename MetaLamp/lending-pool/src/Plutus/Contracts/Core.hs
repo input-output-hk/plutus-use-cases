@@ -45,12 +45,10 @@ newtype Aave = Aave
 
 PlutusTx.makeLift ''Aave
 
-type ReserveId = AssetClass
-
 deriving anyclass instance ToSchema Rational
 
 data Reserve = Reserve
-    { rCurrency                :: ReserveId,
+    { rCurrency                :: AssetClass, -- reserve id
       rAToken                  :: AssetClass,
       rAmount                  :: Integer,
       rDebtToken               :: AssetClass,
@@ -62,8 +60,6 @@ data Reserve = Reserve
 
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
-
-type UserConfigId = (ReserveId, PubKeyHash)
 
 data UserConfig = UserConfig
     {
@@ -77,9 +73,9 @@ PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
 
 data AaveRedeemer =
-  CreateReservesRedeemer (AssocMap.Map ReserveId Reserve)
+  CreateReservesRedeemer (AssocMap.Map AssetClass Reserve)
   | UpdateReservesRedeemer
-  | CreateUserConfigsRedeemer (AssocMap.Map UserConfigId UserConfig)
+  | CreateUserConfigsRedeemer (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
   | UpdateUserConfigsRedeemer
   | WithdrawRedeemer
   | BorrowRedeemer
@@ -91,8 +87,8 @@ PlutusTx.makeLift ''AaveRedeemer
 
 data AaveDatum =
   LendingPoolDatum
-  | ReservesDatum (AssocMap.Map ReserveId Reserve)
-  | UserConfigsDatum (AssocMap.Map UserConfigId UserConfig)
+  | ReservesDatum (AssocMap.Map AssetClass Reserve)
+  | UserConfigsDatum (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
   | DepositDatum
   | BorrowDatum
   | RepayDatum

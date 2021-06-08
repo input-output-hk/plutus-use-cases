@@ -5,7 +5,7 @@ import Prelude
 import Business.Aave as Aave
 import Capability.Contract (class Contract, ContractId(..))
 import Capability.Delay (class Delay)
-import Capability.LogMessages (class LogMessages, logError)
+import Capability.LogMessages (class LogMessages, logError, logInfo)
 import Components.AmountForm as AmountForm
 import Control.Monad.Except (lift, runExceptT, throwError)
 import Data.Array (mapWithIndex)
