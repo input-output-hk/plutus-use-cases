@@ -68,7 +68,7 @@ waitForLast cid =
         _                       -> Nothing
 
 wallets :: [Wallet]
-wallets = [Wallet i | i <- [1 .. 9]]
+wallets = [Wallet i | i <- [1 .. 5]]
 
 defaultMarket :: Market
 defaultMarket = Market 
