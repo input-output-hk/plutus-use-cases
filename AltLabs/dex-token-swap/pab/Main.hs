@@ -26,7 +26,6 @@ import qualified Data.Map.Strict                         as Map
 import qualified Data.Monoid                             as Monoid
 import qualified Data.Semigroup                          as Semigroup
 import           Data.Text                               (Text)
-import           Data.Text.Prettyprint.Doc               (Pretty (..), viaShow)
 import           GHC.Generics                            (Generic)
 import           Ledger.Ada                              (adaSymbol, adaToken)
 import           Plutus.Contract
@@ -51,10 +50,15 @@ import qualified Data.Text                                  as Text
 import           Wallet.Types                               (ContractInstanceId (..))
 import           Playground.Types                            (FunctionSchema)
 import           Schema                                      (FormSchema)
-import System.Directory
-import           System.FilePath                            ((</>))
+import System.Directory                                  (getCurrentDirectory)
+import System.FilePath                                   ((</>))
+import Plutus.PAB.Core                                   (PABEffects)
+import Ledger                                            (CurrencySymbol)
 
-
+uniswapMintingContract :: Eff (PABEffects
+     (Builtin UniswapContracts)
+     (Simulator.SimulatorState (Builtin UniswapContracts)))
+  (ContractInstanceId, CurrencySymbol)
 uniswapMintingContract = do
     cidInit  <- Simulator.activateContract (Wallet 1) Init
     cs       <- flip Simulator.waitForState cidInit $ \json -> case fromJSON json of
@@ -66,7 +70,10 @@ uniswapMintingContract = do
 
     return (cidInit, cs)
 
-
+uniswapStartContract :: Eff (PABEffects
+     (Builtin UniswapContracts)
+     (Simulator.SimulatorState (Builtin UniswapContracts)))
+  (ContractInstanceId, Uniswap.Uniswap)
 uniswapStartContract = do
     cidStart <- Simulator.activateContract (Wallet 1) UniswapStart
     us       <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Uniswap.Uniswap))) of
@@ -77,7 +84,7 @@ uniswapStartContract = do
     pure (cidStart, us)
 
 uniswapUserContract us = do
-    cids <- fmap Map.fromList $ forM wallets $ \w -> do
+    fmap Map.fromList $ forM wallets $ \w -> do
         cid <- Simulator.activateContract w $ UniswapUser us
         Simulator.logString @(Builtin UniswapContracts) $ "Uniswap user contract started for " ++ show w
         Simulator.waitForEndpoint cid "funds"
@@ -87,8 +94,6 @@ uniswapUserContract us = do
                 _                                                      -> Nothing
         Simulator.logString @(Builtin UniswapContracts) $ "initial funds in wallet " ++ show w ++ ": " ++ show v
         return (w, cid)
-    
-    return cids
 
 uniswapLiquidityPoolContract cids cs = do
     let coins = Map.fromList [(tn, Uniswap.mkCoin cs tn) | tn <- tokenNames]
@@ -121,10 +126,10 @@ main = do
             (cidStart, us) <- uniswapStartContract
 
             -- UNI: USER
-            cids <- (uniswapUserContract us)
+            cids <- uniswapUserContract us
             
             -- UNI: POOL
-            void $ (uniswapLiquidityPoolContract cids cs)
+            void (uniswapLiquidityPoolContract cids cs)
             
             _ <- liftIO getLine
             shutdown
