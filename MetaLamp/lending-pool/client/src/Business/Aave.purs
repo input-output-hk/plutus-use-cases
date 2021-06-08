@@ -48,9 +48,9 @@ getAaveResponseWith :: forall m a p.
   ContractId ->
   p ->
   m (Either APIError a)
-getAaveResponseWith endpoint pick cid param = runExceptT $ do
-  _ <- lift (callEndpoint endpoint cid param) >>= either throwError pure
-  lift (pollStatus endpoint pick cid) >>= either throwError pure
+getAaveResponseWith endpoint pick cid param =
+  callEndpoint endpoint cid param >>=
+    either (pure <<< Left) (const $ pollStatus endpoint pick cid)
 
 pollStatus :: forall m a.
   Contract m =>
