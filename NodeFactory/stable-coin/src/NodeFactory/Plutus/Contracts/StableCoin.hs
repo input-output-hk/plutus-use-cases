@@ -22,17 +22,13 @@ module NodeFactory.Plutus.Contracts.StableCoin
     ) where
 
 import           Control.Monad                    hiding (fmap)
-import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
-import           Data.Proxy                       (Proxy (..))
 import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void)
 import           Ledger                           hiding (singleton)
-import           Ledger.Contexts
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
-import qualified Ledger.Scripts                   as Scripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Value                     as Value
 import           Playground.Contract
@@ -50,7 +46,7 @@ stableCoinTokenName, vaultStateTokenName :: TokenName
 stableCoinTokenName = "Stable Coin Token"
 vaultStateTokenName = "Vault State Token"
 
--- DEFINING STRUCTURES
+-- Structs
 
 data StableCoinVault = StableCoinVault
     { owner  :: !PubKeyHash      -- owner of the of the vault
@@ -89,12 +85,12 @@ data StableCoinDatum =
 PlutusTx.unstableMakeIsData ''StableCoinDatum
 PlutusTx.makeLift ''StableCoinDatum
 
--- 
-
 data StableCoining
 instance Scripts.ScriptType StableCoining where
     type instance DatumType StableCoining = StableCoinDatum
     type instance RedeemerType StableCoining = StableCoinAction
+
+-- Validators
 
 {-# INLINABLE validateCreate #-}
 validateCreate :: StableCoin
@@ -104,41 +100,44 @@ validateCreate :: StableCoin
             -> ScriptContext
             -> Bool
 validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
-    traceIfFalse "StableCoin coin not present" inputHasSCToken    &&
+    traceIfFalse "StableCoin coin not present" inputHasVaultToken    &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ v : vs) $ coin sCoin 1)
     -- Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Vault v) $ coin c 1) TODO - fix checking vault coin
     -- TODO - Add constraint checking output amount of stable coin appropriate
     -- TODO - Add constraint checking input amount of ADA
   where
-    amount :: Integer
-    amount      = 10
-
-    ownInput :: TxOut               -- get stable coind input
+    ownInput :: TxOut               
     ownInput = case findOwnInput ctx of
         Nothing -> traceError "stable coin input missing"
         Just i  -> txInInfoResolved i
 
-    inputHasSCToken :: Bool           -- check if input contains nft token
-    inputHasSCToken = assetClassValueOf (txOutValue ownInput) (coinAssetClass $ c) == 1
+    inputHasVaultToken :: Bool           -- check if input contains nft token
+    inputHasVaultToken = assetClassValueOf (txOutValue ownInput) (coinAssetClass $ c) == 1
 
 {-# INLINABLE validateCloseFactory #-}
-validateCloseFactory :: StableCoin -> Coin -> [StableCoinVault] -> ScriptContext -> Bool
+validateCloseFactory :: StableCoin 
+                    -> Coin 
+                    -> [StableCoinVault] 
+                    -> ScriptContext 
+                    -> Bool
 validateCloseFactory sc c vs ctx = 
-    traceIfFalse "StableCoin coin not present" inputHasToken
+    traceIfFalse "StableCoin coin not present" inputHasStableCoinToken
   where 
     usC :: Coin
     usC = sCoin sc
 
-    ownInput :: TxOut               -- get stable coind input
+    ownInput :: TxOut               
     ownInput = case findOwnInput ctx of
         Nothing -> traceError "stable coin input missing"
         Just i  -> txInInfoResolved i
 
-    inputHasToken :: Bool           -- check if input contains nft token
-    inputHasToken = assetClassValueOf (txOutValue ownInput) (coinAssetClass $ usC) == 1
+    inputHasStableCoinToken :: Bool           -- check if input contains nft token
+    inputHasStableCoinToken = assetClassValueOf (txOutValue ownInput) (coinAssetClass $ usC) == 1
 
 {-# INLINABLE validateClosePool #-}
-validateClosePool :: StableCoin -> ScriptContext -> Bool
+validateClosePool :: StableCoin 
+                -> ScriptContext 
+                -> Bool
 validateClosePool sc ctx = hasFactoryInput
     where
         info :: TxInfo
@@ -172,23 +171,12 @@ stableCoinInstance sc = Scripts.validator @StableCoining
 
     wrap = Scripts.wrapValidator @StableCoinDatum @StableCoinAction
 
+-- TODO implement forging validation
 -- validateLiquidityForging :: StableCoin -> TokenName -> ScriptContext -> Bool
--- validateLiquidityForging us tn ctx = case [ i
---                                           | i <- txInfoInputs $ policyCtxTxInfo ctx
---                                           , let v = (txOutValue . txInInfoResolved) i
---                                           , (coinValueOf v usC == 1) ||
---                                             (coinValueOf v lpC == 1)
---                                           ] of
---     [_]    -> True
---     [_, _] -> True
---     _      -> traceError "pool state forging without StableCoin input"
---   where
---     usC, lpC :: Coin
---     usC = sCoin us
---     lpC = Coin (ownCurrencySymbol ctx) tn
+-- validateLiquidityForging us tn ctx = 
 
 validateLiquidityForging :: StableCoin -> TokenName -> ScriptContext -> Bool
-validateLiquidityForging us tn ctx = True -- TODO replace with real forging validation
+validateLiquidityForging sc tn ctx = True -- TODO replace with real forging validation
 
 stableCoinValidator :: StableCoin -> Validator
 stableCoinValidator = Scripts.validatorScript . stableCoinInstance
@@ -198,7 +186,6 @@ stableCoinAddress = scriptAddress . stableCoinValidator
 
 stablecoin :: CurrencySymbol -> StableCoin
 stablecoin cs = StableCoin $ Coin cs stableCoinTokenName
-
 
 liquidityPolicy :: StableCoin -> MonetaryPolicy
 liquidityPolicy us = mkMonetaryPolicyScript $
@@ -212,7 +199,6 @@ liquidityCurrency = scriptCurrencySymbol . liquidityPolicy
 vaultStateCoin :: StableCoin -> Coin
 vaultStateCoin = flip Coin vaultStateTokenName . liquidityCurrency
 
--- | Gets the 'Coin' used to identity vaults.
 vaultStateCoinFromStableCoinCurrency :: CurrencySymbol -> Coin
 vaultStateCoinFromStableCoinCurrency = vaultStateCoin . stablecoin
 
