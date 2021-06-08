@@ -123,8 +123,8 @@ validateCloseFactory :: StableCoin
 validateCloseFactory sc c vs ctx = 
     traceIfFalse "StableCoin coin not present" inputHasStableCoinToken
   where 
-    usC :: Coin
-    usC = sCoin sc
+    scC :: Coin
+    scC = sCoin sc
 
     ownInput :: TxOut               
     ownInput = case findOwnInput ctx of
@@ -132,20 +132,23 @@ validateCloseFactory sc c vs ctx =
         Just i  -> txInInfoResolved i
 
     inputHasStableCoinToken :: Bool           -- check if input contains nft token
-    inputHasStableCoinToken = assetClassValueOf (txOutValue ownInput) (coinAssetClass $ usC) == 1
+    inputHasStableCoinToken = assetClassValueOf (txOutValue ownInput) (coinAssetClass $ scC) == 1
 
-{-# INLINABLE validateClosePool #-}
-validateClosePool :: StableCoin 
+{-# INLINABLE validateCloseVault #-}
+validateCloseVault :: StableCoin 
                 -> ScriptContext 
                 -> Bool
-validateClosePool sc ctx = hasFactoryInput
-    where
-        info :: TxInfo
-        info = scriptContextTxInfo ctx
+validateCloseVault sc ctx = 
+    hasFactoryInput
+    -- TODO - Add constraint checking input amount of stable coin appropriate
+    -- TODO - Add constraint check if owner of vault
+  where
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
 
-        hasFactoryInput :: Bool
-        hasFactoryInput =
-            traceIfFalse "Stable coin factory input expected" $ coinValueOf (valueSpent info) (sCoin sc) == 1
+    hasFactoryInput :: Bool
+    hasFactoryInput =
+        traceIfFalse "Stable coin factory input expected" $ coinValueOf (valueSpent info) (sCoin sc) == 1
 
 
 mkStableCoinValidator :: StableCoin
@@ -156,7 +159,7 @@ mkStableCoinValidator :: StableCoin
                     -> Bool
 mkStableCoinValidator sc c (Factory vs) (Create v)  ctx = validateCreate sc c vs v ctx
 mkStableCoinValidator sc c (Factory vs) Close       ctx = validateCloseFactory sc c vs ctx
-mkStableCoinValidator sc _ (Vault _)    Close       ctx = validateClosePool sc ctx
+mkStableCoinValidator sc _ (Vault _)    Close       ctx = validateCloseVault sc ctx
 mkStableCoinValidator _  _ _            _           _   = False
 
 stableCoinInstance :: StableCoin -> Scripts.ScriptInstance StableCoining
@@ -173,7 +176,7 @@ stableCoinInstance sc = Scripts.validator @StableCoining
 
 -- TODO implement forging validation
 -- validateLiquidityForging :: StableCoin -> TokenName -> ScriptContext -> Bool
--- validateLiquidityForging us tn ctx = 
+-- validateLiquidityForging sc tn ctx = 
 
 validateLiquidityForging :: StableCoin -> TokenName -> ScriptContext -> Bool
 validateLiquidityForging sc tn ctx = True -- TODO replace with real forging validation
@@ -188,9 +191,9 @@ stablecoin :: CurrencySymbol -> StableCoin
 stablecoin cs = StableCoin $ Coin cs stableCoinTokenName
 
 liquidityPolicy :: StableCoin -> MonetaryPolicy
-liquidityPolicy us = mkMonetaryPolicyScript $
+liquidityPolicy sc = mkMonetaryPolicyScript $
     $$(PlutusTx.compile [|| \u t -> Scripts.wrapMonetaryPolicy (validateLiquidityForging u t) ||])
-        `PlutusTx.applyCode` PlutusTx.liftCode us
+        `PlutusTx.applyCode` PlutusTx.liftCode sc
         `PlutusTx.applyCode` PlutusTx.liftCode vaultStateTokenName
 
 liquidityCurrency :: StableCoin -> CurrencySymbol
@@ -202,7 +205,7 @@ vaultStateCoin = flip Coin vaultStateTokenName . liquidityCurrency
 vaultStateCoinFromStableCoinCurrency :: CurrencySymbol -> Coin
 vaultStateCoinFromStableCoinCurrency = vaultStateCoin . stablecoin
 
-----
+---- ENDPOINTS
 
 start :: HasBlockchainActions s => Contract w s Text StableCoin
 start = do
@@ -211,18 +214,69 @@ start = do
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(stableCoinTokenName, 1)]
     let c    = Coin cs stableCoinTokenName
-        us   = stablecoin cs
-        inst = stableCoinInstance us
+        sc   = stablecoin cs
+        inst = stableCoinInstance sc
         tx   = mustPayToTheScript (Factory []) $ coin c 1
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo @String $ printf "started StableCoin %s at address %s" (show us) (show $ stableCoinAddress us)
-    return us
+    logInfo @String $ printf "started StableCoin %s at address %s" (show sc) (show $ stableCoinAddress sc)
+    return sc
 
 ownerEndpoint :: Contract (Last (Either Text StableCoin)) BlockchainActions Void ()
 ownerEndpoint = do
     e <- runError start
     tell $ Last $ Just $ case e of
         Left err -> Left err
-        Right us -> Right us
+        Right sc -> Right sc
+
+---- TODO general user endpoints
+
+-- data CreateParams = CreateParams
+--     {} deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
+-- data CloseParams = CloseParams
+--     {} deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
+-- create :: HasBlockchainActions s => StableCoin -> CreateParams -> Contract w s Text ()
+-- create sc CreateParams{..} = do
+
+-- close :: HasBlockchainActions s => StableCoin -> CloseParams -> Contract w s Text ()
+-- close sc CreateParams{..} = do
+
+-- type StableCoinUserSchema =
+--     BlockchainActions
+--         .\/ Endpoint "create" CreateParams
+--         .\/ Endpoint "close"  CloseParams
+--          -- TODO add liquidation
+
+-- data UserContractState = Created | Closed
+--     deriving (Show, Generic, FromJSON, ToJSON)
+
+-- userEndpoints :: StableCoin -> Contract (Last (Either Text UserContractState)) StableCoinUserSchema Void ()
+-- userEndpoints sc =
+--     stop
+--         `select`
+--     ((f (Proxy @"create") (const Created) create                 `select`
+--       f (Proxy @"close")  (const Closed)  close                  `select`
+--   where
+--     f :: forall l a p.
+--          HasEndpoint l p StableCoinUserSchema
+--       => Proxy l
+--       -> (a -> UserContractState)
+--       -> (StableCoin -> p -> Contract (Last (Either Text UserContractState)) StableCoinUserSchema Text a)
+--       -> Contract (Last (Either Text UserContractState)) StableCoinUserSchema Void ()
+--     f _ g c = do
+--         e <- runError $ do
+--             p <- endpoint @l
+--             c sc p
+--         tell $ Last $ Just $ case e of
+--             Left err -> Left err
+--             Right a  -> Right $ g a
+
+--     stop :: Contract (Last (Either Text UserContractState)) StableCoinUserSchema Void ()
+--     stop = do
+--         e <- runError $ endpoint @"stop"
+--         tell $ Last $ Just $ case e of
+--             Left err -> Left err
+--             Right () -> Right Stopped
