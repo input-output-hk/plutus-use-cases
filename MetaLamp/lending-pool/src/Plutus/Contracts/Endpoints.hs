@@ -65,12 +65,12 @@ newtype CreateParams =
 
 PlutusTx.makeLift ''CreateParams
 
-createReserve :: CreateParams -> Reserve
-createReserve CreateParams {..} =
+createReserve :: Aave -> CreateParams -> Reserve
+createReserve aave CreateParams {..} =
     Reserve
         { rCurrency = cpAsset,
           rAmount = 0,
-          rAToken = AToken.makeAToken cpAsset,
+          rAToken = AToken.makeAToken (Core.aaveHash aave) cpAsset,
           rLiquidityIndex = 1,
           rCurrentStableBorrowRate = 11 % 10 -- TODO configure borrow rate when lending core will be ready
            }
@@ -88,7 +88,7 @@ start params = do
     ledgerTx <- TxUtils.submitTxPair aaveTokenTx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve params)) params
+    let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve aave params)) params
     reservesTx <- State.putReserves aave Core.StartRedeemer reserveMap
     ledgerTx <- TxUtils.submitTxPair reservesTx
     void $ awaitTxConfirmed $ txId ledgerTx

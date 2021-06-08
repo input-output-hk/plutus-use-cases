@@ -49,31 +49,34 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..))
 import qualified PlutusTx.Semigroup               as Semigroup
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
+import Ext.Plutus.Ledger.Contexts (scriptInputsAt)
 
 {-# INLINABLE validator #-}
--- TODO Check amounts are > 0
-validator :: AssetClass -> TokenName -> ScriptContext -> Bool
-validator underlyingAsset aTokenName ctx = hasEnoughUnderlyingAsset
+validator :: ValidatorHash -> AssetClass -> TokenName -> ScriptContext -> Bool
+validator aaveScript underlyingAsset aTokenName ctx =
+    traceIfFalse "Aave tokens mint forbidden" $ amountMinted /= 0 && amountScriptAsset == amountMinted
     where
         txInfo :: TxInfo
         txInfo = scriptContextTxInfo ctx
-
         aTokenCurrency :: AssetClass
         aTokenCurrency = assetClass (ownCurrencySymbol ctx) aTokenName
+        amountAsset :: Value -> Integer
+        amountAsset = flip assetClassValueOf underlyingAsset
 
         amountMinted :: Integer
         amountMinted = assetClassValueOf (txInfoForge txInfo) aTokenCurrency
 
-        -- TODO how to check if value spent comes from pub key when aTokens are minted and comes from aave script when aTokens are burned?
-        amountAsset :: Integer
-        amountAsset = assetClassValueOf (valueSpent txInfo) underlyingAsset
+        amountScriptAsset :: Integer
+        amountScriptAsset =
+          let outputValue = foldMap snd $ scriptOutputsAt aaveScript txInfo
+              inputValue = foldMap snd $ scriptInputsAt aaveScript txInfo
+           in amountAsset outputValue - amountAsset inputValue
 
-        hasEnoughUnderlyingAsset :: Bool
-        hasEnoughUnderlyingAsset =  amountMinted <= amountAsset
-
-makeLiquidityPolicy :: AssetClass -> MonetaryPolicy
-makeLiquidityPolicy asset = Scripts.mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| \a t -> Scripts.wrapMonetaryPolicy $ validator a t||])
+makeLiquidityPolicy :: ValidatorHash -> AssetClass -> MonetaryPolicy
+makeLiquidityPolicy aaveScript asset = Scripts.mkMonetaryPolicyScript $
+  $$(PlutusTx.compile [|| \s a t -> Scripts.wrapMonetaryPolicy $ validator s a t||])
+    `PlutusTx.applyCode`
+        PlutusTx.liftCode aaveScript
     `PlutusTx.applyCode`
         PlutusTx.liftCode asset
     `PlutusTx.applyCode`
@@ -81,8 +84,8 @@ makeLiquidityPolicy asset = Scripts.mkMonetaryPolicyScript $
         where
             aToken = aTokenName asset
 
-makeAToken :: AssetClass -> AssetClass
-makeAToken asset = assetClass (scriptCurrencySymbol . makeLiquidityPolicy $ asset) (aTokenName asset)
+makeAToken :: ValidatorHash -> AssetClass -> AssetClass
+makeAToken aaveScript asset = assetClass (scriptCurrencySymbol $ makeLiquidityPolicy aaveScript asset) (aTokenName asset)
 
 {-# INLINABLE aTokenName #-}
 aTokenName :: AssetClass -> TokenName
@@ -91,7 +94,7 @@ aTokenName asset = TokenName $ "a" Semigroup.<> case asset of
 
 forgeATokensFrom :: forall w s. (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
 forgeATokensFrom aave reserve pkh amount = do
-    let policy = makeLiquidityPolicy (rCurrency reserve)
+    let policy = makeLiquidityPolicy (Core.aaveHash aave) (rCurrency reserve)
         aTokenAmount = amount -- / rLiquidityIndex reserve -- TODO: how should we divide?
         forgeValue = assetClassValue (rAToken reserve) aTokenAmount
     let payment = assetClassValue (rCurrency reserve) amount
@@ -110,7 +113,7 @@ burnATokensFrom aave reserve pkh amount = do
     let balance = mconcat . fmap (txOutValue . txOutTxOut) . map snd . Map.toList $ utxos
         aTokenAmount = amount
         remainder = assetClassValueOf balance asset - aTokenAmount
-        policy = makeLiquidityPolicy asset
+        policy = makeLiquidityPolicy (Core.aaveHash aave) asset
         burnValue = negate $ assetClassValue (rAToken reserve) aTokenAmount
         spendInputs = (\(ref, tx) -> OutputValue ref tx (Core.WithdrawRedeemer userConfigId)) <$> Map.toList utxos
     pure $

@@ -45,17 +45,19 @@ import Ext.Plutus.Ledger.Contexts (scriptInputsAt)
 
 type OwnerToken = AssetClass
 
--- State token can be only be forged when there is an input and outpu containing an owner token belonging to a script
+-- State token can be only be forged when there is an input and output containing an owner token belonging to a script
 {-# INLINABLE validateStateForging #-}
 validateStateForging :: ValidatorHash -> OwnerToken -> TokenName -> ScriptContext -> Bool
 validateStateForging ownerScript ownerToken tokenName ctx = traceIfFalse "State forging not authorized" $
     hasOneOwnerToken outputValues && hasOneOwnerToken inputValues && hasOneStateToken forgedValue && hasOneStateToken (mconcat outputValues)
   where
     txInfo = scriptContextTxInfo ctx
+    stateToken = assetClass (ownCurrencySymbol ctx) tokenName
+
     outputValues = snd <$> scriptOutputsAt ownerScript txInfo
     inputValues = snd <$> scriptInputsAt ownerScript txInfo
     forgedValue = txInfoForge txInfo
-    stateToken = assetClass (ownCurrencySymbol ctx) tokenName
+
     hasOneOwnerToken values = assetClassValueOf (mconcat values) ownerToken == 1
     hasOneStateToken value = assetClassValueOf value stateToken == 1
 
