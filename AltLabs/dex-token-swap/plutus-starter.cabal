@@ -38,9 +38,11 @@ library
       Plutus.Contracts
       -- Plutus.PAB.Effects.ContractTest.Uniswap
       Effects.Uniswap
+      Plutus.Contracts.Data
       Plutus.Contracts.PubKey
       Plutus.Contracts.Uniswap
       Plutus.Contracts.Currency
+      Plutus.Contracts.LiquidityPool
     build-depends:
       base >= 4.9 && < 5,
       directory,
@@ -63,7 +65,7 @@ library
     default-language: Haskell2010
     ghc-options:
             -- See Plutus Tx readme
-            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -haddock
 
 test-suite plutus-example-projects-test
   type: exitcode-stdio-1.0

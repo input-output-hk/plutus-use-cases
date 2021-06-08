@@ -91,6 +91,8 @@ mkCurrency (TxOutRef h i) amts =
         , curAmounts              = AssocMap.fromList amts
         }
 
+-- The only input that the policy script gets is the Context 
+{-# INLINABLE validate #-}
 validate :: OneShotCurrency -> V.ScriptContext -> Bool
 validate c@(OneShotCurrency (refHash, refIdx) _) ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
     let

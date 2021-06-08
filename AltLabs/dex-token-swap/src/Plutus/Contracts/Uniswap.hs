@@ -21,8 +21,8 @@
 -- [Uniswap protocol](https://uniswap.org/whitepaper.pdf).
 --
 module Plutus.Contracts.Uniswap
-    ( Coin
-    , coin, coinValueOf, mkCoin
+    (
+      coin, coinValueOf, mkCoin
     , Uniswap (..), uniswap
     , poolStateCoinFromUniswapCurrency, liquidityCoin
     , CreateParams (..)
@@ -59,6 +59,8 @@ import           PlutusTx.Sqrt
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
+import Plutus.Contracts.Data
+import Plutus.Contracts.LiquidityPool 
 
 uniswapTokenName, poolStateTokenName :: TokenName
 -- state token for the "factory" (unique token)
@@ -68,14 +70,6 @@ uniswapTokenName = "Uniswap"
 
 -- state token of the liquidity pools (each pool has same token)
 poolStateTokenName = "Pool State"
-
--- uniswapTokenName and poolStateTokenName share the same minting policy
--- | A handy alias to put things in the language of "Coins" instead of
--- "AssetClass".
-type Coin = AssetClass
-
--- Note: An orphan instance here because of the alias above.
-deriving anyclass instance ToSchema AssetClass
 
 -- helper function to construct Values
 -- Value (Cardano) is a "bag" of coins (1 ADA, 3 NFT etc...)
@@ -94,55 +88,6 @@ coinValueOf = assetClassValueOf
 {-# INLINABLE mkCoin #-}
 mkCoin:: CurrencySymbol -> TokenName -> AssetClass
 mkCoin = assetClass
-
-{-# INLINABLE calculateInitialLiquidity #-}
-calculateInitialLiquidity :: Integer -> Integer -> Integer
-calculateInitialLiquidity outA outB = case isqrt (outA * outB) of
-    Exact l
-        | l > 0 -> l
-    Irrational l
-        | l > 0 -> l + 1
-    _           -> traceError "insufficient liquidity"
-
--- helper for if you have an existing Pool, and someone adds liquidity to it
--- eg. A (n) tokens, B (n) tokens
--- someone adds (n) A or B, computes how many
---  liquidity tokens the person should receive
-{-# INLINABLE calculateAdditionalLiquidity #-}
-calculateAdditionalLiquidity :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer
-calculateAdditionalLiquidity oldA oldB liquidity delA delB =
-  case rsqrt ((liquidity * liquidity * newProd) % oldProd) of
-    Imaginary    -> traceError "insufficient liquidity"
-    Exact x      -> x - liquidity
-    Irrational x -> x - liquidity
-  where
-    oldProd, newProd :: Integer
-    oldProd = oldA * oldB
-    newProd = (oldA + delA) * (oldB + delB)
-
--- same as above just opposite
-{-# INLINABLE calculateRemoval #-}
-calculateRemoval :: Integer -> Integer -> Integer -> Integer -> (Integer, Integer)
-calculateRemoval inA inB liquidity diff = (f inA, f inB)
-  where
-    f :: Integer -> Integer
-    f x = x - divide (x * diff) liquidity
-
--- 2 token liquidity Pool
--- Order does not matter A/B == B/A pool
-data LiquidityPool = LiquidityPool
-    { lpCoinA :: Coin
-    , lpCoinB :: Coin
-    }
-    deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
-
-PlutusTx.unstableMakeIsData ''LiquidityPool
-PlutusTx.makeLift ''LiquidityPool
-
-instance Eq LiquidityPool where
-    {-# INLINABLE (==) #-}
-    x == y = (lpCoinA x == lpCoinA y && lpCoinB x == lpCoinB y) ||
-             (lpCoinA x == lpCoinB y && lpCoinB x == lpCoinA y)
 
 -- just a wrapper around the "Coin" type (CurrencySymbol + TokenNAme)
 newtype Uniswap = Uniswap
