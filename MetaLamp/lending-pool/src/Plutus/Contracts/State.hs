@@ -60,8 +60,8 @@ findAaveOwnerToken :: HasBlockchainActions s => Aave -> Contract w s Text (Outpu
 findAaveOwnerToken aave@Aave{..} = findOutputBy aave aaveProtocolInst (^? Core._LendingPoolDatum)
 
 reserveStateToken, userStateToken :: Aave -> AssetClass
-reserveStateToken aave = Update.makeStateToken (aaveProtocolInst aave) "aaveReserve"
-userStateToken aave = Update.makeStateToken (aaveProtocolInst aave) "aaveUser"
+reserveStateToken aave = Update.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveReserve"
+userStateToken aave = Update.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveUser"
 
 findAaveReserves :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue (AssocMap.Map ReserveId Reserve))
 findAaveReserves aave = findOutputBy aave (reserveStateToken aave) (^? Core._ReservesDatum . _2)

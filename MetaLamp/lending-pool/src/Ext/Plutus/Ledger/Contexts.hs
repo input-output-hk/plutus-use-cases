@@ -9,9 +9,9 @@ import           Ledger                      (Address (Address),
                                               PubKeyHash,
                                               TxInInfo (txInInfoResolved),
                                               TxInfo (txInfoInputs),
-                                              TxOut (TxOut, txOutAddress, txOutValue),
-                                              Value, findDatum)
-import           Plutus.V1.Ledger.Credential (Credential (PubKeyCredential))
+                                              TxOut (TxOut, txOutAddress, txOutDatumHash, txOutValue),
+                                              ValidatorHash, Value, findDatum)
+import           Plutus.V1.Ledger.Credential (Credential (PubKeyCredential, ScriptCredential))
 import qualified PlutusTx
 import           PlutusTx.Prelude            (Eq ((==)), Maybe (..),
                                               Monad ((>>=)), find, fst,
@@ -45,3 +45,10 @@ valueSpentFrom txInfo pk =
         | pk == pk' = Just txOutValue
       flt _ = Nothing
    in mconcat $ mapMaybe flt (txInInfoResolved <$> txInfoInputs txInfo)
+
+{-# INLINABLE scriptInputsAt #-}
+scriptInputsAt :: ValidatorHash -> TxInfo -> [(DatumHash, Value)]
+scriptInputsAt h p =
+    let flt TxOut{txOutDatumHash=Just ds, txOutAddress=Address (ScriptCredential s) _, txOutValue} | s == h = Just (ds, txOutValue)
+        flt _ = Nothing
+    in mapMaybe flt (txInInfoResolved <$> txInfoInputs p)

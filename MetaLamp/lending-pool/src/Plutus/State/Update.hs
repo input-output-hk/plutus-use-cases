@@ -41,33 +41,36 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
+import Ext.Plutus.Ledger.Contexts (scriptInputsAt)
 
 type OwnerToken = AssetClass
 
--- State token can be only be forged when there is an input containing an owner token
--- TODO: add rules:
--- 1. output contains same owner token with same owner (aave script)
--- 2. output contains the forged state token with same owner (aave script)
+-- State token can be only be forged when there is an input and outpu containing an owner token belonging to a script
 {-# INLINABLE validateStateForging #-}
-validateStateForging :: OwnerToken -> TokenName -> ScriptContext -> Bool
-validateStateForging ownerToken tokenName ctx =
-    any hasOwnerToken inputValues || traceError "State forging without OwnerToken input"
+validateStateForging :: ValidatorHash -> OwnerToken -> TokenName -> ScriptContext -> Bool
+validateStateForging ownerScript ownerToken tokenName ctx = traceIfFalse "State forging not authorized" $
+    hasOneOwnerToken outputValues && hasOneOwnerToken inputValues && hasOneStateToken forgedValue && hasOneStateToken (mconcat outputValues)
   where
-    inputs = txInfoInputs (scriptContextTxInfo ctx)
-    inputValues = txOutValue . txInInfoResolved <$> inputs
-    hasOwnerToken value = assetClassValueOf value ownerToken == 1
+    txInfo = scriptContextTxInfo ctx
+    outputValues = snd <$> scriptOutputsAt ownerScript txInfo
+    inputValues = snd <$> scriptInputsAt ownerScript txInfo
+    forgedValue = txInfoForge txInfo
+    stateToken = assetClass (ownCurrencySymbol ctx) tokenName
+    hasOneOwnerToken values = assetClassValueOf (mconcat values) ownerToken == 1
+    hasOneStateToken value = assetClassValueOf value stateToken == 1
 
-makeStatePolicy :: OwnerToken -> TokenName -> MonetaryPolicy
-makeStatePolicy ownerToken tokenName = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \ot tn -> Scripts.wrapMonetaryPolicy $ validateStateForging ot tn||])
+makeStatePolicy :: ValidatorHash -> OwnerToken -> TokenName -> MonetaryPolicy
+makeStatePolicy ownerScript ownerToken tokenName = mkMonetaryPolicyScript $
+    $$(PlutusTx.compile [|| \os ot tn -> Scripts.wrapMonetaryPolicy $ validateStateForging os ot tn||])
+        `PlutusTx.applyCode` PlutusTx.liftCode ownerScript
         `PlutusTx.applyCode` PlutusTx.liftCode ownerToken
         `PlutusTx.applyCode` PlutusTx.liftCode tokenName
 
-makeStateCurrency :: OwnerToken -> TokenName -> CurrencySymbol
-makeStateCurrency ownerToken tokenName = scriptCurrencySymbol $ makeStatePolicy ownerToken tokenName
+makeStateCurrency :: ValidatorHash -> OwnerToken -> TokenName -> CurrencySymbol
+makeStateCurrency ownerScript ownerToken tokenName = scriptCurrencySymbol $ makeStatePolicy ownerScript ownerToken tokenName
 
-makeStateToken :: OwnerToken -> TokenName -> AssetClass
-makeStateToken ownerToken tokenName = assetClass (makeStateCurrency ownerToken tokenName) tokenName
+makeStateToken :: ValidatorHash -> OwnerToken -> TokenName -> AssetClass
+makeStateToken ownerScript ownerToken tokenName = assetClass (makeStateCurrency ownerScript ownerToken tokenName) tokenName
 
 data PutStateHandle scriptType = PutStateHandle {
     script           :: Scripts.ScriptInstance scriptType,
@@ -91,7 +94,7 @@ putState PutStateHandle {..} StateHandle{..} newState = do
     pkh <- pubKeyHash <$> ownPubKey
     let (_, stateTokenName) = unAssetClass stateToken
     pure $
-        TxUtils.mustForgeValue (makeStatePolicy ownerToken stateTokenName) (assetClassValue stateToken 1)
+        TxUtils.mustForgeValue (makeStatePolicy (Scripts.scriptHash script) ownerToken stateTokenName) (assetClassValue stateToken 1)
         <> TxUtils.mustPayToScript script pkh (toDatum newState) (assetClassValue stateToken 1)
         <> TxUtils.mustRoundTripToScript
             script
