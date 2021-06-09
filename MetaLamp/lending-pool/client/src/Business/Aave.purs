@@ -1,7 +1,6 @@
 module Business.Aave where
 
 import Prelude
-
 import Capability.Contract (class Contract, ContractId, APIError, ContractUnit(..), Endpoint(..), getContracts)
 import Capability.PollContract (class PollContract, LeftPoll(..), PollError, PollResponse, pollEndpoint)
 import Control.Monad.Except (runExcept, throwError, withExcept)
@@ -23,7 +22,8 @@ import PlutusTx.AssocMap (Map)
 getAaveContracts :: forall m. Contract m => m (Either APIError (Array (ContractInstanceClientState AaveContracts)))
 getAaveContracts = getContracts
 
-getAaveResponseWith :: forall m a p.
+getAaveResponseWith ::
+  forall m a p.
   PollContract m =>
   Encode p =>
   Endpoint ->
@@ -33,18 +33,19 @@ getAaveResponseWith :: forall m a p.
   m (Either PollError a)
 getAaveResponseWith endpoint pick cid param = pollEndpoint getNext endpoint param cid
   where
-    getNext :: ContractInstanceClientState AaveContracts -> PollResponse a
-    getNext (ContractInstanceClientState { cicCurrentState: PartiallyDecodedResponse { observableState: RawJson s } }) =
-      runExcept $ do
-        (response :: Either String UserContractState) <- withExcept (ResponseError <<< show) (decodeJSON s)
-        state <- either (throwError <<< ResponseError <<< show) pure response
-        case (preview _Pending state) of
-          Just _ -> throwError Continue
-          Nothing ->
-            maybe
-              (throwError <<< ResponseError $ "Invalid state: " <> (show state))
-              pure
-              (preview pick state)
+  getNext :: ContractInstanceClientState AaveContracts -> PollResponse a
+  getNext (ContractInstanceClientState { cicCurrentState: PartiallyDecodedResponse { observableState: RawJson s } }) =
+    runExcept
+      $ do
+          (response :: Either String UserContractState) <- withExcept (ResponseError <<< show) (decodeJSON s)
+          state <- either (throwError <<< ResponseError <<< show) pure response
+          case (preview _Pending state) of
+            Just _ -> throwError Continue
+            Nothing ->
+              maybe
+                (throwError <<< ResponseError $ "Invalid state: " <> (show state))
+                pure
+                (preview pick state)
 
 deposit :: forall m. PollContract m => ContractId -> DepositParams -> m (Either PollError Unit)
 deposit = getAaveResponseWith (Endpoint "deposit") _Deposited

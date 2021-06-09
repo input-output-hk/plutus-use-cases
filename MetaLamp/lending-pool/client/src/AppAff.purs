@@ -1,7 +1,6 @@
 module AppAff where
 
 import Prelude
-
 import Affjax (Response, defaultRequest)
 import Affjax.RequestBody (RequestBody, string)
 import Capability.Contract (class Contract, ContractId(..), Endpoint(..), APIError(..))
@@ -53,7 +52,7 @@ instance logMessagesAppM :: LogMessages AppM where
 
 errorToString :: AjaxError -> String
 errorToString (AjaxError e) = case e.description of
-  ResponseError _ _ -> "Response error"
+  ResponseError _ r -> "Response error: " <> r
   ResponseFormatError s -> "Parsing error: " <> s
   DecodingError s -> "Decoding error: " <> s
   ConnectionError s -> "Connection error: " <> s
