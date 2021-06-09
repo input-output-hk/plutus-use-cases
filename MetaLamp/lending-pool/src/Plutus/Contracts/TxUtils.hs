@@ -41,8 +41,6 @@ import qualified Prelude
 
 type TxPair a = (Constraints.ScriptLookups a, Constraints.TxConstraints (RedeemerType a) (DatumType a))
 
-type HasTxData a = (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a))
-
 submitTxPair :: (AsContractError e, HasWriteTx s, PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
     TxPair a
     -> Contract w s e Tx

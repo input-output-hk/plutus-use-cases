@@ -94,7 +94,7 @@ makeReserveHandle :: Aave -> (AssocMap.Map ReserveId Reserve -> AaveRedeemer) ->
 makeReserveHandle aave toRedeemer =
     let stateToken = reserveStateToken aave in
     StateHandle {
-        stateToken = reserveStateToken aave,
+        stateToken = stateToken,
         toDatum = Core.ReservesDatum stateToken,
         toRedeemer = toRedeemer
     }
