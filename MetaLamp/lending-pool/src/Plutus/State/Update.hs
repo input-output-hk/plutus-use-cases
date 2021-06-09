@@ -30,6 +30,7 @@ import qualified Ledger.Scripts                   as Scripts
 import           Ledger.Typed.Scripts             (ScriptType (..))
 import qualified Ledger.Typed.Scripts             as Scripts
 
+import           Ext.Plutus.Ledger.Contexts       (scriptInputsAt)
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.TxUtils         as TxUtils
@@ -44,26 +45,34 @@ import qualified Prelude
 
 type OwnerToken = AssetClass
 
--- State token can be only be forged when there is an input containing an owner token
+-- State token can be only be forged when there is an input and output containing an owner token belonging to a script
 {-# INLINABLE validateStateForging #-}
-validateStateForging :: OwnerToken -> ScriptContext -> Bool
-validateStateForging ownerToken ctx =
-    any hasOwnerToken inputValues || traceError "State forging without OwnerToken input"
+validateStateForging :: ValidatorHash -> OwnerToken -> TokenName -> ScriptContext -> Bool
+validateStateForging ownerScript ownerToken tokenName ctx = traceIfFalse "State forging not authorized" $
+    hasOneOwnerToken outputValues && hasOneOwnerToken inputValues && hasOneStateToken forgedValue && hasOneStateToken (mconcat outputValues)
   where
-    inputs = txInfoInputs (scriptContextTxInfo ctx)
-    inputValues = txOutValue . txInInfoResolved <$> inputs
-    hasOwnerToken value = assetClassValueOf value ownerToken == 1
+    txInfo = scriptContextTxInfo ctx
+    stateToken = assetClass (ownCurrencySymbol ctx) tokenName
 
-makeStatePolicy :: OwnerToken -> MonetaryPolicy
-makeStatePolicy ownerToken = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validateStateForging ||])
+    outputValues = snd <$> scriptOutputsAt ownerScript txInfo
+    inputValues = snd <$> scriptInputsAt ownerScript txInfo
+    forgedValue = txInfoForge txInfo
+
+    hasOneOwnerToken values = assetClassValueOf (mconcat values) ownerToken == 1
+    hasOneStateToken value = assetClassValueOf value stateToken == 1
+
+makeStatePolicy :: ValidatorHash -> OwnerToken -> TokenName -> MonetaryPolicy
+makeStatePolicy ownerScript ownerToken tokenName = mkMonetaryPolicyScript $
+    $$(PlutusTx.compile [|| \os ot tn -> Scripts.wrapMonetaryPolicy $ validateStateForging os ot tn||])
+        `PlutusTx.applyCode` PlutusTx.liftCode ownerScript
         `PlutusTx.applyCode` PlutusTx.liftCode ownerToken
+        `PlutusTx.applyCode` PlutusTx.liftCode tokenName
 
-makeStateCurrency :: OwnerToken -> CurrencySymbol
-makeStateCurrency = scriptCurrencySymbol . makeStatePolicy
+makeStateCurrency :: ValidatorHash -> OwnerToken -> TokenName -> CurrencySymbol
+makeStateCurrency ownerScript ownerToken tokenName = scriptCurrencySymbol $ makeStatePolicy ownerScript ownerToken tokenName
 
-makeStateToken :: OwnerToken -> TokenName -> AssetClass
-makeStateToken ownerToken = assetClass (makeStateCurrency ownerToken)
+makeStateToken :: ValidatorHash -> OwnerToken -> TokenName -> AssetClass
+makeStateToken ownerScript ownerToken tokenName = assetClass (makeStateCurrency ownerScript ownerToken tokenName) tokenName
 
 data PutStateHandle scriptType = PutStateHandle {
     script           :: Scripts.ScriptInstance scriptType,
@@ -82,11 +91,12 @@ putState ::
     PutStateHandle scriptType ->
     StateHandle scriptType a ->
     a ->
-    Contract w s Text ()
+    Contract w s Text (TxUtils.TxPair scriptType)
 putState PutStateHandle {..} StateHandle{..} newState = do
     pkh <- pubKeyHash <$> ownPubKey
-    ledgerTx <- TxUtils.submitTxPair $
-        TxUtils.mustForgeValue (makeStatePolicy ownerToken) (assetClassValue stateToken 1)
+    let (_, stateTokenName) = unAssetClass stateToken
+    pure $
+        TxUtils.mustForgeValue (makeStatePolicy (Scripts.scriptHash script) ownerToken stateTokenName) (assetClassValue stateToken 1)
         <> TxUtils.mustPayToScript script pkh (toDatum newState) (assetClassValue stateToken 1)
         <> TxUtils.mustRoundTripToScript
             script
@@ -94,23 +104,19 @@ putState PutStateHandle {..} StateHandle{..} newState = do
             (ovValue ownerTokenOutput)
             pkh
             (assetClassValue ownerToken 1)
-    _ <- awaitTxConfirmed $ txId ledgerTx
-    pure ()
 
 updateState ::
     (HasBlockchainActions s, IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
     Scripts.ScriptInstance scriptType ->
     StateHandle scriptType a ->
     OutputValue a ->
-    Contract w s Text ()
+    Contract w s Text (TxUtils.TxPair scriptType)
 updateState script StateHandle{..} output = do
     pkh <- pubKeyHash <$> ownPubKey
-    ledgerTx <- TxUtils.submitTxPair $
+    pure $
         TxUtils.mustRoundTripToScript
             script
             [toRedeemer Prelude.<$> output]
             (toDatum . ovValue $ output)
             pkh
             (assetClassValue stateToken 1)
-    _ <- awaitTxConfirmed $ txId ledgerTx
-    pure ()

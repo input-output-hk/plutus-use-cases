@@ -120,7 +120,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "withdraw" $
-            Aave.WithdrawParams { Aave.wpAsset = head testAssets, Aave.wpTo = sender, Aave.wpFrom = sender, Aave.wpAmount = 30 }
+            Aave.WithdrawParams { Aave.wpAsset = head testAssets, Aave.wpUser = sender, Aave.wpAmount = 30 }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (Right Aave.Withdrawn))) -> Just ()
         _                                                   -> Nothing

@@ -50,9 +50,10 @@ import qualified Plutus.V1.Ledger.Address         as Addr
 import           Plutus.V1.Ledger.Value           as Value
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                as AssocMap
-import           PlutusTx.Prelude                 hiding (Semigroup (..),
+import           PlutusTx.Prelude                 hiding (Monoid (..),
+                                                   Semigroup (..), mconcat,
                                                    unless)
-import           Prelude                          (Semigroup (..))
+import           Prelude                          (Monoid (..), Semigroup (..))
 import qualified Prelude
 import           Text.Printf                      (printf)
 
@@ -64,13 +65,12 @@ newtype CreateParams =
 
 PlutusTx.makeLift ''CreateParams
 
-createReserve :: CreateParams -> Reserve
-createReserve CreateParams {..} =
+createReserve :: Aave -> CreateParams -> Reserve
+createReserve aave CreateParams {..} =
     Reserve
         { rCurrency = cpAsset,
           rAmount = 0,
-          rAToken = AToken.makeAToken cpAsset,
-          rDebtToken = cpAsset,
+          rAToken = AToken.makeAToken (Core.aaveHash aave) cpAsset,
           rLiquidityIndex = 1,
           rCurrentStableBorrowRate = 11 % 10 -- TODO configure borrow rate when lending core will be ready
            }
@@ -83,13 +83,18 @@ start params = do
            Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
     let aave = Core.aave aaveToken
         payment = assetClassValue (Core.aaveProtocolInst aave) 1
-    ledgerTx <- TxUtils.submitTxPair $
-        TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.LendingPoolDatum payment
+    let aaveTokenTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pkh (Core.LendingPoolDatum pkh) payment
+    -- TODO how to ensure that newly minted owner token is paid to the script before someone else spends it?
+    ledgerTx <- TxUtils.submitTxPair aaveTokenTx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve params)) params
-    State.putReserves aave reserveMap
-    State.putUserConfigs aave AssocMap.empty
+    let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve aave params)) params
+    reservesTx <- State.putReserves aave Core.StartRedeemer reserveMap
+    ledgerTx <- TxUtils.submitTxPair reservesTx
+    void $ awaitTxConfirmed $ txId ledgerTx
+    userConfigsTx <- State.putUserConfigs aave Core.StartRedeemer AssocMap.empty
+    ledgerTx <- TxUtils.submitTxPair userConfigsTx
+    void $ awaitTxConfirmed $ txId ledgerTx
 
     logInfo @String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
@@ -140,32 +145,33 @@ PlutusTx.makeLift ''DepositParams
 deposit :: (HasBlockchainActions s) => Aave -> DepositParams -> Contract w s Text ()
 deposit aave DepositParams {..} = do
     reserve <- State.findAaveReserve aave dpAsset
-    let payment = assetClassValue (rCurrency reserve) dpAmount
-    ledgerTx <- TxUtils.submitTxPair $
-        TxUtils.mustPayToScript (Core.aaveInstance aave) dpOnBehalfOf Core.DepositDatum payment
-    _ <- awaitTxConfirmed $ txId ledgerTx
+    forgeTx <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
 
+    let userConfigId = (rCurrency reserve, dpOnBehalfOf)
     wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
-    _ <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
-    when wasZeroBalance $ do
+    userConfigsTx <- if wasZeroBalance then do
         userConfigs <- ovValue <$> State.findAaveUserConfigs aave
-        let userConfigId = (rCurrency reserve, dpOnBehalfOf)
         case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
                 State.addUserConfig
                     aave
+                    (Core.DepositRedeemer userConfigId)
                     userConfigId
                     UserConfig { ucUsingAsCollateral = True, ucDebt = Nothing }
             Just userConfig ->
-                State.updateUserConfig aave userConfigId $ userConfig { ucUsingAsCollateral = True }
+                State.updateUserConfig aave (Core.DepositRedeemer userConfigId) userConfigId $ userConfig { ucUsingAsCollateral = True }
+        else pure mempty
 
-    State.updateReserve aave dpAsset (reserve { rAmount = rAmount reserve + dpAmount })
+    reservesTx <- State.updateReserve aave (Core.DepositRedeemer userConfigId) dpAsset (reserve { rAmount = rAmount reserve + dpAmount })
+
+    ledgerTx <- TxUtils.submitTxPair $ forgeTx <> reservesTx <> userConfigsTx
+    _ <- awaitTxConfirmed $ txId ledgerTx
+    pure ()
 
 data WithdrawParams =
     WithdrawParams {
         wpAsset  :: AssetClass,
-        wpTo     :: PubKeyHash,
-        wpFrom   :: PubKeyHash,
+        wpUser   :: PubKeyHash,
         wpAmount :: Integer
     }
     deriving stock    (Show, Generic)
@@ -178,15 +184,20 @@ withdraw :: (HasBlockchainActions s) => Aave -> WithdrawParams -> Contract w s T
 withdraw aave WithdrawParams {..} = do
     reserve <- State.findAaveReserve aave wpAsset
 
-    balance <- balanceAt wpFrom (rAToken reserve)
-    when (wpAmount == balance) $ do
-        let userConfigId = (wpAsset, wpFrom)
+    let userConfigId = (wpAsset, wpUser)
+    balance <- balanceAt wpUser (rAToken reserve)
+    userConfigsTx <- if wpAmount == balance then do
         userConfig <- State.findAaveUserConfig aave userConfigId
-        State.updateUserConfig aave userConfigId $ userConfig { ucUsingAsCollateral = False }
+        State.updateUserConfig aave (Core.WithdrawRedeemer userConfigId) userConfigId $ userConfig { ucUsingAsCollateral = False }
+        else pure mempty
 
-    _ <- AToken.burnATokensFrom aave reserve wpTo wpAmount
+    burnTx <- AToken.burnATokensFrom aave reserve wpUser wpAmount
 
-    State.updateReserve aave wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
+    reservesTx <- State.updateReserve aave (Core.WithdrawRedeemer userConfigId) wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
+
+    ledgerTx <- TxUtils.submitTxPair $ burnTx <> reservesTx <> userConfigsTx
+    _ <- awaitTxConfirmed $ txId ledgerTx
+    pure ()
 
 data BorrowParams =
     BorrowParams {
@@ -207,26 +218,28 @@ borrow aave BorrowParams {..} = do
     utxos <-
         Map.filter ((> 0) . flip assetClassValueOf bpAsset . txOutValue . txOutTxOut)
         <$> utxoAt (Core.aaveAddress aave)
-    let inputs = (\(ref, tx) -> OutputValue ref tx Core.BorrowRedeemer) <$> Map.toList utxos
+    let userConfigId = (rCurrency reserve, bpOnBehalfOf)
+    let inputs = (\(ref, tx) -> OutputValue ref tx (Core.BorrowRedeemer userConfigId)) <$> Map.toList utxos
     let payment = assetClassValue (rCurrency reserve) bpAmount
     let remainder = assetClassValue (rCurrency reserve) (rAmount reserve - bpAmount)
-    ledgerTx <- TxUtils.submitTxPair $
-        TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment <>
-        TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.BorrowDatum remainder
-    _ <- awaitTxConfirmed $ txId ledgerTx
+    let disbursementTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment <>
+                            TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.ReserveFundsDatum remainder
 
     userConfigs <- ovValue <$> State.findAaveUserConfigs aave
-    let userConfigId = (rCurrency reserve, bpOnBehalfOf)
-    case AssocMap.lookup userConfigId userConfigs of
+    userConfigsTx <- case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
                 State.addUserConfig
-                    aave
+                    aave (Core.BorrowRedeemer userConfigId)
                     userConfigId
                     UserConfig { ucUsingAsCollateral = False, ucDebt = Just bpAmount }
             Just userConfig ->
-                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = (+ bpAmount) <$> ucDebt userConfig }
+                State.updateUserConfig aave (Core.BorrowRedeemer userConfigId) userConfigId $ userConfig { ucDebt = (+ bpAmount) <$> ucDebt userConfig }
 
-    State.updateReserve aave bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
+    reservesTx <- State.updateReserve aave (Core.BorrowRedeemer userConfigId) bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
+
+    ledgerTx <- TxUtils.submitTxPair $ disbursementTx <> reservesTx <> userConfigsTx
+    _ <- awaitTxConfirmed $ txId ledgerTx
+    pure ()
 
 data RepayParams =
     RepayParams {
@@ -245,19 +258,21 @@ repay aave RepayParams {..} = do
     reserve <- State.findAaveReserve aave rpAsset
 
     let payment = assetClassValue (rCurrency reserve) rpAmount
-    ledgerTx <- TxUtils.submitTxPair $
-        TxUtils.mustPayToScript (Core.aaveInstance aave) rpOnBehalfOf Core.RepayDatum payment
-    _ <- awaitTxConfirmed $ txId ledgerTx
+    let reimbursementTx = TxUtils.mustPayToScript (Core.aaveInstance aave) rpOnBehalfOf Core.ReserveFundsDatum payment
 
     userConfigs <- ovValue <$> State.findAaveUserConfigs aave
     let userConfigId = (rCurrency reserve, rpOnBehalfOf)
-    case AssocMap.lookup userConfigId userConfigs of
+    userConfigsTx <- case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
                 throwError "User does not have any debt."
             Just userConfig ->
-                State.updateUserConfig aave userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
+                State.updateUserConfig aave (Core.RepayRedeemer userConfigId) userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
 
-    State.updateReserve aave rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
+    reservesTx <- State.updateReserve aave (Core.RepayRedeemer userConfigId) rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
+
+    ledgerTx <- TxUtils.submitTxPair $ reimbursementTx <> reservesTx <> userConfigsTx
+    _ <- awaitTxConfirmed $ txId ledgerTx
+    pure ()
 
 type AaveUserSchema =
     BlockchainActions
