@@ -122,6 +122,33 @@ getWallets httpManager pool = do
 
 getPooledTokens :: Manager -> Pool Pg.Connection -> IO ()
 getPooledTokens httpManager pool = do
+  -- use admin wallet id to populate db with current pool tokens available
+  mAdminWallet <- runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $
+    -- SELECT _contract_id FROM _db_contracts WHERE _contract_walletId =1;
+    runSelectReturningOne $ select $ filter_ (\ct -> _contract_walletId ct ==. val_ 1) $ all_ (_db_contracts db)
+  case mAdminWallet of
+    Nothing -> do
+      print "getPooledTokens: Admin user wallet not found"
+      return ()
+    Just wid -> do
+      -- TODO: Getting Pooled tokens this way is fragile since it is retrieved from observableState. For example,
+      -- if another endpoint like "funds" is called before getPooledTokens is called, the observableState will not
+            -- show the balance of the liquidity pool, it will show the balance of the wallet who called funds
+            -- which gives this function Nothing to parse because the json keys are different.
+            -- Find a better endpoint or json key value pair to list uniswap pool balances
+      -- SOLUTION: You will have to use the pools endpoint first followed by instances for the observable state to show pools
+      let prString = "http://localhost:8080/api/new/contract/instance/" ++ (T.unpack $ _contract_id wid) ++ "/endpoint/pools"
+      print $ "prString: " ++ prString -- DEBUG
+      poolReq <- parseRequest prString
+      let reqBody = "[]"
+          pReq = poolReq
+            { method = "POST"
+            , requestHeaders = ("Content-Type","application/json"):(requestHeaders poolReq)
+            , requestBody = RequestBodyLBS reqBody
+            }
+      _ <- httpLbs pReq httpManager
+      return ()
+  -- TODO: might have to put a delay here
   initReq <- parseRequest "http://localhost:8080/api/new/contract/instances"
   let req = initReq { method = "GET" }
   resp <- httpLbs req httpManager
