@@ -142,7 +142,7 @@ component =
         { cid, pkh } <-
           RD.maybe (throwError "Failed to deposit") pure $
             { cid: _, pkh: _ } <$> state.contractId <*> state.walletPubKey
-        res <- lift $ Aave.withdraw cid $ WithdrawParams { wpAmount: amount, wpAsset: asset, wpTo: pkh, wpFrom: pkh }
+        res <- lift $ Aave.withdraw cid $ WithdrawParams { wpAmount: amount, wpAsset: asset, wpUser: pkh }
         lift $ H.modify_ _ { lastStatus = fromEither <<< bimap show show $ res }
       Borrow { amount, asset } -> handleException <=< runExceptT $ do
         state <- lift H.get
