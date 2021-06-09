@@ -12,6 +12,7 @@ import Prelude hiding (id, (.), filter)
 import Control.Category
 
 import Control.Monad
+import qualified Data.Aeson as Aeson
 import Data.Int
 import Data.Semigroup (First(..))
 import Data.Text (Text)
@@ -21,12 +22,13 @@ import Data.Vessel
 import Data.Vessel.Identity
 import Data.Vessel.Vessel
 import Data.Vessel.ViewMorphism
-import Language.Javascript.JSaddle (eval, liftJSM)
+import Language.Javascript.JSaddle (eval, liftJSM, JSM)
 import Obelisk.Configs
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Generated.Static
 import Reflex.Dom.Core
+import Reflex.Dom.WebSocket
 import Rhyolite.Frontend.App
 
 import Common.Api
@@ -63,7 +65,7 @@ frontend = Frontend
       return ()
   }
 
-app :: MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m => m ()
+app :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, Reflex t) => m ()
 app = do
   divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
     divClass "container-fluid" $ do
@@ -84,7 +86,9 @@ app = do
             return never
           Just walletIds -> do
             walletIdEvents <- el "ul" $ do
-              forM walletIds $ \wid -> do
+              forM walletIds $ \wid -> fmap (switch . current) $ prerender (return never) $ do
+                ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+                widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show a
                 (e,_) <- el' "li" $ text wid
                 return $ domEvent Click e
             return $ leftmost walletIdEvents
