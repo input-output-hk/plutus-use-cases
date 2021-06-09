@@ -46,42 +46,32 @@ deriving anyclass instance ToSchema AssetClass
 
 newtype Aave = Aave
     { aaveProtocolInst :: AssetClass
-    } deriving stock    (Show, Generic)
+    } deriving stock    (Prelude.Eq, Show, Generic)
       deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.makeLift ''Aave
 
-instance Prelude.Eq Aave where
-    u == v = aaveProtocolInst u Prelude.== aaveProtocolInst v
-
-instance Prelude.Ord Aave where
-    compare u v = Prelude.compare (aaveProtocolInst u) (aaveProtocolInst v)
-
-type ReserveId = AssetClass
-
 deriving anyclass instance ToSchema Rational
 
 data Reserve = Reserve
-    { rCurrency                :: ReserveId,
+    { rCurrency                :: AssetClass, -- reserve id
       rAToken                  :: AssetClass,
       rAmount                  :: Integer,
       rLiquidityIndex          :: Integer,
       rCurrentStableBorrowRate :: Rational
     }
-    deriving stock (Show, Generic)
+    deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
-
-type UserConfigId = (ReserveId, PubKeyHash)
 
 data UserConfig = UserConfig
     {
       ucUsingAsCollateral :: Bool,
       ucDebt              :: Maybe Integer
     }
-    deriving stock (Show, Generic)
+    deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''UserConfig
@@ -89,21 +79,22 @@ PlutusTx.makeLift ''UserConfig
 
 data AaveRedeemer =
     StartRedeemer
-  | DepositRedeemer UserConfigId
-  | WithdrawRedeemer UserConfigId
-  | BorrowRedeemer UserConfigId
-  | RepayRedeemer UserConfigId
+  | DepositRedeemer (AssetClass, PubKeyHash)
+  | WithdrawRedeemer (AssetClass, PubKeyHash)
+  | BorrowRedeemer (AssetClass, PubKeyHash)
+  | RepayRedeemer (AssetClass, PubKeyHash)
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
 PlutusTx.makeLift ''AaveRedeemer
 
+-- TODO: solve purescript generation issue with type synonyms
 type LendingPoolOperator = PubKeyHash
 
 data AaveDatum =
     LendingPoolDatum LendingPoolOperator
-  | ReservesDatum AssetClass (AssocMap.Map ReserveId Reserve)
-  | UserConfigsDatum AssetClass (AssocMap.Map UserConfigId UserConfig)
+  | ReservesDatum AssetClass (AssocMap.Map AssetClass Reserve)
+  | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
   | ReserveFundsDatum
   deriving stock (Show)
 
@@ -112,12 +103,12 @@ PlutusTx.makeLift ''AaveDatum
 Lens.makeClassyPrisms ''AaveDatum
 
 {-# INLINABLE pickUserConfigs #-}
-pickUserConfigs :: AaveDatum -> Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
+pickUserConfigs :: AaveDatum -> Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
 pickUserConfigs (UserConfigsDatum stateToken configs) = Just (stateToken, configs)
 pickUserConfigs _ = Nothing
 
 {-# INLINABLE pickReserves #-}
-pickReserves :: AaveDatum -> Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
+pickReserves :: AaveDatum -> Maybe (AssetClass, AssocMap.Map AssetClass Reserve)
 pickReserves (ReservesDatum stateToken configs) = Just (stateToken, configs)
 pickReserves _                                  = Nothing
 
@@ -154,7 +145,7 @@ validateStart aave (LendingPoolDatum operator) ctx =
       outs -> isJust $ AssocMap.lookup scriptsDatumHash $ AssocMap.fromList outs
 validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management is not allowed" False
 
-validateDeposit :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
+validateDeposit :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   traceIfFalse "validateDeposit: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
@@ -163,14 +154,14 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     userConfigsOutputDatumHash =
       findDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
     userConfigsOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
+         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     userConfigsOutputDatum =
       userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
-    checkUserConfigs :: (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
+    checkUserConfigs :: (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
       maybe
@@ -188,7 +179,7 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx userConfigId =
 
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
 
-validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
+validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   -- TODO add implementation for this case
   traceIfFalse "validateWithdraw: User Configs Datum change is not valid" False
@@ -200,7 +191,7 @@ validateWithdraw aave ReserveFundsDatum ctx userConfigId =
 
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
-validateBorrow :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
+validateBorrow :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
   traceIfFalse "validateBorrow: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
@@ -210,7 +201,7 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     userConfigsOutputDatumHash =
       findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     userConfigsOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
+         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     userConfigsOutputDatum =
       userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
@@ -221,7 +212,7 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
     checkUserConfigs ::
-         (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
+         (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
       maybe False (checkRedeemerConfig $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
@@ -241,7 +232,7 @@ validateBorrow aave ReserveFundsDatum ctx userConfigId =
 
 validateBorrow _ _ _ _ = trace "validateBorrow: Lending Pool Datum management is not allowed" False
 
-validateRepay :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
+validateRepay :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
   traceIfFalse "validateRepay: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
@@ -251,7 +242,7 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
     userConfigsOutputDatumHash =
       findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     userConfigsOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
+         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     userConfigsOutputDatum =
       userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
@@ -261,7 +252,7 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
-    checkUserConfigs :: (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
+    checkUserConfigs :: (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
       (Just True ==
@@ -278,7 +269,7 @@ validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
 
 validateRepay _ _ _ _ = trace "validateRepay: Lending Pool Datum management is not allowed" False
 
-checkNegativeFundsTransformation :: ScriptContext -> UserConfigId -> Bool
+checkNegativeFundsTransformation :: ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 checkNegativeFundsTransformation ctx (reserveId, actor) = maybe False checkFundsState $ (,) <$> scriptSpentValue <*> scriptRemainderValue
   where
     txInfo = scriptContextTxInfo ctx
@@ -299,7 +290,7 @@ checkNegativeFundsTransformation ctx (reserveId, actor) = maybe False checkFunds
 checkNegativeReservesTransformation :: AssetClass
   -> AssocMap.Map AssetClass Reserve
   -> ScriptContext
-  -> UserConfigId
+  -> (AssetClass, PubKeyHash)
   -> Bool
 checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
       maybe False checkreserves reservesOutputDatum
@@ -311,14 +302,14 @@ checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
     reservesOutputDatumHash =
       findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     reservesOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
+         Maybe (AssetClass, AssocMap.Map AssetClass Reserve)
     reservesOutputDatum =
       reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
 
     remainderDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
     remainderValue = remainderDatumHash >>= (`findValueByDatumHash` scriptOutputs)
 
-    checkreserves :: (AssetClass, AssocMap.Map ReserveId Reserve) -> Bool
+    checkreserves :: (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
     checkreserves (newStateToken, newReserves) =
       newStateToken == stateToken &&
       maybe
@@ -333,7 +324,7 @@ checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
 checkPositiveReservesTransformation :: AssetClass
   -> AssocMap.Map AssetClass Reserve
   -> ScriptContext
-  -> UserConfigId
+  -> (AssetClass, PubKeyHash)
   -> Bool
 checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = maybe False checkreserves reservesOutputDatum
   where
@@ -344,14 +335,14 @@ checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = may
     reservesOutputDatumHash =
       findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     reservesOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map ReserveId Reserve)
+         Maybe (AssetClass, AssocMap.Map AssetClass Reserve)
     reservesOutputDatum =
       reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
 
     investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
     investmentValue = investmentDatumHash >>= (`findValueByDatumHash` scriptOutputs)
 
-    checkreserves :: (AssetClass, AssocMap.Map ReserveId Reserve) -> Bool
+    checkreserves :: (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
     checkreserves (newStateToken, newReserves) =
       newStateToken == stateToken &&
       maybe
