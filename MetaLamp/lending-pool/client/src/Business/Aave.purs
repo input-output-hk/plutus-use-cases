@@ -1,7 +1,6 @@
 module Business.Aave where
 
 import Prelude
-
 import Capability.Contract (class Contract, APIError(..), ContractId, ContractUnit(..), Endpoint(..), callEndpoint, getContractStatus, getContracts)
 import Capability.Delay (class Delay, delay)
 import Control.Monad.Except (runExcept, runExceptT, throwError)
@@ -34,12 +33,13 @@ getAaveContractResponse = map (_ >>= getAaveResponse) <<< getAaveContractStatus
 
 getAaveResponse :: ContractInstanceClientState AaveContracts -> Either APIError UserContractState
 getAaveResponse (ContractInstanceClientState { cicCurrentState: PartiallyDecodedResponse { observableState: RawJson s } }) = do
-  (res:: Either String UserContractState) <- lmap (AjaxCallError <<< show) <<< runExcept <<< decodeJSON $ s
+  (res :: Either String UserContractState) <- lmap (AjaxCallError <<< show) <<< runExcept <<< decodeJSON $ s
   case res of
     Left e -> Left <<< AjaxCallError $ e
     Right r -> Right r
 
-getAaveResponseWith :: forall m a p.
+getAaveResponseWith ::
+  forall m a p.
   Contract m =>
   Delay m =>
   Encode p =>
@@ -49,25 +49,27 @@ getAaveResponseWith :: forall m a p.
   p ->
   m (Either APIError a)
 getAaveResponseWith endpoint pick cid param =
-  callEndpoint endpoint cid param >>=
-    either (pure <<< Left) (const $ pollStatus endpoint pick cid)
+  callEndpoint endpoint cid param
+    >>= either (pure <<< Left) (const $ pollStatus endpoint pick cid)
 
-pollStatus :: forall m a.
+pollStatus ::
+  forall m a.
   Contract m =>
   Delay m =>
   Endpoint ->
   Prism' UserContractState a ->
   ContractId ->
   m (Either APIError a)
-pollStatus endpoint pick cid = runExceptT $ do
-  _ <- lift <<< delay <<< Milliseconds $ 300.0
-  res <- lift (getAaveContractResponse cid) >>= either throwError pure
-  case (preview _Pending res) of
-    Just _ -> lift (pollStatus endpoint pick cid) >>= either throwError pure
-    Nothing ->
-      case (preview pick res) of
-        Just v -> pure v
-        Nothing -> throwError $ AjaxCallError $ "Invalid state: " <> (show res)
+pollStatus endpoint pick cid =
+  runExceptT
+    $ do
+        _ <- lift <<< delay <<< Milliseconds $ 300.0
+        res <- lift (getAaveContractResponse cid) >>= either throwError pure
+        case (preview _Pending res) of
+          Just _ -> lift (pollStatus endpoint pick cid) >>= either throwError pure
+          Nothing -> case (preview pick res) of
+            Just v -> pure v
+            Nothing -> throwError $ AjaxCallError $ "Invalid state: " <> (show res)
 
 deposit :: forall m. Contract m => Delay m => ContractId -> DepositParams -> m (Either APIError Unit)
 deposit = getAaveResponseWith (Endpoint "deposit") _Deposited

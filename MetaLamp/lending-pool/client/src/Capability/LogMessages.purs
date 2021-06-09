@@ -1,10 +1,10 @@
 module Capability.LogMessages where
 
 import Prelude
-
 import Halogen (HalogenM, lift)
 
-class Monad m <= LogMessages m where
+class
+  Monad m <= LogMessages m where
   logInfo :: String -> m Unit
   logError :: String -> m Unit
 

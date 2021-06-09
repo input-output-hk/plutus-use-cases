@@ -1,7 +1,6 @@
 module Components.AmountForm where
 
 import Prelude
-
 import Data.Array (head)
 import Data.BigInteger (BigInteger, fromString)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
@@ -10,15 +9,23 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 
-type AmountInfo = { name :: String, amount :: BigInteger }
+type AmountInfo
+  = { name :: String, amount :: BigInteger }
 
-data Output = Submit AmountInfo
+data Output
+  = Submit AmountInfo
 
-data Action = SubmitClick | EnterName String | EnterAmount String | Receive Input
+data Action
+  = SubmitClick
+  | EnterName String
+  | EnterAmount String
+  | Receive Input
 
-type State = { amounts :: Array AmountInfo, name :: Maybe String, amount :: Maybe BigInteger }
+type State
+  = { amounts :: Array AmountInfo, name :: Maybe String, amount :: Maybe BigInteger }
 
-type Input = Array AmountInfo
+type Input
+  = Array AmountInfo
 
 initialState :: Input -> State
 initialState amounts = { amounts, name: _.name <$> head amounts, amount: Nothing }
@@ -34,13 +41,15 @@ amountForm =
   render state =
     HH.div_
       [ HH.select
-          [HP.value (fromMaybe "" state.name), HE.onValueChange (Just <<< EnterName)]
-          (map (\({ name }) ->
-            HH.option [HP.value name, HP.selected (name == (fromMaybe "" state.name))] [HH.text name])
-            state.amounts
-          ),
-        HH.input [HP.value $ maybe "" show state.amount, HE.onValueInput (Just <<< EnterAmount)],
-        HH.button [HE.onClick \_ -> Just SubmitClick] [HH.text "Submit"]
+          [ HP.value (fromMaybe "" state.name), HE.onValueChange (Just <<< EnterName) ]
+          ( map
+              ( \({ name }) ->
+                  HH.option [ HP.value name, HP.selected (name == (fromMaybe "" state.name)) ] [ HH.text name ]
+              )
+              state.amounts
+          )
+      , HH.input [ HP.value $ maybe "" show state.amount, HE.onValueInput (Just <<< EnterAmount) ]
+      , HH.button [ HE.onClick \_ -> Just SubmitClick ] [ HH.text "Submit" ]
       ]
 
   handleAction :: Action -> H.HalogenM State Action () Output m Unit
