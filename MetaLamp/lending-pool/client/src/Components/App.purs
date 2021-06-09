@@ -1,10 +1,11 @@
 module Components.App where
 
 import Prelude
+
 import Business.Aave as Aave
-import Capability.Contract (class Contract, ContractId(..))
-import Capability.Delay (class Delay)
-import Capability.LogMessages (class LogMessages, logError, logInfo)
+import Capability.Contract (ContractId(..))
+import Capability.LogMessages (class LogMessages, logError)
+import Capability.PollContract (class PollContract)
 import Components.AmountForm as AmountForm
 import Control.Monad.Except (lift, runExceptT, throwError)
 import Data.Array (mapWithIndex)
@@ -12,6 +13,8 @@ import Data.Bifunctor (bimap, lmap)
 import Data.BigInteger (BigInteger, fromInt)
 import Data.Either (Either(..), either)
 import Data.Foldable (find)
+import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
 import Data.Json.JsonTuple (JsonTuple(..))
 import Data.Json.JsonUUID (JsonUUID(..))
 import Data.Maybe (Maybe(..))
@@ -72,6 +75,11 @@ data SubmitOperation
   | SubmitBorrow
   | SubmitRepay
 
+derive instance genericSubmitOperation :: Generic SubmitOperation _
+
+instance showSubmitOperation :: Show SubmitOperation where
+  show = genericShow
+
 toContractIdParam :: ContractInstanceId -> ContractId
 toContractIdParam (ContractInstanceId { unContractInstanceId: JsonUUID uuid }) = ContractId <<< UUID.toString $ uuid
 
@@ -86,8 +94,7 @@ _amountForm = SProxy :: SProxy "amountForm"
 component ::
   forall input m query output.
   LogMessages m =>
-  Contract m =>
-  Delay m =>
+  PollContract m =>
   H.Component HH.HTML query input output m
 component =
   H.mkComponent
@@ -104,8 +111,8 @@ component =
       handleAction GetFunds
     GetContractAt wallet -> do
       H.modify_ _ { contractId = Loading }
-      instancesRD <- Aave.getAaveContracts
-      case instancesRD of
+      eInstances <- Aave.getAaveContracts
+      case eInstances of
         Left e -> H.modify_ _ { contractId = Failure (show e) }
         Right instances -> do
           let
@@ -147,6 +154,7 @@ component =
     Deposit { amount, asset } ->
       handleException <=< runExceptT
         $ do
+            lift $ H.modify_ _ { lastStatus = Loading }
             state <- lift H.get
             { cid, pkh } <-
               RD.maybe (throwError "Failed to deposit") pure
@@ -158,9 +166,10 @@ component =
     Withdraw { amount, asset } ->
       handleException <=< runExceptT
         $ do
+            lift $ H.modify_ _ { lastStatus = Loading }
             state <- lift H.get
             { cid, pkh } <-
-              RD.maybe (throwError "Failed to deposit") pure
+              RD.maybe (throwError "Failed to withdraw") pure
                 $ { cid: _, pkh: _ }
                 <$> state.contractId
                 <*> state.walletPubKey
@@ -169,9 +178,10 @@ component =
     Borrow { amount, asset } ->
       handleException <=< runExceptT
         $ do
+            lift $ H.modify_ _ { lastStatus = Loading }
             state <- lift H.get
             { cid, pkh } <-
-              RD.maybe (throwError "Failed to deposit") pure
+              RD.maybe (throwError "Failed to borrow") pure
                 $ { cid: _, pkh: _ }
                 <$> state.contractId
                 <*> state.walletPubKey
@@ -180,9 +190,10 @@ component =
     Repay { amount, asset } ->
       handleException <=< runExceptT
         $ do
+            lift $ H.modify_ _ { lastStatus = Loading }
             state <- lift H.get
             { cid, pkh } <-
-              RD.maybe (throwError "Failed to deposit") pure
+              RD.maybe (throwError "Failed to repay") pure
                 $ { cid: _, pkh: _ }
                 <$> state.contractId
                 <*> state.walletPubKey
@@ -200,6 +211,8 @@ component =
                   SubmitWithdraw -> lift $ handleAction (Withdraw { amount, asset })
                   SubmitBorrow -> lift $ handleAction (Borrow { amount, asset })
                   SubmitRepay -> lift $ handleAction (Repay { amount, asset })
+                lastStatus <- lift $ H.gets _.lastStatus
+                _ <- RD.maybe (throwError $ show operation <> " has failed: " <> show lastStatus) pure $ lastStatus
                 lift $ handleAction GetFunds
               Nothing -> throwError "Asset name not found"
 
