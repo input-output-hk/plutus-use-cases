@@ -69,7 +69,7 @@ library
     default-language: Haskell2010
     ghc-options:
             -- See Plutus Tx readme
-            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -haddock
+            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fplugin-opt PlutusTx.Plugin:defer-errors -haddock 
 
 test-suite plutus-example-projects-test
   type: exitcode-stdio-1.0
