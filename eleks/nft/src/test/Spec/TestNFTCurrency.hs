@@ -24,6 +24,9 @@ module Spec.TestNFTCurrency(
     , forgeContract
     , forgedValue
     , currencySymbol
+    , CurrencySchema
+    , ForgeNftParams(..)
+    , forgeNftToken
     ) where
 
 import           Data.Text               (Text)
@@ -44,11 +47,12 @@ import           Ledger.Value            (AssetClass, TokenName, Value)
 import qualified Ledger.Value            as Value
 
 import           Data.Aeson              (FromJSON, ToJSON)
-import           Data.Semigroup          (Last (..))
+import           Data.Semigroup            (Last (..))
 import           GHC.Generics            (Generic)
 import qualified PlutusTx.AssocMap       as AssocMap
 import           Prelude                 (Semigroup (..))
 import qualified Prelude
+import           Schema                  (ToSchema)
 
 {-# ANN module ("HLint: ignore Use uncurry" :: String) #-}
 
@@ -111,3 +115,26 @@ forgeContract pk tokenName = do
     tx <- submitTxConstraintsWith @Scripts.Any lookups forgeTx
     _ <- awaitTxConfirmed (txId tx)
     pure theNftCurrency
+
+-- | Monetary policy for a currency that has a fixed amount of tokens issued
+--   in one transaction
+data ForgeNftParams =
+    ForgeNftParams
+        { fnpTokenName :: TokenName
+        }
+        deriving stock (Prelude.Eq, Prelude.Show, Generic)
+        deriving anyclass (FromJSON, ToJSON, ToSchema)
+
+type CurrencySchema =
+    BlockchainActions
+        .\/ Endpoint "create" ForgeNftParams
+
+-- | Use 'forgeContract' to create the currency specified by a 'SimpleMPS'
+forgeNftToken
+    :: Contract (Maybe (Last TestNFTCurrency)) CurrencySchema Text ()
+forgeNftToken = do
+    ForgeNftParams{fnpTokenName} <- endpoint @"create"
+    ownPK <- pubKeyHash <$> ownPubKey
+    cur <- forgeContract ownPK fnpTokenName
+    tell (Just (Last cur))
+    forgeNftToken

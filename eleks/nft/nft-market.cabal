@@ -62,6 +62,7 @@ test-suite plutus-example-projects-test
               -- See Plutus Tx readme
               -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
   build-depends:
+    playground-common,
     plutus-tx -any,
     plutus-tx-plugin,
     plutus-contract -any,

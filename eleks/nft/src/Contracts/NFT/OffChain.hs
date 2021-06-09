@@ -33,6 +33,7 @@ module Contracts.NFT.OffChain
     , ownerEndpoint, userEndpoints
     , marketplaceTokenName
     , marketAddress
+    , nftMetadataToDto
     ) where
 
 import           Control.Monad                    hiding (fmap)
