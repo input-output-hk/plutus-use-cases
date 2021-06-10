@@ -10,7 +10,11 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# OPTIONS_GHC -fno-specialise #-}
+{-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+{-# OPTIONS_GHC -fobject-code #-}
 -- | A "pay-to-pubkey" transaction output implemented as a Plutus
 --   contract. This is useful if you need something that behaves like
 --   a pay-to-pubkey output, but is not (easily) identified by wallets
@@ -23,15 +27,16 @@ import           Data.Aeson               (FromJSON, ToJSON)
 import qualified Data.Map                 as Map
 import           GHC.Generics             (Generic)
 
-import           Ledger                   as Ledger hiding (initialise, to)
+import           Ledger hiding (initialise, to)
 import           Ledger.Contexts          as V
 import           Ledger.Typed.Scripts     (ScriptInstance)
 import qualified Ledger.Typed.Scripts     as Scripts
-import qualified PlutusTx                 as PlutusTx
+import qualified PlutusTx
 
 import qualified Ledger.Constraints       as Constraints
 import           Plutus.Contract          as Contract
 
+{-# INLINABLE mkValidator #-}
 mkValidator :: PubKeyHash -> () -> () -> ScriptContext -> Bool
 mkValidator pk' _ _ p = V.txSignedBy (scriptContextTxInfo p) pk'
 

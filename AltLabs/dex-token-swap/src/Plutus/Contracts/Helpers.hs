@@ -46,7 +46,7 @@ import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Value                     (AssetClass (..), assetClass, assetClassValue, assetClassValueOf,
-                                                   symbols, unCurrencySymbol, unTokenName)
+                                                   symbols, unCurrencySymbol, unTokenName, flattenValue)
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.Currency        as Currency
@@ -93,7 +93,9 @@ funds :: HasBlockchainActions s => Contract w s Text Value
 funds = do
     pkh <- pubKeyHash <$> ownPubKey
     os  <- map snd . Map.toList <$> utxoAt (pubKeyHashAddress pkh)
-    return $ mconcat [txOutValue $ txOutTxOut o | o <- os]
+    let v = mconcat [txOutValue $ txOutTxOut o | o <- os]
+    logInfo @String $ "own funds: " ++ show (Ledger.Value.flattenValue v)
+    return v
 
 -- Checks if swap is possible
 -- oldA, oldB = existing amount

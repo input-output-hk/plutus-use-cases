@@ -42,7 +42,7 @@ import           PlutusTx.Prelude        hiding (Monoid (..), Semigroup (..))
 import           Plutus.Contract         as Contract
 
 import           Ledger                  (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), pubKeyHash,
-                                          scriptCurrencySymbol, txId)
+                                          scriptCurrencySymbol, txId, txInInfoOutRef, txInfoInputs)
 import qualified Ledger.Ada              as Ada
 import qualified Ledger.Constraints      as Constraints
 import qualified Ledger.Contexts         as V
@@ -61,6 +61,7 @@ import qualified PlutusTx.AssocMap       as AssocMap
 import           Prelude                 (Semigroup (..))
 import qualified Prelude
 import           Schema                  (ToSchema)
+import           Text.Printf             (printf)
 
 {-# ANN module ("HLint: ignore Use uncurry" :: String) #-}
 
@@ -113,8 +114,12 @@ validate c@(OneShotCurrency (refHash, refIdx) _) ctx@V.ScriptContext{V.scriptCon
         txOutputSpent =
             let v = V.spendsOutput txinfo refHash refIdx
             in  traceIfFalse "Pending transaction does not spend the designated transaction output" v
-
+        
     in forgeOK && txOutputSpent
+
+    -- where
+    --     hasUTxO :: Bool -- V.spendsOutput basically checks the  same
+    --     hasUTxO = any (\i -> txInInfoOutRef i == TxOutRef refHash refIdx) $ txInfoInputs txinfo
 
 curPolicy :: OneShotCurrency -> MonetaryPolicy
 curPolicy cur = mkMonetaryPolicyScript $
