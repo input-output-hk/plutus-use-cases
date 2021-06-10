@@ -1,4 +1,5 @@
 import { wait } from '../helpers/utils';
+import { errorMap } from '../helpers/errorMap.js';
 
 const fetchUserPublicKey = async (wallet) =>
   await fetch(
@@ -12,6 +13,17 @@ const fetchUserPublicKey = async (wallet) =>
     }
   );
 
+const mapError = (error) => {
+  const parsedError = error.replace('(', '').split(' ');
+  const errorKey = parsedError[1];
+
+  if (parsedError[0] === 'WalletError') {
+    return { error: errorMap[errorKey] || 'Ooops, some error accured...'};
+  } else {
+    return { error };
+  }
+};
+
 const checkStatus = async (response, wallet, tag) => {
   const responseJSON = await response.json();
   const responseContent = responseJSON.cicCurrentState.observableState.Right;
@@ -19,7 +31,7 @@ const checkStatus = async (response, wallet, tag) => {
 
   if (!responseContent) {
     await fetchUserPublicKey(wallet);
-    return { error };
+    return mapError(error);
   } else if (responseContent.tag !== tag) {
     await wait(1000);
     return await fetchStatus(wallet, tag);

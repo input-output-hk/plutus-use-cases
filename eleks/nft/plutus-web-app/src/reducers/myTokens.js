@@ -19,16 +19,9 @@ export const data = (state = [], action) => {
       return action.tokens;
     case FETCH_ADD_TOKEN_SUCCESS:
     case FETCH_BUY_TOKEN_SUCCESS:
-      return [...state, action.token];
     case FETCH_SELL_TOKEN_SUCCESS:
     case FETCH_CANCEL_SELL_TOKEN_SUCCESS:
-      return state.map((token) => {
-        if (token.id === action.token.id) {
-          return action.token;
-        } else return token;
-      });
     case FETCH_TRANSFER_TOKEN_SUCCESS:
-      return state.filter(token => token.id !== action.token.id)
     case LOGOUT:
       return [];
     default:

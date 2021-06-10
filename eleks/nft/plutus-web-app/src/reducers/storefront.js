@@ -14,10 +14,8 @@ export const data = (state = [], action) => {
     case FETCH_STOREFRONT_SUCCESS:
       return action.tokens;
     case FETCH_SELL_TOKEN_SUCCESS:
-      return [...state, action.token];
     case FETCH_BUY_TOKEN_SUCCESS:
     case FETCH_CANCEL_SELL_TOKEN_SUCCESS:
-      return state.filter(token => token.id !== action.token.id)
     case LOGOUT:
       return [];
     default:
