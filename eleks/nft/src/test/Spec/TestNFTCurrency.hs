@@ -31,9 +31,7 @@ module Spec.TestNFTCurrency(
 
 import           Data.Text               (Text)
 import           PlutusTx.Prelude        hiding (Monoid (..), Semigroup (..))
-
 import           Plutus.Contract         as Contract
-
 import           Ledger                  (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), pubKeyHash,
                                           scriptCurrencySymbol, txId)
 import qualified Ledger.Ada              as Ada
@@ -50,7 +48,7 @@ import           Data.Aeson              (FromJSON, ToJSON)
 import           Data.Semigroup            (Last (..))
 import           GHC.Generics            (Generic)
 import qualified PlutusTx.AssocMap       as AssocMap
-import           Prelude                 (Semigroup (..))
+import           Prelude                 (Semigroup (..), String)
 import qualified Prelude
 import           Schema                  (ToSchema)
 

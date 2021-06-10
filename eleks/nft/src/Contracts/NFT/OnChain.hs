@@ -178,7 +178,7 @@ validateBuy ::
     -> Bool
 validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} buyer ctx =
 
-    traceIfFalse "price should be grater 0" True   && 
+    traceIfFalse "price should be greater 0" True   && 
     traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)               &&
     traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                                     &&
     traceIfFalse "expected seller to get money" (getsValue (nftSeller nftMeta) $ Ada.lovelaceValueOf (nftSellPrice nftMeta))   &&   
@@ -233,12 +233,12 @@ mkNFTMarketValidator market (NFTMeta nftMeta)  (Buy buyer)      ctx = validateBu
 mkNFTMarketValidator _      _                  _                _   = False
 
 data Market
-instance Scripts.ScriptType Market where
+instance Scripts.ValidatorTypes Market where
     type instance RedeemerType Market = NFTMarketAction
     type instance DatumType Market = NFTMarketDatum
 
-marketInstance :: NFTMarket -> Scripts.ScriptInstance Market
-marketInstance market = Scripts.validator @Market
+marketInstance :: NFTMarket -> Scripts.TypedValidator Market
+marketInstance market = Scripts.mkTypedValidator @Market
     ($$(PlutusTx.compile [|| mkNFTMarketValidator ||])
         `PlutusTx.applyCode` PlutusTx.liftCode market)
      $$(PlutusTx.compile [|| wrap ||])

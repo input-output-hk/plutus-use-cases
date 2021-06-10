@@ -23,14 +23,15 @@ module Contracts.NFT.Types
 
 import           Ledger
 import           Ledger.Value        (AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
-import           Playground.Contract (FromJSON, Generic, ToJSON, ToSchema)
+import           Playground.Contract (Show, FromJSON, Generic, ToJSON, ToSchema)
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude
+import           Prelude             (String)
 import           Text.Printf         (PrintfArg)
 
 -- Note: An orphan instance here because of the alias above.
-deriving anyclass instance ToSchema AssetClass
+--deriving anyclass instance ToSchema AssetClass
 
 data NFTMetadata = NFTMetadata
     { 
@@ -80,3 +81,25 @@ data NFTMarketDatum =
 
 PlutusTx.unstableMakeIsData ''NFTMarketDatum
 PlutusTx.makeLift ''NFTMarketDatum
+
+data NFTMetadataDto = NFTMetadataDto
+    { nftDtoTokenName:: String
+    , nftDtoMetaDescription:: String
+    , nftDtoMetaAuthor:: String
+    , nftDtoMetaFile:: String
+    , nftDtoTokenSymbol :: String
+    , nftDtoSeller :: String
+    , nftDtoSellPrice:: Integer
+    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
+instance Eq NFTMetadataDto where
+  x == y = (nftDtoTokenName x Prelude.== nftDtoTokenName y)
+        && (nftDtoMetaDescription x Prelude.== nftDtoMetaDescription y)
+        && (nftDtoMetaAuthor x Prelude.== nftDtoMetaAuthor y)
+        && (nftDtoMetaFile x Prelude.== nftDtoMetaFile y)
+        && (nftDtoTokenSymbol x Prelude.== nftDtoTokenSymbol y)
+        && (nftDtoSeller x Prelude.== nftDtoSeller y)
+        && (nftDtoSellPrice x Prelude.== nftDtoSellPrice y)
+
+
+        

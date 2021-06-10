@@ -60,7 +60,7 @@ import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.Currency        as Currency
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
-import           Prelude                          (Semigroup (..))
+import           Prelude                          (Semigroup (..), String, Char, read, show)
 import qualified Prelude
 import           Text.Printf                      (printf)
 import           Wallet.Emulator                  (walletPubKey)
@@ -107,15 +107,7 @@ data TransferParams = TransferParams
     , tpReceiverWallet  :: Integer
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
-data NFTMetadataDto = NFTMetadataDto
-    { nftDtoTokenName:: String
-    , nftDtoMetaDescription:: String
-    , nftDtoMetaAuthor:: String
-    , nftDtoMetaFile:: String
-    , nftDtoTokenSymbol :: String
-    , nftDtoSeller :: String
-    , nftDtoSellPrice:: Integer
-    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
 
 nftMetadataToDto:: NFTMetadata -> NFTMetadataDto
 nftMetadataToDto nftMeta = NFTMetadataDto 
@@ -200,7 +192,7 @@ create forgeNft market CreateParams{..} = do
         nftMetadataData   = NFTMeta nftMetadata
         marketVal    = assetClassValue (marketId market) 1
    
-        lookups  = Constraints.scriptInstanceLookups marketInst        <>
+        lookups  = Constraints.typedValidatorLookups marketInst        <>
                    Constraints.otherScript mrScript                    <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
@@ -232,7 +224,7 @@ sell market SellParams{..} = do
         redeemer     = Redeemer $ PlutusTx.toData Sell
         values       = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1 <> 
                        Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
-        lookups  = Constraints.scriptInstanceLookups marketInst        <>
+        lookups  = Constraints.typedValidatorLookups marketInst        <>
                    Constraints.otherScript mrScript                    <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
@@ -266,7 +258,7 @@ cancelSell market CancelSellParams{..} = do
         nftValue = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
         nftMetadataValue = Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
  
-        lookups  = Constraints.scriptInstanceLookups marketInst        <>
+        lookups  = Constraints.typedValidatorLookups marketInst        <>
                    Constraints.otherScript mrScript                    <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
@@ -301,7 +293,7 @@ buy market BuyParams{..} = do
         nftMetadataValue = Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
         nftSellPriceValue = Ada.lovelaceValueOf $ nftSellPrice nftMetadata
  
-        lookups  = Constraints.scriptInstanceLookups marketInst        <>
+        lookups  = Constraints.typedValidatorLookups marketInst        <>
                    Constraints.otherScript mrScript                    <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
@@ -311,7 +303,7 @@ buy market BuyParams{..} = do
                    Constraints.mustPayToPubKey nftSeller' nftSellPriceValue
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
-    let nftMetaDto = nftMetadataToDto nftMetadata
+    let nftMetaDto = nftMetadataToDto nftMetadata'
     logInfo $ "buying NFT: " ++ show nftMetaDto
     return nftMetaDto
 

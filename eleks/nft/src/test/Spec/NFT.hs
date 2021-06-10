@@ -11,40 +11,51 @@ module Spec.NFT
     ( tests
     ) where
 
-import           Control.Monad          (void)
-import           Ledger.Ada             (adaValueOf)
-import           Plutus.Contract        hiding (when)
-import           Plutus.Contract        (Contract, ContractError, HasBlockchainActions, BlockchainActions)
+import           Control.Monad                          (void)
+import           Ledger.Ada                             (adaValueOf)
+import           Plutus.Contract                        hiding (when)
+import           Plutus.Contract                        (Contract, ContractError, HasBlockchainActions, BlockchainActions)
 import           Plutus.Contract.Test
-import           Contracts.NFT          as NFTMarket
-import qualified Data.ByteString.Char8  as B
-import           Plutus.Trace.Emulator  (ContractInstanceTag, EmulatorTrace)
-import qualified Plutus.Trace.Emulator  as Trace
+import           Contracts.NFT                          as NFTMarket
+import qualified Data.ByteString.Char8                   as B
+import           Plutus.Trace.Emulator                  (ContractInstanceTag, EmulatorTrace)
+import qualified Plutus.Trace.Emulator                  as Trace
 import qualified PlutusTx
-import qualified PlutusTx.Prelude       as PlutusTx
+import           PlutusTx.Prelude                       as PlutusTx
+import           Prelude                                (String, Char, read, show)
 import           Test.Tasty
-import qualified Test.Tasty.HUnit       as HUnit
-import           Data.Monoid            (Last (..))
-import           Ledger                 (pubKeyAddress, PubKeyHash)
-import           Ledger.Ada             as Ada
-import           Ledger.Index           (ValidationError (ScriptFailure))
-import           Ledger.Scripts         (ScriptError (EvaluationError))
-import           Ledger.Value           (CurrencySymbol(..), TokenName (..), Value, AssetClass(..), assetClassValue)
-import           Data.Text              (Text, pack)
-import           Data.Void              (Void)
-import           Data.Aeson             (FromJSON (..), Result (..), ToJSON (..), genericToJSON, genericParseJSON
-                                        , defaultOptions, Options(..), decode, encode, parseJSON, fromJSON)
-import           Control.Monad.Freer.Extras as Extras
-import           Spec.TestNFTCurrency   as NFTCurrency 
-import qualified Data.Semigroup         as Semigroup
-
+import qualified Test.Tasty.HUnit                       as HUnit
+import           Data.Monoid                            (Last (..))
+import           Data.Maybe                             (listToMaybe, mapMaybe)
+import           Ledger                                 (pubKeyAddress, PubKeyHash, pubKeyHash)
+import           Ledger.Ada                             as Ada
+import           Ledger.Index                              (ValidationError (ScriptFailure))
+import           Ledger.Scripts                         (ScriptError (EvaluationError))
+import           Ledger.Value                           (CurrencySymbol(..), TokenName (..), Value, AssetClass(..), assetClassValue)
+import           Data.Text                              (Text, pack)
+import           Data.Void                              (Void)
+import           Data.Aeson                             (FromJSON (..), Result (..), ToJSON (..), genericToJSON, genericParseJSON
+                                                        , defaultOptions, Options(..), decode, encode, parseJSON, fromJSON)
+import           Control.Monad.Freer.Extras             as Extras
+import           Spec.TestNFTCurrency                   as NFTCurrency 
+import           Spec.Types
+import qualified Data.Semigroup                         as Semigroup
+import qualified Wallet.Emulator                        as EM
+import           Plutus.Trace.Emulator.Types            (_ContractLog, cilMessage, UserThreadMsg (..))
+import qualified Wallet.Emulator.Folds                  as Folds
+import qualified Control.Monad.Freer.Extras.Log         as Log
+import           Wallet.Emulator.MultiAgent             (eteEvent)
+import           Control.Lens                           (preview)
+import qualified Plutus.Contracts.Currency              as PlutusCurrency
 w1, w2 :: Wallet
 w1 = Wallet 1
 w2 = Wallet 2
+ownerWallet = Wallet 5
 
 t1, t2 :: ContractInstanceTag
 t1 = Trace.walletInstanceTag w1
 t2 = Trace.walletInstanceTag w2
+ownerInstanceTag = Trace.walletInstanceTag ownerWallet
 
 ownerContract :: Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Void ()
 ownerContract = NFTMarket.ownerEndpoint forgeMockNftToken
@@ -62,38 +73,41 @@ tests = testGroup "nft"
         ,
         checkPredicate "Should create NFT token"
         ( 
-           assertNoFailedTransactions
-           .&&. valueAtAddress (marketAddress nftMarketMock) 
+            assertNoFailedTransactions
+            .&&. valueAtAddress (marketAddress nftMarketMock) 
                 (== (assetClassValue nftTestTokenMetadata 1 
                     <> assetClassValue (marketId nftMarketMock) 1)
                 )
-           .&&. walletFundsChange (Wallet 1) (assetClassValue nftTestToken 1)
+            .&&. walletFundsChange (Wallet 1) (assetClassValue nftTestToken 1)
+            .&&. assertAccumState userContract t1 
+                (\case Last (Just (Right (NFTMarket.Created meta))) -> meta == nftTestTokenMeta; _ -> False) 
+                "should create NFT state"
         )
         createNftTokenFlowTrace
         ,
-        checkPredicate "Should fail if duplicate"
-        ( 
-            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists"]) -> True; _ -> False  })
-        )
-        createDuplicateNftTokenFailureTrace
-        ,
+        -- checkPredicate "Should fail if duplicate"
+        -- ( 
+        --     assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists"]) -> True; _ -> False  })
+        -- )
+        -- createDuplicateNftTokenFailureTrace
+        -- ,
         checkPredicate "Should sell NFT token"
         ( 
-           assertNoFailedTransactions
-           .&&. valueAtAddress (marketAddress nftMarketMock) 
+            assertNoFailedTransactions
+            .&&. valueAtAddress (marketAddress nftMarketMock)
                 (== (assetClassValue nftTestToken 1 
                     <> assetClassValue nftTestTokenMetadata 1 
                     <> assetClassValue (marketId nftMarketMock) 1))
             -- create and send token in one trace
-           .&&. walletFundsChange (Wallet 1) (Ada.lovelaceValueOf 0)
+            .&&. walletFundsChange (Wallet 1) (Ada.lovelaceValueOf 0)
+            -- .&&. assertAccumState userContract t1
+            -- (\case Last (Just (Right (NFTMarket.Selling meta))) -> 
+            --             meta == (nftMetadataToDto $ nftTestMeta
+            --             {nftSellPrice = 1000, nftSeller = Just $ pubKeyHash $ walletPubKey w1 });
+            --         _ -> False) 
+            --"should create sell NFT state"
         )
         sellNftTokenFlowTrace
-        --,
-        -- checkPredicate "Should fail if non market token"
-        -- ( 
-        --     assertContractError userContract t1 (\case { _ -> True; _ -> True}) "error should match"
-        -- )
-        -- sellNonMarketNFTFailureTrace
         ,
         checkPredicate "Should buy NFT token"
         ( 
@@ -101,13 +115,21 @@ tests = testGroup "nft"
            .&&. valueAtAddress (marketAddress nftMarketMock) (== (assetClassValue nftTestTokenMetadata 1 <> assetClassValue (marketId nftMarketMock) 1))
            .&&. walletFundsChange w1 (Ada.lovelaceValueOf 1000)
            .&&. walletFundsChange w2 (Ada.lovelaceValueOf (-1000) <> assetClassValue nftTestToken 1)
+           .&&. assertAccumState userContract t2
+                (\case Last (Just (Right (NFTMarket.Buyed meta))) -> meta == nftTestTokenMeta; _ -> False) 
+                "should create buy NFT state"
         )
         buyNftTokenFlowTrace
     ]
 
 initialise :: EmulatorTrace ()
 initialise = do
-    ownerHdl <- Trace.activateContractWallet w1 ownerContract
+    -- Used separate wallet for onwer contract because of error
+    -- Failed to decode a 'Response JSON.Value'. The event is probably for a different 'Contract'. 
+    -- This is often caused by having multiple contract instances share the same 'ContractInstanceTag' 
+    -- (for example, when  using 'activateContractWallet' repeatedly on the same wallet). 
+    -- To fix this, use 'activateContract' with a unique 'ContractInstanceTag' per instance.
+    ownerHdl <- Trace.activateContractWallet ownerWallet ownerContract
     Trace.callEndpoint @"start" ownerHdl ()
     void $ Trace.waitNSlots 5
 
@@ -128,13 +150,17 @@ sellNftTokenFlowTrace = do
     nftTokenMeta <- createNftTokenTrace w1 nftTestTokenName
     sellNftTokenTrace w1 nftTokenMeta
 
+-- testTrace  :: EmulatorTrace ()
+-- testTrace = do
+--     curHdl <- Trace.activateContractWallet  w1 (void PlutusCurrency.forgeCurrency)
+--     Log.logInfo @String "Received contract state"
+--     Trace.callEndpoint @"Create native token" curHdl PlutusCurrency.SimpleMPS { PlutusCurrency.tokenName="test", PlutusCurrency.amount = 1}
+--     void $ Trace.waitNSlots 5
+
 sellNonMarketNFTFailureTrace  :: EmulatorTrace ()
 sellNonMarketNFTFailureTrace = do
     initialise
-
     nonMarketNftMeta <- createNonMarketNftTokenTrace w1 nftNonMarketTokenName
-
-    Extras.logInfo @String "before sale"
     sellNftTokenTrace w1 nonMarketNftMeta
 
 buyNftTokenFlowTrace :: EmulatorTrace ()
@@ -153,27 +179,6 @@ forgeMockNftToken tokenName pk =
     NFTCurrency.currencySymbol 
     <$> NFTCurrency.forgeContract pk tokenName
 
-nftMarketMock :: NFTMarket
-nftMarketMock = NFTMarket{ marketId = createNFTTokenMock NFTMarket.marketplaceTokenName } 
-
-nftTestTokenName :: TokenName
-nftTestTokenName = "testToken"
-nftTestToken :: AssetClass
-nftTestToken = createNFTTokenMock nftTestTokenName
-
-nftNonMarketTokenName :: TokenName
-nftNonMarketTokenName = "nonMarketNft"
-nftNonMarketTestToken :: AssetClass
-nftNonMarketTestToken = createNFTTokenMock nftNonMarketTokenName
-
-nftTestTokenMetadataName :: TokenName
-nftTestTokenMetadataName = "testTokenMetadata"
-nftTestTokenMetadata :: AssetClass
-nftTestTokenMetadata = createNFTTokenMock nftTestTokenMetadataName
-
-createNFTTokenMock:: TokenName -> AssetClass
-createNFTTokenMock tokenName = AssetClass (NFTCurrency.currencySymbol $ TestNFTCurrency tokenName, tokenName)
-
 activeOwnerContractTrace :: EmulatorTrace ()
 activeOwnerContractTrace = void $ Trace.activateContractWallet w1 ownerContract
 
@@ -183,9 +188,14 @@ activeUserContractTrace = void $ Trace.activateContractWallet w1 userContract
 createNftTokenTrace :: Wallet -> TokenName ->  EmulatorTrace NFTMetadataDto
 createNftTokenTrace w tokenName = do
     userMarketHdl <- Trace.activateContractWallet w userContract
-    let nftTokenParams = NFTMarket.CreateParams { cpTokenName = read . show $ tokenName, cpDescription = "TestDescrition", cpAuthor = "Author1", cpFile = "file1" }
+    let nftTokenParams = NFTMarket.CreateParams { 
+        cpTokenName = read . show $ tokenName
+        , cpDescription = nftTestTokenDescription
+        , cpAuthor = nftTestTokenAuthor
+        , cpFile = nftTestTokenFile }
     Trace.callEndpoint @"create" userMarketHdl nftTokenParams
     void $ Trace.waitNSlots 5
+    Extras.logInfo @String "after create"
     extractTokenMeta userMarketHdl
 
 createNonMarketNftTokenTrace :: Wallet -> TokenName ->  EmulatorTrace NFTMetadataDto
@@ -195,13 +205,7 @@ createNonMarketNftTokenTrace w tokenName = do
     Trace.callEndpoint @"create" forgeCurrencyHdl nftTokenForgeParams
     void $ Trace.waitNSlots 5
     testNftCur <- extractCurrencyForgedNFT forgeCurrencyHdl
-    pure $ nftMetadataToDto $ NFTMetadata
-        { nftTokenName = tokenName
-        , nftMetaDescription = "NonDto"
-        , nftMetaAuthor ="Author"
-        , nftMetaFile = "File"
-        , nftTokenSymbol = currencySymbol testNftCur
-        }
+    return $ nftMetadataToDto $ createNftMeta tokenName $ currencySymbol testNftCur
 
 sellNftTokenTrace :: Wallet -> NFTMetadataDto -> EmulatorTrace ()
 sellNftTokenTrace w nftTokenMeta = do
@@ -222,26 +226,21 @@ extractNFTMarket handle = do
     t <- Trace.observableState handle
     
     case t of
-        Last (Just (Right market)) -> pure market
+        Last (Just (Right market)) -> return market
         _                          -> Trace.throwError (Trace.GenericError "market not found")
 
 extractTokenMeta:: Trace.ContractHandle ( Last (Either Text MarketContractState)) MarketUserSchema Void -> Trace.EmulatorTrace NFTMetadataDto
 extractTokenMeta handle = do
-    Extras.logInfo @String "urax6"
     t <- Trace.observableState handle
-
-    Extras.logInfo @String "urax7"
     case t of
         Data.Monoid.Last (Just (Right (NFTMarket.Created nftMeta))) -> do
-            Extras.logInfo @String "urax3"
-            pure nftMeta
+            return nftMeta
         _                                               -> do
-            Extras.logInfo @String "urax4" 
             Trace.throwError (Trace.GenericError "created nft metadata not found")
 
 extractCurrencyForgedNFT:: Trace.ContractHandle (Maybe (Semigroup.Last TestNFTCurrency)) NFTCurrency.CurrencySchema Text -> Trace.EmulatorTrace TestNFTCurrency
 extractCurrencyForgedNFT handle = do
     t <- Trace.observableState handle
     case t of
-        Just (Semigroup.Last currency) -> pure currency
+        Just (Semigroup.Last currency) -> return currency
         _                              -> Trace.throwError (Trace.GenericError "currency not found")
