@@ -128,7 +128,7 @@ getPooledTokens httpManager pool = do
     runSelectReturningOne $ select $ filter_ (\ct -> _contract_walletId ct ==. val_ 1) $ all_ (_db_contracts db)
   case mAdminWallet of
     Nothing -> do
-      print "getPooledTokens: Admin user wallet not found"
+      print ("getPooledTokens: Admin user wallet not found" :: Text)
       return ()
     Just wid -> do
       -- TODO: Getting Pooled tokens this way is fragile since it is retrieved from observableState. For example,
