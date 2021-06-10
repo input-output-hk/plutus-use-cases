@@ -5,6 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MonoLocalBinds #-}
 
 module Frontend where
 
@@ -12,6 +13,7 @@ import Prelude hiding (id, (.), filter)
 import Control.Category
 
 import Control.Monad
+import qualified Data.Aeson as Aeson
 import Data.Int
 import Data.Semigroup (First(..))
 import Data.Text (Text)
@@ -21,12 +23,13 @@ import Data.Vessel
 import Data.Vessel.Identity
 import Data.Vessel.Vessel
 import Data.Vessel.ViewMorphism
-import Language.Javascript.JSaddle (eval, liftJSM)
-import Obelisk.Configs
+import Language.Javascript.JSaddle (eval, liftJSM, JSM)
+-- import Obelisk.Configs
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Generated.Static
 import Reflex.Dom.Core
+-- import Reflex.Dom.WebSocket
 import Rhyolite.Frontend.App
 
 import Common.Api
@@ -59,22 +62,20 @@ frontend = Frontend
             Left _ -> error "runFrontend: Unexpected non-app ObeliskRoute reached the frontend. This shouldn't happen."
             Right x -> x
       let validFullEncoder = errorLeft $ checkEncoder fullRouteEncoder
-      _ <- runObeliskRhyoliteWidget vesselToWire "common/route" validFullEncoder (BackendRoute_Listen :/ ()) app
+      _ <- runObeliskRhyoliteWidget vesselToWire "common/route" validFullEncoder (BackendRoute_Listen :/ ()) $ workflow $ app
       return ()
   }
 
-app :: MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m => m ()
-app = do
-  divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
-    divClass "container-fluid" $ do
-      elAttr "a" ("class" =: "navbar-brand" <> "href" =: "#") $ text "POKE-DEX - Plutus Obelisk Koin Economy Decentralized Exchange "
+app :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m) => Workflow t m ()
+app = Workflow $ do
+  _ <- navBar Nothing
   divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container-fluid py-5" $ do
       elClass "h3" "display-5 fw-bold" $ text "Wallet Accounts"
-      el "p" $ text "Here is the list of available wallets: "
+      elClass "p" "lead" $ text "Choose one of the avaiable wallets below: "
       -- TODO: Make a way to select one of these wallets
       dmmWalletIds <- viewContracts
-      _ <- switchHold never <=< dyn $ ffor dmmWalletIds $ \case
+      walletEv <- switchHold never <=< dyn $ ffor dmmWalletIds $ \case
         Nothing -> do
           text "There are no wallets avaiable"
           return never
@@ -83,12 +84,36 @@ app = do
             text "There are no wallets avaiable"
             return never
           Just walletIds -> do
-            walletIdEvents <- el "ul" $ do
-              forM walletIds $ \wid -> do
-                (e,_) <- el' "li" $ text wid
-                return $ domEvent Click e
+            walletIdEvents <- elClass "ul" "list-group" $ do
+              forM walletIds $ \wid -> fmap (switch . current) $ prerender (return never) $ do
+                -- Note: This websocket keeps track of Slot number
+                --   el "p" $ text "-------------------------------"
+                -- Note: This websocket keeps track of Slot number
+                -- ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+                -- _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show a
+
+                -- TODO: Add some highlight on hover for list items
+                (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
+                return $ wid <$ domEvent Click e
             return $ leftmost walletIdEvents
-      return ()
+      return ((), dashboard <$> walletEv)
+
+navBar :: forall t m js. (Prerender js t m, DomBuilder t m) => Maybe Text -> m (Event t ())
+navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
+  divClass "container-fluid" $ do
+    elAttr "a" ("class" =: "navbar-brand" <> "href" =: "#") $ text "POKE-DEX - Plutus Obelisk Koin Economy Decentralized Exchange "
+    -- TODO: incorporate the use of PAB's websockets to display the wallet's current Ada Balance
+    case mWid of
+      Nothing -> return never
+      Just wid -> fmap (switch . current) $ prerender (return never) $ do
+        ws<- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+        _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> do
+          elClass "p" "text-white" $ text $ T.pack $ show a
+        return never
+
+dashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m) => Text -> Workflow t m ()
+dashboard wid = Workflow $ do
+  _ <- navBar $ Just wid
   -- TODO: Get a list of coins that are supported in the token pool
   divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container-fluid py-5" $ do
@@ -109,7 +134,7 @@ app = do
         (Coin (AssetClass (CurrencySymbol "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e", TokenName "A")))
         (Amount 112)
         (Amount 0) <$ swap
-  return ()
+  return ((), never)
 
 viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))
 viewCounter = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_Counter . identityV
