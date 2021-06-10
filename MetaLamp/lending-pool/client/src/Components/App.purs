@@ -7,7 +7,8 @@ import Capability.LogMessages (class LogMessages, logError)
 import Capability.PollContract (class PollContract)
 import Components.AmountForm as AmountForm
 import Control.Monad.Except (lift, runExceptT, throwError)
-import Data.Array (mapWithIndex)
+import Data.Array (groupBy, mapWithIndex)
+import Data.Array.NonEmpty as NEA
 import Data.BigInteger (BigInteger, fromInt)
 import Data.Either (Either, either)
 import Data.Foldable (find)
@@ -27,7 +28,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Network.RemoteData (RemoteData(..))
 import Network.RemoteData as RD
-import Plutus.Contracts.Core (Reserve(..))
+import Plutus.Contracts.Core (Reserve(..), UserConfig)
 import Plutus.Contracts.Endpoints (BorrowParams(..), DepositParams(..), RepayParams(..), WithdrawParams(..))
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState(..))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
@@ -37,6 +38,7 @@ import Utils.WithRemoteData (runRDWith)
 import View.FundsTable (fundsTable)
 import View.RemoteDataState (remoteDataState)
 import View.ReserveInfo (reserveInfo)
+import View.UsersTable (poolUsers)
 import Wallet.Emulator.Wallet (Wallet(..))
 import Wallet.Types (ContractInstanceId(..))
 
@@ -44,6 +46,7 @@ type State
   = { contractId :: RemoteData String ContractId
     , walletPubKey :: RemoteData String PubKeyHash
     , userFunds :: RemoteData String Value
+    , users :: RemoteData String (Map.Map (JsonTuple AssetClass PubKeyHash) UserConfig)
     , reserves :: RemoteData String (Map.Map AssetClass Reserve)
     , deposit :: RemoteData String Unit
     , withdraw :: RemoteData String Unit
@@ -60,6 +63,9 @@ _walletPubKey = prop (SProxy :: SProxy "walletPubKey")
 
 _userFunds :: Lens' State (RemoteData String Value)
 _userFunds = prop (SProxy :: SProxy "userFunds")
+
+_users :: Lens' State (RemoteData String (Map.Map (JsonTuple AssetClass PubKeyHash) UserConfig))
+_users = prop (SProxy :: SProxy "users")
 
 _reserves :: Lens' State (RemoteData String (Map.Map AssetClass Reserve))
 _reserves = prop (SProxy :: SProxy "reserves")
@@ -84,6 +90,7 @@ initialState _ =
   { contractId: NotAsked
   , walletPubKey: NotAsked
   , userFunds: NotAsked
+  , users: NotAsked
   , reserves: NotAsked
   , withdraw: NotAsked
   , deposit: NotAsked
@@ -97,8 +104,9 @@ data Action
   | GetContractAt Wallet
   | GetWalletPubKey
   | GetUserFunds
+  | GetUserConfigs
   | GetReserves
-  | GetFunds
+  | GetUpdates
   | Deposit { amount :: BigInteger, asset :: AssetClass }
   | Withdraw { amount :: BigInteger, asset :: AssetClass }
   | Borrow { amount :: BigInteger, asset :: AssetClass }
@@ -157,7 +165,7 @@ component =
     Init -> do
       handleAction (GetContractAt $ Wallet { getWallet: fromInt 2 })
       handleAction GetWalletPubKey
-      handleAction GetFunds
+      handleAction GetUpdates
     GetContractAt wallet ->
       runRD _contractId <<< runExceptT
         $ do
@@ -184,15 +192,22 @@ component =
                 <$> state.contractId
                 <*> state.walletPubKey
             lift (Aave.fundsAt cid pkh) >>= either (throwError <<< show) pure
+    GetUserConfigs ->
+      runRD _users <<< runExceptT
+        $ do
+            state <- lift H.get
+            cid <- RD.maybe (throwError "contractId is missing") pure state.contractId
+            lift (Aave.users cid) >>= either (throwError <<< show) pure
     GetReserves ->
       runRD _reserves <<< runExceptT
         $ do
             state <- lift H.get
             cid <- RD.maybe (throwError "contractId or publicKey are missing") pure $ state.contractId
             lift (Aave.reserves cid) >>= either (throwError <<< show) pure
-    GetFunds -> do
+    GetUpdates -> do
       handleAction GetUserFunds
       handleAction GetReserves
+      handleAction GetUserConfigs
     Deposit { amount, asset } ->
       runRD _deposit <<< runExceptT
         $ do
@@ -205,7 +220,7 @@ component =
             lift (Aave.deposit cid $ DepositParams { dpAmount: amount, dpAsset: asset, dpOnBehalfOf: pkh })
               >>= either (throwError <<< show) (const <<< pure $ unit)
     Withdraw { amount, asset } ->
-      runRD _deposit <<< runExceptT
+      runRD _withdraw <<< runExceptT
         $ do
             state <- lift H.get
             { cid, pkh } <-
@@ -216,7 +231,7 @@ component =
             lift (Aave.withdraw cid $ WithdrawParams { wpAmount: amount, wpAsset: asset, wpUser: pkh })
               >>= either (throwError <<< show) (const <<< pure $ unit)
     Borrow { amount, asset } ->
-      runRD _deposit <<< runExceptT
+      runRD _borrow <<< runExceptT
         $ do
             state <- lift H.get
             { cid, pkh } <-
@@ -227,7 +242,7 @@ component =
             lift (Aave.borrow cid $ BorrowParams { bpAmount: amount, bpAsset: asset, bpOnBehalfOf: pkh })
               >>= either (throwError <<< show) (const <<< pure $ unit)
     Repay { amount, asset } ->
-      runRD _deposit <<< runExceptT
+      runRD _repay <<< runExceptT
         $ do
             state <- lift H.get
             { cid, pkh } <-
@@ -246,20 +261,32 @@ component =
               Just (Tuple asset _) -> case operation of
                 SubmitDeposit -> do
                   lift $ handleAction (Deposit { amount, asset })
-                  lift (H.gets _.deposit)
-                    >>= RD.maybe (throwError "Submit deposit failed") (const <<< lift <<< handleAction $ GetFunds)
+                  { deposit } <- lift H.get
+                  RD.maybe
+                    (throwError $ "Submit deposit failed: " <> show deposit)
+                    (const <<< lift <<< handleAction $ GetUpdates)
+                    deposit
                 SubmitWithdraw -> do
                   lift $ handleAction (Withdraw { amount, asset })
-                  lift (H.gets _.withdraw)
-                    >>= RD.maybe (throwError "Submit withdraw failed") (const <<< lift <<< handleAction $ GetFunds)
+                  { withdraw } <- lift H.get
+                  RD.maybe
+                    (throwError $ "Submit withdraw failed: " <> show withdraw)
+                    (const <<< lift <<< handleAction $ GetUpdates)
+                    withdraw
                 SubmitBorrow -> do
                   lift $ handleAction (Borrow { amount, asset })
-                  lift (H.gets _.borrow)
-                    >>= RD.maybe (throwError "Submit borrow failed") (const <<< lift <<< handleAction $ GetFunds)
+                  { borrow } <- lift H.get
+                  RD.maybe
+                    (throwError $ "Submit borrow failed: " <> show borrow)
+                    (const <<< lift <<< handleAction $ GetUpdates)
+                    borrow
                 SubmitRepay -> do
                   lift $ handleAction (Repay { amount, asset })
-                  lift (H.gets _.repay)
-                    >>= RD.maybe (throwError "Submit repay failed") (const <<< lift <<< handleAction $ GetFunds)
+                  { repay } <- lift H.get
+                  RD.maybe
+                    (throwError $ "Submit repay failed: " <> show repay)
+                    (const <<< lift <<< handleAction $ GetUpdates)
+                    repay
               Nothing -> throwError "Asset name not found"
 
   render :: State -> H.ComponentHTML Action Slots m
@@ -276,6 +303,30 @@ component =
                 <> map (\(Tuple a r) -> reserveInfo a r) reserves
           )
           (map Map.toTuples state.reserves)
+      , remoteDataState
+          ( \userMap ->
+              let
+                getAsset (Tuple (JsonTuple (Tuple asset _)) _) = asset
+
+                getName (Tuple (JsonTuple (Tuple _ pkh)) _) = show pkh
+
+                getUser (Tuple _ user) = user
+
+                usersByAsset = groupBy (\a b -> getAsset a == getAsset b) <<< Map.toTuples $ userMap
+
+                html =
+                  map
+                    ( \users ->
+                        poolUsers
+                          (getAsset <<< NEA.head $ users)
+                          (map (\user -> Tuple (getName user) (getUser user)) $ users)
+                    )
+                    usersByAsset
+              in
+                HH.div_
+                  $ [ HH.h2_ [ HH.text "Users:" ], HH.div_ html ]
+          )
+          state.users
       , case state.submit of
           NotAsked -> HH.div_ []
           Loading -> HH.div_ []
