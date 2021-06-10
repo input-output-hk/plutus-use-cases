@@ -21,49 +21,89 @@ maintainer:         Your email
 -- category:
 -- extra-source-files: CHANGELOG.md
 
+flag defer-plugin-errors
+    description:
+        Defer errors from the plugin, useful for things like Haddock that can't handle it.
+    default: False
+    manual: True
+    
+source-repository this
+    type: git
+    location: https://github.com/input-output-hk/plutus-use-cases
+    branch: AltLabs/dex-token-swap
+
 library
     exposed-modules:
       MyModule
-      Plutus.Contracts.Game
+      Plutus.Contracts
+      -- Plutus.PAB.Effects.ContractTest.Uniswap
+      Effects.Uniswap
+      Plutus.Contracts.Data
+      Plutus.Contracts.Helpers
+      -- Plutus.Contracts.UniswapHelpers
+      Plutus.Contracts.Validators
+      Plutus.Contracts.PubKey
+      Plutus.Contracts.Uniswap
+      Plutus.Contracts.Currency
+      Plutus.Contracts.LiquidityPool
+      Plutus.Contracts.PoolForgery
     build-depends:
       base >= 4.9 && < 5,
+      directory,
+      filepath,
       aeson,
+      aeson-pretty -any,
+      containers,
+      text,
+      lens -any,
       bytestring,
       playground-common,
       plutus-contract,
       plutus-tx-plugin,
       plutus-tx,
-      plutus-ledger
-    hs-source-dirs: src examples/src
+      plutus-ledger,
+      playground-common -any,
+      bytestring -any
+      -- plutus-use-cases -any
+    hs-source-dirs: src
     default-language: Haskell2010
     ghc-options:
             -- See Plutus Tx readme
-            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fplugin-opt PlutusTx.Plugin:defer-errors -haddock 
 
 test-suite plutus-example-projects-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
-  hs-source-dirs: examples/test
-  other-modules:
-    Spec.Game
+  hs-source-dirs: specs
+  -- other-modules:
+  --   Spec.Game
   default-language: Haskell2010
+  default-extensions: ExplicitForAll ScopedTypeVariables
+                        DeriveGeneric StandaloneDeriving DeriveLift
+                        GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
+                        DeriveTraversable
   ghc-options: -Wall -Wnoncanonical-monad-instances
               -Wincomplete-uni-patterns -Wincomplete-record-updates
-              -Wredundant-constraints -Widentities -rtsopts
+              -Wredundant-constraints -Widentities
               -- See Plutus Tx readme
               -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+  if flag(defer-plugin-errors)
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
   build-depends:
     plutus-tx -any,
     plutus-tx-plugin,
     plutus-contract -any,
     plutus-ledger -any,
-    plutus-starter -any
+    plutus-starter -any,
+    lens -any,
   build-depends:
     base >=4.9 && <5,
     tasty -any,
     tasty-hunit -any,
     tasty-hedgehog >=0.2.0.0
 
+-- | The PAB
 executable plutus-starter-pab
   main-is: Main.hs
   hs-source-dirs: pab
@@ -71,11 +111,22 @@ executable plutus-starter-pab
     -threaded
   build-depends:
     base >= 4.9 && < 5,
+    directory,
+    filepath,
+    containers,
+    text -any,
+    lens -any,
+    bytestring -any,
     plutus-contract -any,
     plutus-pab -any,
     plutus-starter -any,
     aeson -any,
+    aeson-pretty -any,
     freer-simple -any,
     prettyprinter -any,
     freer-extras -any,
-    plutus-ledger -any
+    plutus-ledger -any,
+    row-types -any,
+    playground-common -any,
+    -- plutus-use-cases -any
+
