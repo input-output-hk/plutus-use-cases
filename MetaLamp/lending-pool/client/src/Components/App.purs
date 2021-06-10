@@ -8,9 +8,8 @@ import Capability.PollContract (class PollContract)
 import Components.AmountForm as AmountForm
 import Control.Monad.Except (lift, runExceptT, throwError)
 import Data.Array (mapWithIndex)
-import Data.Bifunctor (bimap, lmap)
 import Data.BigInteger (BigInteger, fromInt)
-import Data.Either (Either(..), either)
+import Data.Either (Either, either)
 import Data.Foldable (find)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
@@ -19,13 +18,14 @@ import Data.Json.JsonUUID (JsonUUID(..))
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), maybe)
+import Data.Newtype (unwrap)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..))
 import Data.UUID (toString) as UUID
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Network.RemoteData (RemoteData(..), fromEither)
+import Network.RemoteData (RemoteData(..))
 import Network.RemoteData as RD
 import Plutus.Contracts.Core (Reserve(..))
 import Plutus.Contracts.Endpoints (BorrowParams(..), DepositParams(..), RepayParams(..), WithdrawParams(..))
@@ -33,7 +33,7 @@ import Plutus.PAB.Webserver.Types (ContractInstanceClientState(..))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), Value)
 import PlutusTx.AssocMap as Map
-import Utils.WithRemoteData (withRemoteData')
+import Utils.WithRemoteData (runRDWith)
 import View.FundsTable (fundsTable)
 import View.RemoteDataState (remoteDataState)
 import View.ReserveInfo (reserveInfo)
@@ -49,7 +49,7 @@ type State
     , withdraw :: RemoteData String Unit
     , borrow :: RemoteData String Unit
     , repay :: RemoteData String Unit
-    , lastError :: Maybe String
+    , submit :: RemoteData String Unit
     }
 
 _contractId :: Lens' State (RemoteData String ContractId)
@@ -76,6 +76,9 @@ _borrow = prop (SProxy :: SProxy "borrow")
 _repay :: Lens' State (RemoteData String Unit)
 _repay = prop (SProxy :: SProxy "repay")
 
+_submit :: Lens' State (RemoteData String Unit)
+_submit = prop (SProxy :: SProxy "submit")
+
 initialState :: forall input. input -> State
 initialState _ =
   { contractId: NotAsked
@@ -86,7 +89,7 @@ initialState _ =
   , deposit: NotAsked
   , borrow: NotAsked
   , repay: NotAsked
-  , lastError: Nothing
+  , submit: NotAsked
   }
 
 data Action
@@ -137,22 +140,17 @@ component =
     , eval: H.mkEval H.defaultEval { handleAction = handleAction }
     }
   where
-  withRemoteData ::
-    forall e a action slots.
+  runRD ::
+    forall e a.
     Show e =>
     (Lens' State (RemoteData e a)) ->
-    H.HalogenM State action slots output m (RemoteData e a) ->
-    H.HalogenM State action slots output m Unit
-  withRemoteData =
-    withRemoteData'
-      $ { before: H.modify_ _ { lastError = Nothing }
-        , after:
-            case _ of
-              Failure e -> do
-                logError $ "Remote data failure: " <> show e
-                H.modify_ _ { lastError = Just <<< show $ e }
-              _ -> pure unit
-        }
+    H.HalogenM State Action Slots output m (Either e a) ->
+    H.HalogenM State Action Slots output m Unit
+  runRD selector action =
+    (runRDWith selector $ action)
+      >>= case _ of
+          Failure e -> logError <<< show $ e
+          _ -> pure unit
 
   handleAction :: Action -> H.HalogenM State Action Slots output m Unit
   handleAction = case _ of
@@ -161,142 +159,113 @@ component =
       handleAction GetWalletPubKey
       handleAction GetFunds
     GetContractAt wallet ->
-      withRemoteData _contractId
+      runRD _contractId <<< runExceptT
         $ do
-            eInstances <- Aave.getAaveContracts
-            case eInstances of
-              Left e -> pure <<< Failure <<< show $ e
-              Right instances -> do
-                let
-                  contract = find (\(ContractInstanceClientState i) -> i.cicWallet == wallet) instances
-                case contract of
-                  Nothing -> pure <<< Failure $ "Contract instance not found"
-                  Just (ContractInstanceClientState i) -> pure <<< Success <<< toContractIdParam $ i.cicContract
+            instances <- lift Aave.getAaveContracts >>= either (throwError <<< show) pure
+            let
+              contract = find (\(ContractInstanceClientState i) -> i.cicWallet == wallet) instances
+            maybe
+              (throwError "Contract instance not found")
+              (pure <<< toContractIdParam <<< _.cicContract <<< unwrap)
+              contract
     GetWalletPubKey ->
-      handleException <=< runExceptT
+      runRD _walletPubKey <<< runExceptT
         $ do
             state <- lift H.get
-            cid <- RD.maybe (throwError "Failed to get wallet public key") pure $ state.contractId
-            lift $ withRemoteData _walletPubKey
-              $ fromEither
-              <<< lmap show
-              <$> Aave.ownPubKey cid
+            cid <- RD.maybe (throwError "contractId is missing") pure state.contractId
+            lift (Aave.ownPubKey cid) >>= either (throwError <<< show) pure
     GetUserFunds ->
-      handleException <=< runExceptT
+      runRD _userFunds <<< runExceptT
         $ do
             state <- lift H.get
             { cid, pkh } <-
-              RD.maybe (throwError "Failed to get user funds") pure
+              RD.maybe (throwError "contractId or publicKey are missing") pure
                 $ { cid: _, pkh: _ }
                 <$> state.contractId
                 <*> state.walletPubKey
-            lift $ withRemoteData _userFunds
-              $ fromEither
-              <<< lmap show
-              <$> Aave.fundsAt cid pkh
+            lift (Aave.fundsAt cid pkh) >>= either (throwError <<< show) pure
     GetReserves ->
-      handleException <=< runExceptT
+      runRD _reserves <<< runExceptT
         $ do
             state <- lift H.get
-            cid <- RD.maybe (throwError "Failed to get reserves") pure $ state.contractId
-            lift $ withRemoteData _reserves
-              $ fromEither
-              <<< lmap show
-              <$> Aave.reserves cid
+            cid <- RD.maybe (throwError "contractId or publicKey are missing") pure $ state.contractId
+            lift (Aave.reserves cid) >>= either (throwError <<< show) pure
     GetFunds -> do
       handleAction GetUserFunds
       handleAction GetReserves
     Deposit { amount, asset } ->
-      handleException <=< runExceptT
+      runRD _deposit <<< runExceptT
         $ do
             state <- lift H.get
             { cid, pkh } <-
-              RD.maybe (throwError "Failed to deposit") pure
+              RD.maybe (throwError "contractId or publicKey are missing") pure
                 $ { cid: _, pkh: _ }
                 <$> state.contractId
                 <*> state.walletPubKey
-            lift $ withRemoteData _deposit
-              $ fromEither
-              <<< bimap show (const unit)
-              <$> (Aave.deposit cid $ DepositParams { dpAmount: amount, dpAsset: asset, dpOnBehalfOf: pkh })
+            lift (Aave.deposit cid $ DepositParams { dpAmount: amount, dpAsset: asset, dpOnBehalfOf: pkh })
+              >>= either (throwError <<< show) (const <<< pure $ unit)
     Withdraw { amount, asset } ->
-      handleException <=< runExceptT
+      runRD _deposit <<< runExceptT
         $ do
             state <- lift H.get
             { cid, pkh } <-
-              RD.maybe (throwError "Failed to withdraw") pure
+              RD.maybe (throwError "contractId or publicKey are missing") pure
                 $ { cid: _, pkh: _ }
                 <$> state.contractId
                 <*> state.walletPubKey
-            lift $ withRemoteData _withdraw
-              $ fromEither
-              <<< bimap show (const unit)
-              <$> (Aave.withdraw cid $ WithdrawParams { wpAmount: amount, wpAsset: asset, wpUser: pkh })
+            lift (Aave.withdraw cid $ WithdrawParams { wpAmount: amount, wpAsset: asset, wpUser: pkh })
+              >>= either (throwError <<< show) (const <<< pure $ unit)
     Borrow { amount, asset } ->
-      handleException <=< runExceptT
+      runRD _deposit <<< runExceptT
         $ do
             state <- lift H.get
             { cid, pkh } <-
-              RD.maybe (throwError "Failed to borrow") pure
+              RD.maybe (throwError "contractId or publicKey are missing") pure
                 $ { cid: _, pkh: _ }
                 <$> state.contractId
                 <*> state.walletPubKey
-            lift $ withRemoteData _withdraw
-              $ fromEither
-              <<< bimap show (const unit)
-              <$> (Aave.borrow cid $ BorrowParams { bpAmount: amount, bpAsset: asset, bpOnBehalfOf: pkh })
+            lift (Aave.borrow cid $ BorrowParams { bpAmount: amount, bpAsset: asset, bpOnBehalfOf: pkh })
+              >>= either (throwError <<< show) (const <<< pure $ unit)
     Repay { amount, asset } ->
-      handleException <=< runExceptT
+      runRD _deposit <<< runExceptT
         $ do
             state <- lift H.get
             { cid, pkh } <-
-              RD.maybe (throwError "Failed to repay") pure
+              RD.maybe (throwError "contractId or publicKey are missing") pure
                 $ { cid: _, pkh: _ }
                 <$> state.contractId
                 <*> state.walletPubKey
-            lift $ withRemoteData _withdraw
-              $ fromEither
-              <<< bimap show (const unit)
-              <$> (Aave.repay cid $ RepayParams { rpAmount: amount, rpAsset: asset, rpOnBehalfOf: pkh })
+            lift (Aave.repay cid $ RepayParams { rpAmount: amount, rpAsset: asset, rpOnBehalfOf: pkh })
+              >>= either (throwError <<< show) (const <<< pure $ unit)
     SubmitAmount operation (AmountForm.Submit { name, amount }) ->
-      handleException <=< runExceptT
+      runRD _submit <<< runExceptT
         $ do
             state <- lift H.get
-            reserves <- RD.maybe (throwError "Failed to submit") pure $ state.reserves
+            reserves <- RD.maybe (throwError "reserves are missing") pure $ state.reserves
             case find (\(Tuple k _) -> getAssetName k == name) (Map.toTuples reserves) of
-              Just (Tuple asset _) -> do
-                case operation of
-                  SubmitDeposit ->
-                    lift
-                      $ do
-                          handleAction (Deposit { amount, asset })
-                          (H.gets _.deposit)
-                            >>= RD.maybe (pure unit) (const <<< handleAction $ GetFunds)
-                  SubmitWithdraw ->
-                    lift
-                      $ do
-                          handleAction (Withdraw { amount, asset })
-                          (H.gets _.withdraw)
-                            >>= RD.maybe (pure unit) (const <<< handleAction $ GetFunds)
-                  SubmitBorrow ->
-                    lift
-                      $ do
-                          handleAction (Borrow { amount, asset })
-                          (H.gets _.borrow)
-                            >>= RD.maybe (pure unit) (const <<< handleAction $ GetFunds)
-                  SubmitRepay ->
-                    lift
-                      $ do
-                          handleAction (Repay { amount, asset })
-                          (H.gets _.repay)
-                            >>= RD.maybe (pure unit) (const <<< handleAction $ GetFunds)
+              Just (Tuple asset _) -> case operation of
+                SubmitDeposit -> do
+                  lift $ handleAction (Deposit { amount, asset })
+                  lift (H.gets _.deposit)
+                    >>= RD.maybe (throwError "Submit deposit failed") (const <<< lift <<< handleAction $ GetFunds)
+                SubmitWithdraw -> do
+                  lift $ handleAction (Withdraw { amount, asset })
+                  lift (H.gets _.withdraw)
+                    >>= RD.maybe (throwError "Submit withdraw failed") (const <<< lift <<< handleAction $ GetFunds)
+                SubmitBorrow -> do
+                  lift $ handleAction (Borrow { amount, asset })
+                  lift (H.gets _.borrow)
+                    >>= RD.maybe (throwError "Submit borrow failed") (const <<< lift <<< handleAction $ GetFunds)
+                SubmitRepay -> do
+                  lift $ handleAction (Repay { amount, asset })
+                  lift (H.gets _.repay)
+                    >>= RD.maybe (throwError "Submit repay failed") (const <<< lift <<< handleAction $ GetFunds)
               Nothing -> throwError "Asset name not found"
 
   render :: State -> H.ComponentHTML Action Slots m
   render state =
     HH.div_
       [ HH.button [ HE.onClick \_ -> Just Init ] [ HH.text "Start" ]
-      , maybe (HH.div_ []) (\e -> HH.h2_ [ HH.text $ "Error: " <> e ]) state.lastError
       , remoteDataState
           (\userFunds -> HH.div_ [ HH.h2_ [ HH.text "User funds" ], fundsTable userFunds ])
           state.userFunds
@@ -307,6 +276,11 @@ component =
                 <> map (\(Tuple a r) -> reserveInfo a r) reserves
           )
           (map Map.toTuples state.reserves)
+      , case state.submit of
+          NotAsked -> HH.div_ []
+          Loading -> HH.div_ []
+          Failure e -> HH.h2_ [ HH.text $ "Error: " <> show e ]
+          Success _ -> HH.div_ []
       , remoteDataState
           ( \amounts ->
               HH.div_
