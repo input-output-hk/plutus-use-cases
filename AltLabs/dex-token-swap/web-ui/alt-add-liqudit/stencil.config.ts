@@ -1,7 +1,7 @@
 import { Config } from '@stencil/core';
 
 export const config: Config = {
-  namespace: 'uniswap',
+  namespace: 'alt-add-liqudit',
   outputTargets: [
     {
       type: 'dist',

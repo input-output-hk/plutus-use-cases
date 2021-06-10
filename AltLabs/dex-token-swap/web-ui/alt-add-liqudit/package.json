@@ -1,5 +1,5 @@
 {
-  "name": "uniswap",
+  "name": "alt-add-liquidity",
   "version": "0.0.1",
   "description": "Stencil Component Starter",
   "main": "dist/index.cjs.js",
@@ -9,7 +9,7 @@
   "types": "dist/custom-elements/index.d.ts",
   "collection": "dist/collection/collection-manifest.json",
   "collection:main": "dist/collection/index.js",
-  "unpkg": "dist/uniswap/uniswap.esm.js",
+  "unpkg": "dist/alt-add-liquidity/alt-add-liquidity.esm.js",
   "files": [
     "dist/",
     "loader/"
@@ -22,8 +22,7 @@
     "generate": "stencil generate"
   },
   "dependencies": {
-    "@stencil/core": "^2.0.1",
-    "stenciljs-bootstrap": "0.0.21"
+    "@stencil/core": "^2.0.1"
   },
   "license": "MIT"
 }

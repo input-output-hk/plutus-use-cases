@@ -1,0 +1,34 @@
+{
+  "name": "alt-swap",
+  "version": "0.0.5",
+  "description": "Web component built with Stenciljs by Alt Labs.",
+  "author": {
+    "name": "Jovan Zatezalo",
+    "email": "jovan@altlabs.dev"
+  },
+  "main": "dist/index.cjs.js",
+  "module": "dist/custom-elements/index.js",
+  "es2015": "dist/esm/index.mjs",
+  "es2017": "dist/esm/index.mjs",
+  "types": "dist/custom-elements/index.d.ts",
+  "collection": "dist/collection/collection-manifest.json",
+  "collection:main": "dist/collection/index.js",
+  "unpkg": "dist/uniswap/uniswap.esm.js",
+  "files": [
+    "dist/",
+    "loader/"
+  ],
+  "scripts": {
+    "build": "stencil build --docs",
+    "prepare": "npm run build --prod",
+    "start": "stencil build --dev --watch --serve",
+    "test": "stencil test --spec --e2e",
+    "test.watch": "stencil test --spec --e2e --watchAll",
+    "generate": "stencil generate"
+  },
+  "dependencies": {
+    "@stencil/core": "^2.6.0",
+    "stenciljs-bootstrap": "0.0.21"
+  },
+  "license": "MIT"
+}

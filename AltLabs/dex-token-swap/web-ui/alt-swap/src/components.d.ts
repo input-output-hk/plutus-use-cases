@@ -6,32 +6,34 @@
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
 export namespace Components {
-    interface CSwap {
+    interface AltSwap {
+        "title": string;
     }
 }
 declare global {
-    interface HTMLCSwapElement extends Components.CSwap, HTMLStencilElement {
+    interface HTMLAltSwapElement extends Components.AltSwap, HTMLStencilElement {
     }
-    var HTMLCSwapElement: {
-        prototype: HTMLCSwapElement;
-        new (): HTMLCSwapElement;
+    var HTMLAltSwapElement: {
+        prototype: HTMLAltSwapElement;
+        new (): HTMLAltSwapElement;
     };
     interface HTMLElementTagNameMap {
-        "c-swap": HTMLCSwapElement;
+        "alt-swap": HTMLAltSwapElement;
     }
 }
 declare namespace LocalJSX {
-    interface CSwap {
+    interface AltSwap {
+        "title"?: string;
     }
     interface IntrinsicElements {
-        "c-swap": CSwap;
+        "alt-swap": AltSwap;
     }
 }
 export { LocalJSX as JSX };
 declare module "@stencil/core" {
     export namespace JSX {
         interface IntrinsicElements {
-            "c-swap": LocalJSX.CSwap & JSXBase.HTMLAttributes<HTMLCSwapElement>;
+            "alt-swap": LocalJSX.AltSwap & JSXBase.HTMLAttributes<HTMLAltSwapElement>;
         }
     }
 }
