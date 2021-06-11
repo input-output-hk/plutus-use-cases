@@ -14,7 +14,7 @@ import           Ledger                      (Address (Address),
 import           Plutus.V1.Ledger.Credential (Credential (PubKeyCredential, ScriptCredential))
 import qualified PlutusTx
 import           PlutusTx.Prelude            (Eq ((==)), Maybe (..),
-                                              Monad ((>>=)), find, fst,
+                                               find, fst, (>>=),
                                               mapMaybe, mconcat, snd, ($), (.),
                                               (<$>))
 
