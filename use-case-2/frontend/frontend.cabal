@@ -7,6 +7,7 @@ library
   hs-source-dirs: src
   build-depends: base
                , common
+               , containers
                , obelisk-frontend
                , obelisk-route
                , jsaddle
@@ -14,6 +15,7 @@ library
                , obelisk-executable-config-lookup
                , obelisk-generated-static
                , rhyolite-frontend
+               , safe
                , text
                , vessel
   exposed-modules:

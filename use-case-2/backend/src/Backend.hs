@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Backend where
 
+import Control.Concurrent (threadDelay)
 import Control.Exception
 import Control.Monad.Identity
 import Control.Monad.IO.Class
@@ -149,6 +150,7 @@ getPooledTokens httpManager pool = do
       _ <- httpLbs pReq httpManager
       return ()
   -- TODO: might have to put a delay here
+  threadDelay 1000000
   initReq <- parseRequest "http://localhost:8080/api/new/contract/instances"
   let req = initReq { method = "GET" }
   resp <- httpLbs req httpManager
