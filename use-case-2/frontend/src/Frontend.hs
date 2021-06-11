@@ -15,6 +15,7 @@ import Control.Category
 import Control.Monad
 import qualified Data.Aeson as Aeson
 import Data.Int
+import qualified Data.Map as Map
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -31,6 +32,7 @@ import Obelisk.Generated.Static
 import Reflex.Dom.Core
 -- import Reflex.Dom.WebSocket
 import Rhyolite.Frontend.App
+import Safe (headMay)
 
 import Common.Api
 import Common.Route
@@ -73,7 +75,6 @@ app = Workflow $ do
     divClass "container-fluid py-5" $ do
       elClass "h3" "display-5 fw-bold" $ text "Wallet Accounts"
       elClass "p" "lead" $ text "Choose one of the avaiable wallets below: "
-      -- TODO: Make a way to select one of these wallets
       dmmWalletIds <- viewContracts
       walletEv <- switchHold never <=< dyn $ ffor dmmWalletIds $ \case
         Nothing -> do
@@ -86,12 +87,6 @@ app = Workflow $ do
           Just walletIds -> do
             walletIdEvents <- elClass "ul" "list-group" $ do
               forM walletIds $ \wid -> fmap (switch . current) $ prerender (return never) $ do
-                -- Note: This websocket keeps track of Slot number
-                --   el "p" $ text "-------------------------------"
-                -- Note: This websocket keeps track of Slot number
-                -- ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-                -- _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show a
-
                 -- TODO: Add some highlight on hover for list items
                 (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
                 return $ wid <$ domEvent Click e
@@ -103,6 +98,11 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
   divClass "container-fluid" $ do
     elAttr "a" ("class" =: "navbar-brand" <> "href" =: "#") $ text "POKE-DEX - Plutus Obelisk Koin Economy Decentralized Exchange "
     -- TODO: incorporate the use of PAB's websockets to display the wallet's current Ada Balance
+      -- Note: This websocket keeps track of Slot number
+      --   el "p" $ text "-------------------------------"
+      -- Note: This websocket keeps track of Slot number
+      -- ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+      -- _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show a
     case mWid of
       Nothing -> return never
       Just wid -> fmap (switch . current) $ prerender (return never) $ do
@@ -113,27 +113,56 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
 
 dashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m) => Text -> Workflow t m ()
 dashboard wid = Workflow $ do
+  -- TODO: Add swap and stake tabs to the navbar
   _ <- navBar $ Just wid
-  -- TODO: Get a list of coins that are supported in the token pool
-  divClass "p-5 mb-4 bg-light rounded-5" $ do
+  _ <- divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container-fluid py-5" $ do
-      elClass "h3" "display-5 fw-bold" $ text "List of Swappable Tokens"
-      el "p" $ text "Here is the list of tokens we support: "
-      display =<< viewPooledTokens
+      elClass "h3" "display-5 fw-bold" $ text "Swap Tokens"
+      el "p" $ text "What would you like to swap?"
+      dmmPooledTokens <- viewPooledTokens
+      _ <- switchHold never <=< dyn $ ffor dmmPooledTokens $ \case
+        Nothing -> return never
+        Just mPoolTokens -> case mPoolTokens of
+          Nothing -> return never
+          Just poolTokens -> do
+            let dropdownList = Map.fromListWith (\_ tkName -> tkName) $ flip fmap poolTokens $ \pt ->
+                  if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
+                firstOption = headMay $ Map.keys dropdownList
+            case firstOption of
+              Nothing -> do
+                elClass "p" "text-warning" $ text "There are no tokens available to swap."
+                return never
+              Just fstOpt -> do
+                divClass "form container" $ do
+                  divClass "form-group" $ do
+                    -- Select first token and amount
+                    -- TODO: Create a convenient widget function out of the dropdown text input for coins
+                    (selectionA,_) <- divClass "input-group row" $ do
+                      coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
+                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
+                      coinAAmountInput <- inputElement $ def
+                        & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ ("class" =: "form-control col-md-4")
+                      return (_dropdown_value coinAChoice, _inputElement_value coinAAmountInput)
+                    -- Select second token and amount
+                    (selectionB,_) <- divClass "input-group row mt-3" $ do
+                      coinBChoice <- dropdown fstOpt (constDyn $ dropdownList) $
+                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
+                      coinBAmountInput <- inputElement $ def
+                        & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ ("class" =: "form-control col-md-4")
+                      return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
+                    swap <- divClass "input-group row mt-3" $ do
+                      (e,_) <- elClass' "button" "btn btn-primary" $ text "Swap"
+                      return $ domEvent Click e
+                    -- TODO: Values passed to swap should not be hard coded.
+                    requesting_ $ Api_Swap
+                      (ContractInstanceId wid)
+                      (Coin $ AssetClass (CurrencySymbol "", TokenName ""))
+                      (Coin (AssetClass (CurrencySymbol "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e", TokenName "A")))
+                      (Amount 112)
+                      (Amount 0) <$ swap
+                    return ()
+                return never
       return ()
-  -- Example of making a swap call
-  el "div" $ do
-  divClass "p-5 mb-4 bg-light rounded-5" $ do
-    divClass "container-fluid py-5" $ do
-      elClass "h3" "display-5 fw-bold" $ text "Swap"
-      swap <- button "swap"
-      -- TODO: Values passed to swap should not be hard coded.
-      requesting_ $ Api_Swap
-        (ContractInstanceId "0eb3011f-40e7-4d38-a4af-7602df8c3bb3")
-        (Coin $ AssetClass (CurrencySymbol "", TokenName ""))
-        (Coin (AssetClass (CurrencySymbol "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e", TokenName "A")))
-        (Amount 112)
-        (Amount 0) <$ swap
   return ((), never)
 
 viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))

@@ -78,5 +78,6 @@ deriving instance ToJSON Contract
 
 deriving instance Show PooledToken
 deriving instance Eq PooledToken
+deriving instance Ord PooledToken
 deriving instance FromJSON PooledToken
 deriving instance ToJSON PooledToken
