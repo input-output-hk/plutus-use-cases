@@ -4,15 +4,15 @@ import Prelude
 import Affjax (Response, defaultRequest)
 import Affjax.RequestBody (RequestBody, string)
 import Capability.Contract (class Contract, ContractId(..), Endpoint(..), APIError(..))
-import Capability.Delay (class Delay)
 import Capability.LogMessages (class LogMessages)
+import Capability.PollContract (class PollContract)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader.Trans (class MonadAsk, ReaderT, asks, runReaderT)
 import Data.Bifunctor (bimap)
 import Data.Either (Either)
 import Data.HTTP.Method (fromString)
 import Data.Maybe (Maybe(..))
-import Effect.Aff (Aff, delay)
+import Effect.Aff (Aff, Milliseconds(..), delay)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
@@ -52,7 +52,7 @@ instance logMessagesAppM :: LogMessages AppM where
 
 errorToString :: AjaxError -> String
 errorToString (AjaxError e) = case e.description of
-  ResponseError _ _ -> "Response error"
+  ResponseError _ r -> "Response error: " <> r
   ResponseFormatError s -> "Parsing error: " <> s
   DecodingError s -> "Decoding error: " <> s
   ConnectionError s -> "Connection error: " <> s
@@ -85,5 +85,6 @@ instance contractAppM :: Contract AppM where
   getContractStatus (ContractId cid) = get $ "/api/new/contract/instance/" <> cid <> "/status"
   callEndpoint (Endpoint endpoint) (ContractId cid) params = post ("/api/new/contract/instance/" <> cid <> "/endpoint/" <> endpoint) (string <<< encodeJSON $ params)
 
-instance delayAppM :: Delay AppM where
-  delay = liftAff <<< delay
+instance pollContractAppM :: PollContract AppM where
+  pollDelay = liftAff <<< delay <<< Milliseconds $ 300.0
+  tooManyRetries retryCount = pure $ retryCount > 10

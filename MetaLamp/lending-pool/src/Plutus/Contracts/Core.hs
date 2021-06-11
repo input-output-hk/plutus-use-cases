@@ -260,8 +260,9 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
     checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
       let debtChange = fromMaybe 0 $ (-) <$> ucDebt oldState <*> ucDebt newState
+          newDebt = fromMaybe 0 $ ucDebt newState
           reimbursementAmount = assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
-       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 &&
+       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 && newDebt >= 0 &&
           ucUsingAsCollateral oldState == ucUsingAsCollateral newState
 
 validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =

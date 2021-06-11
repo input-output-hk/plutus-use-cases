@@ -230,13 +230,15 @@ borrow aave BorrowParams {..} = do
 
     userConfigs <- ovValue <$> State.findAaveUserConfigs aave
     userConfigsTx <- case AssocMap.lookup userConfigId userConfigs of
-            Nothing ->
-                State.addUserConfig
-                    aave (Core.BorrowRedeemer userConfigId)
-                    userConfigId
-                    UserConfig { ucUsingAsCollateral = False, ucDebt = Just bpAmount }
-            Just userConfig ->
-                State.updateUserConfig aave (Core.BorrowRedeemer userConfigId) userConfigId $ userConfig { ucDebt = (+ bpAmount) <$> ucDebt userConfig }
+        Nothing ->
+            State.addUserConfig
+            aave
+            (Core.BorrowRedeemer userConfigId)
+            userConfigId
+            UserConfig {ucUsingAsCollateral = False, ucDebt = Just bpAmount}
+        Just userConfig ->
+            State.updateUserConfig aave (Core.BorrowRedeemer userConfigId) userConfigId $
+            userConfig {ucDebt = Just $ maybe bpAmount (+ bpAmount) $ ucDebt userConfig}
 
     reservesTx <- State.updateReserve aave (Core.BorrowRedeemer userConfigId) bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
 
