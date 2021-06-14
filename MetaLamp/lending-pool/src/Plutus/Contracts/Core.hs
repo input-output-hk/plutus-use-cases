@@ -23,8 +23,8 @@ import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void)
-import           Ext.Plutus.Ledger.Contexts       (findDatumHashByValue,
-                                                   findValueByDatumHash,
+import           Ext.Plutus.Ledger.Contexts       (findOnlyOneDatumHashByValue,
+                                                   findValueByDatumHash,scriptInputsAt,
                                                    parseDatum, valueSpentFrom)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
@@ -150,7 +150,7 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
     userConfigsOutputDatumHash =
-      findDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
+      findOnlyOneDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
     userConfigsOutputDatum ::
          Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     userConfigsOutputDatum =
@@ -197,7 +197,7 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
     scriptOutputs = scriptOutputsAt scriptsHash txInfo
     userConfigsOutputDatumHash =
-      findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+      findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     userConfigsOutputDatum ::
          Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     userConfigsOutputDatum =
@@ -238,7 +238,7 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
     scriptOutputs = scriptOutputsAt scriptsHash txInfo
     userConfigsOutputDatumHash =
-      findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+      findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     userConfigsOutputDatum ::
          Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     userConfigsOutputDatum =
@@ -269,21 +269,21 @@ validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
 validateRepay _ _ _ _ = trace "validateRepay: Lending Pool Datum management is not allowed" False
 
 checkNegativeFundsTransformation :: ScriptContext -> (AssetClass, PubKeyHash) -> Bool
-checkNegativeFundsTransformation ctx (reserveId, actor) = maybe False checkFundsState $ (,) <$> scriptSpentValue <*> scriptRemainderValue
+checkNegativeFundsTransformation ctx (reserveId, actor) = isValidFundsChange
   where
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
     scriptOutputs = scriptOutputsAt scriptsHash txInfo
 
-    scriptSpentValue = txOutValue . txInInfoResolved <$> findOwnInput ctx
+    scriptSpentValue = findValueByDatumHash scriptsDatumHash $ scriptInputsAt scriptsHash txInfo
     scriptRemainderValue = findValueByDatumHash scriptsDatumHash scriptOutputs
     actorSpentValue = valueSpentFrom txInfo actor
     actorRemainderValue = valuePaidTo txInfo actor
 
-    checkFundsState :: (Value, Value) -> Bool
-    checkFundsState (oldFunds, newFunds) =
+    isValidFundsChange :: Bool
+    isValidFundsChange =
       let paidAmout = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
-          fundsChange = assetClassValueOf oldFunds reserveId - assetClassValueOf newFunds reserveId
+          fundsChange = assetClassValueOf scriptSpentValue reserveId - assetClassValueOf scriptRemainderValue reserveId
        in fundsChange == paidAmout && fundsChange > 0 && paidAmout > 0
 
 checkNegativeReservesTransformation :: AssetClass
@@ -299,14 +299,14 @@ checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
     scriptOutputs = scriptOutputsAt scriptsHash txInfo
 
     reservesOutputDatumHash =
-      findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+      findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     reservesOutputDatum ::
          Maybe (AssetClass, AssocMap.Map AssetClass Reserve)
     reservesOutputDatum =
       reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
 
     remainderDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
-    remainderValue = remainderDatumHash >>= (`findValueByDatumHash` scriptOutputs)
+    remainderValue = (`findValueByDatumHash` scriptOutputs) <$> remainderDatumHash
 
     checkreserves :: (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
     checkreserves (newStateToken, newReserves) =
@@ -332,14 +332,14 @@ checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = may
     scriptOutputs = scriptOutputsAt scriptsHash txInfo
 
     reservesOutputDatumHash =
-      findDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+      findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     reservesOutputDatum ::
          Maybe (AssetClass, AssocMap.Map AssetClass Reserve)
     reservesOutputDatum =
       reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
 
     investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
-    investmentValue = investmentDatumHash >>= (`findValueByDatumHash` scriptOutputs)
+    investmentValue = (`findValueByDatumHash` scriptOutputs) <$> investmentDatumHash
 
     checkreserves :: (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
     checkreserves (newStateToken, newReserves) =
