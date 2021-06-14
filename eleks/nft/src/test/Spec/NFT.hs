@@ -64,12 +64,12 @@ tests = testGroup "nft"
         ( 
             assertNoFailedTransactions
             .&&. valueAtAddress (marketAddress nftMarketMock) 
-                (== (assetClassValue nftTestTokenMetadata 1 
+                (== (assetClassValue (testTokenMetaClass testToken1) 1 
                     <> assetClassValue (marketId nftMarketMock) 1)
                 )
-            .&&. walletFundsChange w1 (assetClassValue nftTestToken 1)
+            .&&. walletFundsChange w1 (assetClassValue (testTokenClass testToken1) 1)
             .&&. assertAccumState userContract t1 
-                (\case Last (Just (Right (NFTMarket.Created meta))) -> meta == nftTestTokenMeta; _ -> False) 
+                (\case Last (Just (Right (NFTMarket.Created meta))) -> meta == testToken1MetaDto; _ -> False) 
                 "should create NFT state"
         )
         createNftTokenFlowTrace
@@ -84,14 +84,14 @@ tests = testGroup "nft"
         ( 
             assertNoFailedTransactions
             .&&. valueAtAddress (marketAddress nftMarketMock)
-                (== (assetClassValue nftTestToken 1 
-                    <> assetClassValue nftTestTokenMetadata 1 
+                (== (assetClassValue (testTokenClass testToken1) 1 
+                    <> assetClassValue (testTokenMetaClass testToken1)  1 
                     <> assetClassValue (marketId nftMarketMock) 1))
             -- create and send token in one trace
             .&&. walletFundsChange w1 (Ada.lovelaceValueOf 0)
             .&&. assertAccumState userContract t1
             (\case Last (Just (Right (NFTMarket.Selling meta))) -> 
-                        meta == (nftMetadataToDto $ nftTestMeta
+                        meta == (nftMetadataToDto $ testToken1Meta
                         {nftSellPrice = nftMaketSellPrice, nftSeller = Just $ pubKeyHash $ walletPubKey w1 });
                     _ -> False) 
                 "should create sell NFT state"
@@ -124,13 +124,13 @@ tests = testGroup "nft"
         ( 
             assertNoFailedTransactions
             .&&. valueAtAddress (marketAddress nftMarketMock)
-                (== (assetClassValue nftTestTokenMetadata 1 
+                (== (assetClassValue (testTokenMetaClass testToken1) 1 
                     <> assetClassValue (marketId nftMarketMock) 1))
             -- create and send token in one trace
-            .&&. walletFundsChange w1 (assetClassValue nftTestToken 1)
+            .&&. walletFundsChange w1 (assetClassValue (testTokenClass testToken1) 1)
             .&&. assertAccumState userContract t1
             (\case Last (Just (Right (NFTMarket.CancelSelling meta))) -> 
-                         meta == nftTestTokenMeta;
+                         meta == testToken1MetaDto;
                     _ -> False) 
                 "should cancel selling NFT state"
         )
@@ -156,11 +156,13 @@ tests = testGroup "nft"
         checkPredicate "Should buy NFT token"
         ( 
            assertNoFailedTransactions
-           .&&. valueAtAddress (marketAddress nftMarketMock) (== (assetClassValue nftTestTokenMetadata 1 <> assetClassValue (marketId nftMarketMock) 1))
+           .&&. valueAtAddress (marketAddress nftMarketMock) 
+                (== (assetClassValue (testTokenMetaClass testToken1) 1 
+                    <> assetClassValue (marketId nftMarketMock) 1))
            .&&. walletFundsChange w1 (Ada.lovelaceValueOf nftMaketSellPrice)
-           .&&. walletFundsChange w2 (Ada.lovelaceValueOf (negate nftMaketSellPrice) <> assetClassValue nftTestToken 1)
+           .&&. walletFundsChange w2 (Ada.lovelaceValueOf (negate nftMaketSellPrice) <> assetClassValue (testTokenClass testToken1) 1)
            .&&. assertAccumState userContract t2
-                (\case Last (Just (Right (NFTMarket.Buyed meta))) -> meta == nftTestTokenMeta; _ -> False) 
+                (\case Last (Just (Right (NFTMarket.Buyed meta))) -> meta == testToken1MetaDto; _ -> False) 
                 "should create buy NFT state"
         )
         buyNftTokenFlowTrace
@@ -189,30 +191,30 @@ createNftTokenFlowTrace :: EmulatorTrace ()
 createNftTokenFlowTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
-    void $ createNftTokenTrace user1Hdl nftTestTokenName
+    void $ createNftTokenTrace user1Hdl testToken1
 
 createDuplicateNftTokenFailureTrace :: EmulatorTrace ()
 createDuplicateNftTokenFailureTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
-    void $ createNftTokenTrace user1Hdl nftTestTokenName
-    void $ createNftTokenTrace user1Hdl nftTestTokenName
+    void $ createNftTokenTrace user1Hdl testToken1
+    void $ createNftTokenTrace user1Hdl testToken1
 
 sellNftTokenFlowTrace :: EmulatorTrace ()
 sellNftTokenFlowTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
-    nftTokenMeta <- createNftTokenTrace user1Hdl nftTestTokenName
+    nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     sellNftTokenTrace user1Hdl nftTokenMeta nftMaketSellPrice
 
 sellNonMarketNFTFailureTrace  :: EmulatorTrace ()
 sellNonMarketNFTFailureTrace = do
     initialise
     forgeCurrencyHdl <- Trace.activateContractWallet w2 NFTCurrency.forgeNftToken
-    (nonMarketNftMeta, nonNftCur) <- createNonMarketNftTokenTrace forgeCurrencyHdl nftNonMarketTokenName
+    nonMarketNftMeta <- createNonMarketNftTokenTrace forgeCurrencyHdl nonMarketToken1
     -- need to have separate wallet for Currency contract
     -- https://github.com/input-output-hk/plutus/issues/3359
-    _ <- Trace.payToWallet w2 w1 $ Value.singleton (currencySymbol nonNftCur) nftNonMarketTokenName 1
+    _ <- Trace.payToWallet w2 w1 $ Value.singleton (testTokenSymbol nonMarketToken1) (testTokenName nonMarketToken1) 1
     user1Hdl <- Trace.activateContractWallet w1 userContract
     sellNftTokenTrace user1Hdl nonMarketNftMeta nftMaketSellPrice
 
@@ -221,14 +223,14 @@ sellFailureOnLessThanZeroPriceTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
     forgeCurrencyHdl <- Trace.activateContractWallet w1 NFTCurrency.forgeNftToken
-    nftTokenMeta <- createNftTokenTrace user1Hdl nftTestTokenName
+    nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     sellNftTokenTrace user1Hdl nftTokenMeta 0
 
 cancelSellNftTokenFlowTrace :: EmulatorTrace ()
 cancelSellNftTokenFlowTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
-    nftTokenMeta <- createNftTokenTrace user1Hdl nftTestTokenName
+    nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     sellNftTokenTrace user1Hdl nftTokenMeta nftMaketSellPrice
     cancelSellNftTokenTrace user1Hdl nftTokenMeta
 
@@ -236,7 +238,7 @@ cancelSellFailureIfNotSaleTrace :: EmulatorTrace ()
 cancelSellFailureIfNotSaleTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
-    nftTokenMeta <- createNftTokenTrace user1Hdl nftTestTokenName
+    nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     cancelSellNftTokenTrace user1Hdl nftTokenMeta
 
 cancelSellFailureIfNotOwnerTrace :: EmulatorTrace ()
@@ -244,7 +246,7 @@ cancelSellFailureIfNotOwnerTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
     user2Hdl <- Trace.activateContractWallet w2 userContract
-    nftTokenMeta <- createNftTokenTrace user1Hdl nftTestTokenName
+    nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     sellNftTokenTrace user1Hdl nftTokenMeta nftMaketSellPrice
     cancelSellNftTokenTrace user2Hdl nftTokenMeta
 
@@ -253,7 +255,7 @@ buyNftTokenFlowTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
     user2Hdl <- Trace.activateContractWallet w2 userContract
-    nftTokenMeta <- createNftTokenTrace user1Hdl nftTestTokenName
+    nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     sellNftTokenTrace user1Hdl nftTokenMeta nftMaketSellPrice
     buyNftTokenTrace user2Hdl nftTokenMeta
 
@@ -262,7 +264,7 @@ buyNftNotOnSaleFailureFlowTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
     user2Hdl <- Trace.activateContractWallet w2 userContract
-    nftTokenMeta <- createNftTokenTrace user1Hdl nftTestTokenName
+    nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     buyNftTokenTrace user2Hdl nftTokenMeta
 
 forgeMockNftToken:: 
@@ -279,29 +281,29 @@ activeOwnerContractTrace = void $ Trace.activateContractWallet w1 ownerContract
 
 createNftTokenTrace :: 
     Trace.ContractHandle (Last(Either Text MarketContractState)) MarketUserSchema Void 
-    -> TokenName 
+    -> TestTokenMeta 
     -> EmulatorTrace NFTMetadataDto
-createNftTokenTrace hdl tokenName = do
+createNftTokenTrace hdl testToken = do
     let nftTokenParams = NFTMarket.CreateParams { 
-        cpTokenName = read . show $ tokenName
-        , cpDescription = nftTestTokenDescription
-        , cpAuthor = nftTestTokenAuthor
-        , cpFile = nftTestTokenFile }
+        cpTokenName = read . show $ testTokenName testToken
+        , cpDescription = testTokenDesciption testToken
+        , cpAuthor = testTokenAuthor testToken
+        , cpFile = testTokenFile testToken }
     Trace.callEndpoint @"create" hdl nftTokenParams
     void $ Trace.waitNSlots 5
     extractTokenMeta hdl
 
 createNonMarketNftTokenTrace :: 
     Trace.ContractHandle (Maybe (Semigroup.Last TestNFTCurrency)) NFTCurrency.CurrencySchema Text
-    -> TokenName 
-    -> EmulatorTrace (NFTMetadataDto, NFTCurrency.TestNFTCurrency)
-createNonMarketNftTokenTrace hdl tokenName = do
-    let nftTokenForgeParams = NFTCurrency.ForgeNftParams { fnpTokenName = tokenName }
+    -> TestTokenMeta 
+    -> EmulatorTrace NFTMetadataDto
+createNonMarketNftTokenTrace hdl tokenMeta = do
+    let nftTokenForgeParams = NFTCurrency.ForgeNftParams { NFTCurrency.fnpTokenName = testTokenName tokenMeta }
     Trace.callEndpoint @"create" hdl nftTokenForgeParams
     void $ Trace.waitNSlots 5
     testNftCur <- extractCurrencyForgedNFT hdl
-    let metaDto = nftMetadataToDto $ createNftMeta tokenName $ currencySymbol testNftCur
-    return (metaDto, testNftCur)
+    let metaDto = nftMetadataToDto $ createNftMeta $ tokenMeta
+    return metaDto
 
 sellNftTokenTrace :: 
     Trace.ContractHandle (Last(Either Text MarketContractState)) MarketUserSchema Void  
@@ -339,7 +341,8 @@ extractNFTMarket handle = do
         Last (Just (Right market)) -> return market
         _                          -> Trace.throwError (Trace.GenericError "market not found")
 
-extractTokenMeta:: Trace.ContractHandle ( Last (Either Text MarketContractState)) MarketUserSchema Void -> Trace.EmulatorTrace NFTMetadataDto
+extractTokenMeta:: 
+    Trace.ContractHandle ( Last (Either Text MarketContractState)) MarketUserSchema Void -> Trace.EmulatorTrace NFTMetadataDto
 extractTokenMeta handle = do
     t <- Trace.observableState handle
     case t of
@@ -348,7 +351,9 @@ extractTokenMeta handle = do
         _                                               -> do
             Trace.throwError (Trace.GenericError "created nft metadata not found")
 
-extractCurrencyForgedNFT:: Trace.ContractHandle (Maybe (Semigroup.Last TestNFTCurrency)) NFTCurrency.CurrencySchema Text -> Trace.EmulatorTrace TestNFTCurrency
+extractCurrencyForgedNFT:: 
+    Trace.ContractHandle (Maybe (Semigroup.Last NFTCurrency.TestNFTCurrency)) NFTCurrency.CurrencySchema Text
+    -> Trace.EmulatorTrace NFTCurrency.TestNFTCurrency
 extractCurrencyForgedNFT handle = do
     t <- Trace.observableState handle
     case t of

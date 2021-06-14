@@ -55,7 +55,7 @@ import           Schema                  (ToSchema)
 {-# ANN module ("HLint: ignore Use uncurry" :: String) #-}
 
 data TestNFTCurrency = TestNFTCurrency
-  { testTokenName :: TokenName
+  { testCurTokenName :: TokenName
   }
   deriving stock (Generic, Prelude.Show, Prelude.Eq)
   deriving anyclass (ToJSON, FromJSON)
@@ -84,7 +84,7 @@ validate c@(TestNFTCurrency testTokenName) ctx@V.ScriptContext{V.scriptContextTx
 
 testNftCurPolicy :: TestNFTCurrency -> MonetaryPolicy
 testNftCurPolicy nftCur = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \c -> Scripts.wrapMonetaryPolicy (validate c) ||])
+    $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validate ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode nftCur
 
@@ -92,7 +92,7 @@ forgedValue :: TestNFTCurrency -> Value
 forgedValue cur = currencyValue (currencySymbol cur) cur
 
 currencyValue :: CurrencySymbol -> TestNFTCurrency -> Value
-currencyValue curSymbol nftCur = Value.singleton curSymbol (testTokenName nftCur) 1
+currencyValue curSymbol nftCur = Value.singleton curSymbol (testCurTokenName nftCur) 1
 
 currencySymbol :: TestNFTCurrency -> CurrencySymbol
 currencySymbol = scriptCurrencySymbol . testNftCurPolicy
@@ -106,7 +106,7 @@ forgeContract
     -> TokenName
     -> Contract w s Text TestNFTCurrency
 forgeContract pk tokenName = do
-    let theNftCurrency = TestNFTCurrency{ testTokenName = tokenName }
+    let theNftCurrency = TestNFTCurrency{ testCurTokenName = tokenName }
         curVali = testNftCurPolicy theNftCurrency
         lookups = Constraints.monetaryPolicy curVali
     let forgeTx = Constraints.mustForgeValue (forgedValue theNftCurrency)
