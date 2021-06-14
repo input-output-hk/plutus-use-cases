@@ -19,8 +19,7 @@ import qualified Ledger.Constraints               as Constraints
 import qualified Ledger.Constraints.OnChain       as Constraints
 import qualified Ledger.Constraints.TxConstraints as Constraints
 import           Ledger.Typed.Scripts             (MonetaryPolicy,
-                                                   ScriptInstance,
-                                                   ScriptType (..))
+                                                   TypedValidator, RedeemerType, DatumType)
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Plutus.Contract
 import           Plutus.Contracts.Core            (Aave, Reserve (..))
@@ -44,7 +43,7 @@ type TxPair a = (Constraints.ScriptLookups a, Constraints.TxConstraints (Redeeme
 submitTxPair :: (AsContractError e, HasWriteTx s, PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
     TxPair a
     -> Contract w s e Tx
-submitTxPair = uncurry submitTxConstraintsWith
+submitTxPair = Prelude.uncurry submitTxConstraintsWith
 
 mustForgeValue :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
     MonetaryPolicy
@@ -56,18 +55,18 @@ mustForgeValue policy value = (lookups, tx)
         tx = Constraints.mustForgeValue value
 
 mustPayToScript :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
-  ScriptInstance a
+  TypedValidator a
   -> PubKeyHash
   -> DatumType a
   -> Value
   -> TxPair a
 mustPayToScript script pkh datum value = (lookups, tx)
     where
-        lookups = Constraints.ownPubKeyHash pkh <> Constraints.scriptInstanceLookups script
+        lookups = Constraints.ownPubKeyHash pkh <> Constraints.typedValidatorLookups script
         tx = Constraints.mustPayToTheScript datum value
 
 mustSpendScriptOutputs :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
-    ScriptInstance a
+    TypedValidator a
     -> [OutputValue (RedeemerType a)]
     -> TxPair a
 mustSpendScriptOutputs script inputs = (lookups, tx)
@@ -78,7 +77,7 @@ mustSpendScriptOutputs script inputs = (lookups, tx)
             fmap (\(OutputValue ref _ redeemer) -> Constraints.mustSpendScriptOutput ref (Redeemer $ PlutusTx.toData redeemer)) inputs
 
 mustSpendFromScript :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
-  ScriptInstance a
+  TypedValidator a
   -> [OutputValue (RedeemerType a)]
   -> PubKeyHash
   -> Value
@@ -89,7 +88,7 @@ mustSpendFromScript script inputs pkh value = (lookups, tx) <> mustSpendScriptOu
         tx = Constraints.mustPayToPubKey pkh value
 
 mustRoundTripToScript :: (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a)) =>
-  ScriptInstance a
+  TypedValidator a
   -> [OutputValue (RedeemerType a)]
   -> DatumType a
   -> PubKeyHash

@@ -30,7 +30,7 @@ import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
-import qualified Ledger.Scripts                   as Scripts
+import qualified Ledger.Scripts                   as UntypedScripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
@@ -41,8 +41,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
-
-deriving anyclass instance ToSchema AssetClass
 
 newtype Aave = Aave
     { aaveProtocolInst :: AssetClass
@@ -113,7 +111,7 @@ pickReserves (ReservesDatum stateToken configs) = Just (stateToken, configs)
 pickReserves _                                  = Nothing
 
 data AaveScript
-instance Scripts.ScriptType AaveScript where
+instance Scripts.ValidatorTypes AaveScript where
     type instance RedeemerType AaveScript = AaveRedeemer
     type instance DatumType AaveScript = AaveDatum
 
@@ -365,8 +363,8 @@ checkReservesConsistency oldState newState =
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
 
-aaveInstance :: Aave -> Scripts.ScriptInstance AaveScript
-aaveInstance aave = Scripts.validator @AaveScript
+aaveInstance :: Aave -> Scripts.TypedValidator AaveScript
+aaveInstance aave = Scripts.mkTypedValidator @AaveScript
     ($$(PlutusTx.compile [|| makeAaveValidator ||])
         `PlutusTx.applyCode` PlutusTx.liftCode aave)
      $$(PlutusTx.compile [|| wrap ||])
@@ -377,7 +375,7 @@ aaveValidator :: Aave -> Validator
 aaveValidator = Scripts.validatorScript . aaveInstance
 
 aaveHash :: Aave -> Ledger.ValidatorHash
-aaveHash = Scripts.validatorHash . aaveValidator
+aaveHash = UntypedScripts.validatorHash . aaveValidator
 
 aaveAddress :: Aave -> Ledger.Address
 aaveAddress = Ledger.scriptAddress . aaveValidator

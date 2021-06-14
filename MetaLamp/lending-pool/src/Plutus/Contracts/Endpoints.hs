@@ -53,7 +53,7 @@ import qualified PlutusTx.AssocMap                as AssocMap
 import           PlutusTx.Prelude                 hiding (Monoid (..),
                                                    Semigroup (..), mconcat,
                                                    unless)
-import           Prelude                          (Monoid (..), Semigroup (..))
+import           Prelude                          (Monoid (..), Semigroup (..), show, subtract)
 import qualified Prelude
 import           Text.Printf                      (printf)
 
@@ -96,7 +96,7 @@ start params = do
     ledgerTx <- TxUtils.submitTxPair userConfigsTx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo @String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
+    logInfo @Prelude.String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
 
 ownerEndpoint :: [CreateParams] -> Contract (Last (Either Text Aave)) BlockchainActions Void ()
@@ -290,9 +290,6 @@ type AaveUserSchema =
         .\/ Endpoint "reserves" ()
         .\/ Endpoint "users" ()
         .\/ Endpoint "ownPubKey" ()
-
-instance (Prelude.Eq k, Prelude.Eq v) => Prelude.Eq (AssocMap.Map k v) where
-    a == b = (AssocMap.toList a) Prelude.== (AssocMap.toList b)
 
 data UserContractState =
     Pending

@@ -26,10 +26,9 @@ import           Ledger                           hiding (getDatum, singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
-import qualified Ledger.Scripts                   as Scripts
-import           Ledger.Typed.Scripts             (ScriptType (..))
+import qualified Ledger.Scripts                   as UntypedScripts
 import qualified Ledger.Typed.Scripts             as Scripts
-
+import Ledger.Typed.Scripts (RedeemerType, DatumType)
 import           Ext.Plutus.Ledger.Contexts       (scriptInputsAt)
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
@@ -75,7 +74,7 @@ makeStateToken :: ValidatorHash -> OwnerToken -> TokenName -> AssetClass
 makeStateToken ownerScript ownerToken tokenName = assetClass (makeStateCurrency ownerScript ownerToken tokenName) tokenName
 
 data PutStateHandle scriptType = PutStateHandle {
-    script           :: Scripts.ScriptInstance scriptType,
+    script           :: Scripts.TypedValidator scriptType,
     ownerToken       :: AssetClass,
     ownerTokenOutput :: OutputValue (DatumType scriptType)
 }
@@ -96,7 +95,7 @@ putState PutStateHandle {..} StateHandle{..} newState = do
     pkh <- pubKeyHash <$> ownPubKey
     let (_, stateTokenName) = unAssetClass stateToken
     pure $
-        TxUtils.mustForgeValue (makeStatePolicy (Scripts.scriptHash script) ownerToken stateTokenName) (assetClassValue stateToken 1)
+        TxUtils.mustForgeValue (makeStatePolicy (Scripts.validatorHash script) ownerToken stateTokenName) (assetClassValue stateToken 1)
         <> TxUtils.mustPayToScript script pkh (toDatum newState) (assetClassValue stateToken 1)
         <> TxUtils.mustRoundTripToScript
             script
@@ -107,7 +106,7 @@ putState PutStateHandle {..} StateHandle{..} newState = do
 
 updateState ::
     (HasBlockchainActions s, IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
-    Scripts.ScriptInstance scriptType ->
+    Scripts.TypedValidator scriptType ->
     StateHandle scriptType a ->
     OutputValue a ->
     Contract w s Text (TxUtils.TxPair scriptType)

@@ -22,11 +22,11 @@ source-repository-package
     plutus-tx
     plutus-tx-plugin
     plutus-pab
-    plutus-ledger-api
     plutus-use-cases
     prettyprinter-configurable
     quickcheck-dynamic
-  tag: 58bf9ed626d498c140c69a859a508da03843d097
+    word-array
+  tag: 5cdd2c3d708bf4c33514681dee096da6463273b7
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.
@@ -143,3 +143,8 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/goblins
   tag: cde90a2b27f79187ca8310b6549331e59595e7ba
+
+source-repository-package
+  type: git
+  location: https://github.com/Quid2/flat.git
+  tag: 95e5d7488451e43062ca84d5376b3adcc465f1cd

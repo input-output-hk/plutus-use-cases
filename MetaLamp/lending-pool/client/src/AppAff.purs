@@ -86,5 +86,5 @@ instance contractAppM :: Contract AppM where
   callEndpoint (Endpoint endpoint) (ContractId cid) params = post ("/api/new/contract/instance/" <> cid <> "/endpoint/" <> endpoint) (string <<< encodeJSON $ params)
 
 instance pollContractAppM :: PollContract AppM where
-  pollDelay = liftAff <<< delay <<< Milliseconds $ 300.0
+  pollDelay = liftAff <<< delay <<< Milliseconds $ 1000.0
   tooManyRetries retryCount = pure $ retryCount > 10
