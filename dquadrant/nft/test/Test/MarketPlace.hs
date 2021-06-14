@@ -56,3 +56,34 @@ test1=do
         void $ Emulator.waitNSlots 1
 -- I am not sure what's the error here, I am not familiar with the effect system.
         void $ callEndpoint  h2 @"sell" (SellParams defaultAsset 32)
+
+
+canPlaceForDirectasle=False
+canPlaceMultipleForDirectsale=False
+canWithdrawFromMarket=False
+whenNotOwnNft_cannotWithdrawFromMarket=False
+canChangePriceInTheMarket=False
+whenNotOwnNft_cannotChangePriceInMarket=False
+canBuyFromMarket=False
+canBuyMultipleFromMarket=False
+whenBought_marketReceivesFee=False
+whenBought_SellerReceivesSellPrice=False
+
+
+canPlaceOnAuction=Fasle
+canUpdateAuctionParameters=False
+whenNotOwner_cannotUpdateAuctionParameter=False
+whenAuctionIsActive_cannotUpdateAuctionParameter=False
+canBidOnAuction=Fasle
+whenBid_previousBidderReceivesOldBidAmount=False
+whenBid_marketReceivesTheBidAmount=False
+whenBid_bidderCannotChangeAuctionDatum=False
+canClaimOwnAuction=False
+whenAuctionIsActive_cannotClaimAuction=False
+whenNotLastBidder_cannotClaimAuction=False
+whenClaimAuction_marketReceivesFee=False
+whenClaimAuction_ownerReceivesPayment=False
+
+
+
+
