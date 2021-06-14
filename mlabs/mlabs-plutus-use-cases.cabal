@@ -56,6 +56,7 @@ library
         Mlabs.Data.Maybe
         Mlabs.Data.Ray
         Mlabs.Data.Ord
+        Mlabs.Demo.Contract.Burn
         Mlabs.Demo.Contract.Mint
         Mlabs.Emulator.App
         Mlabs.Emulator.Blockchain

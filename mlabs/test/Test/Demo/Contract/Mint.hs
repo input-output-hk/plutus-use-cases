@@ -18,17 +18,13 @@ module Test.Demo.Contract.Mint
 
 import Control.Lens
 import Control.Monad hiding (fmap)
-import Control.Monad.Freer.Extras as Extras
-import Data.Default (Default(..))
 import qualified Data.Map as Map
-import Data.Monoid (Last(..))
 import Ledger
 import Ledger.Ada as Ada
 import Ledger.Value
 import Plutus.Contract.Test
 import Plutus.Trace.Emulator as Emulator
 import PlutusTx.Prelude
-import Prelude (IO, Show(..), String)
 import Test.Tasty
 
 import Mlabs.Demo.Contract.Mint
@@ -39,22 +35,18 @@ test = checkPredicateOptions
   "mint trace"
   (    walletFundsChange
       (Wallet 1)
-      (Ada.lovelaceValueOf (-10_000_000) <> assetClassValue token 1000)
+      (Ada.lovelaceValueOf (-15_000_000) <> assetClassValue usdToken 15)
   .&&. walletFundsChange
          (Wallet 2)
-         (Ada.lovelaceValueOf (-50_000_000) <> assetClassValue token 50)
-  .&&. walletFundsChange
-         (Wallet 3)
-         (Ada.lovelaceValueOf 0 <> assetClassValue token 0)
+         (  Ada.lovelaceValueOf (-50_000_000)
+         <> assetClassValue usdToken 20
+         <> assetClassValue cadToken 30
+         )
   )
-  myTrace
-
-runMyTrace :: IO ()
-runMyTrace = runEmulatorTraceIO' def emCfg myTrace
+  mintTrace
 
 emCfg :: EmulatorConfig
-emCfg = EmulatorConfig $ Left $ Map.fromList
-  [ (Wallet w, v) | w <- [1 .. 3] ]
+emCfg = EmulatorConfig $ Left $ Map.fromList [(Wallet 1, v), (Wallet 2, v)]
  where
   v :: Value
   v = Ada.lovelaceValueOf 100_000_000
@@ -62,27 +54,33 @@ emCfg = EmulatorConfig $ Left $ Map.fromList
 usd :: TokenName
 usd = "USD"
 
-curSymbol :: CurrencySymbol
-curSymbol = getCurrencySymbol usd 0
+cad :: TokenName
+cad = "CAD"
 
-token :: AssetClass
-token = AssetClass (curSymbol, usd)
+usdToken :: AssetClass
+usdToken = AssetClass (curSymbol, usd)
 
-myTrace :: EmulatorTrace ()
-myTrace = do
+cadToken :: AssetClass
+cadToken = AssetClass (curSymbol, cad)
+
+mintTrace :: EmulatorTrace ()
+mintTrace = do
   h1 <- activateContractWallet (Wallet 1) mintEndpoints
   h2 <- activateContractWallet (Wallet 2) mintEndpoints
-  h3 <- activateContractWallet (Wallet 3) mintEndpoints
 
+  -- Scenario 1: Buy single currency.
+  callEndpoint @"mint" h1 MintParams { mpTokenName = usd, mpAmount = 5 }
+  void $ Emulator.waitNSlots 2
   callEndpoint @"mint" h1 MintParams { mpTokenName = usd, mpAmount = 10 }
   void $ Emulator.waitNSlots 2
 
-  callEndpoint @"mint" h2 MintParams { mpTokenName = usd, mpAmount = 25 }
+  -- Scenario 2: Buy multiple currencies.
+  callEndpoint @"mint" h2 MintParams { mpTokenName = usd, mpAmount = 20 }
   void $ Emulator.waitNSlots 2
-  callEndpoint @"mint" h2 MintParams { mpTokenName = usd, mpAmount = 25 }
+  callEndpoint @"mint" h2 MintParams { mpTokenName = cad, mpAmount = 30 }
   void $ Emulator.waitNSlots 2
 
-  callEndpoint @"mint" h3 MintParams { mpTokenName = usd, mpAmount = 0 }
-  void $ Emulator.waitNSlots 2
+
+
 
 
