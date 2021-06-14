@@ -280,6 +280,7 @@ repay aave RepayParams {..} = do
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
+-- TODO add flipUserUseReserveAsCollateral
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "deposit" DepositParams

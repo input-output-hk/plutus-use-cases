@@ -126,6 +126,8 @@ makeAaveValidator :: Aave
                    -> ScriptContext
                    -> Bool
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
+-- TODO ? further validators should check that ReservesDatum & UserConfigsDatum transormation happens one time
+-- & ReserveFundsDatum transormation happens at least one time
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
 makeAaveValidator aave datum (BorrowRedeemer userConfigId) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId
@@ -178,6 +180,7 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx userConfigId =
 
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
 
+-- TODO withdraw should check if there is enough collateral remains deposited so that health factor is >= 1.05
 validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   -- TODO add implementation for this case
@@ -383,3 +386,6 @@ aaveAddress = Ledger.scriptAddress . aaveValidator
 
 aave :: CurrencySymbol -> Aave
 aave protocol = Aave (assetClass protocol aaveProtocolName)
+
+oneAdaInLovelace :: Integer
+oneAdaInLovelace = 1000000
