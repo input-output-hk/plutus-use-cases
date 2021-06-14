@@ -53,6 +53,9 @@ getNFTTokenSymbol tokenName = NFTCurrency.currencySymbol $ TestNFTCurrency token
 createNFTTokenMock:: TokenName -> AssetClass
 createNFTTokenMock tokenName = AssetClass (getNFTTokenSymbol tokenName, tokenName)
 
+nftMaketSellPrice:: Integer
+nftMaketSellPrice = 1000
+
 createNftMeta:: TokenName -> CurrencySymbol -> NFTMetadata
 createNftMeta tokenName currency = NFTMetadata
     { nftTokenName = tokenName

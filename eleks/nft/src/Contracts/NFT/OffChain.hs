@@ -87,27 +87,25 @@ data CreateParams = CreateParams
 
 -- | Parameters for the @sell@-endpoint, which creates a new NFT.
 data SellParams = SellParams
-    { spTokenSymbol :: String
-    , spSellPrice   :: Integer
+    { spTokenSymbol :: String   -- ^ Token symbol to sell
+    , spSellPrice   :: Integer  -- ^ Sell price
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @cancel-sell@-endpoint, which creates a new NFT.
 data CancelSellParams = CancelSellParams
-    { cspTokenSymbol :: String
+    { cspTokenSymbol :: String   -- ^ Token symbol to cancell sell
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @buy@-endpoint, which creates a new NFT.
 data BuyParams = BuyParams
-    { bpTokenSymbol :: String
+    { bpTokenSymbol :: String  -- ^ Token symbol to buy
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @transfer@-endpoint, which creates a new NFT.
 data TransferParams = TransferParams
-    { tpTokenSymbol     :: String
-    , tpReceiverWallet  :: Integer
+    { tpTokenSymbol     :: String   -- ^ Token symbol to buy
+    , tpReceiverWallet  :: Integer  -- ^ Wallet id to receive payment
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
-
-
 
 nftMetadataToDto:: NFTMetadata -> NFTMetadataDto
 nftMetadataToDto nftMeta = NFTMetadataDto 
@@ -217,6 +215,7 @@ sell market SellParams{..} = do
     pkh                     <- pubKeyHash <$> ownPubKey
     let tokenSymbol = CurrencySymbol $ dtoStrToByteStr spTokenSymbol
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
+    when (spSellPrice <= 0) $ throwError "sell price should be greater than zero"
     let marketInst = marketInstance market
         nftMetadata' = nftMetadata { nftSeller = Just pkh, nftSellPrice = spSellPrice }
         nftMetadataDatum = NFTMeta nftMetadata'
@@ -282,7 +281,7 @@ buy market BuyParams{..} = do
     let tokenSymbol = CurrencySymbol $ dtoStrToByteStr bpTokenSymbol
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
-        throwError $ pack $ printf "NFT is not on sale"
+        throwError $ pack $ printf "NFT token is not on sale"
     let marketInst = marketInstance market
         nftMetadata' = nftMetadata { nftSeller = Nothing, nftSellPrice = 0 }
         nftSeller' = fromMaybe "" $ nftSeller nftMetadata
@@ -447,7 +446,7 @@ userNftTokens market = do
         result = map nftMetadataToDto $ ownUserTokens <> sellingUserTokens
     return result
 
--- | Gets the caller's NFTs.
+-- | Gets the selling NFT's
 sellingTokens :: 
     HasBlockchainActions s
     => NFTMarket 
@@ -457,7 +456,6 @@ sellingTokens market = do
     nftMetas <- queryNftMetadatas market
     let result = map nftMetadataToDto $ filter (PlutusTx.Prelude.isJust . nftSeller) nftMetas
     return result
-
 
 ownerEndpoint :: 
     (TokenName 
@@ -507,6 +505,13 @@ data MarketContractState =
 -- | Provides the following endpoints for users of a NFT marketplace instance:
 --
 -- [@create@]: Creates an nft token.
+-- [@sell@]: Put token on sale
+-- [@cancelSell@]: Cancel token selling.
+-- [@buy@]: Buy token on sale.
+-- [@transfer@]: Transfer NFT token to other wallet.
+-- [@userNftTokens@]: Get all NFT tokens of the current wallet.
+-- [@sellingTokens@]: Get all selling NFT tokens.
+-- [@userPubKeyHash@]: Get user pubkeyhash.
 userEndpoints ::
     (TokenName 
     -> PubKeyHash 

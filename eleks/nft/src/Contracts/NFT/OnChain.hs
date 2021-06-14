@@ -138,7 +138,7 @@ validateCancelSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMeta
     traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)   &&
     traceIfFalse "nft token missing from input" (valueOf inVal nftTokenSymbol nftTokenName == 1)                    &&
     traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                          &&
-    traceIfFalse "price should be grater 0" (nftSellPrice outDatum == 0)                                            &&
+    traceIfFalse "price should be emptied" (nftSellPrice outDatum == 0)                                            &&
     traceIfFalse "seller should be emptied" (PlutusTx.Prelude.isNothing $ nftSeller outDatum)                                       
   where
     info :: TxInfo
@@ -177,8 +177,6 @@ validateBuy ::
     -> ScriptContext
     -> Bool
 validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} buyer ctx =
-
-    traceIfFalse "price should be greater 0" True   && 
     traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)               &&
     traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                                     &&
     traceIfFalse "expected seller to get money" (getsValue (nftSeller nftMeta) $ Ada.lovelaceValueOf (nftSellPrice nftMeta))   &&   
