@@ -24,8 +24,9 @@ import qualified Data.Map                         as Map
 import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void)
 import           Ext.Plutus.Ledger.Contexts       (findOnlyOneDatumHashByValue,
-                                                   findValueByDatumHash,scriptInputsAt,
-                                                   parseDatum, valueSpentFrom)
+                                                   findValueByDatumHash,
+                                                   parseDatum, scriptInputsAt,
+                                                   valueSpentFrom)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints

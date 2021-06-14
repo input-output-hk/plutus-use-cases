@@ -53,7 +53,8 @@ import qualified PlutusTx.AssocMap                as AssocMap
 import           PlutusTx.Prelude                 hiding (Monoid (..),
                                                    Semigroup (..), mconcat,
                                                    unless)
-import           Prelude                          (Monoid (..), Semigroup (..), show, subtract)
+import           Prelude                          (Monoid (..), Semigroup (..),
+                                                   show, subtract)
 import qualified Prelude
 import           Text.Printf                      (printf)
 

@@ -13,9 +13,10 @@ import           Ledger                      (Address (Address),
                                               ValidatorHash, Value, findDatum)
 import           Plutus.V1.Ledger.Credential (Credential (PubKeyCredential, ScriptCredential))
 import qualified PlutusTx
-import           PlutusTx.Prelude            (Eq ((==)), Maybe (..), find, fst,filter,otherwise,
-                                              mapMaybe, mconcat, snd, ($), (.),
-                                              (<$>), (>>=))
+import           PlutusTx.Prelude            (Eq ((==)), Maybe (..), filter,
+                                              find, fst, mapMaybe, mconcat,
+                                              otherwise, snd, ($), (.), (<$>),
+                                              (>>=))
 
 {-# INLINABLE findOnlyOneDatumHashByValue #-}
 -- | Find the hash of a datum, if it is part of the script's outputs.
@@ -23,7 +24,7 @@ import           PlutusTx.Prelude            (Eq ((==)), Maybe (..), find, fst,f
 findOnlyOneDatumHashByValue :: Value -> [(DatumHash, Value)] -> Maybe DatumHash
 findOnlyOneDatumHashByValue val outs = fst <$> case filter f outs of
   [res] -> Just res
-  _ -> Nothing
+  _     -> Nothing
   where
     f (_, val') = val' == val
 

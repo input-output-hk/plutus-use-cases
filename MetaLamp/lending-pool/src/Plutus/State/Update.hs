@@ -22,14 +22,14 @@ import qualified Data.Map                         as Map
 import           Data.Text                        (Text, pack)
 import qualified Data.Text                        as Text
 import           Data.Void                        (Void)
+import           Ext.Plutus.Ledger.Contexts       (scriptInputsAt)
 import           Ledger                           hiding (getDatum, singleton)
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Scripts                   as UntypedScripts
+import           Ledger.Typed.Scripts             (DatumType, RedeemerType)
 import qualified Ledger.Typed.Scripts             as Scripts
-import Ledger.Typed.Scripts (RedeemerType, DatumType)
-import           Ext.Plutus.Ledger.Contexts       (scriptInputsAt)
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.TxUtils         as TxUtils
