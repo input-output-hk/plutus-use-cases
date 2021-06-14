@@ -248,7 +248,7 @@ cancelSell market CancelSellParams{..} = do
     let tokenSymbol = CurrencySymbol $ dtoStrToByteStr cspTokenSymbol
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
-        throwError $ pack $ printf "NFT is not on sale"
+        throwError $ pack $ printf "NFT token is not on sale"
     let marketInst = marketInstance market
         nftMetadata' = nftMetadata { nftSeller = Nothing, nftSellPrice = 0 }
         nftSeller' = fromMaybe "" $ nftSeller nftMetadata
@@ -267,7 +267,7 @@ cancelSell market CancelSellParams{..} = do
                    Constraints.mustPayToPubKey pkh nftValue
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
-    let nftMetaDto = nftMetadataToDto nftMetadata
+    let nftMetaDto = nftMetadataToDto nftMetadata'
     logInfo $ "cancel sell NFT: " ++ show nftMetaDto
     return nftMetaDto
 
@@ -392,7 +392,7 @@ findMarketFactoryAndNftMeta market tokenSymbol = do
             return ( (oref1, o1, nftMetas)
                 , (oref2, o2, nftMeta1)
                 )
-        _    -> throwError "nft token not found"
+        _    -> throwError "Nft token not found"
 
 -- | Finds all nft metadatas belonging to the market
 queryNftMetadatas :: 
@@ -517,7 +517,7 @@ userEndpoints ::
 userEndpoints forgeNft market =
     stop
         `select`
-    ((f (Proxy @"create") Created (\market' createParams -> create forgeNft market' createParams)                                                                  `select`
+    ((f (Proxy @"create") Created (create forgeNft)                                                                  `select`
       f (Proxy @"sell") Selling sell                                                           `select`
       f (Proxy @"cancelSell") CancelSelling cancelSell                                         `select`
       f (Proxy @"buy") Buyed buy                                                               `select`
