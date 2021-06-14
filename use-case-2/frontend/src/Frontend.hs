@@ -6,6 +6,8 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE GADTs #-}
 
 module Frontend where
 
@@ -137,29 +139,37 @@ dashboard wid = Workflow $ do
                   divClass "form-group" $ do
                     -- Select first token and amount
                     -- TODO: Create a convenient widget function out of the dropdown text input for coins
-                    (selectionA,_) <- divClass "input-group row" $ do
+                    (selectionA, amountA) <- divClass "input-group row" $ do
                       coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
                         def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                       coinAAmountInput <- inputElement $ def
-                        & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ ("class" =: "form-control col-md-4")
+                        & inputElementConfig_elementConfig . elementConfig_initialAttributes
+                        .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
                       return (_dropdown_value coinAChoice, _inputElement_value coinAAmountInput)
                     -- Select second token and amount
-                    (selectionB,_) <- divClass "input-group row mt-3" $ do
+                    (selectionB, amountB) <- divClass "input-group row mt-3" $ do
                       coinBChoice <- dropdown fstOpt (constDyn $ dropdownList) $
                         def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                       coinBAmountInput <- inputElement $ def
-                        & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ ("class" =: "form-control col-md-4")
+                        & inputElementConfig_elementConfig . elementConfig_initialAttributes
+                        .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
                       return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
                     swap <- divClass "input-group row mt-3" $ do
                       (e,_) <- elClass' "button" "btn btn-primary" $ text "Swap"
                       return $ domEvent Click e
-                    -- TODO: Values passed to swap should not be hard coded.
-                    requesting_ $ Api_Swap
-                      (ContractInstanceId wid)
-                      (Coin $ AssetClass (CurrencySymbol "", TokenName ""))
-                      (Coin (AssetClass (CurrencySymbol "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e", TokenName "A")))
-                      (Amount 112)
-                      (Amount 0) <$ swap
+                    let pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
+                        toAmount amt = Amount $ (read (T.unpack amt) :: Integer) -- TODO: is read ok?
+                        requestLoad = ((\w c1 c2 a1 a2 -> Api_Swap w c1 c2 a1 a2)
+                          <$> (constDyn $ ContractInstanceId wid)
+                          <*> (pooledTokenToCoin <$> selectionA)
+                          <*> (pooledTokenToCoin <$> selectionB)
+                          <*> (toAmount <$> amountA)
+                          <*> (toAmount <$> amountB))
+                    swapResponse <- requesting $ tagPromptlyDyn requestLoad swap
+                    -- TODO: "Success needs to differentiate between being submitted to chain and the swap actually occurring successfully.
+                    widgetHold_ blank $ ffor swapResponse $ \ieResponse -> case runIdentity ieResponse of
+                      Left err -> elClass "p" "text-danger" $ text $ T.pack $ show err
+                      Right _ -> elClass "p" "text-success" $ text "Success!"
                     return ()
                 return never
       return ()
