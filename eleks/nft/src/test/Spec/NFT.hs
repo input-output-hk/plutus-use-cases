@@ -6,51 +6,38 @@
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE MonoLocalBinds     #-}
 
 module Spec.NFT
     ( tests
     ) where
 
-import           Control.Monad                          (void)
-import           Ledger.Ada                             (adaValueOf)
-import           Plutus.Contract                        hiding (when)
-import           Plutus.Contract                        (Contract, ContractError, HasBlockchainActions, BlockchainActions)
-import           Plutus.Contract.Test
 import           Contracts.NFT                          as NFTMarket
-import qualified Data.ByteString.Char8                   as B
+import           Control.Monad                          (void)
+import qualified Control.Monad.Freer.Extras.Log         as Log
+import           Data.Monoid                            (Last (..))
+import qualified Data.Semigroup                         as Semigroup
+import           Data.Text                              (Text, pack)
+import           Data.Void                              (Void)
+import           Ledger                                 (PubKeyHash, pubKeyHash)
+import           Ledger.Ada                             as Ada
+import           Ledger.Index                           (ValidationError (ScriptFailure))
+import           Ledger.Scripts                         (ScriptError (EvaluationError))
+import qualified Ledger.Value                           as Value
+import           Ledger.Value                           (CurrencySymbol(..), TokenName (..), assetClassValue)
+import           Plutus.Contract                        hiding (when)
+import           Plutus.Contract.Test
 import           Plutus.Trace.Emulator                  (ContractInstanceTag, EmulatorTrace)
 import qualified Plutus.Trace.Emulator                  as Trace
 import qualified PlutusTx
 import           PlutusTx.Prelude                       as PlutusTx
 import qualified Prelude
-import           Prelude                                (String, Char, read, show)
+import           Prelude                                (read, show)
 import           Test.Tasty
-import qualified Test.Tasty.HUnit                       as HUnit
-import           Data.Monoid                            (Last (..))
-import           Data.Maybe                             (listToMaybe, mapMaybe)
-import           Ledger                                 (pubKeyAddress, PubKeyHash, pubKeyHash)
-import           Ledger.Ada                             as Ada
-import           Ledger.Index                              (ValidationError (ScriptFailure))
-import           Ledger.Scripts                         (ScriptError (EvaluationError))
-import           Ledger.Value                           (CurrencySymbol(..), TokenName (..), Value, AssetClass(..), assetClassValue)
-import           Data.Text                              (Text, pack)
-import           Data.Void                              (Void)
-import           Data.Aeson                             (FromJSON (..), Result (..), ToJSON (..), genericToJSON, genericParseJSON
-                                                        , defaultOptions, Options(..), decode, encode, parseJSON, fromJSON)
-import           Control.Monad.Freer.Extras             as Extras
 import           Spec.TestNFTCurrency                   as NFTCurrency 
 import           Spec.Types
-import qualified Data.Semigroup                         as Semigroup
-import qualified Wallet.Emulator                        as EM
-import           Plutus.Trace.Emulator.Types            (_ContractLog, cilMessage, UserThreadMsg (..))
-import qualified Wallet.Emulator.Folds                  as Folds
-import qualified Control.Monad.Freer.Extras.Log         as Log
-import           Wallet.Emulator.MultiAgent             (eteEvent)
-import           Control.Lens                           (preview)
-import qualified Plutus.Contracts.Currency              as PlutusCurrency
-import qualified Ledger.Value                     as Value
 
-w1, w2 :: Wallet
+w1, w2, ownerWallet :: Wallet
 w1 = Wallet 1
 w2 = Wallet 2
 ownerWallet = Wallet 5
@@ -58,7 +45,6 @@ ownerWallet = Wallet 5
 t1, t2 :: ContractInstanceTag
 t1 = Trace.walletInstanceTag w1
 t2 = Trace.walletInstanceTag w2
-ownerInstanceTag = Trace.walletInstanceTag ownerWallet
 
 ownerContract :: Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Void ()
 ownerContract = NFTMarket.ownerEndpoint forgeMockNftToken
@@ -88,7 +74,7 @@ tests = testGroup "nft"
         )
         createNftTokenFlowTrace
         ,
-        -- checkPredicate "Should fail if duplicate"
+        -- checkPredicate "Should fail if duplicate token created"
         -- ( 
         --     assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists"]) -> True; _ -> False  })
         -- )
@@ -237,9 +223,6 @@ forgeMockNftToken tokenName pk =
 
 activeOwnerContractTrace :: EmulatorTrace ()
 activeOwnerContractTrace = void $ Trace.activateContractWallet w1 ownerContract
-
-activeUserContractTrace :: EmulatorTrace ()
-activeUserContractTrace = void $ Trace.activateContractWallet w1 userContract
 
 createNftTokenTrace :: 
     Trace.ContractHandle (Last(Either Text MarketContractState)) MarketUserSchema Void 

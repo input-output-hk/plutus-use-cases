@@ -36,17 +36,19 @@ module Contracts.NFT.OffChain
     , nftMetadataToDto
     ) where
 
+import           Contracts.NFT.Types
+import           Contracts.NFT.OnChain            (marketInstance)
 import           Control.Monad                    hiding (fmap)
-import qualified Data.Map                         as Map
 import qualified Data.ByteString.Char8            as B
 import qualified Data.ByteString.Base64           as B64
+import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
-import qualified Ledger.Ada                       as Ada
 import           Data.Monoid                      (Last (..))
 import           Data.Proxy                       (Proxy (..))
 import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void)
 import           Ledger                           hiding (singleton)
+import qualified Ledger.Ada                       as Ada
 import           Ledger.Constraints               as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
@@ -64,8 +66,6 @@ import           Prelude                          (Semigroup (..), String, Char,
 import qualified Prelude
 import           Text.Printf                      (printf)
 import           Wallet.Emulator                  (walletPubKey)
-import           Contracts.NFT.Types
-import           Contracts.NFT.OnChain            (marketInstance)
 
 marketplaceTokenName :: TokenName
 marketplaceTokenName = "NFTMarketplace"
