@@ -16,11 +16,14 @@ import           Contracts.NFT                          as NFTMarket
 import           Control.Monad                          (void)
 import           Control.Monad.Freer.Extras             as Extras
 import qualified Control.Monad.Freer.Extras.Log         as Log
+import qualified Data.ByteString.Base64                 as B64
+import qualified Data.ByteString.Char8                  as B
 import           Data.Monoid                            (Last (..))
 import qualified Data.Semigroup                         as Semigroup
+import           Data.String                            (fromString)
 import           Data.Text                              (Text, pack)
 import           Data.Void                              (Void)
-import           Ledger                                 (PubKeyHash, pubKeyHash)
+import           Ledger                                 (PubKeyHash(..), pubKeyHash)
 import           Ledger.Ada                             as Ada
 import           Ledger.Index                           (ValidationError (ScriptFailure))
 import           Ledger.Scripts                         (ScriptError (EvaluationError))
@@ -30,6 +33,7 @@ import           Plutus.Contract                        hiding (when)
 import           Plutus.Contract.Test
 import           Plutus.Trace.Emulator                  (ContractInstanceTag, EmulatorTrace)
 import qualified Plutus.Trace.Emulator                  as Trace
+import           Plutus.Trace.Emulator.Types  
 import qualified PlutusTx
 import           PlutusTx.Prelude                       as PlutusTx
 import qualified Prelude
@@ -187,9 +191,52 @@ tests = testGroup "nft"
             assertNoFailedTransactions
             .&&. assertAccumState userContract t1
             (\case Last (Just (Right (NFTMarket.SellingTokens metas))) -> metas == [expectedMeta1, expectedMeta2]; _ -> False) 
-                "should have selling tokens state"
+                "should have selling nft tokens in state"
         )
-        shouldShowAllSellingTokens
+        shouldShowAllSellingTokensTrace
+        ,
+        checkPredicate "Should get owned only nft tokens"
+        ( 
+            assertNoFailedTransactions
+            .&&. assertAccumState userContract t1
+            (\case Last (Just (Right (NFTMarket.Tokens metas))) -> metas == [testToken2MetaDto , testToken1MetaDto]; 
+                   _ -> False) 
+                "should have owned only nft token in state"
+        )
+        shouldGetOwnerNftTokensTrace
+        ,
+        checkPredicate "Should get only onwer tokens"
+        ( 
+            assertNoFailedTransactions
+            .&&. assertAccumState userContract t1
+            (\case Last (Just (Right (NFTMarket.Tokens metas))) -> metas == [testToken1MetaDto]; 
+                   _ -> False) 
+                "should have only owned nft token in state"
+        )
+        shouldNotGetOtherWalletTokensTrace
+        ,
+        let 
+            expectedMeta2 = toMetaDto $ makeSellingTestToken testToken2 w1 nftMaketSellPrice
+        in
+        checkPredicate "Should get owned and selling nft tokens"
+        ( 
+            assertNoFailedTransactions
+            .&&. assertAccumState userContract t1
+            (\case Last (Just (Right (NFTMarket.Tokens metas))) -> metas == [testToken1MetaDto, expectedMeta2]; 
+                   _ -> False) 
+                "should have owned and salling nft token in state"
+        )
+        shouldGetOwnerNftTokensWithOnSaleTraces
+        ,
+        checkPredicate "Should get wallet key"
+        ( 
+            assertNoFailedTransactions
+            .&&. assertAccumState userContract t1
+            (\case Last (Just (Right (NFTMarket.UserPubKeyHash keyHash))) -> keyHash Prelude.== (B.unpack . B64.encode $ getPubKeyHash $ pubKeyHash $ walletPubKey w1); 
+                   _ -> False) 
+                "should get wallet key state"
+        )
+        shouldGetWalletKeyTrace
     ]
 
 initialise :: EmulatorTrace ()
@@ -223,11 +270,8 @@ sellNftTokenFlowTrace = do
 sellNonMarketNFTFailureTrace  :: EmulatorTrace ()
 sellNonMarketNFTFailureTrace = do
     initialise
-    forgeCurrencyHdl <- Trace.activateContractWallet w2 NFTCurrency.forgeNftToken
+    forgeCurrencyHdl <- Trace.activateContract w1 NFTCurrency.forgeNftToken (fromString $ "forgeCurrency: " <> show t1)
     nonMarketNftMeta <- createNonMarketNftTokenTrace forgeCurrencyHdl nonMarketToken1
-    -- need to have separate wallet for Currency contract
-    -- https://github.com/input-output-hk/plutus/issues/3359
-    _ <- Trace.payToWallet w2 w1 $ Value.singleton (testTokenSymbol nonMarketToken1) (testTokenName nonMarketToken1) 1
     user1Hdl <- Trace.activateContractWallet w1 userContract
     sellNftTokenTrace user1Hdl nonMarketNftMeta nftMaketSellPrice
 
@@ -280,8 +324,8 @@ buyNftNotOnSaleFailureFlowTrace = do
     nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     buyNftTokenTrace user2Hdl nftTokenMeta
 
-shouldShowAllSellingTokens :: EmulatorTrace ()
-shouldShowAllSellingTokens = do
+shouldShowAllSellingTokensTrace :: EmulatorTrace ()
+shouldShowAllSellingTokensTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
     user2Hdl <- Trace.activateContractWallet w2 userContract
@@ -291,6 +335,44 @@ shouldShowAllSellingTokens = do
     sellNftTokenTrace user1Hdl nftTokenMeta1 nftMaketSellPrice
     sellNftTokenTrace user2Hdl nftTokenMeta2 nftMaketSellPrice
     Trace.callEndpoint @"sellingTokens" user1Hdl ()
+    void $ Trace.waitNSlots 5
+
+shouldGetOwnerNftTokensTrace :: EmulatorTrace ()
+shouldGetOwnerNftTokensTrace = do
+    initialise
+    user1Hdl <- Trace.activateContractWallet w1 userContract
+    createNftTokenTrace user1Hdl testToken1
+    createNftTokenTrace user1Hdl testToken2
+    forgeCurrencyHdl <- Trace.activateContract w1 NFTCurrency.forgeNftToken (fromString $ "forgeCurrency: " <> show t1)
+    createNonMarketNftTokenTrace forgeCurrencyHdl nonMarketToken1
+    Trace.callEndpoint @"userNftTokens" user1Hdl ()
+    void $ Trace.waitNSlots 5
+
+shouldNotGetOtherWalletTokensTrace :: EmulatorTrace ()
+shouldNotGetOtherWalletTokensTrace = do
+    initialise
+    user1Hdl <- Trace.activateContractWallet w1 userContract
+    user2Hdl <- Trace.activateContractWallet w2 userContract
+    createNftTokenTrace user1Hdl testToken1
+    createNftTokenTrace user2Hdl testToken3
+    Trace.callEndpoint @"userNftTokens" user1Hdl ()
+    void $ Trace.waitNSlots 5
+
+shouldGetOwnerNftTokensWithOnSaleTraces :: EmulatorTrace ()
+shouldGetOwnerNftTokensWithOnSaleTraces = do
+    initialise
+    user1Hdl <- Trace.activateContractWallet w1 userContract
+    createNftTokenTrace user1Hdl testToken1
+    nftTokenMeta2 <- createNftTokenTrace user1Hdl testToken2
+    sellNftTokenTrace user1Hdl nftTokenMeta2 nftMaketSellPrice
+    Trace.callEndpoint @"userNftTokens" user1Hdl ()
+    void $ Trace.waitNSlots 5
+
+shouldGetWalletKeyTrace :: EmulatorTrace ()
+shouldGetWalletKeyTrace = do
+    initialise
+    user1Hdl <- Trace.activateContractWallet w1 userContract
+    Trace.callEndpoint @"userPubKeyHash" user1Hdl ()
     void $ Trace.waitNSlots 5
 
 forgeMockNftToken:: 

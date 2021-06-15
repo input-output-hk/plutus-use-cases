@@ -39,8 +39,8 @@ module Contracts.NFT.OffChain
 import           Contracts.NFT.Types
 import           Contracts.NFT.OnChain            (marketInstance)
 import           Control.Monad                    hiding (fmap)
-import qualified Data.ByteString.Char8            as B
 import qualified Data.ByteString.Base64           as B64
+import qualified Data.ByteString.Char8            as B
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import           Data.Monoid                      (Last (..))

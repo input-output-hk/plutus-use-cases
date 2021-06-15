@@ -73,6 +73,7 @@ test-suite plutus-example-projects-test
   build-depends:
     aeson -any,
     base >=4.9 && <5,
+    base64-bytestring,
     bytestring,
     freer-extras,
     lens -any,
