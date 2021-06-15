@@ -279,7 +279,6 @@ sellFailureOnLessThanZeroPriceTrace  :: EmulatorTrace ()
 sellFailureOnLessThanZeroPriceTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
-    forgeCurrencyHdl <- Trace.activateContractWallet w1 NFTCurrency.forgeNftToken
     nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     sellNftTokenTrace user1Hdl nftTokenMeta 0
 
@@ -331,7 +330,7 @@ shouldShowAllSellingTokensTrace = do
     user2Hdl <- Trace.activateContractWallet w2 userContract
     nftTokenMeta1 <- createNftTokenTrace user1Hdl testToken1
     nftTokenMeta2 <- createNftTokenTrace user2Hdl testToken2
-    nftTokenMeta3 <- createNftTokenTrace user1Hdl testToken3
+    _ <- createNftTokenTrace user1Hdl testToken3
     sellNftTokenTrace user1Hdl nftTokenMeta1 nftMaketSellPrice
     sellNftTokenTrace user2Hdl nftTokenMeta2 nftMaketSellPrice
     Trace.callEndpoint @"sellingTokens" user1Hdl ()
@@ -341,10 +340,10 @@ shouldGetOwnerNftTokensTrace :: EmulatorTrace ()
 shouldGetOwnerNftTokensTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
-    createNftTokenTrace user1Hdl testToken1
-    createNftTokenTrace user1Hdl testToken2
+    _ <- createNftTokenTrace user1Hdl testToken1
+    _ <-createNftTokenTrace user1Hdl testToken2
     forgeCurrencyHdl <- Trace.activateContract w1 NFTCurrency.forgeNftToken (fromString $ "forgeCurrency: " <> show t1)
-    createNonMarketNftTokenTrace forgeCurrencyHdl nonMarketToken1
+    _ <- createNonMarketNftTokenTrace forgeCurrencyHdl nonMarketToken1
     Trace.callEndpoint @"userNftTokens" user1Hdl ()
     void $ Trace.waitNSlots 5
 
@@ -353,8 +352,8 @@ shouldNotGetOtherWalletTokensTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
     user2Hdl <- Trace.activateContractWallet w2 userContract
-    createNftTokenTrace user1Hdl testToken1
-    createNftTokenTrace user2Hdl testToken3
+    _ <- createNftTokenTrace user1Hdl testToken1
+    _ <- createNftTokenTrace user2Hdl testToken3
     Trace.callEndpoint @"userNftTokens" user1Hdl ()
     void $ Trace.waitNSlots 5
 
@@ -362,7 +361,7 @@ shouldGetOwnerNftTokensWithOnSaleTraces :: EmulatorTrace ()
 shouldGetOwnerNftTokensWithOnSaleTraces = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
-    createNftTokenTrace user1Hdl testToken1
+    _ <- createNftTokenTrace user1Hdl testToken1
     nftTokenMeta2 <- createNftTokenTrace user1Hdl testToken2
     sellNftTokenTrace user1Hdl nftTokenMeta2 nftMaketSellPrice
     Trace.callEndpoint @"userNftTokens" user1Hdl ()
@@ -409,7 +408,7 @@ createNonMarketNftTokenTrace hdl tokenMeta = do
     let nftTokenForgeParams = NFTCurrency.ForgeNftParams { NFTCurrency.fnpTokenName = testTokenName tokenMeta }
     Trace.callEndpoint @"create" hdl nftTokenForgeParams
     void $ Trace.waitNSlots 5
-    testNftCur <- extractCurrencyForgedNFT hdl
+    _ <- extractCurrencyForgedNFT hdl
     let metaDto = nftMetadataToDto $ createNftMeta $ tokenMeta
     return metaDto
 
