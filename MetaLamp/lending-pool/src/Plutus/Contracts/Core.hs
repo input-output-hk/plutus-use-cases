@@ -65,10 +65,20 @@ data Reserve = Reserve
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
 
-data UserConfig = UserConfig
+-- TODO (?) only aTokens pledged as collateral should accumulate interest
+-- data UserConfig = UserConfig
+--   { ucDebt                     :: [IncentivizedAmount]
+--   , ucCollateralizedInvestment :: [IncentivizedAmount]
+--   }
+-- data IncentivizedAmount = IncentivizedAmount
+--   { iaAmount :: Integer
+--   , iaRate   :: Rational
+--   , iaSlot   :: Slot
+--   }
+
+newtype UserConfig = UserConfig
     {
-      ucUsingAsCollateral :: Bool,
-      ucDebt              :: Maybe Integer
+      ucDebt              :: Integer
     }
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -97,7 +107,7 @@ data AaveDatum =
   | ReservesDatum AssetClass (AssocMap.Map AssetClass Reserve)
   | ReserveFundsDatum
   | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
-  | UserFundsDatum PubKeyHash
+  | UserCollateralFundsDatum PubKeyHash
   deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
@@ -157,6 +167,7 @@ validateStart aave (LendingPoolDatum operator) ctx =
       outs -> isJust $ AssocMap.lookup scriptsDatumHash $ AssocMap.fromList outs
 validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management is not allowed" False
 
+-- TODO prohibit depositing asset which is not repaid
 validateDeposit :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   traceIfFalse "validateDeposit: User Configs Datum change is not valid" isValidUserConfigsTransformation
@@ -183,7 +194,6 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
 
     checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
-      ucUsingAsCollateral newState &&
       maybe True ((ucDebt newState ==) . ucDebt) oldState
 
 validateDeposit aave (ReservesDatum stateToken reserves) ctx userConfigId =
@@ -235,7 +245,6 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
           debtAmount = maybe 0 (flip (-) oldDebt) (ucDebt newState)
           disbursementAmount = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
        in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0 &&
-          maybe (not $ ucUsingAsCollateral newState) ((ucUsingAsCollateral newState ==) . ucUsingAsCollateral) oldState
 
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
@@ -276,7 +285,6 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
           newDebt = fromMaybe 0 $ ucDebt newState
           reimbursementAmount = assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
        in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 && newDebt >= 0 &&
-          ucUsingAsCollateral oldState == ucUsingAsCollateral newState
 
 validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId

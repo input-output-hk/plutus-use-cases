@@ -152,8 +152,7 @@ deposit aave DepositParams {..} = do
     forgeTx <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
 
     let userConfigId = (rCurrency reserve, dpOnBehalfOf)
-    wasZeroBalance <- (== 0) <$> balanceAt dpOnBehalfOf (rAToken reserve)
-    userConfigsTx <- if wasZeroBalance then do
+    userConfigsTx <- do
         userConfigs <- ovValue <$> State.findAaveUserConfigs aave
         case AssocMap.lookup userConfigId userConfigs of
             Nothing ->
@@ -161,10 +160,9 @@ deposit aave DepositParams {..} = do
                     aave
                     (Core.DepositRedeemer userConfigId)
                     userConfigId
-                    UserConfig { ucUsingAsCollateral = True, ucDebt = Nothing }
+                    UserConfig { ucDebt = 0 }
             Just userConfig ->
-                State.updateUserConfig aave (Core.DepositRedeemer userConfigId) userConfigId $ userConfig { ucUsingAsCollateral = True }
-        else pure mempty
+                pure mempty
 
     reservesTx <- State.updateReserve aave (Core.DepositRedeemer userConfigId) dpAsset (reserve { rAmount = rAmount reserve + dpAmount })
 
@@ -259,6 +257,7 @@ data RepayParams =
 PlutusTx.unstableMakeIsData ''RepayParams
 PlutusTx.makeLift ''RepayParams
 
+-- TODO should repay use collateral assets instead?
 repay :: (HasBlockchainActions s) => Aave -> RepayParams -> Contract w s Text ()
 repay aave RepayParams {..} = do
     reserve <- State.findAaveReserve aave rpAsset
