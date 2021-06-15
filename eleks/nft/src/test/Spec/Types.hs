@@ -5,8 +5,10 @@ module Spec.Types
 
 import           Contracts.NFT          as NFTMarket
 import qualified Spec.TestNFTCurrency   as NFTCurrency 
+import           Ledger                 (PubKeyHash, pubKeyHash)
 import           Ledger.Value           (CurrencySymbol(..), TokenName (..), AssetClass(..))
 import qualified Data.ByteString.Char8  as B
+import           Wallet.Emulator        (Wallet, walletPubKey)
 
 nftMarketMock :: NFTMarket
 nftMarketMock = NFTMarket{ marketId = createNFTTokenMock NFTMarket.marketplaceTokenName } 
@@ -21,6 +23,8 @@ data TestTokenMeta = TestTokenMeta
     , testTokenMetaName :: TokenName
     , testTokenMetaSymbol :: CurrencySymbol
     , testTokenMetaClass :: AssetClass
+    , testTokenSeller :: Maybe PubKeyHash
+    , testTokenSellPrice :: Integer
     }
 
 createTestToken:: TokenName -> TestTokenMeta
@@ -34,15 +38,23 @@ createTestToken tokenName = TestTokenMeta
     , testTokenMetaName = tokenMetaName
     , testTokenMetaSymbol = getNFTTokenSymbol tokenMetaName
     , testTokenMetaClass = AssetClass (getNFTTokenSymbol tokenMetaName, tokenMetaName)
+    , testTokenSeller = Nothing
+    , testTokenSellPrice = 0
     } 
     where
         tokenMetaName = TokenName $ B.pack $ read (show tokenName) ++ "Metadata"
+
+makeSellingTestToken:: TestTokenMeta -> Wallet -> Integer -> TestTokenMeta
+makeSellingTestToken testToken wallet price =
+    testToken{testTokenSellPrice = nftMaketSellPrice, testTokenSeller = Just $ pubKeyHash $ walletPubKey wallet }
 
 testToken1 = createTestToken "token1"
 testToken1Meta = createNftMeta testToken1
 testToken1MetaDto = nftMetadataToDto testToken1Meta
 testToken2 = createTestToken "token2"
-testToken2Meta = nftMetadataToDto $ createNftMeta testToken1
+testToken2Meta = createNftMeta testToken2
+testToken2MetaDto = nftMetadataToDto testToken2Meta
+testToken3 = createTestToken "token3"
 nonMarketToken1 = createTestToken "nonMarketToken1"
 
 getNFTTokenSymbol:: TokenName -> CurrencySymbol
@@ -54,6 +66,9 @@ createNFTTokenMock tokenName = AssetClass (getNFTTokenSymbol tokenName, tokenNam
 nftMaketSellPrice:: Integer
 nftMaketSellPrice = 1000
 
+toMetaDto:: TestTokenMeta ->  NFTMetadataDto
+toMetaDto = nftMetadataToDto . createNftMeta
+
 createNftMeta:: TestTokenMeta -> NFTMetadata
 createNftMeta testToken = NFTMetadata
     { nftTokenName = testTokenName testToken
@@ -63,6 +78,6 @@ createNftMeta testToken = NFTMetadata
     , nftMetaFile = B.pack $ testTokenFile testToken
     , nftTokenSymbol = testTokenSymbol testToken
     , nftMetaTokenSymbol = testTokenMetaSymbol testToken
-    , nftSeller = Nothing
-    , nftSellPrice = 0
+    , nftSeller = testTokenSeller testToken
+    , nftSellPrice = testTokenSellPrice testToken
     }

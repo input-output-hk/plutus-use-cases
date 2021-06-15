@@ -14,6 +14,7 @@ module Spec.NFT
 
 import           Contracts.NFT                          as NFTMarket
 import           Control.Monad                          (void)
+import           Control.Monad.Freer.Extras             as Extras
 import qualified Control.Monad.Freer.Extras.Log         as Log
 import           Data.Monoid                            (Last (..))
 import qualified Data.Semigroup                         as Semigroup
@@ -91,8 +92,7 @@ tests = testGroup "nft"
             .&&. walletFundsChange w1 (Ada.lovelaceValueOf 0)
             .&&. assertAccumState userContract t1
             (\case Last (Just (Right (NFTMarket.Selling meta))) -> 
-                        meta == (nftMetadataToDto $ testToken1Meta
-                        {nftSellPrice = nftMaketSellPrice, nftSeller = Just $ pubKeyHash $ walletPubKey w1 });
+                        meta == (toMetaDto $ makeSellingTestToken testToken1 w1 nftMaketSellPrice);
                     _ -> False) 
                 "should create sell NFT state"
         )
@@ -177,6 +177,19 @@ tests = testGroup "nft"
                 "should have failed state"
         )
         buyNftNotOnSaleFailureFlowTrace
+        ,
+        let 
+            expectedMeta1 = toMetaDto $ makeSellingTestToken testToken1 w1 nftMaketSellPrice
+            expectedMeta2 = toMetaDto $ makeSellingTestToken testToken2 w2 nftMaketSellPrice
+        in
+        checkPredicate "Should get selling tokens"
+        ( 
+            assertNoFailedTransactions
+            .&&. assertAccumState userContract t1
+            (\case Last (Just (Right (NFTMarket.SellingTokens metas))) -> metas == [expectedMeta1, expectedMeta2]; _ -> False) 
+                "should have selling tokens state"
+        )
+        shouldShowAllSellingTokens
     ]
 
 initialise :: EmulatorTrace ()
@@ -266,6 +279,19 @@ buyNftNotOnSaleFailureFlowTrace = do
     user2Hdl <- Trace.activateContractWallet w2 userContract
     nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     buyNftTokenTrace user2Hdl nftTokenMeta
+
+shouldShowAllSellingTokens :: EmulatorTrace ()
+shouldShowAllSellingTokens = do
+    initialise
+    user1Hdl <- Trace.activateContractWallet w1 userContract
+    user2Hdl <- Trace.activateContractWallet w2 userContract
+    nftTokenMeta1 <- createNftTokenTrace user1Hdl testToken1
+    nftTokenMeta2 <- createNftTokenTrace user2Hdl testToken2
+    nftTokenMeta3 <- createNftTokenTrace user1Hdl testToken3
+    sellNftTokenTrace user1Hdl nftTokenMeta1 nftMaketSellPrice
+    sellNftTokenTrace user2Hdl nftTokenMeta2 nftMaketSellPrice
+    Trace.callEndpoint @"sellingTokens" user1Hdl ()
+    void $ Trace.waitNSlots 5
 
 forgeMockNftToken:: 
     forall w s. HasBlockchainActions s 
