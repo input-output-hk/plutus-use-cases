@@ -88,13 +88,16 @@ PlutusTx.unstableMakeIsData ''AaveRedeemer
 PlutusTx.makeLift ''AaveRedeemer
 
 -- TODO: solve purescript generation issue with type synonyms
+type UserConfigId = (AssetClass, PubKeyHash)
 type LendingPoolOperator = PubKeyHash
+type Oracles = AssocMap.Map AssetClass Integer -- Shows how many lovelaces should be paid for a specific asset
 
 data AaveDatum =
     LendingPoolDatum LendingPoolOperator
   | ReservesDatum AssetClass (AssocMap.Map AssetClass Reserve)
-  | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
   | ReserveFundsDatum
+  | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+  | UserFundsDatum PubKeyHash
   deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
@@ -110,6 +113,14 @@ pickUserConfigs _ = Nothing
 pickReserves :: AaveDatum -> Maybe (AssetClass, AssocMap.Map AssetClass Reserve)
 pickReserves (ReservesDatum stateToken configs) = Just (stateToken, configs)
 pickReserves _                                  = Nothing
+
+-- TODO calculate these params in new module:
+-- totalCollateralInLovelace :: AssocMap.Map AssetClass Integer -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig -> Either String Integer
+-- totalCollateralInLovelace oracles userConfigs = 0
+-- totalDebtInLovelace = 0
+-- doesCollateralCoverNewBorrow  =      amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
+--   where
+--     userCollateralBalanceLovelace = totalCollateralInLovelace
 
 data AaveScript
 instance Scripts.ValidatorTypes AaveScript where
