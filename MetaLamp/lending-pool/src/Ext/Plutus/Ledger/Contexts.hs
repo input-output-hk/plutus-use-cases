@@ -13,10 +13,9 @@ import           Ledger                      (Address (Address),
                                               ValidatorHash, Value, findDatum)
 import           Plutus.V1.Ledger.Credential (Credential (PubKeyCredential, ScriptCredential))
 import qualified PlutusTx
-import           PlutusTx.Prelude            (Eq ((==)), Maybe (..),
-                                               find, fst, (>>=),
+import           PlutusTx.Prelude            (Eq ((==)), Maybe (..), find, fst,
                                               mapMaybe, mconcat, snd, ($), (.),
-                                              (<$>))
+                                              (<$>), (>>=))
 
 {-# INLINABLE findDatumHashByValue #-}
 -- | Find the hash of a datum, if it is part of the pending transaction's

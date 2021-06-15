@@ -1,8 +1,8 @@
 module Component.Contract where
 
 import Prelude
-import Business.Aave as Aave
-import Capability.Contract (ContractId)
+import Business.AaveUser (UserContractId)
+import Business.AaveUser as AaveUser
 import Capability.LogMessages (class LogMessages)
 import Capability.PollContract (class PollContract)
 import Component.AmountForm as AmountForm
@@ -28,22 +28,18 @@ import Plutus.Contracts.Endpoints (BorrowParams(..), DepositParams(..), RepayPar
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), Value)
 import View.FundsTable (fundsTable)
-import View.RemoteDataState (remoteDataState)
 
 type State
-  = { contractId :: ContractId
+  = { userContractId :: UserContractId
     , walletPubKey :: PubKeyHash
     , reserves :: Array { amount :: BigInteger, asset :: AssetClass }
-    , userFunds :: RemoteData String Value
+    , userFunds :: Value
     , deposit :: RemoteData String Unit
     , withdraw :: RemoteData String Unit
     , borrow :: RemoteData String Unit
     , repay :: RemoteData String Unit
     , submit :: RemoteData String Unit
     }
-
-_userFunds :: Lens' State (RemoteData String Value)
-_userFunds = prop (SProxy :: SProxy "userFunds")
 
 _deposit :: Lens' State (RemoteData String Unit)
 _deposit = prop (SProxy :: SProxy "deposit")
@@ -61,20 +57,21 @@ _submit :: Lens' State (RemoteData String Unit)
 _submit = prop (SProxy :: SProxy "submit")
 
 type Input
-  = { contractId :: ContractId
+  = { userContractId :: UserContractId
     , walletPubKey :: PubKeyHash
     , reserves :: Array { amount :: BigInteger, asset :: AssetClass }
+    , userFunds :: Value
     }
 
 data Output
   = SubmitSuccess
 
 initialState :: Input -> State
-initialState { contractId, walletPubKey, reserves } =
-  { contractId
+initialState { userFunds, userContractId, walletPubKey, reserves } =
+  { userContractId
   , walletPubKey
   , reserves
-  , userFunds: NotAsked
+  , userFunds
   , withdraw: NotAsked
   , deposit: NotAsked
   , borrow: NotAsked
@@ -83,10 +80,7 @@ initialState { contractId, walletPubKey, reserves } =
   }
 
 data Action
-  = Init
-  | GetUserFunds
-  | GetUpdates
-  | Deposit { amount :: BigInteger, asset :: AssetClass }
+  = Deposit { amount :: BigInteger, asset :: AssetClass }
   | Withdraw { amount :: BigInteger, asset :: AssetClass }
   | Borrow { amount :: BigInteger, asset :: AssetClass }
   | Repay { amount :: BigInteger, asset :: AssetClass }
@@ -118,44 +112,35 @@ component =
   H.mkComponent
     { initialState
     , render
-    , eval: H.mkEval H.defaultEval { handleAction = handleAction, initialize = Just Init }
+    , eval: H.mkEval H.defaultEval { handleAction = handleAction }
     }
   where
   handleAction :: Action -> H.HalogenM State Action Slots Output m Unit
   handleAction = case _ of
-    Init -> handleAction GetUserFunds
-    GetUserFunds ->
-      runRD _userFunds <<< runExceptT
-        $ do
-            { contractId, walletPubKey } <- lift H.get
-            lift (Aave.fundsAt contractId walletPubKey) >>= either (throwError <<< show) pure
-    GetUpdates -> do
-      handleAction GetUserFunds
-      H.raise SubmitSuccess
     Deposit { amount, asset } ->
       runRD _deposit <<< runExceptT
         $ do
-            { contractId, walletPubKey } <- lift H.get
-            lift (Aave.deposit contractId $ DepositParams { dpAmount: amount, dpAsset: asset, dpOnBehalfOf: walletPubKey })
-              >>= either (throwError <<< show) (const <<< lift <<< handleAction $ GetUpdates)
+            { userContractId, walletPubKey } <- lift H.get
+            lift (AaveUser.deposit userContractId $ DepositParams { dpAmount: amount, dpAsset: asset, dpOnBehalfOf: walletPubKey })
+              >>= either (throwError <<< show) (const <<< lift <<< H.raise $ SubmitSuccess)
     Withdraw { amount, asset } ->
       runRD _withdraw <<< runExceptT
         $ do
-            { contractId, walletPubKey } <- lift H.get
-            lift (Aave.withdraw contractId $ WithdrawParams { wpAmount: amount, wpAsset: asset, wpUser: walletPubKey })
-              >>= either (throwError <<< show) (const <<< lift <<< handleAction $ GetUpdates)
+            { userContractId, walletPubKey } <- lift H.get
+            lift (AaveUser.withdraw userContractId $ WithdrawParams { wpAmount: amount, wpAsset: asset, wpUser: walletPubKey })
+              >>= either (throwError <<< show) (const <<< lift <<< H.raise $ SubmitSuccess)
     Borrow { amount, asset } ->
       runRD _borrow <<< runExceptT
         $ do
-            { contractId, walletPubKey } <- lift H.get
-            lift (Aave.borrow contractId $ BorrowParams { bpAmount: amount, bpAsset: asset, bpOnBehalfOf: walletPubKey })
-              >>= either (throwError <<< show) (const <<< lift <<< handleAction $ GetUpdates)
+            { userContractId, walletPubKey } <- lift H.get
+            lift (AaveUser.borrow userContractId $ BorrowParams { bpAmount: amount, bpAsset: asset, bpOnBehalfOf: walletPubKey })
+              >>= either (throwError <<< show) (const <<< lift <<< H.raise $ SubmitSuccess)
     Repay { amount, asset } ->
       runRD _repay <<< runExceptT
         $ do
-            { contractId, walletPubKey } <- lift H.get
-            lift (Aave.repay contractId $ RepayParams { rpAmount: amount, rpAsset: asset, rpOnBehalfOf: walletPubKey })
-              >>= either (throwError <<< show) (const <<< lift <<< handleAction $ GetUpdates)
+            { userContractId, walletPubKey } <- lift H.get
+            lift (AaveUser.repay userContractId $ RepayParams { rpAmount: amount, rpAsset: asset, rpOnBehalfOf: walletPubKey })
+              >>= either (throwError <<< show) (const <<< lift <<< H.raise $ SubmitSuccess)
     OnSubmitAmount operation (AmountForm.Submit { name, amount }) ->
       runRD _submit <<< runExceptT
         $ do
@@ -195,13 +180,11 @@ component =
   render :: State -> H.ComponentHTML Action Slots m
   render state =
     HH.div_
-      [ remoteDataState
-          (\userFunds -> HH.div_ [ HH.h2_ [ HH.text "User funds" ], fundsTable userFunds ])
-          state.userFunds
+      [ HH.div_ [ HH.h2_ [ HH.text "User funds" ], fundsTable state.userFunds ]
       , case state.submit of
           NotAsked -> HH.div_ []
           Loading -> HH.div_ []
-          Failure e -> HH.h2_ [ HH.text $ "Error: " <> show e ]
+          Failure e -> HH.div_ [ HH.text $ "Error: " <> show e ]
           Success _ -> HH.div_ []
       , HH.div_
           $ mapWithIndex

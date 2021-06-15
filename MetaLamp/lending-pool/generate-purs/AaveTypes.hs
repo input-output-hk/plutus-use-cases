@@ -19,7 +19,7 @@ import           Data.Proxy                                 (Proxy (Proxy))
 import qualified Plutus.Contracts.Core               as Aave
 import qualified Plutus.Contracts.Endpoints          as Aave
 import Plutus.PAB.Simulation (AaveContracts(..))
-import           Language.PureScript.Bridge.TypeParameters  (A)
+import           Language.PureScript.Bridge.TypeParameters  (A, E)
 import           Control.Monad.Reader                      (MonadReader)
 import           Language.PureScript.Bridge.Builder        (BridgeData)
 import qualified PSGenerator.Common
@@ -39,9 +39,11 @@ psRatio = expand <$> psTypeParameters
 aaveTypes :: [SumType 'Haskell]
 aaveTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @AaveContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.Aave)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @(Aave.ContractResponse E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.CreateParams)
           , (order <*> (equal <*> (genericShow <*> mkSumType))) (Proxy @AssetClass)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.UserContractState)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.InfoContractState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.Reserve)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.UserConfig)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.DepositParams)
