@@ -16,6 +16,7 @@ library
                , obelisk-generated-static
                , rhyolite-frontend
                , safe
+               , scientific
                , text
                , vessel
   exposed-modules:
