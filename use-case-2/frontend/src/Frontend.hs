@@ -177,7 +177,9 @@ dashboard wid = Workflow $ do
                         def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                       coinAAmountInput <- inputElement $ def
                         & inputElementConfig_elementConfig . elementConfig_initialAttributes
-                        .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                          .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                        & inputElementConfig_initialValue
+                          .~ ("0" :: Text)
                       return (_dropdown_value coinAChoice, _inputElement_value coinAAmountInput)
                     -- Select second token and amount
                     (selectionB, amountB) <- divClass "input-group row mt-3" $ do
@@ -185,7 +187,9 @@ dashboard wid = Workflow $ do
                         def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                       coinBAmountInput <- inputElement $ def
                         & inputElementConfig_elementConfig . elementConfig_initialAttributes
-                        .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                          .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                        & inputElementConfig_initialValue
+                          .~ ("0" :: Text)
                       return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
                     swap <- divClass "input-group row mt-3" $ do
                       (e,_) <- elClass' "button" "btn btn-primary" $ text "Swap"
