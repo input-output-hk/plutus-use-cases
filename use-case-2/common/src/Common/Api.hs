@@ -36,6 +36,7 @@ data Api :: * -> * where
   -- Once GHC 8.10 is supported in Obelisk, we will be able to reference
   -- plutus ADTs directly. For now, they will come from Common.Plutus.Contracts.Uniswap.Types
   Api_Swap :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String [Text])
+  Api_CallFunds :: ContractInstanceId Text -> Api ()
 
 deriveJSONGADT ''Api
 deriveArgDict ''Api

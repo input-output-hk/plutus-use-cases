@@ -14,14 +14,19 @@ module Frontend where
 import Prelude hiding (id, (.), filter)
 import Control.Category
 
+import Control.Lens
 import Control.Monad
+import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
+import Data.Aeson.Lens
 import Data.Int
 import qualified Data.Map as Map
+import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Vector as V
 import Data.Vessel
 import Data.Vessel.Identity
 import Data.Vessel.Vessel
@@ -70,7 +75,7 @@ frontend = Frontend
       return ()
   }
 
-app :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m) => Workflow t m ()
+app :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Workflow t m ()
 app = Workflow $ do
   _ <- navBar Nothing
   divClass "p-5 mb-4 bg-light rounded-5" $ do
@@ -95,11 +100,10 @@ app = Workflow $ do
             return $ leftmost walletIdEvents
       return ((), dashboard <$> walletEv)
 
-navBar :: forall t m js. (Prerender js t m, DomBuilder t m) => Maybe Text -> m (Event t ())
+navBar :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Maybe Text -> m (Event t ())
 navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
   divClass "container-fluid" $ do
     elAttr "a" ("class" =: "navbar-brand" <> "href" =: "#") $ text "POKE-DEX - Plutus Obelisk Koin Economy Decentralized Exchange "
-    -- TODO: incorporate the use of PAB's websockets to display the wallet's current Ada Balance
       -- Note: This websocket keeps track of Slot number
       --   el "p" $ text "-------------------------------"
       -- Note: This websocket keeps track of Slot number
@@ -107,13 +111,42 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
       -- _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show a
     case mWid of
       Nothing -> return never
-      Just wid -> fmap (switch . current) $ prerender (return never) $ do
-        ws<- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-        _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> do
-          elClass "p" "text-white" $ text $ T.pack $ show a
-        return never
+      Just wid -> do
+        pollingEvent <- tickLossyFromPostBuildTime 10
+        -- pollingEvent <- button "See Funds"
+        requesting_ $ (Api_CallFunds (ContractInstanceId wid)) <$ pollingEvent
+        fmap (switch . current) $ prerender (return never) $ do
+          -- incorporate the use of PAB's websockets to display the wallet's current Ada Balance
+          ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+          -- filter for websocket events relevent to funds that contain the "Funds" tag and "NewObservableState" tag
+          let fundsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                Nothing -> False
+                Just incomingWebSocketData -> do
+                  let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                      fundsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+                  observableStateTag == ["NewObservableState"] && fundsTag == ["Funds"]
+          _ <- widgetHold blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+            Nothing -> return ()
+            Just incomingWebSocketData -> do
+              -- aeson-lens happened here to unpack the json object received from the websocket
+              -- TODO: Place aeson lens selectors into it's own module
+              let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array -- DEBUG
+                  adaDetails = (V.! 1) <$> currencyDetails
+                  adaNameWithBalance = adaDetails ^.. traverse . _Array
+                  nestedArrayIndex1 = (V.! 1) <$> adaNameWithBalance
+                  unwrapArray1 = nestedArrayIndex1 ^.. traverse . _Array
+                  nestedArrayIndex2 = (V.! 0) <$> unwrapArray1
+                  unwrapArray2 = nestedArrayIndex2 ^.. traverse . _Array
+                  nestedArrayIndex3 = (V.! 1) <$> unwrapArray2
+                  balanceList = nestedArrayIndex3 ^.. traverse . _Number
+                  mAdaBalance = headMay balanceList
+                  adaBalance = case mAdaBalance of
+                    Nothing -> 0
+                    Just bal -> coefficient bal
+              elClass "p" "text-white" $ text $ "ADA Balance: " <> (T.pack $ show adaBalance)
+          return never
 
-dashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m) => Text -> Workflow t m ()
+dashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Text -> Workflow t m ()
 dashboard wid = Workflow $ do
   -- TODO: Add swap and stake tabs to the navbar
   _ <- navBar $ Just wid
@@ -144,7 +177,9 @@ dashboard wid = Workflow $ do
                         def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                       coinAAmountInput <- inputElement $ def
                         & inputElementConfig_elementConfig . elementConfig_initialAttributes
-                        .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                          .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                        & inputElementConfig_initialValue
+                          .~ ("0" :: Text)
                       return (_dropdown_value coinAChoice, _inputElement_value coinAAmountInput)
                     -- Select second token and amount
                     (selectionB, amountB) <- divClass "input-group row mt-3" $ do
@@ -152,7 +187,9 @@ dashboard wid = Workflow $ do
                         def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                       coinBAmountInput <- inputElement $ def
                         & inputElementConfig_elementConfig . elementConfig_initialAttributes
-                        .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                          .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                        & inputElementConfig_initialValue
+                          .~ ("0" :: Text)
                       return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
                     swap <- divClass "input-group row mt-3" $ do
                       (e,_) <- elClass' "button" "btn btn-primary" $ text "Swap"

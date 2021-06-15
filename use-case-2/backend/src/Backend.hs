@@ -78,6 +78,7 @@ requestHandler httpManager pool = RequestHandler $ \case
     mapM_ (notify NotificationType_Update Notification_Counter . _counter_amount) rows
   Api_Swap contractId coinA coinB amountA amountB ->
     executeSwap httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
+  Api_CallFunds cid -> callFunds httpManager cid
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler dbNotification _ = case _dbNotification_message dbNotification of
@@ -217,6 +218,20 @@ fetchObservableState httpManager contractId = do
       let observableState = obj ^.. values . key "cicCurrentState" . key "observableState" . _String
       print $ "fetchObservableState: Right ..."  <> (show observableState)
       return $ Right observableState
+
+-- Grabs `observaleState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
+callFunds :: Manager -> ContractInstanceId Text -> IO ()
+callFunds httpManager contractId = do
+  let requestUrl = "http://localhost:8080/api/new/contract/instance/" <> (unContractInstanceId contractId) <> "/endpoint/funds"
+      reqBody = "[]"
+  initReq <- parseRequest $ T.unpack requestUrl
+  let req = initReq
+        { method = "POST"
+        , requestHeaders = ("Content-Type","application/json"):(requestHeaders initReq)
+        , requestBody = RequestBodyLBS reqBody
+        }
+  _ <- httpLbs req httpManager
+  return ()
 
 ensureCounterExists :: MonadBeam Postgres m => m ()
 ensureCounterExists = do
