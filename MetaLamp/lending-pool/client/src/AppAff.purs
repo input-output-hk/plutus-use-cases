@@ -87,4 +87,4 @@ instance contractAppM :: Contract AppM where
 
 instance pollContractAppM :: PollContract AppM where
   pollDelay = liftAff <<< delay <<< Milliseconds $ 1000.0
-  tooManyRetries retryCount = pure $ retryCount > 10
+  tooManyRetries retryCount = pure $ retryCount > 20

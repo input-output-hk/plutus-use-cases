@@ -11,19 +11,28 @@
 
 module AaveTypes where
 
-import           Language.PureScript.Bridge                 (BridgePart, Language (Haskell), SumType,
-                                                             TypeInfo (TypeInfo), buildBridge, equal, genericShow,
-                                                             haskType, mkSumType, order, typeModule, typeName,
-                                                             writePSTypesWith, (^==), PSType, psTypeParameters)
-import           Data.Proxy                                 (Proxy (Proxy))
-import qualified Plutus.Contracts.Core               as Aave
-import qualified Plutus.Contracts.Endpoints          as Aave
-import Plutus.PAB.Simulation (AaveContracts(..))
-import           Language.PureScript.Bridge.TypeParameters  (A)
 import           Control.Monad.Reader                      (MonadReader)
+import           Data.Proxy                                (Proxy (Proxy))
+import           Language.PureScript.Bridge                (BridgePart,
+                                                            Language (Haskell),
+                                                            PSType, SumType,
+                                                            TypeInfo (TypeInfo),
+                                                            buildBridge, equal,
+                                                            genericShow,
+                                                            haskType, mkSumType,
+                                                            order,
+                                                            psTypeParameters,
+                                                            typeModule,
+                                                            typeName,
+                                                            writePSTypesWith,
+                                                            (^==))
 import           Language.PureScript.Bridge.Builder        (BridgeData)
+import           Language.PureScript.Bridge.TypeParameters (A)
 import qualified PSGenerator.Common
-import Plutus.V1.Ledger.Value (AssetClass)
+import qualified Plutus.Contracts.Core                     as Aave
+import qualified Plutus.Contracts.Endpoints                as Aave
+import           Plutus.PAB.Simulation                     (AaveContracts (..))
+import           Plutus.V1.Ledger.Value                    (AssetClass)
 
 ratioBridge :: BridgePart
 ratioBridge = do

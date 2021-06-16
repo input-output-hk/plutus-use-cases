@@ -18,8 +18,8 @@ import           Ledger                           hiding (singleton)
 import qualified Ledger.Constraints               as Constraints
 import qualified Ledger.Constraints.OnChain       as Constraints
 import qualified Ledger.Constraints.TxConstraints as Constraints
-import           Ledger.Typed.Scripts             (MonetaryPolicy,
-                                                   TypedValidator, RedeemerType, DatumType)
+import           Ledger.Typed.Scripts             (DatumType, MonetaryPolicy,
+                                                   RedeemerType, TypedValidator)
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Plutus.Contract
 import           Plutus.Contracts.Core            (Aave, Reserve (..))

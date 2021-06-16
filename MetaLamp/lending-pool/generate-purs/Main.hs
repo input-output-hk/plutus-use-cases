@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE EmptyDataDecls        #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -8,55 +9,85 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE EmptyDataDecls         #-}
 
 module Main where
 
-import           Cardano.Metadata.Types                     (AnnotatedSignature, HashFunction, Property, PropertyKey,
-                                                             Subject, SubjectProperties)
+import           AaveTypes                                  (aaveTypes,
+                                                             ratioBridge)
+import           Cardano.Metadata.Types                     (AnnotatedSignature,
+                                                             HashFunction,
+                                                             Property,
+                                                             PropertyKey,
+                                                             Subject,
+                                                             SubjectProperties)
 import           Cardano.Wallet.Types                       (WalletInfo)
 import           Control.Applicative                        ((<|>))
 import           Control.Lens                               (set, view, (&))
-import           Control.Monad.Freer.Extras.Log             (LogLevel, LogMessage)
+import           Control.Monad                              (when)
+import           Control.Monad.Freer.Extras.Log             (LogLevel,
+                                                             LogMessage)
 import           Data.Proxy                                 (Proxy (Proxy))
 import qualified Data.Text                                  as Text
-import           Language.PureScript.Bridge                 (BridgePart, Language (Haskell), SumType,
-                                                             TypeInfo (TypeInfo), buildBridge, equal, genericShow,
-                                                             haskType, mkSumType, order, typeModule, typeName,
-                                                             writePSTypesWith, (^==))
-import           Language.PureScript.Bridge.CodeGenSwitches (ForeignOptions (ForeignOptions), genForeign,
+import           Language.PureScript.Bridge                 (BridgePart,
+                                                             Language (Haskell),
+                                                             SumType,
+                                                             TypeInfo (TypeInfo),
+                                                             buildBridge, equal,
+                                                             genericShow,
+                                                             haskType,
+                                                             mkSumType, order,
+                                                             typeModule,
+                                                             typeName,
+                                                             writePSTypesWith,
+                                                             (^==))
+import           Language.PureScript.Bridge.CodeGenSwitches (ForeignOptions (ForeignOptions),
+                                                             genForeign,
                                                              unwrapSingleConstructors)
 import           Language.PureScript.Bridge.TypeParameters  (A)
 import           Ledger.Constraints.OffChain                (UnbalancedTx)
 import qualified PSGenerator.Common
-import           Plutus.Contract.Checkpoint                 (CheckpointKey, CheckpointStore, CheckpointStoreItem)
+import           Plutus.Contract.Checkpoint                 (CheckpointKey,
+                                                             CheckpointStore,
+                                                             CheckpointStoreItem)
 import           Plutus.Contract.Effects.AwaitSlot          (WaitingForSlot)
 import           Plutus.Contract.Effects.AwaitTxConfirmed   (TxConfirmed)
-import           Plutus.Contract.Effects.ExposeEndpoint     (ActiveEndpoint, EndpointValue)
+import           Plutus.Contract.Effects.ExposeEndpoint     (ActiveEndpoint,
+                                                             EndpointValue)
 import           Plutus.Contract.Effects.Instance           (OwnIdRequest)
 import           Plutus.Contract.Effects.OwnPubKey          (OwnPubKeyRequest)
 import           Plutus.Contract.Effects.UtxoAt             (UtxoAtAddress)
 import           Plutus.Contract.Effects.WriteTx            (WriteTxResponse)
 import           Plutus.Contract.Resumable                  (Responses)
 import           Plutus.PAB.Effects.Contract.ContractExe    (ContractExe)
-import           Plutus.PAB.Events.Contract                 (ContractPABRequest, ContractPABResponse)
+import           Plutus.PAB.Events.Contract                 (ContractPABRequest,
+                                                             ContractPABResponse)
 import           Plutus.PAB.Events.ContractInstanceState    (PartiallyDecodedResponse)
 import qualified Plutus.PAB.Webserver.API                   as API
-import           Plutus.PAB.Webserver.Types                 (ChainReport, CombinedWSStreamToClient,
-                                                             CombinedWSStreamToServer, ContractActivationArgs,
-                                                             ContractInstanceClientState, ContractReport,
-                                                             ContractSignatureResponse, FullReport,
+import           Plutus.PAB.Webserver.Types                 (ChainReport,
+                                                             CombinedWSStreamToClient,
+                                                             CombinedWSStreamToServer,
+                                                             ContractActivationArgs,
+                                                             ContractInstanceClientState,
+                                                             ContractReport,
+                                                             ContractSignatureResponse,
+                                                             FullReport,
                                                              InstanceStatusToClient)
+import           Plutus.V1.Ledger.Value                     (AssetClass,
+                                                             TokenName (..))
 import           Servant                                    ((:<|>))
-import           Servant.PureScript                         (HasBridge, Settings, _generateSubscriberAPI, apiModuleName,
-                                                             defaultBridge, defaultSettings, languageBridge,
+import           Servant.PureScript                         (HasBridge,
+                                                             Settings,
+                                                             _generateSubscriberAPI,
+                                                             apiModuleName,
+                                                             defaultBridge,
+                                                             defaultSettings,
+                                                             languageBridge,
                                                              writeAPIModuleWithSettings)
-import           Wallet.Effects                             (AddressChangeRequest (..), AddressChangeResponse (..))
+import           System.Directory                           (doesDirectoryExist,
+                                                             removeDirectoryRecursive)
+import           Wallet.Effects                             (AddressChangeRequest (..),
+                                                             AddressChangeResponse (..))
 import           Wallet.Emulator.Wallet                     (Wallet (..))
-import AaveTypes (aaveTypes, ratioBridge)
-import System.Directory (removeDirectoryRecursive, doesDirectoryExist)
-import           Plutus.V1.Ledger.Value           (AssetClass, TokenName (..))
-import Control.Monad (when)
 
 myBridge :: BridgePart
 myBridge =
