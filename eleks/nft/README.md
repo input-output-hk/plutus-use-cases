@@ -4,11 +4,11 @@ This project is an NFT marketplace demo
 User can create NFT tokens, sell and but them on a marketplace.
 
 ## Architecture
-1. Start Contract
+### Start Contract
 On a contract start we create single NFT market utxo used to uniqely identity marketplace.
 It is also used to store all the create tokens metadata to avoid duplicates.
 
-2. Create NFT
+### Create NFT
 When create token method is invoked, we create two unique native tokens. One is the NFT token and it is send to the owner wallet, owner can sent it to other user address.
 Another one is the NFT metadata token. Metadata token is stored in the marketpalce and never leaves it. In the metadata token datum we store the Symbol of the NFT token and all metadata information (e.g. name, description, file).
 
@@ -16,19 +16,19 @@ Another one is the NFT metadata token. Metadata token is stored in the marketpal
 
 In the validator we consume market token to verify that new token is unique.
 
-2. Put token on sale
+### Put token on sale
 At any moment token owner can put token on sale, he transfers his token to the marketplace and set token price. Only tokens created in the market could be put on sale.
 ![Selling NFT](./screenshots/selling.jpg)
 
-3. Buy token on sale.
+### Buy token on sale.
 If token is on sale, any user can buy it. Buyer receives the NFT token, Seller gets the price.
 ![Buying NFT](./screenshots/buy.jpg)
 
-4. Cancel selling
+### Cancel selling
 Token owner could decide to cancell sell. He will get the NFT token back. Token will be removed from the store.
 ![Buying NFT](./screenshots/cancel-sell.jpg)
 
-5. Transfer token
+### Transfer token
 Owner could transfer token to any other user directly. NFT metadata tracks owner only when the token is on sale.
 
 ## Setting up
@@ -224,5 +224,4 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-## Run frontend
-check ./market-web-app README.md
+## [Run frontend](/market-web-app README.md)
