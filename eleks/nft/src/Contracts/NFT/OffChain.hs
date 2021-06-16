@@ -418,8 +418,7 @@ queryNftMetadatas market = do
                         return $ nftMeta : nftMetas
             else query nftMarketMetas os
 
---
--- | Gets the caller's funds.
+-- | Gets the caller's public key hash.
 userPubKeyHash :: HasBlockchainActions s => Contract w s Text [Char]
 userPubKeyHash = do
     logInfo @String $ printf "start getting userPubKeyHash"
@@ -522,13 +521,13 @@ userEndpoints ::
 userEndpoints forgeNft market =
     stop
         `select`
-    ((f (Proxy @"create") Created (create forgeNft)                                                                  `select`
-      f (Proxy @"sell") Selling sell                                                           `select`
-      f (Proxy @"cancelSell") CancelSelling cancelSell                                         `select`
-      f (Proxy @"buy") Buyed buy                                                               `select`
-      f (Proxy @"transfer") Transfered transfer                                               `select`
-      f (Proxy @"userNftTokens") Tokens (\market' () -> userNftTokens market')               `select`
-      f (Proxy @"sellingTokens") SellingTokens (\market' () -> sellingTokens market')        `select`
+    ((f (Proxy @"create") Created (create forgeNft)                                     `select`
+      f (Proxy @"sell") Selling sell                                                    `select`
+      f (Proxy @"cancelSell") CancelSelling cancelSell                                  `select`
+      f (Proxy @"buy") Buyed buy                                                        `select`
+      f (Proxy @"transfer") Transfered transfer                                         `select`
+      f (Proxy @"userNftTokens") Tokens (\market' () -> userNftTokens market')          `select`
+      f (Proxy @"sellingTokens") SellingTokens (\market' () -> sellingTokens market')   `select`
       f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints forgeNft market)
   where
     f :: forall l a p.

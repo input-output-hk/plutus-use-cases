@@ -80,11 +80,6 @@ validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
     traceIfFalse "nft token is arleady exists" (all (/= nftMeta) nftMetas) &&                                                                                 
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ nftMeta : nftMetas) $ assetClassValue marketId 1) &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (NFTMeta nftMeta) $ assetClassValue (assetClass nftMetaTokenSymbol nftMetaTokenName) 1)
-  where
-    marketOutput :: TxOut
-    marketOutput = case [o | o <- getContinuingOutputs ctx, assetClassValueOf (txOutValue o) marketId == 1] of
-        [o] -> o
-        _   -> traceError "expected exactly one market output"
 
 {-# INLINABLE validateSell #-}
 validateSell :: 
@@ -96,7 +91,7 @@ validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenN
     traceIfFalse "owner should sign" ownerSigned                                                                    &&
     traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)   &&
     traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                          &&
-    traceIfFalse "price should be grater 0" (nftSellPrice outDatum > 0)                                      
+    traceIfFalse "price should be greater than 0" (nftSellPrice outDatum > 0)                                    
   where
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -167,7 +162,7 @@ validateCancelSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMeta
     ownerSigned :: Bool
     ownerSigned = case nftSeller nftMeta of
         Nothing      -> False
-        Just pkh -> txSignedBy info pkh
+        Just pkh     -> txSignedBy info pkh
 
 {-# INLINABLE validateBuy #-}
 validateBuy :: 
