@@ -195,7 +195,7 @@ dashboard wid = Workflow $ do
                       (e,_) <- elClass' "button" "btn btn-primary" $ text "Swap"
                       return $ domEvent Click e
                     let pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
-                        toAmount amt = Amount $ (read (T.unpack amt) :: Integer) -- TODO: is read ok?
+                        toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
                         requestLoad = ((\w c1 c2 a1 a2 -> Api_Swap w c1 c2 a1 a2)
                           <$> (constDyn $ ContractInstanceId wid)
                           <*> (pooledTokenToCoin <$> selectionA)
@@ -204,7 +204,6 @@ dashboard wid = Workflow $ do
                           <*> (toAmount <$> amountB))
                     -- This response doesn't return anything useful, so it is thrown away
                     _ <- requesting $ tagPromptlyDyn requestLoad swap
-                    -- TODO: "Success needs to differentiate between being submitted to chain and the swap actually occurring successfully.
                     _ <- fmap (switch . current) $ prerender (return never) $ do
                       ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
                       -- TODO: Create convenience function for filtering out websocket events
@@ -229,7 +228,8 @@ dashboard wid = Workflow $ do
                         \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
                           Nothing -> blank
                           Just _ -> elClass "p" "text-success" $ text "Success!"
-                      -- TODO: This message disappers whenever the navbar asks for new state. Need the message to stick around for a set amount of time
+                      -- TODO: This message disappers whenever the navbar asks for new state.
+                      -- Need the message to stick around for a set amount of time
                       -- show failure message based on new observable state
                       widgetHold_ blank $ ffor observableStateFailureEvent $
                         \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of

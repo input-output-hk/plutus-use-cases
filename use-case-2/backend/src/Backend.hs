@@ -109,7 +109,9 @@ getWallets httpManager pool = do
   resp <- httpLbs req httpManager
   let val = Aeson.eitherDecode (responseBody resp) :: Either String Aeson.Value
   case val of
-    Left _ -> return () -- TODO: Handle error properly
+    Left err -> do
+      print $ "getWallets: failed to decode response body: " ++ err
+      return ()
     Right obj -> do
       let contractInstanceIds = obj ^.. values . key "cicContract". key "unContractInstanceId" . _String
           walletIds = obj ^.. values . key "cicWallet". key "getWallet" . _Integer
@@ -133,12 +135,8 @@ getPooledTokens httpManager pool = do
       print ("getPooledTokens: Admin user wallet not found" :: Text)
       return ()
     Just wid -> do
-      -- TODO: Getting Pooled tokens this way is fragile since it is retrieved from observableState. For example,
-      -- if another endpoint like "funds" is called before getPooledTokens is called, the observableState will not
-            -- show the balance of the liquidity pool, it will show the balance of the wallet who called funds
-            -- which gives this function Nothing to parse because the json keys are different.
-            -- Find a better endpoint or json key value pair to list uniswap pool balances
-      -- SOLUTION: You will have to use the pools endpoint first followed by instances for the observable state to show pools
+      -- In order to retreive list of pooled tokens, a request must be made to the pools endpoint first and then the response 
+      -- can be found be found in instances within the observable state key
       let prString = "http://localhost:8080/api/new/contract/instance/" ++ (T.unpack $ _contract_id wid) ++ "/endpoint/pools"
       print $ "prString: " ++ prString -- DEBUG
       poolReq <- parseRequest prString
@@ -150,14 +148,16 @@ getPooledTokens httpManager pool = do
             }
       _ <- httpLbs pReq httpManager
       return ()
-  -- TODO: might have to put a delay here
+  -- This delay is necessary to give the chain 1 second to process the previous request and update the observable state
   threadDelay 1000000
   initReq <- parseRequest "http://localhost:8080/api/new/contract/instances"
   let req = initReq { method = "GET" }
   resp <- httpLbs req httpManager
   let val = Aeson.eitherDecode (responseBody resp) :: Either String Aeson.Value
   case val of
-    Left _ -> return () -- TODO: Handle error properly
+    Left err -> do
+      print $ "getPooledTokens: failed to decode response body: " <> err
+      return ()
     Right obj -> do
       -- aeson-lens happened here in order to get currency symbols and token names from json
       let objList = obj ^..
