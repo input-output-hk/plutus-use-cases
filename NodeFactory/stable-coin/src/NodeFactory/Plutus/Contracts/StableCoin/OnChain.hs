@@ -63,7 +63,7 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     traceIfFalse "Less than minimum" (amountOfAdaInInput > minimumLovelaceAmount)                          -- 5
     -- 6 TODO - check if vault UTXO contains appropriate: amount of lovelace, owner, minted amount
     -- Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Vault v) $ valueOf )
-    -- 7 TODO - check if stablecoin in ouptu
+    -- 7 TODO - check if stablecoin in ouptut
   where 
     forged :: Value
     forged = txInfoForge $ scriptContextTxInfo ctx
@@ -76,11 +76,12 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     amountOfAdaInInput = adaValueIn (valueWithin $ findOwnInput' ctx)
 
 {-# INLINABLE validateCloseVault #-}
--- | Validates the creation of the stable coin vault. Conditions:
+-- | Validates the closing of the stable coin vault. Conditions:
 -- 
--- 1. 
--- 2.
--- 3.
+-- 1. Check that vault token in output
+-- 2. Check that vault token burned
+-- 3. Check that proper amount of stable coin sent
+-- 4. Check that collateral in output
 validateCloseVault :: StableCoin 
                 -> ScriptContext 
                 -> Bool
