@@ -18,6 +18,7 @@ In the validator we consume market token to verify that new token is unique.
 
 ### Put token on sale
 At any moment token owner can put token on sale, he transfers his token to the marketplace and set token price. Only tokens created in the market could be put on sale.
+
 ![Selling NFT](./screenshots/selling.jpg)
 
 ### Buy token on sale.
@@ -93,10 +94,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"cpTokenName":"TestToken","cpDescription":"Test description","cpAuthor":"John Smith","cpFile":"https://ipfs.io/ipfs/bafybeieznanm2s27u2okty2xgorltsfoegtgvamovfjx56ctgijtz4caoy"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/create
-```
-
-Get response
-```
+#get response
 curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
@@ -109,10 +107,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/userNftTokens
-```
-
-Get response
-```
+#get response
 curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
@@ -126,10 +121,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"spSellPrice":1000,"spTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sell
-```
-
-Get response
-```
+#get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
@@ -143,10 +135,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sellingTokens
-```
-
-Get response
-```
+#get response
 curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
@@ -160,10 +149,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"bpTokenSymbol": "staQbIJe11Om2KUvRt1+1SivJXo4H+u6Wc8Nekh7VQA="}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/buy
-```
-
-Get response
-```
+#get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
@@ -178,10 +164,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"cspTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/cancelSell
-```
-
-Get response
-```
+#get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
@@ -196,10 +179,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/userPubKeyHash
-```
-
-Get response
-```
+#get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
@@ -214,10 +194,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"tpTokenSymbol": "staQbIJe11Om2KUvRt1+1SivJXo4H+u6Wc8Nekh7VQA=", "tpReceiverWallet": 1}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/transfer
-```
-
-Get response
-```
+#get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
