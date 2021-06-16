@@ -92,6 +92,7 @@ data AaveRedeemer =
   | WithdrawRedeemer (AssetClass, PubKeyHash)
   | BorrowRedeemer (AssetClass, PubKeyHash)
   | RepayRedeemer (AssetClass, PubKeyHash)
+  | RevokeCollateralRedeemer (AssetClass, PubKeyHash)
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer

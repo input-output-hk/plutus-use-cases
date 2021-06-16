@@ -299,8 +299,37 @@ provideCollateral aave ProvideCollateralParams {..} = do
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
--- TODO add provideCollateral
--- TODO add revokeCollateral
+data RevokeCollateralParams =
+    RevokeCollateralParams {
+        rcpUnderlyingAsset      :: AssetClass,
+        rcpAmount     :: Integer,
+        rcpOnBehalfOf :: PubKeyHash
+    }
+    deriving stock    (Prelude.Eq, Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''RevokeCollateralParams
+PlutusTx.makeLift ''RevokeCollateralParams
+
+revokeCollateral :: (HasBlockchainActions s) => Aave -> RevokeCollateralParams -> Contract w s Text ()
+revokeCollateral aave RevokeCollateralParams {..} = do
+    reserve <- State.findAaveReserve aave rcpUnderlyingAsset
+
+    let aTokenAsset = rAToken reserve
+    utxos <-
+        Map.filter ((> 0) . flip assetClassValueOf aTokenAsset . txOutValue . txOutTxOut)
+        <$> utxoAt (Core.aaveAddress aave)
+    let userConfigId = (rCurrency reserve, rcpOnBehalfOf)
+    let inputs = (\(ref, tx) -> OutputValue ref tx (Core.RevokeCollateralRedeemer userConfigId)) <$> Map.toList utxos
+    let payment = assetClassValue aTokenAsset rcpAmount
+    let remainder = assetClassValue aTokenAsset (rAmount reserve - rcpAmount)
+    let fundsUnlockingTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs rcpOnBehalfOf payment <>
+                            TxUtils.mustPayToScript (Core.aaveInstance aave) rcpOnBehalfOf (Core.UserCollateralFundsDatum rcpOnBehalfOf) remainder
+
+    ledgerTx <- TxUtils.submitTxPair fundsUnlockingTx
+    _ <- awaitTxConfirmed $ txId ledgerTx
+    pure ()
+
 -- TODO ? add repayWithCollateral
 
 data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
