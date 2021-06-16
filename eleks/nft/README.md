@@ -12,6 +12,7 @@ It is also used to store all the create tokens metadata to avoid duplicates.
 When create token method is invoked, we create two unique native tokens. One is the NFT token and it is send to the owner wallet, owner can sent it to other user address.
 Another one is the NFT metadata token. Metadata token is stored in the marketpalce and never leaves it. In the metadata token datum we store the Symbol of the NFT token and all metadata information (e.g. name, description, file).
 ![Create NFT](./screenshots/create-nft.jpg)
+
 In the validator we consume market token to verify that new token is unique.
 
 2. Put token on sale
@@ -223,3 +224,4 @@ curl -H "Content-Type: application/json" \
 ```
 
 ## Run frontend
+check ./market-web-app README.md
