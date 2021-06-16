@@ -202,11 +202,42 @@ dashboard wid = Workflow $ do
                           <*> (pooledTokenToCoin <$> selectionB)
                           <*> (toAmount <$> amountA)
                           <*> (toAmount <$> amountB))
-                    swapResponse <- requesting $ tagPromptlyDyn requestLoad swap
+                    -- This response doesn't return anything useful, so it is thrown away
+                    _ <- requesting $ tagPromptlyDyn requestLoad swap
                     -- TODO: "Success needs to differentiate between being submitted to chain and the swap actually occurring successfully.
-                    widgetHold_ blank $ ffor swapResponse $ \ieResponse -> case runIdentity ieResponse of
-                      Left err -> elClass "p" "text-danger" $ text $ T.pack $ show err
-                      Right _ -> elClass "p" "text-success" $ text "Success!"
+                    _ <- fmap (switch . current) $ prerender (return never) $ do
+                      ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+                      -- TODO: Create convenience function for filtering out websocket events
+                      let observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
+                            -> case mIncomingWebSocketData of
+                              Nothing -> False
+                              Just incomingWebSocketData -> do
+                                let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                                    swappedTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+                                newObservableStateTag == ["NewObservableState"] && swappedTag == ["Swapped"]
+                          observableStateFailureEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
+                            -> case mIncomingWebSocketData of
+                              Nothing -> False
+                              Just incomingWebSocketData -> do
+                                let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                                    failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
+                                newObservableStateTag == ["NewObservableState"] && failureMessageTag /= [""]
+                      -- this event will cause the success message to disappear when it occurs
+                      vanishEvent <- delay 7 observableStateSuccessEvent
+                      -- show success message based on new observable state
+                      widgetHold_ blank $ ffor (leftmost [observableStateSuccessEvent, Nothing <$ vanishEvent]) $
+                        \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                          Nothing -> blank
+                          Just _ -> elClass "p" "text-success" $ text "Success!"
+                      -- TODO: This message disappers whenever the navbar asks for new state. Need the message to stick around for a set amount of time
+                      -- show failure message based on new observable state
+                      widgetHold_ blank $ ffor observableStateFailureEvent $
+                        \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                          Nothing -> blank
+                          Just incomingWebSocketData -> do
+                            let errMsg = incomingWebSocketData ^.. key "contents" . key "Left" . _String
+                            elClass "p" "text-danger" $ text $ T.concat errMsg
+                      return never
                     return ()
                 return never
       return ()
