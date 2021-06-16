@@ -317,18 +317,23 @@ revokeCollateral aave RevokeCollateralParams {..} = do
 
     let aTokenAsset = rAToken reserve
     utxos <-
-        Map.filter ((> 0) . flip assetClassValueOf aTokenAsset . txOutValue . txOutTxOut)
+        Map.filter (getUsersCollateral aTokenAsset)
         <$> utxoAt (Core.aaveAddress aave)
     let userConfigId = (rCurrency reserve, rcpOnBehalfOf)
     let inputs = (\(ref, tx) -> OutputValue ref tx (Core.RevokeCollateralRedeemer userConfigId)) <$> Map.toList utxos
     let payment = assetClassValue aTokenAsset rcpAmount
     let remainder = assetClassValue aTokenAsset (rAmount reserve - rcpAmount)
     let fundsUnlockingTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs rcpOnBehalfOf payment <>
-                            TxUtils.mustPayToScript (Core.aaveInstance aave) rcpOnBehalfOf (Core.UserCollateralFundsDatum rcpOnBehalfOf) remainder
+                            TxUtils.mustPayToScript (Core.aaveInstance aave) rcpOnBehalfOf userDatum remainder
 
     ledgerTx <- TxUtils.submitTxPair fundsUnlockingTx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
+    where
+        userDatum = Core.UserCollateralFundsDatum rcpOnBehalfOf
+        getUsersCollateral :: AssetClass -> TxOutTx -> Bool
+        getUsersCollateral asset tx = ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut $ tx) &&
+                                      (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toData $ userDatum)
 
 -- TODO ? add repayWithCollateral
 
