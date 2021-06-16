@@ -214,6 +214,7 @@ validateWithdraw aave ReserveFundsDatum ctx userConfigId =
 
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
+-- TODO prohibit borrowing asset which is deposited
 validateBorrow :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
   traceIfFalse "validateBorrow: User Configs Datum change is not valid" isValidUserConfigsTransformation

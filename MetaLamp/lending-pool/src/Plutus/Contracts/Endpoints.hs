@@ -273,6 +273,29 @@ repay aave RepayParams {..} = do
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
+data ProvideCollateralParams =
+    ProvideCollateralParams {
+        pcpUnderlyingAsset      :: AssetClass,
+        pcpAmount     :: Integer,
+        pcpOnBehalfOf :: PubKeyHash
+    }
+    deriving stock    (Prelude.Eq, Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''ProvideCollateralParams
+PlutusTx.makeLift ''ProvideCollateralParams
+
+provideCollateral :: (HasBlockchainActions s) => Aave -> ProvideCollateralParams -> Contract w s Text ()
+provideCollateral aave ProvideCollateralParams {..} = do
+    reserve <- State.findAaveReserve aave pcpUnderlyingAsset
+
+    let payment = assetClassValue (rAToken reserve) pcpAmount
+    let fundsLockingTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pcpOnBehalfOf (Core.UserCollateralFundsDatum pcpOnBehalfOf) payment
+
+    ledgerTx <- TxUtils.submitTxPair fundsLockingTx
+    _ <- awaitTxConfirmed $ txId ledgerTx
+    pure ()
+
 -- TODO add provideCollateral
 -- TODO add revokeCollateral
 -- TODO ? add repayWithCollateral
