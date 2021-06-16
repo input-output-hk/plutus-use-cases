@@ -224,4 +224,4 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-## [Run frontend](/market-web-app README.md)
+## [Run frontend](market-web-app/README.md)
