@@ -13,31 +13,35 @@ import           Ledger                      (Address (Address),
                                               ValidatorHash, Value, findDatum)
 import           Plutus.V1.Ledger.Credential (Credential (PubKeyCredential, ScriptCredential))
 import qualified PlutusTx
-import           PlutusTx.Prelude            (Eq ((==)), Maybe (..), find, fst,
-                                              mapMaybe, mconcat, snd, ($), (.),
-                                              (<$>), (>>=))
+import           PlutusTx.Prelude            (Eq ((==)), Maybe (..), filter,
+                                              find, fst, mapMaybe, mconcat,
+                                              otherwise, snd, ($), (.), (<$>),
+                                              (>>=))
 
-{-# INLINABLE findDatumHashByValue #-}
--- | Find the hash of a datum, if it is part of the pending transaction's
---   outputs
-findDatumHashByValue :: Value -> [(DatumHash, Value)] -> Maybe DatumHash
-findDatumHashByValue val outs = fst <$> find f outs
+{-# INLINABLE findOnlyOneDatumHashByValue #-}
+-- | Find the hash of a datum, if it is part of the script's outputs.
+--   Assume search failed if more than one correspondence is found.
+findOnlyOneDatumHashByValue :: Value -> [(DatumHash, Value)] -> Maybe DatumHash
+findOnlyOneDatumHashByValue val outs = fst <$> case filter f outs of
+  [res] -> Just res
+  _     -> Nothing
   where
     f (_, val') = val' == val
 
 {-# INLINABLE findValueByDatumHash #-}
--- | Find the hash of a datum, if it is part of the pending transaction's
---   outputs
-findValueByDatumHash :: DatumHash -> [(DatumHash, Value)] -> Maybe Value
-findValueByDatumHash dh outs = snd <$> find f outs
+-- | Concat value of the script's outputs that have the specified hash of a datum
+findValueByDatumHash :: DatumHash -> [(DatumHash, Value)] -> Value
+findValueByDatumHash dh outs = mconcat $ mapMaybe f outs
   where
-    f (dh', _) = dh' == dh
+    f (dh', val) | dh' == dh = Just val
+                 | otherwise = Nothing
 
 {-# INLINABLE parseDatum #-}
 parseDatum :: PlutusTx.IsData a => TxInfo -> DatumHash -> Maybe a
 parseDatum txInfo dh = findDatum dh txInfo >>= (PlutusTx.fromData . getDatum)
 
 {-# INLINABLE valueSpentFrom #-}
+-- | Concat value of the inputs belonging to the provided public key inside the pending transaction's inputs
 valueSpentFrom :: TxInfo -> PubKeyHash -> Value
 valueSpentFrom txInfo pk =
   let flt TxOut {txOutAddress = Address (PubKeyCredential pk') _, txOutValue}
@@ -46,6 +50,7 @@ valueSpentFrom txInfo pk =
    in mconcat $ mapMaybe flt (txInInfoResolved <$> txInfoInputs txInfo)
 
 {-# INLINABLE scriptInputsAt #-}
+-- | Finds all inputs belonging to a specific script inside the pending transaction's inputs
 scriptInputsAt :: ValidatorHash -> TxInfo -> [(DatumHash, Value)]
 scriptInputsAt h p =
     let flt TxOut{txOutDatumHash=Just ds, txOutAddress=Address (ScriptCredential s) _, txOutValue} | s == h = Just (ds, txOutValue)
