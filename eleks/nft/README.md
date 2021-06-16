@@ -1,6 +1,33 @@
-# Plutus Platform starter project.
+# NFT Marketplace.
 
-This project gives a simple starter project for using the Plutus Platform.
+This project is an NFT marketplace demo
+User can create NFT tokens, sell and but them on a marketplace.
+
+## Architecture
+1. Start Contract
+On a contract start we create single NFT market utxo used to uniqely identity marketplace.
+It is also used to store all the create tokens metadata to avoid duplicates.
+
+2. Create NFT
+When create token method is invoked, we create two unique native tokens. One is the NFT token and it is send to the owner wallet, owner can sent it to other user address.
+Another one is the NFT metadata token. Metadata token is stored in the marketpalce and never leaves it. In the metadata token datum we store the Symbol of the NFT token and all metadata information (e.g. name, description, file).
+![Create NFT](./screenshots/create-nft.jpg)
+In the validator we consume market token to verify that new token is unique.
+
+2. Put token on sale
+At any moment token owner can put token on sale, he transfers his token to the marketplace and set token price. Only tokens created in the market could be put on sale.
+![Selling NFT](./screenshots/selling.jpg)
+
+3. Buy token on sale.
+If token is on sale, any user can buy it. Buyer receives the NFT token, Seller gets the price.
+![Buying NFT](./screenshots/buy.jpg)
+
+4. Cancel selling
+Token owner could decide to cancell sell. He will get the NFT token back. Token will be removed from the store.
+![Buying NFT](./screenshots/cancel-sell.jpg)
+
+5. Transfer token
+Owner could transfer token to any other user directly. NFT metadata tracks owner only when the token is on sale.
 
 ## Setting up
 
@@ -18,7 +45,6 @@ For now, the only supported tooling setup is to use the provided VSCode devconta
   - It will ask if you want to open it in the container, say yes.
   - `cabal build` from the terminal should work
   - Opening a Haskell file should give you IDE features (it takes a little while to set up the first time)
-
 
 ## The Plutus Application Backend (PAB) example
 
@@ -58,7 +84,6 @@ to call.
 
 3. Start by creating NFT token
 
-
 Create token
 ```
 export INSTANCE_ID=...
@@ -75,7 +100,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-4. Query my tokens
+4. Query my nft tokens.
 ```
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
@@ -91,7 +116,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-5. Set token for sell
+5. Put token on sell
 
 ```
 export INSTANCE_ID=...
@@ -109,7 +134,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-6. Query selling tokens
+6. Query all selling tokens
 ```
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
@@ -196,3 +221,5 @@ curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
+
+## Run frontend

@@ -7,7 +7,7 @@ Frontend part of NFT-case implementation.
 Firstly, go to the directory below.
 
 ```bash
-./eleks/nft/plutus-web-app
+./eleks/nft/market-web-app
 ```
 
 Then run this command to install all needed for the project packages.
@@ -49,7 +49,7 @@ W4.cid
 The insert properly ids in file with directory:
 
 ```bash
-./eleks/nft/plutus-web-app/src/helpers/constants.js
+./eleks/nft/market-web-app/src/helpers/constants.js
 ```
 ## App usage
 
