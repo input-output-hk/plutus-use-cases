@@ -1,33 +1,33 @@
 module Business.Aave where
 
 import Prelude
-import Capability.Contract (class Contract, ContractId, APIError, ContractUnit(..), Endpoint(..), getContracts)
+import Capability.Contract (class Contract, APIError, ContractId(..), Endpoint, getContracts)
 import Capability.PollContract (class PollContract, LeftPoll(..), PollError, PollResponse, pollEndpoint)
 import Control.Monad.Except (runExcept, throwError, withExcept)
-import Data.Either (Either, either)
-import Data.Json.JsonTuple (JsonTuple)
+import Data.Either (Either)
+import Data.Json.JsonUUID (JsonUUID(..))
 import Data.Lens (Prism', preview)
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe, maybe)
 import Data.RawJson (RawJson(..))
-import Foreign.Generic (class Encode, decodeJSON)
-import Plutus.Contracts.Core (Reserve, UserConfig)
-import Plutus.Contracts.Endpoints (BorrowParams, DepositParams, RepayParams, UserContractState, WithdrawParams, _Borrowed, _Deposited, _FundsAt, _GetPubKey, _Pending, _PoolFunds, _Repaid, _Reserves, _Users, _Withdrawn)
+import Foreign.Generic (class Decode, class Encode, decodeJSON)
+import Plutus.Contracts.Endpoints (ContractResponse(..))
 import Plutus.PAB.Events.ContractInstanceState (PartiallyDecodedResponse(..))
 import Plutus.PAB.Simulation (AaveContracts)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState(..))
-import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import Plutus.V1.Ledger.Value (AssetClass, Value)
-import PlutusTx.AssocMap (Map)
+import Wallet.Types (ContractInstanceId(..))
+import Data.UUID (toString) as UUID
 
 getAaveContracts :: forall m. Contract m => m (Either APIError (Array (ContractInstanceClientState AaveContracts)))
 getAaveContracts = getContracts
 
 getAaveResponseWith ::
-  forall m a p.
+  forall m a p s.
   PollContract m =>
   Encode p =>
+  Decode s =>
+  Show s =>
   Endpoint ->
-  Prism' UserContractState a ->
+  Prism' s a ->
   ContractId ->
   p ->
   m (Either PollError a)
@@ -37,39 +37,18 @@ getAaveResponseWith endpoint pick cid param = pollEndpoint getNext endpoint para
   getNext (ContractInstanceClientState { cicCurrentState: PartiallyDecodedResponse { observableState: RawJson s } }) =
     runExcept
       $ do
-          (response :: Either String UserContractState) <- withExcept (ResponseError <<< show) (decodeJSON s)
-          state <- either (throwError <<< ResponseError <<< show) pure response
-          case (preview _Pending state) of
-            Just _ -> throwError Continue
-            Nothing ->
+          (contractResponse :: ContractResponse String s) <- withExcept (ResponseError <<< show) (decodeJSON s)
+          case contractResponse of
+            ContractPending -> throwError Continue
+            ContractError e -> throwError <<< ResponseError $ e
+            ContractSuccess state ->
               maybe
                 (throwError <<< ResponseError $ "Invalid state: " <> (show state))
                 pure
                 (preview pick state)
 
-deposit :: forall m. PollContract m => ContractId -> DepositParams -> m (Either PollError Unit)
-deposit = getAaveResponseWith (Endpoint "deposit") _Deposited
+getAaveContractId :: forall a. Prism' AaveContracts a -> ContractInstanceClientState AaveContracts -> Maybe ContractId
+getAaveContractId pick (ContractInstanceClientState { cicContract, cicDefintion }) = (const $ toContractIdParam cicContract) <$> (preview pick cicDefintion)
 
-withdraw :: forall m. PollContract m => ContractId -> WithdrawParams -> m (Either PollError Unit)
-withdraw = getAaveResponseWith (Endpoint "withdraw") _Withdrawn
-
-borrow :: forall m. PollContract m => ContractId -> BorrowParams -> m (Either PollError Unit)
-borrow = getAaveResponseWith (Endpoint "borrow") _Borrowed
-
-repay :: forall m. PollContract m => ContractId -> RepayParams -> m (Either PollError Unit)
-repay = getAaveResponseWith (Endpoint "repay") _Repaid
-
-fundsAt :: forall m. PollContract m => ContractId -> PubKeyHash -> m (Either PollError Value)
-fundsAt = getAaveResponseWith (Endpoint "fundsAt") _FundsAt
-
-poolFunds :: forall m. PollContract m => ContractId -> m (Either PollError Value)
-poolFunds cid = getAaveResponseWith (Endpoint "poolFunds") _PoolFunds cid ContractUnit
-
-reserves :: forall m. PollContract m => ContractId -> m (Either PollError (Map AssetClass Reserve))
-reserves cid = getAaveResponseWith (Endpoint "reserves") _Reserves cid ContractUnit
-
-users :: forall m. PollContract m => ContractId -> m (Either PollError (Map (JsonTuple AssetClass PubKeyHash) UserConfig))
-users cid = getAaveResponseWith (Endpoint "users") _Users cid ContractUnit
-
-ownPubKey :: forall m. PollContract m => ContractId -> m (Either PollError PubKeyHash)
-ownPubKey cid = getAaveResponseWith (Endpoint "ownPubKey") _GetPubKey cid ContractUnit
+toContractIdParam :: ContractInstanceId -> ContractId
+toContractIdParam (ContractInstanceId { unContractInstanceId: JsonUUID uuid }) = ContractId <<< UUID.toString $ uuid

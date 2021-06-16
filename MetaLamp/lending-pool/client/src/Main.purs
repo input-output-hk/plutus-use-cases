@@ -1,7 +1,7 @@
 module Main where
 
 import Prelude
-import Components.App as App
+import Component.MainPage as App
 import AppAff (runAppM)
 import Effect (Effect)
 import Effect.Unsafe (unsafePerformEffect)

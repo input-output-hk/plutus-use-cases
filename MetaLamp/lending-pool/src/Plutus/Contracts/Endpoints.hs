@@ -134,6 +134,9 @@ balanceAt pkh asset = flip assetClassValueOf asset <$> fundsAt pkh
 poolFunds :: HasBlockchainActions s => Aave -> Contract w s Text Value
 poolFunds aave = valueAt (Core.aaveAddress aave)
 
+ownPubKeyBalance :: HasBlockchainActions s => Contract w s Text Value
+ownPubKeyBalance = getOwnPubKey >>= fundsAt
+
 data DepositParams =
   DepositParams {
     dpAsset      :: AssetClass,
@@ -280,60 +283,73 @@ repay aave RepayParams {..} = do
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
+data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
+    deriving stock    (Prelude.Eq, Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)
+
+handleContract :: forall l a p r s.
+    HasEndpoint l p s
+    => Proxy l
+    -> (a -> r)
+    -> (p -> Contract (Last (ContractResponse Text r)) s Text a)
+    -> Contract (Last (ContractResponse Text r)) s Void ()
+handleContract _ g c = do
+    e <- runError $ do
+        p <- endpoint @l
+        _ <- tell $ Last $ Just ContractPending
+        errorHandler `handleError` c p
+    tell $ Last $ Just $ case e of
+        Left err -> ContractError err
+        Right a  -> ContractSuccess $ g a
+        where
+        errorHandler e = do
+            logInfo @Text ("Error submiting the transaction: " <> e)
+            throwError e
+
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "deposit" DepositParams
         .\/ Endpoint "withdraw" WithdrawParams
         .\/ Endpoint "borrow" BorrowParams
         .\/ Endpoint "repay" RepayParams
-        .\/ Endpoint "fundsAt" PubKeyHash
-        .\/ Endpoint "poolFunds" ()
-        .\/ Endpoint "reserves" ()
-        .\/ Endpoint "users" ()
         .\/ Endpoint "ownPubKey" ()
+        .\/ Endpoint "ownPubKeyBalance" ()
 
 data UserContractState =
-    Pending
-    | Created
-    | Closed
-    | Stopped
-    | Deposited
+    Deposited
     | Withdrawn
     | Borrowed
     | Repaid
-    | FundsAt Value
+    | GetPubKey PubKeyHash
+    | GetPubKeyBalance Value
+    deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
+
+userEndpoints :: Aave -> Contract (Last (ContractResponse Text UserContractState)) AaveUserSchema Void ()
+userEndpoints aave = forever $
+    handleContract (Proxy @"deposit") (const Deposited) (deposit aave)
+    `select` handleContract (Proxy @"withdraw") (const Withdrawn) (withdraw aave)
+    `select` handleContract (Proxy @"borrow") (const Borrowed) (borrow aave)
+    `select` handleContract (Proxy @"repay") (const Repaid) (repay aave)
+    `select` handleContract (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
+    `select` handleContract (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)
+
+type AaveInfoSchema =
+    BlockchainActions
+    .\/ Endpoint "fundsAt" PubKeyHash
+    .\/ Endpoint "poolFunds" ()
+    .\/ Endpoint "reserves" ()
+    .\/ Endpoint "users" ()
+
+data InfoContractState =
+    FundsAt Value
     | PoolFunds Value
     | Reserves (AssocMap.Map AssetClass Reserve)
     | Users (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
-    | GetPubKey PubKeyHash
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
-userEndpoints :: Aave -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
-userEndpoints aa = forever $
-    f (Proxy @"deposit") (const Deposited) deposit
-    `select` f (Proxy @"withdraw") (const Withdrawn) withdraw
-    `select` f (Proxy @"borrow") (const Borrowed) borrow
-    `select` f (Proxy @"repay") (const Repaid) repay
-    `select` f (Proxy @"fundsAt") FundsAt (\_ pkh -> fundsAt pkh)
-    `select` f (Proxy @"poolFunds") PoolFunds (\aave () -> poolFunds aave)
-    `select` f (Proxy @"reserves") Reserves (\aave () -> reserves aave)
-    `select` f (Proxy @"users") Users (\aave () -> users aave)
-    `select` f (Proxy @"ownPubKey") GetPubKey (\_ () -> getOwnPubKey)
-  where
-    f :: forall l a p.
-        HasEndpoint l p AaveUserSchema
-      => Proxy l
-      -> (a -> UserContractState)
-      -> (Aave -> p -> Contract (Last (Either Text UserContractState)) AaveUserSchema Text a)
-      -> Contract (Last (Either Text UserContractState)) AaveUserSchema Void ()
-    f _ g c = do
-        e <- runError $ do
-            p <- endpoint @l
-            _ <- tell $ Last $ Just $ Right $ Pending
-            errorHandler `handleError` c aa p
-        tell $ Last $ Just $ case e of
-            Left err -> Left err
-            Right a  -> Right $ g a
-    errorHandler e = do
-        logInfo @Text ("Error submiting the transaction: " <> e)
-        throwError e
+infoEndpoints :: Aave -> Contract (Last (ContractResponse Text InfoContractState)) AaveInfoSchema Void ()
+infoEndpoints aave = forever $
+    handleContract (Proxy @"fundsAt") FundsAt fundsAt
+    `select` handleContract (Proxy @"poolFunds") PoolFunds (const $ poolFunds aave)
+    `select` handleContract (Proxy @"reserves") Reserves (const $ reserves aave)
+    `select` handleContract (Proxy @"users") Users (const $ users aave)

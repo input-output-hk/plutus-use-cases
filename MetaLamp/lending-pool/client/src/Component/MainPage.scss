@@ -1,0 +1,17 @@
+.content {
+  display: flex;
+  max-width: 1300px;
+
+  &__statistics {
+    width: 40%;
+  }
+
+  &__contracts {
+    width: 60%;
+  }
+
+  &__contracts-list {
+    display: flex;
+    justify-content: space-evenly;
+  }
+}
