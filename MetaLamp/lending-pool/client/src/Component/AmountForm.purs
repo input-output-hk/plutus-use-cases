@@ -1,4 +1,4 @@
-module Components.AmountForm where
+module Component.AmountForm where
 
 import Prelude
 import Data.Array (head)
@@ -30,8 +30,8 @@ type Input
 initialState :: Input -> State
 initialState amounts = { amounts, name: _.name <$> head amounts, amount: Nothing }
 
-amountForm :: forall query m. H.Component HH.HTML query Input Output m
-amountForm =
+component :: forall query m. H.Component HH.HTML query Input Output m
+component =
   H.mkComponent
     { initialState: initialState
     , render

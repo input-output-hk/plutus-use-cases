@@ -8,5 +8,5 @@ remoteDataState :: forall props act e a. Show e => (a -> HH.HTML props act) -> R
 remoteDataState onSuccess = case _ of
   NotAsked -> HH.div_ [ HH.text "" ]
   Loading -> HH.div_ [ HH.text "Loading..." ]
-  Failure e -> HH.div_ [ HH.text $ "Error: " <> show e ]
+  Failure e -> HH.div_ [ HH.text "Something went wrong" ]
   Success a -> onSuccess a
