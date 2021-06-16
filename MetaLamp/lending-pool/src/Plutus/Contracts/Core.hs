@@ -241,10 +241,9 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
       maybe False (checkRedeemerConfig $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
     checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
-      let oldDebt = fromMaybe 0 $ oldState >>= ucDebt
-          debtAmount = maybe 0 (flip (-) oldDebt) (ucDebt newState)
+      let debtAmount = (ucDebt newState -) $ maybe 0 ucDebt oldState
           disbursementAmount = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
-       in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0 &&
+       in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0
 
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
@@ -281,10 +280,10 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
        (checkRedeemerConfig <$> AssocMap.lookup userConfigId userConfigs <*> AssocMap.lookup userConfigId newUserConfigs))
     checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
-      let debtChange = fromMaybe 0 $ (-) <$> ucDebt oldState <*> ucDebt newState
-          newDebt = fromMaybe 0 $ ucDebt newState
+      let newDebt = ucDebt newState
+          debtChange = ucDebt oldState - newDebt
           reimbursementAmount = assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
-       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 && newDebt >= 0 &&
+       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 && newDebt >= 0
 
 validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId

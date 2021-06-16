@@ -185,19 +185,13 @@ PlutusTx.makeLift ''WithdrawParams
 withdraw :: (HasBlockchainActions s) => Aave -> WithdrawParams -> Contract w s Text ()
 withdraw aave WithdrawParams {..} = do
     reserve <- State.findAaveReserve aave wpAsset
-
     let userConfigId = (wpAsset, wpUser)
-    balance <- balanceAt wpUser (rAToken reserve)
-    userConfigsTx <- if wpAmount == balance then do
-        userConfig <- State.findAaveUserConfig aave userConfigId
-        State.updateUserConfig aave (Core.WithdrawRedeemer userConfigId) userConfigId $ userConfig { ucUsingAsCollateral = False }
-        else pure mempty
 
     burnTx <- AToken.burnATokensFrom aave reserve wpUser wpAmount
 
     reservesTx <- State.updateReserve aave (Core.WithdrawRedeemer userConfigId) wpAsset (reserve { rAmount = rAmount reserve - wpAmount })
 
-    ledgerTx <- TxUtils.submitTxPair $ burnTx <> reservesTx <> userConfigsTx
+    ledgerTx <- TxUtils.submitTxPair $ burnTx <> reservesTx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
@@ -234,10 +228,10 @@ borrow aave BorrowParams {..} = do
             aave
             (Core.BorrowRedeemer userConfigId)
             userConfigId
-            UserConfig {ucUsingAsCollateral = False, ucDebt = Just bpAmount}
+            UserConfig { ucDebt = bpAmount }
         Just userConfig ->
             State.updateUserConfig aave (Core.BorrowRedeemer userConfigId) userConfigId $
-            userConfig {ucDebt = Just $ maybe bpAmount (+ bpAmount) $ ucDebt userConfig}
+            userConfig { ucDebt = ucDebt userConfig + bpAmount}
 
     reservesTx <- State.updateReserve aave (Core.BorrowRedeemer userConfigId) bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
 
@@ -271,7 +265,7 @@ repay aave RepayParams {..} = do
             Nothing ->
                 throwError "User does not have any debt."
             Just userConfig ->
-                State.updateUserConfig aave (Core.RepayRedeemer userConfigId) userConfigId $ userConfig { ucDebt = subtract rpAmount <$> ucDebt userConfig }
+                State.updateUserConfig aave (Core.RepayRedeemer userConfigId) userConfigId $ userConfig { ucDebt = ucDebt userConfig - rpAmount }
 
     reservesTx <- State.updateReserve aave (Core.RepayRedeemer userConfigId) rpAsset (reserve { rAmount = rAmount reserve + rpAmount })
 
@@ -281,6 +275,7 @@ repay aave RepayParams {..} = do
 
 -- TODO add provideCollateral
 -- TODO add revokeCollateral
+-- TODO ? add repayWithCollateral
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "deposit" DepositParams
