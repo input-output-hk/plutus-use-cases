@@ -41,7 +41,7 @@ import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
 import           Plutus.Contracts.Currency as Currency
-import           Prelude                   (Semigroup (..))
+import           Prelude                   (Semigroup (..), String, show)
 import qualified Prelude                   as Prelude
 
 -- contract param structure
@@ -50,12 +50,12 @@ data Oracle = Oracle
     , oOperator :: !PubKeyHash      -- owner of the oracle
     , oFee      :: !Integer         -- fees in lovelace
     , oAsset    :: !AssetClass      -- target of the oracle (US dollar)
-    } deriving (Show, Generic, FromJSON, ToJSON, Prelude.Eq, Prelude.Ord)
+    } deriving (Prelude.Show, Generic, FromJSON, ToJSON, Prelude.Eq, Prelude.Ord)
 
 PlutusTx.makeLift ''Oracle
 
 data OracleRedeemer = Update | Use  -- two availabe operations
-    deriving Show
+    deriving Prelude.Show
 
 PlutusTx.unstableMakeIsData ''OracleRedeemer
 
@@ -142,7 +142,7 @@ data OracleParams = OracleParams    -- parans fir starting oracle
     { opFees   :: !Integer
     , opSymbol :: !CurrencySymbol
     , opToken  :: !TokenName
-    } deriving (Show, Generic, FromJSON, ToJSON)
+    } deriving (Prelude.Show, Generic, FromJSON, ToJSON)
 
 startOracle :: forall w s. HasBlockchainActions s => OracleParams -> Contract w s Text Oracle
 startOracle op = do

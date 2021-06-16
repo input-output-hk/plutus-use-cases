@@ -31,7 +31,7 @@ ownFunds = do
     pk    <- ownPubKey
     utxos <- utxoAt $ pubKeyAddress pk
     let v = mconcat $ Map.elems $ txOutValue . txOutTxOut <$> utxos
-    logInfo @String $ "own funds: " ++ show (Value.flattenValue v)
+    -- logInfo @String $ "own funds: " ++ show (Value.flattenValue v)
     return v
 
 ownFunds' :: Contract (Last Value) BlockchainActions Text ()
