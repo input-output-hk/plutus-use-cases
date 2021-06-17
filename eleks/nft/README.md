@@ -6,18 +6,15 @@ User can create, sell or buy NFT tokens on a marketplace. Solution does not requ
 ## Architecture
 ### Start Contract
 On a contract start we create single NFT market token used to uniqely identity marketplace.
-It is also used to store all the created tokens metadata to avoid duplicates.
-
+Market token is stored in the script address and it is datum contains info of the all metadata tokens created in the marketplace to validate token uniqueness.
 ### Create NFT
-When create token method is invoked, we create two unique native tokens. One is the NFT token and it is send to the owner wallet.
-Another one is the NFT metadata token. Metadata token is stored in the marketpalce and never leaves it. In the metadata token datum we store the Symbol of the NFT token and all metadata information (e.g. name, description, file).
+On NFT token create we create two unique native tokens. One is the NFT token and it is send to the owner wallet.
+Another one is the NFT metadata token. Metadata token is stored in the market script address and never leaves it. In the metadata token datum we store the Symbol of the NFT token and all metadata information (e.g. name, description, file). Market token utxo is consumed in the creation transaction, existing tokens list is taken from the market it is and used to verify new token uniqueness.
 
 ![Create NFT](./screenshots/create-nft.jpg)
 
-In the validator we consume market token to verify that new token is unique.
-
 ### Put token on sale
-At any moment token owner can put token on sale, he transfers his token to the marketplace and set token price. Only tokens created in the market could be put on sale.
+At any moment token owner can put token on sale, he transfers his NFT token to the marketplace and set token price. Only tokens created in the market could be put on sale.
 
 ![Selling NFT](./screenshots/selling.jpg)
 
@@ -26,28 +23,23 @@ If token is on sale, any user can buy it. Buyer receives the NFT token, Seller g
 ![Buying NFT](./screenshots/buy.jpg)
 
 ### Cancel selling
-Token owner could decide to cancell sell. He will get the NFT token back. Token will be removed from the store.
+Token owner could decide to cancell sell. He will get the NFT token back from the market script. Token will be removed from the store.
 ![Buying NFT](./screenshots/cancel-sell.jpg)
 
 ### Transfer token
-Owner could transfer token to any other user directly. NFT metadata tracks owner only when the token is on sale.
+Owner could transfer token to any other user directly. Market NFT metadata tracks owner only when the token is on sale. If user have Market NFT token he can see put it on sale or see in the my market NFT token list.
 
 ## Setting up
 
 For now, the only supported tooling setup is to use the provided VSCode devcontainer to get an environment with the correct tools set up.
 
-- Install Docker
-- Install VSCode
-  - Install the [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
-  - You do *not* need to install the Haskell extension
-- Get the docker image (for now, we need to build this with Nix)
+- Run the nix terminal
   - Clone https://github.com/input-output-hk/plutus 
-  - Set up your machine to build things with Nix, following the Plutus README (make sure to set up the binary cache!)
-  - Build and load the docker container: `docker load < $(nix-build default.nix -A devcontainer)`
-- Clone this repository and open it in VSCode
-  - It will ask if you want to open it in the container, say yes.
+  - Set up your machine to run Nix terminal, following the Plutus README (make sure to set up the binary cache!)
+  - Run nix shell in the plutus folder
+- Clone this repository
+  - In the nix terminal switch to the current folder
   - `cabal build` from the terminal should work
-  - Opening a Haskell file should give you IDE features (it takes a little while to set up the first time)
 
 ## The Plutus Application Backend (PAB) example
 
@@ -85,7 +77,7 @@ curl -s http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq
 This has a lot of information; and in particular we can see what endpoints are still available
 to call.
 
-3. Start by creating NFT token
+3. Start by creating NFT token, invoker will get NFT token in his Wallet.
 
 Create token
 ```
@@ -115,7 +107,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-5. Put token on sell
+5. Put token on sell. You should be onwer of the spTokenSymbol
 
 ```
 export INSTANCE_ID=...
@@ -131,7 +123,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-6. Query all selling tokens
+6. Query all selling tokens. It get all selling tokens from all users
 ```
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
@@ -145,7 +137,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-7. Buy token
+7. Buy token.
 
 ```
 export INSTANCE_ID=...
@@ -161,7 +153,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-8. Сancel token selling
+8. Сancel token selling. You should have put token on sale to be able to retrieve it.
 
 ```
 export INSTANCE_ID=...
@@ -177,7 +169,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-9. Get user key
+9. Get user key. Get the invoker wallet public key hash
 
 ```
 export INSTANCE_ID=...
@@ -193,7 +185,7 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-9. Transfer Token
+10. Transfer Token. If you own the token you can directly transfer it to the other user.
 
 ```
 export INSTANCE_ID=...
