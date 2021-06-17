@@ -1,15 +1,15 @@
 # NFT Marketplace.
 
-This project is an NFT marketplace demo
-User can create NFT tokens, sell and but them on a marketplace.
+This project is an NFT marketplace demo.
+User can create, sell or buy NFT tokens on a marketplace. Solution does not require external database or metadata storage.
 
 ## Architecture
 ### Start Contract
-On a contract start we create single NFT market utxo used to uniqely identity marketplace.
-It is also used to store all the create tokens metadata to avoid duplicates.
+On a contract start we create single NFT market token used to uniqely identity marketplace.
+It is also used to store all the created tokens metadata to avoid duplicates.
 
 ### Create NFT
-When create token method is invoked, we create two unique native tokens. One is the NFT token and it is send to the owner wallet, owner can sent it to other user address.
+When create token method is invoked, we create two unique native tokens. One is the NFT token and it is send to the owner wallet.
 Another one is the NFT metadata token. Metadata token is stored in the marketpalce and never leaves it. In the metadata token datum we store the Symbol of the NFT token and all metadata information (e.g. name, description, file).
 
 ![Create NFT](./screenshots/create-nft.jpg)
@@ -94,6 +94,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"cpTokenName":"TestToken","cpDescription":"Test description","cpAuthor":"John Smith","cpFile":"https://ipfs.io/ipfs/bafybeieznanm2s27u2okty2xgorltsfoegtgvamovfjx56ctgijtz4caoy"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/create
+
 #get response
 curl -H "Content-Type: application/json" \
   --request GET \
@@ -107,6 +108,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/userNftTokens
+
 #get response
 curl -H "Content-Type: application/json" \
   --request GET \
@@ -121,6 +123,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"spSellPrice":1000,"spTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sell
+
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
@@ -135,6 +138,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sellingTokens
+
 #get response
 curl -H "Content-Type: application/json" \
   --request GET \
@@ -149,6 +153,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"bpTokenSymbol": "staQbIJe11Om2KUvRt1+1SivJXo4H+u6Wc8Nekh7VQA="}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/buy
+
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
@@ -164,6 +169,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"cspTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/cancelSell
+
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
@@ -179,6 +185,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/userPubKeyHash
+
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
@@ -194,6 +201,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"tpTokenSymbol": "staQbIJe11Om2KUvRt1+1SivJXo4H+u6Wc8Nekh7VQA=", "tpReceiverWallet": 1}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/transfer
+
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
@@ -201,4 +209,10 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-## [Run frontend](market-web-app/README.md)
+## Frontend App
+[Run frontend](market-web-app/README.md)
+
+## Run unit tests
+```
+cabal test
+```
