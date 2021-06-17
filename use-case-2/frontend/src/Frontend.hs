@@ -20,7 +20,9 @@ import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import Data.Int
+import Data.Maybe (fromMaybe)
 import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as HMap
 import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
@@ -100,7 +102,10 @@ app = Workflow $ do
             return $ leftmost walletIdEvents
       return ((), dashboard <$> walletEv)
 
-navBar :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Maybe Text -> m (Event t ())
+data Dashboard = Dashboard_Swap | Dashboard_Portfolio | Dashboard_Pool
+  deriving (Eq, Ord, Show)
+
+navBar :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Maybe Text -> m (Event t Dashboard)
 navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
   divClass "container-fluid" $ do
     elAttr "a" ("class" =: "navbar-brand" <> "href" =: "#") $ text "POKE-DEX - Plutus Obelisk Koin Economy Decentralized Exchange "
@@ -112,9 +117,23 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
     case mWid of
       Nothing -> return never
       Just wid -> do
+        -- select which page of the dashboard the user would like to see
+        navSelect <- elClass "ul" "nav navbar-nav" $ do
+          swapEv <- do
+            (e,_) <- elClass' "li" "text-white" $ text "Swap"
+            return $ Dashboard_Swap  <$ domEvent Click e
+          portfolioEv <- do
+            (e,_) <- elClass' "li" "text-white" $ text "-Portfolio-"
+            return $ Dashboard_Portfolio  <$ domEvent Click e
+          poolEv <- do
+            (e,_) <- elClass' "li" "text-white" $ text "Pool"
+            return $ Dashboard_Pool  <$ domEvent Click e
+          return $ leftmost [swapEv, portfolioEv, poolEv]
+        -- event that fires once the page has finished loading
+        pb <- getPostBuild
+        -- recurring event used to poll for wallet balance
         pollingEvent <- tickLossyFromPostBuildTime 10
-        -- pollingEvent <- button "See Funds"
-        requesting_ $ (Api_CallFunds (ContractInstanceId wid)) <$ pollingEvent
+        requesting_ $ (Api_CallFunds (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
         fmap (switch . current) $ prerender (return never) $ do
           -- incorporate the use of PAB's websockets to display the wallet's current Ada Balance
           ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
@@ -125,31 +144,33 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
                   let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
                       fundsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
                   observableStateTag == ["NewObservableState"] && fundsTag == ["Funds"]
-          _ <- widgetHold blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+          widgetHold_ blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
             Nothing -> return ()
             Just incomingWebSocketData -> do
               -- aeson-lens happened here to unpack the json object received from the websocket
               -- TODO: Place aeson lens selectors into it's own module
-              let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array -- DEBUG
-                  adaDetails = (V.! 1) <$> currencyDetails
-                  adaNameWithBalance = adaDetails ^.. traverse . _Array
-                  nestedArrayIndex1 = (V.! 1) <$> adaNameWithBalance
-                  unwrapArray1 = nestedArrayIndex1 ^.. traverse . _Array
-                  nestedArrayIndex2 = (V.! 0) <$> unwrapArray1
-                  unwrapArray2 = nestedArrayIndex2 ^.. traverse . _Array
-                  nestedArrayIndex3 = (V.! 1) <$> unwrapArray2
-                  balanceList = nestedArrayIndex3 ^.. traverse . _Number
+              let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
+                  adaDetails = (V.! 0) <$> currencyDetails
+                  unwrapAda1 = adaDetails ^.. traverse . _Array
+                  adaCurrencySymbol = (V.! 0) <$> unwrapAda1
+                  adaNameAndBalance = (V.! 1) <$> unwrapAda1
+                  unwrapAdaNameAndBalance = adaNameAndBalance ^.. traverse . _Array
+                  nestedAdaBalName = (V.! 0) <$> unwrapAdaNameAndBalance
+                  unwrapAdaBalName = nestedAdaBalName ^.. traverse . _Array
+                  adaBal = (V.! 1) <$> unwrapAdaBalName
+                  balanceList = adaBal ^.. traverse . _Number
                   mAdaBalance = headMay balanceList
                   adaBalance = case mAdaBalance of
                     Nothing -> 0
                     Just bal -> coefficient bal
               elClass "p" "text-white" $ text $ "ADA Balance: " <> (T.pack $ show adaBalance)
-          return never
+          return navSelect
 
 dashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Text -> Workflow t m ()
 dashboard wid = Workflow $ do
   -- TODO: Add swap and stake tabs to the navbar
-  _ <- navBar $ Just wid
+  navEvent <- navBar $ Just wid
+  let portfolioEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Portfolio
   _ <- divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container-fluid py-5" $ do
       elClass "h3" "display-5 fw-bold" $ text "Swap Tokens"
@@ -241,7 +262,51 @@ dashboard wid = Workflow $ do
                     return ()
                 return never
       return ()
-  return ((), never)
+  return ((), leftmost [(portfolio wid) <$ portfolioEv])
+
+portfolio :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
+  => Text
+  -> Workflow t m ()
+portfolio wid = Workflow $ do
+  -- TODO: Consider refactoring workflow code a bit to avoid redrawing navbar whenever a new tab is seleted
+  navEvent <- navBar $ Just wid
+  let swapEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Swap
+  _ <- divClass "p-5 mb-4 bg-light rounded-5" $ do
+    divClass "container-fluid py-5" $ do
+      elClass "h3" "display-5 fw-bold" $ text "Portfolio"
+      el "p" $ text "Here are your tokens."
+      pb <- getPostBuild
+      -- recurring event used to poll for wallet balance
+      pollingEvent <- tickLossyFromPostBuildTime 10
+      requesting_ $ (Api_CallFunds (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
+      fmap (switch . current) $ prerender (return never) $ do
+        -- incorporate the use of PAB's websockets to display the wallet's current Ada Balance
+        ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+        -- filter for websocket events relevent to funds that contain the "Funds" tag and "NewObservableState" tag
+        let fundsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+              Nothing -> False
+              Just incomingWebSocketData -> do
+                let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                    fundsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+                observableStateTag == ["NewObservableState"] && fundsTag == ["Funds"]
+        widgetHold_ blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+          Nothing -> return ()
+          Just incomingWebSocketData -> do
+            let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
+                allTokenDetails = (V.! 1) <$> currencyDetails
+                unwrapTokenDetails1 = allTokenDetails ^.. traverse . _Array
+                nestedTokenDetails1 = (V.! 1) <$> unwrapTokenDetails1
+                allTokenNamesAndBalances = nestedTokenDetails1 ^.. traverse . _Array
+            elClass "ul" "" $ do
+              flip mapM_ allTokenNamesAndBalances $ \atb ->
+                flip mapM_ atb $ \(Aeson.Array tokenMeta) -> el "li" $ do
+                  let (Aeson.Object tokenHashMap) = (V.! 0) tokenMeta
+                      (Aeson.String tokenName) = fromMaybe (Aeson.String "NoName") $ HMap.lookup "unTokenName" tokenHashMap
+                      (Aeson.Number tokenBalance) = (V.! 1) tokenMeta
+                  el "p" $ text $ "Token Name: " <> (T.pack $ show tokenName) <> "Balance: " <> (T.pack $ show tokenBalance)
+            return ()
+        return never
+  return ((), leftmost [dashboard wid <$ swapEv])
 
 viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))
 viewCounter = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_Counter . identityV
