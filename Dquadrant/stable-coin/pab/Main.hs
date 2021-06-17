@@ -110,5 +110,5 @@ handleTokenContract = Builtin.handleBuiltin getSchema getContract where
 
 handlers :: SimulatorEffectHandlers (Builtin TokenContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin TokenContracts) [TokenContract] 
+    Simulator.mkSimulatorHandlers @(Builtin TokenContracts) [] 
     $ interpret handleTokenContract

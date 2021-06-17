@@ -9,12 +9,17 @@ License:             Apache-2.0
 License-files:       LICENSE
 
 library
-  hs-source-dirs:      src examples/src
+  hs-source-dirs:      src
   exposed-modules:     Plutus.Contracts.CoinsStateMachine
+                       Plutus.Contracts.Oracle.Core
+                       Plutus.Contracts.Oracle.Funds
+                       Plutus.Contracts.Oracle.PAB
+                       Plutus.Contracts.Oracle.Swap
                      
   build-depends:       aeson
                      , base ^>=4.14.1.0
                      , containers
+                     , data-default
                      , lens
                      , freer-extras
                      , playground-common
@@ -25,6 +30,10 @@ library
                      , plutus-tx
                      , text
                      , bytestring
+                     , plutus-use-cases
+                     , prettyprinter
+
+
   default-language:    Haskell2010
   ghc-options:         -Wall -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr -fno-specialise
 
@@ -47,6 +56,66 @@ executable stablecoin-pab
                      , plutus-contract -any
                      , stable-coin-starter
                      , plutus-use-cases
+
+
+executable oracle-pab
+  main-is: oracle-pab.hs
+  hs-source-dirs: pab
+  ghc-options:         -Wall
+  build-depends:       aeson
+                     , base ^>= 4.14.1.0
+                     , lens
+                     , plutus-ledger
+                     , plutus-pab
+                     , req ^>= 3.9.0
+                     , text -any
+                     , uuid
+                     , containers
+                     , freer-extras
+                     , freer-simple -any
+                     , prettyprinter -any
+                     , plutus-contract -any
+                     , stable-coin-starter
+                     , plutus-use-cases
+
+test-suite plutus-use-cases-tests
+  Type:                exitcode-stdio-1.0
+  Ghc-options:         -Wall -threaded -rtsopts
+  Default-Language:    Haskell2010
+  Build-Depends:       base              >=4.9 && <5
+                     , data-default
+                     , freer-extras
+                     , freer-simple
+                     , lens
+                     , stable-coin-starter
+                     , mtl
+                     , containers
+                     , playground-common
+                     , plutus-core
+                     , plutus-contract
+                     , plutus-ledger
+                     , plutus-tx
+                     , plutus-ledger-api
+                     , plutus-tx-plugin
+                     , plutus-pab
+                     , plutus-use-cases
+                     , plutus-contract
+                     , prettyprinter
+                     , pretty-show
+                     , tasty
+                     , tasty-hunit
+                     , tasty-expected-failure
+                     , text
+  hs-source-dirs:      src/test
+  Main-is:             Spec.hs
+  Other-modules:
+                       Spec.StableCoinTest
+  default-extensions:
+    RecordWildCards
+    OverloadedStrings
+    QuasiQuotes
+    TupleSections
+
 
 
 
