@@ -29,7 +29,7 @@ module Plutus.Contracts.CoinsStateMachine
     BankInputAction (..),
     BankStateSchema,
     BankStateError,
-    EndpointInput (..)
+    EndpointInput (..),
   )
 where
 
@@ -50,6 +50,9 @@ import Ledger.Oracle
 import Ledger.Typed.Scripts (scriptHash)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (forwardingMPS)
+import qualified Ledger.Value as Value
+import Playground.Contract (ToSchema, adaCurrency, ensureKnownCurrencies, printJson, printSchemas, stage)
+import Playground.TH (mkKnownCurrencies, mkSchemaDefinitions)
 import Plutus.Contract
 import Plutus.Contract.StateMachine (SMContractError, State (..), StateMachine, StateMachineClient (..), StateMachineInstance (..), Void)
 import qualified Plutus.Contract.StateMachine as SM
@@ -57,8 +60,6 @@ import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
 import PlutusTx.Ratio as Ratio
 import qualified Prelude
-import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
-import           Playground.Contract    (printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema, adaCurrency)
 
 --
 data BankState = BankState
@@ -187,7 +188,8 @@ transition bankParam@BankParam {} State {stateData = oldStateData} BankInput {ba
                   }
               )
 
-  guard $ isNewStateValid bankParam newStateData rate
+  guard (isNewStateValid bankParam newStateData rate)
+
   let state =
         State
           { stateData = newStateData,
@@ -312,6 +314,7 @@ start :: HasBlockchainActions s => Integer -> Contract w s Text ()
 start _ = do
   void $ mapError' $ SM.runInitialise client (initialState client) mempty
 
+--TODO check for validation in offchain
 mintStableCoin :: HasBlockchainActions s => EndpointInput -> Contract w s Text ()
 mintStableCoin endpointInput@EndpointInput {tokenAmount} = do
   let input =
@@ -319,7 +322,6 @@ mintStableCoin endpointInput@EndpointInput {tokenAmount} = do
           { rate = getRatioFromInput endpointInput,
             bankInputAction = MintStableCoin tokenAmount
           }
-  logInfo @String $ "calling mint" ++ (show endpointInput)
   void $ mapError' $ SM.runStep client input
 
 redeemStableCoin :: HasBlockchainActions s => EndpointInput -> Contract w s Text ()
@@ -350,7 +352,7 @@ redeemReserveCoin endpointInput@EndpointInput {tokenAmount} = do
   void $ mapError' $ SM.runStep client input
 
 getRatioFromInput :: EndpointInput -> Ratio Integer
-getRatioFromInput EndpointInput{rateNume,rateDeno} = rateNume % rateDeno
+getRatioFromInput EndpointInput {rateNume, rateDeno} = rateNume % rateDeno
 
 data EndpointInput = EndpointInput
   { --Signed message from oracle provider  for exchange rate
@@ -381,6 +383,7 @@ endpoints =
   )
     >> endpoints
   where
+    --TODO handle state for multiple start endpoint call
     start' = endpoint @"start" >>= start
     mintStableCoin' = endpoint @"mintStableCoin" >>= mintStableCoin
     redeemStableCoin' = endpoint @"redeemStableCoin" >>= redeemStableCoin
