@@ -22,3 +22,16 @@ CORS protection needs to be disabled. You can use this script to launch chromium
 ```
 npm run start-chrome
 ```
+
+## Troubleshooting
+
+Sometimes the build results in error with Haskell IDE enabled. If the build does not work or the app behaves strangely, disable IDE and clean all source files:
+
+```
+cd MetaLamp/lending-pool/ && cabal clean
+```
+
+```
+cd MetaLamp/lending-pool/client && rm -rf node_modules/ generated/ output/ plutus-purs/ .spago/
+```
+

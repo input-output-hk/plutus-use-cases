@@ -44,3 +44,7 @@ cabal run pab-simulation
 ## Client
 
 See the client [readme](client/README.md).
+
+## Troubleshooting
+
+See [note](client/README.md/#Troubleshooting).
