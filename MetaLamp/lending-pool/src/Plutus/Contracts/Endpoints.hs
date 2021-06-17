@@ -292,8 +292,11 @@ provideCollateral :: (HasBlockchainActions s) => Aave -> ProvideCollateralParams
 provideCollateral aave ProvideCollateralParams {..} = do
     reserve <- State.findAaveReserve aave pcpUnderlyingAsset
 
+    userOwnedAtokenAmount <- balanceAt pcpOnBehalfOf (rAToken reserve)
     let payment = assetClassValue (rAToken reserve) pcpAmount
+    let remainder = assetClassValue (rAToken reserve) (userOwnedAtokenAmount - pcpAmount)
     let fundsLockingTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pcpOnBehalfOf (Core.UserCollateralFundsDatum pcpOnBehalfOf) payment
+                         <> (Prelude.mempty, mustPayToPubKey pcpOnBehalfOf remainder)
 
     ledgerTx <- TxUtils.submitTxPair fundsLockingTx
     _ <- awaitTxConfirmed $ txId ledgerTx
@@ -319,10 +322,11 @@ revokeCollateral aave RevokeCollateralParams {..} = do
     utxos <-
         Map.filter (getUsersCollateral aTokenAsset)
         <$> utxoAt (Core.aaveAddress aave)
+    let usersCollateralValue = Prelude.foldMap (txOutValue . txOutTxOut) utxos
     let userConfigId = (rCurrency reserve, rcpOnBehalfOf)
     let inputs = (\(ref, tx) -> OutputValue ref tx (Core.RevokeCollateralRedeemer userConfigId)) <$> Map.toList utxos
     let payment = assetClassValue aTokenAsset rcpAmount
-    let remainder = assetClassValue aTokenAsset (rAmount reserve - rcpAmount)
+    let remainder = assetClassValue aTokenAsset (assetClassValueOf usersCollateralValue aTokenAsset - rcpAmount)
     let fundsUnlockingTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs rcpOnBehalfOf payment <>
                             TxUtils.mustPayToScript (Core.aaveInstance aave) rcpOnBehalfOf userDatum remainder
 
