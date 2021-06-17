@@ -366,6 +366,8 @@ type AaveUserSchema =
         .\/ Endpoint "withdraw" WithdrawParams
         .\/ Endpoint "borrow" BorrowParams
         .\/ Endpoint "repay" RepayParams
+        .\/ Endpoint "provideCollateral" ProvideCollateralParams
+        .\/ Endpoint "revokeCollateral" RevokeCollateralParams
         .\/ Endpoint "ownPubKey" ()
         .\/ Endpoint "ownPubKeyBalance" ()
 
@@ -374,6 +376,8 @@ data UserContractState =
     | Withdrawn
     | Borrowed
     | Repaid
+    | CollateralProvided
+    | CollateralRevoked
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
@@ -384,6 +388,8 @@ userEndpoints aave = forever $
     `select` handleContract (Proxy @"withdraw") (const Withdrawn) (withdraw aave)
     `select` handleContract (Proxy @"borrow") (const Borrowed) (borrow aave)
     `select` handleContract (Proxy @"repay") (const Repaid) (repay aave)
+    `select` handleContract (Proxy @"provideCollateral") (const CollateralProvided) (provideCollateral aave)
+    `select` handleContract (Proxy @"revokeCollateral") (const CollateralRevoked) (revokeCollateral aave)
     `select` handleContract (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
     `select` handleContract (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)
 
