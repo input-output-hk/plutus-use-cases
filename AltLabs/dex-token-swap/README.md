@@ -1,55 +1,64 @@
-# Plutus Platform starter project
+## [Use case 2] — DEX Token Swap, Liquidity and Stake Pools
 
-This project gives a simple starter project for using the Plutus Platform.
+Our main goal of this project is to get onboarded into the Plutus smart contract ecosystem, and gain full understanding of it's mechanics of the UTxO transaction model.
 
-## Setting up
+The project should make available the following functionallity that can be consumed by the WebUI:
 
-For now, the only supported tooling setup is to use the provided VSCode devcontainer to get an environment with the correct tools set up.
+* Swap 2 tokens within a pre-made liquidity pool
+* Contribute to the liquidity pool by adding tokens
 
-- Install Docker
-- Install VSCode
-  - Install the [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
-  - You do *not* need to install the Haskell extension
-- Clone this repository and open it in VSCode
-  - It will ask if you want to open it in the container, say yes.
-  - The first time it will take a few minutes to download the devcontainer image from dockerhub,
-  - `cabal build` from the terminal should work
-  - Opening a Haskell file should give you IDE features (it takes a little while to set up the first time)
+The examples are based on the plutus-use-cases uniswap example from the official plutus repo.
 
-Note: This uses the [plutus-starter-devcontainer image on dockerhub](https://hub.docker.com/r/inputoutput/plutus-starter-devcontainer), if
-you wish to build the image yourself, you can do so as follows:
-  - Clone https://github.com/input-output-hk/plutus ,
-  - Set up your machine to build things with Nix, following the Plutus README (make sure to set up the binary cache!),
-  - Build and load the docker container: `docker load < $(nix-build default.nix -A devcontainer)`,
-  - Adjust the `.devcontainer/devcontainer.json` file to point to your local image.
+## CodeBase
 
-## The Plutus Application Backend (PAB) example
+There are 2 distinct areas of this codebase:
 
-We have provided an example PAB application in `./pab`. With the PAB we can serve and interact
-with contracts over a web API. You can read more about the PAB here: [PAB Architecture](https://github.com/input-output-hk/plutus/blob/master/plutus-pab/ARCHITECTURE.adoc).
+* **Plutus Contracts & PAB server**
+  `pab/Main.hs` — is the executable source that wraps the PAB web server.
+  `src/**`  — contains the Plutus contracts, helper functions and type definitions.
+  `specs/**` — HSpec tests folder (TODO)
 
-Here, the PAB is configured with one contract, the `Game` contract from `./examples/src/Plutus/Contracts/Game.hs`.
+* **Web-UI**
+  Located in the `web-ui` directory, it contains the stencil UI for consuming the PAB endpoints using a web browser. 
+
+## Setup
+
+1. Clone the official plutus repository 
+2. Check out the `58bf9ed626d498c140c69a859a508da03843d097` comit
+3. Enter nix-shell
+4. Change to dex-token-swap directory
+5. Run `cabal update`
+
+(Example):
+
+```bash
+git clone git@github.com:input-output-hk/plutus.git
+cd plutus
+git checkout 58bf9ed626d498c140c69a859a508da03843d097
+
+# Enter nix shell
+nix-shell
+
+# Change to AltLabs/dex-token-swap
+cabal update
+```
+
+### Build & Run (PAB)
+
+```bash
+# Build
+cabal build plutus-starter-pab
+
+# Run PAB (Servant Webserver API) by default on port 8080
+cabal exec -- plutus-starter-pab
+```
+
+### Verify PAB is operating properly
 
 Here's an example of running and interacting with this contract via the API. For this it will help if you
 have `jq` installed.
 
-1. Build the PAB executable:
-
-```
-cabal build plutus-starter-pab
-```
-
-2. Run the PAB binary:
-
-```
-cabal exec -- plutus-starter-pab
-````
-
-This will then start up the server on port 8080. The devcontainer process will then automatically expose this port so that you can connect to it from any terminal (it doesn't have to be a terminal running in the devcontainer).
-
-First, let's verify that the game is present in the server:
-
-3. Check what contracts are present:
+Check what contracts are present:
 
 ```
 curl -s http://localhost:8080/api/new/contract/definitions | jq
@@ -58,95 +67,53 @@ curl -s http://localhost:8080/api/new/contract/definitions | jq
 You should receive a list of contracts and the endpoints that can be called on them, and the arguments
 required for those endpoints.
 
-We're interested in the `GameContract` one.
+## Swap overview 
 
-#### Playing the guessing game over the API
+#### PAB current bootstraping process
 
-The game has two players (wallets). One will initialise the contract and lock a value inside. Another
-wallet will then make guesses. Supposing they guess correctly, they'll receive the funds that were
-locked; otherwise, they won't!
+![Alt text](./img/Plutus_Notes-PAB_Note94.jpg?raw=true "Optional Title")
 
-1. Start the instances:
+#### Endpoints
 
-```
-# Wallet 1
-curl -s -H "Content-Type: application/json" \
-  --request POST \
-  --data '{"caID": "GameContract", "caWallet":{"getWallet": 1}}' \
-  http://localhost:8080/api/new/contract/activate | jq
+Users of the `Uniswap` contract have the following **endpoints** *consumable*:
 
-# Wallet 2
-curl -s -H "Content-Type: application/json" \
-  --request POST \
-  --data '{"caID": "GameContract", "caWallet":{"getWallet": 2}}' \
-  http://localhost:8080/api/new/contract/activate | jq
-```
+* `create` — Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
 
-From these two queries you will get back two contract instance IDs. These will be needed
-in the subsequent steps for running actions against. We can optionally take a look at the state
-of the contract with the `status` API:
+  Each Liquidity pool creates another UTXO with a different token from the factory (state token) each time a pool is created a new token is minted
+  **source: **`src/Plutus/Contracts/PoolForgery.hs`
 
-2. Get the status
+* `close` — Closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
+  **source: **`src/Plutus/Contracts/PoolForgery.hs`
 
-```
-export INSTANCE_ID=...
-curl -s http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq
-```
+* `swap` — Uses a liquidity pool two swap one sort of coins in the pool against the other.
 
-This has a lot of information; and in particular we can see what endpoints are still available
-to call.
+  **source: **`src/Plutus/Contracts/Uniswap.hs`
 
-3. Start the game by locking some value inside
+* `add` — Adds some liquidity to an existing liquidity pool in exchange for newly minted liquidity tokens.
+  **source: **`src/Plutus/Contracts/Uniswap.hs`
 
-Now, let's call the `lock` endpoint to start the game. In order to do so, we need to construct
-a JSON representation of the `LockParams` that the endpoint takes (look at `Game.hs`). The easiest
-way is to simply build the term in haskell and ask `aeson` to encode it. From the terminal:
+* `remove` — Removes some liquidity from a liquidity pool in exchange for liquidity tokens.
+  **source: **`src/Plutus/Contracts/Uniswap.hs`
 
-```
-cabal repl
-> import Plutus.Contracts.Game
-> import Ledger.Ada
-> args = LockParams { secretWord = "eagle", amount = lovelaceValueOf 90 }
-> import Data.Aeson
-> import Data.ByteString.Lazy.Char8 as BSL
-> BSL.putStrLn $ encode args
-{"amount":{"getValue":[[{"unCurrencySymbol":""},[[{"unTokenName":""},90]]]]},"secretWord":"eagle"}
-```
+#### `start` endpoint
+The `start` endpoint is unique in a sense, that it's invoked during the PAB boot and it shuldn't be consumable by the user for this case. It creates a uniswap *Factory* 
 
-Great! This is all we need to call the `lock` endpoint, so let's do that now with
-the instance from Wallet 1:
+This *Factory* will keep track of the <u>existing</u> **liquidity pools** and enforce that there will be at most one liquidity pool  for any pair of tokens at any given time. It keeps such record by the use of DATUM in the UTxO. Internally it invokes `forgeContract` from `Currency.hs` which defines and makes use of the `OneShotCurrency` data type for making of the NFT, which can uniquely identify the *Factory*.
 
-4. Lock some value (Wallet 1)
+#### Data Types
 
-```
-export INSTANCE_ID=...
-curl -H "Content-Type: application/json" \
-  --request POST \
-  --data '{"amount":{"getValue":[[{"unCurrencySymbol":""},[[{"unTokenName":""},90]]]]},"secretWord":"eagle"}' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/lock
-```
+*(src/Plutus/Contracts/Data.hs)*
 
-We can do likewise to work out what the JSON for `GuessParams` is, and then make a guess from
-Wallet 2:
+Important to note here are data types used by validators which are `UniswapAction` and `UniswapDatum` which are used to represent the *Redeemer* and *Datum* in the UTxO.
 
-5. Make a guess (Wallet 2)
+##### JSON types
 
-```
-export INSTANCE_ID=...
-curl -H "Content-Type: application/json" \
-  --request POST \
-  --data '{"guessWord": "duck"}' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/guess
-```
+All data types ending with *Params (eg. CreateParams) contain the structure that the consumable JSON api endpoints expect.
 
-Note that this guess is wrong, so in the log of the server we will see that the transaction
-didn't validate.
+#### Playing with swap API with curl
 
-As an exercise, you can now spin up another instance for Wallet 2 and make a correct guess, and
-confirm that the transaction validates and the Ada is transferred into the right wallet.
+(TODO)
 
-Note that you can verify the balances by looking at the log of `plutus-starter-pab` 
-when exiting it by pressing return.
+coming very soon...
 
-Finally, also node that the PAB also exposes a websocket, which you can read about in
-the general [PAB Architecture documentation](https://github.com/input-output-hk/plutus/blob/master/plutus-pab/ARCHITECTURE.adoc).
+
