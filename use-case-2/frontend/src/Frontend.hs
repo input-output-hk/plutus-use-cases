@@ -119,6 +119,7 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
       Just wid -> do
         -- select which page of the dashboard the user would like to see
         navSelect <- elClass "ul" "nav navbar-nav" $ do
+          -- TODO: add loading modal
           swapEv <- do
             (e,_) <- elClass' "li" "text-white" $ text "Swap"
             return $ Dashboard_Swap  <$ domEvent Click e
@@ -152,7 +153,6 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
               let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
                   adaDetails = (V.! 0) <$> currencyDetails
                   unwrapAda1 = adaDetails ^.. traverse . _Array
-                  adaCurrencySymbol = (V.! 0) <$> unwrapAda1
                   adaNameAndBalance = (V.! 1) <$> unwrapAda1
                   unwrapAdaNameAndBalance = adaNameAndBalance ^.. traverse . _Array
                   nestedAdaBalName = (V.! 0) <$> unwrapAdaNameAndBalance
@@ -163,6 +163,7 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
                   adaBalance = case mAdaBalance of
                     Nothing -> 0
                     Just bal -> coefficient bal
+              -- TODO: Use the ADA coin symbol
               elClass "p" "text-white" $ text $ "ADA Balance: " <> (T.pack $ show adaBalance)
           return navSelect
 
@@ -297,9 +298,9 @@ portfolio wid = Workflow $ do
                 unwrapTokenDetails1 = allTokenDetails ^.. traverse . _Array
                 nestedTokenDetails1 = (V.! 1) <$> unwrapTokenDetails1
                 allTokenNamesAndBalances = nestedTokenDetails1 ^.. traverse . _Array
-            elClass "ul" "" $ do
+            elClass "ul" "list-group" $ do
               flip mapM_ allTokenNamesAndBalances $ \atb ->
-                flip mapM_ atb $ \(Aeson.Array tokenMeta) -> el "li" $ do
+                flip mapM_ atb $ \(Aeson.Array tokenMeta) -> elClass "li" "list-group-item" $ do
                   let (Aeson.Object tokenHashMap) = (V.! 0) tokenMeta
                       (Aeson.String tokenName) = fromMaybe (Aeson.String "NoName") $ HMap.lookup "unTokenName" tokenHashMap
                       (Aeson.Number tokenBalance) = (V.! 1) tokenMeta
