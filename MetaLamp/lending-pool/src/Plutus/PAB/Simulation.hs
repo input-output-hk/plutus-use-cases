@@ -116,6 +116,7 @@ runLendingPool = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
     _ <- activateContracts
+    Simulator.logString @(Builtin AaveContracts) "Aave PAB webserver started on port 8080. Initialization complete. Press enter to exit."
     _ <- liftIO getLine
     shutdown
 
