@@ -9,10 +9,10 @@
     "purs:compile": "spago build",
     "docs": "spago docs",
     "repl": "spago repl",
-    "generate-purs": "sh ./scripts/generate-purs.sh",
     "fetch-plutus-purs": "sh ./scripts/fetch-plutus-purs.sh",
+    "generate-purs-only": "sh ./scripts/generate-purs.sh",
+    "generate-purs": "npm run fetch-plutus-purs && npm run generate-purs-only",
     "start-chrome": "sh ./scripts/start-chrome.sh",
-    "preinstall": "npm run fetch-plutus-purs && npm run generate-purs",
     "start": "npm run purs:compile && npm run webpack:server"
   },
   "dependencies": {

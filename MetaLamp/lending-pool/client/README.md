@@ -1,22 +1,37 @@
 # Lending pool client
 
-The client application has minimalistic interface to the PAB [server](/MetaLamp/lending-pool/README.md).
+The client application has a minimalistic interface to the PAB [server](/MetaLamp/lending-pool/README.md).
 
 ## Running the project
 
-1. Generate necessary PureScript code from Haskell source (cd to /MetaLamp/lending-pool/client/):
+1. Install npm packages.
 
 ```
 npm install
 ```
 
-2. Start the client:
+2. Generate necessary PureScript code from Haskell source. This step runs an executable(`generate-purs`) from `lending-pool` directory, which requires a certain environment. The setup steps are described in `lending-pool/README`. Provided that you are able to build the backend, you can use the same approach to run purescript generation from `client` folder, i.e.
+
+Enter the nix shell (cd to the cloned Plutus repo):
+
+```
+git checkout 5cdd2c3d708bf4c33514681dee096da6463273b7
+nix-shell
+```
+
+cd to `lending-pool/client` folder and execute
+
+```
+npm run generate-purs
+```
+
+3. Start the client:
 
 ```
 npm start
 ```
 
-3. Open browser to interact with the app at https://localhost:8009/.
+4. Open browser to interact with the app at https://localhost:8009/.
 CORS protection needs to be disabled. You can use this script to launch chromium (note that first you need to close chromium completely, otherwise security won't be disabled):
 
 ```

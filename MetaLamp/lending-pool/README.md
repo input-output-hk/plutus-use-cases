@@ -1,7 +1,7 @@
 # Lending Pool
 
 Lending Pool is a smart contract application on Plutus Platform.
-The smart contract protocol is based on [Aave](https://aave.com/), but does not follow it literally.
+The smart contract protocol is based on [Aave](https://aave.com/), but does not strictly follow it.
 
 ## Setting up
 
