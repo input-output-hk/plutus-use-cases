@@ -129,7 +129,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "deposit" $
-            Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 100 }
+            Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 400 }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (ContractSuccess Aave.Deposited))) -> Just ()
         _                                                   -> Nothing
@@ -143,6 +143,22 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
         _                                                   -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful withdraw"
 
+    _  <-
+        Simulator.callEndpointOnInstance userCid "provideCollateral" $
+            Aave.ProvideCollateralParams { Aave.pcpUnderlyingAsset = head testAssets, Aave.pcpOnBehalfOf = sender, Aave.pcpAmount = 200 }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (ContractSuccess Aave.CollateralProvided))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful provideCollateral"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "revokeCollateral" $
+            Aave.RevokeCollateralParams { Aave.rcpUnderlyingAsset = head testAssets, Aave.rcpOnBehalfOf = sender, Aave.rcpAmount = 50 }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (ContractSuccess Aave.CollateralRevoked))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful revokeCollateral"
+    
     let lenderCid = cidUser Map.! Wallet 3
     let lender = pubKeyHash . walletPubKey $ Wallet 3
     _  <-
