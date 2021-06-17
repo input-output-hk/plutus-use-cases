@@ -37,6 +37,7 @@ findValueByDatumHash dh outs = mconcat $ mapMaybe f outs
                  | otherwise = Nothing
 
 {-# INLINABLE parseDatum #-}
+-- | Find datum inside pending transaction and parse it from data
 parseDatum :: PlutusTx.IsData a => TxInfo -> DatumHash -> Maybe a
 parseDatum txInfo dh = findDatum dh txInfo >>= (PlutusTx.fromData . getDatum)
 
