@@ -76,6 +76,7 @@ createReserve aave CreateParams {..} =
           rCurrentStableBorrowRate = 11 % 10 -- TODO configure borrow rate when lending core will be ready
            }
 
+-- | Starts the Lending Pool protocol: minting pool NFTs, creating empty user configuration state and all specified liquidity reserves
 start :: HasBlockchainActions s => [CreateParams] -> Contract w s Text Aave
 start params = do
     pkh <- pubKeyHash <$> ownPubKey
@@ -111,9 +112,11 @@ type AaveOwnerSchema =
     BlockchainActions
         .\/ Endpoint "start" ()
 
+-- | Gets current Lending Pool reserves state
 reserves :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map AssetClass Reserve)
 reserves aave = ovValue <$> State.findAaveReserves aave
 
+-- | Gets current Lending Pool user configs state
 users :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
 users aave = ovValue <$> State.findAaveUserConfigs aave
 
@@ -125,12 +128,14 @@ valueAt address = do
 getOwnPubKey :: HasBlockchainActions s => Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
 
+-- | Gets all UTxOs belonging to a user and concats them into one Value
 fundsAt :: HasBlockchainActions s => PubKeyHash -> Contract w s Text Value
 fundsAt pkh = valueAt (pubKeyHashAddress pkh)
 
 balanceAt :: HasBlockchainActions s => PubKeyHash -> AssetClass -> Contract w s Text Integer
 balanceAt pkh asset = flip assetClassValueOf asset <$> fundsAt pkh
 
+-- | Gets all UTxOs belonging to the Lending Pool script and concats them into one Value
 poolFunds :: HasBlockchainActions s => Aave -> Contract w s Text Value
 poolFunds aave = valueAt (Core.aaveAddress aave)
 
@@ -149,6 +154,7 @@ data DepositParams =
 PlutusTx.unstableMakeIsData ''DepositParams
 PlutusTx.makeLift ''DepositParams
 
+-- | The user puts N amount of his asset into a corresponding reserve, in exchange he gets N equivalent aTokens
 deposit :: (HasBlockchainActions s) => Aave -> DepositParams -> Contract w s Text ()
 deposit aave DepositParams {..} = do
     reserve <- State.findAaveReserve aave dpAsset
@@ -187,6 +193,7 @@ data WithdrawParams =
 PlutusTx.unstableMakeIsData ''WithdrawParams
 PlutusTx.makeLift ''WithdrawParams
 
+-- | The user withdraws N amount of a specific asset from the corresponding reserve, N aTokens are taken from his wallet and burned
 withdraw :: (HasBlockchainActions s) => Aave -> WithdrawParams -> Contract w s Text ()
 withdraw aave WithdrawParams {..} = do
     reserve <- State.findAaveReserve aave wpAsset
@@ -218,6 +225,7 @@ data BorrowParams =
 PlutusTx.unstableMakeIsData ''BorrowParams
 PlutusTx.makeLift ''BorrowParams
 
+-- | The user borrows N amount of a needed asset from the corresponding reserve, his debt entry state is encreased by N
 borrow :: (HasBlockchainActions s) => Aave -> BorrowParams -> Contract w s Text ()
 borrow aave BorrowParams {..} = do
     reserve <- State.findAaveReserve aave bpAsset
@@ -262,6 +270,7 @@ data RepayParams =
 PlutusTx.unstableMakeIsData ''RepayParams
 PlutusTx.makeLift ''RepayParams
 
+-- | The user repays N amount of a specific asset to the corresponding reserve, his debt entry state is decreased by N
 repay :: (HasBlockchainActions s) => Aave -> RepayParams -> Contract w s Text ()
 repay aave RepayParams {..} = do
     reserve <- State.findAaveReserve aave rpAsset

@@ -34,4 +34,3 @@ cd MetaLamp/lending-pool/ && cabal clean
 ```
 cd MetaLamp/lending-pool/client && rm -rf node_modules/ generated/ output/ plutus-purs/ .spago/
 ```
-

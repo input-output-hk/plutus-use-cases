@@ -48,3 +48,7 @@ See the client [readme](client/README.md).
 ## Troubleshooting
 
 See [note](client/README.md/#Troubleshooting).
+
+## Protocol functionality
+
+See description of user endpoints [here](src/Plutus/Contracts/Endpoints.hs)
