@@ -76,9 +76,11 @@ PlutusTx.makeLift ''Reserve
 --   , iaSlot   :: Slot
 --   }
 
-newtype UserConfig = UserConfig
+data UserConfig = UserConfig
     {
-      ucDebt              :: Integer
+      ucDebt              :: Integer,
+      ucCollateralizedInvestment :: Integer
+
     }
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -90,9 +92,10 @@ data AaveRedeemer =
     StartRedeemer
   | DepositRedeemer (AssetClass, PubKeyHash)
   | WithdrawRedeemer (AssetClass, PubKeyHash)
-  | BorrowRedeemer (AssetClass, PubKeyHash)
+  | BorrowRedeemer (AssetClass, PubKeyHash) -- we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
   | RepayRedeemer (AssetClass, PubKeyHash)
-  | RevokeCollateralRedeemer (AssetClass, PubKeyHash)
+  | ProvideCollateralRedeemer (AssetClass, PubKeyHash)
+  | RevokeCollateralRedeemer (AssetClass, PubKeyHash)  -- we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
@@ -105,10 +108,10 @@ type Oracles = AssocMap.Map AssetClass Integer -- Shows how many lovelaces shoul
 
 data AaveDatum =
     LendingPoolDatum LendingPoolOperator
-  | ReservesDatum AssetClass (AssocMap.Map AssetClass Reserve)
+  | ReservesDatum AssetClass (AssocMap.Map AssetClass Reserve) -- State token and reserve currency -> reserve map
   | ReserveFundsDatum
-  | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
-  | UserCollateralFundsDatum PubKeyHash
+  | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -- State token and UserConfigId -> user config map
+  | UserCollateralFundsDatum PubKeyHash AssetClass -- User pub key and aToken asset type
   deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
@@ -142,6 +145,7 @@ instance Scripts.ValidatorTypes AaveScript where
 -- Main validator
 -- Each state field must have one or more associated actions(Redeemer types),
 -- produced on state update, which are then validated here
+-- TODO validate ucCollateralizedInvestment does not change on Deposit Withdraw Borrow Repay
 makeAaveValidator :: Aave
                    -> AaveDatum
                    -> AaveRedeemer
@@ -154,7 +158,7 @@ makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "Deposi
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
 makeAaveValidator aave datum (BorrowRedeemer userConfigId) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId
 makeAaveValidator aave datum (RepayRedeemer userConfigId) ctx    = trace "RepayRedeemer" $ validateRepay aave datum ctx userConfigId
-makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId) ctx    = trace "RevokeCollateralRedeemer" True
+makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId) ctx    = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId
 
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
 validateStart aave (LendingPoolDatum operator) ctx =
@@ -292,6 +296,17 @@ validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
 
 validateRepay _ _ _ _ = trace "validateRepay: Lending Pool Datum management is not allowed" False
+
+validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
+validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) =
+  traceIfFalse "validateRevokeCollateral: UserCollateralFundsDatum change is not valid" $ owner == actor
+  where
+    txInfo = scriptContextTxInfo ctx
+
+    actorSpentValue = valueSpentFrom txInfo actor
+    actorRemainderValue = valuePaidTo txInfo actor
+
+validateRevokeCollateral _ _ _ _ = trace "validateRevokeCollateral: Lending Pool Datum management is not allowed" False
 
 checkNegativeFundsTransformation :: ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 checkNegativeFundsTransformation ctx (reserveId, actor) = isValidFundsChange

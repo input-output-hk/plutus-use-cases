@@ -169,7 +169,7 @@ deposit aave DepositParams {..} = do
                     aave
                     (Core.DepositRedeemer userConfigId)
                     userConfigId
-                    UserConfig { ucDebt = 0 }
+                    UserConfig { ucDebt = 0, ucCollateralizedInvestment = 0 }
             Just userConfig ->
                 pure mempty
 
@@ -239,7 +239,7 @@ borrow aave BorrowParams {..} = do
             aave
             (Core.BorrowRedeemer userConfigId)
             userConfigId
-            UserConfig { ucDebt = bpAmount }
+            UserConfig { ucDebt = bpAmount, ucCollateralizedInvestment = 0 }
         Just userConfig ->
             State.updateUserConfig aave (Core.BorrowRedeemer userConfigId) userConfigId $
             userConfig { ucDebt = ucDebt userConfig + bpAmount}
@@ -301,13 +301,28 @@ provideCollateral :: (HasBlockchainActions s) => Aave -> ProvideCollateralParams
 provideCollateral aave ProvideCollateralParams {..} = do
     reserve <- State.findAaveReserve aave pcpUnderlyingAsset
 
-    userOwnedAtokenAmount <- balanceAt pcpOnBehalfOf (rAToken reserve)
-    let payment = assetClassValue (rAToken reserve) pcpAmount
-    let remainder = assetClassValue (rAToken reserve) (userOwnedAtokenAmount - pcpAmount)
-    let fundsLockingTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pcpOnBehalfOf (Core.UserCollateralFundsDatum pcpOnBehalfOf) payment
+    let aTokenAsset = rAToken reserve
+    userOwnedAtokenAmount <- balanceAt pcpOnBehalfOf aTokenAsset
+    let payment = assetClassValue aTokenAsset pcpAmount
+    let remainder = assetClassValue aTokenAsset (userOwnedAtokenAmount - pcpAmount)
+    let fundsLockingTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pcpOnBehalfOf (Core.UserCollateralFundsDatum pcpOnBehalfOf aTokenAsset) payment
                          <> (Prelude.mempty, mustPayToPubKey pcpOnBehalfOf remainder)
 
-    ledgerTx <- TxUtils.submitTxPair fundsLockingTx
+    let userConfigId = (rCurrency reserve, pcpOnBehalfOf)
+    userConfigsTx <- do
+        userConfigs <- ovValue <$> State.findAaveUserConfigs aave
+        case AssocMap.lookup userConfigId userConfigs of
+            Nothing ->
+                State.addUserConfig
+                    aave
+                    (Core.ProvideCollateralRedeemer userConfigId)
+                    userConfigId
+                    UserConfig { ucDebt = 0, ucCollateralizedInvestment = pcpAmount }
+            Just userConfig ->
+                State.updateUserConfig aave (Core.ProvideCollateralRedeemer userConfigId) userConfigId $
+                userConfig { ucCollateralizedInvestment = ucCollateralizedInvestment userConfig + pcpAmount }
+
+    ledgerTx <- TxUtils.submitTxPair $ fundsLockingTx <> userConfigsTx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 
@@ -337,16 +352,25 @@ revokeCollateral aave RevokeCollateralParams {..} = do
     let payment = assetClassValue aTokenAsset rcpAmount
     let remainder = assetClassValue aTokenAsset (assetClassValueOf usersCollateralValue aTokenAsset - rcpAmount)
     let fundsUnlockingTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs rcpOnBehalfOf payment <>
-                            TxUtils.mustPayToScript (Core.aaveInstance aave) rcpOnBehalfOf userDatum remainder
+                            TxUtils.mustPayToScript (Core.aaveInstance aave) rcpOnBehalfOf (userDatum aTokenAsset) remainder
 
-    ledgerTx <- TxUtils.submitTxPair fundsUnlockingTx
+    userConfigsTx <- do
+        userConfigs <- ovValue <$> State.findAaveUserConfigs aave
+        case AssocMap.lookup userConfigId userConfigs of
+            Nothing ->
+                throwError "User does not have any collateral."
+            Just userConfig ->
+                State.updateUserConfig aave (Core.RevokeCollateralRedeemer userConfigId) userConfigId $
+                userConfig { ucCollateralizedInvestment = ucCollateralizedInvestment userConfig - rcpAmount }
+
+    ledgerTx <- TxUtils.submitTxPair $ fundsUnlockingTx <> userConfigsTx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
     where
         userDatum = Core.UserCollateralFundsDatum rcpOnBehalfOf
         getUsersCollateral :: AssetClass -> TxOutTx -> Bool
         getUsersCollateral asset tx = ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut $ tx) &&
-                                      (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toData $ userDatum)
+                                      (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toData $ userDatum asset)
 
 -- TODO ? add repayWithCollateral
 
