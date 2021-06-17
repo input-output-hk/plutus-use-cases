@@ -1,0 +1,3 @@
+[submodule "binarapps/dex"]
+	path = binarapps/dex
+	url = git@github.com:binarapps/dex.git
