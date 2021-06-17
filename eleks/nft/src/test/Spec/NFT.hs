@@ -190,7 +190,7 @@ tests = testGroup "nft"
         ( 
             assertNoFailedTransactions
             .&&. assertAccumState userContract t1
-            (\case Last (Just (Right (NFTMarket.SellingTokens metas))) -> metas == [expectedMeta1, expectedMeta2]; _ -> False) 
+            (\case Last (Just (Right (NFTMarket.SellingTokens metas))) -> metas == [expectedMeta2, expectedMeta1]; _ -> False) 
                 "should have selling nft tokens in state"
         )
         shouldShowAllSellingTokensTrace
@@ -199,7 +199,7 @@ tests = testGroup "nft"
         ( 
             assertNoFailedTransactions
             .&&. assertAccumState userContract t1
-            (\case Last (Just (Right (NFTMarket.Tokens metas))) -> metas == [testToken2MetaDto , testToken1MetaDto]; 
+            (\case Last (Just (Right (NFTMarket.Tokens metas))) -> metas == [testToken1MetaDto , testToken2MetaDto]; 
                    _ -> False) 
                 "should have owned only nft token in state"
         )
@@ -453,9 +453,8 @@ extractTokenMeta::
 extractTokenMeta handle = do
     t <- Trace.observableState handle
     case t of
-        Data.Monoid.Last (Just (Right (NFTMarket.Created nftMeta))) -> do
-            return nftMeta
-        _                                               -> do
+        Data.Monoid.Last (Just (Right (NFTMarket.Created nftMeta))) -> return nftMeta
+        _                                                           -> 
             Trace.throwError (Trace.GenericError "created nft metadata not found")
 
 extractCurrencyForgedNFT:: 

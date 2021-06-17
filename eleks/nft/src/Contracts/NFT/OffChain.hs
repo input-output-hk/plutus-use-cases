@@ -306,7 +306,7 @@ buy market BuyParams{..} = do
     logInfo $ "buying NFT: " ++ show nftMetaDto
     return nftMetaDto
 
--- | Transfer token
+-- | Transfer token to other user address
 transfer :: 
     HasBlockchainActions s 
     => NFTMarket 

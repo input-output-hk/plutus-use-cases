@@ -30,8 +30,6 @@ import qualified Prelude
 import           Prelude             (String)
 import           Text.Printf         (PrintfArg)
 
--- Note: An orphan instance here because of the alias above.
---deriving anyclass instance ToSchema AssetClass
 
 data NFTMetadata = NFTMetadata
     { 
@@ -82,6 +80,8 @@ data NFTMarketDatum =
 PlutusTx.unstableMakeIsData ''NFTMarketDatum
 PlutusTx.makeLift ''NFTMarketDatum
 
+-- | Data transfer object, used to send repsonse to the frontend,
+-- | it allows to avoid using of cabal repl for create complex request objects 
 data NFTMetadataDto = NFTMetadataDto
     { nftDtoTokenName:: String
     , nftDtoMetaDescription:: String
