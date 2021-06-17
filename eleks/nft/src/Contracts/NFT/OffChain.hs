@@ -41,11 +41,13 @@ import           Contracts.NFT.OnChain            (marketInstance)
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString.Base64           as B64
 import qualified Data.ByteString.Char8            as B
+import           Data.List                        (sortOn)
 import qualified Data.Map                         as Map
-import qualified Data.Text                        as T
 import           Data.Monoid                      (Last (..))
+import           Data.Ord                         (comparing)
 import           Data.Proxy                       (Proxy (..))
 import           Data.Text                        (Text, pack)
+import qualified Data.Text                        as T
 import           Data.Void                        (Void)
 import           Ledger                           hiding (singleton)
 import qualified Ledger.Ada                       as Ada
@@ -165,13 +167,11 @@ create forgeNft market CreateParams{..} = do
     let tokenName = TokenName $ B.pack cpTokenName
     ownPK <- pubKeyHash <$> ownPubKey
     nftTokenSymbol <- forgeNft tokenName ownPK 
-    let nftTokenAssetClass = assetClass nftTokenSymbol tokenName
-        nftValue = assetClassValue nftTokenAssetClass 1
+    let nftValue = getNftValue nftTokenSymbol tokenName
  
     let metadataTokenName = TokenName $ B.pack $ read (show tokenName) ++ "Metadata"
     tokenMetadataSymbol <- forgeNft metadataTokenName ownPK
-    let nftTokenMetadataAssetClass = assetClass tokenMetadataSymbol metadataTokenName
-        nftMetadataVal    = assetClassValue nftTokenMetadataAssetClass 1
+    let nftMetadataVal = getNftValue tokenMetadataSymbol metadataTokenName
         nftMetadata       = NFTMetadata {
             nftTokenName = tokenName, 
             nftMetaTokenName = metadataTokenName,
@@ -254,8 +254,8 @@ cancelSell market CancelSellParams{..} = do
         nftMetadataDatum = NFTMeta nftMetadata'
     let mrScript = marketScript market
         redeemer = Redeemer $ PlutusTx.toData CancelSell
-        nftValue = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
-        nftMetadataValue = Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
+        nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
+        nftMetadataValue = getNftValue (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata)
  
         lookups  = Constraints.typedValidatorLookups marketInst        <>
                    Constraints.otherScript mrScript                    <>
@@ -288,8 +288,8 @@ buy market BuyParams{..} = do
         nftMetadataDatum = NFTMeta nftMetadata'
     let mrScript = marketScript market
         redeemer = Redeemer $ PlutusTx.toData $ Buy pkh
-        nftValue = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
-        nftMetadataValue = Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
+        nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
+        nftMetadataValue = getNftValue (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata)
         nftSellPriceValue = Ada.lovelaceValueOf $ nftSellPrice nftMetadata
  
         lookups  = Constraints.typedValidatorLookups marketInst        <>
@@ -316,7 +316,7 @@ transfer market TransferParams{..} = do
     let tokenSymbol = CurrencySymbol $ dtoStrToByteStr tpTokenSymbol
     let sendToKeyHash = pubKeyHash $ walletPubKey $ Wallet tpReceiverWallet
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
-    let nftValue = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
+    let nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
     tx <- submitTx $ mustPayToPubKey sendToKeyHash nftValue
     awaitTxConfirmed $ txId tx
     let nftMetaDto = nftMetadataToDto nftMetadata
@@ -407,7 +407,7 @@ queryNftMetadatas market = do
     query nftMarketMetas []       = return []
     query nftMarketMetas (o : os) = do
         let v = txOutValue $ txOutTxOut o
-        if any (\meta -> assetClassValueOf v (assetClass (nftMetaTokenSymbol meta) (nftMetaTokenName meta)) == 1) nftMarketMetas
+        if any (\meta -> isNftToken v (nftMetaTokenSymbol meta) (nftMetaTokenName meta)) nftMarketMetas
             then do
                 d <- getNFTMarketDatum o
                 case d of
@@ -438,11 +438,11 @@ userNftTokens market = do
     let os = map snd $ Map.toList ownerUtxos
     let values = mconcat [txOutValue $ txOutTxOut o | o <- os]
     nftMetas <- queryNftMetadatas market
-    let ownUserTokens = [ meta | meta <- nftMetas, valueOf values (nftTokenSymbol meta) (nftTokenName meta) == 1 ]
+    let ownUserTokens = [ meta | meta <- nftMetas, isNftToken values (nftTokenSymbol meta) (nftTokenName meta)]
         sellingUserTokens = flip filter nftMetas (\ nftMetadata -> case nftSeller nftMetadata of 
             Just seller -> seller == pkh
             _           -> False)
-        result = map nftMetadataToDto $ ownUserTokens <> sellingUserTokens
+        result = sortOn nftDtoTokenName $ map nftMetadataToDto $ ownUserTokens <> sellingUserTokens
     return result
 
 -- | Gets the selling NFT's
@@ -453,7 +453,7 @@ sellingTokens ::
 sellingTokens market = do
     logInfo @String $ printf "start sellingTokens"
     nftMetas <- queryNftMetadatas market
-    let result = map nftMetadataToDto $ filter (PlutusTx.Prelude.isJust . nftSeller) nftMetas
+    let result = sortOn nftDtoTokenName $ map nftMetadataToDto $ filter (PlutusTx.Prelude.isJust . nftSeller) nftMetas
     return result
 
 ownerEndpoint :: 

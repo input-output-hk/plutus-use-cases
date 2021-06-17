@@ -190,7 +190,7 @@ tests = testGroup "nft"
         ( 
             assertNoFailedTransactions
             .&&. assertAccumState userContract t1
-            (\case Last (Just (Right (NFTMarket.SellingTokens metas))) -> metas == [expectedMeta2, expectedMeta1]; _ -> False) 
+            (\case Last (Just (Right (NFTMarket.SellingTokens metas))) -> metas == [expectedMeta1, expectedMeta2]; _ -> False) 
                 "should have selling nft tokens in state"
         )
         shouldShowAllSellingTokensTrace

@@ -101,5 +101,14 @@ instance Eq NFTMetadataDto where
         && (nftDtoSeller x Prelude.== nftDtoSeller y)
         && (nftDtoSellPrice x Prelude.== nftDtoSellPrice y)
 
+{-# INLINABLE isNftToken #-}
+isNftToken :: Value -> CurrencySymbol -> TokenName -> Bool
+isNftToken v cur tokenName = assetClassValueOf v (assetClass cur tokenName) == 1
 
-        
+{-# INLINABLE getNftValue #-}
+getNftValue :: CurrencySymbol -> TokenName -> Value
+getNftValue cur tokenName = assetClassValue (assetClass cur tokenName) 1
+
+{-# INLINABLE isMarketToken #-}
+isMarketToken :: Value -> AssetClass -> Bool
+isMarketToken v ac = assetClassValueOf v ac == 1

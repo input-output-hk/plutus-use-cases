@@ -76,10 +76,10 @@ validateCreate ::
     -> ScriptContext
     -> Bool
 validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
-    traceIfFalse "marketplace not present" (assetClassValueOf (valueWithin $ findOwnInput' ctx) marketId == 1) &&
+    traceIfFalse "marketplace not present" (isMarketToken (valueWithin $ findOwnInput' ctx) marketId) &&
     traceIfFalse "nft token is arleady exists" (all (/= nftMeta) nftMetas) &&                                                                                 
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ nftMeta : nftMetas) $ assetClassValue marketId 1) &&
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (NFTMeta nftMeta) $ assetClassValue (assetClass nftMetaTokenSymbol nftMetaTokenName) 1)
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (NFTMeta nftMeta) $ getNftValue nftMetaTokenSymbol nftMetaTokenName)
 
 {-# INLINABLE validateSell #-}
 validateSell :: 
@@ -89,7 +89,7 @@ validateSell ::
     -> Bool
 validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} ctx =
     traceIfFalse "owner should sign" ownerSigned                                                                    &&
-    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)   &&
+    traceIfFalse "nft metadata token missing from input" (isNftToken inVal nftMetaTokenSymbol nftMetaTokenName)           &&
     traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                          &&
     traceIfFalse "price should be greater than 0" (nftSellPrice outDatum > 0)                                    
   where
@@ -102,8 +102,8 @@ validateSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenN
     ownOutput :: TxOut
     ownOutput = case [ o
                      | o <- getContinuingOutputs ctx
-                     , valueOf (txOutValue o) nftMetaTokenSymbol nftMetaTokenName == 1 &&
-                       valueOf (txOutValue o) nftTokenSymbol nftTokenName == 1
+                     , isNftToken (txOutValue o) nftMetaTokenSymbol nftMetaTokenName &&
+                       isNftToken (txOutValue o) nftTokenSymbol nftTokenName
                      ] of
         [o] -> o
         _   -> traceError "expected exactly one nft metadata output and one nft token output"
@@ -129,11 +129,11 @@ validateCancelSell ::
     -> ScriptContext
     -> Bool
 validateCancelSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} ctx =
-    traceIfFalse "owner should sign" ownerSigned                                                                       &&
-    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)   &&
-    traceIfFalse "nft token missing from input" (valueOf inVal nftTokenSymbol nftTokenName == 1)                    &&
-    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                          &&
-    traceIfFalse "price should be emptied" (nftSellPrice outDatum == 0)                                            &&
+    traceIfFalse "owner should sign" ownerSigned                                                            &&
+    traceIfFalse "nft metadata token missing from input" (isNftToken inVal nftMetaTokenSymbol nftMetaTokenName)    &&
+    traceIfFalse "nft token missing from input" (isNftToken inVal nftTokenSymbol nftTokenName)                   &&
+    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                  &&
+    traceIfFalse "price should be emptied" (nftSellPrice outDatum == 0)                                     &&
     traceIfFalse "seller should be emptied" (PlutusTx.Prelude.isNothing $ nftSeller outDatum)                                       
   where
     info :: TxInfo
@@ -145,7 +145,7 @@ validateCancelSell NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMeta
     ownOutput :: TxOut
     ownOutput = case [ o
                      | o <- getContinuingOutputs ctx
-                     , valueOf (txOutValue o) nftMetaTokenSymbol nftMetaTokenName == 1
+                     , isNftToken (txOutValue o) nftMetaTokenSymbol nftMetaTokenName
                      ] of
         [o] -> o
         _   -> traceError "expected exactly one nft metadata output"
@@ -172,11 +172,11 @@ validateBuy ::
     -> ScriptContext
     -> Bool
 validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} buyer ctx =
-    traceIfFalse "nft metadata token missing from input" (valueOf inVal nftMetaTokenSymbol nftMetaTokenName == 1)               &&
+    traceIfFalse "nft metadata token missing from input" $ isNftToken inVal nftMetaTokenSymbol nftMetaTokenName                  &&
     traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                                     &&
-    traceIfFalse "expected seller to get money" (getsValue (nftSeller nftMeta) $ Ada.lovelaceValueOf (nftSellPrice nftMeta))   &&   
-    traceIfFalse "expected buyer to get NFT token" (getsValue (Just buyer) $ Value.singleton nftTokenSymbol nftTokenName 1)     && 
-    traceIfFalse "price should be grater 0" (nftSellPrice outDatum == 0)                                                        && 
+    traceIfFalse "expected seller to get money" (addressGetValue (nftSeller nftMeta) $ Ada.lovelaceValueOf (nftSellPrice nftMeta))   &&   
+    traceIfFalse "expected buyer to get NFT token" (addressGetValue (Just buyer) $ getNftValue nftTokenSymbol nftTokenName)        && 
+    traceIfFalse "price should be grater 0" (nftSellPrice outDatum == 0)                                                       && 
     traceIfFalse "seller should be emptied" (PlutusTx.Prelude.isNothing $ nftSeller outDatum)
  where
     info :: TxInfo
@@ -188,7 +188,7 @@ validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenNa
     ownOutput :: TxOut
     ownOutput = case [ o
                      | o <- getContinuingOutputs ctx
-                     , valueOf (txOutValue o) nftMetaTokenSymbol nftMetaTokenName == 1
+                     , isNftToken (txOutValue o) nftMetaTokenSymbol nftMetaTokenName
                      ] of
         [o] -> o
         _   -> traceError "expected exactly one nft metadata output"
@@ -202,8 +202,8 @@ validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenNa
     inVal  = valueWithin ownInput
     outVal = txOutValue ownOutput
 
-    getsValue :: Maybe PubKeyHash -> Value -> Bool
-    getsValue h v =
+    addressGetValue :: Maybe PubKeyHash -> Value -> Bool
+    addressGetValue h v =
         let
         [o] = [ o'
               | o' <- txInfoOutputs info
@@ -224,6 +224,21 @@ mkNFTMarketValidator market (NFTMeta nftMeta)  Sell             ctx = validateSe
 mkNFTMarketValidator market (NFTMeta nftMeta)  CancelSell       ctx = validateCancelSell market nftMeta ctx
 mkNFTMarketValidator market (NFTMeta nftMeta)  (Buy buyer)      ctx = validateBuy market nftMeta buyer ctx
 mkNFTMarketValidator _      _                  _                _   = False
+
+-- {-# INLINABLE validateLiquidityForging #-}
+-- validateNFTForging :: NFTMarket -> TxOutRef -> TokenName -> ScriptContext -> Bool
+-- validateNFTForging Uniswap{..} tn ctx
+--   = case [ i
+--          | i <- txInfoInputs $ scriptContextTxInfo ctx
+--          , let v = valueWithin i
+--          , isUnity v usCoin || assetClassValueOf v marketId = 1
+--          ] of
+--     [_]    -> True
+--     [_, _] -> True
+--     _      -> traceError "pool state forging without Uniswap input"
+--   where
+--     lpC :: Coin Liquidity
+--     lpC = mkCoin (ownCurrencySymbol ctx) tn
 
 data Market
 instance Scripts.ValidatorTypes Market where
