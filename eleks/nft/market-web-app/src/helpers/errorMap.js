@@ -1,3 +1,3 @@
 export const errorMap = {
-    'InsufficientFundss': 'Insufficient funds in the wallet'
+    'InsufficientFunds': 'Insufficient funds in the wallet'
 }

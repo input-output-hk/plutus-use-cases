@@ -60,7 +60,7 @@ const TokenPage = ({
             </ListGroupItem>
             <ListGroupItem>
               <Card.Subtitle className='mb-2 text-muted'>Price:</Card.Subtitle>
-              {token.price ? `${token.price} ADA` : 'Token is not selling'}
+              {token.price ? `${token.price} Lovelace` : 'Token is not selling'}
             </ListGroupItem>
           </ListGroup>
         </Card.Body>
@@ -130,7 +130,7 @@ const TokenPage = ({
       header={isBuy ? 'Buy token' : 'Cancel sell'}
       text={
         isBuy
-          ? `Do you want to buy ${token.name} token for ${token.price} ADA?`
+          ? `Do you want to buy ${token.name} token for ${token.price} Lovelace?`
           : `Do you want to cancel sell ${token.name} token?`
       }
     />

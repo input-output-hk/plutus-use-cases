@@ -19,7 +19,7 @@ const SellModal = ({ show, onHide, price, setPrice, submitSell, error }) => (
       <Modal.Title id='contained-modal-title-vcenter'>Sell token</Modal.Title>
     </Modal.Header>
     <Modal.Body>
-      <p>Fill the price in ADA to sell token</p>
+      <p>Fill the price in Lovelace to sell token</p>
       <FormControl
         placeholder='1000'
         aria-label='Price'

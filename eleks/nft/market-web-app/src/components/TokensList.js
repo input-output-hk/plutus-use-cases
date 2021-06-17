@@ -35,7 +35,7 @@ const TokensList = ({ tokens, onTokenClick }) => (
                   <Card.Subtitle className='mb-2 text-muted'>
                     Price:
                   </Card.Subtitle>
-                  <Card.Title>{token.price} ADA</Card.Title>
+                  <Card.Title>{token.price} Lovelace</Card.Title>
                 </div>
               )}
             </Card.Body>

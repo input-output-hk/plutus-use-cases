@@ -93,7 +93,7 @@ export const fetchSellToken = (wallet, data) => async (dispatch) => {
     const token = formatObjectResponse(response);
     localStorage.setItem('viewSingleToken', JSON.stringify(token));
     dispatch(fetchSellTokenSuccess(token));
-    toast.success('Token has been sold');
+    toast.success('Token has been put on sale');
   }
 };
 
