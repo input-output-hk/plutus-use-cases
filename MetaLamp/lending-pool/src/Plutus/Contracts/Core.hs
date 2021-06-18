@@ -221,8 +221,8 @@ validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId
 validateWithdraw aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateWithdraw: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
 
-validateWithdraw aave ReserveFundsDatum ctx userConfigId =
-  traceIfFalse "validateWithdraw: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx userConfigId
+validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
+  traceIfFalse "validateWithdraw: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx reserveId actor
 
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
@@ -261,8 +261,8 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
 
-validateBorrow aave ReserveFundsDatum ctx userConfigId =
-  traceIfFalse "validateBorrow: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx userConfigId
+validateBorrow aave ReserveFundsDatum ctx (reserveId, actor) =
+  traceIfFalse "validateBorrow: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx reserveId actor
 
 validateBorrow _ _ _ _ = trace "validateBorrow: Lending Pool Datum management is not allowed" False
 
@@ -380,17 +380,13 @@ validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx use
           (ucDebt newState == ucDebt oldState)
 
 validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) revokedAsset =
-  traceIfFalse "validateRevokeCollateral: UserCollateralFundsDatum change is not valid" $ owner == actor && False
-  where
-    txInfo = scriptContextTxInfo ctx
-
-    actorSpentValue = valueSpentFrom txInfo actor
-    actorRemainderValue = valuePaidTo txInfo actor
+  traceIfFalse "validateRevokeCollateral: UserCollateralFundsDatum change is not valid" $
+  owner == actor && revokedAsset == aTokenAsset && checkNegativeFundsTransformation ctx aTokenAsset actor
 
 validateRevokeCollateral _ _ _ _ _ = trace "validateRevokeCollateral: Lending Pool Datum management is not allowed" False
 
-checkNegativeFundsTransformation :: ScriptContext -> (AssetClass, PubKeyHash) -> Bool
-checkNegativeFundsTransformation ctx (reserveId, actor) = isValidFundsChange
+checkNegativeFundsTransformation :: ScriptContext -> AssetClass -> PubKeyHash -> Bool
+checkNegativeFundsTransformation ctx asset actor = isValidFundsChange
   where
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
@@ -403,8 +399,8 @@ checkNegativeFundsTransformation ctx (reserveId, actor) = isValidFundsChange
 
     isValidFundsChange :: Bool
     isValidFundsChange =
-      let paidAmout = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
-          fundsChange = assetClassValueOf scriptSpentValue reserveId - assetClassValueOf scriptRemainderValue reserveId
+      let paidAmout = assetClassValueOf actorRemainderValue asset - assetClassValueOf actorSpentValue asset
+          fundsChange = assetClassValueOf scriptSpentValue asset - assetClassValueOf scriptRemainderValue asset
        in fundsChange == paidAmout && fundsChange > 0 && paidAmout > 0
 
 checkNegativeReservesTransformation :: AssetClass
