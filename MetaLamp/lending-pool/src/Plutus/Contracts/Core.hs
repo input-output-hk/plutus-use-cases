@@ -242,7 +242,6 @@ validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
 
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
--- TODO prohibit borrowing asset which is deposited
 validateBorrow :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
   traceIfFalse "validateBorrow: User Configs Datum change is not valid" isValidUserConfigsTransformation
@@ -273,7 +272,7 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
       let debtAmount = (ucDebt newState -) $ maybe 0 ucDebt oldState
           disbursementAmount = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
        in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0 &&
-          maybe (ucCollateralizedInvestment newState == 0) ((ucCollateralizedInvestment newState ==) . ucCollateralizedInvestment) oldState
+          ucCollateralizedInvestment newState == 0 && maybe True ((== 0) . ucCollateralizedInvestment) oldState
 
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
