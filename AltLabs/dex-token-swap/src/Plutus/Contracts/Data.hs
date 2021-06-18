@@ -46,6 +46,8 @@ import           PlutusTx.Sqrt
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf         (PrintfArg)
+import qualified Data.Aeson.Encode.Pretty                as JSON
+import           Data.Text.Prettyprint.Doc
 
 uniswapTokenName, poolStateTokenName :: TokenName
 -- state token for the "factory" (unique token)
@@ -112,6 +114,16 @@ data Uniswapping
 instance Scripts.ScriptType Uniswapping where
     type instance RedeemerType Uniswapping = UniswapAction
     type instance DatumType Uniswapping = UniswapDatum
+
+data UniswapContracts =
+      Init
+    | UniswapStart
+    | UniswapUser Uniswap
+    deriving (Eq, Ord, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+instance Pretty UniswapContracts where
+    pretty = viaShow
 
 -- | Parameters for the @create@-endpoint, which creates a new liquidity pool.
 data CreateParams = CreateParams

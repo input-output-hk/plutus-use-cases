@@ -65,7 +65,8 @@ library
       plutus-tx,
       plutus-ledger,
       playground-common -any,
-      bytestring -any
+      bytestring -any,
+      prettyprinter
       -- plutus-use-cases -any
     hs-source-dirs: src
     default-language: Haskell2010
@@ -99,6 +100,9 @@ test-suite plutus-example-projects-test
     plutus-ledger -any,
     plutus-starter -any,
     lens -any,
+    aeson-pretty -any,
+    freer-simple -any,
+    prettyprinter -any
   build-depends:
     base >=4.9 && <5,
     tasty -any,
@@ -107,6 +111,8 @@ test-suite plutus-example-projects-test
 
 -- | The PAB
 executable plutus-starter-pab
+  other-modules:
+    SimulatorActions
   main-is: Main.hs
   hs-source-dirs: pab
   ghc-options:
