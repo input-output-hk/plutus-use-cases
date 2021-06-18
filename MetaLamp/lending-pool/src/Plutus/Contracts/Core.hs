@@ -167,7 +167,6 @@ instance Scripts.ValidatorTypes AaveScript where
 -- Main validator
 -- Each state field must have one or more associated actions(Redeemer types),
 -- produced on state update, which are then validated here
--- TODO validate ucCollateralizedInvestment does not change on Deposit Withdraw Borrow Repay
 makeAaveValidator :: Aave
                    -> AaveDatum
                    -> AaveRedeemer
@@ -223,14 +222,14 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
 
     checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
-      maybe True ((ucDebt newState ==) . ucDebt) oldState
+      maybe (ucDebt newState == 0) ((ucDebt newState ==) . ucDebt) oldState &&
+      maybe (ucCollateralizedInvestment newState == 0) ((ucCollateralizedInvestment newState ==) . ucCollateralizedInvestment) oldState
 
 validateDeposit aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateDeposit: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
 
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
 
--- TODO withdraw should check if there is enough collateral remains deposited so that health factor is >= 1.05
 validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   -- TODO add implementation for this case
@@ -273,7 +272,8 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     checkRedeemerConfig oldState newState =
       let debtAmount = (ucDebt newState -) $ maybe 0 ucDebt oldState
           disbursementAmount = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
-       in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0
+       in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0 &&
+          maybe (ucCollateralizedInvestment newState == 0) ((ucCollateralizedInvestment newState ==) . ucCollateralizedInvestment) oldState
 
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
@@ -313,7 +313,8 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
       let newDebt = ucDebt newState
           debtChange = ucDebt oldState - newDebt
           reimbursementAmount = assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
-       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 && newDebt >= 0
+       in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 && newDebt >= 0 &&
+          ucCollateralizedInvestment newState == ucCollateralizedInvestment oldState
 
 validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId

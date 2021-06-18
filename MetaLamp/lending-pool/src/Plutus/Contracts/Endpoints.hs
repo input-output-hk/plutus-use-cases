@@ -262,7 +262,6 @@ data RepayParams =
 PlutusTx.unstableMakeIsData ''RepayParams
 PlutusTx.makeLift ''RepayParams
 
--- TODO should repay use collateral assets instead?
 -- | The user repays N amount of a specific asset to the corresponding reserve, his debt entry state is decreased by N
 repay :: (HasBlockchainActions s) => Aave -> RepayParams -> Contract w s Text ()
 repay aave RepayParams {..} = do
@@ -373,8 +372,6 @@ revokeCollateral aave RevokeCollateralParams {..} = do
         getUsersCollateral asset tx = ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut $ tx) &&
                                       (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toData $ userDatum asset)
 
--- TODO ? add repayWithCollateral
-
 data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
     deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
@@ -420,6 +417,7 @@ data UserContractState =
     | GetPubKeyBalance Value
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
+-- TODO ? add repayWithCollateral
 userEndpoints :: Aave -> Contract (Last (ContractResponse Text UserContractState)) AaveUserSchema Void ()
 userEndpoints aave = forever $
     handleContract (Proxy @"deposit") (const Deposited) (deposit aave)
