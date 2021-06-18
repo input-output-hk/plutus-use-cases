@@ -95,11 +95,14 @@ activateContracts = do
     _        <- Simulator.waitUntilFinished cidInit
     Simulator.logString @(Builtin AaveContracts) "Initialization finished."
 
-    let params = fmap Aave.CreateParams testAssets
-    cidStart <- Simulator.activateContract (Wallet 1) (AaveStart params)
-    aa       <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.Aave))) of
-                    Success (Monoid.Last (Just (Right aa))) -> Just aa
-                    _                                       -> Nothing
+    cidStart <- Simulator.activateContract (Wallet 1) AaveStart
+    _  <-
+        Simulator.callEndpointOnInstance cidStart "start" $
+            fmap Aave.CreateParams testAssets
+    aa <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.OwnerContractState))) of
+        Success (Monoid.Last (Just (ContractSuccess (Aave.Started aave)))) -> Just aave
+        _                                                   -> Nothing
+
     Simulator.logString @(Builtin AaveContracts) $ "Aave instance created: " ++ show aa
 
     cidInfo <- Simulator.activateContract (Wallet 1) $ AaveInfo aa
@@ -203,7 +206,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
 
 data AaveContracts =
       Init
-    | AaveStart [Aave.CreateParams]
+    | AaveStart
     | AaveInfo Aave.Aave
     | AaveUser Aave.Aave
     deriving (Eq, Show, Generic)
@@ -222,12 +225,12 @@ handleAaveContract = Builtin.handleBuiltin getSchema getContract where
   getSchema = \case
     AaveUser _ -> Builtin.endpointsToSchemas @(Aave.AaveUserSchema .\\ BlockchainActions)
     AaveInfo _ -> Builtin.endpointsToSchemas @(Aave.AaveInfoSchema .\\ BlockchainActions)
-    AaveStart _  -> Builtin.endpointsToSchemas @(Aave.AaveOwnerSchema .\\ BlockchainActions)
+    AaveStart  -> Builtin.endpointsToSchemas @(Aave.AaveOwnerSchema .\\ BlockchainActions)
     Init          -> Builtin.endpointsToSchemas @Empty
   getContract = \case
     AaveInfo aave    -> SomeBuiltin $ Aave.infoEndpoints aave
     AaveUser aave    -> SomeBuiltin $ Aave.userEndpoints aave
-    AaveStart params -> SomeBuiltin $ Aave.ownerEndpoint params
+    AaveStart -> SomeBuiltin Aave.ownerEndpoints
     Init             -> SomeBuiltin initContract
 
 handlers :: SimulatorEffectHandlers (Builtin AaveContracts)

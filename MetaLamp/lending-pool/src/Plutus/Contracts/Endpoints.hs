@@ -100,16 +100,38 @@ start params = do
     logInfo @Prelude.String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
 
-ownerEndpoint :: [CreateParams] -> Contract (Last (Either Text Aave)) BlockchainActions Void ()
-ownerEndpoint params = do
-    e <- runError $ start params
+data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
+    deriving stock    (Prelude.Eq, Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)
+
+handleContract :: forall l a p r s.
+    HasEndpoint l p s
+    => Proxy l
+    -> (a -> r)
+    -> (p -> Contract (Last (ContractResponse Text r)) s Text a)
+    -> Contract (Last (ContractResponse Text r)) s Void ()
+handleContract _ g c = do
+    e <- runError $ do
+        p <- endpoint @l
+        _ <- tell $ Last $ Just ContractPending
+        errorHandler `handleError` c p
     tell $ Last $ Just $ case e of
-        Left err -> Left err
-        Right aa -> Right aa
+        Left err -> ContractError err
+        Right a  -> ContractSuccess $ g a
+        where
+        errorHandler e = do
+            logInfo @Text ("Error submiting the transaction: " <> e)
+            throwError e
 
 type AaveOwnerSchema =
     BlockchainActions
-        .\/ Endpoint "start" ()
+        .\/ Endpoint "start" [CreateParams]
+
+data OwnerContractState = Started Aave
+    deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
+    
+ownerEndpoints :: Contract (Last (ContractResponse Text OwnerContractState)) AaveOwnerSchema Void ()
+ownerEndpoints = forever $ handleContract (Proxy @"start") Started start
 
 reserves :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map AssetClass Reserve)
 reserves aave = ovValue <$> State.findAaveReserves aave
@@ -282,29 +304,6 @@ repay aave RepayParams {..} = do
     ledgerTx <- TxUtils.submitTxPair $ reimbursementTx <> reservesTx <> userConfigsTx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
-
-data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
-    deriving stock    (Prelude.Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
-
-handleContract :: forall l a p r s.
-    HasEndpoint l p s
-    => Proxy l
-    -> (a -> r)
-    -> (p -> Contract (Last (ContractResponse Text r)) s Text a)
-    -> Contract (Last (ContractResponse Text r)) s Void ()
-handleContract _ g c = do
-    e <- runError $ do
-        p <- endpoint @l
-        _ <- tell $ Last $ Just ContractPending
-        errorHandler `handleError` c p
-    tell $ Last $ Just $ case e of
-        Left err -> ContractError err
-        Right a  -> ContractSuccess $ g a
-        where
-        errorHandler e = do
-            logInfo @Text ("Error submiting the transaction: " <> e)
-            throwError e
 
 type AaveUserSchema =
     BlockchainActions
