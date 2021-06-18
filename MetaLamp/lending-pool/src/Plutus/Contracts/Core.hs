@@ -133,9 +133,26 @@ pickUserCollateralFunds :: AaveDatum -> Maybe (PubKeyHash, AssetClass)
 pickUserCollateralFunds (UserCollateralFundsDatum user aTokenAsset) = Just (user, aTokenAsset)
 pickUserCollateralFunds _ = Nothing
 
--- TODO calculate these params in new module:
--- totalCollateralInLovelace :: AssocMap.Map AssetClass Integer -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig -> Either String Integer
--- totalCollateralInLovelace oracles userConfigs = 0
+-- TODO calculate these params
+{-# INLINABLE totalCollateralInLovelace #-}
+totalCollateralInLovelace ::
+     PubKeyHash
+  -> AssocMap.Map AssetClass Integer
+  -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig
+  -> Maybe Integer
+totalCollateralInLovelace actor oracles userConfigs =
+  foldrM addCollateral 0 $ AssocMap.toList userConfigs
+  where
+    addCollateral ::
+         ((AssetClass, PubKeyHash), UserConfig)
+      -> Integer
+      -> Maybe Integer
+    addCollateral ((asset, user), UserConfig {..}) currentTotal
+      | user == actor =
+        (\rate -> rate * ucCollateralizedInvestment + currentTotal) <$>
+        AssocMap.lookup asset oracles
+      | otherwise = Just currentTotal
+
 -- totalDebtInLovelace = 0
 -- doesCollateralCoverNewBorrow  =      amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
 --   where
