@@ -92,10 +92,10 @@ data AaveRedeemer =
     StartRedeemer
   | DepositRedeemer (AssetClass, PubKeyHash)
   | WithdrawRedeemer (AssetClass, PubKeyHash)
-  | BorrowRedeemer (AssetClass, PubKeyHash) -- we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
+  | BorrowRedeemer (AssetClass, PubKeyHash) -- TODO we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
   | RepayRedeemer (AssetClass, PubKeyHash)
   | ProvideCollateralRedeemer (AssetClass, PubKeyHash)
-  | RevokeCollateralRedeemer (AssetClass, PubKeyHash)  -- we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
+  | RevokeCollateralRedeemer (AssetClass, PubKeyHash) AssetClass -- TODO we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
@@ -164,7 +164,7 @@ makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "Withdr
 makeAaveValidator aave datum (BorrowRedeemer userConfigId) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId
 makeAaveValidator aave datum (RepayRedeemer userConfigId) ctx    = trace "RepayRedeemer" $ validateRepay aave datum ctx userConfigId
 makeAaveValidator aave datum (ProvideCollateralRedeemer userConfigId) ctx    = trace "ProvideCollateralRedeemer" $ validateProvideCollateral aave datum ctx userConfigId
-makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId) ctx    = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId
+makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId aTokenAsset) ctx    = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId aTokenAsset
 
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
 validateStart aave (LendingPoolDatum operator) ctx =
@@ -345,8 +345,41 @@ validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx us
 
 validateProvideCollateral _ _ _ _ = trace "validateProvideCollateral: Lending Pool Datum management is not allowed" False
 
-validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
-validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) =
+validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> AssetClass -> Bool
+validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) aTokenAsset =
+  traceIfFalse "validateRevokeCollateral: User Configs Datum change is not valid" isValidUserConfigsTransformation
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    scriptOutputs = scriptOutputsAt scriptsHash txInfo
+
+    userConfigsOutputDatumHash =
+      findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+    userConfigsOutputDatum ::
+         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+    userConfigsOutputDatum =
+      userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
+
+    actorSpentValue = valueSpentFrom txInfo actor
+    actorRemainderValue = valuePaidTo txInfo actor
+
+    isValidUserConfigsTransformation :: Bool
+    isValidUserConfigsTransformation =
+      maybe False checkUserConfigs userConfigsOutputDatum
+    checkUserConfigs ::
+         (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
+    checkUserConfigs (newStateToken, newUserConfigs) =
+      newStateToken == stateToken &&
+      fromMaybe False (checkRedeemerConfig <$> (AssocMap.lookup userConfigId userConfigs) <*> (AssocMap.lookup userConfigId newUserConfigs))
+    checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
+    checkRedeemerConfig oldState newState =
+      let newInvestmentAmount = ucCollateralizedInvestment newState
+          investmentShrinkedBy = ucCollateralizedInvestment oldState - newInvestmentAmount
+          disbursementAmount = assetClassValueOf actorRemainderValue aTokenAsset - assetClassValueOf actorSpentValue aTokenAsset
+       in investmentShrinkedBy == disbursementAmount && investmentShrinkedBy > 0 && disbursementAmount > 0 && newInvestmentAmount >= 0 &&
+          (ucDebt newState == ucDebt oldState)
+
+validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) revokedAsset =
   traceIfFalse "validateRevokeCollateral: UserCollateralFundsDatum change is not valid" $ owner == actor && False
   where
     txInfo = scriptContextTxInfo ctx
@@ -354,7 +387,7 @@ validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx 
     actorSpentValue = valueSpentFrom txInfo actor
     actorRemainderValue = valuePaidTo txInfo actor
 
-validateRevokeCollateral _ _ _ _ = trace "validateRevokeCollateral: Lending Pool Datum management is not allowed" False
+validateRevokeCollateral _ _ _ _ _ = trace "validateRevokeCollateral: Lending Pool Datum management is not allowed" False
 
 checkNegativeFundsTransformation :: ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 checkNegativeFundsTransformation ctx (reserveId, actor) = isValidFundsChange

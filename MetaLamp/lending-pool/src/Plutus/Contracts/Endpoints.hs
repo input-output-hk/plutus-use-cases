@@ -343,12 +343,13 @@ revokeCollateral aave RevokeCollateralParams {..} = do
     reserve <- State.findAaveReserve aave rcpUnderlyingAsset
 
     let aTokenAsset = rAToken reserve
+    let userConfigId = (rCurrency reserve, rcpOnBehalfOf)
+    let redeemer = Core.RevokeCollateralRedeemer userConfigId aTokenAsset
     utxos <-
         Map.filter (getUsersCollateral aTokenAsset)
         <$> utxoAt (Core.aaveAddress aave)
     let usersCollateralValue = Prelude.foldMap (txOutValue . txOutTxOut) utxos
-    let userConfigId = (rCurrency reserve, rcpOnBehalfOf)
-    let inputs = (\(ref, tx) -> OutputValue ref tx (Core.RevokeCollateralRedeemer userConfigId)) <$> Map.toList utxos
+    let inputs = (\(ref, tx) -> OutputValue ref tx redeemer) <$> Map.toList utxos
     let payment = assetClassValue aTokenAsset rcpAmount
     let remainder = assetClassValue aTokenAsset (assetClassValueOf usersCollateralValue aTokenAsset - rcpAmount)
     let fundsUnlockingTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs rcpOnBehalfOf payment <>
@@ -360,7 +361,7 @@ revokeCollateral aave RevokeCollateralParams {..} = do
             Nothing ->
                 throwError "User does not have any collateral."
             Just userConfig ->
-                State.updateUserConfig aave (Core.RevokeCollateralRedeemer userConfigId) userConfigId $
+                State.updateUserConfig aave redeemer userConfigId $
                 userConfig { ucCollateralizedInvestment = ucCollateralizedInvestment userConfig - rcpAmount }
 
     ledgerTx <- TxUtils.submitTxPair $ fundsUnlockingTx <> userConfigsTx
