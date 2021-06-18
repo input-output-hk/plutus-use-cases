@@ -150,6 +150,7 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
             Just incomingWebSocketData -> do
               -- aeson-lens happened here to unpack the json object received from the websocket
               -- TODO: Place aeson lens selectors into it's own module
+              -- TODO: There is a bug here that shows some other coin balance other than ADA after a swap. Possibly the liquidity coin balance...
               let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
                   adaDetails = (V.! 0) <$> currencyDetails
                   unwrapAda1 = adaDetails ^.. traverse . _Array
@@ -263,12 +264,12 @@ dashboard wid = Workflow $ do
                     return ()
                 return never
       return ()
-  return ((), leftmost [(portfolio wid) <$ portfolioEv])
+  return ((), leftmost [(portfolioDashboard wid) <$ portfolioEv])
 
-portfolio :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
+portfolioDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
   => Text
   -> Workflow t m ()
-portfolio wid = Workflow $ do
+portfolioDashboard wid = Workflow $ do
   -- TODO: Consider refactoring workflow code a bit to avoid redrawing navbar whenever a new tab is seleted
   navEvent <- navBar $ Just wid
   let swapEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Swap
@@ -293,6 +294,7 @@ portfolio wid = Workflow $ do
         widgetHold_ blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
           Nothing -> return ()
           Just incomingWebSocketData -> do
+            -- TODO: Make a better way to search for balances using keys instead of array indexes
             let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
                 allTokenDetails = (V.! 1) <$> currencyDetails
                 unwrapTokenDetails1 = allTokenDetails ^.. traverse . _Array
@@ -308,6 +310,17 @@ portfolio wid = Workflow $ do
             return ()
         return never
   return ((), leftmost [dashboard wid <$ swapEv])
+
+poolDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
+  => Text
+  -> Workflow t m ()
+poolDashboard wid = Workflow $ do
+  -- TODO: Make use of the "add" endpoint
+  -- TODO: Show the Liquidity Token Balance (Found in "Funds" endpoint if the wallet has added to the pool)
+  -- TODO: Create a view for capital gains since contributing to the Liquidity pool. After a wallet has made use of the add enpoint,
+  -- the liquidity token increments. Good to keep track of blance history to ensure 3% of a swap is what has been added to the balance.
+  blank
+  return ((), never)
 
 viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))
 viewCounter = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_Counter . identityV
