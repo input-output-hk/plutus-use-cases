@@ -23,6 +23,7 @@ const CreateNFT = ({
   setImage,
   onSubmit,
   error,
+  setError,
   errorVisibility,
   addTokenFetching,
 }) => (
@@ -33,8 +34,11 @@ const CreateNFT = ({
         <Form.Label>Name</Form.Label>
         <Form.Control
           value={name}
-          onChange={(ev) => setName(ev.target.value)}
-          className={error && !name && 'error'}
+          onChange={(ev) => {
+            setName(ev.target.value);
+            setError({ ...error, name: false });
+          }}
+          className={error && error.name && 'error'}
           type='text'
           placeholder='Cool token'
         />
@@ -44,8 +48,11 @@ const CreateNFT = ({
         <Form.Label>Author</Form.Label>
         <Form.Control
           value={author}
-          onChange={(ev) => setAuthor(ev.target.value)}
-          className={error && !author && 'error'}
+          onChange={(ev) => {
+            setAuthor(ev.target.value);
+            setError({ ...error, author: false });
+          }}
+          className={error && error.author && 'error'}
           type='text'
           placeholder='Superhero'
         />
@@ -55,18 +62,26 @@ const CreateNFT = ({
         <Form.Label>Description</Form.Label>
         <Form.Control
           value={desc}
-          onChange={(ev) => setDesc(ev.target.value)}
-          className={error && !desc && 'error'}
+          onChange={(ev) => {
+            setDesc(ev.target.value);
+            setError({ ...error, desc: false });
+          }}
+          className={error && error.desc && 'error'}
           type='text'
           placeholder='The best token ever'
         />
       </Form.Group>
 
       <Form.Label>Image</Form.Label>
-      <DropzoneComponent image={image} setImage={setImage} error={error} />
+      <DropzoneComponent
+        image={image}
+        setImage={setImage}
+        error={error}
+        setError={setError}
+      />
 
       <Form.Text className={`error-text ${errorVisibility && 'visible'}`}>
-        Please, be sure to fill all fields in the form
+        {error && error.errorText}
       </Form.Text>
       <Button variant='secondary' type='submit'>
         Submit
@@ -81,14 +96,20 @@ const CreateNFT = ({
   </div>
 );
 
+const isAlphaNum = (string) => {
+  const reg = new RegExp('^[a-zA-Z0-9_]*$');
+  return reg.test(string);
+};
+
 const enhancer = compose(
   withState('name', 'setName', ''),
   withState('author', 'setAuthor', ''),
   withState('desc', 'setDesc', ''),
   withState('image', 'setImage', ''),
-  withState('error', 'setError', ''),
-  withProps(({ name, author, desc, error }) => ({
-    errorVisibility: error && (!name || !author || !desc),
+  withState('error', 'setError', null),
+  withProps(({ error }) => ({
+    errorVisibility:
+      error && (error.name || error.author || error.desc || error.image),
   })),
   connect(
     (state) => ({
@@ -117,12 +138,29 @@ const enhancer = compose(
       clearForm,
     }) => (ev) => {
       ev.preventDefault();
-      if (name && author && desc && image) {
-        fetchAddToken(formatForAPI({ name, author, desc, image }));
-        setError(false);
-        clearForm();
+      if (!name || !author || !desc || !image) {
+        setError({
+          name: !name,
+          author: !author,
+          desc: !desc,
+          image: !image,
+          errorText: 'Please, be sure to fill all fields in the form',
+        });
+      } else if (
+        !isAlphaNum(name) ||
+        !isAlphaNum(author) ||
+        !isAlphaNum(desc)
+      ) {
+        setError({
+          name: !isAlphaNum(name),
+          author: !isAlphaNum(author),
+          desc: !isAlphaNum(desc),
+          errorText: 'Text fields can include only alphanumeric values',
+        });
       } else {
-        setError(true);
+        fetchAddToken(formatForAPI({ name, author, desc, image }));
+        setError(null);
+        clearForm();
       }
     },
   })

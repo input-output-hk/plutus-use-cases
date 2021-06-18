@@ -1,19 +1,23 @@
 import Dropzone from 'react-dropzone';
 import '../styles/Dropzone.scss';
 
-const DropzoneComponent = ({ image, setImage, error }) => (
+const DropzoneComponent = ({ image, setImage, error, setError }) => (
   <Dropzone
-    onDrop={(images) =>
+    onDrop={(images) => {
       setImage(
         Object.assign(images[0], {
           preview: URL.createObjectURL(images[0]),
         })
-      )
-    }
+      );
+      setError({ ...error, image: false });
+    }}
   >
     {({ getRootProps, getInputProps }) => (
       <section>
-        <div {...getRootProps()} className={`Dropzone ${error && !image && 'error'}`}>
+        <div
+          {...getRootProps()}
+          className={`Dropzone ${error && error.image && 'error'}`}
+        >
           <input {...getInputProps()} />
           {!image && (
             <p className='placeholder'>
