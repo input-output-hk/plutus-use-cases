@@ -195,7 +195,6 @@ validateStart aave (LendingPoolDatum operator) ctx =
       outs -> isJust $ AssocMap.lookup scriptsDatumHash $ AssocMap.fromList outs
 validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management is not allowed" False
 
--- TODO prohibit depositing asset which is not repaid
 validateDeposit :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   traceIfFalse "validateDeposit: User Configs Datum change is not valid" isValidUserConfigsTransformation
@@ -222,8 +221,8 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
 
     checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
-      maybe (ucDebt newState == 0) ((ucDebt newState ==) . ucDebt) oldState &&
-      maybe (ucCollateralizedInvestment newState == 0) ((ucCollateralizedInvestment newState ==) . ucCollateralizedInvestment) oldState
+      maybe (ucCollateralizedInvestment newState == 0) ((ucCollateralizedInvestment newState ==) . ucCollateralizedInvestment) oldState &&
+      ucDebt newState == 0 && maybe True ((== 0) . ucDebt) oldState
 
 validateDeposit aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateDeposit: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
@@ -358,7 +357,7 @@ validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx us
       let investmentAmount = (ucCollateralizedInvestment newState -) $ maybe 0 ucCollateralizedInvestment oldState
           disbursementAmount = assetClassValueOf actorSpentValue asset - assetClassValueOf actorRemainderValue asset
        in investmentAmount == disbursementAmount && investmentAmount > 0 && disbursementAmount > 0 &&
-          maybe (ucDebt newState == 0) ((ucDebt newState ==) . ucDebt) oldState
+          ucDebt newState == 0 && maybe True ((== 0) . ucDebt) oldState
 
 validateProvideCollateral _ _ _ _ = trace "validateProvideCollateral: Lending Pool Datum management is not allowed" False
 
