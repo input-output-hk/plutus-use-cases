@@ -64,6 +64,7 @@ data Reserve = Reserve
 
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
+Lens.makeClassy_ ''Reserve
 
 -- TODO (?) only aTokens pledged as collateral should accumulate interest
 -- data UserConfig = UserConfig
@@ -87,6 +88,7 @@ data UserConfig = UserConfig
 
 PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
+Lens.makeClassy_ ''UserConfig
 
 data AaveRedeemer =
     StartRedeemer
@@ -133,30 +135,36 @@ pickUserCollateralFunds :: AaveDatum -> Maybe (PubKeyHash, AssetClass)
 pickUserCollateralFunds (UserCollateralFundsDatum user aTokenAsset) = Just (user, aTokenAsset)
 pickUserCollateralFunds _ = Nothing
 
--- TODO calculate these params
-{-# INLINABLE totalCollateralInLovelace #-}
-totalCollateralInLovelace ::
+{-# INLINABLE totalDebtAndCollateralInLovelace #-}
+totalDebtAndCollateralInLovelace ::
      PubKeyHash
   -> AssocMap.Map AssetClass Integer
   -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig
-  -> Maybe Integer
-totalCollateralInLovelace actor oracles userConfigs =
-  foldrM addCollateral 0 $ AssocMap.toList userConfigs
+  -> Maybe UserConfig
+totalDebtAndCollateralInLovelace actor oracles userConfigs =
+  foldrM addCollateral (UserConfig 0 0) $ AssocMap.toList userConfigs
   where
     addCollateral ::
          ((AssetClass, PubKeyHash), UserConfig)
-      -> Integer
-      -> Maybe Integer
-    addCollateral ((asset, user), UserConfig {..}) currentTotal
+      -> UserConfig
+      -> Maybe UserConfig
+    addCollateral ((asset, user), userConfig) currentTotal
       | user == actor =
-        (\rate -> rate * ucCollateralizedInvestment + currentTotal) <$>
+        (\rate -> UserConfig {
+          ucCollateralizedInvestment = rate * ucCollateralizedInvestment userConfig + ucCollateralizedInvestment currentTotal,
+          ucDebt = rate * ucDebt userConfig + ucDebt currentTotal }
+          ) <$>
         AssocMap.lookup asset oracles
       | otherwise = Just currentTotal
 
--- totalDebtInLovelace = 0
--- doesCollateralCoverNewBorrow  =      amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
---   where
---     userCollateralBalanceLovelace = totalCollateralInLovelace
+{-# INLINABLE doesCollateralCoverDebt #-}
+doesCollateralCoverDebt ::
+     PubKeyHash
+  -> AssocMap.Map AssetClass Integer
+  -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig
+  -> Bool
+doesCollateralCoverDebt actor oracles userConfigs = maybe False (\UserConfig{..} -> ucDebt <= ucCollateralizedInvestment) $
+  totalDebtAndCollateralInLovelace actor oracles userConfigs
 
 data AaveScript
 instance Scripts.ValidatorTypes AaveScript where
