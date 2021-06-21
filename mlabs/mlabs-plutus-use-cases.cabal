@@ -57,6 +57,8 @@ library
         Mlabs.Data.Maybe
         Mlabs.Data.Ray
         Mlabs.Data.Ord
+        Mlabs.Demo.Contract.Burn
+        Mlabs.Demo.Contract.Mint
         Mlabs.Emulator.App
         Mlabs.Emulator.Blockchain
         Mlabs.Emulator.Scene
@@ -270,6 +272,7 @@ Test-suite mlabs-plutus-use-cases-tests
   hs-source-dirs:      test
   Main-is:             Main.hs
   Other-modules:
+                       Test.Demo.Contract.Mint
                        Test.Lending.Contract
                        Test.Lending.Init
                        Test.Lending.Logic
