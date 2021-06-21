@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
@@ -25,6 +27,8 @@ module Plutus.Contracts.Oracle
     , OracleParams (..)
     , runOracle
     , findOracle
+    , useOracle
+    , fromTuple
     ) where
 
 import           Control.Monad             hiding (fmap)
@@ -45,6 +49,9 @@ import           Plutus.Contracts.Currency as Currency
 import           Prelude                   (Semigroup (..))
 import qualified Prelude                   as Prelude
 import           Schema                                 ( ToSchema)
+import qualified Plutus.State.Select as Select
+import qualified Plutus.Contracts.TxUtils as TxUtils
+import Plutus.OutputValue
 
 data Oracle = Oracle
     { oSymbol   :: CurrencySymbol
@@ -57,6 +64,9 @@ data Oracle = Oracle
 
 PlutusTx.makeLift ''Oracle
 PlutusTx.unstableMakeIsData ''Oracle
+
+fromTuple :: (CurrencySymbol, PubKeyHash, Integer, AssetClass) -> Oracle
+fromTuple (oSymbol, oOperator, oFee, oAsset) = Oracle {..}
 
 data OracleRedeemer = Update | Use
     deriving stock (Prelude.Eq, Prelude.Ord, Prelude.Show, Generic)
@@ -191,6 +201,26 @@ findOracle oracle = do
   where
     f :: TxOutTx -> Bool
     f o = assetClassValueOf (txOutValue $ txOutTxOut o) (oracleAsset oracle) == 1
+
+useOracle ::
+     forall w s scriptType.
+     ( HasBlockchainActions s
+     , PlutusTx.IsData (Scripts.DatumType scriptType)
+     , PlutusTx.IsData (Scripts.RedeemerType scriptType)
+     )
+  => (CurrencySymbol, PubKeyHash, Integer, AssetClass)
+  -> Contract w s Text (TxUtils.TxPair scriptType)
+useOracle (fromTuple -> oracle) = do
+  oracleOutput <- Select.findOutputBy (oracleAddress oracle) oracleCoin Just
+  let unspent = Map.singleton (ovOutRef oracleOutput) (ovOutTx oracleOutput)
+  let lookups =
+        Constraints.otherScript (oracleValidator oracle) <>
+        Constraints.unspentOutputs unspent
+  let tx = Constraints.mustSpendScriptOutput (ovOutRef oracleOutput) (Redeemer $ PlutusTx.toData Use) <>
+           Constraints.mustPayToTheScript (ovValue oracleOutput) (assetClassValue oracleCoin 1)
+  pure $ (lookups, tx)
+  where
+    oracleCoin = oracleAsset oracle
 
 type OracleSchema = BlockchainActions .\/ Endpoint "update" Integer
 
