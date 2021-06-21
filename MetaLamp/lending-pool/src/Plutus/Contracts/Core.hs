@@ -57,10 +57,11 @@ data Reserve = Reserve
       rAToken                  :: AssetClass,
       rAmount                  :: Integer,
       rLiquidityIndex          :: Integer,
-      rCurrentStableBorrowRate :: Rational
+      rCurrentStableBorrowRate :: Rational,
+      rTrustedOracle           :: (Address, AssetClass)
     }
     deriving stock (Prelude.Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, ToSchema)
+    deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
@@ -81,7 +82,6 @@ data UserConfig = UserConfig
     {
       ucDebt              :: Integer,
       ucCollateralizedInvestment :: Integer
-
     }
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
