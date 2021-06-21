@@ -41,3 +41,13 @@ data SwapParams = SwapParams
 
 instance ToJSON SwapParams
 instance FromJSON SwapParams
+
+data AddParams = AddParams
+    { apCoinA   :: Coin AssetClass      -- ^ One 'Coin' of the liquidity pair.
+    , apCoinB   :: Coin AssetClass      -- ^ The other 'Coin'.
+    , apAmountA :: Amount Integer     -- ^ The amount the first 'Coin' that should be swapped.
+    , apAmountB :: Amount Integer    -- ^ The amount of the second 'Coin' that should be swapped.
+    } deriving (Generic, Show)
+
+instance ToJSON AddParams
+instance FromJSON AddParams
