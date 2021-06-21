@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
@@ -20,20 +21,19 @@ import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import Data.Int
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HMap
 import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
 import Data.Vessel
 import Data.Vessel.Identity
 import Data.Vessel.Vessel
 import Data.Vessel.ViewMorphism
-import Language.Javascript.JSaddle (eval, liftJSM, JSM)
+import Language.Javascript.JSaddle (eval, liftJSM)
 -- import Obelisk.Configs
 import Obelisk.Frontend
 import Obelisk.Route
@@ -149,23 +149,10 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
             Nothing -> return ()
             Just incomingWebSocketData -> do
               -- aeson-lens happened here to unpack the json object received from the websocket
-              -- TODO: Place aeson lens selectors into it's own module
-              -- TODO: There is a bug here that shows some other coin balance other than ADA after a swap. Possibly the liquidity coin balance...
-              let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
-                  adaDetails = (V.! 0) <$> currencyDetails
-                  unwrapAda1 = adaDetails ^.. traverse . _Array
-                  adaNameAndBalance = (V.! 1) <$> unwrapAda1
-                  unwrapAdaNameAndBalance = adaNameAndBalance ^.. traverse . _Array
-                  nestedAdaBalName = (V.! 0) <$> unwrapAdaNameAndBalance
-                  unwrapAdaBalName = nestedAdaBalName ^.. traverse . _Array
-                  adaBal = (V.! 1) <$> unwrapAdaBalName
-                  balanceList = adaBal ^.. traverse . _Number
-                  mAdaBalance = headMay balanceList
-                  adaBalance = case mAdaBalance of
-                    Nothing -> 0
-                    Just bal -> coefficient bal
+              let currencyDetails = incomingWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
+                  mAdaBal = fmap fst <$> Map.lookup "" $ parseTokensToMap currencyDetails
               -- TODO: Use the ADA coin symbol
-              elClass "p" "text-white" $ text $ "ADA Balance: " <> (T.pack $ show adaBalance)
+              elClass "p" "text-white" $ text $ "ADA Balance: " <> (T.pack $ show $ fromMaybe 0 mAdaBal)
           return navSelect
 
 dashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Text -> Workflow t m ()
@@ -294,19 +281,16 @@ portfolioDashboard wid = Workflow $ do
         widgetHold_ blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
           Nothing -> return ()
           Just incomingWebSocketData -> do
-            -- TODO: Make a better way to search for balances using keys instead of array indexes
-            let currencyDetails = incomingWebSocketData ^.. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
-                allTokenDetails = (V.! 1) <$> currencyDetails
-                unwrapTokenDetails1 = allTokenDetails ^.. traverse . _Array
-                nestedTokenDetails1 = (V.! 1) <$> unwrapTokenDetails1
-                allTokenNamesAndBalances = nestedTokenDetails1 ^.. traverse . _Array
+            let currencyDetails = incomingWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
             elClass "ul" "list-group" $ do
-              flip mapM_ allTokenNamesAndBalances $ \atb ->
-                flip mapM_ atb $ \(Aeson.Array tokenMeta) -> elClass "li" "list-group-item" $ do
-                  let (Aeson.Object tokenHashMap) = (V.! 0) tokenMeta
-                      (Aeson.String tokenName) = fromMaybe (Aeson.String "NoName") $ HMap.lookup "unTokenName" tokenHashMap
-                      (Aeson.Number tokenBalance) = (V.! 1) tokenMeta
+              let formattedTokenDetails = Map.filter
+                    -- TODO: Don't lookup tokens by hard coded currencySymbol value
+                    (\(_,cs) -> cs == "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e") $
+                    parseTokensToMap currencyDetails
+              elClass "li" "list-group-item" $ do
+                forM_ (Map.toList formattedTokenDetails) $ \(tokenName, (tokenBalance,_)) ->
                   el "p" $ text $ "Token Name: " <> (T.pack $ show tokenName) <> "Balance: " <> (T.pack $ show tokenBalance)
+              return ()
             return ()
         return never
   return ((), leftmost [dashboard wid <$ swapEv])
@@ -314,13 +298,31 @@ portfolioDashboard wid = Workflow $ do
 poolDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
   => Text
   -> Workflow t m ()
-poolDashboard wid = Workflow $ do
+poolDashboard _ = Workflow $ do
   -- TODO: Make use of the "add" endpoint
   -- TODO: Show the Liquidity Token Balance (Found in "Funds" endpoint if the wallet has added to the pool)
   -- TODO: Create a view for capital gains since contributing to the Liquidity pool. After a wallet has made use of the add enpoint,
   -- the liquidity token increments. Good to keep track of blance history to ensure 3% of a swap is what has been added to the balance.
   blank
   return ((), never)
+
+-- TODO: Create a websocket parsing module for this
+parseTokensToMap :: V.Vector Aeson.Value -> Map.Map Text (Integer, Text)
+parseTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
+  Aeson.Array xs -> case V.toList xs of
+    symbol:(Aeson.Array tokens):_ ->
+      let currencySymbol = symbol ^. key "unCurrencySymbol" . _String
+          tokens' = ffor tokens $ \case
+            Aeson.Array xs' -> case V.toList xs' of
+              tokenName:tokenAmount:_ -> Just
+                ( tokenName ^. key "unTokenName" . _String
+                , (fromMaybe 0 $ tokenAmount ^? _Integer, currencySymbol)
+                )
+              _ -> Nothing
+            _ -> Nothing
+      in Just $ Map.fromList $ catMaybes $ V.toList tokens'
+    _ -> Nothing
+  _ -> Just Map.empty
 
 viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))
 viewCounter = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_Counter . identityV
