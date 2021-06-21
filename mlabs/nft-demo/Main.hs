@@ -30,7 +30,7 @@ main = runSimulator startParams $ do
 
   nid <- activateStartNft user1
   cids <- mapM (activateUser nid) [user1, user2, user3]
- let [u1, u2, u3] = cids
+  let [u1, u2, u3] = cids
 
   test "User 1 sets the Mona Lisa's price to 100 Lovelace, User 2 buys The Mona Lisa from User 1 for 100 Lovelace (what a deal!), User 2 has specified that the Mona Lisa is not for sale" [1, 2] $ do
     setPrice u1 (Just 100)
