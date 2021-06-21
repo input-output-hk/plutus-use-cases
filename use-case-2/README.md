@@ -1,3 +1,16 @@
+## Welcome to The POKE-DEX (Plutus Obelisk Koin Economy Decentralized Exchange)
+
+This Dapp demonstration allows users to swap and stake tokens using token exchange smart contracts on the Cardano block chain.
+
+This Dapp is made possible using the IOHK's Plutus Application Backend(PAB) that exposes endpoints to smart contracts deployed in a local developer environment, manages wallet accounts, and executes transactions. PAB utilizes Nix as a build tool and Haskell as a programming language within it's repository, which played a big part on influencing what tools were selected to build the other components of the Dapp.
+
+Ther frontend and middleware of this Dapp is made possible using Obelisk, a framework that allows you to build high-quality web and mobile applications. Obelisk shares the same build tool and programming language as PAB, Haskell and Nix. This makes communication between PAB and Obelisk pleasant when it comes to parsing data types, sharing data types, and deployment.
+
+
+By the end of this README you will be able to run the POKE-DEX on your machine locally and observe the behaviors of smart contracts against the Cardano mock chain by the power of PAB. Start by installing Obelisk, then running PAB, followed by running Obelisk as explained below
+
+
+
 ## Installing Obelisk
 
 1. [Install Nix](https://nixos.org/nix/).
