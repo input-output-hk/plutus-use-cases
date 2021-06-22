@@ -120,15 +120,14 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
       Just wid -> do
         -- select which page of the dashboard the user would like to see
         navSelect <- elClass "ul" "nav navbar-nav" $ do
-          -- TODO: add loading modal
           swapEv <- do
-            (e,_) <- elClass' "li" "text-white" $ text "Swap"
+            (e,_) <- elClass' "li" "text-white nav-item ms-5" $ text "Swap"
             return $ Dashboard_Swap  <$ domEvent Click e
           portfolioEv <- do
-            (e,_) <- elClass' "li" "text-white" $ text "-Portfolio-"
+            (e,_) <- elClass' "li" "text-white nav-item ms-5" $ text "Portfolio"
             return $ Dashboard_Portfolio  <$ domEvent Click e
           poolEv <- do
-            (e,_) <- elClass' "li" "text-white" $ text "Pool"
+            (e,_) <- elClass' "li" "text-white nav-item ms-5" $ text "Pool"
             return $ Dashboard_Pool  <$ domEvent Click e
           return $ leftmost [swapEv, portfolioEv, poolEv]
         -- event that fires once the page has finished loading
@@ -202,6 +201,7 @@ dashboard wid = Workflow $ do
                         & inputElementConfig_initialValue
                           .~ ("0" :: Text)
                       return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
+                    -- TODO: add loading modal
                     swap <- divClass "input-group row mt-3" $ do
                       (e,_) <- elClass' "button" "btn btn-primary" $ text "Swap"
                       return $ domEvent Click e
@@ -372,6 +372,7 @@ poolDashboard wid = Workflow $ do
                         & inputElementConfig_initialValue
                           .~ ("0" :: Text)
                       return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
+                    -- TODO: add loading modal
                     stake <- divClass "input-group row mt-3" $ do
                       (e,_) <- elClass' "button" "btn btn-primary" $ text "Stake"
                       return $ domEvent Click e
