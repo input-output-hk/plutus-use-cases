@@ -56,6 +56,7 @@ import           Plutus.V1.Ledger.Crypto             (getPubKeyHash, pubKeyHash)
 import           Prelude                             hiding (init)
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
 import           Wallet.Types                        (ContractInstanceId)
+import qualified Plutus.Contracts.Oracle as Oracle
 
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 4]]
@@ -70,7 +71,7 @@ toAsset tokenName =
 testAssets :: [AssetClass]
 testAssets = fmap toAsset testCurrencyNames
 
-initContract :: Contract (Maybe (Semigroup.Last Currency.OneShotCurrency)) Currency.CurrencySchema Currency.CurrencyError ()
+initContract :: Contract (Monoid.Last [Oracle.Oracle]) BlockchainActions Text ()
 initContract = do
     ownPK <- pubKeyHash <$> ownPubKey
     let testCurrenciesValue = mconcat $ fmap (`assetClassValue` 1000) testAssets
@@ -84,6 +85,16 @@ initContract = do
         when (pkh /= ownPK) $ do
             ledgerTx <- submitTxConstraintsWith @Scripts.Any lookups tx
             void $ awaitTxConfirmed $ txId ledgerTx
+    oracles <- forM testAssets $ \asset -> do
+        let oracleParams = Oracle.OracleParams
+                { opFees   = 0
+                , opSymbol = fst . unAssetClass $ asset
+                , opToken  = snd . unAssetClass $ asset
+                }
+        oracle <- Oracle.startOracle oracleParams
+        Oracle.updateOracle oracle oneAdaInLovelace
+        pure oracle
+    tell $ Monoid.Last $ Just oracles
   where
     amount = 1000000
 
@@ -92,10 +103,12 @@ data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, c
 activateContracts :: Simulation (Builtin AaveContracts) ContractIDs
 activateContracts = do
     cidInit  <- Simulator.activateContract (Wallet 1) Init
-    _        <- Simulator.waitUntilFinished cidInit
+    oracles  <- flip Simulator.waitForState cidInit $ \json -> case (fromJSON json :: Result (Monoid.Last [Oracle.Oracle])) of
+                    Success (Monoid.Last (Just res)) -> Just res
+                    _                      -> Nothing
     Simulator.logString @(Builtin AaveContracts) "Initialization finished."
 
-    let params = fmap Aave.CreateParams testAssets
+    let params = fmap (\o -> Aave.CreateParams (Oracle.oAsset o) o) oracles
     cidStart <- Simulator.activateContract (Wallet 1) (AaveStart params)
     aa       <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.Aave))) of
                     Success (Monoid.Last (Just (Right aa))) -> Just aa
@@ -159,7 +172,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
         Success (Monoid.Last (Just (ContractSuccess Aave.CollateralRevoked))) -> Just ()
         _                                                   -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful revokeCollateral"
-    
+
     let lenderCid = cidUser Map.! Wallet 3
     let lender = pubKeyHash . walletPubKey $ Wallet 3
     _  <-
@@ -251,3 +264,6 @@ handlers :: SimulatorEffectHandlers (Builtin AaveContracts)
 handlers =
     Simulator.mkSimulatorHandlers @(Builtin AaveContracts) []
     $ interpret handleAaveContract
+
+oneAdaInLovelace :: Integer
+oneAdaInLovelace = 1000000

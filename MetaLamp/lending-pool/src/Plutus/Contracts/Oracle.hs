@@ -26,9 +26,12 @@ module Plutus.Contracts.Oracle
     , OracleSchema
     , OracleParams (..)
     , runOracle
+    , startOracle
+    , updateOracle
     , findOracle
     , useOracle
     , fromTuple
+    , toTuple
     ) where
 
 import           Control.Monad             hiding (fmap)
@@ -67,6 +70,9 @@ PlutusTx.unstableMakeIsData ''Oracle
 
 fromTuple :: (CurrencySymbol, PubKeyHash, Integer, AssetClass) -> Oracle
 fromTuple (oSymbol, oOperator, oFee, oAsset) = Oracle {..}
+
+toTuple :: Oracle -> (CurrencySymbol, PubKeyHash, Integer, AssetClass)
+toTuple Oracle{..} = (oSymbol, oOperator, oFee, oAsset)
 
 data OracleRedeemer = Update | Use
     deriving stock (Prelude.Eq, Prelude.Ord, Prelude.Show, Generic)

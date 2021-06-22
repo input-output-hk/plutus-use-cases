@@ -59,9 +59,11 @@ import qualified Prelude
 import           Text.Printf                      (printf)
 import qualified Plutus.Contracts.Oracle as Oracle
 
-newtype CreateParams =
+data CreateParams =
     CreateParams
-        { cpAsset :: AssetClass }
+        { cpAsset :: AssetClass,
+          cpOracle :: Oracle.Oracle
+         }
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON, ToSchema)
 
@@ -74,7 +76,8 @@ createReserve aave CreateParams {..} =
           rAmount = 0,
           rAToken = AToken.makeAToken (Core.aaveHash aave) cpAsset,
           rLiquidityIndex = 1,
-          rCurrentStableBorrowRate = 11 % 10 -- TODO configure borrow rate when lending core will be ready
+          rCurrentStableBorrowRate = 11 % 10, -- TODO configure borrow rate when lending core will be ready
+          rTrustedOracle = Oracle.toTuple cpOracle
            }
 
 -- | Starts the Lending Pool protocol: minting pool NFTs, creating empty user configuration state and all specified liquidity reserves

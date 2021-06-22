@@ -524,6 +524,3 @@ aaveAddress = Ledger.scriptAddress . aaveValidator
 
 aave :: CurrencySymbol -> Aave
 aave protocol = Aave (assetClass protocol aaveProtocolName)
-
-oneAdaInLovelace :: Integer
-oneAdaInLovelace = 1000000
