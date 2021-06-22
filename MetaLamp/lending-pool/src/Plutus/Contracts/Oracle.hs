@@ -68,9 +68,11 @@ data Oracle = Oracle
 PlutusTx.makeLift ''Oracle
 PlutusTx.unstableMakeIsData ''Oracle
 
+{-# INLINABLE fromTuple #-}
 fromTuple :: (CurrencySymbol, PubKeyHash, Integer, AssetClass) -> Oracle
 fromTuple (oSymbol, oOperator, oFee, oAsset) = Oracle {..}
 
+{-# INLINABLE toTuple #-}
 toTuple :: Oracle -> (CurrencySymbol, PubKeyHash, Integer, AssetClass)
 toTuple Oracle{..} = (oSymbol, oOperator, oFee, oAsset)
 
@@ -93,6 +95,15 @@ oracleValue o f = do
     dh      <- txOutDatum o
     Datum d <- f dh
     PlutusTx.fromData d
+
+{-# INLINABLE findOracleValueInTxInputs #-}
+findOracleValueInTxInputs :: TxInfo -> (CurrencySymbol, PubKeyHash, Integer, AssetClass) -> Maybe Integer
+findOracleValueInTxInputs txInfo tuple = oracleTxOut >>= (`oracleValue` selector)
+    where
+        inputs = txInInfoResolved <$> txInfoInputs txInfo
+        selector = (`findDatum` txInfo)
+        oracleTxOut = find (hasOracleCoin . txOutValue) inputs
+        hasOracleCoin val = assetClassValueOf val (oracleAsset . fromTuple $ tuple) == 1
 
 {-# INLINABLE mkOracleValidator #-}
 mkOracleValidator :: Oracle -> Integer -> OracleRedeemer -> ScriptContext -> Bool
