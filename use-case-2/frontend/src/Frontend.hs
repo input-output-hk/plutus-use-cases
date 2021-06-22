@@ -158,7 +158,6 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
 
 dashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Text -> Workflow t m ()
 dashboard wid = Workflow $ do
-  -- TODO: Add swap and stake tabs to the navbar
   navEvent <- navBar $ Just wid
   let portfolioEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Portfolio
       poolEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Pool
@@ -218,7 +217,7 @@ dashboard wid = Workflow $ do
                     _ <- requesting $ tagPromptlyDyn requestLoad swap
                     _ <- fmap (switch . current) $ prerender (return never) $ do
                       ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-                      -- TODO: Create convenience function for filtering out websocket events
+                      -- TODO: Create abstracted function for filtering out websocket events
                       let observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                             -> case mIncomingWebSocketData of
                               Nothing -> False
@@ -240,9 +239,6 @@ dashboard wid = Workflow $ do
                         \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
                           Nothing -> blank
                           Just _ -> elClass "p" "text-success" $ text "Success!"
-                      -- TODO: This message disappers whenever the navbar asks for new state.
-                      -- Need the message to stick around for a set amount of time
-                      -- show failure message based on new observable state
                       widgetHold_ blank $ ffor observableStateFailureEvent $
                         \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
                           Nothing -> blank
@@ -302,10 +298,6 @@ poolDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)
   => Text
   -> Workflow t m ()
 poolDashboard wid = Workflow $ do
-  -- TODO: Make use of the "add" endpoint
-  -- TODO: Show the Liquidity Token Balance (Found in "Funds" endpoint if the wallet has added to the pool)
-  -- TODO: Create a view for capital gains since contributing to the Liquidity pool. After a wallet has made use of the add enpoint,
-  -- the liquidity token increments. Good to keep track of blance history to ensure 3% of a swap is what has been added to the balance.
   navEvent <- navBar $ Just wid
   let portfolioEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Portfolio
       swapEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Swap
@@ -328,7 +320,6 @@ poolDashboard wid = Workflow $ do
       Nothing -> return ()
       Just incomingWebSocketData -> do
         let currencyDetails = incomingWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
-        el "pre" $ text $ T.pack $ groom currencyDetails
         divClass "p-5 mb-4 bg-light rounded-5" $ divClass "container-fluid py-5" $ do
           elClass "ul" "list-group" $ do
             let formattedTokenDetails = Map.filter
@@ -396,7 +387,7 @@ poolDashboard wid = Workflow $ do
                     _ <- requesting $ tagPromptlyDyn requestLoad stake
                     _ <- fmap (switch . current) $ prerender (return never) $ do
                       ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-                      -- TODO: Create convenience function for filtering out websocket events
+                      -- TODO: Create an abstracted function for filtering out websocket events
                       let observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                             -> case mIncomingWebSocketData of
                               Nothing -> False
@@ -418,9 +409,6 @@ poolDashboard wid = Workflow $ do
                         \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
                           Nothing -> blank
                           Just _ -> elClass "p" "text-success" $ text "Success!"
-                      -- TODO: This message disappers whenever the navbar asks for new state.
-                      -- Need the message to stick around for a set amount of time
-                      -- show failure message based on new observable state
                       widgetHold_ blank $ ffor observableStateFailureEvent $
                         \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
                           Nothing -> blank
