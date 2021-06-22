@@ -254,7 +254,7 @@ borrow aave BorrowParams {..} = do
     oracles <- either throwError pure $ findOraclesForUser bpOnBehalfOf reserves userConfigs
     oraclesTx <- mconcat <$> forM oracles Oracle.useOracle
 
-    ledgerTx <- TxUtils.submitRawUnbalancedTx $ (disbursementTx <> reservesTx <> userConfigsTx) `TxUtils.concatTxPairs` oraclesTx
+    ledgerTx <- TxUtils.submitTxPair $ disbursementTx <> reservesTx <> userConfigsTx <> oraclesTx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
 

@@ -48,21 +48,6 @@ submitTxPair :: (AsContractError e, HasWriteTx s, IsScriptData a) =>
     -> Contract w s e Tx
 submitTxPair = Prelude.uncurry submitTxConstraintsWith
 
-concatTxPairs :: (IsScriptData a, IsScriptData b) => TxPair a -> TxPair b -> Either Constraints.MkTxError Constraints.UnbalancedTx
-concatTxPairs (lookupsA, txA) (lookupsB, txB) =
-    Constraints.mkSomeTx [Constraints.SomeLookupsAndConstraints lookupsA txA, Constraints.SomeLookupsAndConstraints lookupsB txB]
-
-submitRawUnbalancedTx
-  :: forall w s e.
-  ( HasWriteTx s
-  , AsContractError e
-  )
-  => Either Constraints.MkTxError Constraints.UnbalancedTx
-  -> Contract w s e Tx
-submitRawUnbalancedTx rawUnbalancedTx = do
-  tx <- either (throwError . review _ConstraintResolutionError) pure rawUnbalancedTx
-  submitUnbalancedTx tx
-
 mustForgeValue :: (IsScriptData a) =>
     MonetaryPolicy
     -> Value

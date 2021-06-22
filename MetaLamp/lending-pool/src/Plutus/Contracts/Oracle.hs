@@ -209,11 +209,11 @@ findOracle oracle = do
     f o = assetClassValueOf (txOutValue $ txOutTxOut o) (oracleAsset oracle) == 1
 
 useOracle ::
-     forall w s.
-     ( HasBlockchainActions s
+     forall a w s.
+     ( HasBlockchainActions s, TxUtils.IsScriptData a
      )
   => (CurrencySymbol, PubKeyHash, Integer, AssetClass)
-  -> Contract w s Text (TxUtils.TxPair Oracling)
+  -> Contract w s Text (TxUtils.TxPair a)
 useOracle (fromTuple -> oracle) = do
   (oracleRef, oracleOutTx, oracleDatum) <- findOracle oracle >>= maybe (throwError "useOracle: oracle not found") pure
   let unspent = Map.singleton oracleRef oracleOutTx
@@ -221,7 +221,7 @@ useOracle (fromTuple -> oracle) = do
         Constraints.otherScript (oracleValidator oracle) <>
         Constraints.unspentOutputs unspent
   let tx = Constraints.mustSpendScriptOutput oracleRef (Redeemer $ PlutusTx.toData Use) <>
-           Constraints.mustPayToTheScript oracleDatum (assetClassValue oracleCoin 1)
+           Constraints.mustPayToOtherScript (validatorHash $ oracleValidator oracle) (Datum $ PlutusTx.toData oracleDatum) (assetClassValue oracleCoin 1)
   pure $ (lookups, tx)
   where
     oracleCoin = oracleAsset oracle
