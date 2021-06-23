@@ -27,6 +27,8 @@ library
       Contracts.NFT.Types
       Contracts.NFT.OnChain
       Contracts.NFT.OffChain
+      Contracts.NFT.PubKey
+      Contracts.NFT.NFTCurrency
     build-depends:
       base >= 4.9 && < 5,
       aeson,

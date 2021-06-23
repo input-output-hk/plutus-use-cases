@@ -23,6 +23,7 @@ module Contracts.NFT.OnChain
     where
 
 import           Contracts.NFT.Types
+import           Contracts.NFT.NFTCurrency        (nftCurrencySymbol)
 import           Control.Monad                    hiding (fmap)
 import qualified Data.Map                         as Map
 import qualified Data.ByteString.Char8            as B
@@ -55,10 +56,6 @@ import           Wallet.Emulator                  (walletPubKey)
 {-# INLINABLE findOwnInput' #-}
 findOwnInput' :: ScriptContext -> TxInInfo
 findOwnInput' ctx = fromMaybe (error ()) (findOwnInput ctx)
-
-{-# INLINABLE valueWithin #-}
-valueWithin :: TxInInfo -> Value
-valueWithin = txOutValue . txInInfoResolved
 
 {-# INLINABLE findMarketDatum #-}
 findMarketDatum :: TxInfo -> DatumHash -> NFTMetadata
@@ -224,21 +221,6 @@ mkNFTMarketValidator market (NFTMeta nftMeta)  Sell             ctx = validateSe
 mkNFTMarketValidator market (NFTMeta nftMeta)  CancelSell       ctx = validateCancelSell market nftMeta ctx
 mkNFTMarketValidator market (NFTMeta nftMeta)  (Buy buyer)      ctx = validateBuy market nftMeta buyer ctx
 mkNFTMarketValidator _      _                  _                _   = False
-
--- {-# INLINABLE validateLiquidityForging #-}
--- validateNFTForging :: NFTMarket -> TxOutRef -> TokenName -> ScriptContext -> Bool
--- validateNFTForging Uniswap{..} tn ctx
---   = case [ i
---          | i <- txInfoInputs $ scriptContextTxInfo ctx
---          , let v = valueWithin i
---          , isUnity v usCoin || assetClassValueOf v marketId = 1
---          ] of
---     [_]    -> True
---     [_, _] -> True
---     _      -> traceError "pool state forging without Uniswap input"
---   where
---     lpC :: Coin Liquidity
---     lpC = mkCoin (ownCurrencySymbol ctx) tn
 
 data Market
 instance Scripts.ValidatorTypes Market where

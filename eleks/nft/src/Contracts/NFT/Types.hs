@@ -30,6 +30,14 @@ import qualified Prelude
 import           Prelude             (String)
 import           Text.Printf         (PrintfArg)
 
+-- | An nft market
+newtype NFTMarket = NFTMarket
+    { marketId :: AssetClass
+    } deriving stock    (Show, Generic)
+      deriving anyclass (ToJSON, FromJSON, ToSchema)
+      deriving newtype  (Prelude.Eq, Prelude.Ord)
+
+PlutusTx.makeLift ''NFTMarket
 
 data NFTMetadata = NFTMetadata
     { 
@@ -43,7 +51,7 @@ data NFTMetadata = NFTMetadata
     , nftSeller :: Maybe PubKeyHash
     , nftSellPrice:: Integer
     }
-    deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+    deriving (Show, Generic, ToJSON, FromJSON)
 
 instance Eq NFTMetadata where
     {-# INLINABLE (==) #-}
@@ -52,15 +60,6 @@ instance Eq NFTMetadata where
 
 PlutusTx.makeIsDataIndexed ''NFTMetadata [('NFTMetadata, 0)]
 PlutusTx.makeLift ''NFTMetadata
-
-newtype NFTMarket = NFTMarket
-    { marketId :: AssetClass
-    } deriving stock    (Show, Generic)
-      deriving anyclass (ToJSON, FromJSON, ToSchema)
-      deriving newtype  (Prelude.Eq, Prelude.Ord)
-
-
-PlutusTx.makeLift ''NFTMarket
     
 data NFTMarketAction = Create NFTMetadata | Sell | CancelSell | Buy PubKeyHash
     deriving Show
@@ -112,3 +111,7 @@ getNftValue cur tokenName = assetClassValue (assetClass cur tokenName) 1
 {-# INLINABLE isMarketToken #-}
 isMarketToken :: Value -> AssetClass -> Bool
 isMarketToken v ac = assetClassValueOf v ac == 1
+
+{-# INLINABLE valueWithin #-}
+valueWithin :: TxInInfo -> Value
+valueWithin = txOutValue . txInInfoResolved

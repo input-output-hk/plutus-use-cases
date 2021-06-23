@@ -54,7 +54,7 @@ t2 = Trace.walletInstanceTag w2
 ownerContract :: Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Void ()
 ownerContract = NFTMarket.ownerEndpoint forgeMockNftToken
 userContract :: Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
-userContract = NFTMarket.userEndpoints forgeMockNftToken nftMarketMock
+userContract = NFTMarket.userEndpoints NFTMarket.createUniqueUtxo nftMarketMock
 
 tests :: TestTree
 tests = testGroup "nft"
