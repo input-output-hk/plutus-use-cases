@@ -136,9 +136,6 @@ calcReserveCoinRate BankParam {rcDefaultRate} bs@CoinsMachineState {reserveCoinA
     rcRate = equity `divide` reserveCoinAmount
 
 --TODO Add external fee for minting and redeeming
---TODO refactor to functions for remove duplicate code
---TODO check for observation slot for oracle so apply date constraints must validate in
---TODO conversion of rc amount and sc amount to base currency
 {-# INLINEABLE transition #-}
 transition :: BankParam -> State CoinsMachineState -> BankInput -> Maybe (TxConstraints Void Void, State CoinsMachineState)
 transition bankParam@BankParam {oracleParam} State {stateData = oldStateData} BankInput {bankInputAction, oracleOutput} = do
@@ -167,7 +164,6 @@ transition bankParam@BankParam {oracleParam} State {stateData = oldStateData} Ba
   pure
     ( newConstraints,
       -- <> oracleConstraints,
-      -- <>   dateConstraints
       state
     )
 
