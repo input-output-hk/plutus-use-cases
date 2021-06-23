@@ -270,8 +270,10 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     actorSpentValue = valueSpentFrom txInfo actor
     actorRemainderValue = valuePaidTo txInfo actor
 
-    oracleValues = maybe (traceError "validateBorrow: Oracles have not been provided") AssocMap.fromList $
-        foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles
+    oracleValues =
+      case foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles of
+        Just vs -> AssocMap.fromList vs
+        _ -> traceError "validateBorrow: Oracles have not been provided"
 
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
