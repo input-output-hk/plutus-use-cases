@@ -7,32 +7,77 @@ import Affjax.RequestBody as AXRB
 import Affjax.ResponseFormat as AXRF
 import Data.Argonaut as A
 import Data.Either (Either(..))
-import Data.Eq ((==))
+import Data.Eq ((/=))
 import Data.Maybe (Maybe(..))
-import Data.String.Common (joinWith)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (Aff, delay)
 import PAB.Types 
   ( ApiError(DecodeError, RequestError)
   , ContractInstanceClientState
-  , ContractInstanceId
-  , PABConfig
+  , ContractInstanceId(..)
+  , PabConfig
   , Wallet(..)
   )
 import Prelude (bind, pure, show, ($), (<>))
 
 --------------------------------------------------------------------------------
 
+contractInstPath :: String
+contractInstPath = "/api/new/contract/instances/"
+
+getStatus 
+  :: forall t
+   . PabConfig
+  -> ContractInstanceId
+  -> Aff (Either ApiError (ContractInstanceClientState A.Json))
+getStatus pab (ContractInstanceId ciid) =
+  let url = pab.baseUrl <> contractInstPath <> ciid <> "/status"
+  in getJson url
+
 getWallets
-  :: PABConfig
+  :: PabConfig
   -> Wallet
-  -> Aff (Either ApiError (Array ContractInstanceClientState))
-getWallets pab (Wallet w) = getJson url
-  where
+  -> Aff (Either ApiError (Array (ContractInstanceClientState A.Json)))
+getWallets pab (Wallet w) = 
+  let url = pab.baseUrl <> contractInstPath <> "wallet/" <> show w
+  in getJson url
+
+waitForNewState 
+  :: PabConfig
+  -> ContractInstanceId
+  -> A.Json
+  -> Aff A.Json
+waitForNewState pab ciid prevState = do
+  res <- getStatus pab ciid
+  case res of
+    Left _       -> keepWaiting
+    Right status -> do
+      let newState = status.cicCurrentState.observableState
+      if newState /= prevState then pure newState
+      else keepWaiting
+ where 
+  keepWaiting = do
+    _ <- delay (Milliseconds 1000.0)
+    waitForNewState pab ciid prevState
+
+    
+postEndpoint
+  :: forall payload
+   . A.EncodeJson payload
+  => PabConfig
+  -> ContractInstanceId
+  -> String
+  -> payload
+  -> Aff (Either ApiError A.Json)
+postEndpoint pab (ContractInstanceId ciid) endpoint payload =
+  let 
     url = 
       pab.baseUrl <> 
-      "/api/new/contract/instances/wallet/" <> 
-      show w
+      contractInstPath <> 
+      ciid <> 
+      "/endpoint/" <> 
+      endpoint
+  in postJson url payload
 
 getJson
   :: forall res
