@@ -97,7 +97,7 @@ data AaveRedeemer =
     StartRedeemer
   | DepositRedeemer (AssetClass, PubKeyHash)
   | WithdrawRedeemer (AssetClass, PubKeyHash)
-  | BorrowRedeemer (AssetClass, PubKeyHash) [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -- TODO we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
+  | BorrowRedeemer (AssetClass, PubKeyHash) [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
   | RepayRedeemer (AssetClass, PubKeyHash)
   | ProvideCollateralRedeemer (AssetClass, PubKeyHash)
   | RevokeCollateralRedeemer (AssetClass, PubKeyHash) AssetClass -- TODO we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
@@ -168,6 +168,15 @@ doesCollateralCoverDebt ::
   -> Bool
 doesCollateralCoverDebt actor oracles userConfigs = maybe False (\UserConfig{..} -> ucDebt <= ucCollateralizedInvestment) $
   totalDebtAndCollateralInLovelace actor oracles userConfigs
+
+{-# INLINABLE areOraclesTrusted #-}
+areOraclesTrusted :: [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
+  -> AssocMap.Map AssetClass Reserve
+  -> Bool
+areOraclesTrusted oracles reserves = all checkOracle oracles
+  where
+    checkOracle o = let oracle = Oracle.fromTuple o in
+       Just oracle == (Oracle.fromTuple . rTrustedOracle <$> AssocMap.lookup (Oracle.oAsset oracle) reserves)
 
 data AaveScript
 instance Scripts.ValidatorTypes AaveScript where
@@ -290,9 +299,8 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
        in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0 &&
           ucCollateralizedInvestment newState == 0 && maybe True ((== 0) . ucCollateralizedInvestment) oldState
 
--- TODO validate that oracles are trusted
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId oracles =
-  traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
+  traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId && areOraclesTrusted oracles reserves
 
 validateBorrow aave ReserveFundsDatum ctx (reserveId, actor) oracles =
   traceIfFalse "validateBorrow: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx reserveId actor
