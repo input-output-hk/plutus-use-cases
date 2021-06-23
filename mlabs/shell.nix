@@ -33,6 +33,7 @@ with import ./nix { };
       git
       ghc
       nixfmt
+      plutus.plutus.haskell-language-server
 
       # Pab
       pab.plutus_pab_client
