@@ -1,7 +1,11 @@
-module PAB.ApiClient where
+module PAB.ApiClient
+  ( getStatus
+  , getWalletInstances
+  , postEndpoint
+  , waitForNewState
+  ) where
 
 --------------------------------------------------------------------------------
-
 import Affjax as AX
 import Affjax.RequestBody as AXRB
 import Affjax.ResponseFormat as AXRF
@@ -11,7 +15,7 @@ import Data.Eq ((/=))
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (Aff, delay)
-import PAB.Types 
+import PAB.Types
   ( ApiError(DecodeError, RequestError)
   , ContractInstanceClientState
   , ContractInstanceId(..)
@@ -21,92 +25,104 @@ import PAB.Types
 import Prelude (bind, pure, show, ($), (<>))
 
 --------------------------------------------------------------------------------
-
 contractInstPath :: String
 contractInstPath = "/api/new/contract/instances/"
 
-getStatus 
-  :: forall t
-   . PabConfig
-  -> ContractInstanceId
-  -> Aff (Either ApiError (ContractInstanceClientState A.Json))
+-- | Gets the current status info for the specific contract instance
+getStatus ::
+  PabConfig ->
+  ContractInstanceId ->
+  Aff (Either ApiError (ContractInstanceClientState A.Json))
 getStatus pab (ContractInstanceId ciid) =
-  let url = pab.baseUrl <> contractInstPath <> ciid <> "/status"
-  in getJson url
+  let
+    url = pab.baseUrl <> contractInstPath <> ciid <> "/status"
+  in
+    getJson url
 
-getWallets
-  :: PabConfig
-  -> Wallet
-  -> Aff (Either ApiError (Array (ContractInstanceClientState A.Json)))
-getWallets pab (Wallet w) = 
-  let url = pab.baseUrl <> contractInstPath <> "wallet/" <> show w
-  in getJson url
+-- | Gets the contract instances for the specific wallet
+getWalletInstances ::
+  PabConfig ->
+  Wallet ->
+  Aff (Either ApiError (Array (ContractInstanceClientState A.Json)))
+getWalletInstances pab (Wallet w) =
+  let
+    url = pab.baseUrl <> contractInstPath <> "wallet/" <> show w
+  in
+    getJson url
 
-waitForNewState 
-  :: PabConfig
-  -> ContractInstanceId
-  -> A.Json
-  -> Aff A.Json
+-- | Waits until the state has updated for the specified contract instance
+-- and returns the new state.
+waitForNewState ::
+  PabConfig ->
+  ContractInstanceId ->
+  A.Json ->
+  Aff A.Json
 waitForNewState pab ciid prevState = do
   res <- getStatus pab ciid
   case res of
-    Left _       -> keepWaiting
+    Left _ -> keepWaiting
     Right status -> do
-      let newState = status.cicCurrentState.observableState
-      if newState /= prevState then pure newState
-      else keepWaiting
- where 
+      let
+        newState = status.cicCurrentState.observableState
+      if newState /= prevState then
+        pure newState
+      else
+        keepWaiting
+  where
   keepWaiting = do
     _ <- delay (Milliseconds 1000.0)
     waitForNewState pab ciid prevState
 
-    
-postEndpoint
-  :: forall payload
-   . A.EncodeJson payload
-  => PabConfig
-  -> ContractInstanceId
-  -> String
-  -> payload
-  -> Aff (Either ApiError A.Json)
+-- | Sends a POST request to the specified endpoint.
+postEndpoint ::
+  forall payload.
+  A.EncodeJson payload =>
+  PabConfig ->
+  ContractInstanceId ->
+  String ->
+  payload ->
+  Aff (Either ApiError A.Json)
 postEndpoint pab (ContractInstanceId ciid) endpoint payload =
-  let 
-    url = 
-      pab.baseUrl <> 
-      contractInstPath <> 
-      ciid <> 
-      "/endpoint/" <> 
-      endpoint
-  in postJson url payload
+  let
+    url =
+      pab.baseUrl
+        <> contractInstPath
+        <> ciid
+        <> "/endpoint/"
+        <> endpoint
+  in
+    postJson url payload
 
-getJson
-  :: forall res
-   . A.DecodeJson res
-  => String
-  -> Aff (Either ApiError res)
+-- | Sends a GET request to the specified URL and returns the response JSON (or error).
+getJson ::
+  forall res.
+  A.DecodeJson res =>
+  String ->
+  Aff (Either ApiError res)
 getJson url = do
-  res <- AX.get AXRF.json url 
+  res <- AX.get AXRF.json url
   handleResponse res
 
-postJson
-  :: forall payload res
-   . A.EncodeJson payload
-  => A.DecodeJson res
-  => String
-  -> payload
-  -> Aff (Either ApiError res)
+-- | Sends a POST request to the specified URL and returns the response JSON (or error).
+postJson ::
+  forall payload res.
+  A.EncodeJson payload =>
+  A.DecodeJson res =>
+  String ->
+  payload ->
+  Aff (Either ApiError res)
 postJson url payload = do
   res <- AX.post AXRF.json url (Just $ AXRB.Json $ A.encodeJson payload)
   handleResponse res
 
-handleResponse 
-  :: forall res
-   . A.DecodeJson res
-  => Either AX.Error (AX.Response A.Json)
-  -> Aff (Either ApiError res)
+handleResponse ::
+  forall res.
+  A.DecodeJson res =>
+  Either AX.Error (AX.Response A.Json) ->
+  Aff (Either ApiError res)
 handleResponse res = do
   case res of
-    Left e     -> pure $ Left (RequestError $ e)
+    Left e -> pure $ Left (RequestError $ e)
     Right res' -> do
       case A.decodeJson res'.body of
         Left e' -> pure $ Left (DecodeError $ e')

@@ -1,40 +1,60 @@
-module PAB.Types where
+module PAB.Types
+  ( ActiveEndpoint
+  , ApiError(..)
+  , CombinedWSStreamToClient
+  , CombinedWSStreamToServer
+  , ContractActivationArgs
+  , ContractInstanceClientState
+  , ContractInstanceId(..)
+  , ContractRequest
+  , ContractSignatureResponse
+  , CurrencySymbol(..)
+  , EndpointDescription(..)
+  , FormSchema(..)
+  , FunctionSchema
+  , InstanceStatusToClient
+  , IterationID(..)
+  , LogLevel(..)
+  , LogMessage
+  , lovelaceValueOf
+  , PabConfig
+  , PartiallyDecodedResponse
+  , RequestID(..)
+  , Slot
+  , TokenName(..)
+  , Value(..)
+  , Wallet(..)
+  ) where
 
 --------------------------------------------------------------------------------
-
+import Affjax as AX
 import Data.Argonaut as A
 import Data.Argonaut.Decode.Class (class DecodeJson)
 import Data.Argonaut.Decode.Generic (genericDecodeJson)
 import Data.Argonaut.Encode.Class (class EncodeJson)
 import Data.Argonaut.Encode.Generic (genericEncodeJson)
-import Affjax as AX
-import Data.Either (Either(..))
+import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe)
 import Data.Tuple (Tuple(..))
 
 --------------------------------------------------------------------------------
-
 -- TODO: Use generated types from plutus-pab PSGenerator if possible
-
 -- Custom types
+type PabConfig
+  = { baseUrl :: String
+    }
 
-type PabConfig =
-  {
-    baseUrl :: String
-  }
-
-data ApiError 
+data ApiError
   = RequestError AX.Error
   | DecodeError A.JsonDecodeError
 
-
 -- Types from Control.Monad.Freer.Extras.Log
+type LogMessage
+  = { _logLevel :: LogLevel, _logMessageContent :: A.Json }
 
-type LogMessage = { _logLevel :: LogLevel, _logMessageContent :: A.Json }
-
-data LogLevel =
-  Debug
+data LogLevel
+  = Debug
   | Info
   | Notice
   | Warning
@@ -43,26 +63,23 @@ data LogLevel =
   | Alert
   | Emergency
 
-derive instance genericLogLevel:: Generic LogLevel _
+derive instance genericLogLevel :: Generic LogLevel _
 
-instance encodeJsonLogLevel:: EncodeJson LogLevel where
+instance encodeJsonLogLevel :: EncodeJson LogLevel where
   encodeJson a = genericEncodeJson a
 
-instance decodeJsonLogLevel:: DecodeJson LogLevel where
+instance decodeJsonLogLevel :: DecodeJson LogLevel where
   decodeJson a = genericDecodeJson a
 
-
 -- Types from Plutus.Contract.Effects.ExposeEndpoint
-
-type ActiveEndpoint = 
-  { aeDescription :: EndpointDescription -- ^ The name of the endpoint
-  , aeMetadata    :: Maybe A.Json -- ^ Data that should be shown to the user
-  }
-
+type ActiveEndpoint
+  = { aeDescription :: EndpointDescription -- ^ The name of the endpoint
+    , aeMetadata :: Maybe A.Json -- ^ Data that should be shown to the user
+    }
 
 -- Types from Plutus.PAB.Events.Contract
-
-newtype ContractInstanceId = ContractInstanceId String
+newtype ContractInstanceId
+  = ContractInstanceId String
 
 derive instance genericContractInstanceId :: Generic (ContractInstanceId) _
 
@@ -72,38 +89,34 @@ instance encodeJsonContractInstanceId :: EncodeJson (ContractInstanceId) where
 instance decodeJsonContractInstanceId :: DecodeJson (ContractInstanceId) where
   decodeJson a = genericDecodeJson a
 
-
 -- types from Plutus.PAB.Events.ContractInstanceState
-
-type PartiallyDecodedResponse v =
-  { hooks           :: Array (ContractRequest v)
-  , logs            :: Array LogMessage
-  , lastLogs        :: Array LogMessage -- The log messages returned by the last step ('lastLogs' is a suffix of 'logs')
-  , err             :: Maybe A.Json
-  , observableState :: A.Json
-  }
-
+type PartiallyDecodedResponse v
+  = { hooks :: Array (ContractRequest v)
+    , logs :: Array LogMessage
+    , lastLogs :: Array LogMessage -- The log messages returned by the last step ('lastLogs' is a suffix of 'logs')
+    , err :: Maybe A.Json
+    , observableState :: A.Json
+    }
 
 -- Types from Plutus.PAB.Webserver.Types
-
-type ContractSignatureResponse t =
-  { csrDefinition :: t
-  , csrSchemas    :: Array (FunctionSchema FormSchema)
-  }
+type ContractSignatureResponse t
+  = { csrDefinition :: t
+    , csrSchemas :: Array (FunctionSchema FormSchema)
+    }
 
 -- | Data needed to start a new instance of a contract.
-type ContractActivationArgs t =
-  { caID     :: t -- ^ ID of the contract
-  , caWallet :: Wallet -- ^ Wallet that should be used for this instance
-  }
+type ContractActivationArgs t
+  = { caID :: t -- ^ ID of the contract
+    , caWallet :: Wallet -- ^ Wallet that should be used for this instance
+    }
 
 -- | Current state of a contract instance
-type ContractInstanceClientState t =
-  { cicContract     :: ContractInstanceId
-  , cicCurrentState :: PartiallyDecodedResponse ActiveEndpoint
-  , cicWallet       :: Wallet
-  , cicDefintion    :: t
-  }
+type ContractInstanceClientState t
+  = { cicContract :: ContractInstanceId
+    , cicCurrentState :: PartiallyDecodedResponse ActiveEndpoint
+    , cicWallet :: Wallet
+    , cicDefintion :: t
+    }
 
 -- | Status updates for contract instances streamed to client
 data InstanceStatusToClient
@@ -122,19 +135,16 @@ data CombinedWSStreamToServer
   = Subscribe (Either ContractInstanceId Wallet)
   | Unsubscribe (Either ContractInstanceId Wallet)
 
-
 -- Types from Playground.Types
-
-type FunctionSchema a =
-  { endpointDescription :: EndpointDescription
-  , argument            :: a
-  -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
-  }
-
+type FunctionSchema a
+  = { endpointDescription :: EndpointDescription
+    , argument :: a
+    -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
+    }
 
 -- types from Plutus.Contract.Resumable
-
-newtype RequestID = RequestID Int
+newtype RequestID
+  = RequestID Int
 
 derive instance genericRequestID :: Generic RequestID _
 
@@ -144,8 +154,8 @@ instance encodeJsonRequestID :: EncodeJson RequestID where
 instance decodeJsonRequestID :: DecodeJson RequestID where
   decodeJson a = genericDecodeJson a
 
-
-newtype IterationID = IterationID Int
+newtype IterationID
+  = IterationID Int
 
 derive instance genericIterationID :: Generic IterationID _
 
@@ -155,22 +165,19 @@ instance encodeJsonIterationID :: EncodeJson IterationID where
 instance decodeJsonIterationID :: DecodeJson IterationID where
   decodeJson a = genericDecodeJson a
 
-
-type ContractRequest v =
-  { rqID      :: RequestID
-  , itID      :: IterationID
-  , rqRequest :: v
-  }
-
+type ContractRequest v
+  = { rqID :: RequestID
+    , itID :: IterationID
+    , rqRequest :: v
+    }
 
 -- Types from Plutus.V1.Ledger.Slot
-
-newtype Slot = Slot Int
-
+newtype Slot
+  = Slot Int
 
 -- Types from Plutus.V1.Ledger.Value
-
-newtype CurrencySymbol = CurrencySymbol String
+newtype CurrencySymbol
+  = CurrencySymbol String
 
 derive instance genericCurrencySymbol :: Generic CurrencySymbol _
 
@@ -180,8 +187,8 @@ instance encodeJsonCurrencySymbol :: EncodeJson CurrencySymbol where
 instance decodeJsonCurrencySymbol :: DecodeJson CurrencySymbol where
   decodeJson a = genericDecodeJson a
 
-
-newtype TokenName = TokenName String
+newtype TokenName
+  = TokenName String
 
 derive instance genericTokenName :: Generic TokenName _
 
@@ -191,8 +198,8 @@ instance encodeJsonTokenName :: EncodeJson TokenName where
 instance decodeJsonTokenName :: DecodeJson TokenName where
   decodeJson a = genericDecodeJson a
 
-
-newtype Value = Value (Array (Tuple CurrencySymbol (Array (Tuple TokenName Int))))
+newtype Value
+  = Value (Array (Tuple CurrencySymbol (Array (Tuple TokenName Int))))
 
 derive instance genericValue :: Generic Value _
 
@@ -202,33 +209,29 @@ instance encodeJsonValue :: EncodeJson Value where
 instance decodeJsonValue :: DecodeJson Value where
   decodeJson a = genericDecodeJson a
 
-
 lovelaceValueOf :: Int -> Value
-lovelaceValueOf lovelace = 
-  Value [ Tuple (CurrencySymbol "") [ Tuple (TokenName "") lovelace ] ] 
-
+lovelaceValueOf lovelace = Value [ Tuple (CurrencySymbol "") [ Tuple (TokenName "") lovelace ] ]
 
 -- Types from Schema 
-
 data FormSchema
-    = FormSchemaUnit
-    | FormSchemaBool
-    | FormSchemaInt
-    | FormSchemaInteger
-    | FormSchemaString
-    | FormSchemaHex
-      -- ^ A string that may only contain @0-9a-fA-F@
-    | FormSchemaArray FormSchema
-    | FormSchemaMaybe FormSchema
-    | FormSchemaRadio (Array String)
-      -- ^ A radio button with a list of labels.
-    | FormSchemaTuple FormSchema FormSchema
-    | FormSchemaObject (Array (Tuple String FormSchema))
-    -- Blessed types that get their own special UI widget.
-    | FormSchemaValue
-    | FormSchemaSlotRange
-    -- Exceptions.
-    | FormSchemaUnsupported String
+  = FormSchemaUnit
+  | FormSchemaBool
+  | FormSchemaInt
+  | FormSchemaInteger
+  | FormSchemaString
+  | FormSchemaHex
+  -- ^ A string that may only contain @0-9a-fA-F@
+  | FormSchemaArray FormSchema
+  | FormSchemaMaybe FormSchema
+  | FormSchemaRadio (Array String)
+  -- ^ A radio button with a list of labels.
+  | FormSchemaTuple FormSchema FormSchema
+  | FormSchemaObject (Array (Tuple String FormSchema))
+  -- Blessed types that get their own special UI widget.
+  | FormSchemaValue
+  | FormSchemaSlotRange
+  -- Exceptions.
+  | FormSchemaUnsupported String
 
 derive instance genericFormSchema :: Generic FormSchema _
 
@@ -238,10 +241,9 @@ instance encodeJsonFormSchema :: EncodeJson FormSchema where
 instance decodeJsonFormSchema :: DecodeJson FormSchema where
   decodeJson a = genericDecodeJson a
 
-
 -- Types from Wallet.Emulator.Wallet
-
-newtype Wallet = Wallet Int
+newtype Wallet
+  = Wallet Int
 
 derive instance genericWallet :: Generic Wallet _
 
@@ -251,10 +253,9 @@ instance encodeJsonWallet :: EncodeJson Wallet where
 instance decodeJsonWallet :: DecodeJson Wallet where
   decodeJson a = genericDecodeJson a
 
-
 -- Types from Wallet.Types
-
-newtype EndpointDescription = EndpointDescription String
+newtype EndpointDescription
+  = EndpointDescription String
 
 derive instance genericEndpointDescription :: Generic EndpointDescription _
 
