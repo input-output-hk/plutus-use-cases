@@ -80,6 +80,8 @@ requestHandler httpManager pool = RequestHandler $ \case
     executeSwap httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
   Api_Stake contractId coinA coinB amountA amountB ->
     executeStake httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
+  Api_RedeemLiquidity contractId coinA coinB amount ->
+    executeRemove httpManager (T.unpack $ unContractInstanceId contractId) coinA coinB amount
   Api_CallFunds cid -> callFunds httpManager cid
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
@@ -225,6 +227,32 @@ executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
         , requestBody = RequestBodyLBS $ Aeson.encode reqBody
         }
   print $ "executeStake: Json encoded AddParams ..."  <> (show $ Aeson.encode reqBody)
+  -- The response to this request does not return anything but an empty list.
+  -- A useful response must be fetched from "observableState"
+  print ("are we hanging?" :: String)
+  _ <- httpLbs req httpManager
+  print ("no we are not hanging" :: String)
+  fetchObservableState httpManager contractId
+
+{-
+curl -H "Content-Type: application/json"      --request POST   --data '{"rpDiff":2461,"rpCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"rpCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/9079d01a-342b-4d4d-88b5-7525ff1118d6/endpoint/remove
+-}
+executeRemove :: Manager -> String -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> IO (Either String [Text])
+executeRemove httpManager contractId coinA coinB amount = do
+  let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/remove"
+      reqBody = RemoveParams {
+          rpCoinA = coinA
+        , rpCoinB = coinB
+        , rpDiff = amount
+        }
+  print $ "executeRemove: requestUrl ..."  <> (show requestUrl)
+  initReq <- parseRequest requestUrl
+  let req = initReq
+        { method = "POST"
+        , requestHeaders = ("Content-Type","application/json"):(requestHeaders initReq)
+        , requestBody = RequestBodyLBS $ Aeson.encode reqBody
+        }
+  print $ "executeRemove: Json encoded RemoveParams ..."  <> (show $ Aeson.encode reqBody)
   -- The response to this request does not return anything but an empty list.
   -- A useful response must be fetched from "observableState"
   print ("are we hanging?" :: String)
