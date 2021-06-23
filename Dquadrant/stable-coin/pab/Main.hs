@@ -41,15 +41,15 @@ import           Wallet.Emulator.Types                   (Wallet (..), walletPub
 import           Wallet.Types                        (ContractInstanceId (..))
 import           Ledger
 import           Ledger.Constraints
-import qualified Ledger.Value                        as Value
-import qualified Plutus.Contracts.Currency as Currency
+import qualified Ledger.Value                         as Value
+import qualified Plutus.Contracts.Currency            as Currency
 
-import qualified Plutus.Contracts.CoinsStateMachine as StableCoin
-import Plutus.Contracts.CoinsStateMachine (BankParam (..))
-import qualified Plutus.Contracts.Oracle.Core       as OracleCore
-import qualified Data.ByteString.Lazy                as LB
-import PlutusTx.Ratio as Ratio
-import qualified PlutusTx.Numeric  as P
+import qualified Plutus.Contracts.CoinsStateMachine     as StableCoin
+import Plutus.Contracts.CoinsStateMachine               (BankParam (..))
+import qualified Plutus.Contracts.Oracle.Core           as OracleCore
+import qualified Data.ByteString.Lazy                     as LB
+import PlutusTx.Ratio                                      as Ratio
+import qualified PlutusTx.Numeric                         as P
 
 main :: IO ()
 main =  

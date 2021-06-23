@@ -24,7 +24,7 @@ module Plutus.Contracts.CoinsStateMachine
   ( scriptInstance,
     machineClient,
     endpoints,
-    BankState (..),
+    CoinsMachineState (..),
     BankParam (..),
     BankInput (..),
     BankInputAction (..),
@@ -34,31 +34,34 @@ module Plutus.Contracts.CoinsStateMachine
   )
 where
 
-import Control.Monad (forever, guard, void)
-import Data.Aeson (FromJSON, ToJSON)
-import Data.Text (Text, pack)
-import GHC.Generics (Generic)
-import Ledger hiding (to)
-import qualified Ledger as Interval
-import qualified Ledger.Ada as Ada
-import Ledger.Constraints (TxConstraints)
-import qualified Ledger.Constraints as Constraints
+import Control.Monad                    (forever, guard, void)
+import Data.Aeson                       (FromJSON, ToJSON)
+import Data.Text                        (Text, pack)
+import GHC.Generics                     (Generic)
+import Ledger                           hiding (to)
+import qualified  Ledger                as Interval
+import qualified Ledger.Ada             as Ada
+import Ledger.Constraints               (TxConstraints)
+import qualified Ledger.Constraints     as Constraints
 import           Ledger.Scripts               (MonetaryPolicyHash)
-import qualified Ledger.Typed.Scripts as Scripts
-import qualified Ledger.Value as Value
-import Playground.Contract (ToSchema, adaCurrency, ensureKnownCurrencies, printJson, printSchemas, stage)
-import Playground.TH (mkKnownCurrencies, mkSchemaDefinitions)
+import qualified Ledger.Typed.Scripts    as Scripts
+import qualified Ledger.Value            as Value
+import Playground.Contract                (ToSchema, adaCurrency, ensureKnownCurrencies, printJson, printSchemas, stage)
+import Playground.TH                      (mkKnownCurrencies, mkSchemaDefinitions)
 import Plutus.Contract
-import Plutus.Contract.StateMachine (SMContractError, State (..), StateMachine(..), StateMachineClient (..), Void)
+import Plutus.Contract.StateMachine       (SMContractError, State (..), StateMachine(..), StateMachineClient (..), Void)
 import qualified Plutus.Contract.StateMachine as SM
-import qualified PlutusTx as PlutusTx
+import qualified PlutusTx                 as PlutusTx
 import PlutusTx.Prelude
-import PlutusTx.Ratio as Ratio
+import PlutusTx.Ratio                     as Ratio
 import qualified Prelude
+import Prelude                             (show)
 import Plutus.Contracts.Oracle.Core
 
---
-data BankState = BankState
+--Stable coin mainly based on AGE usd protocol.
+--Alogrithimic rates of different coins based on actual amount of supply of tokens and base reserve amount.
+
+data CoinsMachineState = CoinsMachineState
   { baseReserveAmount :: Integer,
     stableCoinAmount :: Integer,
     reserveCoinAmount :: Integer,
@@ -71,7 +74,6 @@ data BankState = BankState
 data BankParam = BankParam
   { stableCoinTokenName :: TokenName,
     reserveCoinTokenName :: TokenName,
-    -- oracleAddress :: PubKey,
     minReserveRatio :: Ratio Integer,
     maxReserveRatio :: Ratio Integer,
     rcDefaultRate :: Integer,
@@ -104,14 +106,14 @@ lovelaces :: Value -> Integer
 lovelaces = Ada.getLovelace . Ada.fromValue
 
 {-# INLINEABLE calcLiablities #-}
-calcLiablities :: BankState -> Integer -> Integer
-calcLiablities BankState {baseReserveAmount, stableCoinAmount} rate =
+calcLiablities :: CoinsMachineState -> Integer -> Integer
+calcLiablities CoinsMachineState {baseReserveAmount, stableCoinAmount} rate =
   let reserveNeeded = rate * stableCoinAmount
    in min baseReserveAmount reserveNeeded
 
 {-# INLINEABLE calcStableCoinRate #-}
-calcStableCoinRate :: BankState -> Integer -> Integer
-calcStableCoinRate bs@BankState {stableCoinAmount} rate
+calcStableCoinRate :: CoinsMachineState -> Integer -> Integer
+calcStableCoinRate bs@CoinsMachineState {stableCoinAmount} rate
   | stableCoinAmount == 0 = rate
   | otherwise = min rate liableRate
   where
@@ -119,14 +121,14 @@ calcStableCoinRate bs@BankState {stableCoinAmount} rate
     liableRate = liablities `divide` stableCoinAmount
 
 {-# INLINEABLE calcEquity #-}
-calcEquity :: BankState -> Integer -> Integer
-calcEquity bs@BankState {baseReserveAmount} rate =
+calcEquity :: CoinsMachineState -> Integer -> Integer
+calcEquity bs@CoinsMachineState {baseReserveAmount} rate =
   let liablities = calcLiablities bs rate
    in baseReserveAmount - liablities
 
 {-# INLINEABLE calcReserveCoinRate #-}
-calcReserveCoinRate :: BankParam -> BankState -> Integer -> Integer
-calcReserveCoinRate BankParam {rcDefaultRate} bs@BankState {reserveCoinAmount} rate
+calcReserveCoinRate :: BankParam -> CoinsMachineState -> Integer -> Integer
+calcReserveCoinRate BankParam {rcDefaultRate} bs@CoinsMachineState {reserveCoinAmount} rate
   | reserveCoinAmount /= 0 = rcRate
   | otherwise = rate
   where
@@ -138,7 +140,7 @@ calcReserveCoinRate BankParam {rcDefaultRate} bs@BankState {reserveCoinAmount} r
 --TODO check for observation slot for oracle so apply date constraints must validate in
 --TODO conversion of rc amount and sc amount to base currency
 {-# INLINEABLE transition #-}
-transition :: BankParam -> State BankState -> BankInput -> Maybe (TxConstraints Void Void, State BankState)
+transition :: BankParam -> State CoinsMachineState -> BankInput -> Maybe (TxConstraints Void Void, State CoinsMachineState)
 transition bankParam@BankParam {oracleParam} State {stateData = oldStateData} BankInput {bankInputAction, oracleOutput} = do
 --TODO combine oracle constraints
   let (oref, oTxOut, rate) = oracleOutput
@@ -154,7 +156,7 @@ transition bankParam@BankParam {oracleParam} State {stateData = oldStateData} Ba
       (newConstraints, newStateData) = stateWithConstraints bankParam oldStateData bankInputAction scRate rcRate
 
 -- TODO
-  -- guard (isNewStateValid bankParam newStateData rate)
+  -- guard (isRight bankParam newStateData rate)
 
   let state =
         State
@@ -170,7 +172,7 @@ transition bankParam@BankParam {oracleParam} State {stateData = oldStateData} Ba
     )
 
 {-# INLINEABLE stateWithConstraints #-}
-stateWithConstraints :: BankParam -> BankState -> BankInputAction -> Integer -> Integer-> (TxConstraints Void Void, BankState)
+stateWithConstraints :: BankParam -> CoinsMachineState -> BankInputAction -> Integer -> Integer-> (TxConstraints Void Void, CoinsMachineState)
 stateWithConstraints bankParam oldStateData bankInputAction scRate rcRate= case bankInputAction of
         MintReserveCoin rcAmt ->
           let constraints = Constraints.mustForgeCurrency (policyScript oldStateData) (reserveCoinTokenName bankParam) rcAmt
@@ -214,38 +216,40 @@ stateWithConstraints bankParam oldStateData bankInputAction scRate rcRate= case 
               )
 
 {-# INLINEABLE isNewStateValid #-}
-isNewStateValid :: BankParam -> BankState -> Integer -> Bool
-isNewStateValid bankParam bankState rate = isRight (checkForValidState bankParam bankState rate)
+isNewStateValid :: BankParam -> CoinsMachineState -> Integer -> Either Text ()
+isNewStateValid bankParam bankState@CoinsMachineState {baseReserveAmount, stableCoinAmount, reserveCoinAmount} rate = do
+  unless (baseReserveAmount >= 0) (throwError "Invalid state : Base reserve amount is in negative.")
+  unless (reserveCoinAmount >= 0) (throwError "Invalid state : Reserve coins amount is in negative.")
+  unless (stableCoinAmount >= 0) (throwError "Invalid state : Stable coins amount is in negative.")
+  unless (calcLiablities bankState rate >= 0) (throwError "Invalid state : Liabilities calculation is in negative.")
+  unless (calcEquity bankState rate >= 0) (throwError "Invalid state : Equity calculation is in negative.")
+  
+  let currentReserveAmount = fromInteger baseReserveAmount
+      minReserveRequired = calcMinReserveRequired bankParam bankState rate
 
-{-# INLINEABLE checkForValidState #-}
-checkForValidState :: BankParam -> BankState -> Integer -> Either ErrorState ()
-checkForValidState bankParam bankState@BankState {baseReserveAmount, stableCoinAmount, reserveCoinAmount} rate = do
-  unless (baseReserveAmount >= 0) (Left NegativeReserves)
-  unless (reserveCoinAmount >= 0) (Left NegativeReserveCoins)
-  unless (stableCoinAmount >= 0) (Left NegativeStablecoins)
-  unless (calcLiablities bankState rate >= 0) (Left NegativeLiabilities)
-  unless (calcEquity bankState rate >= 0) (Left NegativeEquity)
-
-  let actualReserves = fromInteger baseReserveAmount
-      allowedReserves = (,) <$> minReserve bankParam bankState rate <*> maxReserve bankParam bankState rate
-
-  case allowedReserves of
-    Just (minReserves, maxReserves) -> do
-      unless (actualReserves >= minReserves) (Left $ MinReserves minReserves actualReserves)
-      unless (actualReserves <= maxReserves) (Left $ MaxReserves maxReserves actualReserves)
+  case minReserveRequired of 
+    Just minR -> do
+        unless (currentReserveAmount >= minR) (throwError "Invalid state : Base reserve amount is less than minimum required amount.")
     Nothing -> pure ()
 
-{-# INLINEABLE minReserve #-}
-minReserve :: BankParam -> BankState -> Integer -> Maybe (Ratio Integer)
-minReserve BankParam {minReserveRatio} BankState {stableCoinAmount} rate
+  let maxReserveRequired = calcMaxReserveRequired bankParam bankState rate
+    
+  case maxReserveRequired of
+    Just maxR -> do
+        unless (currentReserveAmount <= maxR) (throwError "Invalid state : Base reserve amount is more than maximum required amount.")
+    Nothing -> pure ()
+
+{-# INLINEABLE calcMinReserveRequired #-}
+calcMinReserveRequired :: BankParam -> CoinsMachineState -> Integer -> Maybe (Ratio Integer)
+calcMinReserveRequired BankParam {minReserveRatio} CoinsMachineState {stableCoinAmount} rate
   | stableCoinAmount == 0 = Nothing
   | otherwise =
     let currentScValue = rate * stableCoinAmount
      in Just $ minReserveRatio * (fromInteger currentScValue)
 
-{-# INLINEABLE maxReserve #-}
-maxReserve :: BankParam -> BankState -> Integer -> Maybe (Ratio Integer)
-maxReserve BankParam {maxReserveRatio} BankState {stableCoinAmount} rate
+{-# INLINEABLE calcMaxReserveRequired #-}
+calcMaxReserveRequired :: BankParam -> CoinsMachineState -> Integer -> Maybe (Ratio Integer)
+calcMaxReserveRequired BankParam {maxReserveRatio} CoinsMachineState {stableCoinAmount} rate
   | stableCoinAmount == 0 = Nothing
   | otherwise =
     let currentScValue = rate * stableCoinAmount
@@ -262,7 +266,7 @@ data ErrorState
   deriving (Prelude.Show)
 
 {-# INLINEABLE bankMachine #-}
-bankMachine :: BankParam -> StateMachine BankState BankInput
+bankMachine :: BankParam -> StateMachine CoinsMachineState BankInput
 bankMachine bankParam = SM.StateMachine{
                           smTransition = (transition bankParam),
                           smFinal = isFinal,
@@ -271,7 +275,7 @@ bankMachine bankParam = SM.StateMachine{
                         }
 
 {-# INLINEABLE checkContext #-}
-checkContext :: BankParam -> BankState -> BankInput -> ScriptContext -> Bool
+checkContext :: BankParam -> CoinsMachineState -> BankInput -> ScriptContext -> Bool
 checkContext bankParam oldBankState BankInput{oracleOutput} ctx = 
     traceIfFalse "Invalid oracle use" isValidOracleUsed
 
@@ -304,27 +308,27 @@ checkContext bankParam oldBankState BankInput{oracleOutput} ctx =
     isValidOracleUsed = True
 
 {-# INLINEABLE isFinal #-}
-isFinal :: BankState -> Bool
+isFinal :: CoinsMachineState -> Bool
 isFinal _ = False
 
-scriptInstance :: BankParam -> Scripts.TypedValidator (StateMachine BankState BankInput)
+scriptInstance :: BankParam -> Scripts.TypedValidator (StateMachine CoinsMachineState BankInput)
 scriptInstance bankParam =
   let val = $$(PlutusTx.compile [||validator||]) `PlutusTx.applyCode` PlutusTx.liftCode bankParam
       validator param = SM.mkValidator (bankMachine param)
-      wrap = Scripts.wrapValidator @BankState @BankInput
-   in Scripts.mkTypedValidator @(StateMachine BankState BankInput) val $$(PlutusTx.compile [||wrap||])
+      wrap = Scripts.wrapValidator @CoinsMachineState @BankInput
+   in Scripts.mkTypedValidator @(StateMachine CoinsMachineState BankInput) val $$(PlutusTx.compile [||wrap||])
 
 machineClient ::
-  Scripts.TypedValidator (StateMachine BankState BankInput) ->
+  Scripts.TypedValidator (StateMachine CoinsMachineState BankInput) ->
   BankParam ->
-  StateMachineClient BankState BankInput
+  StateMachineClient CoinsMachineState BankInput
 machineClient scriptInst bankParam =
   let machine = bankMachine bankParam
    in SM.mkStateMachineClient (SM.StateMachineInstance machine scriptInst)
 
-initialState :: StateMachineClient BankState BankInput -> BankState
+initialState :: StateMachineClient CoinsMachineState BankInput -> CoinsMachineState
 initialState StateMachineClient {scInstance = SM.StateMachineInstance {SM.typedValidator}} =
-  BankState
+  CoinsMachineState
     { baseReserveAmount = 0,
       stableCoinAmount = 0,
       reserveCoinAmount = 0,
@@ -356,6 +360,10 @@ smRunStep bankParam bankInputAction = do
   case oracle of
     Nothing -> logInfo @Prelude.String "Oracle not found"
     Just (oref, o, x) -> do
+      logInfo @Prelude.String $ show oref
+      logInfo @Prelude.String $ show o
+      logInfo @Prelude.String $ show x
+      logInfo @Prelude.String $ show bankInputAction
       let input =
             BankInput
               { bankInputAction = bankInputAction
@@ -411,9 +419,9 @@ endpoints bankParam =
     mintReserveCoin' = endpoint @"mintReserveCoin" >>= mintReserveCoin bankParam
     redeemReserveCoin' = endpoint @"redeemReserveCoin" >>= redeemReserveCoin bankParam
 
-PlutusTx.makeLift ''BankState
+PlutusTx.makeLift ''CoinsMachineState
 PlutusTx.makeLift ''BankParam
-PlutusTx.unstableMakeIsData ''BankState
+PlutusTx.unstableMakeIsData ''CoinsMachineState
 PlutusTx.unstableMakeIsData ''BankParam
 PlutusTx.unstableMakeIsData ''BankInput
 PlutusTx.unstableMakeIsData ''BankInputAction
