@@ -1,3 +1,19 @@
 dist-newstyle/
 .stack-work/
 stack.yaml.lock
+
+# PureScript files
+bower_components/
+node_modules/
+.pulp-cache/
+output/
+generated-docs/
+.psc-package/
+.psc*
+.purs*
+.psa*
+.spago
+.cache/
+
+# Mac Files
+.DS_Store
