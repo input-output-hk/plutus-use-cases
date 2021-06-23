@@ -22,3 +22,5 @@ requires_nix_shell:
 	@ [ -v IN_NIX_SHELL ] || echo "The $(MAKECMDGOALS) target must be run from inside nix-shell"
 	@ [ -v IN_NIX_SHELL ] || (echo "    run 'nix-shell --pure' first" && false)
 
+exec-lendex-demo:
+	stack build --no-nix --system-ghc --exec lendex-demo
