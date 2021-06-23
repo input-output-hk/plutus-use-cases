@@ -51,3 +51,12 @@ data AddParams = AddParams
 
 instance ToJSON AddParams
 instance FromJSON AddParams
+
+data RemoveParams = RemoveParams
+    { rpCoinA   :: Coin AssetClass      -- ^ One 'Coin' of the liquidity pair.
+    , rpCoinB   :: Coin AssetClass      -- ^ The other 'Coin'.
+    , rpDiff :: Amount Integer     -- ^ The amount the first 'Coin' that should be swapped.
+    } deriving (Generic, Show)
+
+instance ToJSON RemoveParams
+instance FromJSON RemoveParams

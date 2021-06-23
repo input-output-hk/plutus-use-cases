@@ -37,6 +37,7 @@ data Api :: * -> * where
   -- plutus ADTs directly. For now, they will come from Common.Plutus.Contracts.Uniswap.Types
   Api_Swap :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String [Text])
   Api_Stake :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String [Text])
+  Api_RedeemLiquidity :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Api (Either String [Text])
   Api_CallFunds :: ContractInstanceId Text -> Api ()
 
 deriveJSONGADT ''Api
