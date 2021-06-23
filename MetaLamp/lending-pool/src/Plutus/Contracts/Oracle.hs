@@ -231,8 +231,9 @@ useOracle (fromTuple -> oracle) = do
   let lookups =
         Constraints.otherScript (oracleValidator oracle) <>
         Constraints.unspentOutputs unspent
+  let val = (assetClassValue oracleCoin 1) <> lovelaceValueOf (oFee oracle)
   let tx = Constraints.mustSpendScriptOutput oracleRef (Redeemer $ PlutusTx.toData Use) <>
-           Constraints.mustPayToOtherScript (validatorHash $ oracleValidator oracle) (Datum $ PlutusTx.toData oracleDatum) (assetClassValue oracleCoin 1)
+           Constraints.mustPayToOtherScript (validatorHash $ oracleValidator oracle) (Datum $ PlutusTx.toData oracleDatum) val
   pure $ (lookups, tx)
   where
     oracleCoin = oracleAsset oracle
