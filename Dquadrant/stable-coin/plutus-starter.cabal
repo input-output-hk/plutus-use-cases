@@ -14,7 +14,6 @@ library
                        Plutus.Contracts.Oracle.Core
                        Plutus.Contracts.Oracle.Funds
                        Plutus.Contracts.Oracle.PAB
-                       Plutus.Contracts.Oracle.Swap
                      
   build-depends:       aeson
                      , base ^>=4.14.1.0
@@ -45,9 +44,11 @@ executable stablecoin-pab
                      , base ^>= 4.14.1.0
                      , lens
                      , plutus-ledger
-                     , plutus-pab
+                     , plutus-pab         
+                     , plutus-tx
                      , req ^>= 3.9.0
                      , text -any
+                     , bytestring
                      , uuid
                      , containers
                      , freer-extras
@@ -58,25 +59,25 @@ executable stablecoin-pab
                      , plutus-use-cases
 
 
-executable oracle-pab
-  main-is: oracle-pab.hs
-  hs-source-dirs: pab
-  ghc-options:         -Wall
-  build-depends:       aeson
-                     , base ^>= 4.14.1.0
-                     , lens
-                     , plutus-ledger
-                     , plutus-pab
-                     , req ^>= 3.9.0
-                     , text -any
-                     , uuid
-                     , containers
-                     , freer-extras
-                     , freer-simple -any
-                     , prettyprinter -any
-                     , plutus-contract -any
-                     , stable-coin-starter
-                     , plutus-use-cases
+-- executable oracle-pab
+--   main-is: oracle-pab.hs
+--   hs-source-dirs: pab
+--   ghc-options:         -Wall
+--   build-depends:       aeson
+--                      , base ^>= 4.14.1.0
+--                      , lens
+--                      , plutus-ledger
+--                      , plutus-pab
+--                      , req ^>= 3.9.0
+--                      , text -any
+--                      , uuid
+--                      , containers
+--                      , freer-extras
+--                      , freer-simple -any
+--                      , prettyprinter -any
+--                      , plutus-contract -any
+--                      , stable-coin-starter
+--                      , plutus-use-cases
 
 test-suite plutus-use-cases-tests
   Type:                exitcode-stdio-1.0
@@ -106,6 +107,7 @@ test-suite plutus-use-cases-tests
                      , tasty-hunit
                      , tasty-expected-failure
                      , text
+                     , foldl
   hs-source-dirs:      src/test
   Main-is:             Spec.hs
   Other-modules:

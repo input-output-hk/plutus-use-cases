@@ -40,7 +40,6 @@ import           Wallet.Types                        (ContractInstanceId (..))
 
 import qualified Plutus.Contracts.Oracle.Core                  as Oracle
 import           Plutus.Contracts.Oracle.PAB                   (OracleContracts (..))
-import qualified Plutus.Contracts.Oracle.Swap                  as Oracle
 
 main :: IO ()
 main = void $ Simulator.runSimulationWith handlers $ do
@@ -53,16 +52,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
 
     cidOracle <- Simulator.activateContract (Wallet 1) $ Oracle cs
     liftIO $ writeFile "oracle.cid" $ show $ unContractInstanceId cidOracle
-    oracle <- waitForLast cidOracle
-
-    Simulator.logString @(Builtin OracleContracts) "oracle cid"
-    Simulator.logString @(Builtin OracleContracts) (show $ unContractInstanceId cidOracle)
-
-
-    forM_ wallets $ \w ->
-        when (w /= Wallet 1) $ do
-            cid <- Simulator.activateContract w $ Swap oracle
-            liftIO $ writeFile ('W' : show (getWallet w) ++ ".cid") $ show $ unContractInstanceId cid
+    -- _ <- waitForLast cidOracle
 
     void $ liftIO getLine
     shutdown
@@ -82,8 +72,8 @@ usdt = "USDT"
 oracleParams :: CurrencySymbol -> Oracle.OracleParams
 oracleParams cs = Oracle.OracleParams
     { Oracle.opFees   = 1_000_000
-    , Oracle.opSymbol = cs
-    , Oracle.opToken  = usdt
+    -- , Oracle.opSymbol = cs
+    -- , Oracle.opToken  = usdt
     }
 
 handleOracleContracts ::
@@ -96,11 +86,9 @@ handleOracleContracts = handleBuiltin getSchema getContract where
     getSchema = \case
         Init     -> endpointsToSchemas @Empty
         Oracle _ -> endpointsToSchemas @(Oracle.OracleSchema .\\ BlockchainActions)
-        Swap _   -> endpointsToSchemas @(Oracle.SwapSchema   .\\ BlockchainActions)
     getContract = \case
         Init        -> SomeBuiltin   initContract
         Oracle cs   -> SomeBuiltin $ Oracle.runOracle $ oracleParams cs
-        Swap oracle -> SomeBuiltin $ Oracle.swap oracle
 
 handlers :: SimulatorEffectHandlers (Builtin OracleContracts)
 handlers =

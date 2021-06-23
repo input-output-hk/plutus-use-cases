@@ -24,14 +24,16 @@ import           Plutus.Contract  as Contract hiding (when)
 import           PlutusTx.Prelude hiding ((<$>))
 import           Prelude          ((<$>))
 import           Ledger           hiding (singleton)
-import           Ledger.Value     as Value
+import qualified Prelude
+import Ledger.Value (flattenValue)
+
 
 ownFunds :: HasBlockchainActions s => Contract w s Text Value
 ownFunds = do
     pk    <- ownPubKey
     utxos <- utxoAt $ pubKeyAddress pk
     let v = mconcat $ Map.elems $ txOutValue . txOutTxOut <$> utxos
-    logInfo @String $ "own funds: " ++ show (Value.fattenValue v)
+    logInfo @Prelude.String $ "own funds: " ++ Prelude.show (flattenValue v)
     return v
 
 ownFunds' :: Contract (Last Value) BlockchainActions Text ()

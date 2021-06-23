@@ -10,19 +10,22 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE NumericUnderscores #-}
+
 
 module Plutus.Contracts.Oracle.Core
     ( Oracle (..)
     , OracleRedeemer (..)
     , oracleTokenName
     , oracleValue
-    , oracleAsset
+    , oracleNftAsset
     , oracleInst
     , oracleValidator
     , oracleAddress
     , OracleSchema
     , OracleParams (..)
     , runOracle
+    , runMockOracle
     , findOracle
     ) where
 
@@ -45,16 +48,17 @@ import           Prelude                   (Semigroup (..))
 import qualified Prelude                   as Prelude
 
 data Oracle = Oracle
-    { oSymbol   :: !CurrencySymbol
-    , oOperator :: !PubKeyHash
-    , oFee      :: !Integer
-    , oAsset    :: !AssetClass
+    { oNftSymbol   :: !CurrencySymbol
+    , oOperator    :: !PubKeyHash
+    , oFee         :: !Integer
     } deriving (Prelude.Show, Generic, FromJSON, ToJSON, Prelude.Eq, Prelude.Ord)
 
 PlutusTx.makeLift ''Oracle
+PlutusTx.unstableMakeIsData ''Oracle
+
 
 data OracleRedeemer = Update | Use
-    deriving Show
+    deriving Prelude.Show
 
 PlutusTx.unstableMakeIsData ''OracleRedeemer
 
@@ -62,9 +66,9 @@ PlutusTx.unstableMakeIsData ''OracleRedeemer
 oracleTokenName :: TokenName
 oracleTokenName = TokenName emptyByteString
 
-{-# INLINABLE oracleAsset #-}
-oracleAsset :: Oracle -> AssetClass
-oracleAsset oracle = AssetClass (oSymbol oracle, oracleTokenName)
+{-# INLINABLE oracleNftAsset #-}
+oracleNftAsset :: Oracle -> AssetClass
+oracleNftAsset oracle = AssetClass (oNftSymbol oracle, oracleTokenName)
 
 {-# INLINABLE oracleValue #-}
 oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe Integer
@@ -76,7 +80,7 @@ oracleValue o f = do
 {-# INLINABLE mkOracleValidator #-}
 mkOracleValidator :: Oracle -> Integer -> OracleRedeemer -> ScriptContext -> Bool
 mkOracleValidator oracle x r ctx =
-    traceIfFalse "token missing from input"  False  &&
+    traceIfFalse "token missing from input"  inputHasToken  &&
     traceIfFalse "token missing from output" outputHasToken &&
     case r of
         Update -> traceIfFalse "operator signature missing" (txSignedBy info $ oOperator oracle) &&
@@ -93,7 +97,7 @@ mkOracleValidator oracle x r ctx =
         Just i  -> txInInfoResolved i
 
     inputHasToken :: Bool
-    inputHasToken = assetClassValueOf (txOutValue ownInput) (oracleAsset oracle) == 1
+    inputHasToken = assetClassValueOf (txOutValue ownInput) (oracleNftAsset oracle) == 1
 
     ownOutput :: TxOut
     ownOutput = case getContinuingOutputs ctx of
@@ -101,7 +105,7 @@ mkOracleValidator oracle x r ctx =
         _   -> traceError "expected exactly one oracle output"
 
     outputHasToken :: Bool
-    outputHasToken = assetClassValueOf (txOutValue ownOutput) (oracleAsset oracle) == 1
+    outputHasToken = assetClassValueOf (txOutValue ownOutput) (oracleNftAsset oracle) == 1
 
     outputDatum :: Maybe Integer
     outputDatum = oracleValue ownOutput (`findDatum` info)
@@ -118,12 +122,12 @@ mkOracleValidator oracle x r ctx =
         outVal `geq` (inVal <> Ada.lovelaceValueOf (oFee oracle))
 
 data Oracling
-instance Scripts.ScriptType Oracling where
+instance Scripts.ValidatorTypes Oracling where
     type instance DatumType Oracling = Integer
     type instance RedeemerType Oracling = OracleRedeemer
 
-oracleInst :: Oracle -> Scripts.ScriptInstance Oracling
-oracleInst oracle = Scripts.validator @Oracling
+oracleInst :: Oracle -> Scripts.TypedValidator Oracling
+oracleInst oracle = Scripts.mkTypedValidator @Oracling
     ($$(PlutusTx.compile [|| mkOracleValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode oracle)
     $$(PlutusTx.compile [|| wrap ||])
   where
@@ -138,40 +142,39 @@ oracleAddress = scriptAddress . oracleValidator
 data OracleParams = OracleParams
     { opFees   :: !Integer
     , opSymbol :: !CurrencySymbol
-    , opToken  :: !TokenName
-    } deriving (Show, Generic, FromJSON, ToJSON)
+    } deriving (Prelude.Show, Generic, FromJSON, ToJSON)
 
-startOracle :: forall w s. HasBlockchainActions s => OracleParams -> Contract w s Text Oracle
-startOracle op = do
+startOracle :: forall w s. HasBlockchainActions s => Contract w s Text Oracle
+startOracle = do
+    logInfo @Prelude.String $ "Starting oracle "
     pkh <- pubKeyHash <$> Contract.ownPubKey
-    osc <- mapError (pack . show) (forgeContract pkh [(oracleTokenName, 1)] :: Contract w s CurrencyError OneShotCurrency)
+    osc <- mapError (pack . Prelude.show) (forgeContract pkh [(oracleTokenName, 1)] :: Contract w s CurrencyError OneShotCurrency)
     let cs     = Currency.currencySymbol osc
         oracle = Oracle
-            { oSymbol   = cs
+            { oNftSymbol   = cs
             , oOperator = pkh
-            , oFee      = opFees op
-            , oAsset    = AssetClass (opSymbol op, opToken op)
+            , oFee      = 1_000_000
             }
-    logInfo @String $ "started oracle " ++ show oracle
+    logInfo @Prelude.String $ "started oracle " ++ Prelude.show oracle
     return oracle
 
 updateOracle :: forall w s. HasBlockchainActions s => Oracle -> Integer -> Contract w s Text ()
 updateOracle oracle x = do
     m <- findOracle oracle
-    let c = Constraints.mustPayToTheScript x $ assetClassValue (oracleAsset oracle) 1
+    let c = Constraints.mustPayToTheScript x $ assetClassValue (oracleNftAsset oracle) 1
     case m of
         Nothing -> do
             ledgerTx <- submitTxConstraints (oracleInst oracle) c
             awaitTxConfirmed $ txId ledgerTx
-            logInfo @String $ "set initial oracle value to " ++ show x
+            logInfo @Prelude.String $ "set initial oracle value to " ++ Prelude.show x
         Just (oref, o,  _) -> do
             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     <>
-                          Constraints.scriptInstanceLookups (oracleInst oracle) <>
+                          Constraints.typedValidatorLookups (oracleInst oracle) <>
                           Constraints.otherScript (oracleValidator oracle)
                 tx      = c <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData Update)
             ledgerTx <- submitTxConstraintsWith @Oracling lookups tx
             awaitTxConfirmed $ txId ledgerTx
-            logInfo @String $ "updated oracle value to " ++ show x
+            logInfo @Prelude.String $ "updated oracle value to " ++ Prelude.show x
 
 findOracle :: forall w s. HasBlockchainActions s => Oracle -> Contract w s Text (Maybe (TxOutRef, TxOutTx, Integer))
 findOracle oracle = do
@@ -183,13 +186,13 @@ findOracle oracle = do
         _           -> Nothing
   where
     f :: TxOutTx -> Bool
-    f o = assetClassValueOf (txOutValue $ txOutTxOut o) (oracleAsset oracle) == 1
+    f o = assetClassValueOf (txOutValue $ txOutTxOut o) (oracleNftAsset oracle) == 1
 
 type OracleSchema = BlockchainActions .\/ Endpoint "update" Integer
 
-runOracle :: OracleParams -> Contract (Last Oracle) OracleSchema Text ()
-runOracle op = do
-    oracle <- startOracle op
+runOracle :: Contract (Last Oracle) OracleSchema Text ()
+runOracle = do
+    oracle <- startOracle
     tell $ Last $ Just oracle
     go oracle
   where
@@ -198,3 +201,13 @@ runOracle op = do
         x <- endpoint @"update"
         updateOracle oracle x
         go oracle
+
+runMockOracle :: Oracle -> Contract () OracleSchema Text ()
+runMockOracle oracle = do
+    go oracle
+  where
+    go :: Oracle -> Contract () OracleSchema Text a
+    go oracle' = do
+        x <- endpoint @"update"
+        updateOracle oracle' x
+        go oracle'

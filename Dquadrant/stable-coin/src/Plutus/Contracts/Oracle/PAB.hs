@@ -12,7 +12,7 @@ import           Ledger
 
 import qualified Plutus.Contracts.Oracle.Core        as Oracle
 
-data OracleContracts = Init | Oracle CurrencySymbol | Swap Oracle.Oracle
+data OracleContracts = Init | Oracle CurrencySymbol
     deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
 
 instance Pretty OracleContracts where
