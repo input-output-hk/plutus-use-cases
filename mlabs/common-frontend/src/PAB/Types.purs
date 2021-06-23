@@ -78,16 +78,8 @@ type ActiveEndpoint
     }
 
 -- Types from Plutus.PAB.Events.Contract
-newtype ContractInstanceId
-  = ContractInstanceId String
-
-derive instance genericContractInstanceId :: Generic (ContractInstanceId) _
-
-instance encodeJsonContractInstanceId :: EncodeJson (ContractInstanceId) where
-  encodeJson a = genericEncodeJson a
-
-instance decodeJsonContractInstanceId :: DecodeJson (ContractInstanceId) where
-  decodeJson a = genericDecodeJson a
+type ContractInstanceId
+  = { unContractInstanceId :: String }
 
 -- types from Plutus.PAB.Events.ContractInstanceState
 type PartiallyDecodedResponse v
@@ -176,41 +168,17 @@ newtype Slot
   = Slot Int
 
 -- Types from Plutus.V1.Ledger.Value
-newtype CurrencySymbol
-  = CurrencySymbol String
+type CurrencySymbol
+  = { unCurrencySymbol :: String }
 
-derive instance genericCurrencySymbol :: Generic CurrencySymbol _
+type TokenName
+  = { unTokenName :: String }
 
-instance encodeJsonCurrencySymbol :: EncodeJson CurrencySymbol where
-  encodeJson a = genericEncodeJson a
-
-instance decodeJsonCurrencySymbol :: DecodeJson CurrencySymbol where
-  decodeJson a = genericDecodeJson a
-
-newtype TokenName
-  = TokenName String
-
-derive instance genericTokenName :: Generic TokenName _
-
-instance encodeJsonTokenName :: EncodeJson TokenName where
-  encodeJson a = genericEncodeJson a
-
-instance decodeJsonTokenName :: DecodeJson TokenName where
-  decodeJson a = genericDecodeJson a
-
-newtype Value
-  = Value (Array (Tuple CurrencySymbol (Array (Tuple TokenName Int))))
-
-derive instance genericValue :: Generic Value _
-
-instance encodeJsonValue :: EncodeJson Value where
-  encodeJson a = genericEncodeJson a
-
-instance decodeJsonValue :: DecodeJson Value where
-  decodeJson a = genericDecodeJson a
+type Value
+  = { getValue :: Array (Tuple CurrencySymbol (Array (Tuple TokenName Int))) }
 
 lovelaceValueOf :: Int -> Value
-lovelaceValueOf lovelace = Value [ Tuple (CurrencySymbol "") [ Tuple (TokenName "") lovelace ] ]
+lovelaceValueOf lovelace = { getValue: [ Tuple { unCurrencySymbol: "" } [ Tuple { unTokenName: "" } lovelace ] ] }
 
 -- Types from Schema 
 data FormSchema
@@ -242,25 +210,9 @@ instance decodeJsonFormSchema :: DecodeJson FormSchema where
   decodeJson a = genericDecodeJson a
 
 -- Types from Wallet.Emulator.Wallet
-newtype Wallet
-  = Wallet Int
-
-derive instance genericWallet :: Generic Wallet _
-
-instance encodeJsonWallet :: EncodeJson Wallet where
-  encodeJson a = genericEncodeJson a
-
-instance decodeJsonWallet :: DecodeJson Wallet where
-  decodeJson a = genericDecodeJson a
+type Wallet
+  = { getWallet :: Int }
 
 -- Types from Wallet.Types
-newtype EndpointDescription
-  = EndpointDescription String
-
-derive instance genericEndpointDescription :: Generic EndpointDescription _
-
-instance encodeJsonEndpointDescription :: EncodeJson EndpointDescription where
-  encodeJson a = genericEncodeJson a
-
-instance decodeJsonEndpointDescription :: DecodeJson EndpointDescription where
-  decodeJson a = genericDecodeJson a
+type EndpointDescription
+  = { getEndpointDescription :: String }

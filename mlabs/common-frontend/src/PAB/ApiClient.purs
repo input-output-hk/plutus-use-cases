@@ -33,7 +33,7 @@ getStatus ::
   PabConfig ->
   ContractInstanceId ->
   Aff (Either ApiError (ContractInstanceClientState A.Json))
-getStatus pab (ContractInstanceId ciid) =
+getStatus pab { unContractInstanceId: ciid } =
   let
     url = pab.baseUrl <> contractInstPath <> ciid <> "/status"
   in
@@ -44,7 +44,7 @@ getWalletInstances ::
   PabConfig ->
   Wallet ->
   Aff (Either ApiError (Array (ContractInstanceClientState A.Json)))
-getWalletInstances pab (Wallet w) =
+getWalletInstances pab { getWallet: w } =
   let
     url = pab.baseUrl <> contractInstPath <> "wallet/" <> show w
   in
@@ -82,7 +82,7 @@ postEndpoint ::
   String ->
   payload ->
   Aff (Either ApiError A.Json)
-postEndpoint pab (ContractInstanceId ciid) endpoint payload =
+postEndpoint pab { unContractInstanceId: ciid } endpoint payload =
   let
     url =
       pab.baseUrl

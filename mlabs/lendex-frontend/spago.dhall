@@ -3,7 +3,7 @@ Welcome to a Spago project!
 You can edit this file as you like.
 -}
 { name = "my-project"
-, dependencies =
+, dependencies =   
   [ "affjax"
   , "argonaut"
   , "argonaut-generic"
@@ -15,5 +15,9 @@ You can edit this file as you like.
   , "psci-support"
   ]
 , packages = ./packages.dhall
-, sources = [ "src/**/*.purs", "test/**/*.purs" ]
+, sources = 
+  [ "src/**/*.purs"
+  , "test/**/*.purs"
+  , "common-frontend/src/**/*.purs" 
+  ]
 }
