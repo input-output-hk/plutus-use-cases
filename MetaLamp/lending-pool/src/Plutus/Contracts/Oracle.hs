@@ -68,6 +68,12 @@ data Oracle = Oracle
 PlutusTx.makeLift ''Oracle
 PlutusTx.unstableMakeIsData ''Oracle
 
+instance Eq Oracle where
+    {-# INLINABLE (==) #-}
+    (Oracle oSymbol oOperator oFee oAsset) == (Oracle oSymbol' oOperator' oFee' oAsset') =
+      oSymbol == oSymbol' &&
+      oOperator == oOperator' && oFee == oFee' && oAsset == oAsset'
+
 {-# INLINABLE fromTuple #-}
 fromTuple :: (CurrencySymbol, PubKeyHash, Integer, AssetClass) -> Oracle
 fromTuple (oSymbol, oOperator, oFee, oAsset) = Oracle {..}

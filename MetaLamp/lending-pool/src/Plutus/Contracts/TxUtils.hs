@@ -23,8 +23,6 @@ import           Ledger.Typed.Scripts             (DatumType, MonetaryPolicy,
                                                    RedeemerType, TypedValidator)
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Plutus.Contract
-import           Plutus.Contracts.Core            (Aave, Reserve (..))
-import qualified Plutus.Contracts.Core            as Core
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
 import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Contexts        (ScriptContext,

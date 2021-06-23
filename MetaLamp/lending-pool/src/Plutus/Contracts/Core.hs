@@ -42,6 +42,7 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
+import qualified Plutus.Contracts.Oracle as Oracle
 
 newtype Aave = Aave
     { aaveProtocolInst :: AssetClass
@@ -184,6 +185,7 @@ makeAaveValidator :: Aave
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
 -- TODO ? further validators should check that ReservesDatum & UserConfigsDatum transormation happens one time
 -- & ReserveFundsDatum transormation happens at least one time
+-- TODO ? check that reedeemers contain the same data during transformation
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
 makeAaveValidator aave datum (BorrowRedeemer userConfigId) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId
@@ -500,7 +502,8 @@ checkReservesConsistency oldState newState =
   rCurrency oldState == rCurrency newState &&
   rAToken oldState == rAToken newState &&
   rLiquidityIndex oldState == rLiquidityIndex newState &&
-  rCurrentStableBorrowRate oldState == rCurrentStableBorrowRate newState
+  rCurrentStableBorrowRate oldState == rCurrentStableBorrowRate newState &&
+  Oracle.fromTuple (rTrustedOracle oldState) == Oracle.fromTuple (rTrustedOracle newState)
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
