@@ -11,15 +11,6 @@
 
 module AaveTypes where
 
-import           Language.PureScript.Bridge                 (BridgePart, Language (Haskell), SumType,
-                                                             TypeInfo (TypeInfo), buildBridge, equal, genericShow,
-                                                             haskType, mkSumType, order, typeModule, typeName,
-                                                             writePSTypesWith, (^==), PSType, psTypeParameters)
-import           Data.Proxy                                 (Proxy (Proxy))
-import qualified Plutus.Contracts.Core               as Aave
-import qualified Plutus.Contracts.Endpoints          as Aave
-import Plutus.PAB.Simulation (AaveContracts(..))
-import           Language.PureScript.Bridge.TypeParameters  (A, E)
 import           Control.Monad.Reader                      (MonadReader)
 import           Data.Proxy                                (Proxy (Proxy))
 import           Language.PureScript.Bridge                (BridgePart,
@@ -36,7 +27,7 @@ import           Language.PureScript.Bridge                (BridgePart,
                                                             writePSTypesWith,
                                                             (^==))
 import           Language.PureScript.Bridge.Builder        (BridgeData)
-import           Language.PureScript.Bridge.TypeParameters (A)
+import           Language.PureScript.Bridge.TypeParameters (A, E)
 import qualified PSGenerator.Common
 import qualified Plutus.Contracts.Core                     as Aave
 import qualified Plutus.Contracts.Endpoints                as Aave

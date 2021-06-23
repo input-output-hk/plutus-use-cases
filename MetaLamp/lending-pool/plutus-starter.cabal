@@ -96,3 +96,46 @@ executable generate-purs
     plutus-use-cases,
     plutus-ledger,
     plutus-tx
+
+test-suite test
+    type: exitcode-stdio-1.0
+    main-is: Main.hs
+    hs-source-dirs: test
+    other-modules:
+      Spec.Start Spec.Mock Spec.User Spec.Utils
+    default-language: Haskell2010
+    ghc-options: -Wall -Wnoncanonical-monad-instances
+                 -Wincomplete-uni-patterns -Wincomplete-record-updates
+                 -Wredundant-constraints -Widentities -rtsopts
+                 -- See Plutus Tx readme
+                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    build-depends:
+        plutus-core -any,
+        plutus-tx -any,
+        plutus-contract -any,
+        plutus-ledger -any,
+        plutus-starter,
+        plutus-ledger-api,
+        plutus-tx-plugin
+    build-depends:
+        base >=4.9 && <5,
+        aeson -any,
+        bytestring -any,
+        containers -any,
+        data-default -any,
+        freer-extras -any,
+        hedgehog -any,
+        prettyprinter -any,
+        tasty -any,
+        tasty-hunit -any,
+        tasty-hedgehog >=0.2.0.0,
+        tasty-golden -any,
+        tasty-quickcheck -any,
+        text -any,
+        lens -any,
+        mtl -any,
+        row-types -any,
+        QuickCheck -any,
+        freer-simple -any,
+        foldl -any,
+        streaming -any

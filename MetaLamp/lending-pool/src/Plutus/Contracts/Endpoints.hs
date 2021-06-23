@@ -18,6 +18,7 @@
 
 module Plutus.Contracts.Endpoints where
 
+import qualified Control.Lens                     as Lens
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
@@ -77,11 +78,16 @@ createReserve aave CreateParams {..} =
            }
 
 start :: HasBlockchainActions s => [CreateParams] -> Contract w s Text Aave
-start params = do
+start = start' $ do
     pkh <- pubKeyHash <$> ownPubKey
-    aaveToken  <- fmap Currency.currencySymbol $
+    fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
+
+start' :: HasBlockchainActions s => Contract w s Text CurrencySymbol -> [CreateParams] -> Contract w s Text Aave
+start' getAaveToken params = do
+    aaveToken <- getAaveToken
+    pkh <- pubKeyHash <$> ownPubKey
     let aave = Core.aave aaveToken
         payment = assetClassValue (Core.aaveProtocolInst aave) 1
     let aaveTokenTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pkh (Core.LendingPoolDatum pkh) payment
@@ -129,7 +135,7 @@ type AaveOwnerSchema =
 
 data OwnerContractState = Started Aave
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
-    
+
 ownerEndpoints :: Contract (Last (ContractResponse Text OwnerContractState)) AaveOwnerSchema Void ()
 ownerEndpoints = forever $ handleContract (Proxy @"start") Started start
 
@@ -322,6 +328,8 @@ data UserContractState =
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
+
+Lens.makeClassyPrisms ''UserContractState
 
 userEndpoints :: Aave -> Contract (Last (ContractResponse Text UserContractState)) AaveUserSchema Void ()
 userEndpoints aave = forever $
