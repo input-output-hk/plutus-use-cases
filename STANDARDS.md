@@ -269,6 +269,14 @@ Exceptions are granted when:
   modules); or
 * We have to import a data type qualified as well.
 
+Qualified imports of multiple modules MUST NOT be imported under the same name.
+Thus, the following is wrong:
+
+```haskell
+import qualified Foo.Bar as Baz
+import qualified Foo.Quux as Baz
+```
+
 ### Justification
 
 Explicit export lists are an immediate, clear and obvious indication of what
@@ -298,12 +306,16 @@ qualified, is good practice, and saves on a lot of prefixing.
 
 ## Plutus module import naming conventions
 
-In addition to the general module import rules, we should follow some conventions on how we import the Plutus API modules, allowing for some flexibility depending on the needs of a particular module.
+In addition to the general module import rules, we follow some conventions 
+on how we import the Plutus API modules, allowing for some flexibility 
+depending on the needs of a particular module.
 
-Modules under the names `Plutus`, `Ledger` and `Plutus.V1.Ledger` SHOULD be imported qualified with their module name, as per the general module standards. An exception to this is `Plutus.V1.Ledger.Api`, where the `Ledger` name is preferred.
+Modules under the names `Plutus`, `Ledger` and `Plutus.V1.Ledger` SHOULD 
+be imported qualified with their module name, as per the general module standards. 
+An exception to this is `Plutus.V1.Ledger.Api`, where the `Ledger` name is preferred.
 
-Some other exceptions to this are allowed where it may be more convenient to avoid longer qualified names.
-
+Some other exceptions to this are allowed where it may be more convenient to 
+avoid longer qualified names.
 
 For example:
 
@@ -321,11 +333,11 @@ In some cases it may be justified to use a shortened module name:
 import Plutus.V1.Ledger.AddressMap qualified as AddrMap
 ```
 
-Modules under `PlutusTx` that are extensions to `PlutusTx.Prelude` MAY be imported unqualified when it is reasonable to do so. 
+Modules under `PlutusTx` that are extensions to `PlutusTx.Prelude` MAY be 
+imported unqualified when it is reasonable to do so. 
 
-The `Plutus.V1.Ledger.Api` module SHOULD be avoided in favour of more specific modules where possible.
-
-For example, we should avoid:
+The `Plutus.V1.Ledger.Api` module SHOULD be avoided in favour of more 
+specific modules where possible. For example, we should avoid:
 
 ```haskell
 import Plutus.V1.Ledger.Api qualified as Ledger (ValidatorHash)
@@ -339,10 +351,9 @@ import Plutus.V1.Ledger.Scripts qualified as Scripts (ValidatorHash)
 
 ### Justification
 
-The Plutus API modules can be confusing, with numerous modules involved, many exporting the same items. 
-
-Consistent qualified names help ease this problem, and decrease ambiguity about where imported items come from.
-
+The Plutus API modules can be confusing, with numerous modules involved, many 
+exporting the same items. Consistent qualified names help ease this problem, 
+and decrease ambiguity about where imported items come from.
 
 ## LANGUAGE pragmata
 
@@ -610,7 +621,7 @@ anyway. The only reason to derive either of these is for compatibility with
 legacy libraries, which we don't have any of, and the number of which shrinks
 every year. If we're using this extension at all, it's probably a mistake.
 
-``Foldable`` is possibly the most widely-used, lawless type class. Its only laws
+``Foldable`` is possibly the most widely-used lawless type class. Its only laws
 are about self-consistency (such as agreement between ``foldMap`` and
 ``foldr``), but unlike something like ``Functor``, ``Foldable`` doesn't have any
 laws specifying its behaviour outside of 'it compiles'. As a result, even if we
@@ -820,6 +831,8 @@ data Foo (a :: Type) = Bar | Baz [a]
 quux :: forall (m :: Type) . (Monoid m) => [m] -> m -> m
 ```
 
+`where`-bindings MUST have type signatures.
+
 ### Justification
 
 Haskell lists are a large example of the legacy of the language: they (in the
@@ -833,7 +846,8 @@ fusion optimizations), from the point of view of field values, they are a poor
 choice from both an efficiency perspective, both in theory _and_ in practice.
 For almost all cases where you would want a list field value, a ``Vector`` field
 value is more appropriate, and in almost all others, some other structure (such
-as a ``Map``) is even better.
+as a ``Map``) is even better. We make a named exception for on-chain code, as no
+alternatives presently exist.
 
 Partial functions are runtime bombs waiting to explode. The number of times the
 'impossible' happened, especially in production code, is significant in our
@@ -896,6 +910,24 @@ signatures allows us to be clear to the users where exotic kinds are expected,
 as well as ensuring that we don't make any errors ourselves. This, together with
 explicit foralls, essentially bring the same practices to the kind level as the
 Haskell community already considers to be good at the type level.
+
+`where` bindings are quite common in idiomatic Haskell, and quite often contain
+non-trivial logic. They're also a common refactoring, and 'hole-driven
+development' tool, where you create a hole to be filled with a `where`-bound
+definition. Even in these cases, having an explicit signature on
+`where`-bindings helps: during development, you can use typed holes inside the
+`where`-binding with useful information (absent a signature, you'll get
+nothing), and it makes the code much easier to understand, especially if the
+`where`-binding is complex. It's also advantageous when 'promoting'
+`where`-binds to full top-level definitions, as the signature is already there.
+Since we need to do considerable type-level programming as part of Plutus, this
+becomes even more important, as GHC's type inference algorithm can often fail in
+those cases on `where`-bindings, which will sometimes fail to derive, giving a
+very strange error message, which would need a signature to solve anyway. By
+making this practice proactive, we are decreasing confusion, as well as
+increasing readability. While in theory, this standard should extend to
+`let`-bindings as well, these are much rarer, and can be given signatures with
+`::` if `ScopedTypeVariables` is on (which it is for us by default) if needed.
 
 # Design practices
 
