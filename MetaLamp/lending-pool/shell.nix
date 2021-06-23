@@ -30,17 +30,11 @@ with import ./nix { };
   propagatedBuildInputs = with pkgs;
     [
       # Haskell Tools
-      stack
       plutus.plutus.hlint
       haskellPackages.fourmolu
       git
       ghc
       nixfmt
-
-      # Example contracts
-      plutus.plutus-currency
-      plutus.plutus-atomic-swap
-
     ];
 
   buildInputs = [ plutus.pkgs.zlib ];
