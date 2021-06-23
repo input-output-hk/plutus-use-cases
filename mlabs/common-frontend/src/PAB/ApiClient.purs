@@ -3,8 +3,8 @@ module PAB.ApiClient where
 --------------------------------------------------------------------------------
 
 import Affjax as AX
-import Affjax.RequestBody as AJRB
-import Affjax.ResponseFormat as AJRF
+import Affjax.RequestBody as AXRB
+import Affjax.ResponseFormat as AXRF
 import Data.Argonaut as A
 import Data.Either (Either(..))
 import Data.Eq ((==))
@@ -24,8 +24,7 @@ import Prelude (bind, pure, show, ($), (<>))
 --------------------------------------------------------------------------------
 
 getWallets
-  :: forall t
-  . PABConfig
+  :: PABConfig
   -> Wallet
   -> Aff (Either ApiError (Array ContractInstanceClientState))
 getWallets pab (Wallet w) = getJson url
@@ -41,7 +40,26 @@ getJson
   => String
   -> Aff (Either ApiError res)
 getJson url = do
-  res <- AX.get AJRF.json url 
+  res <- AX.get AXRF.json url 
+  handleResponse res
+
+postJson
+  :: forall payload res
+   . A.EncodeJson payload
+  => A.DecodeJson res
+  => String
+  -> payload
+  -> Aff (Either ApiError res)
+postJson url payload = do
+  res <- AX.post AXRF.json url (Just $ AXRB.Json $ A.encodeJson payload)
+  handleResponse res
+
+handleResponse 
+  :: forall res
+   . A.DecodeJson res
+  => Either AX.Error (AX.Response A.Json)
+  -> Aff (Either ApiError res)
+handleResponse res = do
   case res of
     Left e     -> pure $ Left (RequestError $ e)
     Right res' -> do
