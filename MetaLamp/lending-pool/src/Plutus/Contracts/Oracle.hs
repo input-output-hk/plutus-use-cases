@@ -13,6 +13,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE DerivingStrategies    #-}
+{-# OPTIONS_GHC -fno-specialise #-}
 
 module Plutus.Contracts.Oracle
     ( Oracle (..)
@@ -32,6 +33,7 @@ module Plutus.Contracts.Oracle
     , useOracle
     , fromTuple
     , toTuple
+    , findOracleValueInTxInputs
     ) where
 
 import           Control.Monad             hiding (fmap)

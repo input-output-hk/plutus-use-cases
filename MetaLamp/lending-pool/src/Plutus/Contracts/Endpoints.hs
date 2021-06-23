@@ -18,7 +18,7 @@
 
 module Plutus.Contracts.Endpoints where
 
-import           Control.Monad                    hiding (fmap)
+import           Control.Monad                    (forever, void, forM)
 import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
@@ -224,34 +224,34 @@ PlutusTx.makeLift ''BorrowParams
 -- | The user borrows N amount of a needed asset from the corresponding reserve, his debt entry state is encreased by N
 borrow :: (HasBlockchainActions s) => Aave -> BorrowParams -> Contract w s Text ()
 borrow aave BorrowParams {..} = do
-    reserve <- State.findAaveReserve aave bpAsset
+    reserves <- ovValue <$> State.findAaveReserves aave
+    reserve <- maybe (throwError "Reserve not found") pure $ AssocMap.lookup bpAsset reserves
+    let userConfigId = (rCurrency reserve, bpOnBehalfOf)
+    userConfigs <- do
+        userConfigs <- ovValue <$> State.findAaveUserConfigs aave
+        pure $ case AssocMap.lookup userConfigId userConfigs of
+            Nothing ->
+                AssocMap.insert userConfigId UserConfig { ucDebt = bpAmount, ucCollateralizedInvestment = 0 } userConfigs
+            Just userConfig ->
+                AssocMap.insert userConfigId userConfig { ucDebt = ucDebt userConfig + bpAmount} userConfigs
+    oracles <- either throwError pure $ findOraclesForUser bpOnBehalfOf reserves userConfigs
+    let redeemer = Core.BorrowRedeemer userConfigId oracles
 
     utxos <-
         Map.filter ((> 0) . flip assetClassValueOf bpAsset . txOutValue . txOutTxOut)
         <$> utxoAt (Core.aaveAddress aave)
-    let userConfigId = (rCurrency reserve, bpOnBehalfOf)
-    let inputs = (\(ref, tx) -> OutputValue ref tx (Core.BorrowRedeemer userConfigId)) <$> Map.toList utxos
+    let inputs = (\(ref, tx) -> OutputValue ref tx redeemer) <$> Map.toList utxos
     let payment = assetClassValue (rCurrency reserve) bpAmount
     let remainder = assetClassValue (rCurrency reserve) (rAmount reserve - bpAmount)
     let disbursementTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment <>
                             TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.ReserveFundsDatum remainder
 
-    (userConfigsTx, userConfigs) <- do
-        userConfigs <- ovValue <$> State.findAaveUserConfigs aave
-        case AssocMap.lookup userConfigId userConfigs of
-            Nothing ->
-                State.addUserConfig
-                aave
-                (Core.BorrowRedeemer userConfigId)
-                userConfigId
-                UserConfig { ucDebt = bpAmount, ucCollateralizedInvestment = 0 }
-            Just userConfig ->
-                State.updateUserConfig aave (Core.BorrowRedeemer userConfigId) userConfigId $
-                userConfig { ucDebt = ucDebt userConfig + bpAmount}
+    (userConfigsTx, _) <- do
+        configsOutput <- State.findAaveUserConfigs aave
+        State.updateUserConfigs aave redeemer $ userConfigs Prelude.<$ configsOutput
 
-    (reservesTx, reserves) <- State.updateReserve aave (Core.BorrowRedeemer userConfigId) bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
+    (reservesTx, reserves) <- State.updateReserve aave redeemer bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
 
-    oracles <- either throwError pure $ findOraclesForUser bpOnBehalfOf reserves userConfigs
     oraclesTx <- mconcat <$> forM oracles Oracle.useOracle
 
     ledgerTx <- TxUtils.submitTxPair $ disbursementTx <> reservesTx <> userConfigsTx <> oraclesTx
