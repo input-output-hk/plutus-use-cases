@@ -26,6 +26,7 @@ import qualified Data.Map.Strict                         as Map
 import qualified Data.Monoid                             as Monoid
 import qualified Data.Semigroup                          as Semigroup
 import           Data.Text                               (Text)
+import           Data.Text.Encoding                      ( encodeUtf8 )
 import           GHC.Generics                            (Generic)
 import           Ledger.Ada                              (adaSymbol, adaToken)
 import           Plutus.Contract
@@ -45,6 +46,8 @@ import           Plutus.PAB.Webserver.Types              (ContractSignatureRespo
 import           Prelude                                 hiding (init)
 import           Wallet.Emulator.Types                   (Wallet (..))
 import qualified Data.ByteString.Lazy                    as BSL
+import qualified Data.ByteString.Encoding                as BSE
+import qualified Data.ByteString                         as BS
 import           Data.Text.Prettyprint.Doc
 import qualified Data.Text                                  as Text
 import           Wallet.Types                               (ContractInstanceId (..))
@@ -54,6 +57,7 @@ import System.Directory                                  (getCurrentDirectory)
 import System.FilePath                                   ((</>))
 import Plutus.PAB.Core                                   (PABEffects, PABAction)
 import Ledger                                            (CurrencySymbol)
+import Ledger.Value                                      (unCurrencySymbol)
 import Plutus.Contracts.Data
 
 import qualified Control.Concurrent.STM          as STM
@@ -62,6 +66,19 @@ import System.Posix.Signals (installHandler, Handler(Catch), sigINT, sigTERM)
 import Control.Concurrent (threadDelay, MVar, newEmptyMVar, putMVar, tryTakeMVar)
 import Data.Maybe (isJust)
 import SimulatorActions
+-- import Control.Lens.Indexed (ifor_)
+import Data.Foldable (for_)
+import Data.Map (Map,toList)
+
+cidFile :: Wallet -> FilePath
+cidFile w = "./tmp/W" ++ show (getWallet w) ++ ".cid"
+
+cidsToFile :: Map Wallet ContractInstanceId -> IO ()
+cidsToFile cids = do
+  for_ (toList cids) $ \(w, cid) -> do
+    let text = Text.pack $ show $ unContractInstanceId cid
+    let bs = BSE.encode BSE.utf8 text
+    BS.writeFile (cidFile w) bs
 
 startDebugServer :: MVar ()
     -> Eff
@@ -72,16 +89,20 @@ startDebugServer :: MVar ()
       ContractSignatureResponse UniswapContracts)
 startDebugServer stop = do
     Simulator.logString @(Builtin UniswapContracts) "Starting Uniswap PAB webserver on port 8080. Press enter to exit."
+
     shutdown <- PAB.Server.startServerDebug
 
     -- UNI: MINT
     (cidInit, cs) <- uniswapMintingContract
+    -- liftIO $ BSL.writeFile "./tmp/symbol.json" $ encode cs
+    liftIO $ BS.writeFile "./tmp/symbol" $ BSE.encode BSE.utf8 $ Text.pack $ show cs
 
     -- UNI: START
     (cidStart, us) <- uniswapStartContract
 
     -- UNI: USER
     cids <- uniswapUserContract us
+    liftIO $ cidsToFile cids
 
     -- UNI: POOL
     void (uniswapLiquidityPoolContract cids cs)
@@ -114,7 +135,7 @@ main = do
     stop <- newEmptyMVar
     _ <- installHandler sigINT (Catch $ onSigInt stop) Nothing
     _ <- installHandler sigTERM (Catch $ onSigTerm stop) Nothing
-    
+
     (fullReport, currencySchema) <- startServer stop
 
     outputDir <- getCurrentDirectory

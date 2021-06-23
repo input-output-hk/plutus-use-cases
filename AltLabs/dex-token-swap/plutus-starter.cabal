@@ -59,13 +59,13 @@ library
       unix,
       lens -any,
       bytestring,
+      bytestring-encoding,
       playground-common,
       plutus-contract,
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
       playground-common -any,
-      bytestring -any,
       prettyprinter
       -- plutus-use-cases -any
     hs-source-dirs: src
@@ -125,6 +125,7 @@ executable plutus-starter-pab
     text -any,
     lens -any,
     bytestring -any,
+    bytestring-encoding,
     stm -any,
     unix,
     plutus-contract -any,
