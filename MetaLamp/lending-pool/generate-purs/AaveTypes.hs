@@ -60,4 +60,6 @@ aaveTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @AaveContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.DepositParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.WithdrawParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.BorrowParams)
-          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.RepayParams) ]
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.RepayParams)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.ProvideCollateralParams)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.RevokeCollateralParams) ]
