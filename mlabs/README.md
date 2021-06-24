@@ -28,9 +28,9 @@ update as headings are expanded.*
 
 MLabs has been working on developing two Plutus Use cases, specifically:
 
--  [Use Case: Lendex](#use-case-lendex)
+-  [Use Case: Lendex](#use-case-lendex) based on the specification of [Plutus Use case 3](https://github.com/mlabs-haskell/plutus-use-cases/tree/documentation#use-case-3-lending-and-borrowing-collateral-escrow-flashloans).
 
--  [Use Case: NFT](#use-case-nft)
+-  [Use Case: NFT](#use-case-nft) based on the specification of [Plutus Use case 5](https://github.com/mlabs-haskell/plutus-use-cases/tree/documentation#use-case-5-nfts-minting-transfer-buying-and-selling-nfts).
 
 Please refer to each individual Plutus Use Case for more specific information.
 
