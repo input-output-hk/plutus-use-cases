@@ -33,7 +33,7 @@ import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void, absurd)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
-import qualified Ledger.Typed.Scripts             as Scripts
+import qualified Ledger.Typed.Scripts.Validators  as Scripts
 import           Playground.Contract
 import           Plutus.Contract
 import qualified Plutus.Contracts.Currency        as Currency
@@ -137,19 +137,19 @@ start = do
     logInfo @String $ printf "started StableCoin %s at address %s" (show sc) (show $ scAddress sc)
     return sc
 
--- | Creates a liquidity pool for a pair of coins. The creator provides liquidity for both coins and gets liquidity tokens in return.
+-- | Creates stable coin vault
 create :: forall w s. StableCoin -> CreateParams -> Contract w s Text ()
 create sc CreateParams{..} = do
-    Plutus.Contract.when (scAmount <= 0) $ throwError "Amount of stable coin must be positive"
+    Plutus.Contract.when (crAmount <= 0) $ throwError "Amount of stable coin must be positive"
     (oref, o, vs) <- findStableCoinFactory sc
-    let v        = Vault {clOwner = r, clAmount = r}
+    let v        = Vault {owner = crOwner, amount = crAmount}
     let scInst   = scInstance sc
         scScript = scScript sc
         scDat1   = Factory $ v : vs
-        scDat2   = Vault v liquidity
+        scDat2   = Vault v
         vsC      = vaultStateCoin sc
         lC       = mkCoin (stableCoinCurrency sc) $ lpTicker v
-        scVal    = unitValue $ usCoin sc
+        scVal    = unitValue $ sCoin sc
         vVal    = valueOf unitValue vsC
 
         lookups  = Constraints.typedValidatorLookups scInst        <>
@@ -167,7 +167,7 @@ create sc CreateParams{..} = do
 
     logInfo $ "created liquidity pool: " ++ show v
 
--- | Closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
+-- | Closes a stable coin vault
 close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
 close sc CloseParams{..} = do
     pkh                                            <- pubKeyHash <$> ownPubKey

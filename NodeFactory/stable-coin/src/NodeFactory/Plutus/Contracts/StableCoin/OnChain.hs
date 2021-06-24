@@ -47,8 +47,9 @@ valueWithin = txOutValue . txInInfoResolved
 -- 3.   Check that we are creating new vault
 -- 4.   Check that one vault state coin has been forged
 -- 5.   Check that more than minimum amount of lovelace has been sent
--- 6.   Check if vault UTXO contains appropriate: amount of lovelace, owner, minted amount
--- 7.   Check if stablecoin in output
+-- 6.   Check that at least same amount of lovelace is sent that is defined in vault
+-- 7.   Check if vault UTXO contains appropriate: amount of lovelace, owner, minted amount
+-- 8.   Check if stablecoin in output
 validateCreate :: StableCoin
             -> Coin VaultState
             -> [StableCoinVault]
@@ -60,10 +61,9 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ v : vs) $ unitValue sCoin)    && -- 2
     all (/= v) vs                                                                                       && -- 3
     isUnity forged c                                                                                    && -- 4
-    traceIfFalse "Less than minimum" (amountOfAdaInInput > minimumLovelaceAmount)                          -- 5
-    -- 6 TODO - check if vault UTXO contains appropriate: amount of lovelace, owner, minted amount
-    -- Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Vault v) $ valueOf )
-    -- 7 TODO - check if stablecoin in ouptut
+    traceIfFalse "Less than minimum" (amountOfAdaInInput > minimumLovelaceAmount)                       && -- 5
+    traceIfFalse "Not enough ada sent" (amount <= amountOfAdaInInput)                                   && -- 6
+    -- 8 TODO - check if appropriate amount of stablecoin in ouptut
   where 
     forged :: Value
     forged = txInfoForge $ scriptContextTxInfo ctx
@@ -74,6 +74,7 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     minimumLovelaceAmount = 10
 
     amountOfAdaInInput = adaValueIn (valueWithin $ findOwnInput' ctx)
+    
 
 {-# INLINABLE validateCloseVault #-}
 -- | Validates the closing of the stable coin vault. Conditions:
@@ -114,6 +115,7 @@ mkStableCoinValidator sc _ (Vault _)    Close       ctx = validateCloseVault sc 
 mkStableCoinValidator _  _ _            _           _   = False                           -- case: default
 -- TODO case: liquidate vault
 -- TODO case: close factory
+-- TODO case: 
 
 {-# INLINABLE validateStableCoinForging #-}
 validateStableCoinForging :: StableCoin -> TokenName -> ScriptContext -> Bool
