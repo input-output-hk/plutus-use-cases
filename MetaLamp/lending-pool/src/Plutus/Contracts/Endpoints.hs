@@ -250,7 +250,7 @@ borrow aave BorrowParams {..} = do
         configsOutput <- State.findAaveUserConfigs aave
         State.updateUserConfigs aave redeemer $ userConfigs Prelude.<$ configsOutput
 
-    (reservesTx, reserves) <- State.updateReserve aave redeemer bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
+    (reservesTx, _) <- State.updateReserve aave redeemer bpAsset (reserve { rAmount = rAmount reserve - bpAmount })
 
     oraclesTx <- mconcat <$> forM oracles Oracle.useOracle
 
@@ -363,11 +363,20 @@ PlutusTx.makeLift ''RevokeCollateralParams
 
 revokeCollateral :: (HasBlockchainActions s) => Aave -> RevokeCollateralParams -> Contract w s Text ()
 revokeCollateral aave RevokeCollateralParams {..} = do
-    reserve <- State.findAaveReserve aave rcpUnderlyingAsset
-
-    let aTokenAsset = rAToken reserve
+    reserves <- ovValue <$> State.findAaveReserves aave
+    reserve <- maybe (throwError "Reserve not found") pure $ AssocMap.lookup rcpUnderlyingAsset reserves
     let userConfigId = (rCurrency reserve, rcpOnBehalfOf)
-    let redeemer = Core.RevokeCollateralRedeemer userConfigId aTokenAsset
+    userConfigs <- do
+        userConfigs <- ovValue <$> State.findAaveUserConfigs aave
+        case AssocMap.lookup userConfigId userConfigs of
+            Nothing ->
+                throwError "User does not have any collateral."
+            Just userConfig -> pure $
+                AssocMap.insert userConfigId userConfig { ucCollateralizedInvestment = ucCollateralizedInvestment userConfig - rcpAmount } userConfigs
+    oracles <- either throwError pure $ findOraclesForUser rcpOnBehalfOf reserves userConfigs
+    let aTokenAsset = rAToken reserve
+    let redeemer = Core.RevokeCollateralRedeemer userConfigId aTokenAsset oracles
+
     utxos <-
         Map.filter (getUsersCollateral aTokenAsset)
         <$> utxoAt (Core.aaveAddress aave)
@@ -379,15 +388,14 @@ revokeCollateral aave RevokeCollateralParams {..} = do
                             TxUtils.mustPayToScript (Core.aaveInstance aave) rcpOnBehalfOf (userDatum aTokenAsset) remainder
 
     (userConfigsTx, _) <- do
-        userConfigs <- ovValue <$> State.findAaveUserConfigs aave
-        case AssocMap.lookup userConfigId userConfigs of
-            Nothing ->
-                throwError "User does not have any collateral."
-            Just userConfig ->
-                State.updateUserConfig aave redeemer userConfigId $
-                userConfig { ucCollateralizedInvestment = ucCollateralizedInvestment userConfig - rcpAmount }
+        configsOutput <- State.findAaveUserConfigs aave
+        State.updateUserConfigs aave redeemer $ userConfigs Prelude.<$ configsOutput
 
-    ledgerTx <- TxUtils.submitTxPair $ fundsUnlockingTx <> userConfigsTx
+    reservesTx <- State.roundtripReserves aave redeemer
+
+    oraclesTx <- mconcat <$> forM oracles Oracle.useOracle
+
+    ledgerTx <- TxUtils.submitTxPair $ fundsUnlockingTx <> userConfigsTx <> reservesTx <> oraclesTx
     _ <- awaitTxConfirmed $ txId ledgerTx
     pure ()
     where

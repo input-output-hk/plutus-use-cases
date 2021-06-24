@@ -111,6 +111,11 @@ updateReserve aave redeemer reserveId reserve = do
         AssocMap.lookup reserveId (ovValue reservesOutput)
     updateReserves aave redeemer $ Prelude.fmap (AssocMap.insert reserveId reserve) reservesOutput
 
+roundtripReserves :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> Contract w s Text (TxUtils.TxPair AaveScript)
+roundtripReserves aave redeemer = do
+    reservesOutput <- findAaveReserves aave
+    fst <$> updateReserves aave redeemer reservesOutput
+
 makeUserHandle :: Aave -> (AssocMap.Map (AssetClass, PubKeyHash) UserConfig -> AaveRedeemer) -> StateHandle AaveScript (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
 makeUserHandle aave toRedeemer =
     let stateToken = userStateToken aave in

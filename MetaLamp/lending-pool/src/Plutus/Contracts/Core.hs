@@ -100,7 +100,7 @@ data AaveRedeemer =
   | BorrowRedeemer (AssetClass, PubKeyHash) [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
   | RepayRedeemer (AssetClass, PubKeyHash)
   | ProvideCollateralRedeemer (AssetClass, PubKeyHash)
-  | RevokeCollateralRedeemer (AssetClass, PubKeyHash) AssetClass -- TODO we need to check amountOfCollateralNeededLovelace <= userCollateralBalanceLovelace
+  | RevokeCollateralRedeemer (AssetClass, PubKeyHash) AssetClass [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
@@ -196,12 +196,13 @@ makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ vali
 -- TODO ? further validators should check that ReservesDatum & UserConfigsDatum transormation happens one time
 -- & ReserveFundsDatum transormation happens at least one time
 -- TODO ? check that reedeemers contain the same data during transformation
+-- TODO validate that userConfigId and reserveId are the only datum changed in trasformation and other users datum is not modified
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
 makeAaveValidator aave datum (BorrowRedeemer userConfigId oracles) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId oracles
 makeAaveValidator aave datum (RepayRedeemer userConfigId) ctx    = trace "RepayRedeemer" $ validateRepay aave datum ctx userConfigId
 makeAaveValidator aave datum (ProvideCollateralRedeemer userConfigId) ctx    = trace "ProvideCollateralRedeemer" $ validateProvideCollateral aave datum ctx userConfigId
-makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId aTokenAsset) ctx    = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId aTokenAsset
+makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId aTokenAsset oracles) ctx    = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId aTokenAsset oracles
 
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
 validateStart aave (LendingPoolDatum operator) ctx =
@@ -387,8 +388,8 @@ validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx us
 
 validateProvideCollateral _ _ _ _ = trace "validateProvideCollateral: Lending Pool Datum management is not allowed" False
 
-validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> AssetClass -> Bool
-validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) aTokenAsset =
+validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> AssetClass -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Bool
+validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) aTokenAsset oracles =
   traceIfFalse "validateRevokeCollateral: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
     txInfo = scriptContextTxInfo ctx
@@ -421,11 +422,14 @@ validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx use
        in investmentShrinkedBy == disbursementAmount && investmentShrinkedBy > 0 && disbursementAmount > 0 && newInvestmentAmount >= 0 &&
           (ucDebt newState == ucDebt oldState)
 
-validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) revokedAsset =
+validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) revokedAsset oracles =
   traceIfFalse "validateRevokeCollateral: UserCollateralFundsDatum change is not valid" $
   owner == actor && revokedAsset == aTokenAsset && checkNegativeFundsTransformation ctx aTokenAsset actor
 
-validateRevokeCollateral _ _ _ _ _ = trace "validateRevokeCollateral: Lending Pool Datum management is not allowed" False
+validateRevokeCollateral aave (ReservesDatum stateToken reserves) ctx userConfigId revokedAsset oracles =
+  traceIfFalse "validateRevokeCollateral: Reserves Datum change is not valid" $ areOraclesTrusted oracles reserves
+
+validateRevokeCollateral _ _ _ _ _ _ = trace "validateRevokeCollateral: Lending Pool Datum management is not allowed" False
 
 checkNegativeFundsTransformation :: ScriptContext -> AssetClass -> PubKeyHash -> Bool
 checkNegativeFundsTransformation ctx asset actor = isValidFundsChange
