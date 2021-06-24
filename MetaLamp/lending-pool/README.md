@@ -14,14 +14,13 @@ The smart contract protocol is based on [Aave](https://aave.com/), but does not 
 We have provided two PAB applications in `./pab` and `./pab-simulation`. The first one is made for real world usage and interaction through frontend [client](client/README.md), the second one is a big test scenario.
 With the PAB we can serve and interact with contracts over a web API. You can read more about the PAB here: [PAB Architecture](https://github.com/input-output-hk/plutus/blob/master/plutus-pab/ARCHITECTURE.adoc).
 
-1. Enter the nix shell (cd to the cloned Plutus repo):
+1. Enter the nix shell (from plutus-use-cases/MetaLamp/lending-pool directory):
 
 ```
-git checkout 5cdd2c3d708bf4c33514681dee096da6463273b7
 nix-shell
 ```
 
-2. Build the PAB executables (cd to plutus-use-cases/MetaLamp/lending-pool):
+2. Build the PAB executables:
 
 ```
 cabal build all
