@@ -21,7 +21,7 @@ module NodeFactory.Plutus.Contracts.StableCoin.OffChain
     , CloseParams (..)
     , StableCoinUserSchema, UserContractState (..)
     , StableCoinOwnerSchema
-    , start, create, close, pools
+    , start, create, pools
     , ownerEndpoint, userEndpoints
     ) where
 
@@ -55,7 +55,7 @@ type StableCoinOwnerSchema = Endpoint "start" ()
 -- | Schema for the endpoints for users of stable coin.
 type StableCoinUserSchema =
         Endpoint "create" CreateParams
-        .\/ Endpoint "close"  CloseParams
+        -- .\/ Endpoint "close"  CloseParams
         .\/ Endpoint "funds"  ()
         .\/ Endpoint "stop"   ()
 
@@ -63,7 +63,7 @@ type StableCoinUserSchema =
 data UserContractState =
       Funds Value
     | Created
-    | Closed
+    -- | Closed
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
 
@@ -148,7 +148,7 @@ create sc CreateParams{..} = do
         scDat1   = Factory $ v : vs
         scDat2   = Vault v
         vsC      = vaultStateCoin sc
-        lC       = mkCoin (stableCoinCurrency sc) $ lpTicker v
+        lC       = mkCoin (stableCoinCurrency sc) $ scStablecoinTokenName sc
         scVal    = unitValue $ sCoin sc
         vVal    = valueOf unitValue vsC
 
@@ -168,33 +168,33 @@ create sc CreateParams{..} = do
     logInfo $ "created stable coin vault: " ++ show v
 
 -- | Closes a stable coin vault
-close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
-close sc CloseParams{..} = do
-    pkh                                            <- pubKeyHash <$> ownPubKey
-    let scInst   = scInstance sc
-        scScript = scScript sc
-        usDat    = Factory $ filter (/= v) vs
-        usC      = usCoin sc
-        vsC      = vaultStateCoin sc
-        lC       = mkCoin (stableCoinCurrency sc) $ lpTicker v
-        scVal    = unitValue usC
-        psVal    = unitValue vsC
-        lVal     = valueOf lC liquidity
-        redeemer = Redeemer $ PlutusTx.toData Close
+-- close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
+-- close sc CloseParams{..} = do
+--     pkh                                            <- pubKeyHash <$> ownPubKey
+--     let scInst   = scInstance sc
+--         scScript = scScript sc
+--         usDat    = Factory $ filter (/= v) vs
+--         usC      = usCoin sc
+--         vsC      = vaultStateCoin sc
+--         lC       = mkCoin (stableCoinCurrency sc) $ lpTicker v
+--         scVal    = unitValue usC
+--         psVal    = unitValue vsC
+--         lVal     = valueOf lC liquidity
+--         redeemer = Redeemer $ PlutusTx.toData Close
 
-        lookups  = Constraints.typedValidatorLookups scInst        <>
-                   Constraints.otherScript scScript                <>
-                   Constraints.monetaryPolicy (stableCoinPolicy sc) <>
-                   Constraints.ownPubKeyHash pkh                   
+--         lookups  = Constraints.typedValidatorLookups scInst        <>
+--                    Constraints.otherScript scScript                <>
+--                    Constraints.monetaryPolicy (stableCoinPolicy sc) <>
+--                    Constraints.ownPubKeyHash pkh                   
 
-        tx       = Constraints.mustPayToTheScript usDat scVal          <>
-                   Constraints.mustForgeValue (negate $ psVal <> lVal) <>
-                   Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Vault v liquidity)
+--         tx       = Constraints.mustPayToTheScript usDat scVal          <>
+--                    Constraints.mustForgeValue (negate $ psVal <> lVal) <>
+--                    Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Vault v liquidity)
 
-    ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+--     ledgerTx <- submitTxConstraintsWith lookups tx
+--     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "closed stable coin vault: " ++ show v
+--     logInfo $ "closed stable coin vault: " ++ show v
 
 -- | Gets the caller's funds.
 funds :: forall w s. Contract w s Text Value
@@ -244,7 +244,7 @@ userEndpoints sc =
     stop
         `select`
     ((f (Proxy @"create") (const Created) create                 `select`
-      f (Proxy @"close")  (const Closed)  close                  `select`
+      -- f (Proxy @"close")  (const Closed)  close                  `select`
       f (Proxy @"funds")  Funds           (\_us () -> funds))    >> userEndpoints sc)
   where
     f :: forall l a p.
