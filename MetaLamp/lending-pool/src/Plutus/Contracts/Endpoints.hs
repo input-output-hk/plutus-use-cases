@@ -320,6 +320,7 @@ data ProvideCollateralParams =
 PlutusTx.unstableMakeIsData ''ProvideCollateralParams
 PlutusTx.makeLift ''ProvideCollateralParams
 
+-- | User deposits N amount of aToken as collateral, his investment entry state is increased by N
 provideCollateral :: (HasBlockchainActions s) => Aave -> ProvideCollateralParams -> Contract w s Text ()
 provideCollateral aave ProvideCollateralParams {..} = do
     reserve <- State.findAaveReserve aave pcpUnderlyingAsset
@@ -361,6 +362,7 @@ data RevokeCollateralParams =
 PlutusTx.unstableMakeIsData ''RevokeCollateralParams
 PlutusTx.makeLift ''RevokeCollateralParams
 
+-- | User withdraws N amount of collateralized aToken, his investment entry state is decreased by N
 revokeCollateral :: (HasBlockchainActions s) => Aave -> RevokeCollateralParams -> Contract w s Text ()
 revokeCollateral aave RevokeCollateralParams {..} = do
     reserves <- ovValue <$> State.findAaveReserves aave
