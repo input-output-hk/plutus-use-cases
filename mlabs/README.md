@@ -21,7 +21,7 @@
   * [APIs & Endpoints](#apis--endpoints-1)
   * [Notes](#notes-1)
 
-*note: the table of contents is generated using `make readme_contents`. please
+*note: the table of contents is generated using `make readme_contents`, please
 update as headings are expanded.*
 
 ## Overview
