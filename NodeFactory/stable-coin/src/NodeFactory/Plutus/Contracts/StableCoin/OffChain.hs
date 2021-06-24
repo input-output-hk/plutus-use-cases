@@ -16,7 +16,7 @@
 {-# LANGUAGE TypeOperators              #-}
 
 module NodeFactory.Plutus.Contracts.StableCoin.OffChain
-    ( poolStateCoinFromUniswapCurrency
+    ( vaultStateCoinFromUniswapCurrency
     , CreateParams (..)
     , CloseParams (..)
     , StableCoinUserSchema, UserContractState (..)
@@ -33,7 +33,7 @@ import           Data.Text                        (Text, pack)
 import           Data.Void                        (Void, absurd)
 import           Ledger                           hiding (singleton)
 import           Ledger.Constraints               as Constraints
-import qualified Ledger.Typed.Scripts.Validators  as Scripts
+import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract
 import qualified Plutus.Contracts.Currency        as Currency
@@ -105,20 +105,20 @@ stableCoinCurrency = scriptCurrencySymbol . stableCoinPolicy
 vaultStateCoin :: StableCoin -> Coin VaultState
 vaultStateCoin = flip mkCoin vaultStateTokenName . stableCoinCurrency
 
-poolStateCoinFromUniswapCurrency :: CurrencySymbol -- ^ The currency identifying the StableCoin instance.
+vaultStateCoinFromUniswapCurrency :: CurrencySymbol -- ^ The currency identifying the StableCoin instance.
                                  -> Coin VaultState
-poolStateCoinFromUniswapCurrency = vaultStateCoin . stablecoin
+vaultStateCoinFromUniswapCurrency = vaultStateCoin . stablecoin
 
 -- | Parameters for the @create@-endpoint, which creates a new vault.
 data CreateParams = CreateParams
-    { crAmount   :: Amount
+    { crAmount   :: Integer
     , crOwner    :: PubKeyHash  
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @close@-endpoint, which closes a vault.
 data CloseParams = CloseParams
     { clOwner :: PubKeyHash
-    , clAmount :: Amount
+    , clAmount :: Integer
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 start :: forall w s. Contract w s Text StableCoin
@@ -165,7 +165,7 @@ create sc CreateParams{..} = do
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "created liquidity pool: " ++ show v
+    logInfo $ "created stable coin vault: " ++ show v
 
 -- | Closes a stable coin vault
 close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
@@ -194,7 +194,7 @@ close sc CloseParams{..} = do
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "closed liquidity pool: " ++ show v
+    logInfo $ "closed stable coin vault: " ++ show v
 
 -- | Gets the caller's funds.
 funds :: forall w s. Contract w s Text Value
@@ -239,7 +239,7 @@ findStableCoinPool sc v = findStableCoinInstance sc (vaultStateCoin sc) $ \case
             | v == v' -> Just l
         _               -> Nothing
 
-ownerEndpoint :: Contract (Last (Either Text StableCoin)) EmptySchema ContractError ()
+ownerEndpoint :: Contract (Last (Either Text StableCoin)) Plutus.Contract.Empty ContractError ()
 ownerEndpoint = do
     e <- mapError absurd $ runError start
     tell $ Last $ Just e

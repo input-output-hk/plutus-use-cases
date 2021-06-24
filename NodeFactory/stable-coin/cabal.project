@@ -26,7 +26,7 @@ source-repository-package
     prettyprinter-configurable
     quickcheck-dynamic
     word-array
-  tag: 26449c6e6e1c14d335683e5a4f40e2662b9b7e7
+  tag: 5cdd2c3d708bf4c33514681dee096da6463273b7
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.

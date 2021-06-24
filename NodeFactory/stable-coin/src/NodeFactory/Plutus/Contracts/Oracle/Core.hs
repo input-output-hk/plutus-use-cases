@@ -121,12 +121,12 @@ mkOracleValidator oracle x r ctx =
         outVal `geq` (inVal <> Ada.lovelaceValueOf (oFee oracle))
 
 data Oracling
-instance Scripts.ScriptType Oracling where
+instance Scripts.ValidatorTypes Oracling where
     type instance DatumType Oracling = Integer
     type instance RedeemerType Oracling = OracleRedeemer
 
-oracleInst :: Oracle -> Scripts.ScriptInstance Oracling
-oracleInst oracle = Scripts.validator @Oracling
+oracleInst :: Oracle -> Scripts.TypedValidator Oracling
+oracleInst oracle = Scripts.mkTypedValidator @Oracling
     ($$(PlutusTx.compile [|| mkOracleValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode oracle)
     $$(PlutusTx.compile [|| wrap ||])
   where
@@ -171,7 +171,7 @@ updateOracle oracle x = do
             logInfo @String $ "set initial oracle value to " ++ show x
         Just (oref, o,  _) -> do -- update existing oracle nft value
             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     <>
-                          Constraints.scriptInstanceLookups (oracleInst oracle) <>
+                          -- Constraints.scriptInstanceLookups (oracleInst oracle) <>  TODO FIX THIS
                           Constraints.otherScript (oracleValidator oracle)
                 tx      = c <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData Update)
             -- fees auto send because of inbalance

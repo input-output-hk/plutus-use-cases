@@ -32,7 +32,7 @@ library
     NodeFactory.Plutus.Contracts.Oracle.Core
     NodeFactory.Plutus.Contracts.Oracle.Funds
     NodeFactory.Plutus.Contracts.Oracle.PAB
-    NodeFactory.Plutus.Contracts.Oracle.Swap
+    -- NodeFactory.Plutus.Contracts.Oracle.Swap
     NodeFactory.Plutus.Contracts.StableCoin.Types
     NodeFactory.Plutus.Contracts.StableCoin.OnChain
     NodeFactory.Plutus.Contracts.StableCoin.OffChain

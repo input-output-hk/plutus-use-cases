@@ -63,7 +63,7 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     isUnity forged c                                                                                    && -- 4
     traceIfFalse "Less than minimum" (amountOfAdaInInput > minimumLovelaceAmount)                       && -- 5
     traceIfFalse "Not enough ada sent" (requiredAmountOfAda amount <= amountOfAdaInInput)               && -- 6
-    (unAmount (amountOf forged stableCoin') == amount)                                                             -- 7
+    (unAmount (amountOf forged stableCoin') == amount)                                                  -- 7
     -- 8 TODO - check if appropriate amount of stablecoin in ouptut
   where 
     forged :: Value
