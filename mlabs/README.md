@@ -32,6 +32,8 @@ MLabs has been working on developing two Plutus Use cases, specifically:
 
 -  [Use Case: NFT](#use-case-nft)
 
+Please refer to each individual Plutus Use Case for more specific information.
+
 ### Prerequisites
 
 - Git 
@@ -39,6 +41,8 @@ MLabs has been working on developing two Plutus Use cases, specifically:
 - Nix
 
 ### Building, Testing, Use
+
+#### On Unix systems
 
 *It is recommended that all current updates to your system be done before installation*
 
@@ -56,7 +60,6 @@ MLabs has been working on developing two Plutus Use cases, specifically:
  
 3) ***Install Nix***
   
-
    1) **Setup Nix**
 	   
     $ `curl -L https://nixos.org/nix/install | sh`
@@ -91,7 +94,7 @@ MLabs has been working on developing two Plutus Use cases, specifically:
          `binaryCachePublicKeys = [ "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=" "iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo=" ];
           };`
 
-Please see the original documentation at IOHK for reference: -   [How to set up the IOHK binary caches](https://github.com/input-output-hk/plutus/blob/master/README.adoc#iohk-binary-cache)
+Please see the original documentation at IOHK for reference: - [How to set up the IOHK binary caches](https://github.com/input-output-hk/plutus/blob/master/README.adoc#iohk-binary-cache)
 
 4) ***Create nix shell***
 Go to the `plutus-use-cases/mlabs` directory
@@ -108,33 +111,36 @@ be found in the [MLabs gitHub repository](https://github.com/mlabs-haskell/plutu
 ### Testing
 For an overview of the tests refer to the [test folder](https://github.com/mlabs-haskell/plutus-use-cases/tree/main/mlabs/test)
 
+*TODO: Add the explanation of how to run tests*
+
 --------------------------------------------------------------------------------
 ## Use Case: Lendex 
 
 ### Description
-*Small description/summary*
+*TODO: Small description/summary*
 
 ### Progress & Planning
-- Goals and status: *add tasks and goals + their status*
+- Goals and status: *TODO: add tasks and goals + their status*
   - Development
     - [x] *task 1(Done)*
     - [ ] *task 2(WIP)*
 
-  - Testing 
+  - Testing *TODO: add tests + their status*
     - [ ] 50% Test Coverage
     - [ ] 100% Test Coverage
     - [ ] QuickCheck Testing
 
-  - Documentation
-    - [ ] Document Examples
+  - Documentation 
+    - [ ] Examples
+    - [ ] APIs
 
 ### Examples
 - [Lendex Demo](https://github.com/mlabs-haskell/plutus-use-cases/blob/main/mlabs/lendex-demo/Main.hs)
-- *Add any other relevant examples*
+- *TODO: Add any other relevant examples*
 
 ### APIs & Endpoints
 
-- **API/Endpoint Name1**
+- **API/Endpoint Name1** *TODO: add API & Endpoints + their status*
   - Description: *Add Description*
   - Develop/use: *Specify if using or developing the API/Endpoint*
 
@@ -143,39 +149,41 @@ For an overview of the tests refer to the [test folder](https://github.com/mlabs
   - Develop/use: *Specify if using or developing the API/Endpoint*
 
 ### Notes
-*Add any relevant notes*
+*TODO: Add any relevant notes*
 
 --------------------------------------------------------------------------------
 ## Use Case: NFT
 
 ### Description
-*Small description/summary*
+*TODO: Small description/summary*
 
 ### Progress & Planning
 - Goals and status: *add tasks and goals + their status*
-  - Development
+  - Development *TODO: add some achieved/ future goals*
     - [x] *task 1(Done)*
     - [ ] *task 2(WIP)*
 
-  - Testing 
+  - Testing *TODO: add some achieved/ future tests*
     - [ ] 50% Test Coverage
     - [ ] 100% Test Coverage
     - [ ] QuickCheck Testing
 
-  - Documentation
-    - [ ] Document Examples
+  - Documentation 
+    - [ ] Examples
+    - [ ] APIs
 
 ### Examples
 - [NFT Demo](https://github.com/mlabs-haskell/plutus-use-cases/blob/main/mlabs/nft-demo/Main.hs)
+- *TODO: Add any other relevant examples*
 
-### APIs & Endpoints
-- **API/Endpoint Name1**
-  - Description: *Add Description*
-  - Develop/use: *Specify if using or developing the API/Endpoint*
+### APIs & Endpoints 
+- **API/Endpoint Name1** *TODO: add API & Endpoints*
+  - Description: *TODO: Add Description*
+  - Develop/use: *TODO: Specify if using or developing the API/Endpoint*
 
 - **API/Endpoint Name2**
-  - Description: *Add Description*
-  - Develop/use: *Specify if using or developing the API/Endpoint*
+  - Description: *TODO: Add Description*
+  - Develop/use: *TODO: Specify if using or developing the API/Endpoint*
 
 ### Notes
-*Add any relevant notes*
+*TODO: Add any relevant notes*
