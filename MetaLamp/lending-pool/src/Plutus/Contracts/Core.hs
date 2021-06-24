@@ -53,7 +53,6 @@ newtype Aave = Aave
 PlutusTx.makeLift ''Aave
 
 deriving anyclass instance ToSchema Rational
-deriving anyclass instance ToSchema (CurrencySymbol, PubKeyHash, Integer, AssetClass)
 
 data Reserve = Reserve
     { rCurrency                :: AssetClass, -- reserve id
@@ -64,7 +63,7 @@ data Reserve = Reserve
       rTrustedOracle           :: (CurrencySymbol, PubKeyHash, Integer, AssetClass)
     }
     deriving stock (Prelude.Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, ToSchema)
+    deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
