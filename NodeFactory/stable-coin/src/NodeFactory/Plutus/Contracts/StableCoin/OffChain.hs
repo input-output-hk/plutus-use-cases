@@ -142,7 +142,7 @@ create :: forall w s. StableCoin -> CreateParams -> Contract w s Text ()
 create sc CreateParams{..} = do
     Plutus.Contract.when (crAmount <= 0) $ throwError "Amount of stable coin must be positive"
     (oref, o, vs) <- findStableCoinFactory sc
-    let v        = Vault {owner = crOwner, amount = crAmount}
+    let v        = StableCoinVault {owner = crOwner, amount = crAmount}
     let scInst   = scInstance sc
         scScript = scScript sc
         scDat1   = Factory $ v : vs
@@ -231,13 +231,7 @@ findStableCoinInstance sc c f = do
 findStableCoinFactory :: forall w s. StableCoin -> Contract w s Text (TxOutRef, TxOutTx, [StableCoinVault])
 findStableCoinFactory sc@StableCoin{..} = findStableCoinInstance sc usCoin $ \case
     Factory vs -> Just vs
-    Vault _ _    -> Nothing
-
-findStableCoinPool :: forall w s. StableCoin -> StableCoinVault -> Contract w s Text (TxOutRef, TxOutTx)
-findStableCoinPool sc v = findStableCoinInstance sc (vaultStateCoin sc) $ \case
-        Vault v' l
-            | v == v' -> Just l
-        _               -> Nothing
+    Vault _    -> Nothing
 
 ownerEndpoint :: Contract (Last (Either Text StableCoin)) Plutus.Contract.Empty ContractError ()
 ownerEndpoint = do
