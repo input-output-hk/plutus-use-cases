@@ -34,7 +34,6 @@ source-repository this
 
 library
     exposed-modules:
-      MyModule
       Plutus.Contracts
       -- Plutus.PAB.Effects.ContractTest.Uniswap
       Effects.Uniswap
