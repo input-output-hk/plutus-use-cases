@@ -125,13 +125,13 @@ For an overview of the tests refer to the [test folder](https://github.com/mlabs
     - [x] *task 1(Done)*
     - [ ] *task 2(WIP)*
 
-  - Testing *TODO: add tests + their status*
-    - [ ] 50% Test Coverage
-    - [ ] 100% Test Coverage
+  - Testing 
+    - [x] 50% Test Coverage
+    - [x] 100% Test Coverage
     - [ ] QuickCheck Testing
 
   - Documentation 
-    - [ ] Examples
+    - [x] Example
     - [ ] APIs
 
 ### Examples
@@ -163,13 +163,13 @@ For an overview of the tests refer to the [test folder](https://github.com/mlabs
     - [x] *task 1(Done)*
     - [ ] *task 2(WIP)*
 
-  - Testing *TODO: add some achieved/ future tests*
-    - [ ] 50% Test Coverage
-    - [ ] 100% Test Coverage
+  - Testing 
+    - [x] 50% Test Coverage
+    - [x] 100% Test Coverage
     - [ ] QuickCheck Testing
 
   - Documentation 
-    - [ ] Examples
+    - [x] Example
     - [ ] APIs
 
 ### Examples
