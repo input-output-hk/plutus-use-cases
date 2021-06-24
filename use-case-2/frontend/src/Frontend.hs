@@ -28,6 +28,7 @@ import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
 import Data.Vessel
 import Data.Vessel.Identity
@@ -277,10 +278,10 @@ portfolioDashboard wid = Workflow $ do
                 let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
                     fundsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
                 observableStateTag == ["NewObservableState"] && fundsTag == ["Funds"]
-        widgetHold_ blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+        widgetHold_ blank $ ffor fundsEvent $ \(mIncomingFundsWebSocketData :: Maybe Aeson.Value) -> case mIncomingFundsWebSocketData of
           Nothing -> return ()
-          Just incomingWebSocketData -> do
-            let currencyDetails = incomingWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
+          Just fundsWebSocketData -> do
+            let currencyDetails = fundsWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
             elClass "ul" "list-group" $ do
               let formattedTokenDetails = Map.filter
                     -- TODO: Don't lookup tokens by hard coded currencySymbol value
@@ -305,7 +306,11 @@ poolDashboard wid = Workflow $ do
   pb <- getPostBuild
   -- recurring event used to poll for pool balance
   pollingEvent <- tickLossyFromPostBuildTime 10
+  -- give pab time to process incoming requests
+  initPoolEvent <- delay 1 pb
+  getPoolEvent <- delay 5 pollingEvent
   requesting_ $ (Api_CallFunds (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
+  requesting_ $ (Api_CallPools (ContractInstanceId wid)) <$ (leftmost [initPoolEvent, () <$ getPoolEvent])
   _ <- fmap (switch . current) $ prerender (return never) $ do
     -- incorporate the use of PAB's websockets to display the wallet's current Pool Balance
     ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
@@ -316,19 +321,51 @@ poolDashboard wid = Workflow $ do
             let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
                 fundsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
             observableStateTag == ["NewObservableState"] && fundsTag == ["Funds"]
-    widgetHold_ blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
-      Nothing -> return ()
-      Just incomingWebSocketData -> do
-        let currencyDetails = incomingWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
-        divClass "p-5 mb-4 bg-light rounded-5" $ divClass "container-fluid py-5" $ do
-          elClass "ul" "list-group" $ do
-            let formattedTokenDetails = Map.filter
-                  -- TODO: Don't lookup tokens by hard coded currencySymbol value
-                  (\(_,cs) -> cs == "078ea50abc14180a537b6815a6e8562021bde4eaf0d4c5738290b423df3abeb8") $
-                  parseTokensToMap currencyDetails
-            elClass "li" "list-group-item" $ do
-              forM_ (Map.toList formattedTokenDetails) $ \(tokenName, (tokenBalance,_)) ->
-                el "p" $ text $ "Token Name: " <> (T.pack $ show tokenName) <> "Balance: " <> (T.pack $ show tokenBalance)
+        poolsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+          Nothing -> False
+          Just incomingWebSocketData -> do
+            let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                poolsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+            observableStateTag == ["NewObservableState"] && poolsTag == ["Pools"]
+    dFunds <- holdDyn Nothing fundsEvent
+    dPools <- holdDyn Nothing poolsEvent
+    let fundsAndPools = ffor2 dFunds dPools $ \f p -> (f,p)
+    widgetHold_ blank $ ffor (updated fundsAndPools) $
+      \(mIncomingFundsWebSocketData :: Maybe Aeson.Value, mIncomingPoolsWebSocketData :: Maybe Aeson.Value) ->
+        case mIncomingFundsWebSocketData of
+          Nothing -> return ()
+          Just fundsWebSocketData -> do
+            let currencyDetails = fundsWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
+                poolDetails = V.toList $ case mIncomingPoolsWebSocketData of
+                  Nothing -> V.empty
+                  Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
+                -- TODO: There seems to be a connection within the redeemer of utxoAt that will mention the Liquidity Pool Name.
+                  -- The reason we need to find a tie between liquidity total and balance is to show liquidity token percentage.
+                liquidityTotal = case poolDetails of
+                  sthelse:_ -> case sthelse of
+                      Aeson.Array sthmore -> case V.toList sthmore of
+                        _:_:anotherwon:_ -> case anotherwon of
+                          Aeson.Array goodone -> case V.toList goodone of
+                            bslpname:liquidityTotal:_ -> case (bslpname, liquidityTotal) of
+                              (Aeson.String lpn, lqt) -> (lpn, lqt)
+                              _ -> ("", Aeson.String "")
+                          _ -> ("", Aeson.String "")
+                        _ -> ("", Aeson.String "")
+                      _ -> ("", Aeson.String "")
+                  _ -> ("", Aeson.String "")
+            divClass "p-5 mb-4 bg-light rounded-5" $ divClass "container-fluid py-5" $ do
+              el "p" $ text $ T.pack $ show poolDetails
+              el "p" $ text $ T.pack $ show liquidityTotal
+              elClass "ul" "list-group" $ do
+                let formattedTokenDetails = Map.filter
+                      -- TODO: Don't lookup tokens by hard coded currencySymbol value
+                      (\(_,cs) -> cs == "078ea50abc14180a537b6815a6e8562021bde4eaf0d4c5738290b423df3abeb8") $
+                      parseTokensToMap currencyDetails
+                elClass "li" "list-group-item" $ do
+                  forM_ (Map.toList formattedTokenDetails) $ \(tokenName, (tokenBalance,_)) ->
+                    -- TODO: Liquidity Pool Names do not show up with liquidity token balances. Make changes to funds endpoint to retrieve
+                    -- this information
+                    el "p" $ text $ "Token Name: " <> (T.pack $ show tokenName) <> "Balance: " <> (T.pack $ show tokenBalance)
     return never
   -- TODO: Widget to redeem liquidity pool blanance
   _ <- divClass "p-5 mb-4 bg-light rounded-5" $ do

@@ -83,6 +83,7 @@ requestHandler httpManager pool = RequestHandler $ \case
   Api_RedeemLiquidity contractId coinA coinB amount ->
     executeRemove httpManager (T.unpack $ unContractInstanceId contractId) coinA coinB amount
   Api_CallFunds cid -> callFunds httpManager cid
+  Api_CallPools cid -> callPools httpManager cid
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler dbNotification _ = case _dbNotification_message dbNotification of
@@ -276,10 +277,24 @@ fetchObservableState httpManager contractId = do
       print $ "fetchObservableState: Right ..."  <> (show observableState)
       return $ Right observableState
 
--- Grabs `observaleState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
+-- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
 callFunds :: Manager -> ContractInstanceId Text -> IO ()
 callFunds httpManager contractId = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" <> (unContractInstanceId contractId) <> "/endpoint/funds"
+      reqBody = "[]"
+  initReq <- parseRequest $ T.unpack requestUrl
+  let req = initReq
+        { method = "POST"
+        , requestHeaders = ("Content-Type","application/json"):(requestHeaders initReq)
+        , requestBody = RequestBodyLBS reqBody
+        }
+  _ <- httpLbs req httpManager
+  return ()
+
+-- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
+callPools :: Manager -> ContractInstanceId Text -> IO ()
+callPools httpManager contractId = do
+  let requestUrl = "http://localhost:8080/api/new/contract/instance/" <> (unContractInstanceId contractId) <> "/endpoint/pools"
       reqBody = "[]"
   initReq <- parseRequest $ T.unpack requestUrl
   let req = initReq
