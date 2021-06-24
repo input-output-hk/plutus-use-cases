@@ -18,9 +18,9 @@ poolUsers asset users =
     ]
 
 userInfo :: forall props act. Tuple String UserConfig -> HH.HTML props act
-userInfo (Tuple userId (UserConfig { ucDebt, ucUsingAsCollateral })) =
+userInfo (Tuple userId (UserConfig { ucDebt, ucCollateralizedInvestment })) =
   HH.div_
     [ HH.div_ [ HH.text $ "User " <> userId ]
-    , HH.div_ [ HH.text $ "Debt: " <> (show <<< fromMaybe (fromInt 0) $ ucDebt) ]
-    , HH.div_ [ HH.text $ "Using as collateral: " <> (show ucUsingAsCollateral) ]
+    , HH.div_ [ HH.text $ "Debt: " <> (show ucDebt) ]
+    , HH.div_ [ HH.text $ "Collateral: " <> (show ucCollateralizedInvestment) ]
     ]

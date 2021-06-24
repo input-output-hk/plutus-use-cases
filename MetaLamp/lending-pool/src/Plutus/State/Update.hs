@@ -109,13 +109,13 @@ updateState ::
     Scripts.TypedValidator scriptType ->
     StateHandle scriptType a ->
     OutputValue a ->
-    Contract w s Text (TxUtils.TxPair scriptType)
+    Contract w s Text (TxUtils.TxPair scriptType, a)
 updateState script StateHandle{..} output = do
     pkh <- pubKeyHash <$> ownPubKey
-    pure $
-        TxUtils.mustRoundTripToScript
-            script
-            [toRedeemer Prelude.<$> output]
-            (toDatum . ovValue $ output)
-            pkh
-            (assetClassValue stateToken 1)
+    let tx = TxUtils.mustRoundTripToScript
+                script
+                [toRedeemer Prelude.<$> output]
+                (toDatum . ovValue $ output)
+                pkh
+                (assetClassValue stateToken 1)
+    pure (tx, ovValue output)
