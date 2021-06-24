@@ -20,122 +20,49 @@
 {-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:debug-context #-}
 
-module Plutus.Contracts.CoinsStateMachine
+module Plutus.Contracts.Coins.CoinsStateMachine
   ( scriptInstance,
     machineClient,
-    endpoints,
-    CoinsMachineState (..),
-    BankParam (..),
-    BankInput (..),
-    BankInputAction (..),
-    BankStateSchema,
-    BankStateError,
-    EndpointInput (..),
   )
 where
 
-import Control.Monad                    (forever, guard, void)
-import Data.Aeson                       (FromJSON, ToJSON)
-import Data.Text                        (Text, pack)
-import GHC.Generics                     (Generic)
-import Ledger                           hiding (to)
-import qualified  Ledger                as Interval
-import qualified Ledger.Ada             as Ada
-import Ledger.Constraints               (TxConstraints)
-import qualified Ledger.Constraints     as Constraints
+import Control.Monad (forever, guard, void)
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Text (Text, pack)
+import GHC.Generics (Generic)
+import Ledger hiding (to)
+import qualified Ledger as Interval
+import qualified Ledger.Ada as Ada
+import Ledger.Constraints (TxConstraints)
+import qualified Ledger.Constraints as Constraints
 import           Ledger.Scripts               (MonetaryPolicyHash)
-import qualified Ledger.Typed.Scripts    as Scripts
-import qualified Ledger.Value            as Value
-import Playground.Contract                (ToSchema, adaCurrency, ensureKnownCurrencies, printJson, printSchemas, stage)
-import Playground.TH                      (mkKnownCurrencies, mkSchemaDefinitions)
+import qualified Ledger.Typed.Scripts as Scripts
+import qualified Ledger.Value as Value
+import Playground.Contract (ToSchema, adaCurrency, ensureKnownCurrencies, printJson, printSchemas, stage)
+import Playground.TH (mkKnownCurrencies, mkSchemaDefinitions)
 import Plutus.Contract
-import Plutus.Contract.StateMachine       (SMContractError, State (..), StateMachine(..), StateMachineClient (..), Void)
+import Plutus.Contract.StateMachine (SMContractError, State (..), StateMachine(..), StateMachineClient (..), Void)
 import qualified Plutus.Contract.StateMachine as SM
-import qualified PlutusTx                 as PlutusTx
+import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
-import PlutusTx.Ratio                     as Ratio
+import PlutusTx.Ratio as Ratio
 import qualified Prelude
-import Prelude                             (show)
+import Prelude (show)
 import Plutus.Contracts.Oracle.Core
+import Plutus.Contracts.Coins.Types
 
 --Stable coin mainly based on AGE usd protocol.
 --Alogrithimic rates of different coins based on actual amount of supply of tokens and base reserve amount.
 
-data CoinsMachineState = CoinsMachineState
-  { baseReserveAmount :: Integer,
-    stableCoinAmount :: Integer,
-    reserveCoinAmount :: Integer,
-    policyScript :: MonetaryPolicyHash
-  }
-  deriving stock (Generic, Prelude.Eq, Prelude.Show)
-  deriving anyclass (ToJSON, FromJSON)
 
---
-data BankParam = BankParam
-  { stableCoinTokenName :: TokenName,
-    reserveCoinTokenName :: TokenName,
-    minReserveRatio :: Ratio Integer,
-    maxReserveRatio :: Ratio Integer,
-    rcDefaultRate :: Integer,
-    oracleParam :: Oracle
-  }
-  deriving stock (Generic, Prelude.Ord, Prelude.Eq, Prelude.Show)
-  deriving anyclass (ToJSON, FromJSON)
-
---
-data BankInputAction
-  = MintStableCoin Integer
-  | RedeemStableCoin Integer
-  | MintReserveCoin Integer
-  | RedeemReserveCoin Integer
-  deriving stock (Generic, Prelude.Eq, Prelude.Show)
-  deriving anyclass (ToJSON, FromJSON)
-
-type OracleOutput = (TxOutRef, TxOut, Integer)
---
-data BankInput = BankInput
-  { 
-    bankInputAction :: BankInputAction,
-    oracleOutput :: OracleOutput
-  }
-  deriving stock (Generic, Prelude.Eq, Prelude.Show)
-  deriving anyclass (ToJSON, FromJSON)
+address :: BankParam -> Address
+address bp = Scripts.validatorAddress $ scriptInstance bp
 
 {-# INLINEABLE lovelaces #-}
 lovelaces :: Value -> Integer
 lovelaces = Ada.getLovelace . Ada.fromValue
 
-{-# INLINEABLE calcLiablities #-}
-calcLiablities :: CoinsMachineState -> Integer -> Integer
-calcLiablities CoinsMachineState {baseReserveAmount, stableCoinAmount} rate =
-  let reserveNeeded = rate * stableCoinAmount
-   in min baseReserveAmount reserveNeeded
-
-{-# INLINEABLE calcStableCoinRate #-}
-calcStableCoinRate :: CoinsMachineState -> Integer -> Integer
-calcStableCoinRate bs@CoinsMachineState {stableCoinAmount} rate
-  | stableCoinAmount == 0 = rate
-  | otherwise = min rate liableRate
-  where
-    liablities = calcLiablities bs rate
-    liableRate = liablities `divide` stableCoinAmount
-
-{-# INLINEABLE calcEquity #-}
-calcEquity :: CoinsMachineState -> Integer -> Integer
-calcEquity bs@CoinsMachineState {baseReserveAmount} rate =
-  let liablities = calcLiablities bs rate
-   in baseReserveAmount - liablities
-
-{-# INLINEABLE calcReserveCoinRate #-}
-calcReserveCoinRate :: BankParam -> CoinsMachineState -> Integer -> Integer
-calcReserveCoinRate BankParam {rcDefaultRate} bs@CoinsMachineState {reserveCoinAmount} rate
-  | reserveCoinAmount /= 0 = rcRate
-  | otherwise = rate
-  where
-    equity = calcEquity bs rate
-    rcRate = equity `divide` reserveCoinAmount
-
---TODO Add external fee for minting and redeeming
+--TODO fee calculation
 {-# INLINEABLE transition #-}
 transition :: BankParam -> State CoinsMachineState -> BankInput -> Maybe (TxConstraints Void Void, State CoinsMachineState)
 transition bankParam@BankParam {oracleParam} State {stateData = oldStateData} BankInput {bankInputAction, oracleOutput} = do
@@ -211,6 +138,21 @@ stateWithConstraints bankParam oldStateData bankInputAction scRate rcRate= case 
                   }
               )
 
+{-# INLINEABLE calcEquity #-}
+calcEquity :: CoinsMachineState -> Integer -> Integer
+calcEquity bs@CoinsMachineState {baseReserveAmount} rate =
+  let liablities = calcLiablities bs rate
+   in baseReserveAmount - liablities
+
+{-# INLINEABLE calcReserveCoinRate #-}
+calcReserveCoinRate :: BankParam -> CoinsMachineState -> Integer -> Integer
+calcReserveCoinRate BankParam {rcDefaultRate} bs@CoinsMachineState {reserveCoinAmount} rate
+  | reserveCoinAmount /= 0 = rcRate
+  | otherwise = rate
+  where
+    equity = calcEquity bs rate
+    rcRate = equity `divide` reserveCoinAmount
+
 {-# INLINEABLE isNewStateValid #-}
 isNewStateValid :: BankParam -> CoinsMachineState -> Integer -> Either Text ()
 isNewStateValid bankParam bankState@CoinsMachineState {baseReserveAmount, stableCoinAmount, reserveCoinAmount} rate = do
@@ -243,6 +185,21 @@ calcMinReserveRequired BankParam {minReserveRatio} CoinsMachineState {stableCoin
     let currentScValue = rate * stableCoinAmount
      in Just $ minReserveRatio * (fromInteger currentScValue)
 
+{-# INLINEABLE calcLiablities #-}
+calcLiablities :: CoinsMachineState -> Integer -> Integer
+calcLiablities CoinsMachineState {baseReserveAmount, stableCoinAmount} rate =
+  let reserveNeeded = rate * stableCoinAmount
+   in min baseReserveAmount reserveNeeded
+
+{-# INLINEABLE calcStableCoinRate #-}
+calcStableCoinRate :: CoinsMachineState -> Integer -> Integer
+calcStableCoinRate bs@CoinsMachineState {stableCoinAmount} rate
+  | stableCoinAmount == 0 = rate
+  | otherwise = min rate liableRate
+  where
+    liablities = calcLiablities bs rate
+    liableRate = liablities `divide` stableCoinAmount
+
 {-# INLINEABLE calcMaxReserveRequired #-}
 calcMaxReserveRequired :: BankParam -> CoinsMachineState -> Integer -> Maybe (Ratio Integer)
 calcMaxReserveRequired BankParam {maxReserveRatio} CoinsMachineState {stableCoinAmount} rate
@@ -272,12 +229,15 @@ bankMachine bankParam = SM.StateMachine{
 
 {-# INLINEABLE checkContext #-}
 checkContext :: BankParam -> CoinsMachineState -> BankInput -> ScriptContext -> Bool
-checkContext bankParam oldBankState BankInput{oracleOutput} ctx = 
+checkContext bankParam@BankParam{oracleParam} oldBankState BankInput{oracleOutput} ctx = 
     traceIfFalse "Invalid oracle use" isValidOracleUsed
 
   where
 
-    (oref, oTxOut, rate) = oracleOutput
+    oAddr :: Address
+    oAddr = oracleAddress oracleParam 
+
+    (_, _, rate) = oracleOutput
 
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -288,7 +248,7 @@ checkContext bankParam oldBankState BankInput{oracleOutput} ctx =
         inputs = [ o
               | i <- txInfoInputs info
               , let o = txInInfoResolved i
-              , o == oTxOut
+              , txOutAddress o == oAddr
               ]
       in
         case inputs of
@@ -299,6 +259,7 @@ checkContext bankParam oldBankState BankInput{oracleOutput} ctx =
       Nothing -> traceError "oracle value not found"
       Just x  -> x
 
+--TODO
     isValidOracleUsed :: Bool
     -- isValidOracleUsed = oracleValue' == rate
     isValidOracleUsed = True
@@ -321,103 +282,3 @@ machineClient ::
 machineClient scriptInst bankParam =
   let machine = bankMachine bankParam
    in SM.mkStateMachineClient (SM.StateMachineInstance machine scriptInst)
-
-initialState :: StateMachineClient CoinsMachineState BankInput -> CoinsMachineState
-initialState StateMachineClient {scInstance = SM.StateMachineInstance {SM.typedValidator}} =
-  CoinsMachineState
-    { baseReserveAmount = 0,
-      stableCoinAmount = 0,
-      reserveCoinAmount = 0,
-      policyScript = Scripts.forwardingMonetaryPolicyHash typedValidator
-    }
-
-data BankStateError
-  = StartError ContractError
-  | StateMachineError SMContractError
-  | RunStepError ContractError
-  deriving stock (Prelude.Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-
-mapError' :: Contract w s SMContractError a -> Contract w s Text a
-mapError' = mapError $ pack . Prelude.show
-
-start :: HasBlockchainActions s => BankParam -> Integer -> Contract w s Text ()
-start bankParam _ = do
-  let client = machineClient (scriptInstance bankParam) bankParam
-  void $ mapError' $ SM.runInitialise client (initialState client) mempty
-
---TODO make transistion to use whole oracle output instead of only values obtained from it
-smRunStep :: HasBlockchainActions s => BankParam -> BankInputAction -> Contract w s Text ()
-smRunStep bankParam bankInputAction = do
-  let client = machineClient (scriptInstance bankParam) bankParam
-
-  oracle <- findOracle $ oracleParam bankParam
-  case oracle of
-    Nothing -> logInfo @Prelude.String "Oracle not found"
-    Just (oref, o, x) -> do
-      logInfo @Prelude.String $ show oref
-      logInfo @Prelude.String $ show o
-      logInfo @Prelude.String $ show x
-      logInfo @Prelude.String $ show bankInputAction
-      let input =
-            BankInput
-              { bankInputAction = bankInputAction
-              , oracleOutput = (oref, txOutTxOut o, x)
-              }
-      void $ mapError' $ SM.runStep client input
-
-
---TODO check for validation in offchain
-mintStableCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
-mintStableCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ MintStableCoin tokenAmount
-
-redeemStableCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
-redeemStableCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ RedeemStableCoin tokenAmount
-
-mintReserveCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
-mintReserveCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ MintReserveCoin tokenAmount
-
-redeemReserveCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
-redeemReserveCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ RedeemReserveCoin tokenAmount
-
-data EndpointInput = EndpointInput
-  { 
-    tokenAmount :: Integer
-  }
-  deriving stock (Generic, Prelude.Eq, Prelude.Show)
-  deriving anyclass (ToJSON, FromJSON, ToSchema)
-
-type BankStateSchema =
-  BlockchainActions
-    .\/ Endpoint "start" Integer
-    .\/ Endpoint "mintStableCoin" EndpointInput
-    .\/ Endpoint "redeemStableCoin" EndpointInput
-    .\/ Endpoint "mintReserveCoin" EndpointInput
-    .\/ Endpoint "redeemReserveCoin" EndpointInput
-
-mkSchemaDefinitions ''BankStateSchema
-
-endpoints :: BankParam -> Contract () BankStateSchema Text ()
-endpoints bankParam =
-  ( start'
-      `select` mintStableCoin'
-      `select` redeemStableCoin'
-      `select` mintReserveCoin'
-      `select` redeemReserveCoin'
-  )
-    >> endpoints bankParam
-  where
-    --TODO handle state for multiple start endpoint call
-    start' = endpoint @"start" >>= start bankParam
-    mintStableCoin' = endpoint @"mintStableCoin" >>= mintStableCoin bankParam
-    redeemStableCoin' = endpoint @"redeemStableCoin" >>= redeemStableCoin bankParam
-    mintReserveCoin' = endpoint @"mintReserveCoin" >>= mintReserveCoin bankParam
-    redeemReserveCoin' = endpoint @"redeemReserveCoin" >>= redeemReserveCoin bankParam
-
-PlutusTx.makeLift ''CoinsMachineState
-PlutusTx.makeLift ''BankParam
-PlutusTx.unstableMakeIsData ''CoinsMachineState
-PlutusTx.unstableMakeIsData ''BankParam
-PlutusTx.unstableMakeIsData ''BankInput
-PlutusTx.unstableMakeIsData ''BankInputAction

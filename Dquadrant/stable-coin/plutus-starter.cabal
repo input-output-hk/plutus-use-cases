@@ -10,7 +10,9 @@ License-files:       LICENSE
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Plutus.Contracts.CoinsStateMachine
+  exposed-modules:     Plutus.Contracts.Coins.CoinsStateMachine
+                       Plutus.Contracts.Coins.Types
+                       Plutus.Contracts.Coins.Endpoints
                        Plutus.Contracts.Oracle.Core
                        Plutus.Contracts.Oracle.Funds
                        Plutus.Contracts.Oracle.PAB
