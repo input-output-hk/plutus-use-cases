@@ -62,8 +62,8 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     all (/= v) vs                                                                                       && -- 3
     isUnity forged c                                                                                    && -- 4
     traceIfFalse "Less than minimum" (amountOfAdaInInput > minimumLovelaceAmount)                       && -- 5
-    traceIfFalse "Not enough ada sent" (requiredAmountOfAda <= amountOfAdaInInput)                      && -- 6
-    (amountOf forged stableCoin' == amount)                                                             -- 7
+    traceIfFalse "Not enough ada sent" (requiredAmountOfAda amount <= amountOfAdaInInput)               && -- 6
+    (unAmount (amountOf forged stableCoin') == amount)                                                             -- 7
     -- 8 TODO - check if appropriate amount of stablecoin in ouptut
   where 
     forged :: Value
@@ -77,7 +77,7 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     amountOfAdaInInput = adaValueIn (valueWithin $ findOwnInput' ctx)
 
     requiredAmountOfAda :: Integer -> Integer
-    requiredAmountOfAda a = a * 0.5 -- TODO use value from oracle
+    requiredAmountOfAda a = a * 1 -- TODO use value from oracle
 
     stableCoin' :: Coin USDc
     stableCoin' = let AssetClass (cs, _) = unCoin c in mkCoin cs $ scStablecoinTokenName

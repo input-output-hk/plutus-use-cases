@@ -79,14 +79,17 @@ amountOf v = Amount . assetClassValueOf v . unCoin
 mkCoin:: CurrencySymbol -> TokenName -> Coin a
 mkCoin c = Coin . assetClass c
 
-newtype StableCoin = StableCoin
+data StableCoin = StableCoin
     { sCoin :: Coin SC
     , scStablecoinTokenName     :: TokenName
     } deriving stock    (Haskell.Show, Generic)
       deriving anyclass (ToJSON, FromJSON, ToSchema)
-      deriving newtype  (Haskell.Eq, Haskell.Ord)
 PlutusTx.makeIsDataIndexed ''StableCoin [('StableCoin, 0)]
 PlutusTx.makeLift ''StableCoin
+
+instance Eq StableCoin where
+    {-# INLINABLE (==) #-}
+    x == y = (sCoin x == sCoin y && scStablecoinTokenName x == scStablecoinTokenName y)
 
 data StableCoinVault = StableCoinVault
     { owner  :: !PubKeyHash      -- owner of the of the vault
