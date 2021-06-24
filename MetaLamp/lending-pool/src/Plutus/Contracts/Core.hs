@@ -406,13 +406,18 @@ validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx use
     actorSpentValue = valueSpentFrom txInfo actor
     actorRemainderValue = valuePaidTo txInfo actor
 
+    oracleValues =
+      case foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles of
+        Just vs -> AssocMap.fromList vs
+        _ -> traceError "validateRevokeCollateral: Oracles have not been provided"
+
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
     checkUserConfigs ::
          (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
-      newStateToken == stateToken &&
+      newStateToken == stateToken && doesCollateralCoverDebt actor oracleValues newUserConfigs &&
       fromMaybe False (checkRedeemerConfig <$> (AssocMap.lookup userConfigId userConfigs) <*> (AssocMap.lookup userConfigId newUserConfigs))
     checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
