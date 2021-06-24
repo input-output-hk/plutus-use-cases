@@ -47,9 +47,9 @@ valueWithin = txOutValue . txInInfoResolved
 -- 3.   Check that we are creating new vault
 -- 4.   Check that one vault state coin has been forged
 -- 5.   Check that more than minimum amount of lovelace has been sent
--- 6.   Check that at least same amount of lovelace is sent that is defined in vault
--- 7.   Check if vault UTXO contains appropriate: amount of lovelace, owner, minted amount
--- 8.   Check if stablecoin in output
+-- 6.   Check that enough lovelace has been sent to mint stablecoin
+-- 7.   Check if appropriate amount of stablecoin has been minted
+-- 8.   Check if vault in output
 validateCreate :: StableCoin
             -> Coin VaultState
             -> [StableCoinVault]
@@ -62,7 +62,8 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     all (/= v) vs                                                                                       && -- 3
     isUnity forged c                                                                                    && -- 4
     traceIfFalse "Less than minimum" (amountOfAdaInInput > minimumLovelaceAmount)                       && -- 5
-    traceIfFalse "Not enough ada sent" (amount <= amountOfAdaInInput)                                   && -- 6
+    traceIfFalse "Not enough ada sent" (requiredAmountOfAda <= amountOfAdaInInput)                      && -- 6
+    (amountOf forged stableCoin' == amount)                                                             -- 7
     -- 8 TODO - check if appropriate amount of stablecoin in ouptut
   where 
     forged :: Value
@@ -74,6 +75,12 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     minimumLovelaceAmount = 10
 
     amountOfAdaInInput = adaValueIn (valueWithin $ findOwnInput' ctx)
+
+    requiredAmountOfAda :: Integer -> Integer
+    requiredAmountOfAda a = a * 0.5 -- TODO use value from oracle
+
+    stableCoin' :: Coin USDc
+    stableCoin' = let AssetClass (cs, _) = unCoin c in mkCoin cs $ scStablecoinTokenName
     
 
 {-# INLINABLE validateCloseVault #-}

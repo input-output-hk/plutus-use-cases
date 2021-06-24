@@ -81,6 +81,7 @@ mkCoin c = Coin . assetClass c
 
 newtype StableCoin = StableCoin
     { sCoin :: Coin SC
+    , scStablecoinTokenName     :: TokenName
     } deriving stock    (Haskell.Show, Generic)
       deriving anyclass (ToJSON, FromJSON, ToSchema)
       deriving newtype  (Haskell.Eq, Haskell.Ord)
