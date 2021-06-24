@@ -94,7 +94,7 @@ data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, c
 
 activateContracts :: Simulation (Builtin AaveContracts) ContractIDs
 activateContracts = do
-    cidInit  <- Simulator.activateContract ownerWallet Init
+    cidInit  <- Simulator.activateContract ownerWallet $ Init userWallets testAssets
     _        <- Simulator.waitUntilFinished cidInit
     Simulator.logString @(Builtin AaveContracts) "Initialization finished."
 
@@ -208,7 +208,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
     shutdown
 
 data AaveContracts =
-      Init
+      Init [Wallet] [AssetClass]
     | AaveStart
     | AaveInfo Aave.Aave
     | AaveUser Aave.Aave
@@ -229,12 +229,12 @@ handleAaveContract = Builtin.handleBuiltin getSchema getContract where
     AaveUser _ -> Builtin.endpointsToSchemas @(Aave.AaveUserSchema .\\ BlockchainActions)
     AaveInfo _ -> Builtin.endpointsToSchemas @(Aave.AaveInfoSchema .\\ BlockchainActions)
     AaveStart  -> Builtin.endpointsToSchemas @(Aave.AaveOwnerSchema .\\ BlockchainActions)
-    Init          -> Builtin.endpointsToSchemas @Empty
+    Init _ _         -> Builtin.endpointsToSchemas @Empty
   getContract = \case
-    AaveInfo aave -> SomeBuiltin $ Aave.infoEndpoints aave
-    AaveUser aave -> SomeBuiltin $ Aave.userEndpoints aave
-    AaveStart     -> SomeBuiltin Aave.ownerEndpoints
-    Init          -> SomeBuiltin $ initContract userWallets testAssets
+    AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints aave
+    AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints aave
+    AaveStart           -> SomeBuiltin Aave.ownerEndpoints
+    Init wallets assets -> SomeBuiltin $ initContract wallets assets
 
 handlers :: SimulatorEffectHandlers (Builtin AaveContracts)
 handlers =

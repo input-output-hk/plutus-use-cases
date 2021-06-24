@@ -10,7 +10,6 @@ import           Data.Text                  (Text)
 import           Data.Void                  (Void)
 import qualified Ledger
 import qualified Ledger.Constraints         as Constraints
-import qualified Ledger.Scripts             as UntypedScripts
 import           Ledger.Typed.Scripts       (MonetaryPolicy)
 import qualified Ledger.Typed.Scripts       as Scripts
 import           Plutus.Contract
@@ -19,7 +18,7 @@ import qualified Plutus.Contracts.Endpoints as Aave
 import qualified Plutus.Contracts.TxUtils   as TxUtils
 import           Plutus.V1.Ledger.Contexts  (ScriptContext)
 import qualified Plutus.V1.Ledger.Scripts   as Scripts
-import           Plutus.V1.Ledger.Value     (CurrencySymbol, TokenName, Value,
+import           Plutus.V1.Ledger.Value     (CurrencySymbol, TokenName,
                                              assetClass, assetClassValue)
 import qualified PlutusTx
 import           PlutusTx.Prelude

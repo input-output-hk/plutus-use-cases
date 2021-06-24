@@ -7,29 +7,21 @@ module Spec.User where
 
 import           Control.Lens               ((^?))
 import           Control.Monad              (forM, void)
-import           Control.Monad.Freer.Error  (throwError)
 import qualified Data.Map                   as Map
 import           Data.Monoid                (Last (..))
 import           Data.Text                  (Text)
 import           Data.Void                  (Void)
 import qualified Ledger
-import qualified Ledger.Ada                 as Ada
-import           Ledger.Constraints         (ScriptLookups (..))
-import qualified Ledger.Constraints         as Constraints
-import           Ledger.Scripts             (unitRedeemer)
-import           Ledger.Typed.Scripts       as Scripts
 import           Plutus.Contract            hiding (throwError)
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.AToken    as AToken
 import qualified Plutus.Contracts.Core      as Aave
 import           Plutus.Contracts.Endpoints (ContractResponse (..))
 import qualified Plutus.Contracts.Endpoints as Aave
-import qualified Plutus.Contracts.State     as Aave
 import           Plutus.PAB.Simulation      (initContract, toAsset)
 import qualified Plutus.Trace.Emulator      as Trace
 import           Plutus.V1.Ledger.Ada       (lovelaceValueOf)
-import           Plutus.V1.Ledger.Value     (AssetClass, TokenName, Value,
-                                             assetClassValue)
+import           Plutus.V1.Ledger.Value     (AssetClass, Value, assetClassValue)
 import qualified PlutusTx.AssocMap          as AssocMap
 import qualified PlutusTx.Prelude           as PlutusTx
 import qualified Spec.Mock                  as Mock
@@ -48,6 +40,7 @@ amogus = AToken.makeAToken Mock.aaveHash mogus
 usd :: AssetClass
 usd = testAssets Prelude.!! 1
 
+startParams :: [Aave.CreateParams]
 startParams = fmap Aave.CreateParams testAssets
 
 startContract :: Contract () Aave.AaveOwnerSchema Text ()

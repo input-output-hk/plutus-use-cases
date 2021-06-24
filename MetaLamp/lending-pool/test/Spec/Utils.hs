@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE MonoLocalBinds    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
 
@@ -30,14 +31,24 @@ import           Wallet.Emulator.MultiAgent  (EmulatorEvent)
 
 type ContractHandle e a = Trace.ContractHandle (Last (ContractResponse e a))
 
-getState :: (Show a, Show e, HasBlockchainActions s, Trace.ContractConstraints s, JSON.FromJSON e, JSON.FromJSON a, JSON.ToJSON e, JSON.ToJSON a, JSON.FromJSON e') =>
-    (a -> Maybe b) ->
+getState ::
+    (Show a
+    , Show e
+    , HasBlockchainActions s
+    , Trace.ContractConstraints s
+    , JSON.FromJSON e
+    , JSON.FromJSON a
+    , JSON.ToJSON e
+    , JSON.ToJSON a
+    , JSON.FromJSON e'
+    )
+    => (a -> Maybe b) ->
     ContractHandle e a s e' ->
     Trace.EmulatorTrace b
 getState pick userHandle = do
     res <- Trace.observableState userHandle
     case res of
-        (Last (Just (ContractSuccess s))) -> maybe (throwError . GenericError $ "Unexpected state") pure (pick s)
+        (Last (Just (ContractSuccess s))) -> maybe (throwError . GenericError $ "Unexpected state: " <> show s) pure (pick s)
         (Last (Just (ContractError e))) -> throwError . GenericError .show $ e
         s -> throwError . JSONDecodingError $ "Unexpected state: " <> show s
 
