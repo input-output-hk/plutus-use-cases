@@ -27,7 +27,6 @@ library
       Contracts.NFT.Types
       Contracts.NFT.OnChain
       Contracts.NFT.OffChain
-      Contracts.NFT.PubKey
       Contracts.NFT.NFTCurrency
     build-depends:
       base >= 4.9 && < 5,
@@ -56,7 +55,7 @@ test-suite plutus-example-projects-test
   hs-source-dirs: src/test
   other-modules:
     Spec.NFT
-    Spec.TestNFTCurrency
+    Spec.MockNFTCurrency
     Spec.Types
   default-language: Haskell2010
   ghc-options: -Wall -Wnoncanonical-monad-instances

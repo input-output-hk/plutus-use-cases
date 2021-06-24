@@ -17,8 +17,8 @@
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 -- | Implements a custom currency with a monetary policy that allows
 --   the forging of a fixed amount of units.
-module Spec.TestNFTCurrency(
-    TestNFTCurrency(..)
+module Spec.MockNFTCurrency(
+    MockNFTCurrency(..)
     , testNftCurPolicy
     -- * Actions etc
     , forgeContract
@@ -54,16 +54,16 @@ import           Schema                  (ToSchema)
 
 {-# ANN module ("HLint: ignore Use uncurry" :: String) #-}
 
-data TestNFTCurrency = TestNFTCurrency
+data MockNFTCurrency = MockNFTCurrency
   { testCurTokenName :: TokenName
   }
   deriving stock (Generic, Prelude.Show, Prelude.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
-PlutusTx.makeLift ''TestNFTCurrency
+PlutusTx.makeLift ''MockNFTCurrency
 
-validate :: TestNFTCurrency -> V.ScriptContext -> Bool
-validate c@(TestNFTCurrency testTokenName) ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
+validate :: MockNFTCurrency -> V.ScriptContext -> Bool
+validate c@(MockNFTCurrency testTokenName) ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
     let
         -- see note [Obtaining the currency symbol]
         ownSymbol = V.ownCurrencySymbol ctx
@@ -82,19 +82,19 @@ validate c@(TestNFTCurrency testTokenName) ctx@V.ScriptContext{V.scriptContextTx
           in traceIfFalse "Forged value should be 1" isNft
     in forgeOK && forgeNFT
 
-testNftCurPolicy :: TestNFTCurrency -> MonetaryPolicy
+testNftCurPolicy :: MockNFTCurrency -> MonetaryPolicy
 testNftCurPolicy nftCur = mkMonetaryPolicyScript $
     $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validate ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode nftCur
 
-forgedValue :: TestNFTCurrency -> Value
+forgedValue :: MockNFTCurrency -> Value
 forgedValue cur = currencyValue (currencySymbol cur) cur
 
-currencyValue :: CurrencySymbol -> TestNFTCurrency -> Value
+currencyValue :: CurrencySymbol -> MockNFTCurrency -> Value
 currencyValue curSymbol nftCur = Value.singleton curSymbol (testCurTokenName nftCur) 1
 
-currencySymbol :: TestNFTCurrency -> CurrencySymbol
+currencySymbol :: MockNFTCurrency -> CurrencySymbol
 currencySymbol = scriptCurrencySymbol . testNftCurPolicy
 
 forgeContract
@@ -104,9 +104,9 @@ forgeContract
     )
     => PubKeyHash
     -> TokenName
-    -> Contract w s Text TestNFTCurrency
+    -> Contract w s Text MockNFTCurrency
 forgeContract pk tokenName = do
-    let theNftCurrency = TestNFTCurrency{ testCurTokenName = tokenName }
+    let theNftCurrency = MockNFTCurrency{ testCurTokenName = tokenName }
         curVali = testNftCurPolicy theNftCurrency
         lookups = Constraints.monetaryPolicy curVali
     let forgeTx = Constraints.mustForgeValue (forgedValue theNftCurrency)
@@ -129,7 +129,7 @@ type CurrencySchema =
 
 -- | Use 'forgeContract' to create the currency specified by a 'SimpleMPS'
 forgeNftToken
-    :: Contract (Maybe (Last TestNFTCurrency)) CurrencySchema Text ()
+    :: Contract (Maybe (Last MockNFTCurrency)) CurrencySchema Text ()
 forgeNftToken = do
     ForgeNftParams{fnpTokenName} <- endpoint @"create"
     ownPK <- pubKeyHash <$> ownPubKey

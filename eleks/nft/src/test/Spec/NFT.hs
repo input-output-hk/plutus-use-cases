@@ -37,9 +37,9 @@ import           Plutus.Trace.Emulator.Types
 import qualified PlutusTx
 import           PlutusTx.Prelude                       as PlutusTx
 import qualified Prelude
-import           Prelude                                (read, show)
+import           Prelude                                (read, show, String)
 import           Test.Tasty
-import           Spec.TestNFTCurrency                   as NFTCurrency 
+import           Spec.MockNFTCurrency                   as MockCurrency 
 import           Spec.Types
 
 w1, w2, ownerWallet :: Wallet
@@ -54,7 +54,7 @@ t2 = Trace.walletInstanceTag w2
 ownerContract :: Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Void ()
 ownerContract = NFTMarket.ownerEndpoint forgeMockNftToken
 userContract :: Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
-userContract = NFTMarket.userEndpoints NFTMarket.createUniqueUtxo nftMarketMock
+userContract = NFTMarket.userEndpoints nftMarketMock
 
 tests :: TestTree
 tests = testGroup "nft"
@@ -245,7 +245,7 @@ initialise = do
     -- https://github.com/input-output-hk/plutus/issues/3359
     ownerHdl <- Trace.activateContractWallet ownerWallet ownerContract
     Trace.callEndpoint @"start" ownerHdl ()
-    void $ Trace.waitNSlots 5
+    void $ Trace.waitNSlots 10
 
 createNftTokenFlowTrace :: EmulatorTrace ()
 createNftTokenFlowTrace = do
@@ -270,7 +270,7 @@ sellNftTokenFlowTrace = do
 sellNonMarketNFTFailureTrace  :: EmulatorTrace ()
 sellNonMarketNFTFailureTrace = do
     initialise
-    forgeCurrencyHdl <- Trace.activateContract w1 NFTCurrency.forgeNftToken (fromString $ "forgeCurrency: " <> show t1)
+    forgeCurrencyHdl <- Trace.activateContract w1 MockCurrency.forgeNftToken (fromString $ "forgeCurrency: " <> show t1)
     nonMarketNftMeta <- createNonMarketNftTokenTrace forgeCurrencyHdl nonMarketToken1
     user1Hdl <- Trace.activateContractWallet w1 userContract
     sellNftTokenTrace user1Hdl nonMarketNftMeta nftMaketSellPrice
@@ -342,7 +342,7 @@ shouldGetOwnerNftTokensTrace = do
     user1Hdl <- Trace.activateContractWallet w1 userContract
     _ <- createNftTokenTrace user1Hdl testToken1
     _ <-createNftTokenTrace user1Hdl testToken2
-    forgeCurrencyHdl <- Trace.activateContract w1 NFTCurrency.forgeNftToken (fromString $ "forgeCurrency: " <> show t1)
+    forgeCurrencyHdl <- Trace.activateContract w1 MockCurrency.forgeNftToken (fromString $ "forgeCurrency: " <> show t1)
     _ <- createNonMarketNftTokenTrace forgeCurrencyHdl nonMarketToken1
     Trace.callEndpoint @"userNftTokens" user1Hdl ()
     void $ Trace.waitNSlots 5
@@ -380,8 +380,8 @@ forgeMockNftToken::
     -> PubKeyHash
     -> Contract w s Text CurrencySymbol
 forgeMockNftToken tokenName pk = 
-    NFTCurrency.currencySymbol 
-    <$> NFTCurrency.forgeContract pk tokenName
+    MockCurrency.currencySymbol 
+    <$> MockCurrency.forgeContract pk tokenName
 
 activeOwnerContractTrace :: EmulatorTrace ()
 activeOwnerContractTrace = void $ Trace.activateContractWallet w1 ownerContract
@@ -401,11 +401,11 @@ createNftTokenTrace hdl testToken = do
     extractTokenMeta hdl
 
 createNonMarketNftTokenTrace :: 
-    Trace.ContractHandle (Maybe (Semigroup.Last TestNFTCurrency)) NFTCurrency.CurrencySchema Text
+    Trace.ContractHandle (Maybe (Semigroup.Last MockNFTCurrency)) MockCurrency.CurrencySchema Text
     -> TestTokenMeta 
     -> EmulatorTrace NFTMetadataDto
 createNonMarketNftTokenTrace hdl tokenMeta = do
-    let nftTokenForgeParams = NFTCurrency.ForgeNftParams { NFTCurrency.fnpTokenName = testTokenName tokenMeta }
+    let nftTokenForgeParams = MockCurrency.ForgeNftParams { MockCurrency.fnpTokenName = testTokenName tokenMeta }
     Trace.callEndpoint @"create" hdl nftTokenForgeParams
     void $ Trace.waitNSlots 5
     _ <- extractCurrencyForgedNFT hdl
@@ -418,7 +418,7 @@ sellNftTokenTrace ::
     -> Integer
     -> EmulatorTrace ()
 sellNftTokenTrace hdl nftTokenMeta sellPrice = do
-    let nftTokenSellParams = NFTMarket.SellParams { spTokenSymbol = nftDtoTokenSymbol nftTokenMeta, spSellPrice = sellPrice}
+    let nftTokenSellParams = NFTMarket.SellParams { spTokenName = nftDtoTokenName nftTokenMeta, spSellPrice = sellPrice}
     Trace.callEndpoint @"sell" hdl nftTokenSellParams
     void $ Trace.waitNSlots 5
 
@@ -427,7 +427,7 @@ cancelSellNftTokenTrace ::
     -> NFTMetadataDto 
     -> EmulatorTrace ()
 cancelSellNftTokenTrace hdl nftTokenMeta = do
-    let nftTokenSellParams = NFTMarket.CancelSellParams { cspTokenSymbol = nftDtoTokenSymbol nftTokenMeta }
+    let nftTokenSellParams = NFTMarket.CancelSellParams { cspTokenName = nftDtoTokenName nftTokenMeta }
     Trace.callEndpoint @"cancelSell" hdl nftTokenSellParams
     void $ Trace.waitNSlots 5
 
@@ -436,7 +436,7 @@ buyNftTokenTrace ::
     -> NFTMetadataDto 
     -> EmulatorTrace ()
 buyNftTokenTrace hdl nftTokenMeta = do
-    let nftTokenBuyParams = NFTMarket.BuyParams { bpTokenSymbol = nftDtoTokenSymbol nftTokenMeta }
+    let nftTokenBuyParams = NFTMarket.BuyParams { bpTokenName = nftDtoTokenName nftTokenMeta }
     Trace.callEndpoint @"buy" hdl nftTokenBuyParams
     void $ Trace.waitNSlots 5
 
@@ -458,8 +458,8 @@ extractTokenMeta handle = do
             Trace.throwError (Trace.GenericError "created nft metadata not found")
 
 extractCurrencyForgedNFT:: 
-    Trace.ContractHandle (Maybe (Semigroup.Last NFTCurrency.TestNFTCurrency)) NFTCurrency.CurrencySchema Text
-    -> Trace.EmulatorTrace NFTCurrency.TestNFTCurrency
+    Trace.ContractHandle (Maybe (Semigroup.Last MockCurrency.MockNFTCurrency)) MockCurrency.CurrencySchema Text
+    -> Trace.EmulatorTrace MockCurrency.MockNFTCurrency
 extractCurrencyForgedNFT handle = do
     t <- Trace.observableState handle
     case t of

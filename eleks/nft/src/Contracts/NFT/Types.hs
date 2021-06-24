@@ -31,11 +31,11 @@ import           Prelude             (String)
 import           Text.Printf         (PrintfArg)
 
 -- | An nft market
-newtype NFTMarket = NFTMarket
+data NFTMarket = NFTMarket
     { marketId :: AssetClass
-    } deriving stock    (Show, Generic)
-      deriving anyclass (ToJSON, FromJSON, ToSchema)
-      deriving newtype  (Prelude.Eq, Prelude.Ord)
+    , marketTokenSymbol :: CurrencySymbol
+    , marketTokenMetaSymbol :: CurrencySymbol
+    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema, Prelude.Eq, Prelude.Ord)
 
 PlutusTx.makeLift ''NFTMarket
 
@@ -56,7 +56,9 @@ data NFTMetadata = NFTMetadata
 instance Eq NFTMetadata where
     {-# INLINABLE (==) #-}
     x == y = (nftTokenSymbol x PlutusTx.Prelude.== nftTokenSymbol y) && 
-             (nftMetaTokenSymbol x PlutusTx.Prelude.== nftMetaTokenSymbol y)
+             (nftMetaTokenSymbol x PlutusTx.Prelude.== nftMetaTokenSymbol y) &&
+             (nftTokenName x PlutusTx.Prelude.== nftTokenName y) &&
+             (nftMetaTokenName x PlutusTx.Prelude.== nftMetaTokenName y)
 
 PlutusTx.makeIsDataIndexed ''NFTMetadata [('NFTMetadata, 0)]
 PlutusTx.makeLift ''NFTMetadata

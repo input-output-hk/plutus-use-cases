@@ -7,7 +7,7 @@ export const formatForAPI = (data) => ({
 
 export const formatSellData = (data) => ({
   spSellPrice: +data.price,
-  spTokenSymbol: data.id,
+  spTokenName: data.id,
 });
 
 const dataMap = (token) => ({

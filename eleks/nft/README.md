@@ -107,13 +107,13 @@ curl -H "Content-Type: application/json" \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
-5. Put token on sell. You should be onwer of the spTokenSymbol
+5. Put token on sell. You should be onwer of the spTokenName
 
 ```
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"spSellPrice":1000,"spTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
+  --data '{"spSellPrice":1000,"spTokenName": "tokenName"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sell
 
 #get response
@@ -143,7 +143,7 @@ curl -H "Content-Type: application/json" \
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"bpTokenSymbol": "staQbIJe11Om2KUvRt1+1SivJXo4H+u6Wc8Nekh7VQA="}' \
+  --data '{"bpTokenName": "tokenName"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/buy
 
 #get response
@@ -159,7 +159,7 @@ curl -H "Content-Type: application/json" \
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"cspTokenSymbol": "a6c2e8c6df7c677db538b281eae38860ba78dc57ac7cea73af67c789a4c1a56b"}' \
+  --data '{"cspTokenName": "tokenName"}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/cancelSell
 
 #get response
@@ -191,7 +191,7 @@ curl -H "Content-Type: application/json" \
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"tpTokenSymbol": "staQbIJe11Om2KUvRt1+1SivJXo4H+u6Wc8Nekh7VQA=", "tpReceiverWallet": 1}' \
+  --data '{"tpTokenName": "tokenName", "tpReceiverWallet": 1}' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/transfer
 
 #get response

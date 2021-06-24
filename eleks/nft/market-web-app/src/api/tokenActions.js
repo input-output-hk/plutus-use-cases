@@ -29,7 +29,7 @@ export async function fetchBuyToken(wallet, data) {
       headers: {
         'Content-type': 'application/json',
       },
-      body: JSON.stringify({ bpTokenSymbol: data.id }),
+      body: JSON.stringify({ bpTokenName: data.id }),
     }
   );
 
@@ -50,7 +50,7 @@ export async function fetchCancelSellToken(wallet, data) {
       headers: {
         'Content-type': 'application/json',
       },
-      body: JSON.stringify({ cspTokenSymbol: data.id }),
+      body: JSON.stringify({ cspTokenName: data.id }),
     }
   );
 
@@ -72,7 +72,7 @@ export async function fetchTransferToken(wallet, data) {
         'Content-type': 'application/json',
       },
       body: JSON.stringify({
-        tpTokenSymbol: data.tokenId,
+        tpTokenName: data.tokenId,
         tpReceiverWallet: data.walletNumber,
       }),
     }

@@ -73,6 +73,9 @@ validateCreate ::
     -> ScriptContext
     -> Bool
 validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
+    traceIfFalse "market token symbol should be token symbol" (marketTokenSymbol == nftTokenSymbol) &&
+    -- traceIfFalse "market meta token symbol should be meta token symbol" (marketTokenMetaSymbol == nftMetaTokenSymbol)
+    -- traceIfFalse "meta token name should be 'tokenName' + Metadata"  (nftMetaTokenName == TokenName $ Value.toString nftTokenName ++ "Metadata")
     traceIfFalse "marketplace not present" (isMarketToken (valueWithin $ findOwnInput' ctx) marketId) &&
     traceIfFalse "nft token is arleady exists" (all (/= nftMeta) nftMetas) &&                                                                                 
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ nftMeta : nftMetas) $ assetClassValue marketId 1) &&

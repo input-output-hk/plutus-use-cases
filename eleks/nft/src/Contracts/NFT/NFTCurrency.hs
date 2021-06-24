@@ -47,22 +47,19 @@ import qualified Prelude
 
 -- | An nft currency
 data NFTCurrency = NFTCurrency
-  { market        :: NFTMarket
+  { nftCurMarketId       :: AssetClass
   } deriving (Generic, Show, Prelude.Eq, ToJSON, FromJSON)
 
 PlutusTx.makeLift ''NFTCurrency
 
 {-# INLINABLE validateNFTForging #-}
 validateNFTForging :: NFTCurrency -> ScriptContext -> Bool
-validateNFTForging c@(NFTCurrency NFTMarket{..} tn (refHash, refIdx)) ctx@Validation.ScriptContext{Validation.scriptContextTxInfo=txinfo}
-    = 
-    traceIfFalse "Pending transaction does not spend the designated transaction output" isOutputSpent
-    && traceIfFalse "Should forge two tokens (nft and metadata)" (forgedSymbolsCount == 2)
-    && traceIfFalse "Value forged different from expected" (forgedTokenValue == 1)
+validateNFTForging c@(NFTCurrency marketId) ctx@Validation.ScriptContext{Validation.scriptContextTxInfo=txinfo}
+    =
+    traceIfFalse "Should forge two tokens for the same symbol (nft and metadata)" (forgedSymbolsCount == 1)
     where
         ownSymbol = ownCurrencySymbol ctx
         forged = txInfoForge txinfo
-        forgedTokenValue = valueOf forged ownSymbol tn
         forgedSymbolsCount = length $ symbols forged
         marketInput = case  [ o
                             | o <- getContinuingOutputs ctx
@@ -72,29 +69,25 @@ validateNFTForging c@(NFTCurrency NFTMarket{..} tn (refHash, refIdx)) ctx@Valida
             [_] -> True
             _      -> traceError "nft forging without market input"
 
-        isOutputSpent = spendsOutput txinfo refHash refIdx
-
 nftMonetrayPolicy :: NFTCurrency -> MonetaryPolicy
 nftMonetrayPolicy cur = mkMonetaryPolicyScript $
     $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validateNFTForging ||])
         `PlutusTx.applyCode` PlutusTx.liftCode cur
 
 -- | The 'Value' forged by the 'NFTCurrency' contract
-nftForgedValue :: NFTCurrency -> Value
-nftForgedValue cur = nftCurrencyValue (nftCurrencySymbol cur) cur
+nftForgedValue :: NFTCurrency -> TokenName -> Value
+nftForgedValue cur = nftCurrencyValue (nftCurrencySymbol cur)
 
 {-# INLINABLE nftCurrencySymbol #-}
 nftCurrencySymbol :: NFTCurrency -> CurrencySymbol
 nftCurrencySymbol = scriptCurrencySymbol . nftMonetrayPolicy
 
-nftCurrencyValue :: CurrencySymbol -> NFTCurrency -> Value
-nftCurrencyValue s NFTCurrency{tokenName = tokenName} =
-    Value.singleton s tokenName 1
+nftCurrencyValue :: CurrencySymbol -> TokenName -> Value
+nftCurrencyValue s tn =
+    Value.singleton s tn 1
 
-mkNFTCurrency :: NFTMarket -> NFTCurrency
-mkNFTCurrency market tn (TxOutRef h i) =
+mkNFTCurrency :: AssetClass -> NFTCurrency
+mkNFTCurrency marketId =
     NFTCurrency
-        { market = market
-        , tokenName  = tn
-        , curRefUtxo = (h, i)
+        { nftCurMarketId = marketId
         }

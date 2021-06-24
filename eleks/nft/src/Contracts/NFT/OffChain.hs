@@ -29,7 +29,6 @@ module Contracts.NFT.OffChain
     , MarketUserSchema, MarketContractState (..)
     , MarketOwnerSchema
     , forgeMarketToken
-    , createUniqueUtxo
     , start, create
     , ownerEndpoint, userEndpoints
     , marketplaceTokenName
@@ -40,13 +39,13 @@ module Contracts.NFT.OffChain
 import           Contracts.NFT.Types
 import           Contracts.NFT.OnChain            (marketInstance)
 import           Contracts.NFT.NFTCurrency       
-import qualified Contracts.NFT.PubKey             as PK 
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString.Base64           as B64
 import qualified Data.ByteString.Char8            as B
 import           Data.List                        (sortOn)
 import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
+import           Data.String                      (fromString)
 import           Data.Ord                         (comparing)
 import           Data.Proxy                       (Proxy (..))
 import           Data.Text                        (Text, pack)
@@ -67,7 +66,6 @@ import qualified Ledger.Contexts                  as Validation
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
 import qualified Plutus.Contracts.Currency        as Currency
--- import           Plutus.Contracts.PubKey
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
 import           Prelude                          (Semigroup (..), String, Char, read, show)
@@ -95,23 +93,23 @@ data CreateParams = CreateParams
 
 -- | Parameters for the @sell@-endpoint, which creates a new NFT.
 data SellParams = SellParams
-    { spTokenSymbol :: String   -- ^ Token symbol to sell
+    { spTokenName :: String   -- ^ Token name to sell
     , spSellPrice   :: Integer  -- ^ Sell price
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @cancel-sell@-endpoint, which creates a new NFT.
 data CancelSellParams = CancelSellParams
-    { cspTokenSymbol :: String   -- ^ Token symbol to cancell sell
+    { cspTokenName :: String   -- ^ Token name to cancel sell
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @buy@-endpoint, which creates a new NFT.
 data BuyParams = BuyParams
-    { bpTokenSymbol :: String  -- ^ Token symbol to buy
+    { bpTokenName :: String  -- ^ Token name to buy
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 -- | Parameters for the @transfer@-endpoint, which creates a new NFT.
 data TransferParams = TransferParams
-    { tpTokenSymbol     :: String   -- ^ Token symbol to buy
+    { tpTokenName     :: String   -- ^ Token name to buy
     , tpReceiverWallet  :: Integer  -- ^ Wallet id to receive payment
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
@@ -141,15 +139,6 @@ forgeMarketToken tokenName pk = fmap Currency.currencySymbol $
     mapError (pack . show @Currency.CurrencyError) $
     Currency.forgeContract pk [(tokenName, 1)]
 
-createUniqueUtxo:: 
-    forall w s. HasBlockchainActions s 
-    => TokenName
-    -> PubKeyHash
-    -> Contract w s Text (TxOutRef, TxOutTx, TypedValidator PK.PubKeyContract)
-createUniqueUtxo tokenName pk =
-    mapError (pack . show @PK.PubKeyError) $
-    PK.pubKeyContract pk (Ada.lovelaceValueOf 1)
-
 -- | Creates a Marketplace "factory". This factory will keep track of the existing nft tokens
 start ::
     forall w w' s. 
@@ -159,9 +148,11 @@ start ::
     -> Contract w s Text NFTMarket
 start forgeNft = do
     pkh <- pubKeyHash <$> ownPubKey
-    cs  <- forgeMarketToken marketplaceTokenName pkh
+    cs  <- forgeNft marketplaceTokenName pkh
     let c = assetClass cs marketplaceTokenName
-        market   = marketplace cs
+        nftTokenCur = mkNFTCurrency c
+        nftTokenMetaCur = mkNFTCurrency c
+        market   = marketplace cs nftTokenCur nftTokenMetaCur
         inst = marketInstance market
         tx   = mustPayToTheScript (Factory []) $ assetClassValue c 1
     ledgerTx <- submitTxConstraints inst tx
@@ -173,31 +164,24 @@ start forgeNft = do
 -- | Creates an NFT token
 create :: 
     HasBlockchainActions s 
-    => (TokenName -> PubKeyHash -> Contract w s Text (TxOutRef, TxOutTx, TypedValidator PK.PubKeyContract))
-    -> NFTMarket 
+    => NFTMarket 
     -> CreateParams 
     -> Contract w s Text NFTMetadataDto
-create forgeNft market CreateParams{..} = do
+create market CreateParams{..} = do
     (oref, o, nftMetas) <- findNFTMarketFactory market
-    let tokenName = TokenName $ B.pack cpTokenName
+    let tokenName = fromString cpTokenName
     ownPK <- pubKeyHash <$> ownPubKey
 
-    (txTokenOutRef, txTokenOutTx, pkTokenInst) <- createUniqueUtxo tokenName ownPK
-    --nftTokenSymbol <- forgeNft tokenName ownPK 
-    --let nftValue = getNftValue nftTokenSymbol tokenName
-    let nftTokenCur = mkNFTCurrency market tokenName txTokenOutRef
+    let nftTokenCur = mkNFTCurrency $ marketId market
         nftTokenPolicy = nftMonetrayPolicy nftTokenCur
         nftTokenSymbol = nftCurrencySymbol nftTokenCur
-        nftTokenForgedValue = nftForgedValue nftTokenCur
+        nftTokenForgedValue = nftForgedValue nftTokenCur tokenName
     
     let metadataTokenName = TokenName $ B.pack $ read (show tokenName) ++ "Metadata"
-    --tokenMetadataSymbol <- forgeNft metadataTokenName ownPK
-    (txTokenMetaOutRef, txTokenMetaOutTx, pkTokenMetaInst) <- createUniqueUtxo metadataTokenName ownPK
-    let --nftMetadataVal = getNftValue tokenMetadataSymbol metadataTokenName
-        nftTokenMetaCur = mkNFTCurrency market metadataTokenName txTokenMetaOutRef
+    let nftTokenMetaCur = mkNFTCurrency $ marketId market
         nftTokenMetaPolicy = nftMonetrayPolicy nftTokenMetaCur
         nftTokenMetaSymbol = nftCurrencySymbol nftTokenMetaCur
-        nftTokenMetaForgedValue = nftForgedValue nftTokenMetaCur
+        nftTokenMetaForgedValue = nftForgedValue nftTokenMetaCur metadataTokenName
         nftMetadata       = NFTMetadata {
             nftTokenName = tokenName, 
             nftMetaTokenName = metadataTokenName,
@@ -220,19 +204,13 @@ create forgeNft market CreateParams{..} = do
                     <> Constraints.otherScript mrScript
                     <> Constraints.unspentOutputs (Map.singleton oref o)
                     <> Constraints.monetaryPolicy nftTokenPolicy
-                    <> Constraints.unspentOutputs (Map.singleton txTokenOutRef txTokenOutTx)
-                    <> Constraints.otherScript (Scripts.validatorScript pkTokenInst)
                     <> Constraints.monetaryPolicy nftTokenMetaPolicy
-                    <> Constraints.unspentOutputs (Map.singleton txTokenMetaOutRef txTokenMetaOutTx)
-                    <> Constraints.otherScript (Scripts.validatorScript pkTokenMetaInst)
 
         tx       = Constraints.mustPayToTheScript marketFactoryData marketVal
                     <> Constraints.mustPayToTheScript nftMetadataData nftTokenMetaForgedValue
                     <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create nftMetadata)
                     <> Constraints.mustPayToPubKey ownPK nftTokenForgedValue
-                    <> Constraints.mustSpendScriptOutput txTokenOutRef unitRedeemer
                     <> Constraints.mustForgeValue nftTokenForgedValue
-                    <> Constraints.mustSpendScriptOutput txTokenMetaOutRef unitRedeemer
                     <> Constraints.mustForgeValue nftTokenMetaForgedValue
 
 
@@ -250,8 +228,8 @@ sell ::
     -> Contract w s Text NFTMetadataDto
 sell market SellParams{..} = do
     pkh                     <- pubKeyHash <$> ownPubKey
-    let tokenSymbol = CurrencySymbol $ dtoStrToByteStr spTokenSymbol
-    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
+    let tokenName = fromString spTokenName
+    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (spSellPrice <= 0) $ throwError "sell price should be greater than zero"
     let marketInst = marketInstance market
         nftMetadata' = nftMetadata { nftSeller = Just pkh, nftSellPrice = spSellPrice }
@@ -281,8 +259,8 @@ cancelSell ::
     -> Contract w s Text NFTMetadataDto
 cancelSell market CancelSellParams{..} = do
     pkh <- pubKeyHash <$> ownPubKey
-    let tokenSymbol = CurrencySymbol $ dtoStrToByteStr cspTokenSymbol
-    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
+    let tokenName = fromString cspTokenName
+    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
         throwError $ pack $ printf "NFT token is not on sale"
     let marketInst = marketInstance market
@@ -315,8 +293,8 @@ buy ::
     -> Contract w s Text NFTMetadataDto
 buy market BuyParams{..} = do
     pkh <- pubKeyHash <$> ownPubKey
-    let tokenSymbol = CurrencySymbol $ dtoStrToByteStr bpTokenSymbol
-    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
+    let tokenName = fromString bpTokenName
+    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
         throwError $ pack $ printf "NFT token is not on sale"
     let marketInst = marketInstance market
@@ -350,9 +328,9 @@ transfer ::
     -> TransferParams 
     -> Contract w s Text NFTMetadataDto
 transfer market TransferParams{..} = do
-    let tokenSymbol = CurrencySymbol $ dtoStrToByteStr tpTokenSymbol
     let sendToKeyHash = pubKeyHash $ walletPubKey $ Wallet tpReceiverWallet
-    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenSymbol
+    let tokenName = fromString tpTokenName
+    (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     let nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
     tx <- submitTx $ mustPayToPubKey sendToKeyHash nftValue
     awaitTxConfirmed $ txId tx
@@ -360,8 +338,13 @@ transfer market TransferParams{..} = do
     logInfo $ "transfer NFT: " ++ show nftMetaDto
     return nftMetaDto
 
-marketplace :: CurrencySymbol -> NFTMarket
-marketplace cs = NFTMarket $ assetClass cs marketplaceTokenName
+marketplace :: CurrencySymbol -> NFTCurrency -> NFTCurrency -> NFTMarket
+marketplace cs tokenCur metaTokenCur = 
+    NFTMarket{ 
+    marketId = assetClass cs marketplaceTokenName
+    , marketTokenSymbol = nftCurrencySymbol tokenCur
+    , marketTokenMetaSymbol = nftCurrencySymbol metaTokenCur
+    }
 
 getNFTMarketDatum :: TxOutTx -> Contract w s Text NFTMarketDatum
 getNFTMarketDatum o = case txOutDatumHash $ txOutTxOut o of
@@ -414,14 +397,15 @@ findNftMetadata market nftMeta = findNFTMartketInstance market (assetClass (nftM
 findMarketFactoryAndNftMeta :: 
     HasBlockchainActions s
     => NFTMarket
-    -> CurrencySymbol
+    -> TokenName
     -> Contract w s Text ((TxOutRef, TxOutTx, [NFTMetadata])
                           ,(TxOutRef, TxOutTx, NFTMetadata))
-findMarketFactoryAndNftMeta market tokenSymbol = do
+findMarketFactoryAndNftMeta market tokenName  = do
     (oref1, o1, nftMetas) <- findNFTMarketFactory market
     case [ nftMeta'
          | nftMeta' <- nftMetas
-         , nftTokenSymbol nftMeta' == tokenSymbol
+         , nftTokenName nftMeta' == tokenName
+         && nftTokenSymbol nftMeta' == marketTokenSymbol market
          ] of
         [nftMeta] -> do
             (oref2, o2, nftMeta1) <- findNftMetadata market nftMeta
@@ -549,24 +533,19 @@ data MarketContractState =
 -- [@sellingTokens@]: Get all selling NFT tokens.
 -- [@userPubKeyHash@]: Get user pubkeyhash.
 userEndpoints ::
-    (TokenName 
-    -> PubKeyHash 
-    -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Text (TxOutRef, TxOutTx, TypedValidator PK.PubKeyContract)
-    -- -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Text CurrencySymbol
-    )
-    -> NFTMarket 
+    NFTMarket 
     -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
-userEndpoints forgeUtxo market =
+userEndpoints market =
     stop
         `select`
-    ((f (Proxy @"create") Created (create forgeUtxo)                                     `select`
+    ((f (Proxy @"create") Created create                                     `select`
       f (Proxy @"sell") Selling sell                                                    `select`
       f (Proxy @"cancelSell") CancelSelling cancelSell                                  `select`
       f (Proxy @"buy") Buyed buy                                                        `select`
       f (Proxy @"transfer") Transfered transfer                                         `select`
       f (Proxy @"userNftTokens") Tokens (\market' () -> userNftTokens market')          `select`
       f (Proxy @"sellingTokens") SellingTokens (\market' () -> sellingTokens market')   `select`
-      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints forgeUtxo market)
+      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints market)
   where
     f :: forall l a p.
          HasEndpoint l p MarketUserSchema

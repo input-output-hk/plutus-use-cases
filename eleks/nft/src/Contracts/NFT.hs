@@ -9,11 +9,9 @@ module Contracts.NFT
   , module OffChain
   , module Types
   , module NFTCurrency
-  , module PubKey
   ) where
 
 import           Contracts.NFT.OffChain     as OffChain
 import           Contracts.NFT.OnChain      as OnChain
 import           Contracts.NFT.Types        as Types
 import           Contracts.NFT.NFTCurrency  as NFTCurrency
-import           Contracts.NFT.PubKey       as PubKey

@@ -4,14 +4,24 @@ module Spec.Types
     where
 
 import           Contracts.NFT          as NFTMarket
-import qualified Spec.TestNFTCurrency   as NFTCurrency 
+import qualified Spec.MockNFTCurrency   as MockCurrency
 import           Ledger                 (PubKeyHash, pubKeyHash)
 import           Ledger.Value           (CurrencySymbol(..), TokenName (..), AssetClass(..))
 import qualified Data.ByteString.Char8  as B
 import           Wallet.Emulator        (Wallet, walletPubKey)
 
+mockMarketId :: AssetClass
+mockMarketId = createMarketTokenMock NFTMarket.marketplaceTokenName
+
+mockNftCurrency :: NFTCurrency
+mockNftCurrency = NFTMarket.mkNFTCurrency mockMarketId
+
 nftMarketMock :: NFTMarket
-nftMarketMock = NFTMarket{ marketId = createNFTTokenMock NFTMarket.marketplaceTokenName } 
+nftMarketMock = NFTMarket
+    { marketId = mockMarketId
+    , marketTokenSymbol = nftCurrencySymbol mockNftCurrency
+    , marketTokenMetaSymbol = nftCurrencySymbol mockNftCurrency
+    } 
 
 data TestTokenMeta = TestTokenMeta
     { testTokenName:: TokenName
@@ -30,14 +40,14 @@ data TestTokenMeta = TestTokenMeta
 createTestToken:: TokenName -> TestTokenMeta
 createTestToken tokenName = TestTokenMeta
     { testTokenName = tokenName
-    , testTokenSymbol = getNFTTokenSymbol tokenName
-    , testTokenClass = AssetClass (getNFTTokenSymbol tokenName, tokenName)
+    , testTokenSymbol = marketTokenSymbol nftMarketMock
+    , testTokenClass = AssetClass (NFTMarket.marketTokenSymbol nftMarketMock, tokenName)
     , testTokenDesciption = "testTokenDescrition"
     , testTokenAuthor = "testTokenAuthor"
     , testTokenFile = "testTokenFile"
     , testTokenMetaName = tokenMetaName
-    , testTokenMetaSymbol = getNFTTokenSymbol tokenMetaName
-    , testTokenMetaClass = AssetClass (getNFTTokenSymbol tokenMetaName, tokenMetaName)
+    , testTokenMetaSymbol = NFTMarket.marketTokenMetaSymbol nftMarketMock
+    , testTokenMetaClass = AssetClass ( NFTMarket.marketTokenMetaSymbol nftMarketMock, tokenMetaName)
     , testTokenSeller = Nothing
     , testTokenSellPrice = 0
     } 
@@ -57,11 +67,12 @@ testToken2MetaDto = nftMetadataToDto testToken2Meta
 testToken3 = createTestToken "token3"
 nonMarketToken1 = createTestToken "nonMarketToken1"
 
-getNFTTokenSymbol:: TokenName -> CurrencySymbol
-getNFTTokenSymbol tokenName = NFTCurrency.currencySymbol $ NFTCurrency.TestNFTCurrency tokenName
 
-createNFTTokenMock:: TokenName -> AssetClass
-createNFTTokenMock tokenName = AssetClass (getNFTTokenSymbol tokenName, tokenName)
+getMarketTokenSymbol:: TokenName -> CurrencySymbol
+getMarketTokenSymbol tokenName = MockCurrency.currencySymbol $ MockCurrency.MockNFTCurrency tokenName
+
+createMarketTokenMock:: TokenName -> AssetClass
+createMarketTokenMock tokenName = AssetClass (getMarketTokenSymbol tokenName, tokenName)
 
 nftMaketSellPrice:: Integer
 nftMaketSellPrice = 1000
