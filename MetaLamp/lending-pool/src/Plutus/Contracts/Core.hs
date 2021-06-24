@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
@@ -12,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -36,6 +36,7 @@ import qualified Ledger.Scripts                   as UntypedScripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
+import qualified Plutus.Contracts.Oracle          as Oracle
 import           Plutus.V1.Ledger.Value
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                as AssocMap
@@ -43,7 +44,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
-import qualified Plutus.Contracts.Oracle as Oracle
 
 newtype Aave = Aave
     { aaveProtocolInst :: AssetClass
@@ -83,7 +83,7 @@ Lens.makeClassy_ ''Reserve
 
 data UserConfig = UserConfig
     {
-      ucDebt              :: Integer,
+      ucDebt                     :: Integer,
       ucCollateralizedInvestment :: Integer
     }
     deriving stock (Prelude.Eq, Show, Generic)
@@ -283,7 +283,7 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     oracleValues =
       case foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles of
         Just vs -> AssocMap.fromList vs
-        _ -> traceError "validateBorrow: Oracles have not been provided"
+        _       -> traceError "validateBorrow: Oracles have not been provided"
 
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =

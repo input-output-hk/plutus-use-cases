@@ -1,18 +1,18 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-specialise #-}
 
 module Plutus.Contracts.Oracle
@@ -42,21 +42,21 @@ import qualified Data.Map                  as Map
 import           Data.Monoid               (Last (..))
 import           Data.Text                 (Text, pack)
 import           GHC.Generics              (Generic)
-import           Plutus.Contract           as Contract hiding (when)
-import qualified PlutusTx
-import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton)
+import           Ledger.Ada                as Ada
 import           Ledger.Constraints        as Constraints
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
-import           Ledger.Ada                as Ada
+import           Plutus.Contract           as Contract hiding (when)
 import           Plutus.Contracts.Currency as Currency
+import qualified Plutus.Contracts.TxUtils  as TxUtils
+import           Plutus.OutputValue
+import qualified Plutus.State.Select       as Select
+import qualified PlutusTx
+import           PlutusTx.Prelude          hiding (Semigroup (..), unless)
 import           Prelude                   (Semigroup (..))
 import qualified Prelude                   as Prelude
-import           Schema                                 ( ToSchema)
-import qualified Plutus.State.Select as Select
-import qualified Plutus.Contracts.TxUtils as TxUtils
-import Plutus.OutputValue
+import           Schema                    (ToSchema)
 
 data Oracle = Oracle
     { oSymbol   :: CurrencySymbol

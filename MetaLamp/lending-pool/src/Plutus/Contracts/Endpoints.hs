@@ -18,7 +18,7 @@
 
 module Plutus.Contracts.Endpoints where
 
-import           Control.Monad                    (forever, void, forM)
+import           Control.Monad                    (forM, forever, void)
 import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
@@ -42,6 +42,7 @@ import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
 import qualified Plutus.Contracts.Core            as Core
 import           Plutus.Contracts.Currency        as Currency
 import qualified Plutus.Contracts.FungibleToken   as FungibleToken
+import qualified Plutus.Contracts.Oracle          as Oracle
 import qualified Plutus.Contracts.State           as State
 import qualified Plutus.Contracts.TxUtils         as TxUtils
 import           Plutus.OutputValue               (OutputValue (..))
@@ -57,11 +58,10 @@ import           Prelude                          (Monoid (..), Semigroup (..),
                                                    show, subtract)
 import qualified Prelude
 import           Text.Printf                      (printf)
-import qualified Plutus.Contracts.Oracle as Oracle
 
 data CreateParams =
     CreateParams
-        { cpAsset :: AssetClass,
+        { cpAsset  :: AssetClass,
           cpOracle :: Oracle.Oracle
          }
     deriving stock (Prelude.Eq, Show, Generic)
@@ -310,9 +310,9 @@ repay aave RepayParams {..} = do
 
 data ProvideCollateralParams =
     ProvideCollateralParams {
-        pcpUnderlyingAsset      :: AssetClass,
-        pcpAmount     :: Integer,
-        pcpOnBehalfOf :: PubKeyHash
+        pcpUnderlyingAsset :: AssetClass,
+        pcpAmount          :: Integer,
+        pcpOnBehalfOf      :: PubKeyHash
     }
     deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -351,9 +351,9 @@ provideCollateral aave ProvideCollateralParams {..} = do
 
 data RevokeCollateralParams =
     RevokeCollateralParams {
-        rcpUnderlyingAsset      :: AssetClass,
-        rcpAmount     :: Integer,
-        rcpOnBehalfOf :: PubKeyHash
+        rcpUnderlyingAsset :: AssetClass,
+        rcpAmount          :: Integer,
+        rcpOnBehalfOf      :: PubKeyHash
     }
     deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)

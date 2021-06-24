@@ -39,9 +39,10 @@ import           Ledger.Value                        as Value
 import           Plutus.Contract                     hiding (when)
 import qualified Plutus.Contracts.Core               as Aave
 import           Plutus.Contracts.Currency           as Currency
+import           Plutus.Contracts.Endpoints          (ContractResponse (..))
 import qualified Plutus.Contracts.Endpoints          as Aave
-import Plutus.Contracts.Endpoints (ContractResponse(..))
 import qualified Plutus.Contracts.FungibleToken      as FungibleToken
+import qualified Plutus.Contracts.Oracle             as Oracle
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..),
                                                       type (.\\))
@@ -56,7 +57,6 @@ import           Plutus.V1.Ledger.Crypto             (getPubKeyHash, pubKeyHash)
 import           Prelude                             hiding (init)
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
 import           Wallet.Types                        (ContractInstanceId)
-import qualified Plutus.Contracts.Oracle as Oracle
 
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 4]]
@@ -105,7 +105,7 @@ activateContracts = do
     cidInit  <- Simulator.activateContract (Wallet 1) Init
     oracles  <- flip Simulator.waitForState cidInit $ \json -> case (fromJSON json :: Result (Monoid.Last [Oracle.Oracle])) of
                     Success (Monoid.Last (Just res)) -> Just res
-                    _                      -> Nothing
+                    _                                -> Nothing
     Simulator.logString @(Builtin AaveContracts) "Initialization finished."
 
     let params = fmap (\o -> Aave.CreateParams (Oracle.oAsset o) o) oracles
@@ -146,7 +146,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
             Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 400 }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (ContractSuccess Aave.Deposited))) -> Just ()
-        _                                                   -> Nothing
+        _                                                             -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful deposit"
 
     _  <-
@@ -154,7 +154,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
             Aave.WithdrawParams { Aave.wpAsset = head testAssets, Aave.wpUser = sender, Aave.wpAmount = 30 }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (ContractSuccess Aave.Withdrawn))) -> Just ()
-        _                                                   -> Nothing
+        _                                                             -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful withdraw"
 
     _  <-
@@ -180,7 +180,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
             Aave.DepositParams { Aave.dpAsset = testAssets !! 1, Aave.dpOnBehalfOf = lender, Aave.dpAmount = 200 }
     flip Simulator.waitForState lenderCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (ContractSuccess Aave.Deposited))) -> Just ()
-        _                                                   -> Nothing
+        _                                                             -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful deposit from lender"
 
     _  <-
@@ -188,7 +188,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
             Aave.BorrowParams { Aave.bpAsset = testAssets !! 1, Aave.bpAmount = 35, Aave.bpOnBehalfOf = sender }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (ContractSuccess Aave.Borrowed))) -> Just ()
-        _                                                  -> Nothing
+        _                                                            -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful borrow"
 
     _  <-
@@ -196,7 +196,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
             Aave.RepayParams { Aave.rpAsset = testAssets !! 1, Aave.rpAmount = 25, Aave.rpOnBehalfOf = sender }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (ContractSuccess Aave.Repaid))) -> Just ()
-        _                                                -> Nothing
+        _                                                          -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful repay"
 
     _ <- Simulator.callEndpointOnInstance cidInfo "fundsAt" sender

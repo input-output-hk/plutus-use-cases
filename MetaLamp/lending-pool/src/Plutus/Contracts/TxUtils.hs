@@ -9,7 +9,7 @@
 
 module Plutus.Contracts.TxUtils where
 
-import           Control.Lens                    (review)
+import           Control.Lens                     (review)
 import           Control.Monad                    (void)
 import           Data.ByteString                  (ByteString)
 import qualified Data.Map                         as Map
