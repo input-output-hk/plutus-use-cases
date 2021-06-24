@@ -3,14 +3,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
 
-module Spec.Utils where
+module Utils.Trace where
 
 import qualified Control.Foldl               as L
 import           Control.Monad               (unless)
 import           Control.Monad.Freer.Error   (throwError)
 import           Control.Monad.Freer.Writer  (tell)
 import qualified Data.Aeson                  as JSON
-import           Data.Function               ((&))
+
 import qualified Data.Map                    as Map
 import           Data.Maybe                  (mapMaybe)
 import           Data.Monoid                 (Last (..))
@@ -29,8 +29,6 @@ import           PlutusTx                    (IsData, fromData)
 import qualified Wallet.Emulator.Folds       as Folds
 import           Wallet.Emulator.MultiAgent  (EmulatorEvent)
 
-type ContractHandle e a = Trace.ContractHandle (Last (ContractResponse e a))
-
 getState ::
     (Show a
     , Show e
@@ -43,7 +41,7 @@ getState ::
     , JSON.FromJSON e'
     )
     => (a -> Maybe b) ->
-    ContractHandle e a s e' ->
+    Trace.ContractHandle (Last (ContractResponse e a)) s e' ->
     Trace.EmulatorTrace b
 getState pick userHandle = do
     res <- Trace.observableState userHandle
@@ -70,11 +68,3 @@ findDatum o = do
     hash <- Ledger.txOutDatumHash $ Ledger.txOutTxOut o
     (Ledger.Datum e) <- Map.lookup hash $ Ledger.txData $ Ledger.txOutTxTx o
     PlutusTx.fromData e
-
-allSatisfy :: [a -> Bool] -> a -> Bool
-allSatisfy fs a = and . fmap (a &) $ fs
-
-one :: (a -> Bool) -> [a] -> Bool
-one f = foldr reducer False
-    where
-        reducer cur acc = if acc then not . f $ cur else f cur

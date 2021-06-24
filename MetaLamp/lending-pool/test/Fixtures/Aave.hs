@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeApplications  #-}
 
-module Spec.Mock where
+module Fixtures.Aave where
 
 import           Control.Monad              (void)
 import           Data.Text                  (Text)
