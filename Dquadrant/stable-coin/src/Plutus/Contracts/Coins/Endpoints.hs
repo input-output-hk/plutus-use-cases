@@ -24,12 +24,27 @@ module Plutus.Contracts.Coins.Endpoints
   ( 
     BankStateSchema,
     coinsContract,
-
   )
 where
 
+import Control.Monad (void)
+import           Ledger.Scripts                   (MonetaryPolicyHash)
+import           Plutus.Contract.StateMachine     (SMContractError, StateMachineClient (..))
+import qualified Plutus.Contract.StateMachine     as SM
+import           Plutus.Contract
+import qualified Prelude
+import           PlutusTx.Prelude
+import           Playground.TH                     (mkKnownCurrencies, mkSchemaDefinitions)
+import           Data.Text                         (Text, pack)
+import qualified Ledger.Typed.Scripts              as Scripts
+import Ledger hiding (to)
+import Prelude (show)
+import           Plutus.Contracts.Coins.Types
+import           Plutus.Contracts.Coins.CoinsStateMachine
+import           Plutus.Contracts.Oracle.Core
+
 forwardMPS :: StateMachineClient CoinsMachineState BankInput -> MonetaryPolicyHash
-forwardMPS StateMachineClient {scInstance} = Scripts.forwardingMonetaryPolicyHash $ typedValidator scInstace
+forwardMPS StateMachineClient {scInstance} = Scripts.forwardingMonetaryPolicyHash $ SM.typedValidator scInstance
 
 initialState :: StateMachineClient CoinsMachineState BankInput -> CoinsMachineState
 initialState smClient =
@@ -37,7 +52,7 @@ initialState smClient =
     { baseReserveAmount = 0,
       stableCoinAmount = 0,
       reserveCoinAmount = 0,
-      policyScript = forwardMps smClient
+      policyScript = forwardMPS smClient
     }
 
 mapError' :: Contract w s SMContractError a -> Contract w s Text a
@@ -82,13 +97,6 @@ mintReserveCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep 
 
 redeemReserveCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
 redeemReserveCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ RedeemReserveCoin tokenAmount
-
-data EndpointInput = EndpointInput
-  { 
-    tokenAmount :: Integer
-  }
-  deriving stock (Generic, Prelude.Eq, Prelude.Show)
-  deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 type BankStateSchema =
   BlockchainActions

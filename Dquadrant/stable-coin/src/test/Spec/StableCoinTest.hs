@@ -12,31 +12,34 @@ module Spec.StableCoinTest
   )
 where
 
-import Control.Monad (void)
-import Control.Monad.Freer.Extras as Extras
-import qualified Data.Map as Map
-import Data.Text
-import           Ledger    (pubKeyHash)
-import qualified Ledger.Ada as Ada
-import Ledger.Address (Address)
-import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (Value)
-import Ledger.Value as Value
-import Plutus.Contract
-import Plutus.Contract.Test
-import qualified Plutus.Contracts.CoinsStateMachine as CoinsMachine
-import Plutus.Contracts.CoinsStateMachine (BankParam(..))
-import qualified Plutus.Trace.Emulator as Trace
-import qualified PlutusTx
-import PlutusTx.Numeric (negate, one, zero)
-import PlutusTx.Prelude
-import qualified PlutusTx.Prelude as PlutusTx
-import PlutusTx.Ratio as R
-import Test.Tasty
-import qualified Test.Tasty.HUnit as HUnit
-import qualified Prelude
-import Plutus.Contracts.Oracle.Core as Oracle
-import qualified PlutusTx.Numeric  as P
+import            Control.Monad                       (void)
+import            Control.Monad.Freer.Extras          as Extras
+import qualified  Data.Map                            as Map
+import            Data.Text
+import            Ledger                              (pubKeyHash)
+import qualified  Ledger.Ada                          as Ada
+import            Ledger.Address                      (Address)
+import qualified  Ledger.Typed.Scripts                as Scripts
+import            Ledger.Value                        (Value)
+import            Ledger.Value                        as Value
+import            Plutus.Contract
+import            Plutus.Contract.Test
+import qualified  Plutus.Trace.Emulator               as Trace
+import qualified  PlutusTx  
+import            PlutusTx.Numeric                    (negate, one, zero)
+import            PlutusTx.Prelude
+import qualified  PlutusTx.Prelude                    as PlutusTx
+import            PlutusTx.Ratio                      as R
+import            Test.Tasty
+import qualified  Test.Tasty.HUnit                    as HUnit
+import qualified  Prelude
+import qualified  PlutusTx.Numeric                    as P
+
+import Plutus.Contracts.Coins.CoinsStateMachine as CoinsMachine
+import Plutus.Contracts.Coins.Types
+import Plutus.Contracts.Coins.Endpoints
+import Plutus.Contracts.Oracle.Core
+
 
 oracleW1, w2 ,w3:: Wallet
 oracleW1 = Wallet 1
@@ -60,7 +63,7 @@ oracle = Oracle
             }
 
 bp :: BankParam
-bp = CoinsMachine.BankParam
+bp = BankParam
             { 
             stableCoinTokenName = stableCoinName,
             reserveCoinTokenName = reserveCoinName,
@@ -74,13 +77,13 @@ address :: Address
 address = Scripts.validatorAddress $ CoinsMachine.scriptInstance bp
 
 
-reserveCoinsValue :: CoinsMachine.BankParam -> Integer -> Value
-reserveCoinsValue bankParam@CoinsMachine.BankParam {reserveCoinTokenName} tokenAmount =
+reserveCoinsValue :: BankParam -> Integer -> Value
+reserveCoinsValue bankParam@BankParam {reserveCoinTokenName} tokenAmount =
   let mpHash = Scripts.forwardingMonetaryPolicyHash $ CoinsMachine.scriptInstance bankParam
    in Value.singleton (Value.mpsSymbol mpHash) reserveCoinTokenName tokenAmount
 
-stableCoinsValue :: CoinsMachine.BankParam -> Integer -> Value
-stableCoinsValue bankParam@CoinsMachine.BankParam {stableCoinTokenName} tokenAmount =
+stableCoinsValue :: BankParam -> Integer -> Value
+stableCoinsValue bankParam@BankParam {stableCoinTokenName} tokenAmount =
   let mpHash = Scripts.forwardingMonetaryPolicyHash $ CoinsMachine.scriptInstance bankParam
    in Value.singleton (Value.mpsSymbol mpHash) stableCoinTokenName tokenAmount
 
@@ -179,16 +182,16 @@ tests =
 
 --     void $ activateContractWallet (Wallet 1) ownFunds'
 
-initialise :: Trace.EmulatorTrace (Trace.ContractHandle () CoinsMachine.BankStateSchema Text)
+initialise :: Trace.EmulatorTrace (Trace.ContractHandle () BankStateSchema Text)
 initialise = do
   Extras.logInfo @Prelude.String "Called initialise"
-  oracleHdl <- Trace.activateContractWallet oracleW1 $ Oracle.runMockOracle oracle
+  oracleHdl <- Trace.activateContractWallet oracleW1 $ runMockOracle oracle
   void $ Trace.waitNSlots 10
 
   Trace.callEndpoint @"update" oracleHdl 1
   void $ Trace.waitNSlots 3
 
-  hdl <- Trace.activateContractWallet w2 $ CoinsMachine.endpoints bp
+  hdl <- Trace.activateContractWallet w2 $ coinsContract bp
   
   let i = 5 :: Integer
   Trace.callEndpoint @"start" hdl i
@@ -201,7 +204,7 @@ mintStableCoins tokenAmount = do
   hdl <- initialise
   Trace.callEndpoint @"mintStableCoin"
     hdl
-    CoinsMachine.EndpointInput
+    EndpointInput
       { 
         tokenAmount = tokenAmount
       }

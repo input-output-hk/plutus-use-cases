@@ -37,7 +37,11 @@ import           PlutusTx.Ratio as Ratio
 import           Ledger.Scripts               (MonetaryPolicyHash)
 import           Ledger.Value                 (TokenName (TokenName))
 import           Plutus.Contracts.Oracle.Core
-import qualified PlutusTx as PlutusTx
+import qualified PlutusTx                      as PlutusTx
+import           PlutusTx.Prelude
+import           Ledger                        hiding (to)
+import           Playground.Contract           (ToSchema)
+
 
 
 data CoinsMachineState = CoinsMachineState
@@ -79,6 +83,13 @@ data BankInput = BankInput
   }
   deriving stock (Generic, Prelude.Eq, Prelude.Show)
   deriving anyclass (ToJSON, FromJSON)
+
+data EndpointInput = EndpointInput
+  { 
+    tokenAmount :: Integer
+  }
+  deriving stock (Generic, Prelude.Eq, Prelude.Show)
+  deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.makeLift ''CoinsMachineState
 PlutusTx.makeLift ''BankParam

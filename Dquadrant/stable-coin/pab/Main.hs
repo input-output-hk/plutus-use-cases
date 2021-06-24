@@ -18,8 +18,8 @@ import           Control.Monad.Freer                     (Eff, Member, interpret
 import           Control.Monad.Freer.Error               (Error)
 import           Control.Monad.Freer.Extras.Log          (LogMsg)
 import           Control.Monad.IO.Class                  (MonadIO (..))
-import           Data.Aeson                          (FromJSON (..), ToJSON (..), genericToJSON, genericParseJSON
-                                                     , defaultOptions, Options(..), Result(Success),fromJSON, encode)
+import           Data.Aeson                              (FromJSON (..), ToJSON (..), genericToJSON, genericParseJSON
+                                                         , defaultOptions, Options(..), Result(Success),fromJSON, encode)
 import qualified Data.Map.Strict                         as Map
 import qualified Data.Monoid                             as Monoid
 import qualified Data.Semigroup                          as Semigroup
@@ -38,18 +38,20 @@ import           Plutus.PAB.Types                        (PABError (..))
 import qualified Plutus.PAB.Webserver.Server             as PAB.Server
 import           Prelude                                 hiding (init)
 import           Wallet.Emulator.Types                   (Wallet (..), walletPubKey)
-import           Wallet.Types                        (ContractInstanceId (..))
+import           Wallet.Types                            (ContractInstanceId (..))
 import           Ledger
 import           Ledger.Constraints
-import qualified Ledger.Value                         as Value
-import qualified Plutus.Contracts.Currency            as Currency
+import qualified Ledger.Value                            as Value
+import qualified Plutus.Contracts.Currency               as Currency
+import qualified Data.ByteString.Lazy                    as LB
+import           PlutusTx.Ratio                          as Ratio
+import qualified PlutusTx.Numeric                        as P
 
-import qualified Plutus.Contracts.CoinsStateMachine     as StableCoin
-import Plutus.Contracts.CoinsStateMachine               (BankParam (..))
-import qualified Plutus.Contracts.Oracle.Core           as OracleCore
-import qualified Data.ByteString.Lazy                     as LB
-import PlutusTx.Ratio                                      as Ratio
-import qualified PlutusTx.Numeric                         as P
+import Plutus.Contracts.Coins.CoinsStateMachine
+import Plutus.Contracts.Coins.Types
+import Plutus.Contracts.Coins.Endpoints
+
+import Plutus.Contracts.Oracle.Core
 
 main :: IO ()
 main =  
@@ -59,7 +61,7 @@ main =
 
     cidOracle <- Simulator.activateContract (Wallet 1) OracleContract
 
-    oracle    <- flip Simulator.waitForState cidOracle $ \json -> case (fromJSON json :: Result (Monoid.Last (OracleCore.Oracle))) of
+    oracle    <- flip Simulator.waitForState cidOracle $ \json -> case (fromJSON json :: Result (Monoid.Last (Oracle))) of
                     Success (Monoid.Last (Just x)) -> Just x
                     _                              -> Nothing
  
@@ -78,7 +80,7 @@ main =
     w1cid <- Simulator.activateContract (Wallet 1) $ StableContract bp
     Simulator.logString @(Builtin StableContracts) "Contract starting by wallet 1"
 
-    --Remove integer from start end 
+    --TODO Remove integer from start end 
     let i = 1 :: Integer
     _ <- Simulator.callEndpointOnInstance w1cid "start" i
 
@@ -101,7 +103,7 @@ waitForLast cid =
         Success (Monoid.Last (Just x)) -> Just x
         _                       -> Nothing
 
-data StableContracts = StableContract StableCoin.BankParam | OracleContract
+data StableContracts = StableContract BankParam | OracleContract
     deriving (Eq, Ord, Show, Generic)
 
 instance ToJSON StableContracts where
@@ -132,11 +134,11 @@ handleTokenContract ::
     ~> Eff effs
 handleTokenContract = Builtin.handleBuiltin getSchema getContract where
     getSchema = \case
-      OracleContract         -> Builtin.endpointsToSchemas @(OracleCore.OracleSchema        .\\ BlockchainActions)
-      StableContract _ -> Builtin.endpointsToSchemas @(StableCoin.BankStateSchema .\\ BlockchainActions)
+      OracleContract         -> Builtin.endpointsToSchemas @(OracleSchema    .\\ BlockchainActions)
+      StableContract _       -> Builtin.endpointsToSchemas @(BankStateSchema .\\ BlockchainActions)
     getContract = \case
-      OracleContract         -> SomeBuiltin $ OracleCore.runOracle
-      StableContract bankParam-> SomeBuiltin $ StableCoin.endpoints bankParam
+      OracleContract         -> SomeBuiltin $ runOracle
+      StableContract bankParam-> SomeBuiltin $ coinsContract bankParam
 
 handlers :: SimulatorEffectHandlers (Builtin StableContracts)
 handlers =
