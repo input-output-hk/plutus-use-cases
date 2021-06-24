@@ -21,7 +21,8 @@ import           Control.Monad.Freer                 (Eff, Member, interpret, ty
 import           Control.Monad.Freer.Error           (Error)
 import           Control.Monad.Freer.Extras.Log      (LogMsg)
 import           Control.Monad.IO.Class              (MonadIO (..))
-import           Data.Aeson                          (FromJSON, Result (..), fromJSON)
+import Data.Aeson
+    ( FromJSON, Result(..), fromJSON, FromJSON, ToJSON )
 import           Data.Monoid                         (Last (..))
 import           Data.Text                           (Text, pack)
 import           Ledger hiding(fee)
@@ -31,51 +32,73 @@ import           Plutus.Contract                     hiding (when)
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\), endpointsToSchemas, handleBuiltin)
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
-import           Plutus.PAB.Simulator                (SimulatorEffectHandlers)
+import           Plutus.PAB.Simulator                (SimulatorEffectHandlers, callEndpointOnInstance)
 import qualified Plutus.PAB.Simulator                as Simulator
 import           Plutus.PAB.Types                    (PABError (..))
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
 import           Wallet.Types                        (ContractInstanceId (..))
-import Data.Aeson (FromJSON, ToJSON)
 import           Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 
-
-
-import  Plutus.Contract.Blockchain.MarketPlace 
+import  Plutus.Contract.Wallet.MarketEndpoints
+import  Plutus.Contract.Wallet.MarketPlace
+import Plutus.Contract.Wallet.Nft
+import Plutus.Contract.Wallet.Utils (UtilSchema,utilEndpoints)
+import qualified Plutus.Contract.Wallet as MWallet
+import qualified Data.Aeson.Types as AesonTypes
+import Data.ByteString (ByteString)
 
 instance Pretty Market where
     pretty = viaShow
 
+type MarketPlatformSchema=
+   NftSchema
+  .\/ UtilSchema
+  .\/ MarketSchema
+
+endpoints :: Contract [AesonTypes.Value] MarketPlatformSchema Text ()
+endpoints=doSelection  >> endpoints
+  where
+    doSelection=
+      marketEndpoints defaultMarket
+      `select` nftEndpoints
+      `select` utilEndpoints
+
 
 main :: IO ()
 main = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin Market) "MarketPlace PAB Init  .......\n Press enter to exit."
+    Simulator.logString @(Builtin Market) "Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
 
 
-    forM_ wallets $ \w -> do
-            cid <- Simulator.activateContract w  defaultMarket
-            liftIO $ writeFile ('W' : show (getWallet w) ++ ".cid") $ show $ unContractInstanceId cid
-    void $ liftIO getLine
-    shutdown
+    forM_ wallets wInit 
+            -- cid <- Simulator.activateContract w  defaultMarket
+            -- liftIO $ writeFile ('W' : show (getWallet w) ++ ".cid") $ show $ unContractInstanceId cid
+    loop
+  where
+    loop= printOnReturn >>loop
 
-waitForLast :: FromJSON a => ContractInstanceId -> Simulator.Simulation t a
-waitForLast cid =
-    flip Simulator.waitForState cid $ \json -> case fromJSON json of
-        Success (Last (Just x)) -> Just x
-        _                       -> Nothing
+    wInit w = Simulator.activateContract w  defaultMarket
 
+
+    printOnReturn= do
+        void $ liftIO getLine
+        Simulator.logString @(Builtin Market) "Current Balances"
+        b <- Simulator.currentBalances
+        Simulator.logBalances @(Builtin Market) b
+        
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 5]]
 
 defaultMarket :: Market
-defaultMarket = Market 
+defaultMarket = Market
     {
-    operator   = pubKeyHash (walletPubKey (Wallet 10))
-    ,fee        =  1000 
-    } 
+    mOperator   = pubKeyHash (walletPubKey (Wallet 10)),
+    mAuctionFee =5_000_000 ,
+    mPrimarySaleFee =2_000_000,
+    mSecondarySaleFee=4_000_000
+    }
 
 handleMarketContracts ::
     ( Member (Error PABError) effs
@@ -84,8 +107,8 @@ handleMarketContracts ::
     => ContractEffect (Builtin Market)
     ~> Eff effs
 handleMarketContracts = handleBuiltin getSchema getContract where
-    getSchema =  \ _ -> endpointsToSchemas @(MarketSchema .\\ BlockchainActions)
-    getContract   m =  SomeBuiltin   (endpoints m)
+    getSchema =  \ _ -> endpointsToSchemas @MarketPlatformSchema
+    getContract   m =  SomeBuiltin   endpoints
 
 handlers :: SimulatorEffectHandlers (Builtin Market)
 handlers =

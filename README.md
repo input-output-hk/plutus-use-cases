@@ -1,2 +1,1 @@
-NFT Use Case
-===============
+Redirect [dquadrant/nft](./dquadrant/nft/README.md)
