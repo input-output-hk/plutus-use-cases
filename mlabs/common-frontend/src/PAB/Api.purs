@@ -1,4 +1,4 @@
-module PAB.ApiClient
+module PAB.Api
   ( getStatus
   , getWalletInstances
   , postEndpoint

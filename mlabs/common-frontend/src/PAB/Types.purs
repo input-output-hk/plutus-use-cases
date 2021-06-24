@@ -4,12 +4,14 @@ module PAB.Types
   , CombinedWSStreamToClient
   , CombinedWSStreamToServer
   , ContractActivationArgs
+  , ContractCall
   , ContractInstanceClientState
   , ContractInstanceId(..)
   , ContractRequest
   , ContractSignatureResponse
   , CurrencySymbol(..)
   , EndpointDescription(..)
+  , FormArgument
   , FormSchema(..)
   , FunctionSchema
   , InstanceStatusToClient
@@ -127,12 +129,29 @@ data CombinedWSStreamToServer
   = Subscribe (Either ContractInstanceId Wallet)
   | Unsubscribe (Either ContractInstanceId Wallet)
 
--- Types from Playground.Types
-type FunctionSchema a
-  = { endpointDescription :: EndpointDescription
-    , argument :: a
-    -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
+-- Types from Playground.Types (modified)
+
+data ContractCall a
+  = CallEndpoint
+    { caller         :: Wallet
+    , argumentValues :: FunctionSchema a
     }
+    -- ^ Call one of the defined endpoints of your contract.
+
+  | PayToWallet
+    { sender    :: Wallet
+    , recipient :: Wallet
+    , amount    :: Value
+    }
+    -- ^ Make a wallet-to-wallet transfer of the specified value.
+
+data FunctionSchema a =
+    FunctionSchema
+        { endpointDescription :: EndpointDescription
+        , argument            :: a
+        -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
+        }
+
 
 -- types from Plutus.Contract.Resumable
 newtype RequestID
@@ -163,6 +182,41 @@ type ContractRequest v
     , rqRequest :: v
     }
 
+-- Types from Pluts.V1.Ledger.Interval (modified)
+type Interval = { ivFrom :: LowerBound, ivTo :: UpperBound }
+
+data LowerBound = LowerBound Extended Closure
+
+derive instance genericLowerBound :: Generic LowerBound _
+
+instance encodeJsonLowerBound :: EncodeJson LowerBound where
+  encodeJson a = genericEncodeJson a
+
+instance decodeJsonLowerBound :: DecodeJson LowerBound where
+  decodeJson a = genericDecodeJson a
+
+data UpperBound = UpperBound Extended Closure
+
+derive instance genericUpperBound :: Generic UpperBound _
+
+instance encodeJsonUpperBound :: EncodeJson UpperBound where
+  encodeJson a = genericEncodeJson a
+
+instance decodeJsonUpperBound :: DecodeJson UpperBound where
+  decodeJson a = genericDecodeJson a
+
+type Closure = Boolean
+
+data Extended = NegInf | Finite A.Json | PosInf
+
+derive instance genericExtended :: Generic Extended _
+
+instance encodeJsonExtended :: EncodeJson Extended where
+  encodeJson a = genericEncodeJson a
+
+instance decodeJsonExtended :: DecodeJson Extended where
+  decodeJson a = genericDecodeJson a
+
 -- Types from Plutus.V1.Ledger.Slot
 newtype Slot
   = Slot Int
@@ -180,7 +234,7 @@ type Value
 lovelaceValueOf :: Int -> Value
 lovelaceValueOf lovelace = { getValue: [ Tuple { unCurrencySymbol: "" } [ Tuple { unTokenName: "" } lovelace ] ] }
 
--- Types from Schema 
+-- Types from playground-common Schema 
 data FormSchema
   = FormSchemaUnit
   | FormSchemaBool
@@ -207,6 +261,31 @@ instance encodeJsonFormSchema :: EncodeJson FormSchema where
   encodeJson a = genericEncodeJson a
 
 instance decodeJsonFormSchema :: DecodeJson FormSchema where
+  decodeJson a = genericDecodeJson a
+
+-- Modified version of original type
+data FormArgument
+    = FormUnit
+    | FormBool Boolean
+    | FormInt (Maybe Int)
+    | FormInteger (Maybe Int)
+    | FormString (Maybe String)
+    | FormHex (Maybe String)
+    | FormRadio (Array String) (Maybe String)
+    | FormArray FormSchema (Array A.Json)
+    | FormMaybe FormSchema (Maybe A.Json)
+    | FormTuple A.Json A.Json
+    | FormObject (Array (Tuple String A.Json))
+    | FormValue Value
+    | FormPOSIXTimeRange Interval
+    | FormUnsupported String
+
+derive instance genericFormArgument :: Generic FormArgument _
+
+instance encodeJsonFormArgument :: EncodeJson FormArgument where
+  encodeJson a = genericEncodeJson a
+
+instance decodeJsonFormArgument :: DecodeJson FormArgument where
   decodeJson a = genericDecodeJson a
 
 -- Types from Wallet.Emulator.Wallet
