@@ -12,10 +12,9 @@ npm install
 
 2. Generate necessary PureScript code from Haskell source. This step runs an executable(`generate-purs`) from `lending-pool` directory, which requires a certain environment. The setup steps are described in `lending-pool/README`. Provided that you are able to build the backend, you can use the same approach to run purescript generation from `client` folder, i.e.
 
-Enter the nix shell (cd to the cloned Plutus repo):
+1. Enter the nix shell (from `MetaLamp/lending-pool`):
 
 ```
-git checkout 5cdd2c3d708bf4c33514681dee096da6463273b7
 nix-shell
 ```
 
