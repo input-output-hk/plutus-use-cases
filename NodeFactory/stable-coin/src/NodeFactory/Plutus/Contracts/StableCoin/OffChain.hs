@@ -57,6 +57,7 @@ type StableCoinUserSchema =
         Endpoint "create" CreateParams
         -- .\/ Endpoint "close"  CloseParams
         .\/ Endpoint "funds"  ()
+        -- .\/ Endpoint "liquidate"  LiquidateParams
         .\/ Endpoint "stop"   ()
 
 -- | Type of the StableCoin user contract state.
@@ -68,9 +69,10 @@ data UserContractState =
     deriving (Show, Generic, FromJSON, ToJSON)
 
 
-scTokenName, vaultStateTokenName :: TokenName
+scTokenName, vaultStateTokenName, scName :: TokenName
 scTokenName = "StableCoin"
 vaultStateTokenName = "Vault State"
+scName = "USDc"
 
 scInstance :: StableCoin -> Scripts.TypedValidator StableCoining
 scInstance sc = Scripts.mkTypedValidator @StableCoining
@@ -91,7 +93,10 @@ scAddress :: StableCoin -> Ledger.Address
 scAddress = Ledger.scriptAddress . scScript
 
 stablecoin :: CurrencySymbol -> StableCoin
-stablecoin cs = StableCoin $ mkCoin cs scTokenName
+stablecoin cs = StableCoin {sCoin = scoin cs, scStablecoinTokenName = scName}
+    where
+        scoin :: CurrencySymbol -> Coin SC
+        scoin cs = mkCoin cs scTokenName
 
 stableCoinPolicy :: StableCoin -> MonetaryPolicy
 stableCoinPolicy sc = mkMonetaryPolicyScript $
@@ -105,9 +110,9 @@ stableCoinCurrency = scriptCurrencySymbol . stableCoinPolicy
 vaultStateCoin :: StableCoin -> Coin VaultState
 vaultStateCoin = flip mkCoin vaultStateTokenName . stableCoinCurrency
 
-vaultStateCoinFromUniswapCurrency :: CurrencySymbol -- ^ The currency identifying the StableCoin instance.
-                                 -> Coin VaultState
-vaultStateCoinFromUniswapCurrency = vaultStateCoin . stablecoin
+-- vaultStateCoinFromUniswapCurrency :: CurrencySymbol -- ^ The currency identifying the StableCoin instance.
+--                                  -> Coin VaultState
+-- vaultStateCoinFromUniswapCurrency = vaultStateCoin . stablecoin
 
 -- | Parameters for the @create@-endpoint, which creates a new vault.
 data CreateParams = CreateParams
@@ -123,7 +128,7 @@ data CloseParams = CloseParams
 
 start :: forall w s. Contract w s Text StableCoin
 start = do
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- pubKeyHash <$> Plutus.Contract.ownPubKey
     cs  <- fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(scTokenName, 1)]
@@ -159,7 +164,7 @@ create sc CreateParams{..} = do
 
         tx       = Constraints.mustPayToTheScript scDat1 scVal                                     <>
                    Constraints.mustPayToTheScript scDat2 vVal                                     <>
-                   Constraints.mustForgeValue (unitValue vsC <> valueOf lC liquidity)              <>
+                   -- Constraints.mustForgeValue (unitValue vsC <> valueOf lC liquidity)              <> TODO
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create v)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
@@ -168,33 +173,33 @@ create sc CreateParams{..} = do
     logInfo $ "created stable coin vault: " ++ show v
 
 -- | Closes a stable coin vault
--- close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
--- close sc CloseParams{..} = do
---     pkh                                            <- pubKeyHash <$> ownPubKey
---     let scInst   = scInstance sc
---         scScript = scScript sc
---         usDat    = Factory $ filter (/= v) vs
---         usC      = usCoin sc
---         vsC      = vaultStateCoin sc
---         lC       = mkCoin (stableCoinCurrency sc) $ lpTicker v
---         scVal    = unitValue usC
---         psVal    = unitValue vsC
---         lVal     = valueOf lC liquidity
---         redeemer = Redeemer $ PlutusTx.toData Close
+close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
+close sc CloseParams{..} = do
+    pkh                                            <- pubKeyHash <$> ownPubKey
+    let scInst   = scInstance sc
+        scScript = scScript sc
+        usDat    = Factory $ filter (/= v) vs
+        usC      = usCoin sc
+        vsC      = vaultStateCoin sc
+        lC       = mkCoin (stableCoinCurrency sc) $ lpTicker v
+        scVal    = unitValue usC
+        psVal    = unitValue vsC
+        lVal     = valueOf lC liquidity
+        redeemer = Redeemer $ PlutusTx.toData Close
 
---         lookups  = Constraints.typedValidatorLookups scInst        <>
---                    Constraints.otherScript scScript                <>
---                    Constraints.monetaryPolicy (stableCoinPolicy sc) <>
---                    Constraints.ownPubKeyHash pkh                   
+        lookups  = Constraints.typedValidatorLookups scInst        <>
+                   Constraints.otherScript scScript                <>
+                   Constraints.monetaryPolicy (stableCoinPolicy sc) <>
+                   Constraints.ownPubKeyHash pkh                   
 
---         tx       = Constraints.mustPayToTheScript usDat scVal          <>
---                    Constraints.mustForgeValue (negate $ psVal <> lVal) <>
---                    Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Vault v liquidity)
+        tx       = Constraints.mustPayToTheScript usDat scVal          <>
+                   Constraints.mustForgeValue (negate $ psVal <> lVal) <>
+                   Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Vault v liquidity)
 
---     ledgerTx <- submitTxConstraintsWith lookups tx
---     void $ awaitTxConfirmed $ txId ledgerTx
+    ledgerTx <- submitTxConstraintsWith lookups tx
+    void $ awaitTxConfirmed $ txId ledgerTx
 
---     logInfo $ "closed stable coin vault: " ++ show v
+    logInfo $ "closed stable coin vault: " ++ show v
 
 -- | Gets the caller's funds.
 funds :: forall w s. Contract w s Text Value
@@ -237,14 +242,14 @@ ownerEndpoint :: Contract (Last (Either Text StableCoin)) Plutus.Contract.Empty 
 ownerEndpoint = do
     e <- mapError absurd $ runError start
     tell $ Last $ Just e
-    void $ waitNSlots 10
+    -- void $ waitNSlots 10
 
 userEndpoints :: StableCoin -> Contract (Last (Either Text UserContractState)) StableCoinUserSchema Void ()
 userEndpoints sc =
     stop
         `select`
     ((f (Proxy @"create") (const Created) create                 `select`
-      -- f (Proxy @"close")  (const Closed)  close                  `select`
+      f (Proxy @"close")  (const Closed)  close                  `select`
       f (Proxy @"funds")  Funds           (\_us () -> funds))    >> userEndpoints sc)
   where
     f :: forall l a p.

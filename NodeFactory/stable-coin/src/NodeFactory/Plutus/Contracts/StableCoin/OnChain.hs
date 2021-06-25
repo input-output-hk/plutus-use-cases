@@ -66,6 +66,9 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     (unAmount (amountOf forged stableCoin') == amount)                                                  -- 7
     -- 8 TODO - check if appropriate amount of stablecoin in ouptut
   where 
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
     forged :: Value
     forged = txInfoForge $ scriptContextTxInfo ctx
 
@@ -81,6 +84,24 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
 
     stableCoin' :: Coin USDc
     stableCoin' = let AssetClass (cs, _) = unCoin c in mkCoin cs $ scStablecoinTokenName
+
+    -- oracleInput :: TxOut
+    -- oracleInput =
+    --   let
+    --     -- all inputs that sit at addr
+    --     ins = [ o
+    --           | i <- txInfoInputs info
+    --           , let o = txInInfoResolved i
+    --           , txOutAddress o == addr
+    --           ]
+    --   in
+    --     case ins of
+    --         [o] -> o
+    --         _   -> traceError "expected exactly one oracle input"
+
+    -- oracleValue' = case oracleValue oracleInput (`findDatum` info) of
+    --     Nothing -> traceError "oracle value not found"
+    --     Just x  -> x
     
 
 {-# INLINABLE validateCloseVault #-}
@@ -107,10 +128,6 @@ validateCloseVault sc ctx = hasFactoryInput
 -- {-# INLINABLE validateLiquidateVault #-}
 -- validateLiquidateVault :: StableCoin...
 
--- TODO
--- {-# INLINABLE validateCloseFactory #-}
--- validateCloseFactory :: StableCoin...
-
 mkStableCoinValidator :: StableCoin
                     -> Coin VaultState
                     -> StableCoinDatum
@@ -121,8 +138,6 @@ mkStableCoinValidator sc c (Factory vs) (Create v)  ctx = validateCreate sc c vs
 mkStableCoinValidator sc _ (Vault _)    Close       ctx = validateCloseVault sc ctx       -- case: close vault
 mkStableCoinValidator _  _ _            _           _   = False                           -- case: default
 -- TODO case: liquidate vault
--- TODO case: close factory
--- TODO case: 
 
 {-# INLINABLE validateStableCoinForging #-}
 validateStableCoinForging :: StableCoin -> TokenName -> ScriptContext -> Bool

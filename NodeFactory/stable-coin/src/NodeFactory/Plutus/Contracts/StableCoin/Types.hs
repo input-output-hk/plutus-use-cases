@@ -76,12 +76,13 @@ amountOf :: Value -> Coin a -> Amount a
 amountOf v = Amount . assetClassValueOf v . unCoin
 
 {-# INLINABLE mkCoin #-}
-mkCoin:: CurrencySymbol -> TokenName -> Coin a
+mkCoin :: CurrencySymbol -> TokenName -> Coin a
 mkCoin c = Coin . assetClass c
 
 data StableCoin = StableCoin
     { sCoin :: Coin SC
     , scStablecoinTokenName     :: TokenName
+--    , oracle                    :: Oracle
     } deriving stock    (Haskell.Show, Generic)
       deriving anyclass (ToJSON, FromJSON, ToSchema)
 PlutusTx.makeIsDataIndexed ''StableCoin [('StableCoin, 0)]
