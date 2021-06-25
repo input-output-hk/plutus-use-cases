@@ -10,5 +10,8 @@
     "test": "spago test",
     "serve": "parcel dev/index.html --open",
     "build-prod": "mkdir -p prod && cp dev/index.html prod/ && rm -rf dist && spago bundle-app --to prod/index.js && parcel build prod/index.html"
+  },
+  "dependencies": {
+    "big-integer": "^1.6.48"
   }
 }

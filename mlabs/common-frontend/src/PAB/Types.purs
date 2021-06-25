@@ -4,26 +4,31 @@ module PAB.Types
   , CombinedWSStreamToClient
   , CombinedWSStreamToServer
   , ContractActivationArgs
-  , ContractCall
+  , ContractCall(..)
   , ContractInstanceClientState
   , ContractInstanceId(..)
   , ContractRequest
   , ContractSignatureResponse
+  , Closure
   , CurrencySymbol(..)
   , EndpointDescription(..)
-  , FormArgument
+  , Extended(..)
+  , FormArgument(..)
   , FormSchema(..)
   , FunctionSchema
   , InstanceStatusToClient
+  , Interval
   , IterationID(..)
   , LogLevel(..)
   , LogMessage
+  , LowerBound(..)
   , lovelaceValueOf
   , PabConfig
   , PartiallyDecodedResponse
   , RequestID(..)
   , Slot
   , TokenName(..)
+  , UpperBound(..)
   , Value(..)
   , Wallet(..)
   ) where
@@ -39,6 +44,13 @@ import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe)
 import Data.Tuple (Tuple(..))
+
+import Data.Eq (class Eq, class Eq1)
+import Data.Functor (class Functor)
+import Data.Generic.Rep (class Generic)
+import Data.Show.Generic (genericShow)
+import Data.Newtype (class Newtype)
+import Data.Show (class Show)
 
 --------------------------------------------------------------------------------
 -- TODO: Use generated types from plutus-pab PSGenerator if possible
@@ -145,12 +157,11 @@ data ContractCall a
     }
     -- ^ Make a wallet-to-wallet transfer of the specified value.
 
-data FunctionSchema a =
-    FunctionSchema
-        { endpointDescription :: EndpointDescription
-        , argument            :: a
-        -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
-        }
+type FunctionSchema a =
+  { endpointDescription :: EndpointDescription
+  , argument            :: a
+  -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
+  }
 
 
 -- types from Plutus.Contract.Resumable

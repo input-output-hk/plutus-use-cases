@@ -3,9 +3,11 @@
   [ "affjax"
   , "argonaut"
   , "argonaut-generic"
+  , "bigints"
   , "console"
   , "effect"
   , "halogen"
+  , "prelude"
   , "psci-support"
   ]
 , packages = ./packages.dhall

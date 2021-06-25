@@ -178,8 +178,23 @@ offset6 = ClassName "offset-6"
 offset7 :: ClassName
 offset7 = ClassName "offset-7"
 
+offsetMd3 :: ClassName
+offsetMd3 = ClassName "offset-md-3"
+
+offsetMd6 :: ClassName
+offsetMd6 = ClassName "offset-md-6"
+
+offsetMd7 :: ClassName
+offsetMd7 = ClassName "offset-md-7"
+
+h100 :: ClassName
+h100 = ClassName "h-100"
+
 justifyContentBetween :: ClassName
 justifyContentBetween = ClassName "justify-content-between"
+
+justifyContentCenter :: ClassName
+justifyContentCenter = ClassName "justify-content-center"
 
 card :: ClassName
 card = ClassName "card"
@@ -315,6 +330,9 @@ floatRight = ClassName "float-right"
 
 displayFlex :: ClassName
 displayFlex = ClassName "d-flex"
+
+flexColumn :: ClassName
+flexColumn = ClassName "flex-column"
 
 alignItemsCenter :: ClassName
 alignItemsCenter = ClassName "align-items-center"
