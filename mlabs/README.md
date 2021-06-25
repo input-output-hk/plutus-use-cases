@@ -177,17 +177,49 @@ algorithimically. A general description of the interest algorithm is:
   cd mlabs \
   && nix-shell --command "cabal v2-repl lendex-demo"
   ```
-### APIs & Endpoints
-- **API/Endpoint Name1** *TODO: add API & Endpoints + their status*
-  - Description: *Add Description*
-  - Develop/use: *Specify if using or developing the API/Endpoint*
+Are defined in [mlabs/src/Mlabs/Lending/Contract/Api.hs](https://github.com/mlabs-haskell/plutus-use-cases/blob/main/mlabs/src/Mlabs/Lending/Contract/Api.hs#L146)
+- User Actions *TODO: write descriptions*
+  - Borrow
+    - [x] in use
+  - Repay
+    - [x] in use
+  - SwapBorrowRateModel
+    - [x] in use
+  - SetUserReserveAsCollateral
+    - [x] in use
+  - Withdraw
+    - [x] in use
+  - LiquidationCall
+    - [x] in use
+  - InterestRateFlag
+    - [x] in use
+  - toInterestRateFlag
+    - [x] in use
+  - fromInterestRateFlag
+    - [x] in use
 
-- **API/Endpoint Name2**
-  - Description: *Add Description*
-  - Develop/use: *Specify if using or developing the API/Endpoint*
+- Admin actions
+  - AddReserve
+    - [x] in use
+  - StartParams
+    - [x] in use
+    
+- Price oracle actions
+  - SetAssetPrice
+    - [x] in use
+
+- Action conversions
+  - IsUserAct
+    - [x] in use
+  - IsPriceAct
+    - [x] in use
+  - IsGovernAct
+    - [x] in use
+  
+### Tests
+- *TODO: cover some test examples*
 
 ### Notes
-*TODO: Add any relevant notes*
 
 --------------------------------------------------------------------------------
 ## Use Case: NFT
@@ -227,13 +259,15 @@ For more details on NFT's refer to:
 - [NFT Demo](https://github.com/mlabs-haskell/plutus-use-cases/blob/main/mlabs/nft-demo/Main.hs)
 
 ### APIs & Endpoints 
-- **API/Endpoint Name1** *TODO: add API & Endpoints*
-  - Description: *TODO: Add Description*
-  - Develop/use: *TODO: Specify if using or developing the API/Endpoint*
-
-- **API/Endpoint Name2**
-  - Description: *TODO: Add Description*
-  - Develop/use: *TODO: Specify if using or developing the API/Endpoint*
+- User Endpoints *TODO: write descriptions*
+  - Buy
+  - SetPrice
+  
+- Author Endpoints
+  - StartParams
+  
+### Tests
+- *TODO: cover some test examples*
 
 ### Notes
 *TODO: Add any relevant notes*
