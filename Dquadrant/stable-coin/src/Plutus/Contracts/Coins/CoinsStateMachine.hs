@@ -208,16 +208,6 @@ calcMaxReserveRequired BankParam {maxReserveRatio} CoinsMachineState {stableCoin
     let currentScValue = rate * stableCoinAmount
      in Just $ maxReserveRatio * (fromInteger currentScValue)
 
-data ErrorState
-  = NegativeReserveCoins
-  | NegativeReserves
-  | NegativeStablecoins
-  | MinReserves {allowed :: Ratio Integer, actual :: Ratio Integer}
-  | MaxReserves {allowed :: Ratio Integer, actual :: Ratio Integer}
-  | NegativeLiabilities
-  | NegativeEquity
-  deriving (Prelude.Show)
-
 {-# INLINEABLE bankMachine #-}
 bankMachine :: BankParam -> StateMachine CoinsMachineState BankInput
 bankMachine bankParam = SM.StateMachine{

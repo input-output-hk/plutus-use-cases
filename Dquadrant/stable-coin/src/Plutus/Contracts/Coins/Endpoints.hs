@@ -43,6 +43,11 @@ import           Plutus.Contracts.Coins.Types
 import           Plutus.Contracts.Coins.CoinsStateMachine
 import           Plutus.Contracts.Oracle.Core
 
+import qualified Data.Map as Map
+import qualified Data.Aeson.Types as Types
+import Data.Aeson (toJSON)
+import Ledger.Value (flattenValue )
+
 forwardMPS :: StateMachineClient CoinsMachineState BankInput -> MonetaryPolicyHash
 forwardMPS StateMachineClient {scInstance} = Scripts.forwardingMonetaryPolicyHash $ SM.typedValidator scInstance
 
@@ -105,16 +110,18 @@ type BankStateSchema =
     .\/ Endpoint "redeemStableCoin" EndpointInput
     .\/ Endpoint "mintReserveCoin" EndpointInput
     .\/ Endpoint "redeemReserveCoin" EndpointInput
+    .\/ Endpoint "funds" Prelude.String
 
 mkSchemaDefinitions ''BankStateSchema
 
-coinsContract :: BankParam -> Contract () BankStateSchema Text ()
+coinsContract :: BankParam -> Contract [Types.Value ] BankStateSchema Text ()
 coinsContract bankParam =
   ( start'
       `select` mintStableCoin'
       `select` redeemStableCoin'
       `select` mintReserveCoin'
       `select` redeemReserveCoin'
+      `select` ownFunds'
   )
     >> coinsContract bankParam
   where
@@ -124,3 +131,13 @@ coinsContract bankParam =
     redeemStableCoin' = endpoint @"redeemStableCoin" >>= redeemStableCoin bankParam
     mintReserveCoin' = endpoint @"mintReserveCoin" >>= mintReserveCoin bankParam
     redeemReserveCoin' = endpoint @"redeemReserveCoin" >>= redeemReserveCoin bankParam
+    ownFunds' = endpoint @"funds" >> ownFunds bankParam
+
+
+ownFunds:: HasBlockchainActions s => BankParam -> Contract [Types.Value ] s Text  ()
+ownFunds _ = do
+    pk    <- ownPubKey
+    utxos <- utxoAt $ pubKeyAddress pk
+    let v = mconcat $ Map.elems $ txOutValue . txOutTxOut Prelude.<$> utxos
+    logInfo @Prelude.String $ "own funds: " ++ show (flattenValue v)
+    tell [ toJSON v]

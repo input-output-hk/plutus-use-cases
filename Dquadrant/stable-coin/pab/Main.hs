@@ -53,6 +53,11 @@ import Plutus.Contracts.Coins.Endpoints
 
 import Plutus.Contracts.Oracle.Core
 
+import Plutus.Contracts.Utils.Funds
+
+import qualified Data.Aeson.Types as AesonTypes
+
+
 main :: IO ()
 main =  
     void $ Simulator.runSimulationWith handlers $ do 

@@ -13,7 +13,7 @@ module Spec.StableCoinTest
 where
 
 import            Control.Monad                       (void)
-import            Control.Monad.Freer.Extras          as Extras
+-- import            Control.Monad.Freer.Extras          as Extras
 import qualified  Data.Map                            as Map
 import            Data.Text
 import            Ledger                              (pubKeyHash)
@@ -39,6 +39,7 @@ import Plutus.Contracts.Coins.CoinsStateMachine as CoinsMachine
 import Plutus.Contracts.Coins.Types
 import Plutus.Contracts.Coins.Endpoints
 import Plutus.Contracts.Oracle.Core
+import qualified Data.Aeson.Types as Types
 
 
 oracleW1, w2 ,w3:: Wallet
@@ -182,9 +183,8 @@ tests =
 
 --     void $ activateContractWallet (Wallet 1) ownFunds'
 
-initialise :: Trace.EmulatorTrace (Trace.ContractHandle () BankStateSchema Text)
+initialise :: Trace.EmulatorTrace (Trace.ContractHandle [Types.Value ] BankStateSchema Text)
 initialise = do
-  Extras.logInfo @Prelude.String "Called initialise"
   oracleHdl <- Trace.activateContractWallet oracleW1 $ runMockOracle oracle
   void $ Trace.waitNSlots 10
 
@@ -196,7 +196,6 @@ initialise = do
   let i = 5 :: Integer
   Trace.callEndpoint @"start" hdl i
   _ <- Trace.waitNSlots 2
-  Extras.logInfo @Prelude.String "Called initialise"
   return hdl
 
 mintStableCoins :: Integer -> Trace.EmulatorTrace ()
