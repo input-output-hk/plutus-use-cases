@@ -8,5 +8,5 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "token sale"
+tests = testGroup "stable coin"
     [ Spec.Trace.tests ]

@@ -38,7 +38,7 @@ import NodeFactory.Plutus.Contracts.Vault
 tests :: TestTree
 tests = checkPredicateOptions
     (defaultCheckOptions & emulatorConfig .~ emCfg)
-    "token sale trace"
+    "stable coin trace"
     (     walletFundsChange (Wallet 1) (Ada.lovelaceValueOf   10_000_000  <> assetClassValue token (-60))
      .&&. walletFundsChange (Wallet 2) (Ada.lovelaceValueOf (-20_000_000) <> assetClassValue token   20)
      .&&. walletFundsChange (Wallet 3) (Ada.lovelaceValueOf (- 5_000_000) <> assetClassValue token    5)
@@ -65,6 +65,13 @@ token = AssetClass (currency, name)
 
 myTrace :: EmulatorTrace ()
 myTrace = do
-    h <- activateContractWallet (Wallet 1) startEndpoint
+    h <- activateContractWallet (Wallet 1)
     callEndpoint @"start" h ()
     void $ Emulator.waitNSlots 5
+
+    h2 <- activateContractWallet (Wallet 2)
+    callEndpoint @"create" h2
+    void $ Emulator.waitNSlots 3
+
+    callEndpoint @"close" h2
+    void $ Emulator.waitNSlots 3
