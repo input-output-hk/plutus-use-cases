@@ -30,7 +30,7 @@ import           Ledger.Constraints   as Constraints
 import qualified Ledger.Typed.Scripts as Scripts
 import           Ledger.Ada           as Ada hiding (divide)
 import           Ledger.Value         as Value
-import           Prelude              (Semigroup (..), (<$>))
+import           Prelude              (Semigroup (..), String, show, (<$>))
 
 import           NodeFactory.Plutus.Contracts.Oracle.Core
 import           NodeFactory.Plutus.Contracts.Oracle.Funds

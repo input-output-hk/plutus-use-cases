@@ -41,7 +41,7 @@ import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
 import           Plutus.Contracts.Currency as Currency
-import           Prelude                   (Semigroup (..))
+import           Prelude                   (Semigroup (..), String, show)
 import qualified Prelude                   as Prelude
 
 -- contract param structure
@@ -50,12 +50,12 @@ data Oracle = Oracle
     , oOperator :: !PubKeyHash      -- owner of the oracle
     , oFee      :: !Integer         -- fees in lovelace
     , oAsset    :: !AssetClass      -- target of the oracle (US dollar)
-    } deriving (Show, Generic, FromJSON, ToJSON, Prelude.Eq, Prelude.Ord)
+    } deriving (Prelude.Show, Generic, FromJSON, ToJSON, Prelude.Eq, Prelude.Ord)
 
 PlutusTx.makeLift ''Oracle
 
 data OracleRedeemer = Update | Use  -- two availabe operations
-    deriving Show
+    deriving Prelude.Show
 
 PlutusTx.unstableMakeIsData ''OracleRedeemer
 
@@ -121,12 +121,12 @@ mkOracleValidator oracle x r ctx =
         outVal `geq` (inVal <> Ada.lovelaceValueOf (oFee oracle))
 
 data Oracling
-instance Scripts.ScriptType Oracling where
+instance Scripts.ValidatorTypes Oracling where
     type instance DatumType Oracling = Integer
     type instance RedeemerType Oracling = OracleRedeemer
 
-oracleInst :: Oracle -> Scripts.ScriptInstance Oracling
-oracleInst oracle = Scripts.validator @Oracling
+oracleInst :: Oracle -> Scripts.TypedValidator Oracling
+oracleInst oracle = Scripts.mkTypedValidator @Oracling
     ($$(PlutusTx.compile [|| mkOracleValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode oracle)
     $$(PlutusTx.compile [|| wrap ||])
   where
@@ -142,7 +142,7 @@ data OracleParams = OracleParams    -- parans fir starting oracle
     { opFees   :: !Integer
     , opSymbol :: !CurrencySymbol
     , opToken  :: !TokenName
-    } deriving (Show, Generic, FromJSON, ToJSON)
+    } deriving (Prelude.Show, Generic, FromJSON, ToJSON)
 
 startOracle :: forall w s. HasBlockchainActions s => OracleParams -> Contract w s Text Oracle
 startOracle op = do
@@ -171,7 +171,7 @@ updateOracle oracle x = do
             logInfo @String $ "set initial oracle value to " ++ show x
         Just (oref, o,  _) -> do -- update existing oracle nft value
             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     <>
-                          Constraints.scriptInstanceLookups (oracleInst oracle) <>
+                          -- Constraints.scriptInstanceLookups (oracleInst oracle) <>  TODO FIX THIS
                           Constraints.otherScript (oracleValidator oracle)
                 tx      = c <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData Update)
             -- fees auto send because of inbalance

@@ -1,25 +1,30 @@
 cabal-version:      2.4
 name:               plutus-stable-coin
 version:            0.1.0.0
-
--- A short (one-line) description of the package.
--- synopsis:
-
--- A longer description of the package.
--- description:
-
--- A URL where users can report bugs.
--- bug-reports:
-
 license: Apache-2.0
 license-files: LICENSE
 author:             NodeFactory
 maintainer:         mak@nodefactory.io
 
--- A copyright notice.
--- copyright:
--- category:
--- extra-source-files: CHANGELOG.md
+flag defer-plugin-errors
+    description:
+        Defer errors from the plugin, useful for things like Haddock that can't handle it.
+    default: False
+    manual: True
+
+common lang
+    default-language: Haskell2010
+    default-extensions: ExplicitForAll ScopedTypeVariables
+                        DeriveGeneric StandaloneDeriving DeriveLift
+                        GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
+                        DeriveTraversable
+    ghc-options: -Wall -Wnoncanonical-monad-instances
+                 -Wincomplete-uni-patterns -Wincomplete-record-updates
+                 -Wredundant-constraints -Widentities
+                 -- See Plutus Tx readme
+                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    if flag(defer-plugin-errors)
+        ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 library
   hs-source-dirs:     src
@@ -27,9 +32,10 @@ library
     NodeFactory.Plutus.Contracts.Oracle.Core
     NodeFactory.Plutus.Contracts.Oracle.Funds
     NodeFactory.Plutus.Contracts.Oracle.PAB
-    NodeFactory.Plutus.Contracts.Oracle.Swap
-    NodeFactory.Plutus.Contracts.StableCoin
-    NodeFactory.Plutus.Contracts.Coin
+    -- NodeFactory.Plutus.Contracts.Oracle.Swap
+    NodeFactory.Plutus.Contracts.StableCoin.Types
+    NodeFactory.Plutus.Contracts.StableCoin.OnChain
+    NodeFactory.Plutus.Contracts.StableCoin.OffChain
   build-depends:      aeson
                     , base ^>=4.14.1.0
                     , containers
@@ -45,7 +51,15 @@ library
                     , prettyprinter
                     , text
   default-language:   Haskell2010
-  ghc-options:        -Wall -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr -fno-specialise
+  default-extensions: ExplicitForAll ScopedTypeVariables
+                        DeriveGeneric StandaloneDeriving DeriveLift
+                        GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
+                        DeriveTraversable
+  ghc-options:        -Wall -fobject-code -fno-ignore-interface-pragmas 
+                      -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr 
+                      -fno-specialise -Wnoncanonical-monad-instances
+                      -Wincomplete-uni-patterns -Wincomplete-record-updates
+                      -Wredundant-constraints -Widentities
 
 executable oracle-pab
   main-is: oracle-pab.hs
