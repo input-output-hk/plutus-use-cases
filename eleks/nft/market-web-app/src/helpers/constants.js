@@ -1,12 +1,12 @@
 export const WALLETS = [
   {
     name: 'Wallet1',
-    id: 'a0d1ecc5-5ac9-4270-b629-6049adc95bf5',
+    id: '18d72de0-16e2-4239-9113-490b7bd31b87',
     number: 1,
   },
   {
     name: 'Wallet2',
-    id: 'a824e372-45bf-4724-b777-8bf307e30961',
+    id: '2346c2cf-ebdd-41a3-99f3-654973ecfc8d',
     number: 2,
   },
   {

@@ -18,8 +18,14 @@ const mapError = (error) => {
   const errorKey = parsedError[1];
 
   if (parsedError[0] === 'WalletError') {
-    return { error: errorMap[errorKey] || 'Ooops, some error accured...'};
-  } else {
+    if(parsedError[1] === 'ValidationError') {
+      var matched = error.match("(?<=\\[\").+?(?=\"\\])");
+      return { error: matched[0] || parsedError};
+    }
+    else 
+      return { error: errorMap[errorKey] || parsedError};
+  } 
+  else {
     return { error };
   }
 };

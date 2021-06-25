@@ -11,7 +11,7 @@ export const formatSellData = (data) => ({
 });
 
 const dataMap = (token) => ({
-  id: token.nftDtoTokenSymbol,
+  id: token.nftDtoTokenName,
   name: token.nftDtoTokenName,
   author: token.nftDtoMetaAuthor,
   seller: token.nftDtoSeller,
