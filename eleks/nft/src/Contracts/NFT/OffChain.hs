@@ -237,15 +237,15 @@ sell market SellParams{..} = do
         nftMetadata' = nftMetadata { nftSeller = Just pkh, nftSellPrice = spSellPrice }
         nftMetadataDatum = NFTMeta nftMetadata'
         mrScript = marketScript market
-        redeemer     = Redeemer $ PlutusTx.toData Sell
-        values       = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1 <> 
-                       Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
-        lookups  = Constraints.typedValidatorLookups marketInst        <>
-                   Constraints.otherScript mrScript                    <>
-                   Constraints.unspentOutputs (Map.singleton oref o)
+        redeemer = Redeemer $ PlutusTx.toData Sell
+        values  = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
+                  <> Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
+        lookups = Constraints.typedValidatorLookups marketInst
+                   <> Constraints.otherScript mrScript
+                   <> Constraints.unspentOutputs (Map.singleton oref o)
 
-        tx       = Constraints.mustPayToTheScript nftMetadataDatum values <>
-                   Constraints.mustSpendScriptOutput oref redeemer
+        tx      =  Constraints.mustPayToTheScript nftMetadataDatum values
+                   <> Constraints.mustSpendScriptOutput oref redeemer
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
     logInfo $ "selling datum: " ++ show nftMetadataDatum
@@ -274,13 +274,13 @@ cancelSell market CancelSellParams{..} = do
         nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
         nftMetadataValue = getNftValue (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata)
  
-        lookups  = Constraints.typedValidatorLookups marketInst        <>
-                   Constraints.otherScript mrScript                    <>
-                   Constraints.unspentOutputs (Map.singleton oref o)
+        lookups = Constraints.typedValidatorLookups marketInst
+                  <> Constraints.otherScript mrScript
+                  <> Constraints.unspentOutputs (Map.singleton oref o)
 
-        tx       = Constraints.mustPayToTheScript nftMetadataDatum nftMetadataValue <>
-                   Constraints.mustSpendScriptOutput oref redeemer                  <>
-                   Constraints.mustPayToPubKey pkh nftValue
+        tx      = Constraints.mustPayToTheScript nftMetadataDatum nftMetadataValue
+                  <> Constraints.mustSpendScriptOutput oref redeemer
+                  <> Constraints.mustPayToPubKey pkh nftValue
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
     let nftMetaDto = nftMetadataToDto nftMetadata'
@@ -309,14 +309,14 @@ buy market BuyParams{..} = do
         nftMetadataValue = getNftValue (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata)
         nftSellPriceValue = Ada.lovelaceValueOf $ nftSellPrice nftMetadata
  
-        lookups  = Constraints.typedValidatorLookups marketInst        <>
-                   Constraints.otherScript mrScript                    <>
-                   Constraints.unspentOutputs (Map.singleton oref o)
+        lookups = Constraints.typedValidatorLookups marketInst
+                  <> Constraints.otherScript mrScript
+                  <> Constraints.unspentOutputs (Map.singleton oref o)
 
-        tx       = Constraints.mustPayToTheScript nftMetadataDatum nftMetadataValue <>
-                   Constraints.mustSpendScriptOutput oref redeemer                  <>
-                   Constraints.mustPayToPubKey pkh nftValue                         <>
-                   Constraints.mustPayToPubKey nftSeller' nftSellPriceValue
+        tx      = Constraints.mustPayToTheScript nftMetadataDatum nftMetadataValue
+                  <> Constraints.mustSpendScriptOutput oref redeemer
+                  <> Constraints.mustPayToPubKey pkh nftValue
+                  <> Constraints.mustPayToPubKey nftSeller' nftSellPriceValue
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
     let nftMetaDto = nftMetadataToDto nftMetadata'
