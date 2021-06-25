@@ -78,9 +78,14 @@ validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
     traceIfFalse "meta token name should be 'tokenName' + Metadata" 
         (unTokenName nftMetaTokenName == PlutusTx.Prelude.concatenate (unTokenName nftTokenName) marketTokenMetaNameSuffix) &&
     traceIfFalse "marketplace not present" (isMarketToken (valueWithin $ findOwnInput' ctx) marketId) &&
-    traceIfFalse "nft token is arleady exists" (all (/= nftMeta) nftMetas) &&                                                                                 
+    traceIfFalse "nft token is arleady exists" (all (/= nftMeta) nftMetas) && 
+    traceIfFalse "should forge NFT token" (isNftToken forged nftTokenSymbol nftTokenName) &&   
+    traceIfFalse "should forge NFT metadata token" (isNftToken forged nftMetaTokenSymbol nftMetaTokenName) &&                                                                                
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ nftMeta : nftMetas) $ assetClassValue marketId 1) &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (NFTMeta nftMeta) $ getNftValue nftMetaTokenSymbol nftMetaTokenName)
+    where 
+        forged :: Value
+        forged = txInfoForge $ scriptContextTxInfo ctx
 
 {-# INLINABLE validateSell #-}
 validateSell :: 
