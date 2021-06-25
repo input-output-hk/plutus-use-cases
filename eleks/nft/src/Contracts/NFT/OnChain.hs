@@ -40,7 +40,7 @@ import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Value                     (AssetClass (..), assetClass, assetClassValue, assetClassValueOf, valueOf,
-                                                    symbols, unCurrencySymbol, unTokenName, CurrencySymbol (..))
+                                                    symbols, unCurrencySymbol, unTokenName, CurrencySymbol(..))
 import qualified Ledger.Value                     as Value
 import qualified Ledger.Contexts                  as Validation
 import           Playground.Contract
@@ -74,8 +74,9 @@ validateCreate ::
     -> Bool
 validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
     traceIfFalse "market token symbol should be token symbol" (marketTokenSymbol == nftTokenSymbol) &&
-    -- traceIfFalse "market meta token symbol should be meta token symbol" (marketTokenMetaSymbol == nftMetaTokenSymbol)
-    -- traceIfFalse "meta token name should be 'tokenName' + Metadata"  (nftMetaTokenName == TokenName $ Value.toString nftTokenName ++ "Metadata")
+    traceIfFalse "market meta token symbol should be meta token symbol" (marketTokenMetaSymbol == nftMetaTokenSymbol) &&
+    traceIfFalse "meta token name should be 'tokenName' + Metadata" 
+        (unTokenName nftMetaTokenName == PlutusTx.Prelude.concatenate (unTokenName nftTokenName) marketTokenMetaNameSuffix) &&
     traceIfFalse "marketplace not present" (isMarketToken (valueWithin $ findOwnInput' ctx) marketId) &&
     traceIfFalse "nft token is arleady exists" (all (/= nftMeta) nftMetas) &&                                                                                 
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ nftMeta : nftMetas) $ assetClassValue marketId 1) &&

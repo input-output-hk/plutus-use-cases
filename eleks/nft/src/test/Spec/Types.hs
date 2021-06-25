@@ -21,6 +21,7 @@ nftMarketMock = NFTMarket
     { marketId = mockMarketId
     , marketTokenSymbol = nftCurrencySymbol mockNftCurrency
     , marketTokenMetaSymbol = nftCurrencySymbol mockNftCurrency
+    , marketTokenMetaNameSuffix = B.pack metadataTokenNamePrefix
     } 
 
 data TestTokenMeta = TestTokenMeta

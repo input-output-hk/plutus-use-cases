@@ -34,6 +34,7 @@ module Contracts.NFT.OffChain
     , marketplaceTokenName
     , marketAddress
     , nftMetadataToDto
+    , metadataTokenNamePrefix
     ) where
 
 import           Contracts.NFT.Types
@@ -76,6 +77,7 @@ import           Wallet.Emulator                  (walletPubKey)
 marketplaceTokenName :: TokenName
 marketplaceTokenName = "NFTMarketplace"
 metadataTokenName = "NFTMetadata"
+metadataTokenNamePrefix = "Metadata"
 
 marketScript :: NFTMarket -> Validator
 marketScript = Scripts.validatorScript . marketInstance
@@ -109,7 +111,7 @@ data BuyParams = BuyParams
 
 -- | Parameters for the @transfer@-endpoint, which creates a new NFT.
 data TransferParams = TransferParams
-    { tpTokenName     :: String   -- ^ Token name to buy
+    { tpTokenName     :: String   -- ^ Token name to transfer
     , tpReceiverWallet  :: Integer  -- ^ Wallet id to receive payment
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
@@ -177,7 +179,7 @@ create market CreateParams{..} = do
         nftTokenSymbol = nftCurrencySymbol nftTokenCur
         nftTokenForgedValue = nftForgedValue nftTokenCur tokenName
     
-    let metadataTokenName = TokenName $ B.pack $ read (show tokenName) ++ "Metadata"
+    let metadataTokenName = TokenName $ B.pack $ read (show tokenName) ++ metadataTokenNamePrefix
     let nftTokenMetaCur = mkNFTCurrency $ marketId market
         nftTokenMetaPolicy = nftMonetrayPolicy nftTokenMetaCur
         nftTokenMetaSymbol = nftCurrencySymbol nftTokenMetaCur
@@ -344,6 +346,7 @@ marketplace cs tokenCur metaTokenCur =
     marketId = assetClass cs marketplaceTokenName
     , marketTokenSymbol = nftCurrencySymbol tokenCur
     , marketTokenMetaSymbol = nftCurrencySymbol metaTokenCur
+    , marketTokenMetaNameSuffix = B.pack metadataTokenNamePrefix 
     }
 
 getNFTMarketDatum :: TxOutTx -> Contract w s Text NFTMarketDatum
