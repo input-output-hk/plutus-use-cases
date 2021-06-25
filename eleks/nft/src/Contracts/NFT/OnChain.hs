@@ -40,7 +40,7 @@ import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Value                     (AssetClass (..), assetClass, assetClassValue, assetClassValueOf, valueOf,
-                                                    symbols, unCurrencySymbol, unTokenName, CurrencySymbol(..))
+                                                    symbols, unCurrencySymbol, unTokenName, CurrencySymbol(..), flattenValue)
 import qualified Ledger.Value                     as Value
 import qualified Ledger.Contexts                  as Validation
 import           Playground.Contract
@@ -80,12 +80,16 @@ validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
     traceIfFalse "marketplace not present" (isMarketToken (valueWithin $ findOwnInput' ctx) marketId) &&
     traceIfFalse "nft token is arleady exists" (all (/= nftMeta) nftMetas) && 
     traceIfFalse "should forge NFT token" (isNftToken forged nftTokenSymbol nftTokenName) &&   
-    traceIfFalse "should forge NFT metadata token" (isNftToken forged nftMetaTokenSymbol nftMetaTokenName) &&                                                                                
+    traceIfFalse "should forge NFT metadata token" (isNftToken forged nftMetaTokenSymbol nftMetaTokenName) &&     
+    traceIfFalse "should only nft and metadata token" (forgedTokensCount == 2) &&                                                                        
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ nftMeta : nftMetas) $ assetClassValue marketId 1) &&
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (NFTMeta nftMeta) $ getNftValue nftMetaTokenSymbol nftMetaTokenName)
     where 
         forged :: Value
         forged = txInfoForge $ scriptContextTxInfo ctx
+
+        forgedTokensCount :: Integer
+        forgedTokensCount = length $ flattenValue forged
 
 {-# INLINABLE validateSell #-}
 validateSell :: 
