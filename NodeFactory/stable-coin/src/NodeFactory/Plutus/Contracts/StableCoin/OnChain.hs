@@ -124,9 +124,27 @@ validateCloseVault sc ctx = hasFactoryInput
         traceIfFalse "Stable coin factory input expected" $ 
         isUnity (valueSpent info) (sCoin sc)
 
--- TODO
--- {-# INLINABLE validateLiquidateVault #-}
--- validateLiquidateVault :: StableCoin...
+
+{-# INLINABLE validateLiquidateVault #-}
+validateLiquidateVault :: StableCoin
+            -> Coin VaultState
+            -> [StableCoinVault]
+            -> StableCoinVault
+            -> ScriptContext
+            -> Bool
+validateLiquidateVault StableCoin{..} c vs v@StableCoinVault{..} ctx =
+    traceIfFalse "StableCoin coin not present" (isUnity (valueWithin $ findOwnInput' ctx) sCoin)        && -- 1
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ v : vs) $ unitValue sCoin)
+  where 
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    forged :: Value
+    forged = txInfoForge $ scriptContextTxInfo ctx
+
+    adaValueIn :: Value -> Integer
+    adaValueIn v = Ada.getLovelace (Ada.fromValue v)
+
 
 mkStableCoinValidator :: StableCoin
                     -> Coin VaultState
@@ -136,8 +154,8 @@ mkStableCoinValidator :: StableCoin
                     -> Bool
 mkStableCoinValidator sc c (Factory vs) (Create v)  ctx = validateCreate sc c vs v ctx    -- case: create vault
 mkStableCoinValidator sc _ (Vault _)    Close       ctx = validateCloseVault sc ctx       -- case: close vault
+mkStableCoinValidator sc _ (Vault _)    Liquidate   ctx = validateCloseVault sc ctx       -- case: liquidate vault
 mkStableCoinValidator _  _ _            _           _   = False                           -- case: default
--- TODO case: liquidate vault
 
 {-# INLINABLE validateStableCoinForging #-}
 validateStableCoinForging :: StableCoin -> TokenName -> ScriptContext -> Bool

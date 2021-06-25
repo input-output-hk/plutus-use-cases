@@ -38,10 +38,10 @@ data VaultState = VaultState
 PlutusTx.makeIsDataIndexed ''VaultState [('VaultState, 0)]
 PlutusTx.makeLift ''VaultState
 
--- | USDc coin token
-data USDc = USDc
-PlutusTx.makeIsDataIndexed ''USDc [('USDc, 0)]
-PlutusTx.makeLift ''USDc
+-- | sUSD coin token
+data sUSD = sUSD
+PlutusTx.makeIsDataIndexed ''sUSD [('sUSD, 0)]
+PlutusTx.makeLift ''sUSD
 
 -- | A single 'AssetClass'.
 newtype Coin a = Coin { unCoin :: AssetClass }

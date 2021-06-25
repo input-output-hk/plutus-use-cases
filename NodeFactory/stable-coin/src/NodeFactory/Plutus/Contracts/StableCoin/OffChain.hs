@@ -57,7 +57,7 @@ type StableCoinUserSchema =
         Endpoint "create" CreateParams
         -- .\/ Endpoint "close"  CloseParams
         .\/ Endpoint "funds"  ()
-        -- .\/ Endpoint "liquidate"  LiquidateParams
+        .\/ Endpoint "liquidate"  LiquidateParams
         .\/ Endpoint "stop"   ()
 
 -- | Type of the StableCoin user contract state.
@@ -65,6 +65,7 @@ data UserContractState =
       Funds Value
     | Created
     -- | Closed
+    | Liquidated
     | Stopped
     deriving (Show, Generic, FromJSON, ToJSON)
 
@@ -72,7 +73,7 @@ data UserContractState =
 scTokenName, vaultStateTokenName, scName :: TokenName
 scTokenName = "StableCoin"
 vaultStateTokenName = "Vault State"
-scName = "USDc"
+scName = "sUSD"
 
 scInstance :: StableCoin -> Scripts.TypedValidator StableCoining
 scInstance sc = Scripts.mkTypedValidator @StableCoining
@@ -126,6 +127,12 @@ data CloseParams = CloseParams
     , clAmount :: Integer
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
+-- | Parameters for the @close@-endpoint, which closes a vault.
+data LiquidateParams = LiquidateParams
+    { lVaultPK :: PubKeyHash
+    , lAmount :: Integer
+    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
 start :: forall w s. Contract w s Text StableCoin
 start = do
     pkh <- pubKeyHash <$> Plutus.Contract.ownPubKey
@@ -173,8 +180,37 @@ create sc CreateParams{..} = do
     logInfo $ "created stable coin vault: " ++ show v
 
 -- | Closes a stable coin vault
-close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
-close sc CloseParams{..} = do
+-- close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
+-- close sc CloseParams{..} = do
+--     pkh                                            <- pubKeyHash <$> ownPubKey
+--     let scInst   = scInstance sc
+--         scScript = scScript sc
+--         usDat    = Factory $ filter (/= v) vs
+--         usC      = usCoin sc
+--         vsC      = vaultStateCoin sc
+--         lC       = mkCoin (stableCoinCurrency sc) $ lpTicker v
+--         scVal    = unitValue usC
+--         psVal    = unitValue vsC
+--         lVal     = valueOf lC liquidity
+--         redeemer = Redeemer $ PlutusTx.toData Close
+
+--         lookups  = Constraints.typedValidatorLookups scInst        <>
+--                    Constraints.otherScript scScript                <>
+--                    Constraints.monetaryPolicy (stableCoinPolicy sc) <>
+--                    Constraints.ownPubKeyHash pkh                   
+
+--         tx       = Constraints.mustPayToTheScript usDat scVal          <>
+--                    Constraints.mustForgeValue (negate $ psVal <> lVal) <>
+--                    Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Vault v liquidity)
+
+--     ledgerTx <- submitTxConstraintsWith lookups tx
+--     void $ awaitTxConfirmed $ txId ledgerTx
+
+--     logInfo $ "closed stable coin vault: " ++ show v
+
+-- | Liquidate a stable coin vault
+liquidate :: forall w s. StableCoin -> LiquidateParams -> Contract w s Text ()
+liquidate sc LiquidateParams{..} = do
     pkh                                            <- pubKeyHash <$> ownPubKey
     let scInst   = scInstance sc
         scScript = scScript sc
@@ -199,7 +235,7 @@ close sc CloseParams{..} = do
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "closed stable coin vault: " ++ show v
+    logInfo $ "liquidate stable coin vault: " ++ show v
 
 -- | Gets the caller's funds.
 funds :: forall w s. Contract w s Text Value
@@ -249,7 +285,8 @@ userEndpoints sc =
     stop
         `select`
     ((f (Proxy @"create") (const Created) create                 `select`
-      f (Proxy @"close")  (const Closed)  close                  `select`
+      -- f (Proxy @"close")  (const Closed)  close                  `select`
+      f (Proxy @"liquidate")  (const Liquidated)  liquidate       `select`
       f (Proxy @"funds")  Funds           (\_us () -> funds))    >> userEndpoints sc)
   where
     f :: forall l a p.
