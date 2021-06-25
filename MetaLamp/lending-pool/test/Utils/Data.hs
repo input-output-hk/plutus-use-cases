@@ -1,10 +1,10 @@
 module Utils.Data where
 
-import           Data.Function     ((&))
-import qualified PlutusTx.AssocMap as AssocMap
-import qualified PlutusTx.Prelude  as PlutusTx
+import           Data.Function              ((&))
 import           Data.Monoid                (Last (..))
 import           Plutus.Contracts.Endpoints (ContractResponse (..))
+import qualified PlutusTx.AssocMap          as AssocMap
+import qualified PlutusTx.Prelude           as PlutusTx
 
 allSatisfy :: [a -> Bool] -> a -> Bool
 allSatisfy fs a = and . fmap (a &) $ fs

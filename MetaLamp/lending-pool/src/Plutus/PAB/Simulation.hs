@@ -42,6 +42,7 @@ import           Plutus.Contracts.Currency           as Currency
 import           Plutus.Contracts.Endpoints          (ContractResponse (..))
 import qualified Plutus.Contracts.Endpoints          as Aave
 import qualified Plutus.Contracts.FungibleToken      as FungibleToken
+import qualified Plutus.Contracts.Oracle             as Oracle
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..),
                                                       type (.\\))
@@ -70,11 +71,11 @@ toAsset :: TokenName -> AssetClass
 toAsset tokenName =
    assetClass (scriptCurrencySymbol . FungibleToken.makeLiquidityPolicy $ tokenName) tokenName
 
-initContract ::
+distributeFunds ::
     [Wallet] ->
     [AssetClass] ->
-    Contract (Maybe (Semigroup.Last Currency.OneShotCurrency)) Currency.CurrencySchema Currency.CurrencyError ()
-initContract wallets assets = do
+    Contract () BlockchainActions Text ()
+distributeFunds wallets assets = do
     ownPK <- pubKeyHash <$> ownPubKey
     let testCurrenciesValue = mconcat $ fmap (`assetClassValue` 1000) assets
         policyLookups = mconcat $
@@ -90,22 +91,39 @@ initContract wallets assets = do
   where
     amount = 1000000
 
+createOracles ::
+    [AssetClass] ->
+    Contract (Monoid.Last [Oracle.Oracle]) BlockchainActions Text ()
+createOracles assets = do
+    oracles <- forM assets $ \asset -> do
+        let oracleParams = Oracle.OracleParams
+                { opFees   = 0
+                , opSymbol = fst . unAssetClass $ asset
+                , opToken  = snd . unAssetClass $ asset
+                }
+        oracle <- Oracle.startOracle oracleParams
+        Oracle.updateOracle oracle oneAdaInLovelace
+        pure oracle
+    tell $ Monoid.Last $ Just oracles
+
 data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
 activateContracts :: Simulation (Builtin AaveContracts) ContractIDs
 activateContracts = do
-    cidInit  <- Simulator.activateContract ownerWallet $ Init userWallets testAssets
-    _        <- Simulator.waitUntilFinished cidInit
+    cidFunds <- Simulator.activateContract ownerWallet $ DistributeFunds userWallets testAssets
+    _        <- Simulator.waitUntilFinished cidFunds
+
+    cidOracles  <- Simulator.activateContract ownerWallet $ CreateOracles testAssets
+    oracles  <- flip Simulator.waitForState cidOracles $ \json -> case (fromJSON json :: Result (Monoid.Last [Oracle.Oracle])) of
+                    Success (Monoid.Last (Just res)) -> Just res
+                    _                                -> Nothing
     Simulator.logString @(Builtin AaveContracts) "Initialization finished."
 
     cidStart <- Simulator.activateContract ownerWallet AaveStart
-    _  <-
-        Simulator.callEndpointOnInstance cidStart "start" $
-            fmap Aave.CreateParams testAssets
+    _  <- Simulator.callEndpointOnInstance cidStart "start" $ fmap (\o -> Aave.CreateParams (Oracle.oAsset o) o) oracles
     aa <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.OwnerContractState))) of
-        Success (Monoid.Last (Just (ContractSuccess (Aave.Started aave)))) -> Just aave
-        _                                                   -> Nothing
-
+        Success (Monoid.Last (Just (ContractSuccess (Aave.Started aa)))) -> Just aa
+        _                                       -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Aave instance created: " ++ show aa
 
     cidInfo <- Simulator.activateContract ownerWallet $ AaveInfo aa
@@ -122,6 +140,7 @@ runLendingPool = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
     _ <- activateContracts
+    Simulator.logString @(Builtin AaveContracts) "Aave PAB webserver started on port 8080. Initialization complete. Press enter to exit."
     _ <- liftIO getLine
     shutdown
 
@@ -135,7 +154,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "deposit" $
-            Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 100 }
+            Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 400 }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
         Success (Monoid.Last (Just (ContractSuccess Aave.Deposited))) -> Just ()
         _                                                             -> Nothing
@@ -148,6 +167,22 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
         Success (Monoid.Last (Just (ContractSuccess Aave.Withdrawn))) -> Just ()
         _                                                             -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Successful withdraw"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "provideCollateral" $
+            Aave.ProvideCollateralParams { Aave.pcpUnderlyingAsset = head testAssets, Aave.pcpOnBehalfOf = sender, Aave.pcpAmount = 200 }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (ContractSuccess Aave.CollateralProvided))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful provideCollateral"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "revokeCollateral" $
+            Aave.RevokeCollateralParams { Aave.rcpUnderlyingAsset = head testAssets, Aave.rcpOnBehalfOf = sender, Aave.rcpAmount = 50 }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (ContractSuccess Aave.CollateralRevoked))) -> Just ()
+        _                                                   -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful revokeCollateral"
 
     let lenderCid = cidUser Map.! Wallet 3
     let lender = pubKeyHash . walletPubKey $ Wallet 3
@@ -208,7 +243,8 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
     shutdown
 
 data AaveContracts =
-      Init [Wallet] [AssetClass]
+      DistributeFunds [Wallet] [AssetClass]
+    | CreateOracles [AssetClass]
     | AaveStart
     | AaveInfo Aave.Aave
     | AaveUser Aave.Aave
@@ -229,14 +265,19 @@ handleAaveContract = Builtin.handleBuiltin getSchema getContract where
     AaveUser _ -> Builtin.endpointsToSchemas @(Aave.AaveUserSchema .\\ BlockchainActions)
     AaveInfo _ -> Builtin.endpointsToSchemas @(Aave.AaveInfoSchema .\\ BlockchainActions)
     AaveStart  -> Builtin.endpointsToSchemas @(Aave.AaveOwnerSchema .\\ BlockchainActions)
-    Init _ _         -> Builtin.endpointsToSchemas @Empty
+    DistributeFunds _ _         -> Builtin.endpointsToSchemas @Empty
+    CreateOracles _ -> Builtin.endpointsToSchemas @Empty
   getContract = \case
     AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints aave
     AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints aave
     AaveStart           -> SomeBuiltin Aave.ownerEndpoints
-    Init wallets assets -> SomeBuiltin $ initContract wallets assets
+    DistributeFunds wallets assets -> SomeBuiltin $ distributeFunds wallets assets
+    CreateOracles assets -> SomeBuiltin $ createOracles assets
 
 handlers :: SimulatorEffectHandlers (Builtin AaveContracts)
 handlers =
     Simulator.mkSimulatorHandlers @(Builtin AaveContracts) []
     $ interpret handleAaveContract
+
+oneAdaInLovelace :: Integer
+oneAdaInLovelace = 1000000

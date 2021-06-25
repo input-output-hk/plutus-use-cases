@@ -8,34 +8,22 @@ module Fixtures.Aave where
 import           Control.Monad              (void)
 import           Data.Text                  (Text)
 import           Data.Void                  (Void)
+import           Fixtures.Policy            (makePolicy)
 import qualified Ledger
 import qualified Ledger.Constraints         as Constraints
 import           Ledger.Typed.Scripts       (MonetaryPolicy)
-import qualified Ledger.Typed.Scripts       as Scripts
 import           Plutus.Contract
 import qualified Plutus.Contracts.Core      as Aave
 import qualified Plutus.Contracts.Endpoints as Aave
 import qualified Plutus.Contracts.TxUtils   as TxUtils
-import           Plutus.V1.Ledger.Contexts  (ScriptContext)
-import qualified Plutus.V1.Ledger.Scripts   as Scripts
 import           Plutus.V1.Ledger.Value     (CurrencySymbol, TokenName,
                                              assetClass, assetClassValue)
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude
 
-{-# INLINABLE validator #-}
-validator :: TokenName -> ScriptContext -> Bool
-validator _ _ = True
-
-makeLiquidityPolicy :: TokenName -> MonetaryPolicy
-makeLiquidityPolicy tokenName = Scripts.mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validator ||])
-    `PlutusTx.applyCode`
-        PlutusTx.liftCode tokenName
-
 aavePolicy :: MonetaryPolicy
-aavePolicy = makeLiquidityPolicy Aave.aaveProtocolName
+aavePolicy = makePolicy Aave.aaveProtocolName
 
 aaveSymbol :: CurrencySymbol
 aaveSymbol = Ledger.scriptCurrencySymbol aavePolicy

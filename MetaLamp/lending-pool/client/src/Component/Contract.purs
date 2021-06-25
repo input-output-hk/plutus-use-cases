@@ -24,7 +24,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData(..))
 import Network.RemoteData as RD
-import Plutus.Contracts.Endpoints (BorrowParams(..), DepositParams(..), RepayParams(..), WithdrawParams(..))
+import Plutus.Contracts.Endpoints (BorrowParams(..), DepositParams(..), RepayParams(..), WithdrawParams(..), ProvideCollateralParams(..), RevokeCollateralParams(..))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), Value)
 import View.FundsTable (fundsTable)
@@ -38,6 +38,8 @@ type State
     , withdraw :: RemoteData String Unit
     , borrow :: RemoteData String Unit
     , repay :: RemoteData String Unit
+    , provideCollateral :: RemoteData String Unit
+    , revokeCollateral :: RemoteData String Unit
     , submit :: RemoteData String Unit
     }
 
@@ -52,6 +54,12 @@ _borrow = prop (SProxy :: SProxy "borrow")
 
 _repay :: Lens' State (RemoteData String Unit)
 _repay = prop (SProxy :: SProxy "repay")
+
+_provideCollateral :: Lens' State (RemoteData String Unit)
+_provideCollateral = prop (SProxy :: SProxy "provideCollateral")
+
+_revokeCollateral :: Lens' State (RemoteData String Unit)
+_revokeCollateral = prop (SProxy :: SProxy "revokeCollateral")
 
 _submit :: Lens' State (RemoteData String Unit)
 _submit = prop (SProxy :: SProxy "submit")
@@ -76,6 +84,8 @@ initialState { userFunds, userContractId, walletPubKey, reserves } =
   , deposit: NotAsked
   , borrow: NotAsked
   , repay: NotAsked
+  , provideCollateral: NotAsked
+  , revokeCollateral: NotAsked
   , submit: NotAsked
   }
 
@@ -84,6 +94,8 @@ data Action
   | Withdraw { amount :: BigInteger, asset :: AssetClass }
   | Borrow { amount :: BigInteger, asset :: AssetClass }
   | Repay { amount :: BigInteger, asset :: AssetClass }
+  | ProvideCollateral { amount :: BigInteger, asset :: AssetClass }
+  | RevokeCollateral { amount :: BigInteger, asset :: AssetClass }
   | OnSubmitAmount SubmitOperation AmountForm.Output
 
 -- potentially should be separate actions - just a convenience for now, while they are identical
@@ -92,6 +104,8 @@ data SubmitOperation
   | SubmitWithdraw
   | SubmitBorrow
   | SubmitRepay
+  | SubmitProvideCollateral
+  | SubmitRevokeCollateral
 
 derive instance genericSubmitOperation :: Generic SubmitOperation _
 
@@ -141,6 +155,18 @@ component =
             { userContractId, walletPubKey } <- lift H.get
             lift (AaveUser.repay userContractId $ RepayParams { rpAmount: amount, rpAsset: asset, rpOnBehalfOf: walletPubKey })
               >>= either (throwError <<< show) (const <<< lift <<< H.raise $ SubmitSuccess)
+    ProvideCollateral { amount, asset } ->
+      runRD _provideCollateral <<< runExceptT
+        $ do
+            { userContractId, walletPubKey } <- lift H.get
+            lift (AaveUser.provideCollateral userContractId $ ProvideCollateralParams { pcpUnderlyingAsset: asset, pcpAmount: amount, pcpOnBehalfOf: walletPubKey })
+              >>= either (throwError <<< show) (const <<< lift <<< H.raise $ SubmitSuccess)
+    RevokeCollateral { amount, asset } ->
+      runRD _revokeCollateral <<< runExceptT
+        $ do
+            { userContractId, walletPubKey } <- lift H.get
+            lift (AaveUser.revokeCollateral userContractId $ RevokeCollateralParams { rcpUnderlyingAsset: asset, rcpAmount: amount, rcpOnBehalfOf: walletPubKey })
+              >>= either (throwError <<< show) (const <<< lift <<< H.raise $ SubmitSuccess)
     OnSubmitAmount operation (AmountForm.Submit { name, amount }) ->
       runRD _submit <<< runExceptT
         $ do
@@ -175,6 +201,20 @@ component =
                     (throwError $ "Submit repay failed: " <> show repay)
                     (const <<< pure $ unit)
                     repay
+                SubmitProvideCollateral -> do
+                  lift $ handleAction (ProvideCollateral { amount, asset })
+                  { provideCollateral } <- lift H.get
+                  RD.maybe
+                    (throwError $ "Submit provideCollateral failed: " <> show provideCollateral)
+                    (const <<< pure $ unit)
+                    provideCollateral
+                SubmitRevokeCollateral -> do
+                  lift $ handleAction (RevokeCollateral { amount, asset })
+                  { revokeCollateral } <- lift H.get
+                  RD.maybe
+                    (throwError $ "Submit revokeCollateral failed: " <> show revokeCollateral)
+                    (const <<< pure $ unit)
+                    revokeCollateral
               Nothing -> throwError "Asset name not found"
 
   render :: State -> H.ComponentHTML Action Slots m
@@ -194,7 +234,7 @@ component =
                     , HH.slot _amountForm index AmountForm.component (reservesToAmounts state.reserves) (Just <<< (OnSubmitAmount operation))
                     ]
               )
-              [ Tuple "Deposit" SubmitDeposit, Tuple "Withdraw" SubmitWithdraw, Tuple "Borrow" SubmitBorrow, Tuple "Repay" SubmitRepay ]
+              [ Tuple "Deposit" SubmitDeposit, Tuple "Withdraw" SubmitWithdraw, Tuple "Borrow" SubmitBorrow, Tuple "Repay" SubmitRepay, Tuple "ProvideCollateral" SubmitProvideCollateral, Tuple "RevokeCollateral" SubmitRevokeCollateral ]
       ]
 
 reservesToAmounts :: Array { amount :: BigInteger, asset :: AssetClass } -> Array AmountForm.AmountInfo

@@ -14,7 +14,7 @@ import           Plutus.V1.Ledger.Value     (AssetClass, assetClassValue)
 import           Spec.Deposit               (deposit)
 import qualified Spec.Shared                as Shared
 import           Test.Tasty
-import qualified Utils.Data as Utils
+import qualified Utils.Data                 as Utils
 
 tests :: TestTree
 tests = testGroup "withdraw" [
@@ -23,12 +23,11 @@ tests = testGroup "withdraw" [
         (walletFundsChange
             Fixtures.lenderWallet
             (Fixtures.initialFunds <>
-            assetClassValue Fixtures.mogus (negate 100) <> assetClassValue Fixtures.amogus 100 <>
-            assetClassValue Fixtures.mogus 50 <> assetClassValue Fixtures.amogus (negate 50))
+            assetClassValue Fixtures.mogus (negate 100 + 50) <> assetClassValue Fixtures.amogus (100 - 50))
         .&&. Shared.reservesChange (Shared.modifyAmount (subtract 50 . (+100)) Fixtures.mogus Fixtures.initialReserves)
         )
         $ do
-            handles <- Fixtures.initTrace
+            handles <- Fixtures.defaultTrace
             deposit (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 100
             withdraw (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 50,
     checkPredicate
@@ -39,7 +38,7 @@ tests = testGroup "withdraw" [
     .&&. assertAccumState Fixtures.userContract (Trace.walletInstanceTag Fixtures.lenderWallet) Utils.isLastError "Contract last state is an error"
     )
     $ do
-        handles <- Fixtures.initTrace
+        handles <- Fixtures.defaultTrace
         deposit (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 100
         withdraw (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 200
     ]

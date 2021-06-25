@@ -31,6 +31,7 @@ import           Language.PureScript.Bridge.TypeParameters (A, E)
 import qualified PSGenerator.Common
 import qualified Plutus.Contracts.Core                     as Aave
 import qualified Plutus.Contracts.Endpoints                as Aave
+import qualified Plutus.Contracts.Oracle                   as Oracle
 import           Plutus.PAB.Simulation                     (AaveContracts (..))
 import           Plutus.V1.Ledger.Value                    (AssetClass)
 
@@ -48,6 +49,7 @@ psRatio = expand <$> psTypeParameters
 aaveTypes :: [SumType 'Haskell]
 aaveTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @AaveContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.Aave)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Oracle.Oracle)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(Aave.ContractResponse E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.CreateParams)
           , (order <*> (equal <*> (genericShow <*> mkSumType))) (Proxy @AssetClass)
@@ -58,4 +60,6 @@ aaveTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @AaveContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.DepositParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.WithdrawParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.BorrowParams)
-          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.RepayParams) ]
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.RepayParams)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.ProvideCollateralParams)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.RevokeCollateralParams) ]

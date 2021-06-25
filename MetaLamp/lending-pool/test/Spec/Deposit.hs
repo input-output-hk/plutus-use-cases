@@ -13,7 +13,7 @@ import qualified Plutus.Trace.Emulator      as Trace
 import           Plutus.V1.Ledger.Value     (AssetClass, assetClassValue)
 import qualified Spec.Shared                as Shared
 import           Test.Tasty
-import qualified Utils.Data as Utils
+import qualified Utils.Data                 as Utils
 
 tests :: TestTree
 tests = testGroup "deposit" [
@@ -26,7 +26,7 @@ tests = testGroup "deposit" [
         .&&. Shared.reservesChange (Shared.modifyAmount (+100) Fixtures.mogus Fixtures.initialReserves)
         )
         $ do
-            handles <- Fixtures.initTrace
+            handles <- Fixtures.defaultTrace
             deposit (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 100,
     checkPredicate
         "Should fail if user's wallet balance is insufficient"
@@ -35,7 +35,7 @@ tests = testGroup "deposit" [
         .&&. assertAccumState Fixtures.userContract (Trace.walletInstanceTag Fixtures.lenderWallet) Utils.isLastError "Contract last state is an error"
         )
         $ do
-            handles <- Fixtures.initTrace
+            handles <- Fixtures.defaultTrace
             deposit (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 10000
     ]
 

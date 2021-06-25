@@ -23,7 +23,7 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Plutus.Contracts.Endpoints Plutus.Contracts.FungibleToken Plutus.Contracts.AToken Plutus.Contracts.Core Plutus.Contracts.State Plutus.State.Select Plutus.State.Update Plutus.Contracts.TxUtils Plutus.OutputValue Ext.Plutus.Ledger.Contexts Plutus.PAB.Simulation
+      Plutus.Contracts.Endpoints Plutus.Contracts.FungibleToken Plutus.Contracts.AToken Plutus.Contracts.Core Plutus.Contracts.Oracle Plutus.Contracts.State Plutus.State.Select Plutus.State.Update Plutus.Contracts.TxUtils Plutus.OutputValue Ext.Plutus.Ledger.Contexts Plutus.PAB.Simulation
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -102,7 +102,7 @@ test-suite test
     main-is: Main.hs
     hs-source-dirs: test
     other-modules:
-      Spec.Start Spec.Deposit Spec.Withdraw Spec.Shared Utils.Data Utils.Trace Fixtures Fixtures.Aave Fixtures.Asset Fixtures.Init Fixtures.Wallet
+      Spec.Start Spec.Deposit Spec.Withdraw Spec.Shared Utils.Data Utils.Trace Fixtures Fixtures.Policy Fixtures.Aave Fixtures.Asset Fixtures.Init Fixtures.Wallet
     default-language: Haskell2010
     ghc-options: -Wall -Wnoncanonical-monad-instances
                  -Wincomplete-uni-patterns -Wincomplete-record-updates
