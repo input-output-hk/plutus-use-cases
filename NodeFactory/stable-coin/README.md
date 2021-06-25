@@ -41,9 +41,12 @@ Collateral will be sent to the created vault’s script address, which will also
 
 Let’s say that Alice wants to mint 100 stable coins (SC) and she has decided to lock 200% of the minted value as collateral. As the current price of 1 ADA is 2$, she will send 100 ADA when opening the vault and receive 100 SC. This process is represented in the following schema.
 
+![alt text](static/open_vault.png)
 ### Closing a vault (burning the stable coin)
 
 When  Alice wants to close her opened vault and return the collateral, closing action must be invoked. Here Alice sends the same amount of stable coin that was originally minted together with the vault UTXO - vault is closed and the user receives original collateral back. It is important to note that this action is possible only if the liquidation criteria haven’t been met. This process is represented in the following schema.
+
+![alt text](static/close_vault.png)
 
 ### Vault liquidation
 
@@ -52,3 +55,5 @@ Liquidation is an action that can be executed only if the current value of vault
 We will continue with our example where Alice minted 100 SC for 100 ADA when the price of 1 ADA was 2$, and the collateral value was 200% of the minted stable coin value.
 
 Currently, the price of one ADA is 1.4$, and the value of the collateral is 140% of the minted stable coin value. This makes Alice’s vault eligible for liquidation. Bob decides that he has some spare stable coin and wants to liquidate Alice’s vault as he is incentivized by the reward for doing that. He will send the same amount of stable coin that Alice originally minted to close the vault. Locked ADA collateral is firstly used to pay out Bob for providing stable coins needed to close the vault. As an incentive for executing liquidation Bob will get 8% (an arbitrary parameter defined by the protocol) more value back. In the example below, as Bob provided 100 SC having a value of 100$, he will get 77.14 ADA back that at the moment of liquidation has a value of 108$. In total, Bob has earned 8$ in total for providing 100$ worth of stable coins (8%). The rest of the collateral that’s remaining will be returned to Alice.
+
+![alt text](static/liquidate_vault.png)
