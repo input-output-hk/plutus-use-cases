@@ -172,7 +172,11 @@ algorithimically. A general description of the interest algorithm is:
 
 ### Examples
 - [Lendex Demo](https://github.com/mlabs-haskell/plutus-use-cases/blob/main/mlabs/lendex-demo/Main.hs)
-
+  - to run the `lendex-demo` run the following command from the root folder
+  ```bash
+  cd mlabs \
+  && nix-shell --command "cabal v2-repl lendex-demo"
+  ```
 ### APIs & Endpoints
 - **API/Endpoint Name1** *TODO: add API & Endpoints + their status*
   - Description: *Add Description*
