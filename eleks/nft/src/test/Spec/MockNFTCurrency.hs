@@ -74,8 +74,8 @@ validate c@(MockNFTCurrency testTokenName) ctx@V.ScriptContext{V.scriptContextTx
         -- True if the pending transaction forges the amount of
         -- currency that we expect
         forgeOK =
-            let v = forged == expected
-            in traceIfFalse "Forged value should b" v
+          let v = forged == expected
+          in traceIfFalse "Forged value should be as expected" v
 
         forgeNFT =
           let isNft = forged == Value.singleton ownSymbol testTokenName 1
