@@ -11,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -35,6 +36,7 @@ import qualified Ledger.Scripts                   as UntypedScripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
+import qualified Plutus.Contracts.Oracle          as Oracle
 import           Plutus.V1.Ledger.Value
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                as AssocMap
@@ -57,44 +59,63 @@ data Reserve = Reserve
       rAToken                  :: AssetClass,
       rAmount                  :: Integer,
       rLiquidityIndex          :: Integer,
-      rCurrentStableBorrowRate :: Rational
+      rCurrentStableBorrowRate :: Rational,
+      rTrustedOracle           :: (CurrencySymbol, PubKeyHash, Integer, AssetClass)
     }
     deriving stock (Prelude.Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, ToSchema)
+    deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
+Lens.makeClassy_ ''Reserve
+
+-- TODO (?) only aTokens pledged as collateral should accumulate interest
+-- data UserConfig = UserConfig
+--   { ucDebt                     :: [IncentivizedAmount]
+--   , ucCollateralizedInvestment :: [IncentivizedAmount]
+--   }
+-- data IncentivizedAmount = IncentivizedAmount
+--   { iaAmount :: Integer
+--   , iaRate   :: Rational
+--   , iaSlot   :: Slot
+--   }
 
 data UserConfig = UserConfig
     {
-      ucUsingAsCollateral :: Bool,
-      ucDebt              :: Maybe Integer
+      ucDebt                     :: Integer,
+      ucCollateralizedInvestment :: Integer
     }
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
+Lens.makeClassy_ ''UserConfig
 
 data AaveRedeemer =
     StartRedeemer
   | DepositRedeemer (AssetClass, PubKeyHash)
   | WithdrawRedeemer (AssetClass, PubKeyHash)
-  | BorrowRedeemer (AssetClass, PubKeyHash)
+  | BorrowRedeemer (AssetClass, PubKeyHash) [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
   | RepayRedeemer (AssetClass, PubKeyHash)
+  | ProvideCollateralRedeemer (AssetClass, PubKeyHash)
+  | RevokeCollateralRedeemer (AssetClass, PubKeyHash) AssetClass [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
 PlutusTx.makeLift ''AaveRedeemer
 
 -- TODO: solve purescript generation issue with type synonyms
+type UserConfigId = (AssetClass, PubKeyHash)
 type LendingPoolOperator = PubKeyHash
+type Oracles = AssocMap.Map AssetClass Integer -- Shows how many lovelaces should be paid for a specific asset
 
 data AaveDatum =
     LendingPoolDatum LendingPoolOperator
-  | ReservesDatum AssetClass (AssocMap.Map AssetClass Reserve)
-  | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+  | ReservesDatum AssetClass (AssocMap.Map AssetClass Reserve) -- State token and reserve currency -> reserve map
   | ReserveFundsDatum
+  | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -- State token and UserConfigId -> user config map
+  | UserCollateralFundsDatum PubKeyHash AssetClass -- User pub key and aToken asset type
   deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum
@@ -111,6 +132,51 @@ pickReserves :: AaveDatum -> Maybe (AssetClass, AssocMap.Map AssetClass Reserve)
 pickReserves (ReservesDatum stateToken configs) = Just (stateToken, configs)
 pickReserves _                                  = Nothing
 
+{-# INLINABLE pickUserCollateralFunds #-}
+pickUserCollateralFunds :: AaveDatum -> Maybe (PubKeyHash, AssetClass)
+pickUserCollateralFunds (UserCollateralFundsDatum user aTokenAsset) = Just (user, aTokenAsset)
+pickUserCollateralFunds _ = Nothing
+
+{-# INLINABLE totalDebtAndCollateralInLovelace #-}
+totalDebtAndCollateralInLovelace ::
+     PubKeyHash
+  -> AssocMap.Map AssetClass Integer
+  -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig
+  -> Maybe UserConfig
+totalDebtAndCollateralInLovelace actor oracles userConfigs =
+  foldrM addCollateral (UserConfig 0 0) $ AssocMap.toList userConfigs
+  where
+    addCollateral ::
+         ((AssetClass, PubKeyHash), UserConfig)
+      -> UserConfig
+      -> Maybe UserConfig
+    addCollateral ((asset, user), userConfig) currentTotal
+      | user == actor =
+        (\rate -> UserConfig {
+          ucCollateralizedInvestment = rate * ucCollateralizedInvestment userConfig + ucCollateralizedInvestment currentTotal,
+          ucDebt = rate * ucDebt userConfig + ucDebt currentTotal }
+          ) <$>
+        AssocMap.lookup asset oracles
+      | otherwise = Just currentTotal
+
+{-# INLINABLE doesCollateralCoverDebt #-}
+doesCollateralCoverDebt ::
+     PubKeyHash
+  -> AssocMap.Map AssetClass Integer
+  -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig
+  -> Bool
+doesCollateralCoverDebt actor oracles userConfigs = maybe False (\UserConfig{..} -> ucDebt <= ucCollateralizedInvestment) $
+  totalDebtAndCollateralInLovelace actor oracles userConfigs
+
+{-# INLINABLE areOraclesTrusted #-}
+areOraclesTrusted :: [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
+  -> AssocMap.Map AssetClass Reserve
+  -> Bool
+areOraclesTrusted oracles reserves = all checkOracle oracles
+  where
+    checkOracle o = let oracle = Oracle.fromTuple o in
+       Just oracle == (Oracle.fromTuple . rTrustedOracle <$> AssocMap.lookup (Oracle.oAsset oracle) reserves)
+
 data AaveScript
 instance Scripts.ValidatorTypes AaveScript where
     type instance RedeemerType AaveScript = AaveRedeemer
@@ -126,10 +192,16 @@ makeAaveValidator :: Aave
                    -> ScriptContext
                    -> Bool
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
+-- TODO ? further validators should check that ReservesDatum & UserConfigsDatum transormation happens one time
+-- & ReserveFundsDatum transormation happens at least one time
+-- TODO ? check that reedeemers contain the same data during transformation
+-- TODO validate that userConfigId and reserveId are the only datum changed in trasformation and other users datum is not modified
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
-makeAaveValidator aave datum (BorrowRedeemer userConfigId) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId
+makeAaveValidator aave datum (BorrowRedeemer userConfigId oracles) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId oracles
 makeAaveValidator aave datum (RepayRedeemer userConfigId) ctx    = trace "RepayRedeemer" $ validateRepay aave datum ctx userConfigId
+makeAaveValidator aave datum (ProvideCollateralRedeemer userConfigId) ctx    = trace "ProvideCollateralRedeemer" $ validateProvideCollateral aave datum ctx userConfigId
+makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId aTokenAsset oracles) ctx    = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId aTokenAsset oracles
 
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
 validateStart aave (LendingPoolDatum operator) ctx =
@@ -170,8 +242,8 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
 
     checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
-      ucUsingAsCollateral newState &&
-      maybe True ((ucDebt newState ==) . ucDebt) oldState
+      maybe (ucCollateralizedInvestment newState == 0) ((ucCollateralizedInvestment newState ==) . ucCollateralizedInvestment) oldState &&
+      ucDebt newState == 0 && maybe True ((== 0) . ucDebt) oldState
 
 validateDeposit aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateDeposit: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
@@ -185,13 +257,13 @@ validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId
 validateWithdraw aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateWithdraw: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
 
-validateWithdraw aave ReserveFundsDatum ctx userConfigId =
-  traceIfFalse "validateWithdraw: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx userConfigId
+validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
+  traceIfFalse "validateWithdraw: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx reserveId actor
 
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
-validateBorrow :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
-validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
+validateBorrow :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Bool
+validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) oracles =
   traceIfFalse "validateBorrow: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
     txInfo = scriptContextTxInfo ctx
@@ -207,29 +279,33 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     actorSpentValue = valueSpentFrom txInfo actor
     actorRemainderValue = valuePaidTo txInfo actor
 
+    oracleValues =
+      case foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles of
+        Just vs -> AssocMap.fromList vs
+        _       -> traceError "validateBorrow: Oracles have not been provided"
+
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
     checkUserConfigs ::
          (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
-      newStateToken == stateToken &&
+      newStateToken == stateToken && doesCollateralCoverDebt actor oracleValues newUserConfigs &&
       maybe False (checkRedeemerConfig $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
     checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
-      let oldDebt = fromMaybe 0 $ oldState >>= ucDebt
-          debtAmount = maybe 0 (flip (-) oldDebt) (ucDebt newState)
+      let debtAmount = (ucDebt newState -) $ maybe 0 ucDebt oldState
           disbursementAmount = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
        in debtAmount == disbursementAmount && debtAmount > 0 && disbursementAmount > 0 &&
-          maybe (not $ ucUsingAsCollateral newState) ((ucUsingAsCollateral newState ==) . ucUsingAsCollateral) oldState
+          ucCollateralizedInvestment newState == 0 && maybe True ((== 0) . ucCollateralizedInvestment) oldState
 
-validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId =
-  traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
+validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId oracles =
+  traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId && areOraclesTrusted oracles reserves
 
-validateBorrow aave ReserveFundsDatum ctx userConfigId =
-  traceIfFalse "validateBorrow: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx userConfigId
+validateBorrow aave ReserveFundsDatum ctx (reserveId, actor) oracles =
+  traceIfFalse "validateBorrow: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx reserveId actor
 
-validateBorrow _ _ _ _ = trace "validateBorrow: Lending Pool Datum management is not allowed" False
+validateBorrow _ _ _ _ _ = trace "validateBorrow: Lending Pool Datum management is not allowed" False
 
 validateRepay :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
 validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
@@ -258,19 +334,109 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
        (checkRedeemerConfig <$> AssocMap.lookup userConfigId userConfigs <*> AssocMap.lookup userConfigId newUserConfigs))
     checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
-      let debtChange = fromMaybe 0 $ (-) <$> ucDebt oldState <*> ucDebt newState
-          newDebt = fromMaybe 0 $ ucDebt newState
+      let newDebt = ucDebt newState
+          debtChange = ucDebt oldState - newDebt
           reimbursementAmount = assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
        in debtChange == reimbursementAmount && debtChange > 0 && reimbursementAmount > 0 && newDebt >= 0 &&
-          ucUsingAsCollateral oldState == ucUsingAsCollateral newState
+          ucCollateralizedInvestment newState == ucCollateralizedInvestment oldState
 
 validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
   traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
 
 validateRepay _ _ _ _ = trace "validateRepay: Lending Pool Datum management is not allowed" False
 
-checkNegativeFundsTransformation :: ScriptContext -> (AssetClass, PubKeyHash) -> Bool
-checkNegativeFundsTransformation ctx (reserveId, actor) = isValidFundsChange
+validateProvideCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
+validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
+  traceIfFalse "validateProvideCollateral: User Configs Datum change is not valid" isValidUserConfigsTransformation
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    scriptOutputs = scriptOutputsAt scriptsHash txInfo
+
+    userConfigsOutputDatumHash =
+      findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+    userConfigsOutputDatum ::
+         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+    userConfigsOutputDatum =
+      userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
+
+    actorSpentValue = valueSpentFrom txInfo actor
+    actorRemainderValue = valuePaidTo txInfo actor
+
+    collateralOutputDatumHash =
+      findOnlyOneDatumHashByValue (actorSpentValue - actorRemainderValue - txInfoFee txInfo) scriptOutputs
+    collateralOutputDatum ::
+         Maybe (PubKeyHash, AssetClass)
+    collateralOutputDatum =
+      collateralOutputDatumHash >>= parseDatum txInfo >>= pickUserCollateralFunds
+
+    isValidUserConfigsTransformation :: Bool
+    isValidUserConfigsTransformation =
+      fromMaybe False $ checkUserConfigs <$> userConfigsOutputDatum <*> collateralOutputDatum
+    checkUserConfigs ::
+         (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> (PubKeyHash, AssetClass) -> Bool
+    checkUserConfigs (newStateToken, newUserConfigs) (user, aTokenAsset) =
+      newStateToken == stateToken && user == actor &&
+      maybe False (checkRedeemerConfig aTokenAsset $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
+    checkRedeemerConfig :: AssetClass -> Maybe UserConfig -> UserConfig -> Bool
+    checkRedeemerConfig asset oldState newState =
+      let investmentAmount = (ucCollateralizedInvestment newState -) $ maybe 0 ucCollateralizedInvestment oldState
+          disbursementAmount = assetClassValueOf actorSpentValue asset - assetClassValueOf actorRemainderValue asset
+       in investmentAmount == disbursementAmount && investmentAmount > 0 && disbursementAmount > 0 &&
+          ucDebt newState == 0 && maybe True ((== 0) . ucDebt) oldState
+
+validateProvideCollateral _ _ _ _ = trace "validateProvideCollateral: Lending Pool Datum management is not allowed" False
+
+validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> AssetClass -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Bool
+validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) aTokenAsset oracles =
+  traceIfFalse "validateRevokeCollateral: User Configs Datum change is not valid" isValidUserConfigsTransformation
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, scriptsDatumHash) = ownHashes ctx
+    scriptOutputs = scriptOutputsAt scriptsHash txInfo
+
+    userConfigsOutputDatumHash =
+      findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
+    userConfigsOutputDatum ::
+         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+    userConfigsOutputDatum =
+      userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
+
+    actorSpentValue = valueSpentFrom txInfo actor
+    actorRemainderValue = valuePaidTo txInfo actor
+
+    oracleValues =
+      case foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles of
+        Just vs -> AssocMap.fromList vs
+        _ -> traceError "validateRevokeCollateral: Oracles have not been provided"
+
+    isValidUserConfigsTransformation :: Bool
+    isValidUserConfigsTransformation =
+      maybe False checkUserConfigs userConfigsOutputDatum
+    checkUserConfigs ::
+         (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
+    checkUserConfigs (newStateToken, newUserConfigs) =
+      newStateToken == stateToken && doesCollateralCoverDebt actor oracleValues newUserConfigs &&
+      fromMaybe False (checkRedeemerConfig <$> (AssocMap.lookup userConfigId userConfigs) <*> (AssocMap.lookup userConfigId newUserConfigs))
+    checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
+    checkRedeemerConfig oldState newState =
+      let newInvestmentAmount = ucCollateralizedInvestment newState
+          investmentShrinkedBy = ucCollateralizedInvestment oldState - newInvestmentAmount
+          disbursementAmount = assetClassValueOf actorRemainderValue aTokenAsset - assetClassValueOf actorSpentValue aTokenAsset
+       in investmentShrinkedBy == disbursementAmount && investmentShrinkedBy > 0 && disbursementAmount > 0 && newInvestmentAmount >= 0 &&
+          (ucDebt newState == ucDebt oldState)
+
+validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) revokedAsset oracles =
+  traceIfFalse "validateRevokeCollateral: UserCollateralFundsDatum change is not valid" $
+  owner == actor && revokedAsset == aTokenAsset && checkNegativeFundsTransformation ctx aTokenAsset actor
+
+validateRevokeCollateral aave (ReservesDatum stateToken reserves) ctx userConfigId revokedAsset oracles =
+  traceIfFalse "validateRevokeCollateral: Reserves Datum change is not valid" $ areOraclesTrusted oracles reserves
+
+validateRevokeCollateral _ _ _ _ _ _ = trace "validateRevokeCollateral: Lending Pool Datum management is not allowed" False
+
+checkNegativeFundsTransformation :: ScriptContext -> AssetClass -> PubKeyHash -> Bool
+checkNegativeFundsTransformation ctx asset actor = isValidFundsChange
   where
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
@@ -283,8 +449,8 @@ checkNegativeFundsTransformation ctx (reserveId, actor) = isValidFundsChange
 
     isValidFundsChange :: Bool
     isValidFundsChange =
-      let paidAmout = assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
-          fundsChange = assetClassValueOf scriptSpentValue reserveId - assetClassValueOf scriptRemainderValue reserveId
+      let paidAmout = assetClassValueOf actorRemainderValue asset - assetClassValueOf actorSpentValue asset
+          fundsChange = assetClassValueOf scriptSpentValue asset - assetClassValueOf scriptRemainderValue asset
        in fundsChange == paidAmout && fundsChange > 0 && paidAmout > 0
 
 checkNegativeReservesTransformation :: AssetClass
@@ -359,7 +525,8 @@ checkReservesConsistency oldState newState =
   rCurrency oldState == rCurrency newState &&
   rAToken oldState == rAToken newState &&
   rLiquidityIndex oldState == rLiquidityIndex newState &&
-  rCurrentStableBorrowRate oldState == rCurrentStableBorrowRate newState
+  rCurrentStableBorrowRate oldState == rCurrentStableBorrowRate newState &&
+  Oracle.fromTuple (rTrustedOracle oldState) == Oracle.fromTuple (rTrustedOracle newState)
 
 aaveProtocolName :: TokenName
 aaveProtocolName = "Aave"
