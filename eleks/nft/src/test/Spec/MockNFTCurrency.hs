@@ -32,23 +32,21 @@ module Spec.MockNFTCurrency(
 import           Data.Text               (Text)
 import           PlutusTx.Prelude        hiding (Monoid (..), Semigroup (..))
 import           Plutus.Contract         as Contract
-import           Ledger                  (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), pubKeyHash,
+import           Ledger                  (CurrencySymbol, PubKeyHash, pubKeyHash,
                                           scriptCurrencySymbol, txId)
-import qualified Ledger.Ada              as Ada
 import qualified Ledger.Constraints      as Constraints
 import qualified Ledger.Contexts         as V
 import           Ledger.Scripts
 import qualified PlutusTx                as PlutusTx
 
 import qualified Ledger.Typed.Scripts    as Scripts
-import           Ledger.Value            (AssetClass, TokenName, Value)
+import           Ledger.Value            (TokenName, Value)
 import qualified Ledger.Value            as Value
 
 import           Data.Aeson              (FromJSON, ToJSON)
 import           Data.Semigroup            (Last (..))
 import           GHC.Generics            (Generic)
-import qualified PlutusTx.AssocMap       as AssocMap
-import           Prelude                 (Semigroup (..), String)
+import           Prelude                 (String)
 import qualified Prelude
 import           Schema                  (ToSchema)
 
@@ -105,7 +103,7 @@ forgeContract
     => PubKeyHash
     -> TokenName
     -> Contract w s Text MockNFTCurrency
-forgeContract pk tokenName = do
+forgeContract _ tokenName = do
     let theNftCurrency = MockNFTCurrency{ testCurTokenName = tokenName }
         curVali = testNftCurPolicy theNftCurrency
         lookups = Constraints.monetaryPolicy curVali
