@@ -49,7 +49,7 @@ valueWithin = txOutValue . txInInfoResolved
 -- 5.   Check that more than minimum amount of lovelace has been sent
 -- 6.   Check that enough lovelace has been sent to mint stablecoin
 -- 7.   Check if appropriate amount of stablecoin has been minted
--- 8.   Check if vault in output
+-- 8.   Check oracle input/output
 validateCreate :: StableCoin
             -> Coin VaultState
             -> [StableCoinVault]
@@ -64,7 +64,7 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     traceIfFalse "Less than minimum" (amountOfAdaInInput > minimumLovelaceAmount)                       && -- 5
     traceIfFalse "Not enough ada sent" (requiredAmountOfAda amount <= amountOfAdaInInput)               && -- 6
     (unAmount (amountOf forged stableCoin') == amount)                                                  -- 7
-    -- 8 TODO - check if appropriate amount of stablecoin in ouptut
+    -- 8 TODO - Check oracle input/output
   where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -75,6 +75,7 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     adaValueIn :: Value -> Integer
     adaValueIn v = Ada.getLovelace (Ada.fromValue v)
 
+    -- Maybe define as const outside validator
     minimumLovelaceAmount = 10
 
     amountOfAdaInInput = adaValueIn (valueWithin $ findOwnInput' ctx)
@@ -84,6 +85,9 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
 
     stableCoin' :: Coin USDc
     stableCoin' = let AssetClass (cs, _) = unCoin c in mkCoin cs $ scStablecoinTokenName
+
+    requiredAmountOfAda :: Integer -> Integer
+    requiredAmountOfAda a = a * 1 -- TODO use value from oracle
 
     -- oracleInput :: TxOut
     -- oracleInput =
@@ -102,15 +106,23 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     -- oracleValue' = case oracleValue oracleInput (`findDatum` info) of
     --     Nothing -> traceError "oracle value not found"
     --     Just x  -> x
+
+    -- isAmountCollateralized :: Integer -> Integer -> Bool
+    -- isAmountCollateralized lovelace oracleValue = oracleValue * lovelace > amount
+
+    -- hasEnoughLovelace :: Bool
+    -- hasEnoughLovelace =
+    --   let
+    --     lovelaceIn = case findOwnInput ctx of
+    --         Nothing -> traceError "own input not found"
+    --         Just i  -> lovelaces $ txOutValue $ txInInfoResolved i
+    --   in
+    --     isAmountCollateralized lovelaceIn oracleValue'
     
 
 {-# INLINABLE validateCloseVault #-}
 -- | Validates the closing of the stable coin vault. Conditions:
 -- 
--- 1. Check that vault token in output
--- 2. Check that vault token burned
--- 3. Check that proper amount of stable coin sent
--- 4. Check that collateral in output
 validateCloseVault :: StableCoin 
                 -> ScriptContext 
                 -> Bool

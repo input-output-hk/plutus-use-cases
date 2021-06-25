@@ -79,6 +79,10 @@ amountOf v = Amount . assetClassValueOf v . unCoin
 mkCoin :: CurrencySymbol -> TokenName -> Coin a
 mkCoin c = Coin . assetClass c
 
+{-# INLINABLE lovelaces #-}
+lovelaces :: Value -> Integer
+lovelaces = Ada.getLovelace . Ada.fromValue
+
 data StableCoin = StableCoin
     { sCoin :: Coin SC
     , scStablecoinTokenName     :: TokenName
