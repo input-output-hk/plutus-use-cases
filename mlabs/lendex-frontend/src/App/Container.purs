@@ -2,14 +2,15 @@ module App.Container where
 
 import Prelude
 
+import Data.Maybe (Maybe(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (classes, style)
 
-import App.Form as Form
+import App.ActionForm (actionForm)
 import Bootstrap as BS
-import PAB.Types (ContractCall(CallEndpoint), FormArgument(FormUnit), FormArgument)
+import PAB.Types (ContractCall(CallEndpoint), FormArgument(FormArgUnit, FormArgInt), FormArgument)
 
 type State = { contractCall :: ContractCall FormArgument }
 
@@ -21,8 +22,8 @@ initialState _ =
       CallEndpoint
         { caller: { getWallet: 1 }
         , argumentValues: 
-          { endpointDescription: { getEndpointDescription: "Test" }
-          , argument: FormUnit
+          { endpointDescription: { getEndpointDescription: "borrow" }
+          , argument: FormArgInt $ Just 5
           } 
         }
   }
@@ -30,7 +31,7 @@ initialState _ =
 component :: forall q i o m. H.Component q i o m
 component =
   H.mkComponent
-    { initialState: initialState
+    { initialState
     , render
     , eval: H.mkEval H.defaultEval
     }
@@ -49,11 +50,11 @@ render state =
             ] 
         ]
         [ HH.h1 
-            [ classes [ BS.textCenter ] ]
+            [ classes [ BS.textCenter, BS.my4 ] ]
             [ HH.text "Plutus Use Cases Demo" ]
         , HH.div 
             [ classes [ BS.colMd6 ] ]
-            [ Form.actionPane $ state.contractCall ]
+            [ actionForm $ state.contractCall ]
         ]
     ]
 

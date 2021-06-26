@@ -1,7 +1,7 @@
-module App.ActionArgumentForm (actionArgumentForm) where
+module App.ActionFormInputs (actionFormInputs) where
 
 import Prelude hiding (div)
-import Bootstrap (btn, btnInfo, btnLink, btnPrimary, btnSmall, col, col10_, col2_, colFormLabel, formCheckInput, formCheckLabel, formCheck_, formControl, formGroup, formGroup_, formRow_, formText, inputGroupAppend_, inputGroupPrepend_, inputGroup_, invalidFeedback_, row_, textMuted, validFeedback_, wasValidated)
+import Bootstrap as BS
 import Bootstrap as Bootstrap
 import Data.Array as Array
 -- import Data.BigInteger as BigInteger
@@ -13,10 +13,10 @@ import Data.Lens (Lens', over, set, view)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
 import Data.Tuple.Nested ((/\))
-import Halogen (ClassName(..))
-import Halogen.HTML (HTML, button, code_, div, div_, input, label, small, text)
+import Halogen as H
+import Halogen.HTML as HH
 import Halogen.HTML.Elements.Keyed as Keyed
-import Halogen.HTML.Events (onChecked, onClick, onValueInput)
+import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (IProp, InputType(..), checked, class_, classes, for, id_, name, placeholder, required, type_, value)
 import Halogen.HTML.Properties as HP
 -- import Icons (Icon(..), icon)
@@ -30,31 +30,23 @@ import Prim.TypeError (class Warn, Text)
 -- import Validation (ValidationError, WithPath, joinPath, showPathValue, validate)
 -- import ValueEditor (valueForm)
 
-import PAB.Types (FormArgument(FormUnit))
+import PAB.Types (FormArgument(FormArgUnit, FormArgInt))
 import App.Types (FormEvent)
 
-actionArgumentForm ::
+actionFormInputs ::
   forall p i.
-  Int ->
-  (FormEvent -> i) ->
   FormArgument ->
-  HTML p i
-actionArgumentForm index wrapper argument =
-  div [ class_ wasValidated ]
-    [ wrapper <$> actionArgumentField [ show index ] false argument ]
+  HH.HTML p i
+actionFormInputs argument =
+  HH.div 
+   [ classes [ BS.wasValidated, BS.mb3 ] ]
+   [ inputField argument ]
 
-actionArgumentField ::
-  forall p.
-  Warn (Text "We're still not handling the Unsupported case.") =>
-  Warn (Text "We're still not handling the FormMaybe case.") =>
-  Warn (Text "The Hex fields should be forced to comply to [0-9a-fA-F].") =>
-  Array String ->
-  Boolean ->
+inputField ::
+  forall p i.
   FormArgument ->
-  HTML p FormEvent
-actionArgumentField ancestors _ arg@(FormUnit) = Bootstrap.empty
-
-actionArgumentField _ _ _ = Bootstrap.empty
+  HH.HTML p i
+inputField arg@(FormArgUnit) = BS.empty
 
 -- actionArgumentField ancestors _ arg@(Fix (FormBoolF b)) =
 --   formCheck_
@@ -75,18 +67,18 @@ actionArgumentField _ _ _ = Bootstrap.empty
 --   where
 --   elementId = String.joinWith "-" ancestors
 
--- actionArgumentField ancestors _ arg@(Fix (FormIntF n)) =
---   div_
---     [ input
---         [ type_ InputNumber
---         , classes (Array.cons formControl (actionArgumentClass ancestors))
---         , value $ maybe "" show n
---         , required true
---         , placeholder "Int"
---         , onValueInput (Just <<< SetField <<< SetIntField <<< Int.fromString)
---         ]
---     , validationFeedback (joinPath ancestors <$> validate arg)
---     ]
+inputField arg@(FormArgInt n) =
+  HH.div_
+    [ HH.input
+        [ type_ InputNumber
+        , classes [ BS.formControl ]
+        , value $ maybe "" show n
+        , required true
+        , placeholder "Int"
+        -- , onValueInput (Just <<< SetField <<< SetIntField <<< Int.fromString)
+        ]
+    -- , validationFeedback (joinPath ancestors <$> validate arg)
+    ]
 
 -- actionArgumentField ancestors _ arg@(Fix (FormIntegerF n)) =
 --   div_
@@ -311,6 +303,8 @@ actionArgumentField _ _ _ = Bootstrap.empty
 --     [ text "Unsupported"
 --     , code_ [ text description ]
 --     ]
+
+inputField _ = Bootstrap.empty
 
 -- actionArgumentClass :: Array String -> Array ClassName
 -- actionArgumentClass ancestors =

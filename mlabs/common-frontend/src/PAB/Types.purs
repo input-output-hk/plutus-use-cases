@@ -5,6 +5,7 @@ module PAB.Types
   , CombinedWSStreamToServer
   , ContractActivationArgs
   , ContractCall(..)
+  , ContractDefinition(..)
   , ContractInstanceClientState
   , ContractInstanceId(..)
   , ContractRequest
@@ -34,6 +35,9 @@ module PAB.Types
   ) where
 
 --------------------------------------------------------------------------------
+
+import Prelude
+
 import Affjax as AX
 import Data.Argonaut as A
 import Data.Argonaut.Decode.Class (class DecodeJson)
@@ -42,9 +46,9 @@ import Data.Argonaut.Encode.Class (class EncodeJson)
 import Data.Argonaut.Encode.Generic (genericEncodeJson)
 import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
+import Data.Show.Generic (genericShow)
 import Data.Maybe (Maybe)
 import Data.Tuple (Tuple(..))
-
 import Data.Eq (class Eq, class Eq1)
 import Data.Functor (class Functor)
 import Data.Generic.Rep (class Generic)
@@ -105,10 +109,23 @@ type PartiallyDecodedResponse v
     }
 
 -- Types from Plutus.PAB.Webserver.Types
-type ContractSignatureResponse t
-  = { csrDefinition :: t
+type ContractSignatureResponse
+  = { csrDefinition :: String
     , csrSchemas :: Array (FunctionSchema FormSchema)
     }
+
+newtype ContractDefinition = ContractDefinition String
+
+derive instance genericContractDefinition :: Generic ContractDefinition _
+
+instance encodeJsonContractDefinition :: EncodeJson ContractDefinition where
+  encodeJson a = genericEncodeJson a
+
+instance decodeJsonContractDefinition :: DecodeJson ContractDefinition where
+  decodeJson a = genericDecodeJson a
+
+
+
 
 -- | Data needed to start a new instance of a contract.
 type ContractActivationArgs t
@@ -163,6 +180,20 @@ type FunctionSchema a =
   -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
   }
 
+-- Custom type added for handling JSON
+newtype FormSchemaArgument =
+  FormSchemaArgument
+    { tag :: String
+    , contents :: Maybe (Array (Tuple String FormSchemaArgument))
+    }
+
+derive instance genericFormSchemaArgument :: Generic FormSchemaArgument _
+
+instance encodeJsonFormSchemaArgument :: EncodeJson FormSchemaArgument where
+  encodeJson a = genericEncodeJson a
+
+instance decodeJsonFormSchemaArgument :: DecodeJson FormSchemaArgument where
+  decodeJson a = genericDecodeJson a
 
 -- types from Plutus.Contract.Resumable
 newtype RequestID
@@ -276,20 +307,20 @@ instance decodeJsonFormSchema :: DecodeJson FormSchema where
 
 -- Modified version of original type
 data FormArgument
-    = FormUnit
-    | FormBool Boolean
-    | FormInt (Maybe Int)
-    | FormInteger (Maybe Int)
-    | FormString (Maybe String)
-    | FormHex (Maybe String)
-    | FormRadio (Array String) (Maybe String)
-    | FormArray FormSchema (Array A.Json)
-    | FormMaybe FormSchema (Maybe A.Json)
-    | FormTuple A.Json A.Json
-    | FormObject (Array (Tuple String A.Json))
-    | FormValue Value
-    | FormPOSIXTimeRange Interval
-    | FormUnsupported String
+    = FormArgUnit
+    | FormArgBool Boolean
+    | FormArgInt (Maybe Int)
+    | FormArgInteger (Maybe Int)
+    | FormArgString (Maybe String)
+    | FormArgHex (Maybe String)
+    | FormArgRadio (Array String) (Maybe String)
+    | FormArgArray FormSchema (Array A.Json)
+    | FormArgMaybe FormSchema (Maybe A.Json)
+    | FormArgTuple A.Json A.Json
+    | FormArgObject (Array (Tuple String A.Json))
+    | FormArgValue Value
+    | FormArgPOSIXTimeRange Interval
+    | FormArgUnsupported String
 
 derive instance genericFormArgument :: Generic FormArgument _
 
@@ -297,6 +328,31 @@ instance encodeJsonFormArgument :: EncodeJson FormArgument where
   encodeJson a = genericEncodeJson a
 
 instance decodeJsonFormArgument :: DecodeJson FormArgument where
+  decodeJson a = genericDecodeJson a
+
+-- Custom type added for handling JSON field
+data FormArgumentTag
+    = FormUnit
+    | FormBool 
+    | FormInt 
+    | FormInteger
+    | FormString
+    | FormHex
+    | FormRadio
+    | FormArray
+    | FormMaybe 
+    | FormTuple 
+    | FormObject
+    | FormValue 
+    | FormPOSIXTimeRange
+    | FormUnsupported
+
+derive instance genericFormArgumentTag :: Generic FormArgumentTag _
+
+instance encodeJsonFormArgumentTag :: EncodeJson FormArgumentTag where
+  encodeJson a = genericEncodeJson a
+
+instance decodeJsonFormArgumentTag :: DecodeJson FormArgumentTag where
   decodeJson a = genericDecodeJson a
 
 -- Types from Wallet.Emulator.Wallet

@@ -72,7 +72,7 @@ handleLendexContracts lendexId initHandler = Builtin.handleBuiltin getSchema get
 
 handlers :: LendexId -> InitContract -> SimulatorEffectHandlers (Builtin LendexContracts)
 handlers lid initContract =
-  Simulator.mkSimulatorHandlers @(Builtin LendexContracts) []
+  Simulator.mkSimulatorHandlers @(Builtin LendexContracts) [Init, User, Oracle, Admin]
     $ interpret (handleLendexContracts lid initContract)
 
 -- | Runs simulator for Lendex

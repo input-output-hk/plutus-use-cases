@@ -4,6 +4,51 @@ module Bootstrap where
 import Halogen.HTML (ClassName(ClassName), HTML, div, li, span, text, ul)
 import Halogen.HTML.Properties (class_, classes)
 
+mb1 :: ClassName
+mb1 = ClassName "mb-1"
+
+mb2 :: ClassName
+mb2 = ClassName "mb-2"
+
+mb3 :: ClassName
+mb3 = ClassName "mb-3"
+
+mb4 :: ClassName
+mb4 = ClassName "mb-4"
+
+mb5 :: ClassName
+mb5 = ClassName "mb-5"
+
+my1 :: ClassName
+my1 = ClassName "my-1"
+
+my2 :: ClassName
+my2 = ClassName "my-2"
+
+my3 :: ClassName
+my3 = ClassName "my-3"
+
+my4 :: ClassName
+my4 = ClassName "my-4"
+
+my5 :: ClassName
+my5 = ClassName "my-5"
+
+gap1 :: ClassName
+gap1 = ClassName "gap-1"
+
+gap2 :: ClassName
+gap2 = ClassName "gap-2"
+
+gap3 :: ClassName
+gap3 = ClassName "gap-3"
+
+gap4 :: ClassName
+gap4 = ClassName "gap-4"
+
+gap5 :: ClassName
+gap5 = ClassName "gap-5"
+
 container :: ClassName
 container = ClassName "container"
 
@@ -313,6 +358,15 @@ btnExtraSmall = ClassName "btn-xs"
 btnLink :: ClassName
 btnLink = ClassName "btn-link"
 
+displayGrid :: ClassName
+displayGrid = ClassName "d-grid"
+
+dropdownMenu :: ClassName
+dropdownMenu = ClassName "dropdown-menu"
+
+dropdownItem :: ClassName
+dropdownItem = ClassName "dropdown-item"
+
 dropdownToggle :: ClassName
 dropdownToggle = ClassName "dropdown-toggle"
 
@@ -415,6 +469,9 @@ formControl = ClassName "form-control"
 formControl_ :: forall p i. Array (HTML p i) -> HTML p i
 formControl_ = div [ class_ formControl ]
 
+formLabel :: ClassName
+formLabel = ClassName "form-label"
+
 formRow :: ClassName
 formRow = ClassName "form-row"
 
@@ -444,6 +501,9 @@ formCheckLabel = ClassName "form-check-label"
 
 formText :: ClassName
 formText = ClassName "form-text"
+
+formSelect :: ClassName
+formSelect = ClassName "form-select"
 
 inputGroup :: ClassName
 inputGroup = ClassName "input-group"
