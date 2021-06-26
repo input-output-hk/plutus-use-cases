@@ -23,6 +23,8 @@
 module Plutus.Contracts.Coins.CoinsStateMachine
   ( scriptInstance,
     machineClient,
+    calcReserveCoinRate,
+    calcStableCoinRate
   )
 where
 
