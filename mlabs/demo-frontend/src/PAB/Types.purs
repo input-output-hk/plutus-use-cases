@@ -157,7 +157,11 @@ data FormSchema
 
 derive instance genericFormSchema :: Generic FormSchema _
 
-instance showFormSceham :: Show FormSchema where
+derive instance eqFormSchema :: Eq FormSchema
+
+derive instance ordFormSchema :: Ord FormSchema
+
+instance showFormSchema :: Show FormSchema where
   show a = genericShow a
 
 instance encodeJsonFormSchema :: EncodeJson FormSchema where
@@ -170,7 +174,7 @@ taggedJsonEncoding :: Encoding
 taggedJsonEncoding 
   = { tagKey: "tag"
     , valuesKey: "contents"
-    , unwrapSingleArguments: false
+    , unwrapSingleArguments: true
     }
 
 data FormArgument
