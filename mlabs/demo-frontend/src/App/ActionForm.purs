@@ -10,7 +10,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Elements.Keyed as Keyed
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import PAB.Types (ContractCall(..), ContractDefinition(..), EndpointDescription, FormArgument(..), Wallet)
+import PAB.Types (ContractCall(..), ContractDefinition(..), EndpointDescription, Wallet)
 import Web.DOM.Document (getElementsByTagName)
 
 --------------------------------------------------------------------------------
@@ -43,13 +43,13 @@ import Web.DOM.Document (getElementsByTagName)
 -- handleAction = case _ of
 --   Increment -> H.modify_ \st -> st { count = st.count + 1 }
 --------------------------------------------------------------------------------
-actionForm :: forall w i. ContractCall FormArgument -> HH.HTML w i
+actionForm :: forall w i. ContractCall -> HH.HTML w i
 actionForm contractCall =
   HH.div
     [ HP.classes [ BS.card, HH.ClassName ("action-pane") ] ]
     [ actionFormBody contractCall ]
 
-actionFormBody :: forall w i. ContractCall FormArgument -> HH.HTML w i
+actionFormBody :: forall w i. ContractCall  -> HH.HTML w i
 actionFormBody (CallEndpoint { caller, argumentValues }) =
   HH.div
     [ HP.classes [ BS.my2, BS.cardBody ] ]

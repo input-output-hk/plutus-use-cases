@@ -7,11 +7,13 @@
   },
   "scripts": {
     "build": "spago build",
+    "dev": "npm run serve & node cors-anywhere",
     "test": "spago test",
     "serve": "parcel dev/index.html --open",
     "build-prod": "mkdir -p prod && cp dev/index.html prod/ && rm -rf dist && spago bundle-app --to prod/index.js && parcel build prod/index.html"
   },
   "dependencies": {
-    "big-integer": "^1.6.48"
+    "big-integer": "^1.6.48",
+    "cors-anywhere": "^0.4.4"
   }
 }

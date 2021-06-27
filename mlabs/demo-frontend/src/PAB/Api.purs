@@ -1,11 +1,13 @@
 module PAB.Api
-  ( getStatus
+  ( getContractDefinitions
+  , getStatus
   , getWalletInstances
   , postEndpoint
   , waitForNewState
   ) where
 
 --------------------------------------------------------------------------------
+
 import Affjax as AX
 import Affjax.RequestBody as AXRB
 import Affjax.ResponseFormat as AXRF
@@ -14,25 +16,32 @@ import Data.Either (Either(..))
 import Data.Eq ((/=))
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..))
+import Debug.Trace (trace)
 import Effect.Aff (Aff, delay)
-import PAB.Types
-  ( ApiError(DecodeError, RequestError)
-  , ContractInstanceClientState
-  , ContractInstanceId(..)
-  , PabConfig
-  , Wallet(..)
-  )
+import Effect.Class (liftEffect)
+import Effect.Class.Console (log, logShow)
+import Error (throwRequestError, throwDecodeError)
+import PAB.Types (ContractInstanceClientState, ContractInstanceId(..), ContractSignatureResponse, PabConfig, Wallet(..))
 import Prelude (bind, pure, show, ($), (<>))
 
 --------------------------------------------------------------------------------
 contractInstPath :: String
 contractInstPath = "/api/new/contract/instances/"
 
+getContractDefinitions :: 
+  PabConfig ->
+  Aff (Array ContractSignatureResponse)
+getContractDefinitions pab =
+  let 
+    url = pab.baseUrl <> "/api/new/contract/definitions"
+  in
+    getJson url
+
 -- | Gets the current status info for the specific contract instance
 getStatus ::
   PabConfig ->
   ContractInstanceId ->
-  Aff (Either ApiError (ContractInstanceClientState A.Json))
+  Aff (ContractInstanceClientState A.Json)
 getStatus pab { unContractInstanceId: ciid } =
   let
     url = pab.baseUrl <> contractInstPath <> ciid <> "/status"
@@ -43,7 +52,7 @@ getStatus pab { unContractInstanceId: ciid } =
 getWalletInstances ::
   PabConfig ->
   Wallet ->
-  Aff (Either ApiError (Array (ContractInstanceClientState A.Json)))
+  Aff (Array (ContractInstanceClientState A.Json))
 getWalletInstances pab { getWallet: w } =
   let
     url = pab.baseUrl <> contractInstPath <> "wallet/" <> show w
@@ -59,16 +68,9 @@ waitForNewState ::
   Aff A.Json
 waitForNewState pab ciid prevState = do
   res <- getStatus pab ciid
-  case res of
-    Left _ -> keepWaiting
-    Right status -> do
-      let
-        newState = status.cicCurrentState.observableState
-      if newState /= prevState then
-        pure newState
-      else
-        keepWaiting
-  where
+  let newState = res.cicCurrentState.observableState
+  if newState /= prevState then pure newState else keepWaiting
+ where
   keepWaiting = do
     _ <- delay (Milliseconds 1000.0)
     waitForNewState pab ciid prevState
@@ -81,7 +83,7 @@ postEndpoint ::
   ContractInstanceId ->
   String ->
   payload ->
-  Aff (Either ApiError A.Json)
+  Aff A.Json
 postEndpoint pab { unContractInstanceId: ciid } endpoint payload =
   let
     url =
@@ -98,10 +100,13 @@ getJson ::
   forall res.
   A.DecodeJson res =>
   String ->
-  Aff (Either ApiError res)
+  Aff res
 getJson url = do
+  _ <- liftEffect $ log $ "Request sent to " <> url
   res <- AX.get AXRF.json url
-  handleResponse res
+  _ <- liftEffect $ log "Response received:"
+  _ <- trace res \x-> pure x
+  handleResponse res $ "GET request to " <> url <> " failed: "
 
 -- | Sends a POST request to the specified URL and returns the response JSON (or error).
 postJson ::
@@ -110,20 +115,21 @@ postJson ::
   A.DecodeJson res =>
   String ->
   payload ->
-  Aff (Either ApiError res)
+  Aff res
 postJson url payload = do
   res <- AX.post AXRF.json url (Just $ AXRB.Json $ A.encodeJson payload)
-  handleResponse res
+  handleResponse res $ "POST request to " <> url <> " failed: "
 
 handleResponse ::
   forall res.
   A.DecodeJson res =>
   Either AX.Error (AX.Response A.Json) ->
-  Aff (Either ApiError res)
-handleResponse res = do
+  String ->
+  Aff res
+handleResponse res errMsg = do
   case res of
-    Left e -> pure $ Left (RequestError $ e)
+    Left e -> throwRequestError errMsg e
     Right res' -> do
       case A.decodeJson res'.body of
-        Left e' -> pure $ Left (DecodeError $ e')
-        Right decoded -> pure $ Right decoded
+        Left e' -> throwDecodeError errMsg e'
+        Right decoded -> pure decoded
