@@ -9,9 +9,8 @@ import           Data.Text                  (Text)
 import           Data.Void                  (Void)
 import qualified Fixtures.Aave              as AaveMock
 import           Fixtures.Asset             (defaultAssets)
-import           Fixtures.Policy            (makePolicy)
+import           Fixtures.Symbol            (forgeSymbol, getSymbol)
 import           Fixtures.Wallet            (ownerWallet, userWallets)
-import qualified Ledger
 import           Plutus.Contract
 import qualified Plutus.Contracts.Core      as Aave
 import           Plutus.Contracts.Endpoints (ContractResponse (..))
@@ -31,7 +30,7 @@ oracles = fmap
     (\asset ->
         Oracle.Oracle
         {
-            Oracle.oSymbol = Ledger.scriptCurrencySymbol . makePolicy . snd . unAssetClass $ asset,
+            Oracle.oSymbol = getSymbol Oracle.oracleTokenName,
             Oracle.oOperator = PubKeyHash "mock",
             Oracle.oFee = 0,
             Oracle.oAsset = asset })
@@ -67,11 +66,25 @@ startTrace = do
     _ <- Trace.waitNSlots 5
     pure ()
 
+startOracles ::  Contract () BlockchainActions Text ()
+startOracles = void $ forM oracles
+    (\oracle -> do
+        _ <- forgeSymbol Oracle.oracleTokenName
+        Oracle.updateOracle oracle 1000000
+    )
+
+oracleTrace :: Trace.EmulatorTrace ()
+oracleTrace = do
+    _ <- Trace.activateContractWallet ownerWallet startOracles
+    _ <- Trace.waitNSlots 5
+    pure ()
+
 type UserHandle = Trace.ContractHandle (Last (ContractResponse Text Aave.UserContractState)) Aave.AaveUserSchema Void
 
 defaultTrace :: Trace.EmulatorTrace (Map.Map Wallet UserHandle)
 defaultTrace = do
     _ <- distributeTrace
+    _ <- oracleTrace
     _ <- startTrace
     fmap Map.fromList $ forM userWallets $ \wallet -> do
         handle <- Trace.activateContractWallet wallet userContract

@@ -5,9 +5,11 @@
 
 module Spec.Withdraw where
 
+import           Control.Lens               (over)
 import qualified Data.Map                   as Map
 import qualified Fixtures
 import           Plutus.Contract.Test
+import qualified Plutus.Contracts.Core      as Aave
 import qualified Plutus.Contracts.Endpoints as Aave
 import qualified Plutus.Trace.Emulator      as Trace
 import           Plutus.V1.Ledger.Value     (AssetClass, assetClassValue)
@@ -24,28 +26,27 @@ tests = testGroup "withdraw" [
             Fixtures.lenderWallet
             (Fixtures.initialFunds <>
             assetClassValue Fixtures.mogus (negate 100 + 50) <> assetClassValue Fixtures.amogus (100 - 50))
-        .&&. Shared.reservesChange (Shared.modifyAmount (subtract 50 . (+100)) Fixtures.mogus Fixtures.initialReserves)
+        .&&. Shared.reservesChange (Utils.modifyAt (over Aave._rAmount (subtract 50 . (+100))) Fixtures.mogus Fixtures.initialReserves)
         )
         $ do
             handles <- Fixtures.defaultTrace
-            deposit (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 100
-            withdraw (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 50,
+            deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 100
+            withdraw (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 50,
     checkPredicate
     "Should fail if user's protocol balance is insufficient"
     (walletFundsChange Fixtures.lenderWallet (Fixtures.initialFunds <>
         assetClassValue Fixtures.mogus (negate 100) <> assetClassValue Fixtures.amogus 100)
-    .&&. Shared.reservesChange (Shared.modifyAmount (+100) Fixtures.mogus Fixtures.initialReserves)
+    .&&. Shared.reservesChange (Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.mogus Fixtures.initialReserves)
     .&&. assertAccumState Fixtures.userContract (Trace.walletInstanceTag Fixtures.lenderWallet) Utils.isLastError "Contract last state is an error"
     )
     $ do
         handles <- Fixtures.defaultTrace
-        deposit (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 100
-        withdraw (handles Map.! Fixtures.lenderWallet) Fixtures.mogus 200
+        deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 100
+        withdraw (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 200
     ]
 
-withdraw :: Fixtures.UserHandle -> AssetClass -> Integer -> Trace.EmulatorTrace ()
-withdraw userHandle asset amount = do
-    pkh <- Shared.getPubKey userHandle
-    Trace.callEndpoint @"withdraw" userHandle $ Aave.WithdrawParams asset pkh amount
+withdraw :: Fixtures.UserHandle -> Wallet -> AssetClass -> Integer -> Trace.EmulatorTrace ()
+withdraw userHandle wallet asset amount = do
+    Trace.callEndpoint @"withdraw" userHandle $ Aave.WithdrawParams asset (Shared.getPubKey wallet) amount
     _ <- Trace.waitNSlots 3
     pure ()
