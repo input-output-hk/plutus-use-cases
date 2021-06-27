@@ -1,19 +1,25 @@
 {
   "private": true,
-  "devDependencies": {
-    "parcel": "1.12.3",
-    "purescript": "^0.14.0",
-    "spago": "^0.19.1"
-  },
   "scripts": {
     "build": "spago build",
-    "dev": "spago build && npm run serve & node cors-anywhere",
+    "dev": "npm run serve & node cors-anywhere",
     "test": "spago test",
     "serve": "parcel dev/index.html --open",
-    "build-prod": "mkdir -p prod && cp dev/index.html prod/ && rm -rf dist && spago bundle-app --to prod/index.js && parcel build prod/index.html"
+    "build-prod": "mkdir -p prod && cp dev/index.html prod/ && rm -rf dist && spago bundle-app --to prod/index.js && parcel build prod/index.html",
+    "webpack:server": "node cors-anywhere & webpack serve --progress --inline --hot"
   },
   "dependencies": {
     "big-integer": "^1.6.48",
-    "cors-anywhere": "^0.4.4"
+    "cors-anywhere": "^0.4.4",
+    "html-webpack-plugin": "^5.3.2",
+    "parcel": "1.12.3",
+    "purescript": "^0.14.0",
+    "purescript-psa": "^0.8.2",
+    "purs-loader": "^3.7.2",
+    "spago": "^0.19.1",
+    "webpack": "^5.40.0",
+    "webpack-cli": "^4.7.2",
+    "webpack-dev-server": "^3.11.2",
+    "xhr2": "^0.2.1"
   }
 }
