@@ -42,12 +42,12 @@ import Data.Argonaut (JsonDecodeError(..))
 import Data.Argonaut as A
 import Data.Argonaut.Decode.Class (class DecodeJson, decodeJson)
 import Data.Argonaut.Decode.Error (JsonDecodeError(TypeMismatch, UnexpectedValue))
-import Data.Argonaut.Decode.Generic (genericDecodeJson)
+import Data.Argonaut.Decode.Generic (genericDecodeJson, genericDecodeJsonWith)
 import Data.Argonaut.Encode.Class (class EncodeJson)
-import Data.Argonaut.Encode.Generic (genericEncodeJson)
+import Data.Argonaut.Encode.Generic (genericEncodeJson, genericEncodeJsonWith )
+import Data.Argonaut.Types.Generic (Encoding)
 import Data.Either (Either(..))
 import Data.Eq (class Eq, class Eq1)
-import Foreign.Object (lookup)
 import Data.Functor (class Functor)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep (class Generic)
@@ -57,6 +57,7 @@ import Data.Show (class Show)
 import Data.Show.Generic (genericShow)
 import Data.Show.Generic (genericShow)
 import Data.Tuple (Tuple(..))
+import Foreign.Object (lookup)
 import Web.HTML.Event.EventTypes (offline)
 
 --------------------------------------------------------------------------------
@@ -160,10 +161,17 @@ instance showFormSceham :: Show FormSchema where
   show a = genericShow a
 
 instance encodeJsonFormSchema :: EncodeJson FormSchema where
-  encodeJson a = genericEncodeJson a
+  encodeJson a = genericEncodeJsonWith taggedJsonEncoding a
 
 instance decodeJsonFormSchema :: DecodeJson FormSchema where
-  decodeJson a = genericDecodeJson a
+  decodeJson a = genericDecodeJsonWith taggedJsonEncoding a
+
+taggedJsonEncoding :: Encoding
+taggedJsonEncoding 
+  = { tagKey: "tag"
+    , valuesKey: "contents"
+    , unwrapSingleArguments: false
+    }
 
 data FormArgument
     = FormArgUnit
