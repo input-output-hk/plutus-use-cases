@@ -24,3 +24,6 @@ requires_nix_shell:
 
 exec-lendex-demo:
 	stack build --no-nix --system-ghc --exec lendex-demo
+
+exec-demo-frontend:
+	cd ./demo-frontend && npm run dev

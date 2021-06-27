@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "spago build",
-    "dev": "npm run serve & node cors-anywhere",
+    "dev": "spago build && npm run serve & node cors-anywhere",
     "test": "spago test",
     "serve": "parcel dev/index.html --open",
     "build-prod": "mkdir -p prod && cp dev/index.html prod/ && rm -rf dist && spago bundle-app --to prod/index.js && parcel build prod/index.html"
