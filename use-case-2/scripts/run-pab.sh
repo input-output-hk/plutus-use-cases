@@ -2,5 +2,6 @@
 
 set -euo pipefail
 
-nix-build -A plutus-starter.haskellNixProject.hsPkgs.plutus-starter.components.exes.plutus-starter-pab
-./result/bin/plutus-starter-pab
+DIR=$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)
+
+"$(nix-build "$DIR"/.. -A plutus-starter.haskellNixProject.hsPkgs.plutus-starter.components.exes.plutus-starter-pab --no-out-link)"/bin/plutus-starter-pab
