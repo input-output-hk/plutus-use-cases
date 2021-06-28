@@ -173,7 +173,6 @@ algorithmically. A general description of the interest algorithm is:
     - [ ] Improve Ergonomics of Use and Installation
 
   - Testing
-    - [x] 50% Test Coverage
     - [x] 100% Test Coverage
     - [ ] QuickCheck Testing
 
