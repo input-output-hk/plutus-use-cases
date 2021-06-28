@@ -13,6 +13,7 @@ import qualified Plutus.Contracts.Core      as Aave
 import qualified Plutus.Contracts.Endpoints as Aave
 import qualified Plutus.Trace.Emulator      as Trace
 import           Plutus.V1.Ledger.Value     (AssetClass, assetClassValue)
+import qualified PlutusTx.AssocMap          as AssocMap
 import qualified Spec.Shared                as Shared
 import           Test.Tasty
 import qualified Utils.Data                 as Utils
@@ -26,6 +27,13 @@ tests = testGroup "deposit" [
             (Fixtures.initialFunds <>
             assetClassValue Fixtures.mogus (negate 100) <> assetClassValue Fixtures.amogus 100)
         .&&. Shared.reservesChange (Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.mogus Fixtures.initialReserves)
+        .&&. Shared.userConfigsChange
+            (
+                AssocMap.insert
+                (Fixtures.mogus, Utils.getPubKey Fixtures.lenderWallet)
+                (Aave.UserConfig { Aave.ucDebt = 0, Aave.ucCollateralizedInvestment = 0 })
+                $ Fixtures.initialUsers
+            )
         )
         $ do
             handles <- Fixtures.defaultTrace
@@ -34,6 +42,7 @@ tests = testGroup "deposit" [
         "Should fail if user's wallet balance is insufficient"
         (walletFundsChange Fixtures.lenderWallet Fixtures.initialFunds
         .&&. Shared.reservesChange Fixtures.initialReserves
+        .&&. Shared.userConfigsChange Fixtures.initialUsers
         .&&. assertAccumState Fixtures.userContract (Trace.walletInstanceTag Fixtures.lenderWallet) Utils.isLastError "Contract last state is an error"
         )
         $ do

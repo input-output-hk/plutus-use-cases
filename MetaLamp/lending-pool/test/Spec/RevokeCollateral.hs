@@ -44,6 +44,7 @@ tests = testGroup "revokeCollateral" [
         "Should fail if user's investment is insufficient"
         (walletFundsChange Fixtures.lenderWallet Fixtures.initialFunds
         .&&. Shared.reservesChange Fixtures.initialReserves
+        .&&. Shared.userConfigsChange Fixtures.initialUsers
         .&&. assertAccumState Fixtures.userContract (Trace.walletInstanceTag Fixtures.lenderWallet) Utils.isLastError "Contract last state is an error"
         )
         $ do

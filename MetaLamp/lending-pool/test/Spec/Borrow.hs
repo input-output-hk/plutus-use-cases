@@ -62,7 +62,9 @@ tests = testGroup "borrow" [
     checkPredicate
         "Should fail if user's collateral is insufficient"
         (walletFundsChange Fixtures.lenderWallet Fixtures.initialFunds
+        .&&. walletFundsChange Fixtures.borrowerWallet Fixtures.initialFunds
         .&&. Shared.reservesChange Fixtures.initialReserves
+        .&&. Shared.userConfigsChange Fixtures.initialUsers
         .&&. assertAccumState Fixtures.userContract (Trace.walletInstanceTag Fixtures.lenderWallet) Utils.isLastError "Contract last state is an error"
         )
         $ do

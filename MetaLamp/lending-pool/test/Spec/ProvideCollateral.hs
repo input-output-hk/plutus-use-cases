@@ -42,6 +42,7 @@ tests = testGroup "provideCollateral" [
         "Should fail if user's aToken balance is insufficient"
         (walletFundsChange Fixtures.lenderWallet Fixtures.initialFunds
         .&&. Shared.reservesChange Fixtures.initialReserves
+        .&&. Shared.userConfigsChange Fixtures.initialUsers
         .&&. assertAccumState Fixtures.userContract (Trace.walletInstanceTag Fixtures.lenderWallet) Utils.isLastError "Contract last state is an error"
         )
         $ do

@@ -65,7 +65,9 @@ tests = testGroup "repay" [
     checkPredicate
         "Should fail if user has no debt"
         (walletFundsChange Fixtures.lenderWallet Fixtures.initialFunds
+        .&&. walletFundsChange Fixtures.borrowerWallet Fixtures.initialFunds
         .&&. Shared.reservesChange Fixtures.initialReserves
+        .&&. Shared.userConfigsChange Fixtures.initialUsers
         .&&. assertAccumState Fixtures.userContract (Trace.walletInstanceTag Fixtures.lenderWallet) Utils.isLastError "Contract last state is an error"
         )
         $ do
