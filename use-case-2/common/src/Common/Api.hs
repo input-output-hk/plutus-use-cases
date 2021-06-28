@@ -39,6 +39,7 @@ data Api :: * -> * where
   Api_Stake :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String [Text])
   Api_RedeemLiquidity :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Api (Either String [Text])
   Api_CallFunds :: ContractInstanceId Text -> Api ()
+  Api_CallPools :: ContractInstanceId Text -> Api ()
 
 deriveJSONGADT ''Api
 deriveArgDict ''Api
