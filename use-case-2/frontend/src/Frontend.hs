@@ -23,6 +23,7 @@ import Data.Aeson.Lens
 import Data.Int
 import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.Map as Map
+import qualified Data.HashMap.Lazy as HMap
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -329,43 +330,39 @@ poolDashboard wid = Workflow $ do
     dPools <- holdDyn Nothing poolsEvent
     let fundsAndPools = ffor2 dFunds dPools $ \f p -> (f,p)
     widgetHold_ blank $ ffor (updated fundsAndPools) $
-      \(mIncomingFundsWebSocketData :: Maybe Aeson.Value, _mIncomingPoolsWebSocketData :: Maybe Aeson.Value) ->
+      \(mIncomingFundsWebSocketData :: Maybe Aeson.Value, mIncomingPoolsWebSocketData :: Maybe Aeson.Value) ->
         case mIncomingFundsWebSocketData of
           Nothing -> return ()
           Just fundsWebSocketData -> do
             let currencyDetails = fundsWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
-                -- poolDetails = V.toList $ case mIncomingPoolsWebSocketData of
-                --   Nothing -> V.empty
-                --   Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
-                -- TODO: There seems to be a connection within the redeemer of utxoAt that will mention the Liquidity Pool Name.
-                  -- The reason we need to find a tie between liquidity total and balance is to show liquidity token percentage.
-                -- liquidityTotal = case poolDetails of
-                --   sthelse:_ -> case sthelse of
-                --       Aeson.Array sthmore -> case V.toList sthmore of
-                --         _:_:anotherwon:_ -> case anotherwon of
-                --           Aeson.Array goodone -> case V.toList goodone of
-                --             bslpname:liquidityTotal:_ -> case (bslpname, liquidityTotal) of
-                --               (Aeson.String lpn, lqt) -> (lpn, lqt)
-                --               _ -> ("", Aeson.String "")
-                --           _ -> ("", Aeson.String "")
-                --         _ -> ("", Aeson.String "")
-                --       _ -> ("", Aeson.String "")
-                --   _ -> ("", Aeson.String "")
+                poolDetails = case mIncomingPoolsWebSocketData of
+                  Nothing -> V.empty
+                  Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
+                poolMap = parseLiquidityTokensToMap poolDetails
             divClass "p-5 mb-4 bg-light rounded-5" $ divClass "container-fluid py-5" $ do
-              -- WIP: el "p" $ text $ T.pack $ show poolDetails
-              -- TODO: The fst of liquidityTotal needs to look like the "token name" of the liquidity token in order to know
-              -- how to match them with one another
-              -- WIP: el "p" $ text $ T.pack $ show liquidityTotal
               elClass "ul" "list-group" $ do
                 let formattedTokenDetails = Map.filter
                       -- TODO: Don't lookup tokens by hard coded currencySymbol value
                       (\(_,cs) -> cs == "078ea50abc14180a537b6815a6e8562021bde4eaf0d4c5738290b423df3abeb8") $
                       parseTokensToMap currencyDetails
                 elClass "li" "list-group-item" $ do
-                  forM_ (Map.toList formattedTokenDetails) $ \(tokenName, (tokenBalance,_)) ->
-                    -- TODO: Liquidity Pool Names do not show up with liquidity token balances. Make changes to funds endpoint to retrieve
-                    -- this information
-                    el "p" $ text $ "Token Name: " <> (T.pack $ show tokenName) <> "Balance: " <> (T.pack $ show tokenBalance)
+                  forM_ (Map.toList formattedTokenDetails) $ \(tokenName, (tokenBalance,_)) -> do
+                    let mLiquidityInfo = Map.lookup tokenName poolMap
+                    case mLiquidityInfo of
+                      Nothing -> blank
+                      Just (lqTotal, (tokenNameA,tokenNameB)) -> do
+                        let lqPercentage :: Double = ((fromIntegral tokenBalance) / (fromIntegral lqTotal)) * 100
+                        el "p" $ text $ "Token Name: "
+                          <> (T.pack $ show tokenName)
+                          <> " (Composed of tokens "
+                          <> (T.pack $ show tokenNameA)
+                          <> " and "
+                          <> (T.pack $ show tokenNameB)
+                          <> " Balance: "
+                          <> (T.pack $ show tokenBalance)
+                          <> " Liquidity Percentage: "
+                          <> (T.pack $ show lqPercentage)
+                          <> "%"
     return never
   -- TODO: Widget to redeem liquidity pool blanance
   _ <- divClass "p-5 mb-4 bg-light rounded-5" $ do
@@ -561,6 +558,20 @@ parseTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
               _ -> Nothing
             _ -> Nothing
       in Just $ Map.fromList $ catMaybes $ V.toList tokens'
+    _ -> Nothing
+  _ -> Just Map.empty
+
+parseLiquidityTokensToMap :: V.Vector Aeson.Value -> Map.Map Text (Integer, (Text, Text)) -- (LiquidityAmount, (CoinA, CoinB))
+parseLiquidityTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
+  Aeson.Array xs -> case V.toList xs of
+    coinA:coinB:(Aeson.Array liquidityCoin):_-> case V.toList liquidityCoin of
+      (Aeson.Object obj):(Aeson.Number lqAmount):_ -> case HMap.toList obj of
+        (_, Aeson.String lqTokenName):_ -> do
+          let tna = coinA ^. nth 0 . key "unAssetClass" . values . key "unTokenName" . _String
+              tnb = coinB ^. nth 0 . key "unAssetClass" . values . key "unTokenName" . _String
+          Just $ Map.singleton lqTokenName ((fromMaybe 0 $ lqAmount ^? _Integer), (tna,tnb))
+        _ -> Nothing
+      _ -> Nothing
     _ -> Nothing
   _ -> Just Map.empty
 
