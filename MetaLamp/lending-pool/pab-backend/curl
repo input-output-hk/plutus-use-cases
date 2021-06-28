@@ -1,0 +1,1 @@
+curl -d '{"wallet": {"getWallet": 2}, "amount":40}' -H "Content-Type: application/json" -X POST http://localhost:8081/deposit

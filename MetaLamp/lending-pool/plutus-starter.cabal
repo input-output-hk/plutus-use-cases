@@ -23,7 +23,23 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Plutus.Contracts.Endpoints Plutus.Contracts.FungibleToken Plutus.Contracts.AToken Plutus.Contracts.Core Plutus.Contracts.Oracle Plutus.Contracts.State Plutus.State.Select Plutus.State.Update Plutus.Contracts.TxUtils Plutus.OutputValue Ext.Plutus.Ledger.Contexts Plutus.PAB.Simulation
+      Plutus.Contracts.Endpoints 
+      Plutus.Contracts.FungibleToken 
+      Plutus.Contracts.AToken 
+      Plutus.Contracts.Core 
+      Plutus.Contracts.Oracle 
+      Plutus.Contracts.State 
+      Plutus.State.Select 
+      Plutus.State.Update 
+      Plutus.Contracts.TxUtils 
+      Plutus.OutputValue 
+      Ext.Plutus.Ledger.Contexts 
+      Plutus.PAB.Simulation
+      -- Backend
+      Plutus.Backend.ContractStorage
+      Plutus.Backend.Server
+      Plutus.Backend.Endpoints
+      Plutus.Backend.Types
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -34,6 +50,10 @@ library
       freer-extras,
       prettyprinter,
       lens,
+      servant,
+      servant-server,
+      warp,
+      wai,
       -- Plutus:
       playground-common,
       plutus-contract,
@@ -52,6 +72,15 @@ library
 executable pab
   main-is: Main.hs
   hs-source-dirs: pab
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter
+
+executable pab-backend
+  main-is: Main.hs
+  hs-source-dirs: pab-backend
   ghc-options:
     -threaded
   build-depends:
