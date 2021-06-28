@@ -8,7 +8,7 @@ import Data.Array as Array
 -- import Data.Functor.Foldable (Fix(..))
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int as Int
--- import Data.Json.JsonTuple (JsonTuple(..))
+import Data.Tuple (Tuple(..))
 import Data.Lens (Lens', over, set, view)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
@@ -30,23 +30,44 @@ import Prim.TypeError (class Warn, Text)
 -- import Validation (ValidationError, WithPath, joinPath, showPathValue, validate)
 -- import ValueEditor (valueForm)
 
-import PAB.Types (FormArgument(FormArgUnit, FormArgInt))
-import App.Types (FormEvent)
+import App.Types (Action(..))
+import Data.Json.JsonTuple (JsonTuple(..))
+import PAB.Types (Fix(..), FormArgument, FormArgumentF(..))
 
-actionFormInputs ::
-  forall p i.
-  FormArgument ->
-  HH.HTML p i
+actionFormInputs :: forall p. FormArgument -> HH.HTML p Action
 actionFormInputs argument =
   HH.div 
    [ classes [ BS.wasValidated, BS.mb3 ] ]
-   [ inputField argument ]
+   [ actionArgumentField [] false argument ]
 
-inputField ::
-  forall p i.
-  FormArgument ->
-  HH.HTML p i
-inputField arg@(FormArgUnit) = BS.empty
+actionArgumentField :: forall p. Array String -> Boolean -> FormArgument -> HH.HTML p Action
+actionArgumentField ancestors isNested (Fix (FormObjectF subFields)) =
+  HH.div [ nesting isNested ]
+    (mapWithIndex (\i (JsonTuple field) -> subForm i field) subFields)
+ where
+  subForm index (name /\ arg) =
+    ( BS.formGroup_
+        [ HH.label [ for name ] [ HH.text name ]
+        , actionArgumentField (Array.snoc ancestors name) true arg
+        ]
+    )
+
+actionArgumentField ancestors isNested arg@(Fix FormUnitF) = BS.empty
+
+actionArgumentField ancestors isNested arg@(Fix (FormIntF n)) =
+  HH.div_
+    [ HH.input
+        [ type_ InputNumber
+        , classes [ BS.formControl ]
+        , value $ maybe "" show n
+        , required true
+        , placeholder "Int"
+        -- , onValueInput (Just <<< SetField <<< SetIntField <<< Int.fromString)
+        ]
+    -- , validationFeedback (joinPath ancestors <$> validate arg)
+    ]
+
+actionArgumentField _ _ _ = BS.empty
 
 -- actionArgumentField ancestors _ arg@(Fix (FormBoolF b)) =
 --   formCheck_
@@ -66,19 +87,6 @@ inputField arg@(FormArgUnit) = BS.empty
 --     ]
 --   where
 --   elementId = String.joinWith "-" ancestors
-
-inputField arg@(FormArgInt n) =
-  HH.div_
-    [ HH.input
-        [ type_ InputNumber
-        , classes [ BS.formControl ]
-        , value $ maybe "" show n
-        , required true
-        , placeholder "Int"
-        -- , onValueInput (Just <<< SetField <<< SetIntField <<< Int.fromString)
-        ]
-    -- , validationFeedback (joinPath ancestors <$> validate arg)
-    ]
 
 -- actionArgumentField ancestors _ arg@(Fix (FormIntegerF n)) =
 --   div_
@@ -184,17 +192,6 @@ inputField arg@(FormArgInt n) =
 --                   ]
 --               ]
 --           ]
-
--- actionArgumentField ancestors isNested (Fix (FormObjectF subFields)) =
---   div [ nesting isNested ]
---     (mapWithIndex (\i (JsonTuple field) -> map (SetSubField i) (subForm field)) subFields)
---   where
---   subForm (name /\ arg) =
---     ( formGroup_
---         [ label [ for name ] [ text name ]
---         , actionArgumentField (Array.snoc ancestors name) true arg
---         ]
---     )
 
 -- actionArgumentField ancestors isNested (Fix (FormPOSIXTimeRangeF interval)) =
 --   div [ class_ formGroup, nesting isNested ]
@@ -304,7 +301,7 @@ inputField arg@(FormArgInt n) =
 --     , code_ [ text description ]
 --     ]
 
-inputField _ = Bootstrap.empty
+inputField _ _ _ = Bootstrap.empty
 
 -- actionArgumentClass :: Array String -> Array ClassName
 -- actionArgumentClass ancestors =
@@ -317,7 +314,6 @@ inputField _ = Bootstrap.empty
 
 -- validationFeedback errors = invalidFeedback_ (div_ <<< pure <<< text <<< showPathValue <$> errors)
 
--- nesting :: forall r i. Boolean -> IProp ( "class" :: String | r ) i
--- nesting true = classes [ ClassName "nested" ]
-
--- nesting false = classes []
+nesting :: forall r i. Boolean -> IProp ( "class" :: String | r ) i
+nesting true = classes [ H.ClassName "nested" ]
+nesting false = classes []

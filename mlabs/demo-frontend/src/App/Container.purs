@@ -12,9 +12,11 @@ import Data.Argonaut as A
 import Data.Argonaut.Encode (encodeJson)
 import Data.Array ((..))
 import Data.Either (Either(..))
+import Data.Json.JsonTuple (JsonTuple(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
+import Data.Tuple.Nested ((/\))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Console (log, logShow)
 import Halogen (HalogenQ(..))
@@ -23,7 +25,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (classes, style)
 import PAB.Api as Api
-import PAB.Types (ContractCall(CallEndpoint), ContractSignatureResponse, FormArgument(FormArgUnit, FormArgInt), FormArgument, PabConfig, Wallet)
+import PAB.Types (ContractCall(CallEndpoint), ContractSignatureResponse, FormArgumentF(..), Fix(..), FormArgument, PabConfig, Wallet)
 import Web.HTML.Event.EventTypes (offline)
 
 --------------------------------------------------------------------------------
@@ -35,7 +37,7 @@ initialState _ =
   , selectedWalletIdx: 0
   , selectedContractIdx: 0
   , selectedEndpointIdx: 0
-  , argument: FormArgInt $ Just 5
+  , argument: Fix $ FormObjectF [ JsonTuple ("Test Field" /\ (Fix (FormIntF $ Just 5))) ]
   }
 
 component :: forall q i o m. MonadAff m => H.Component q i o m
@@ -88,5 +90,9 @@ handleAction = case _ of
     H.modify_ _ { selectedContractIdx = i, selectedEndpointIdx = 0 }
   SetSelectedEndpointIdx i -> do
     H.modify_ _ { selectedEndpointIdx = i }
+  SetFormField _ -> do
+    pure unit
+  SetFormSubField _ _ -> do
+    pure unit
 
 

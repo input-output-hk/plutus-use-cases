@@ -4,7 +4,6 @@ module App.Types
   , getSelectedContractSig
   , getSelectedFunctionSchema
   , FieldEvent(..)
-  , FormEvent(..)
   , State
   , ValueEvent(..)
   ) where
@@ -49,12 +48,8 @@ data Action
   | SetSelectedWalletIdx Int
   | SetSelectedContractIdx Int
   | SetSelectedEndpointIdx Int
-
-data FormEvent
-  = SetField FieldEvent
-  | SetSubField Int FormEvent
-  | AddSubField
-  | RemoveSubField Int
+  | SetFormField FieldEvent
+  | SetFormSubField Int FieldEvent
 
 data FieldEvent
   = SetIntField (Maybe Int)

@@ -10,14 +10,16 @@
   , "console"
   , "datetime"
   , "debug"
-  , "either"
   , "effect"
+  , "either"
   , "exceptions"
   , "foldable-traversable"
-  , "foreign-object"
   , "foreign"
+  , "foreign-generic"
+  , "foreign-object"
   , "halogen"
   , "integers"
+  , "matryoshka"
   , "maybe"
   , "newtype"
   , "prelude"
@@ -29,6 +31,5 @@
   , "web-html"
   ]
 , packages = ./packages.dhall
-, sources =
-  [ "src/**/*.purs", "test/**/*.purs" ]
+, sources = [ "src/**/*.purs", "test/**/*.purs" ]
 }
