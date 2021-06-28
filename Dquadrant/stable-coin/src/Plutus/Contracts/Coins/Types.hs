@@ -28,6 +28,8 @@ module Plutus.Contracts.Coins.Types
     BankInputAction (..),
     EndpointInput (..),
     RatesResponse (..),
+    Rates (..),
+    StateResponse (..),
   )
 where
 
@@ -93,11 +95,25 @@ data EndpointInput = EndpointInput
   deriving stock (Generic, Prelude.Eq, Prelude.Show)
   deriving anyclass (ToJSON, FromJSON, ToSchema)
 
-data RatesResponse = RatesResponse
+data Rates = Rates
   { 
     pegRate :: Integer,
     scRate :: Integer,
     rcRate :: Integer
+  }
+  deriving stock (Generic, Prelude.Eq, Prelude.Show)
+  deriving anyclass (ToJSON, FromJSON)
+
+data RatesResponse = RatesResponse
+  { 
+    currentCoinsRates :: Rates
+  }
+  deriving stock (Generic, Prelude.Eq, Prelude.Show)
+  deriving anyclass (ToJSON, FromJSON)
+
+data StateResponse = StateResponse
+  { 
+    currentCoinsState :: CoinsMachineState
   }
   deriving stock (Generic, Prelude.Eq, Prelude.Show)
   deriving anyclass (ToJSON, FromJSON)

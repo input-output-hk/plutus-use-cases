@@ -106,7 +106,7 @@ options =
     let initialDistribution = defaultDist & over (at (Wallet 1) . _Just) ((<>) oracleToken)
         
 
-    in defaultCheckOptions & emulatorConfig ~ . Trace.initialChainState .~ Left initialDistribution
+    in defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution
 
 tests :: TestTree
 tests =
