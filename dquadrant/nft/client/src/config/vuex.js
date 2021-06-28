@@ -29,7 +29,7 @@ export const store = new Vuex.Store({
       },
       lastObservable:undefined,
       status:{
-        logs:[],
+        logs:undefined,
         observableState:[]
       },
       instances: [],

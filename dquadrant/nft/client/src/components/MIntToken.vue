@@ -25,6 +25,12 @@ import NavBar from "./base/NavBar";
 export default {
   name: "MIntToken",
   components: {NavBar},
+  created() {
+    if(this.instanceId){
+      this.refresh()
+    }
+    this.items=[]
+  },
   methods: {
     onsubmit() {
       this.shouldTrigger = true

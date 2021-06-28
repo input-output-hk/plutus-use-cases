@@ -4,6 +4,7 @@
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Plutus.Contract.Wallet.Utils
 where
 
@@ -20,7 +21,7 @@ import qualified Data.Map as Map
 import Data.Aeson (toJSON)
 import Ledger.AddressMap
 import PlutusTx
-import Playground.Contract
+import Playground.Contract ( TxOutRef )
 import Data.Maybe ( isJust, fromJust, catMaybes, mapMaybe )
 import Data.Functor ((<&>))
 import Control.Lens (review)
@@ -124,7 +125,6 @@ ownFunds'' = do
     pk    <- ownPubKey
     utxos <- utxoAt $ pubKeyAddress pk
     let v = mconcat $ Map.elems $ txOutValue . txOutTxOut Prelude.<$> utxos
-    logInfo @String $ "own funds: " ++ show (flattenValue v)
     tell [ toJSON v]
 -- let's hope that in future we can return the json string without having to tell
     return $ toJSON  v
@@ -143,3 +143,9 @@ ownFunds' :: Contract (Last Value) s Text ()
 ownFunds' = do
     ownFunds >>= tell . Last . Just
     void $ waitNSlots 1
+
+throwNoUtxo::AsContractError e =>Contract w s e a
+throwNoUtxo=throwError  $ review _OtherError "No valid Utxo to consume"
+
+otherError :: ( AsContractError e) =>Text -> Contract w s e a
+otherError s = throwError  $ review _OtherError s

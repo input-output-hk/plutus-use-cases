@@ -1,3 +1,4 @@
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -16,6 +17,9 @@ import Data.String.Conversions (convertString)
 import Ledger.Ada (adaSymbol,adaToken)
 import Data.Aeson.Extras
 import Data.ByteString.Builder
+import Plutus.Contract.Wallet.Utils (ParsedUtxo)
+import Ledger.TimeSlot (slotToPOSIXTime)
+import Wallet.Emulator.Wallet (walletPubKey)
 
 
 data ResponseTypes = Funds| MarketNfts|OwnNftsOnSale |Minted|PlacedOnMarket|Bought deriving(Generic,Prelude.Eq,Prelude.Show,ToJSON,FromJSON)
@@ -55,8 +59,8 @@ data SellParams =SellParams
 
 data PurchaseParam =PurchaseParam
   {
-    ppItems:: [TxOutRef],
-    ppValue:: ValueInfo
+    ppValue:: ValueInfo,
+    ppItems:: [TxOutRef]
   } deriving(GHC.Generics.Generic,ToJSON,FromJSON,ToSchema)
 
 data AuctionParam = AuctionParam{
@@ -66,7 +70,6 @@ data AuctionParam = AuctionParam{
     apStartTime::POSIXTime,
     apEndTime::POSIXTime
 } deriving(GHC.Generics.Generic,ToJSON,FromJSON,ToSchema)
-
 
 aParamToAuction :: PubKeyHash -> AuctionParam -> Auction
 aParamToAuction ownerPkh ap  =Auction {
@@ -78,7 +81,9 @@ aParamToAuction ownerPkh ap  =Auction {
               aDuration     =  Interval ( LowerBound  (Finite $ apStartTime ap) True) ( UpperBound  (Finite $ apEndTime ap) False),
               aValue        = mconcat $ map valueInfoToValue ( apValue  ap)
           }
-instance ToSchema POSIXTime 
+instance ToSchema POSIXTime
+
+
 
 data BidParam=BidParam{
   ref :: TxOutRef,
@@ -102,26 +107,6 @@ dummySellParam =SellParams{
                         value = 2000
                 }
         }
-data ValueInfo=ValueInfo{
-    currency::ByteString,
-    token:: ByteString,
-    value:: Integer
-} deriving(Generic,FromJSON,Prelude.Show,ToSchema)
-
-valueInfoLovelace :: Integer -> ValueInfo
-valueInfoLovelace=ValueInfo (unCurrencySymbol adaSymbol) (unTokenName adaToken)
-
-valueInfoAssetClass:: ValueInfo -> AssetClass
-valueInfoAssetClass (ValueInfo c t _)= AssetClass (CurrencySymbol c, TokenName t)
-
-instance ToJSON ValueInfo
-  where
-    toJSON (ValueInfo c t v) = object [  "currency" .= (doConvert c), "token" .= (doConvert t),"value".=toJSON v]
-      where
-
-        doConvert bs= toJSON $ toText bs
-
-        toText bs= encodeByteString bs
 
 data NftsOnSaleResponse=NftsOnSaleResponse{
     cost::ValueInfo ,
@@ -143,6 +128,62 @@ directSaleToResponse market (txOutRef,txOutTx,DirectSale{dsCost,dsSeller,dsType}
             reference=txOutRef
         }
 
+data Bidder = Bidder{
+      bPubKeyHash :: PubKeyHash,
+      bBid  :: Integer,
+      bBidReference:: TxOutRef
+} deriving (Generic,FromJSON,ToJSON,Prelude.Show)
+
+data AuctionResponse = AuctionResponse{
+      arOwner :: PubKeyHash,
+      arValue ::[ValueInfo],
+      arMinBid:: ValueInfo,
+      arMinIncrement:: Integer,
+      arDuration::(Extended  POSIXTime,Extended  POSIXTime),
+      arBidder :: Bidder,
+      arMarketFee:: Integer
+}deriving (Generic,FromJSON,ToJSON,Prelude.Show)
+
+
+auctionToResponse:: Market -> ParsedUtxo Auction -> AuctionResponse
+auctionToResponse market  (ref,TxOutTx tx (TxOut addr value _ ), a) = AuctionResponse{
+      arOwner = aOwner a,
+      arValue = toValueInfo (aValue a),
+      arMinBid = valueInfo (aAssetClass a) (aMinBid a),
+      arMinIncrement = aMinIncrement a,
+      arDuration =  (lb (ivFrom   (aDuration a)),ub (ivTo (aDuration a))),
+      arBidder = Bidder{
+                  bPubKeyHash   = aBidder  a,
+                  bBid          = auctionAssetValueOf a value,
+                  bBidReference =  ref
+              },
+      arMarketFee = mAuctionFee market
+}
+  where
+    lb (LowerBound a _ )=a
+    ub (UpperBound a _) =a
+
+data ValueInfo=ValueInfo{
+    currency::ByteString,
+    token:: ByteString,
+    value:: Integer
+} deriving(Generic,FromJSON,Prelude.Show,ToSchema)
+
+valueInfoLovelace :: Integer -> ValueInfo
+valueInfoLovelace=ValueInfo (unCurrencySymbol adaSymbol) (unTokenName adaToken)
+
+valueInfoAssetClass:: ValueInfo -> AssetClass
+valueInfoAssetClass (ValueInfo c t _)= AssetClass (CurrencySymbol c, TokenName t)
+
+instance ToJSON ValueInfo
+  where
+    toJSON (ValueInfo c t v) = object [  "currency" .= doConvert c, "token" .= doConvert t,"value".=toJSON v]
+      where
+
+        doConvert bs= toJSON $ toText bs
+
+        toText bs= encodeByteString bs
+
 toValueInfo::Value ->[ValueInfo]
 toValueInfo v=map doMap $ flattenValue v
     where
@@ -155,7 +196,10 @@ valueInfoToValue ::ValueInfo -> Value
 valueInfoToValue ValueInfo{currency,token,value}= Ledger.Value.singleton (CurrencySymbol currency) (TokenName  token) value
 
 valueInfosToValue :: [ValueInfo] -> Value
-valueInfosToValue vinfos= mconcat $ map valueInfoToValue vinfos 
+valueInfosToValue vinfos= mconcat $ map valueInfoToValue vinfos
+
+valueInfo :: AssetClass  -> Integer -> ValueInfo
+valueInfo (AssetClass (c, t)) = ValueInfo (unCurrencySymbol c) (convertString (unTokenName t))
 
 priceToValueInfo::Price ->ValueInfo
 priceToValueInfo (Price (c, t, v))=ValueInfo (unCurrencySymbol c) (convertString (unTokenName t)) v

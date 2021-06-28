@@ -9,6 +9,7 @@ import './assets/main.css'
 import Base from "./components/base/Base";
 import Market from "./components/Market";
 import MIntToken from "./components/MIntToken";
+import DummyAuction from "./components/DummyAuction";
 
 
 const routes = [
@@ -25,6 +26,11 @@ const routes = [
     path: '/mint',
     name: 'mint',
     component: MIntToken
+  },
+  {
+    path: '/dummy-auction',
+    name: 'auction',
+    component: DummyAuction
   }
 ]
 

@@ -22,6 +22,7 @@ maintainer:         IOHK
 -- extra-source-files: CHANGELOG.md
 
 library
+    coverage: True
     exposed-modules:
       -- Plutus.Contract.Wallet.Erc20
       Plutus.Contract.Wallet.Nft
@@ -50,6 +51,7 @@ library
       text,
       containers,
       utf8-string,
+      freer-extras,
       string-conversions
     hs-source-dirs: src
     default-language: Haskell2010
@@ -62,7 +64,8 @@ test-suite tokens-test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
-    Test.MarketEndpointTest
+    Test.AuctionEndpointTest
+    Test.DirectSaleEndpointTest
     Test.TestHelper
   default-language: Haskell2010
   ghc-options: -Wall -Wnoncanonical-monad-instances
@@ -75,6 +78,7 @@ test-suite tokens-test
     plutus-tx-plugin,
     plutus-contract -any,
     plutus-ledger -any,
+    plutus-ledger-api -any,
     plutus-tokens -any,
     plutus-pab -any,
     playground-common -any,
@@ -108,5 +112,7 @@ executable tokens-pab
     plutus-ledger -any,
     plutus-tokens,
     text -any,
+    containers -any,
     bytestring -any,
     prettyprinter -any
+

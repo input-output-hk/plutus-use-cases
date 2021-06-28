@@ -5,6 +5,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# LANGUAGE TupleSections #-}
 module Plutus.Contract.Blockchain.Utils
 where
 import PlutusTx.Prelude
@@ -24,8 +25,13 @@ ownInputs ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}}=
     where
     resolved=map (\x->txInInfoResolved x) txInfoInputs
 
+{-# INLINABLE ownInputDatums #-}
 ownInputDatums :: IsData a => ScriptContext  -> [a]
 ownInputDatums ctx= mapMaybe (txOutDatum ctx) $  ownInputs ctx
+
+{-# INLINABLE ownInputsWithDatum #-}
+ownInputsWithDatum:: IsData a =>  ScriptContext ->[(TxOut,a)]
+ownInputsWithDatum ctx= mapMaybe (\x-> txOutDatum ctx x>>=(\y->Just (x,y))) $  ownInputs ctx
 
 {-# INLINABLE ownInputDatum #-}
 ownInputDatum :: IsData a => ScriptContext -> Maybe a
@@ -40,6 +46,14 @@ txOutDatum ctx txOut =do
             dHash<-txOutDatumHash txOut
             datum<-findDatum dHash (scriptContextTxInfo ctx)
             PlutusTx.fromData (getDatum datum)
+
+{-# INLINABLE txOutWithDatum #-}
+txOutWithDatum::  IsData a =>  ScriptContext ->TxOut -> Maybe a
+txOutWithDatum ctx txOut =do
+            dHash<-txOutDatumHash txOut
+            datum<-findDatum dHash (scriptContextTxInfo ctx)
+            PlutusTx.fromData (getDatum datum)
+
 
 {-# INLINABLE ownInputValue #-}
 ownInputValue:: ScriptContext -> Value

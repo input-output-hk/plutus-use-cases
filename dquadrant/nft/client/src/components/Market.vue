@@ -58,8 +58,6 @@ export default {
   },
   methods:{
     onBuy(item) {
-
-
       this.$task.do(
         this.$http.post(`instance/${this.instanceId}/endpoint/buy`, {
           ppItems:[item.reference],

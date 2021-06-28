@@ -16,9 +16,8 @@ where
 
 import Plutus.Contract.Blockchain.Nft
 import Plutus.Contract
-import Ledger hiding(singleton,unspentOutputs)
+import Ledger hiding(TxOutRefNotFound, singleton,unspentOutputs)
 import Ledger.Value
-import Plutus.Contract
 import Data.String
 import Ledger.Constraints
 import Data.Text hiding(singleton)
@@ -27,11 +26,12 @@ import qualified Data.Aeson.Types as Types
 import Data.Void
 import Prelude (show, Semigroup ((<>)), ($), (++), Integer)
 import Data.Aeson (toJSON)
-import Control.Monad
 import Data.String.Conversions (convertString)
 import PlutusTx.Prelude (Maybe (Nothing, Just), ByteString)
 import Control.Applicative
 import qualified PlutusTx.AssocMap as AssocMap
+import Control.Monad
+import Control.Lens
 
 
 mintConstratints ::  TokenName -> Contract w s Text (Maybe (ScriptLookups a, TxConstraints i o))
@@ -58,15 +58,15 @@ mintEp :: HasEndpoint "mint" ByteString s =>Contract [Types.Value ] s Text Types
 mintEp =do
   assetName <-endpoint @"mint"
   v<-mint $ TokenName assetName
-  tell [toJSON (Map.singleton @String "minted" v)]
+  tell [toJSON  v]
   pure $ toJSON v
 
-mint ::  TokenName -> Contract w s Text Value
+mint :: (AsContractError e) =>TokenName -> Contract w s e TxId
 mint tn=do
     pk    <- ownPubKey
     utxos <- utxoAt (pubKeyAddress pk)
     case Map.keys utxos of
-        []       -> logError @String "no utxo found" >> pure (Value AssocMap.empty)
+        []       -> throwError  $ review _OtherError "No Utxos found in wallet"
         oref : _ -> do
             let val     = singleton (curSymbol oref tn) tn 1
                 lookups = monetaryPolicy (policy oref tn) <> unspentOutputs utxos
@@ -74,4 +74,4 @@ mint tn=do
             ledgerTx <- submitTxConstraintsWith @Void lookups tx
             void $ awaitTxConfirmed $ txId ledgerTx
             logInfo @String $  "forged " ++ show val
-            pure  val
+            pure  $ txId ledgerTx

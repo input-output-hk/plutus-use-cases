@@ -30,10 +30,21 @@ export default {
         if (x.data.length === 0) {
           throw Error("PAB responded with empty list of contract instances")
         }
-        const sorted = x.data.sort((a, b) => a.cicWallet.getWallet > b.cicWallet.getWallet)
-        this.$store.state.contract.instances = sorted
-        this.$store.state.contract.instance = sorted[0]
-      }).then(this.refreshStatus)
+        return x.data.sort((a, b) => a.cicWallet.getWallet > b.cicWallet.getWallet)
+      }).then((instances)=>{
+        const firstInstance=instances[0]
+        this.$http.post(
+          `instance/${firstInstance.cicContract.unContractInstanceId}/endpoint/funds`, "\"\""
+        ).then(
+        this.$http.get(
+          `/instance/${firstInstance.cicContract.unContractInstanceId}/status`,
+        ).then((x) => {
+          this.$store.state.contract.status = x.data.cicCurrentState
+          this.$store.state.contract.instances = instances
+          this.$store.state.contract.instance = firstInstance
+          this.timeoutHandle = setTimeout(this.refreshStatus, 1500)
+        }))
+      })
     )
   },
   methods: {
@@ -103,6 +114,9 @@ export default {
 
   },
   computed: {
+    logs(){
+      return this.$store.state.contract.status.logs
+    },
     currentStatus() {
       const state = this.$store.state.contract.status
       return state ? state.observableState.length : 0
@@ -146,6 +160,16 @@ export default {
       else
         this.variant = 'danger';
     },
+    logs(newVal,oldval){
+      if(oldval!==undefined && newVal.length>oldval.length) {
+        const log = newVal[newVal.length - 1]
+        if (log._logLevel === "Error") {
+          this.$task.errorMessage(log._logMessageContent)
+        }else {
+          this.$task.infoMessage(log._logMessageContent)
+        }
+      }
+    },
     currentStatus(newVal) {
       if (newVal) {
         const last = this.$store.state.contract.status.observableState[newVal - 1]
@@ -158,9 +182,11 @@ export default {
         } else {
           console.log("New Api Response: \n" + JSON.stringify(last, null, 2))
           this.$store.state.contract.lastObservable = last
-          this.$http.post(
-            `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/funds`, "\"\""
-          )
+          if(last.getTxId!==undefined) {
+            this.$http.post(
+              `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/funds`, "\"\""
+            )
+          }
         }
       }
     }

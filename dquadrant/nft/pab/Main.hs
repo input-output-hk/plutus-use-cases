@@ -1,14 +1,14 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE TypeApplications   #-}
-{-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE TypeOperators      #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeOperators       #-}
 
 {-# LANGUAGE DeriveGeneric #-}
 module Main
@@ -32,7 +32,7 @@ import           Plutus.Contract                     hiding (when)
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\), endpointsToSchemas, handleBuiltin)
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
-import           Plutus.PAB.Simulator                (SimulatorEffectHandlers, callEndpointOnInstance)
+import           Plutus.PAB.Simulator                (SimulatorEffectHandlers, callEndpointOnInstance, logString)
 import qualified Plutus.PAB.Simulator                as Simulator
 import           Plutus.PAB.Types                    (PABError (..))
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
@@ -48,6 +48,8 @@ import Plutus.Contract.Wallet.Utils (UtilSchema,utilEndpoints)
 import qualified Plutus.Contract.Wallet as MWallet
 import qualified Data.Aeson.Types as AesonTypes
 import Data.ByteString (ByteString)
+import qualified Data.Map as Map
+import Wallet.Emulator.Wallet (Entity)
 
 instance Pretty Market where
     pretty = viaShow
@@ -86,8 +88,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
         void $ liftIO getLine
         Simulator.logString @(Builtin Market) "Current Balances"
         b <- Simulator.currentBalances
-        Simulator.logBalances @(Builtin Market) b
-        
+        Simulator.logBalances @(Builtin Market) b 
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 5]]
 
