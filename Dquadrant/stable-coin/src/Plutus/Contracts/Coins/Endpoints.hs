@@ -1,24 +1,39 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE NumericUnderscores #-}
+
+-- {-# LANGUAGE DataKinds #-}
+-- {-# LANGUAGE DeriveAnyClass #-}
+-- {-# LANGUAGE DeriveGeneric #-}
+-- {-# LANGUAGE DerivingStrategies #-}
+-- {-# LANGUAGE DerivingVia #-}
+-- {-# LANGUAGE FlexibleContexts #-}
+-- {-# LANGUAGE LambdaCase #-}
+-- {-# LANGUAGE MonoLocalBinds #-}
+-- {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:debug-context #-}
+-- {-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE ScopedTypeVariables #-}
+-- {-# LANGUAGE TemplateHaskell #-}
+-- {-# LANGUAGE TypeApplications #-}
+-- {-# LANGUAGE TypeFamilies     #-}
+-- {-# LANGUAGE TypeOperators #-}
+-- {-# LANGUAGE ViewPatterns #-}
+-- {-# LANGUAGE NoImplicitPrelude #-}
+-- {-# OPTIONS_GHC -Wno-name-shadowing #-}
+-- {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+-- {-# OPTIONS_GHC -fno-strictness #-}
+-- {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:debug-context #-}
 
 module Plutus.Contracts.Coins.Endpoints
   ( 
@@ -27,29 +42,57 @@ module Plutus.Contracts.Coins.Endpoints
   )
 where
 
-import Control.Monad (void)
-import           Ledger.Scripts                   (MonetaryPolicyHash)
-import           Plutus.Contract.StateMachine     (SMContractError, StateMachineClient (..))
+import           Control.Monad             hiding (fmap)
+import           Data.Aeson                (FromJSON, ToJSON)
+import qualified Data.Map                  as Map
+import           Data.Monoid               (Last (..))
+import           Data.Text                 (Text, pack)
+import           GHC.Generics              (Generic)
+import           Plutus.Contract           as Contract hiding (when)
+import qualified PlutusTx
+import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
+import           Ledger                    hiding (singleton)
+import           Ledger.Constraints        as Constraints
+import qualified Ledger.Typed.Scripts      as Scripts
+import           Ledger.Value              as Value
+import           Ledger.Ada                as Ada
+import           Plutus.Contracts.Currency as Currency
+import           Prelude                   (Semigroup (..))
+import qualified Prelude                   as Prelude
+
+import Plutus.Contracts.Coins.Types
+import Plutus.Contracts.Oracle.Core
 import qualified Plutus.Contract.StateMachine     as SM
-import           Plutus.Contract
-import qualified Prelude
-import           PlutusTx.Prelude
-import           Playground.TH                     (mkKnownCurrencies, mkSchemaDefinitions)
-import           Data.Text                         (Text, pack)
-import qualified Ledger.Typed.Scripts              as Scripts
-import Ledger hiding (to)
-import Prelude (show)
-import           Plutus.Contracts.Coins.Types
 import           Plutus.Contracts.Coins.CoinsStateMachine
-import           Plutus.Contracts.Oracle.Core
+import qualified Plutus.Contracts.Utils.StateMachine as SmUtil
+
+-- import Control.Monad (void)
+-- import           Ledger.Scripts                   (MonetaryPolicyHash)
+import           Plutus.Contract.StateMachine     (SMContractError, StateMachineClient (..))
+-- import qualified Plutus.Contract.StateMachine     as SM
+-- import           Plutus.Contract
+-- import qualified Prelude
+-- import           PlutusTx.Prelude
+import           Playground.TH                     (mkSchemaDefinitions)
+-- import           Data.Text                         (Text, pack)
+-- import qualified Ledger.Typed.Scripts              as Scripts
+-- import Ledger hiding (to)
+-- import Prelude (show)
+-- import           Plutus.Contracts.Coins.Types
+-- import           Plutus.Contracts.Oracle.Core
 import           Ledger.Typed.Tx              (TypedScriptTxOut (..))
 
-import qualified Data.Map as Map
+-- import qualified Data.Map as Map
 import qualified Data.Aeson.Types as Types
 import Data.Aeson (toJSON)
-import Ledger.Value (flattenValue )
-import qualified PlutusTx                          as PlutusTx  
+-- import Ledger.Value (flattenValue, assetClassValue )
+-- import qualified PlutusTx                          as PlutusTx  
 import           Ledger.AddressMap                 (UtxoMap)
+-- import qualified Plutus.Contracts.Utils.StateMachine as SMUtil
+
+-- import qualified Ledger.Constraints as Constraints
+-- import qualified Ledger.Ada as Ada
+
 
 forwardMPS :: StateMachineClient CoinsMachineState BankInput -> MonetaryPolicyHash
 forwardMPS StateMachineClient {scInstance} = Scripts.forwardingMonetaryPolicyHash $ SM.typedValidator scInstance
@@ -73,37 +116,43 @@ start bankParam _ = do
 
 --TODO make transistion to use whole oracle output instead of only values obtained from it
 smRunStep :: HasBlockchainActions s => BankParam -> BankInputAction -> Contract w s Text ()
-smRunStep bankParam bankInputAction = do
+smRunStep bankParam@BankParam{oracleParam} bankInputAction = do
   let client = machineClient (scriptInstance bankParam) bankParam
 
-  oracle <- findOracle $ oracleParam bankParam
+  oracle <- findOracle oracleParam
+  
   case oracle of
     Nothing -> logInfo @Prelude.String "Oracle not found"
-    Just (oref, o, x) -> do
-      logInfo @Prelude.String $ show oref
-      logInfo @Prelude.String $ show o
-      logInfo @Prelude.String $ show x
-      logInfo @Prelude.String $ show bankInputAction
-      let input =
+    Just (oref, o, x) -> do      
+      let lookups = Constraints.unspentOutputs (Map.singleton oref o)
+                    <> Constraints.otherScript (oracleValidator oracleParam)               
+                                  
+          -- tx = Constraints.mustSpendScriptOutput oref  (Redeemer $ PlutusTx.toData Use)
+          --                 <>  Constraints.mustPayToOtherScript
+          --                           (validatorHash $ oracleValidator oracleParam)
+          --                           (Datum $ PlutusTx.toData x)
+          --                           oNftValue      
+          input =
             BankInput
               { bankInputAction = bankInputAction
               , oracleOutput = (oref, txOutTxOut o, x)
               }
-      void $ mapError' $ SM.runStep client input
-      void $ logInfo @Prelude.String $ "Endpoint call completed " ++ show bankInputAction
+
+      void $ mapError' $ SmUtil.runStepWith client input lookups
+      void $ logInfo @Prelude.String $ "Endpoint call completed " ++ Prelude.show bankInputAction
 
 --TODO check for validation in offchain
 mintStableCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
-mintStableCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ MintStableCoin tokenAmount
+mintStableCoin bankParam@BankParam{oracleParam} EndpointInput{tokenAmount} = smRunStep bankParam $ MintStableCoin tokenAmount
 
 redeemStableCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
-redeemStableCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ RedeemStableCoin tokenAmount
+redeemStableCoin bankParam EndpointInput{tokenAmount} = smRunStep bankParam $ RedeemStableCoin tokenAmount
 
 mintReserveCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
-mintReserveCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ MintReserveCoin tokenAmount
+mintReserveCoin bankParam EndpointInput{tokenAmount} = smRunStep bankParam $ MintReserveCoin tokenAmount
 
 redeemReserveCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
-redeemReserveCoin bankParam endpointInput@EndpointInput {tokenAmount} = smRunStep bankParam $ RedeemReserveCoin tokenAmount
+redeemReserveCoin bankParam EndpointInput{tokenAmount} = smRunStep bankParam $ RedeemReserveCoin tokenAmount
 
 type BankStateSchema =
   BlockchainActions
@@ -122,10 +171,13 @@ type BankStateSchema =
 
 mkSchemaDefinitions ''BankStateSchema
 
-coinsContract :: BankParam -> Contract [Types.Value ] BankStateSchema Text ()
+--TODO writer value [Types.Value]
+coinsContract :: BankParam -> Contract [Types.Value] BankStateSchema Text ()
 coinsContract bankParam =
-  ( start'
-      `select` mintStableCoin'
+  ( 
+    start'
+      `select`
+       mintStableCoin'
       `select` redeemStableCoin'
       `select` mintReserveCoin'
       `select` redeemReserveCoin'
@@ -159,7 +211,7 @@ ownFunds _ = do
     pk    <- ownPubKey
     utxos <- utxoAt $ pubKeyAddress pk
     let v = mconcat $ Map.elems $ txOutValue . txOutTxOut Prelude.<$> utxos
-    logInfo @Prelude.String $ "own funds: " ++ show (flattenValue v)
+    logInfo @Prelude.String $ "own funds: " ++ Prelude.show (flattenValue v)
     tell [ toJSON v]
 
 currentState :: ( SM.AsSMContractError e
@@ -171,12 +223,10 @@ currentState bankParam = do
 
 currentCoinsState:: HasBlockchainActions s => BankParam -> Contract [Types.Value ] s Text  ()
 currentCoinsState bankParam = do
-
   currentState <- mapError' $ currentState bankParam
-
   case currentState of
     Just ((TypedScriptTxOut{tyTxOutData=state},_),_) -> do
-        logInfo @Prelude.String $ "Current state: " ++ show state
+        logInfo @Prelude.String $ "Current state: " ++ Prelude.show state
         tell [toJSON state]
     Nothing -> logWarn @Prelude.String $ "Current state is not present yet."
 
@@ -186,7 +236,7 @@ currentPegToLovelaceRate bankParam = do
   case oracle of
     Nothing -> logWarn @Prelude.String "Oracle not found"
     Just (oref, o, rate) -> do
-      logInfo @Prelude.String $ "Current state: " ++ show rate
+      logInfo @Prelude.String $ "Current state: " ++ Prelude.show rate
       tell [toJSON rate]
 
 --TODO Merge duplicated code on getting stable and reserve rate functions
@@ -199,7 +249,7 @@ currentStableToLovelaceRate bankParam = do
       currentState <- mapError' $ currentState bankParam
       case currentState of
           Just ((TypedScriptTxOut{tyTxOutData=state},_),_) -> do
-              logInfo @Prelude.String $ "Current state: " ++ show state
+              logInfo @Prelude.String $ "Current state: " ++ Prelude.show state
               let scRate = calcStableCoinRate state rate
               tell [toJSON scRate]
           Nothing -> logWarn @Prelude.String $ "Current state is not present yet."
@@ -213,7 +263,7 @@ currentReserveToLovelaceRate bankParam = do
       currentState <- mapError' $ currentState bankParam
       case currentState of
           Just ((TypedScriptTxOut{tyTxOutData=state},_),_) -> do
-              logInfo @Prelude.String $ "Current state: " ++ show state
+              logInfo @Prelude.String $ "Current state: " ++ Prelude.show state
               let rcRate = calcReserveCoinRate bankParam state rate
               tell [toJSON rcRate]
           Nothing -> logWarn @Prelude.String $ "Current state is not present yet."
@@ -227,7 +277,7 @@ currentRates bankParam = do
       currentState <- mapError' $ currentState bankParam
       case currentState of
           Just ((TypedScriptTxOut{tyTxOutData=state},_),_) -> do
-              logInfo @Prelude.String $ "Current state: " ++ show state
+              logInfo @Prelude.String $ "Current state: " ++ Prelude.show state
               let rcRate = calcReserveCoinRate bankParam state rate
                   scRate = calcStableCoinRate state rate
 

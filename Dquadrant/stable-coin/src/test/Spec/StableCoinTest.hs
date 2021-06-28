@@ -12,8 +12,8 @@ module Spec.StableCoinTest
   )
 where
 
+import            Control.Lens
 import            Control.Monad                       (void)
--- import            Control.Monad.Freer.Extras          as Extras
 import qualified  Data.Map                            as Map
 import            Data.Text
 import            Ledger                              (pubKeyHash)
@@ -71,7 +71,8 @@ bp = BankParam
             minReserveRatio = P.zero,
             maxReserveRatio = 4 % 1,
             rcDefaultRate = 1,
-            oracleParam = oracle
+            oracleParam = oracle,
+            oracleAddr = oracleAddress oracle
             }
 
 address :: Address
@@ -91,36 +92,33 @@ stableCoinsValue bankParam@BankParam {stableCoinTokenName} tokenAmount =
 initialAdaValue :: Value
 initialAdaValue = Ada.lovelaceValueOf 100
 
-oracleToken :: TokenName
-oracleToken = TokenName emptyByteString
-
--- -- | The token that we are auctioning off.
--- theToken :: Value
--- theToken =
---     -- "ff" is not a valid MPS hash. But this doesn't matter because we
---     -- never try to forge any value of "ffff" using a script.
---     -- This currency is created by the initial transaction.
---     Value.singleton oracleSymbol oracleToken 1
+oracleToken :: Value
+oracleToken =
+    -- oracle symmbol "ff" is not a valid MPS hash. But this doesn't matter because we
+    -- never try to forge any value of "ff" using a script.
+    -- This currency is created by the initial transaction.
+    Value.singleton oracleSymbol oracleTokenName 1
 
 
--- -- | 'CheckOptions' that inclues 'theToken' in the initial distribution of wallet 1.
--- options :: CheckOptions
--- options =
---     let initialDistribution = defaultDist & over (at (Wallet 1) . _Just) ((<>) theToken)
---     in defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution
+-- | 'CheckOptions' that inclues 'oracletoken' in the initial distribution of wallet 1.
+options :: CheckOptions
+options =
+    let initialDistribution = defaultDist & over (at (Wallet 1) . _Just) ((<>) oracleToken)
+        
 
+    in defaultCheckOptions & emulatorConfig ~ . Trace.initialChainState .~ Left initialDistribution
 
 tests :: TestTree
 tests =
   testGroup
     "stablecoin"
     [ 
-      checkPredicate "mint stablecoins"
+      checkPredicateOptions options "mint stablecoins"
           ( 
             -- (valueAtAddress address (== initialAdaValue))
               -- .&&. 
               assertNoFailedTransactions
-              -- .&&. walletFundsChange w2 ((stableCoinsValue bp 100))
+              .&&. walletFundsChange w2 ((stableCoinsValue bp 50))
           )
       $ mintStableCoins 100
       
@@ -189,11 +187,11 @@ initialise = do
   void $ Trace.waitNSlots 10
 
   Trace.callEndpoint @"update" oracleHdl 1
-  void $ Trace.waitNSlots 3
+  void $ Trace.waitNSlots 10
 
   hdl <- Trace.activateContractWallet w2 $ coinsContract bp
   
-  let i = 5 :: Integer
+  let i = 1 :: Integer
   Trace.callEndpoint @"start" hdl i
   _ <- Trace.waitNSlots 2
   return hdl

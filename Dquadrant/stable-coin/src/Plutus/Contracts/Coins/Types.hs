@@ -61,7 +61,8 @@ data BankParam = BankParam
     minReserveRatio :: Ratio Integer,
     maxReserveRatio :: Ratio Integer,
     rcDefaultRate :: Integer,
-    oracleParam :: Oracle
+    oracleParam :: Oracle,
+    oracleAddr :: Address
   }
   deriving stock (Generic, Prelude.Ord, Prelude.Eq, Prelude.Show)
   deriving anyclass (ToJSON, FromJSON)

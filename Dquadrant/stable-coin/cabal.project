@@ -39,11 +39,11 @@ source-repository-package
 -- configuration.
 
 
-package stable-coin-starter
-  coverage: True
+--package stable-coin-starter
+-- coverage: True
 
-package ouroboros-network
-  coverage: False
+--package ouroboros-network
+--  coverage: False
 
 -- This is also needed so evenful-sql-common will build with a
 -- newer version of persistent. See stack.yaml for the mirrored

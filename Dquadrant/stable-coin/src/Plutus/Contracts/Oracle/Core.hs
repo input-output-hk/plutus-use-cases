@@ -15,6 +15,7 @@
 
 module Plutus.Contracts.Oracle.Core
     ( Oracle (..)
+    , Oracling
     , OracleRedeemer (..)
     , oracleTokenName
     , oracleValue

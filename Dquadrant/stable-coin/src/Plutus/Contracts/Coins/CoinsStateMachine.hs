@@ -67,34 +67,37 @@ lovelaces = Ada.getLovelace . Ada.fromValue
 --TODO fee calculation
 {-# INLINEABLE transition #-}
 transition :: BankParam -> State CoinsMachineState -> BankInput -> Maybe (TxConstraints Void Void, State CoinsMachineState)
-transition bankParam@BankParam {oracleParam} State {stateData = oldStateData} BankInput {bankInputAction, oracleOutput} = do
---TODO combine oracle constraints
+transition bankParam@BankParam {oracleParam,oracleAddr} State {stateData = oldStateData} BankInput {bankInputAction, oracleOutput} = do
   let (oref, oTxOut, rate) = oracleOutput
-      -- oNftValue = txOutValue oTxOut <> Ada.lovelaceValueOf (oFee oracleParam)
-      -- oracleConstraints = Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData Use) <>
-      --                     Constraints.mustPayToOtherScript
-      --                       (validatorHash $ oracleValidator oracleParam)
-      --                       (Datum $ PlutusTx.toData rate)
-      --                       oNftValue
+      oValHash = toValidatorHash oracleAddr
+  case oValHash of
+    Nothing -> traceError "Invalid oracle validator hash"
+    Just valHash-> do
+      let oNftValue = txOutValue oTxOut <> Ada.lovelaceValueOf (oFee oracleParam)
+          oracleConstraints = Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData Use) <>
+                          Constraints.mustPayToOtherScript
+                            valHash
+                            (Datum $ PlutusTx.toData rate)
+                            oNftValue
+          rcRate = calcReserveCoinRate bankParam oldStateData rate
+          scRate = calcStableCoinRate oldStateData rate
+          (newConstraints, newStateData) = stateWithConstraints bankParam oldStateData bankInputAction scRate rcRate
+          eitherValidState = isNewStateValid bankParam newStateData rate
+        
+      guard (isRight eitherValidState)
 
-  let rcRate = calcReserveCoinRate bankParam oldStateData rate
-      scRate = calcStableCoinRate oldStateData rate
-      (newConstraints, newStateData) = stateWithConstraints bankParam oldStateData bankInputAction scRate rcRate
+      let state =
+            State
+              { stateData = newStateData,
+                stateValue = Ada.lovelaceValueOf (baseReserveAmount newStateData)
+              }
 
--- TODO
-  -- guard (isRight bankParam newStateData rate)
-
-  let state =
-        State
-          { stateData = newStateData,
-            stateValue = Ada.lovelaceValueOf (baseReserveAmount newStateData)
-          }
-
-  pure
-    ( newConstraints,
-      -- <> oracleConstraints,
-      state
-    )
+      pure
+        ( newConstraints
+          <> oracleConstraints
+          ,
+          state
+        )
 
 {-# INLINEABLE stateWithConstraints #-}
 stateWithConstraints :: BankParam -> CoinsMachineState -> BankInputAction -> Integer -> Integer-> (TxConstraints Void Void, CoinsMachineState)
@@ -156,7 +159,7 @@ calcReserveCoinRate BankParam {rcDefaultRate} bs@CoinsMachineState {reserveCoinA
     rcRate = equity `divide` reserveCoinAmount
 
 {-# INLINEABLE isNewStateValid #-}
-isNewStateValid :: BankParam -> CoinsMachineState -> Integer -> Either Text ()
+isNewStateValid :: BankParam -> CoinsMachineState -> Integer -> Either Prelude.String ()
 isNewStateValid bankParam bankState@CoinsMachineState {baseReserveAmount, stableCoinAmount, reserveCoinAmount} rate = do
   unless (baseReserveAmount >= 0) (throwError "Invalid state : Base reserve amount is in negative.")
   unless (reserveCoinAmount >= 0) (throwError "Invalid state : Reserve coins amount is in negative.")
@@ -221,14 +224,10 @@ bankMachine bankParam = SM.StateMachine{
 
 {-# INLINEABLE checkContext #-}
 checkContext :: BankParam -> CoinsMachineState -> BankInput -> ScriptContext -> Bool
-checkContext bankParam@BankParam{oracleParam} oldBankState BankInput{oracleOutput} ctx = 
+checkContext bankParam@BankParam{oracleAddr} oldBankState BankInput{oracleOutput} ctx = 
     traceIfFalse "Invalid oracle use" isValidOracleUsed
 
   where
-
-    oAddr :: Address
-    oAddr = oracleAddress oracleParam 
-
     (_, _, rate) = oracleOutput
 
     info :: TxInfo
@@ -240,21 +239,21 @@ checkContext bankParam@BankParam{oracleParam} oldBankState BankInput{oracleOutpu
         inputs = [ o
               | i <- txInfoInputs info
               , let o = txInInfoResolved i
-              , txOutAddress o == oAddr
+              , txOutAddress o == oracleAddr
               ]
       in
         case inputs of
             [o] -> o
-            _   -> traceError "expected exactly one oracle input"
+            _   -> traceError "expected exactly one oracle input during transistion check"
 
     oracleValue' = case oracleValue oracleInput (`findDatum` info) of
       Nothing -> traceError "oracle value not found"
       Just x  -> x
 
---TODO
+    -- Is rate provided in input is same as orcale value derived from oracle input of transaction
     isValidOracleUsed :: Bool
-    -- isValidOracleUsed = oracleValue' == rate
-    isValidOracleUsed = True
+    isValidOracleUsed =  oracleValue' == rate
+    -- isValidOracleUsed = True
 
 {-# INLINEABLE isFinal #-}
 isFinal :: CoinsMachineState -> Bool

@@ -15,8 +15,8 @@ library
                        Plutus.Contracts.Coins.Endpoints
                        Plutus.Contracts.Oracle.Core
                        Plutus.Contracts.Oracle.Funds
-                       Plutus.Contracts.Oracle.PAB
                        Plutus.Contracts.Utils.Funds
+                       Plutus.Contracts.Utils.StateMachine
                      
   build-depends:       aeson
                      , base ^>=4.14.1.0
@@ -39,6 +39,38 @@ library
   default-language:    Haskell2010
   ghc-options:         -Wall -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr -fno-specialise
 
+  default-extensions: BangPatterns
+                      ExplicitForAll
+                      FlexibleContexts
+                      ScopedTypeVariables
+                      DerivingStrategies
+                      DeriveAnyClass
+                      DeriveGeneric
+                      StandaloneDeriving
+                      DeriveLift
+                      GeneralizedNewtypeDeriving
+                      DeriveFunctor
+                      DeriveFoldable
+                      DeriveTraversable
+                      LambdaCase
+                      MonoLocalBinds
+                      MultiParamTypeClasses
+                      NoImplicitPrelude
+                      RecordWildCards
+                      OverloadedStrings
+                      TypeFamilies
+                      QuasiQuotes
+                      TemplateHaskell
+                      DataKinds
+                      TypeOperators
+                      TypeApplications
+                      FlexibleInstances
+                      TypeSynonymInstances
+                      TupleSections
+                      NumericUnderscores
+                      ImportQualifiedPost
+                      RankNTypes
+
 executable stablecoin-pab
   main-is: Main.hs
   hs-source-dirs: pab
@@ -60,6 +92,9 @@ executable stablecoin-pab
                      , plutus-contract -any
                      , stable-coin-starter
                      , plutus-use-cases
+  default-language:    Haskell2010
+  default-extensions: AllowAmbiguousTypes BlockArguments BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveFunctor DeriveGeneric DerivingStrategies DerivingVia DuplicateRecordFields EmptyCase ExplicitNamespaces FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude NumericUnderscores OverloadedLabels OverloadedStrings PatternSynonyms RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators TypeSynonymInstances UndecidableInstances ViewPatterns ImportQualifiedPost RoleAnnotations
+
 
 
 test-suite stablecoin-tests

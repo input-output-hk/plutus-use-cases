@@ -79,7 +79,8 @@ main =
             minReserveRatio = P.zero,
             maxReserveRatio = 4 % 1,
             rcDefaultRate = 1000000,
-            oracleParam = oracle
+            oracleParam = oracle,
+            oracleAddr = oracleAddress oracle
             }
 
     w1cid <- Simulator.activateContract (Wallet 1) $ StableContract bp
