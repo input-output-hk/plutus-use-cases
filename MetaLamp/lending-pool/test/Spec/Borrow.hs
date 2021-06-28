@@ -39,15 +39,15 @@ tests = testGroup "borrow" [
         .&&. Shared.userConfigsChange
             (
                 AssocMap.insert
-                (Fixtures.usd, Shared.getPubKey Fixtures.borrowerWallet)
+                (Fixtures.usd, Utils.getPubKey Fixtures.borrowerWallet)
                 (Aave.UserConfig { Aave.ucDebt = 50, Aave.ucCollateralizedInvestment = 0 })
                 .
                 AssocMap.insert
-                (Fixtures.mogus, Shared.getPubKey Fixtures.borrowerWallet)
+                (Fixtures.mogus, Utils.getPubKey Fixtures.borrowerWallet)
                 (Aave.UserConfig { Aave.ucDebt = 0, Aave.ucCollateralizedInvestment = 100 })
                 .
                 AssocMap.insert
-                (Fixtures.usd, Shared.getPubKey Fixtures.lenderWallet)
+                (Fixtures.usd, Utils.getPubKey Fixtures.lenderWallet)
                 (Aave.UserConfig { Aave.ucDebt = 0, Aave.ucCollateralizedInvestment = 0 })
                 $ Fixtures.initialUsers
             )
@@ -72,6 +72,6 @@ tests = testGroup "borrow" [
 
 borrow :: Fixtures.UserHandle -> Wallet -> AssetClass -> Integer -> Trace.EmulatorTrace ()
 borrow userHandle wallet asset amount = do
-    Trace.callEndpoint @"borrow" userHandle $ Aave.BorrowParams asset amount (Shared.getPubKey wallet)
+    Trace.callEndpoint @"borrow" userHandle $ Aave.BorrowParams asset amount (Utils.getPubKey wallet)
     _ <- Trace.waitNSlots 3
     pure ()

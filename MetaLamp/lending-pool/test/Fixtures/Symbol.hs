@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds        #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds   #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 

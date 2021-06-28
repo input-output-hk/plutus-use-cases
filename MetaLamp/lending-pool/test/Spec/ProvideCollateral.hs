@@ -30,7 +30,7 @@ tests = testGroup "provideCollateral" [
         .&&. Shared.reservesChange (Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.mogus Fixtures.initialReserves)
         .&&. Shared.userConfigsChange
             (AssocMap.insert
-            (Fixtures.mogus, Shared.getPubKey Fixtures.lenderWallet)
+            (Fixtures.mogus, Utils.getPubKey Fixtures.lenderWallet)
             (Aave.UserConfig { Aave.ucDebt = 0, Aave.ucCollateralizedInvestment = 100 })
             Fixtures.initialUsers)
         )
@@ -51,6 +51,6 @@ tests = testGroup "provideCollateral" [
 
 provideCollateral :: Fixtures.UserHandle -> Wallet -> AssetClass -> Integer -> Trace.EmulatorTrace ()
 provideCollateral userHandle wallet asset amount = do
-    Trace.callEndpoint @"provideCollateral" userHandle $ Aave.ProvideCollateralParams asset amount (Shared.getPubKey wallet)
+    Trace.callEndpoint @"provideCollateral" userHandle $ Aave.ProvideCollateralParams asset amount (Utils.getPubKey wallet)
     _ <- Trace.waitNSlots 3
     pure ()

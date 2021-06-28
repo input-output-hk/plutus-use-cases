@@ -47,6 +47,6 @@ tests = testGroup "withdraw" [
 
 withdraw :: Fixtures.UserHandle -> Wallet -> AssetClass -> Integer -> Trace.EmulatorTrace ()
 withdraw userHandle wallet asset amount = do
-    Trace.callEndpoint @"withdraw" userHandle $ Aave.WithdrawParams asset (Shared.getPubKey wallet) amount
+    Trace.callEndpoint @"withdraw" userHandle $ Aave.WithdrawParams asset (Utils.getPubKey wallet) amount
     _ <- Trace.waitNSlots 3
     pure ()

@@ -3,8 +3,10 @@ module Utils.Data where
 import           Data.Function              ((&))
 import           Data.Monoid                (Last (..))
 import           Plutus.Contracts.Endpoints (ContractResponse (..))
+import           Plutus.V1.Ledger.Crypto    (PubKeyHash, pubKeyHash)
 import qualified PlutusTx.AssocMap          as AssocMap
 import qualified PlutusTx.Prelude           as PlutusTx
+import           Wallet.Emulator.Wallet     (Wallet, walletPubKey)
 
 allSatisfy :: [a -> Bool] -> a -> Bool
 allSatisfy fs a = and . fmap (a &) $ fs
@@ -20,3 +22,6 @@ modifyAt f k m = maybe m (\v -> AssocMap.insert k (f v) m) (AssocMap.lookup k m)
 isLastError :: Last (ContractResponse e a) -> Bool
 isLastError (Last (Just (ContractError _))) = True
 isLastError _                               = False
+
+getPubKey :: Wallet -> PubKeyHash
+getPubKey = pubKeyHash . walletPubKey

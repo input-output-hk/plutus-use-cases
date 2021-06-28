@@ -43,6 +43,6 @@ tests = testGroup "deposit" [
 
 deposit :: Fixtures.UserHandle -> Wallet -> AssetClass -> Integer -> Trace.EmulatorTrace ()
 deposit userHandle wallet asset amount = do
-    Trace.callEndpoint @"deposit" userHandle $ Aave.DepositParams asset (Shared.getPubKey wallet) amount
+    Trace.callEndpoint @"deposit" userHandle $ Aave.DepositParams asset (Utils.getPubKey wallet) amount
     _ <- Trace.waitNSlots 3
     pure ()

@@ -2,7 +2,7 @@
 
 module Fixtures.Init where
 
-import           Control.Monad              (forM, void)
+import           Control.Monad              (forM_, void)
 import qualified Data.Map                   as Map
 import           Data.Monoid                (Last (..))
 import           Data.Text                  (Text)
@@ -23,6 +23,7 @@ import           Plutus.V1.Ledger.Crypto    (PubKeyHash (..))
 import           Plutus.V1.Ledger.Value     (AssetClass (..), Value,
                                              assetClassValue)
 import qualified PlutusTx.AssocMap          as AssocMap
+import           Utils.Data                 (getPubKey)
 import           Wallet.Emulator.Wallet     (Wallet)
 
 oracles :: [Oracle.Oracle]
@@ -31,7 +32,7 @@ oracles = fmap
         Oracle.Oracle
         {
             Oracle.oSymbol = getSymbol Oracle.oracleTokenName,
-            Oracle.oOperator = PubKeyHash "mock",
+            Oracle.oOperator = getPubKey ownerWallet,
             Oracle.oFee = 0,
             Oracle.oAsset = asset })
     defaultAssets
@@ -67,7 +68,7 @@ startTrace = do
     pure ()
 
 startOracles ::  Contract () BlockchainActions Text ()
-startOracles = void $ forM oracles
+startOracles = forM_ oracles
     (\oracle -> do
         _ <- forgeSymbol Oracle.oracleTokenName
         Oracle.updateOracle oracle 1000000
