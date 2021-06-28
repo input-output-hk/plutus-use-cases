@@ -3,15 +3,25 @@ module App.ActionForm (actionForm) where
 import Prelude
 
 import App.ActionFormInputs (actionFormInputs)
+import App.Types (Action(..), Action(..), State(..), getSelectedContractSig)
 import Bootstrap as BS
+import Data.Array as Array
+import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Tuple (Tuple(..))
+import Debug.Trace (trace)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Elements.Keyed as Keyed
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import PAB.Types (ContractCall(..), ContractDefinition(..), EndpointDescription, Wallet)
+import PAB.Types (ContractCall(..), ContractDefinition(..), ContractSignatureResponse, EndpointDescription, Wallet)
 import Web.DOM.Document (getElementsByTagName)
+import Web.Event.Event (Event(..))
+import Web.Event.Event as Event
+import Web.HTML.Event.EventTypes (offline)
+import Web.HTML.HTMLSelectElement as HTMLSelectElement
+
 
 --------------------------------------------------------------------------------
 -- type State
@@ -43,42 +53,40 @@ import Web.DOM.Document (getElementsByTagName)
 -- handleAction = case _ of
 --   Increment -> H.modify_ \st -> st { count = st.count + 1 }
 --------------------------------------------------------------------------------
-actionForm :: forall w i. ContractCall -> HH.HTML w i
-actionForm contractCall =
+actionForm :: forall w. State -> HH.HTML w Action
+actionForm state =
   HH.div
     [ HP.classes [ BS.card, HH.ClassName ("action-pane") ] ]
-    [ actionFormBody contractCall ]
+    [ actionFormBody state ]
 
-actionFormBody :: forall w i. ContractCall  -> HH.HTML w i
-actionFormBody (CallEndpoint { caller, argumentValues }) =
+actionFormBody :: forall w. State -> HH.HTML w Action
+actionFormBody state =
   HH.div
     [ HP.classes [ BS.my2, BS.cardBody ] ]
-    [ contractField [ ContractDefinition "User" ]
-    , walletField [ caller ]
-    , endpointField [ argumentValues.endpointDescription ]
-    , actionFormInputs argumentValues.argument
+    [ dropdownField "Wallet" (show <$> state.walletIds) SetSelectedWalletIdx
+    , dropdownField "Contract" (getContractSigNames state) SetSelectedContractIdx
+    , dropdownField "Endpoint" (getEndpointNames state) SetSelectedEndpointIdx
     , submitBtn
     ]
 
-actionFormBody (PayToWallet _) =
-  HH.div_
-    [ HH.h3_
-        [ HH.text $ "Not Data"
-        ]
-    ]
+-- actionFormBody (PayToWallet _) =
+--   HH.div_
+--     [ HH.h3_
+--         [ HH.text $ "Not Data"
+--         ]
+--     ]
 
-contractField :: forall w i. Array ContractDefinition -> HH.HTML w i
-contractField cds = dropdownField "Contract" $ getName <$> cds
- where 
-  getName (ContractDefinition cd) = cd
+getContractSigNames :: State -> Array String
+getContractSigNames state = _.csrDefinition <$> state.contractDefinitions
 
-walletField :: forall w i. Array Wallet -> HH.HTML w i
-walletField wallets = dropdownField "Wallet" $ getName <$> wallets
- where 
-  getName w = "Wallet " <> show w.getWallet
-
-endpointField :: forall w i. Array EndpointDescription -> HH.HTML w i
-endpointField endpoints = dropdownField "Endpoint" $ _.getEndpointDescription <$> endpoints
+getEndpointNames :: State -> Array String
+getEndpointNames state = 
+  let 
+    maybeContractSig = getSelectedContractSig state state.selectedContractIdx
+  in 
+    case maybeContractSig of
+      Nothing   -> []
+      Just csr   -> _.endpointDescription.getEndpointDescription <$> csr.csrSchemas
 
 submitBtn :: forall w i. HH.HTML w i
 submitBtn =
@@ -109,8 +117,13 @@ submitBtn =
 --         , valueForm (ModifyActions <<< SetPayToWalletValue index) amount
 --         ]
 --     ]
-dropdownField :: forall w i. String -> Array String -> HH.HTML w i
-dropdownField label items =
+dropdownField :: 
+  forall w. 
+  String -> 
+  Array String -> 
+  (Int -> Action) -> 
+  HH.HTML w Action
+dropdownField label items onSelectedIndexChange =
   HH.div
     [ HP.classes [ BS.mb3 ] ]
     [ HH.label
@@ -121,11 +134,12 @@ dropdownField label items =
     , HH.select
         [ HP.id inputId
         , HP.classes [ BS.formSelect ] 
+        , HE.onSelectedIndexChange onSelectedIndexChange
         ] $ 
         mkOption false <$> items
     ]
  where
-  mkOption :: Boolean -> String -> HH.HTML w i
+  mkOption :: Boolean -> String -> HH.HTML w Action
   mkOption isSelected item =
     HH.option
       [ HP.value $ item ]

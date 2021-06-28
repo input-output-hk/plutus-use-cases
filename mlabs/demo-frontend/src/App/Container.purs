@@ -4,46 +4,38 @@ import Prelude
 
 import Affjax as AX
 import Affjax.ResponseFormat as AXRF
+import App.ActionForm (actionForm)
+import App.Types (Action(..), State(..))
+import Bootstrap as BS
+import Config (pabConfig)
 import Data.Argonaut as A
 import Data.Argonaut.Encode (encodeJson)
-import App.ActionForm (actionForm)
-import Bootstrap as BS
+import Data.Array ((..))
 import Data.Either (Either(..))
+import Data.Map as Map
 import Data.Maybe (Maybe(..))
-import Effect.Console (log, logShow)
+import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
+import Effect.Console (log, logShow)
 import Halogen (HalogenQ(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (classes, style)
-import Web.HTML.Event.EventTypes (offline)
-
-import Config (pabConfig)
 import PAB.Api as Api
-import PAB.Types (ContractCall(CallEndpoint), ContractSignatureResponse, FormArgument(FormArgUnit, FormArgInt), FormArgument, PabConfig)
+import PAB.Types (ContractCall(CallEndpoint), ContractSignatureResponse, FormArgument(FormArgUnit, FormArgInt), FormArgument, PabConfig, Wallet)
+import Web.HTML.Event.EventTypes (offline)
 
 --------------------------------------------------------------------------------
 
-type State = 
-  { contractCall :: ContractCall 
-  , contractDefinitions :: Array ContractSignatureResponse
-  }
-
-data Action
-  = Initialize'
-
 initialState :: forall input. input -> State
 initialState _ = 
-  { contractCall: 
-      CallEndpoint
-        { caller: { getWallet: 1 }
-        , argumentValues: 
-          { endpointDescription: { getEndpointDescription: "borrow" }
-          , argument: FormArgInt $ Just 5
-          } 
-        }
-  , contractDefinitions: []
+  { contractDefinitions: []
+  , walletIds: 1..10
+  , selectedWalletIdx: 0
+  , selectedContractIdx: 0
+  , selectedEndpointIdx: 0
+  , argument: FormArgInt $ Just 5
   }
 
 component :: forall q i o m. MonadAff m => H.Component q i o m
@@ -75,7 +67,8 @@ render state =
             [ HH.text "Plutus Use Cases Demo" ]
         , HH.div 
             [ classes [ BS.colMd6 ] ]
-            [ actionForm $ state.contractCall ]
+            [ actionForm state
+            ]
         ]
     ]
 
@@ -86,8 +79,14 @@ handleAction ::
   H.HalogenM State Action () output m Unit
 handleAction = case _ of 
   Initialize' -> do
-    res <- H.liftAff $ Api.getContractDefinitions pabConfig
-    H.liftEffect $ logShow $ A.stringify $ encodeJson res
-    H.modify_ _ { contractDefinitions = res }
+    contractDefs <- H.liftAff $ Api.getContractDefinitions pabConfig
+    H.liftEffect $ logShow $ A.stringify $ encodeJson contractDefs
+    H.modify_ _ { contractDefinitions = contractDefs }
+  SetSelectedWalletIdx i -> do
+    H.modify_ _ { selectedWalletIdx = i }
+  SetSelectedContractIdx i-> do
+    H.modify_ _ { selectedContractIdx = i, selectedEndpointIdx = 0 }
+  SetSelectedEndpointIdx i -> do
+    H.modify_ _ { selectedEndpointIdx = i }
 
 
