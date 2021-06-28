@@ -124,6 +124,16 @@ activateContracts = do
 
     pure $ ContractIDs cidUser cidInfo
 
+depositSimulation :: ContractIDs -> Aave.DepositParams -> Wallet -> Simulation (Builtin AaveContracts) ()
+depositSimulation ContractIDs {..} depositParams wallet = do
+    let userCid = cidUser Map.! wallet
+    _  <-
+        Simulator.callEndpointOnInstance userCid "deposit" depositParams
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.UserContractState))) of
+        Success (Monoid.Last (Just (ContractSuccess Aave.Deposited))) -> Just ()
+        _                                                             -> Nothing
+    Simulator.logString @(Builtin AaveContracts) $ "Successful deposit"
+
 runLendingPool :: IO ()
 runLendingPool = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
