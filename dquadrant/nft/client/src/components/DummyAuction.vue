@@ -40,7 +40,7 @@ export default {
   name: "DummyAuction",
   components: {NavBar},
   created() {
-    // this.items=[]
+    this.items=[]
     if (this.instanceId) {
       this.refresh()
     }

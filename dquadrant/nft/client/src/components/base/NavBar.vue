@@ -8,10 +8,6 @@
       <b-navbar-nav>
         <b-nav-item :active="$router.currentRoute.path.startsWith('/market')" to="/market">Market</b-nav-item>
         <b-nav-item :active="$router.currentRoute.path.startsWith('/dummy-auction')" to="/dummy-auction">Auction</b-nav-item>
-        <b-nav-item v-b-toggle.sidebar-1>Wallet</b-nav-item>
-        <b-sidebar id="sidebar-1" title="Wallet" shadow>
-          <SideBar/>
-        </b-sidebar>
       </b-navbar-nav>
       <b-navbar-nav class="ml-auto">
         <slot></slot>
