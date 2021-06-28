@@ -20,7 +20,6 @@ import Control.Monad
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
-import Data.Int
 import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.Map as Map
 import qualified Data.HashMap.Lazy as HMap
@@ -574,9 +573,6 @@ parseLiquidityTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
       _ -> Nothing
     _ -> Nothing
   _ -> Just Map.empty
-
-viewCounter :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe Int32)))
-viewCounter = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_Counter . identityV
 
 viewContracts :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe [Text])))
 viewContracts = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_ContractList . identityV

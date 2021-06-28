@@ -9,7 +9,6 @@ module Common.Api where
 import Data.Aeson
 import Data.Aeson.GADT.TH
 import Data.Constraint.Extras.TH
-import Data.Int
 import Data.GADT.Compare.TH
 import Data.GADT.Show.TH
 import Data.Semigroup (First(..))
@@ -26,12 +25,10 @@ type DexV = Vessel Q
 
 -- Note: This is view
 data Q (v :: (* -> *) -> *) where
-  Q_Counter :: Q (IdentityV (First (Maybe Int32)))
   Q_ContractList :: Q (IdentityV (First (Maybe [Text])))
   Q_PooledTokens :: Q (IdentityV (First (Maybe [PooledToken])))
 
 data Api :: * -> * where
-  Api_IncrementCounter :: Api ()
   -- TODO: Coin and Amount will eventually be imported from plutus itself.
   -- Once GHC 8.10 is supported in Obelisk, we will be able to reference
   -- plutus ADTs directly. For now, they will come from Common.Plutus.Contracts.Uniswap.Types

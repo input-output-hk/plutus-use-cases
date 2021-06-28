@@ -14,7 +14,6 @@ import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson.Lens
 import qualified Data.Aeson as Aeson
-import Data.Dependent.Sum
 import Data.Maybe
 import Data.Pool
 import Data.Proxy
@@ -57,7 +56,7 @@ backend = Backend
         withResource pool $ \conn -> runBeamPostgres conn ensureCounterExists
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
-          (requestHandler httpManager pool)
+          (requestHandler httpManager)
           (\(nm :: DbNotification Notification) q -> fmap (fromMaybe emptyV) $ mapDecomposedV (notifyHandler nm) q)
           (QueryHandler $ \q -> fmap (fromMaybe emptyV) $ mapDecomposedV (queryHandler pool) q)
           vesselFromWire
@@ -68,14 +67,8 @@ backend = Backend
   , _backend_routeEncoder = fullRouteEncoder
   }
 
-requestHandler :: Manager -> Pool Pg.Connection -> RequestHandler Api IO
-requestHandler httpManager pool = RequestHandler $ \case
-  Api_IncrementCounter -> runNoLoggingT $ runDb (Identity pool) $ do
-    rows <- runBeamSerializable $ do
-      runUpdateReturningList $ update (_db_counter db)
-        (\counter -> _counter_amount counter <-. current_ (_counter_amount counter) + val_ 1)
-        (\counter -> _counter_id counter ==. val_ 0)
-    mapM_ (notify NotificationType_Update Notification_Counter . _counter_amount) rows
+requestHandler :: Manager -> RequestHandler Api IO
+requestHandler httpManager = RequestHandler $ \case
   Api_Swap contractId coinA coinB amountA amountB ->
     executeSwap httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
   Api_Stake contractId coinA coinB amountA amountB ->
@@ -86,19 +79,10 @@ requestHandler httpManager pool = RequestHandler $ \case
   Api_CallPools cid -> callPools httpManager cid
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
-notifyHandler dbNotification _ = case _dbNotification_message dbNotification of
-  Notification_Counter :=> Identity n -> do
-    let val = case _dbNotification_notificationType dbNotification of
-          NotificationType_Delete -> Nothing
-          NotificationType_Insert -> Just n
-          NotificationType_Update -> Just n
-    return $ singletonV Q_Counter $ IdentityV $ Identity $ First val
+notifyHandler _ _ = return mempty
 
 queryHandler :: Pool Pg.Connection -> DexV Proxy -> IO (DexV Identity)
 queryHandler pool v = buildV v $ \case
-  Q_Counter -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
-    counter <- runSelectReturningOne $ lookup_ (_db_counter db) (CounterId 0)
-    return $ IdentityV $ Identity $ First $ _counter_amount <$> counter
   -- Handle View to see list of available wallet contracts
   Q_ContractList -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
     contracts <- runSelectReturningList $ select $ all_ (_db_contracts db)
