@@ -26,6 +26,7 @@ import Database.Beam (MonadBeam)
 import Database.Beam.Backend.SQL.BeamExtensions
 import Database.Beam.Postgres
 import Database.Beam.Query
+import Database.Beam.Schema.Tables (primaryKey)
 import qualified Database.PostgreSQL.Simple as Pg
 import Gargoyle.PostgreSQL.Connect
 import Obelisk.Backend
@@ -159,7 +160,7 @@ getPooledTokens httpManager pool = do
       -- Persist current state of pool tokens to Postgresql
       runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
         runInsert $ insertOnConflict (_db_pooledTokens db) (insertValues pooledTokens)
-          (conflictingFields _pooledToken_symbol)
+          (conflictingFields primaryKey)
           onConflictDoNothing
       return ()
   return ()

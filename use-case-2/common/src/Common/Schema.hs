@@ -54,9 +54,9 @@ instance Table ContractT where
   primaryKey = ContractId . _contract_id
 
 instance Table PooledTokenT where
-  newtype PrimaryKey PooledTokenT f = PooledTokenId { _pooledTokenId_symbol :: Columnar f Text }
+  data PrimaryKey PooledTokenT f = PooledTokenId { _pooledTokenId_symbol :: Columnar f Text, _pooledTokenId_name :: Columnar f Text }
     deriving (Generic)
-  primaryKey = PooledTokenId . _pooledToken_symbol
+  primaryKey pl = PooledTokenId (_pooledToken_symbol pl) (_pooledToken_name pl)
 
 instance Beamable (PrimaryKey CounterT)
 instance Beamable (PrimaryKey ContractT)
