@@ -58,25 +58,28 @@ import           Prelude                             hiding (init)
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
 import           Wallet.Types                        (ContractInstanceId)
 
-wallets :: [Wallet]
-wallets = [Wallet i | i <- [1 .. 4]]
+ownerWallet :: Wallet
+ownerWallet = Wallet 1
 
-testCurrencyNames :: [TokenName]
-testCurrencyNames = ["MOGUS", "USD"]
+userWallets :: [Wallet]
+userWallets = [Wallet i | i <- [2 .. 4]]
+
+testAssets :: [AssetClass]
+testAssets = fmap toAsset ["MOGUS", "USD"]
 
 toAsset :: TokenName -> AssetClass
 toAsset tokenName =
    assetClass (scriptCurrencySymbol . FungibleToken.makeLiquidityPolicy $ tokenName) tokenName
 
-testAssets :: [AssetClass]
-testAssets = fmap toAsset testCurrencyNames
-
-initContract :: Contract (Monoid.Last [Oracle.Oracle]) BlockchainActions Text ()
-initContract = do
+distributeFunds ::
+    [Wallet] ->
+    [AssetClass] ->
+    Contract () BlockchainActions Text ()
+distributeFunds wallets assets = do
     ownPK <- pubKeyHash <$> ownPubKey
-    let testCurrenciesValue = mconcat $ fmap (`assetClassValue` 1000) testAssets
+    let testCurrenciesValue = mconcat $ fmap (`assetClassValue` 1000) assets
         policyLookups = mconcat $
-            fmap (Constraints.monetaryPolicy . FungibleToken.makeLiquidityPolicy . Prelude.snd . unAssetClass) testAssets
+            fmap (Constraints.monetaryPolicy . FungibleToken.makeLiquidityPolicy . Prelude.snd . unAssetClass) assets
         adaValue = lovelaceValueOf amount
     forM_ wallets $ \w -> do
         let pkh = pubKeyHash $ walletPubKey w
@@ -85,7 +88,14 @@ initContract = do
         when (pkh /= ownPK) $ do
             ledgerTx <- submitTxConstraintsWith @Scripts.Any lookups tx
             void $ awaitTxConfirmed $ txId ledgerTx
-    oracles <- forM testAssets $ \asset -> do
+  where
+    amount = 1000000
+
+createOracles ::
+    [AssetClass] ->
+    Contract (Monoid.Last [Oracle.Oracle]) BlockchainActions Text ()
+createOracles assets = do
+    oracles <- forM assets $ \asset -> do
         let oracleParams = Oracle.OracleParams
                 { opFees   = 0
                 , opSymbol = fst . unAssetClass $ asset
@@ -95,29 +105,30 @@ initContract = do
         Oracle.updateOracle oracle oneAdaInLovelace
         pure oracle
     tell $ Monoid.Last $ Just oracles
-  where
-    amount = 1000000
 
 data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
 activateContracts :: Simulation (Builtin AaveContracts) ContractIDs
 activateContracts = do
-    cidInit  <- Simulator.activateContract (Wallet 1) Init
-    oracles  <- flip Simulator.waitForState cidInit $ \json -> case (fromJSON json :: Result (Monoid.Last [Oracle.Oracle])) of
+    cidFunds <- Simulator.activateContract ownerWallet $ DistributeFunds userWallets testAssets
+    _        <- Simulator.waitUntilFinished cidFunds
+
+    cidOracles  <- Simulator.activateContract ownerWallet $ CreateOracles testAssets
+    oracles  <- flip Simulator.waitForState cidOracles $ \json -> case (fromJSON json :: Result (Monoid.Last [Oracle.Oracle])) of
                     Success (Monoid.Last (Just res)) -> Just res
                     _                                -> Nothing
     Simulator.logString @(Builtin AaveContracts) "Initialization finished."
 
-    let params = fmap (\o -> Aave.CreateParams (Oracle.oAsset o) o) oracles
-    cidStart <- Simulator.activateContract (Wallet 1) (AaveStart params)
-    aa       <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text Aave.Aave))) of
-                    Success (Monoid.Last (Just (Right aa))) -> Just aa
-                    _                                       -> Nothing
+    cidStart <- Simulator.activateContract ownerWallet AaveStart
+    _  <- Simulator.callEndpointOnInstance cidStart "start" $ fmap (\o -> Aave.CreateParams (Oracle.oAsset o) o) oracles
+    aa <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (ContractResponse Text Aave.OwnerContractState))) of
+        Success (Monoid.Last (Just (ContractSuccess (Aave.Started aa)))) -> Just aa
+        _                                       -> Nothing
     Simulator.logString @(Builtin AaveContracts) $ "Aave instance created: " ++ show aa
 
-    cidInfo <- Simulator.activateContract (Wallet 1) $ AaveInfo aa
+    cidInfo <- Simulator.activateContract ownerWallet $ AaveInfo aa
 
-    cidUser <- fmap Map.fromList $ forM (tail wallets) $ \w -> do
+    cidUser <- fmap Map.fromList $ forM userWallets $ \w -> do
         cid <- Simulator.activateContract w $ AaveUser aa
         Simulator.logString @(Builtin AaveContracts) $ "Aave user contract started for " ++ show w
         return (w, cid)
@@ -232,8 +243,9 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
     shutdown
 
 data AaveContracts =
-      Init
-    | AaveStart [Aave.CreateParams]
+      DistributeFunds [Wallet] [AssetClass]
+    | CreateOracles [AssetClass]
+    | AaveStart
     | AaveInfo Aave.Aave
     | AaveUser Aave.Aave
     deriving (Eq, Show, Generic)
@@ -252,13 +264,15 @@ handleAaveContract = Builtin.handleBuiltin getSchema getContract where
   getSchema = \case
     AaveUser _ -> Builtin.endpointsToSchemas @(Aave.AaveUserSchema .\\ BlockchainActions)
     AaveInfo _ -> Builtin.endpointsToSchemas @(Aave.AaveInfoSchema .\\ BlockchainActions)
-    AaveStart _  -> Builtin.endpointsToSchemas @(Aave.AaveOwnerSchema .\\ BlockchainActions)
-    Init          -> Builtin.endpointsToSchemas @Empty
+    AaveStart  -> Builtin.endpointsToSchemas @(Aave.AaveOwnerSchema .\\ BlockchainActions)
+    DistributeFunds _ _         -> Builtin.endpointsToSchemas @Empty
+    CreateOracles _ -> Builtin.endpointsToSchemas @Empty
   getContract = \case
-    AaveInfo aave    -> SomeBuiltin $ Aave.infoEndpoints aave
-    AaveUser aave    -> SomeBuiltin $ Aave.userEndpoints aave
-    AaveStart params -> SomeBuiltin $ Aave.ownerEndpoint params
-    Init             -> SomeBuiltin initContract
+    AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints aave
+    AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints aave
+    AaveStart           -> SomeBuiltin Aave.ownerEndpoints
+    DistributeFunds wallets assets -> SomeBuiltin $ distributeFunds wallets assets
+    CreateOracles assets -> SomeBuiltin $ createOracles assets
 
 handlers :: SimulatorEffectHandlers (Builtin AaveContracts)
 handlers =
