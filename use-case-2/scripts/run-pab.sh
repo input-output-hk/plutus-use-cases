@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
-ob thunk unpack dep/plutus-starter
-cd dep/plutus-starter
-nix-shell --run "cabal new-repl exe:plutus-starter-pab"
+set -euo pipefail
+
+nix-build -A plutus-starter.haskellNixProject.hsPkgs.plutus-starter.components.exes.plutus-starter-pab
+./result/bin/plutus-starter-pab
