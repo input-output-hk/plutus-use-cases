@@ -22,3 +22,7 @@ By the end of this README you will be able to run the POKE-DEX on your machine l
 
   1. After running the Plutus Application Backend, in a different terminal, run `ob run --no-interpret ./dep/plutus-starter`
   1. The frontend should be running on localhost:8000 when successful and visible via your browser.
+
+##  Supported Browsers
+  1. Google Chrome
+  1. Chromium
