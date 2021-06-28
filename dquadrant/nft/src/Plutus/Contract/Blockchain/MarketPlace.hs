@@ -32,7 +32,6 @@ where
 
 import GHC.Generics (Generic)
 import qualified Prelude (Show, Eq)
--- import Prelude(div)
 import PlutusTx.Prelude
 import  PlutusTx
 import Ledger hiding(singleton,txOutDatum)
@@ -94,22 +93,27 @@ dsUserShareValue market ds@DirectSale{dsCost=Price(c,t,v)}=singleton c t $ dsUse
 {-# INLINABLE dsMarketShare #-}
 dsMarketShare :: Market -> DirectSale -> Integer
 dsMarketShare market ds@DirectSale{dsCost=Price (_,_,v)}=
-    v- dsUserShare market ds
+    v - dsUserShare market ds
 
 dsMarketShareValue :: Market -> DirectSale -> Value
 {-# INLINABLE dsMarketShareValue #-}
 dsMarketShareValue market ds@DirectSale{dsCost=Price(c,t,_)}=singleton c t $ dsMarketShare market ds
 
-aUserShareValue :: Market -> Auction -> Value-> Value
-aUserShareValue Market{mAuctionFee} Auction{aAssetClass} fValue = fValue <> assetClassValue aAssetClass (-v)
-    where 
-      v=(marketHundredPercent - mAuctionFee) * finalAssetValue `divide` marketHundredPercent
-      finalAssetValue= assetClassValueOf fValue aAssetClass
+-- Previou's owner's winning after a auction is complete
+{-# INLINABLE aSellerShareValue #-}
+aSellerShareValue :: Market -> Auction -> Value-> Value
+aSellerShareValue m@Market{mAuctionFee} a@Auction{aAssetClass,aValue} fValue =
+  fValue - aValue-aMarketShareValue m a fValue
 
+
+-- Operator's share for auction, 
+-- if the split is fractional, market receives the extra. 
+-- For example if market  fee is 3.22, operator will receive 4 Ada.
+{-# INLINABLE aMarketShareValue #-}
 aMarketShareValue :: Market -> Auction -> Value-> Value
 aMarketShareValue Market{mAuctionFee} Auction{aAssetClass} fValue = assetClassValue aAssetClass v
-    where 
-      v=finalAssetValue - (marketHundredPercent - mAuctionFee) * finalAssetValue `divide` marketHundredPercent
+    where
+      v=finalAssetValue - (((marketHundredPercent - mAuctionFee) * finalAssetValue) `divide` marketHundredPercent )
       finalAssetValue= assetClassValueOf fValue aAssetClass
 
 
@@ -121,7 +125,7 @@ data Auction = Auction{
     aMinIncrement :: !Integer,
     aDuration:: !POSIXTimeRange,
     aValue:: Value
-} deriving (Generic, Show,ToJSON,FromJSON)
+} deriving (Generic, Show,ToJSON,FromJSON,Prelude.Eq)
 PlutusTx.unstableMakeIsData ''Auction
 
 
@@ -132,42 +136,6 @@ auctionAssetValue Auction{aAssetClass=AssetClass (c, t)} = singleton c t
 {-# INLINABLE auctionAssetValueOf #-}
 auctionAssetValueOf :: Auction -> Value -> Integer
 auctionAssetValueOf Auction{aAssetClass} value = assetClassValueOf value aAssetClass
-
-
-
-newtype Payment = Payment ( AssocMap.Map PubKeyHash Value ) deriving(Generic,ToJSON,FromJSON,Show)
-
-instance Semigroup Payment where
-    {-# INLINABLE (<>) #-}
-    (<>) (Payment a) (Payment b) = Payment (a <> b)
-
-instance Monoid Payment where
-  {-# INLINABLE mempty   #-}
-  mempty = Payment AssocMap.empty 
-
-{-# INLINABLE payment  #-}
-payment :: PubKeyHash -> Value -> Payment
-payment pkHash value=Payment  (AssocMap.singleton pkHash value)
-
-{-# INLINABLE paymentValue #-}
-paymentValue :: Payment -> PubKeyHash -> Value
-paymentValue (Payment p) pkh=case AssocMap.lookup pkh p of
-    Just v ->  v
-    _      ->Value AssocMap.empty
-
-{-# INLINABLE paymentPkhs #-}
-paymentPkhs :: Payment -> [PubKeyHash]
-paymentPkhs (Payment x) =  AssocMap.keys x
-
-
-validatePayment :: (PubKeyHash ->  Value -> Bool )-> Payment ->Bool
-validatePayment f p=
-  all (\pkh -> f pkh (paymentValue p pkh)) (paymentPkhs p)
-
-makeLift ''Payment
-PlutusTx.unstableMakeIsData ''Payment
-
-
 
 
 {-# INLINABLE  validateBid #-}
@@ -182,6 +150,10 @@ validateBid market auction ctx@ScriptContext  {scriptContextTxInfo=info}=
                                       aDuration auction == aDuration nAuction &&
                                       aOwner auction== aOwner auction
         _                        ->  traceError "Malformed Output Datum"
+
+    -- without this check, auction creator might say that 
+    -- they are placing asset on auction datum without locking them.
+    validInputDatum = ownInputValue ctx `geq` aValue auction
     minNewBid =
         ownInputValue ctx <>
         auctionAssetValue auction (
@@ -199,7 +171,8 @@ validateBid market auction ctx@ScriptContext  {scriptContextTxInfo=info}=
     isMarketScriptPayed nAuction= ownOutputValue ctx `geq` minNewBid
 
     doValidate newAuction=
-            traceIfFalse "Only one bid per transaction" hasSingleUtxo
+            traceIfFalse "Malicious input datum" validInputDatum
+        &&  traceIfFalse "Only one bid per transaction" hasSingleUtxo
         &&  traceIfFalse "Insufficient payment to market contract" (isMarketScriptPayed newAuction)
         &&  traceIfFalse "Insufficient payment to previous bidder" isExBidderPaid
         &&  traceIfFalse "Not during the auction period" duringTheValidity
@@ -230,16 +203,13 @@ validateTakeback datum ctx= isAuction || isDirectSale || traceError "Invalid Dat
 
 
 {-# INLINABLE validateClaimAuction  #-}
-validateClaimAuction :: Market -> Data -> ScriptContext -> Bool
-validateClaimAuction  market@Market{mAuctionFee,mOperator} datum ctx@ScriptContext{scriptContextTxInfo=info} =
-  case fromData datum of
-    Just auction ->
-          traceIfTrue  "Auction not Completed" (not  isAuctionPeriod)
+validateClaimAuction :: Market  -> ScriptContext -> Bool
+validateClaimAuction  market@Market{mAuctionFee,mOperator} ctx@ScriptContext{scriptContextTxInfo=info} =
+          traceIfTrue  "Auction not Completed" allAuctionsNotExpired
       &&  traceIfFalse "Market fee not paid" isOperatorPaid
       &&  traceIfFalse "Bidder not paid"     areWinnersPaid
       && traceIfFalse  "Is Seller Paid"      areSellersPaid
       where
-        isAuctionPeriod = not $ aDuration auction `contains` txInfoValidRange info
 
         -- Check that each of the parties are paid
         areWinnersPaid  = validatePayment (\pkh v->valuePaidTo info pkh `geq` v)  totalWinnerPayment
@@ -247,36 +217,25 @@ validateClaimAuction  market@Market{mAuctionFee,mOperator} datum ctx@ScriptConte
         areSellersPaid  = validatePayment (\pkh v -> valuePaidTo info pkh  `geq` v)  totalSellerPayment
 
         -- Total payments arising from the utxos
-        totalSellerPayment= mconcat $ mapInputsWithDatum sellerPayment
-        totalWinnerPayment= mconcat $ mapInputsWithDatum aWinnerPayment
-        totalOperatorFee  = mconcat $ mapInputsWithDatum operatorFee
+        totalSellerPayment= foldMap sellerPayment auctionsWithTxOut
+        totalWinnerPayment= foldMap aWinnerPayment auctionsWithTxOut
+        totalOperatorFee  = foldMap operatorFee auctionsWithTxOut
+        allAuctionsNotExpired = all isAuctionPeriod auctionsWithTxOut
 
         -- payment share for each party in a auction txOut
-        sellerPayment   txOut auction = payment  (aOwner auction) $ aUserShareValue market auction $ txOutValue txOut
-        operatorFee     txOut auction = aMarketShareValue market auction $ txOutValue txOut
-        aWinnerPayment  txOut auction = payment (aBidder auction) $ aUserShareValue market auction $ aValue auction
-      
+        sellerPayment   (txOut,auction) = payment  (aOwner auction) $ aSellerShareValue market auction $ txOutValue txOut
+        operatorFee     (txOut,auction) = aMarketShareValue market auction $ txOutValue txOut
+        aWinnerPayment  (txOut,auction) = payment (aBidder auction) $ aValue auction
+        isAuctionPeriod (txOut,auction) = not $ aDuration auction `contains` txInfoValidRange info
 
-
-        marketExpectation txOut@TxOut{txOutValue} =do
-          auction <- txOutDatum  ctx txOut
-          let aClass=aAssetClass auction
-          pure $ assetClassValue aClass (marketShare (assetClassValueOf txOutValue aClass))
-
-        marketShare x = x - userShare x
-        -- userShare x =x*(1000000-x)  `div` 1000000
-        mapInputsWithDatum :: IsData b => (TxOut->b->c) -> [c]
-        mapInputsWithDatum f= mapMaybe (\txo->txOutDatum ctx txo >>=(\d->Just $ f txo d)) $ ownInputs ctx
-
-        userShare x=x
-    _       ->
-        traceError "Invalid input datum"
+        auctionsWithTxOut:: [(TxOut,Auction)]
+        auctionsWithTxOut=ownInputsWithDatum ctx
 
 {-# INLINABLE validateBuy #-}
 validateBuy:: Market -> ScriptContext ->Bool
 validateBuy market@Market{mOperator,mPrimarySaleFee,mSecondarySaleFee} ctx=
-        -- traceIfFalse "Insufficient payment" allSellersPaid
-    traceIfFalse "Insufficient fees" isMarketPayed
+      traceIfFalse "Insufficient payment" allSellersPaid
+    && traceIfFalse "Insufficient fees" isMarketPayed
     where
         info=scriptContextTxInfo ctx
 
@@ -321,7 +280,7 @@ mkMarket market d action ctx =
         Bid       -> case fromData d of
                     Just auction -> validateBid market auction ctx
                     _            -> traceError "Invalid Auction datum"
-        ClaimBid  -> validateClaimAuction market d ctx
+        ClaimBid  -> validateClaimAuction market ctx
 
 
 data MarketType

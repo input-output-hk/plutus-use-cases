@@ -1,7 +1,7 @@
 <template>
   <div>
     <NavBar/>
-    <b-container class="pt-4">
+    <b-container>
       <b-row>
         <b-col>
           <b-form @submit.prevent="onsubmit()">
@@ -24,6 +24,12 @@ import NavBar from "./base/NavBar";
 export default {
   name: "MIntToken",
   components: {NavBar},
+  created() {
+    if(this.instanceId){
+      this.refresh()
+    }
+    this.items=[]
+  },
   methods: {
     onsubmit() {
       this.shouldTrigger = true

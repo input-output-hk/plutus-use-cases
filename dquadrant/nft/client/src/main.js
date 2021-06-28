@@ -9,12 +9,10 @@ import { store } from "./config/vuex";
 
 import "./assets/main.css";
 
-import App from "@/App";
-
+import Base from "@/components/base/Base";
 import Market from "./components/Market";
 import MIntToken from "./components/MIntToken";
-
-import Auction from "@/pages/Auction";
+import DummyAuction from "./components/DummyAuction";
 
 const routes = [
   {
@@ -32,9 +30,9 @@ const routes = [
     component: MIntToken
   },
   {
-    path: "/auction",
-    name: "Auction",
-    component: Auction
+    path: '/dummy-auction',
+    name: 'auction',
+    component: DummyAuction
   }
 ];
 
@@ -49,5 +47,5 @@ Vue.config.productionTip = false;
 new Vue({
   router,
   store,
-  render: h => h(App)
+  render: h => h(Base)
 }).$mount("#app");

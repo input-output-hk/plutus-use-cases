@@ -22,3 +22,35 @@ import Data.Aeson (ToJSON, FromJSON)
 import Prelude (Show)
 
 
+
+newtype Payment = Payment ( AssocMap.Map PubKeyHash Value ) deriving(Generic,ToJSON,FromJSON,Show)
+
+instance Semigroup Payment where
+    {-# INLINABLE (<>) #-}
+    (<>) (Payment a) (Payment b) = Payment (a <> b)
+
+instance Monoid Payment where
+  {-# INLINABLE mempty   #-}
+  mempty = Payment AssocMap.empty
+
+{-# INLINABLE payment  #-}
+payment :: PubKeyHash -> Value -> Payment
+payment pkHash value=Payment  (AssocMap.singleton pkHash value)
+
+{-# INLINABLE paymentValue #-}
+paymentValue :: Payment -> PubKeyHash -> Value
+paymentValue (Payment p) pkh=case AssocMap.lookup pkh p of
+    Just v ->  v
+    _      ->Value AssocMap.empty
+
+{-# INLINABLE paymentPkhs #-}
+paymentPkhs :: Payment -> [PubKeyHash]
+paymentPkhs (Payment x) =  AssocMap.keys x
+
+{-# INLINABLE validatePayment#-}
+validatePayment :: (PubKeyHash ->  Value -> Bool )-> Payment ->Bool
+validatePayment f p=
+  all (\pkh -> f pkh (paymentValue p pkh)) (paymentPkhs p)
+
+makeLift ''Payment
+PlutusTx.unstableMakeIsData ''Payment

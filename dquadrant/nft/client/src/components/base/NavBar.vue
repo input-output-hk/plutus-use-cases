@@ -1,5 +1,5 @@
 <template>
-  <b-navbar toggleable="md" class="shadow-sm pl-5">
+  <b-navbar toggleable="md" class="shadow-sm pl-5 mb-4">
     <b-navbar-brand class="navbar-brand">
       <img src="https://placekitten.com/g/30/30" alt="Logo" height="30px">
     </b-navbar-brand>
@@ -7,10 +7,11 @@
     <b-collapse id="nav-collapse" is-nav>
       <b-navbar-nav>
         <b-nav-item :active="$router.currentRoute.path.startsWith('/market')" to="/market">Market</b-nav-item>
-        <b-nav-item :active="$router.currentRoute.path.startsWith('/mint')" to="/mint">Mint</b-nav-item>
-        <b-nav-item :active="$router.currentRoute.path.startsWith('/auction')" to="/auction">Auction</b-nav-item>
-        <b-nav-item v-b-toggle.main-sidebar>Wallet</b-nav-item>
-        <SideBar/>
+        <b-nav-item :active="$router.currentRoute.path.startsWith('/dummy-auction')" to="/dummy-auction">Auction</b-nav-item>
+        <b-nav-item v-b-toggle.sidebar-1>Wallet</b-nav-item>
+        <b-sidebar id="sidebar-1" title="Wallet" shadow>
+          <SideBar/>
+        </b-sidebar>
       </b-navbar-nav>
       <b-navbar-nav class="ml-auto">
         <slot></slot>

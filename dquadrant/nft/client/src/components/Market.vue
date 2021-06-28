@@ -44,7 +44,7 @@ export default {
     if (this.instanceId) {
       this.refresh()
     }
-    this.items = []
+    // this.items = []
   },
   computed: {
     instanceId() {

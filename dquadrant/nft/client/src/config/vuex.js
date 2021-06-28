@@ -27,10 +27,10 @@ export const store = new Vuex.Store({
         ada: undefined,
         tokens: []
       },
-      lastObservable: undefined,
-      status: {
-        logs: [],
-        observableState: []
+      lastObservable:undefined,
+      status:{
+        logs:undefined,
+        observableState:[]
       },
       instances: []
     }

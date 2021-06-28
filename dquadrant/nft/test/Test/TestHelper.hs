@@ -2,36 +2,46 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Test.TestHelper
-
+  ( sellParamLovelace, nft, negNft,noNft, wait, getHandle, waitForLastUtxos, lastUtxos,allUtxos,operator,defaultMarket,defaultCheck,lockedByMarket,defaultMarketAddress,TestSchema,walletHasAtLeast)
 where
-import Ledger.Ada(adaSymbol,adaToken)
+import Ledger.Ada(adaSymbol,adaToken, lovelaceValueOf)
 import Ledger.Value
 import PlutusTx.Builtins (ByteString, emptyByteString)
-import Ledger (TxId, txId, TxOutTx (txOutTxTx), pubKeyHash)
+import Ledger (txId, TxOutTx (txOutTxTx), pubKeyHash, Address, pubKeyAddress, TxId)
 import Plutus.Trace
     ( EmulatorTrace,
       ContractHandle,
-      activateContractWallet,
-      callEndpoint )
+      activateContractWallet, EmulatorConfig )
 import Data.Text (Text)
 import Data.Aeson (Result (Error, Success), ToJSON (toJSON), fromJSON)
 import Plutus.Trace.Emulator.ContractInstance (ContractInstanceState(ContractInstanceState))
 import Plutus.Contract.Types
+    ( select,
+      ResumableResult(ResumableResult) )
 import qualified Control.Monad.Freer.Extras as Extras
 import qualified Data.Aeson.Types as AesonTypes
 import Plutus.Contract.Wallet.MarketPlace
 import Plutus.Contract.Wallet.MarketEndpoints
 import Playground.Contract
-import Plutus.Contract (HasEndpoint, logInfo, tell)
+import Plutus.Contract (HasEndpoint, tell, logError, handleError)
 import qualified Data.Map as Map
 import Plutus.Contract.Wallet.EndpointModels
-import Data.Functor ((<&>), void)
+import Data.Functor (void)
 import Wallet.Emulator (walletPubKey)
-import Plutus.Trace.Emulator (waitNSlots, EmulatorRuntimeError (GenericError), getContractState)
+import Plutus.Trace.Emulator
+    ( waitNSlots,
+      EmulatorRuntimeError(GenericError),
+      getContractState,
+      callEndpoint,
+      EmulatorConfig(EmulatorConfig) )
 import qualified Plutus.Trace.Emulator as EmulatorTrace
+import Plutus.Contract.Test (TracePredicate, checkPredicateOptions, defaultCheckOptions, emulatorConfig, valueAtAddress)
+import Test.Tasty (TestTree)
+import Control.Lens.Operators
 
 type TestSchema=
   MarketSchema
@@ -39,12 +49,9 @@ type TestSchema=
 
 filterTxOutsEp :: (AsContractError e,HasEndpoint "filterTxOuts" TxId s) => Contract [AesonTypes.Value] s e ()
 filterTxOutsEp= do
-  logInfo   @String "CALL AMp TO filter"
   x <- endpoint @"filterTxOuts"
-  logInfo  @String $  "Got Tx to resolve "++ show x
   vs<-marketTxOutsByTxId defaultMarket x
   tell [toJSON vs]
-  logInfo $ "mapped " ++ show x ++ " to " ++ show vs
   pure ()
   where
     marketTxOutsByTxId :: AsContractError e => Market ->TxId -> Contract w s e [TxOutRef]
@@ -55,7 +62,7 @@ filterTxOutsEp= do
 
 
 testEndpoints :: Contract [AesonTypes.Value] TestSchema Text  ()
-testEndpoints= (marketEndpoints defaultMarket `select`filterTxOutsEp) >>testEndpoints
+testEndpoints= handleError (\e -> logError e) (marketEndpoints defaultMarket `select`filterTxOutsEp) >>testEndpoints
 
 defaultMarket :: Market
 defaultMarket = Market
@@ -65,6 +72,9 @@ defaultMarket = Market
     mPrimarySaleFee =2_000_000,-- for consistency keep it 2%
     mSecondarySaleFee=3_000_000 -- for consistency keep it 3%
     }
+
+defaultMarketAddress :: Address
+defaultMarketAddress=marketAddress  defaultMarket
 
 sellParamLovelace :: Value -> SellType -> Integer -> SellParams
 sellParamLovelace _values sType lovelace=SellParams{
@@ -76,9 +86,6 @@ sellParamLovelace _values sType lovelace=SellParams{
                         value = lovelace
                 }
         }
-
-nftAssetId :: ByteString -> AssetId
-nftAssetId bs=AssetId bs emptyByteString
 
 nft :: ByteString  -> Value
 nft t =singleton (CurrencySymbol t)  (TokenName emptyByteString)  1
@@ -94,23 +101,61 @@ operator=Wallet 9
 
 
 wait :: EmulatorTrace()
-wait=void $ waitNSlots 3
+wait=void $ waitNSlots 4
 
 getHandle:: Integer ->  EmulatorTrace (ContractHandle [AesonTypes.Value] TestSchema Text)
 getHandle i =activateContractWallet (Wallet i) testEndpoints
 
 
 lastResult :: FromJSON a =>ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace  a
-lastResult h1=do
-  (ContractInstanceState (ResumableResult  _ _ _ _  _  _ _ s)  _ _ ) <- getContractState h1
-  Extras.logInfo @String $ " resolving txId for some handle" ++ show s
-  case fromJSON  ( head $ Prelude.tail s ) of
-      Success v ->  return  v
-      Error e   -> EmulatorTrace.throwError (GenericError e)
+lastResult h=do
+  (ContractInstanceState (ResumableResult  _ _ _ _  _  _  _ lastState)  _ _ ) <- getContractState h
+  state <-case  lastState  of
+    [] -> EmulatorTrace.throwError $ GenericError "Tried to Get last constract scatate but it's empty"
+    (v : _) ->  ( Extras.logDebug    @String $ "parseJson : " ++ show v ) >> pure v
+  case fromJSON state of
+    Success p -> pure p
+    Error  e  -> do Extras.logError @String $ "AesonError : " ++ show e
+                    EmulatorTrace.throwError (GenericError e)
 
 
 lastUtxos :: ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [TxOutRef]
 lastUtxos h = do
-  txid <-lastResult h
-  callEndpoint @"filterTxOuts" h txid
+  _txId <-lastResult h
+  callEndpoint  @"filterTxOuts" h _txId
+  wait
   lastResult h
+
+waitForLastUtxos :: ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [TxOutRef]
+waitForLastUtxos h= do
+  wait
+  lastUtxos h
+
+allUtxos :: ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [TxOutRef]
+allUtxos h = do
+  callEndpoint @"onsale" h ""
+  wait
+  lastResult h <&> map reference
+
+configurationWithNfts :: EmulatorConfig
+configurationWithNfts = EmulatorConfig $ Left $ Map.fromList distribution
+  where
+    distribution= [
+                (Wallet 1 ,adaFunds<>nft "aa" <> nft "ab" <> nft "ac"),
+                (Wallet 2 ,adaFunds<>nft "ba" <> nft "bb" <> nft "bc"),
+                (Wallet 3 ,adaFunds<>nft "ca" <> nft "cb" <> nft "cc"),
+                (Wallet 4 ,adaFunds<>nft "da" <> nft "db" <> nft "dc"),
+                (Wallet 5 ,adaFunds<>nft "ea" <> nft "eb" <> nft "ec"),
+                (Wallet 6 ,adaFunds<>nft "fa" <> nft "fb" <> nft "fc")
+        ]
+    adaFunds :: Value
+    adaFunds = lovelaceValueOf 1_000_000_000
+
+defaultCheck :: String -> TracePredicate -> EmulatorTrace () -> TestTree
+defaultCheck =checkPredicateOptions (defaultCheckOptions & emulatorConfig .~ configurationWithNfts)
+
+lockedByMarket :: Value -> TracePredicate
+lockedByMarket valueAtleast = valueAtAddress (marketAddress defaultMarket) (\v->v`geq` valueAtleast)
+
+walletHasAtLeast :: Value -> Integer -> TracePredicate
+walletHasAtLeast v w=valueAtAddress (pubKeyAddress $ walletPubKey $ Wallet w) (\x->x `geq`v)
