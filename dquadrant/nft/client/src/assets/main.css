@@ -26,6 +26,12 @@
     position: relative;
 }
 
+.overflow-y {
+    height: 100vh;
+    overflow-y: scroll;
+    scroll-behavior: smooth;
+}
+
 #sidebar .h6 {
     color: #fff;
 }

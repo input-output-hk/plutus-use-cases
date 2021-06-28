@@ -23,11 +23,8 @@
 </template>
 
 <script>
-import SideBar from "./SideBar";
-
 export default {
   name: "NavBar",
-  components: {SideBar},
   computed: {
     instanceId() {
       return this.$store.state.contract.instance.cicContract.unContractInstanceId

@@ -45,6 +45,7 @@ export default {
                   `/instance/${firstInstance.cicContract.unContractInstanceId}/status`,
               ).then((x) => {
                 this.$store.state.contract.status = x.data.cicCurrentState
+              }).finally(() => {
                 this.$store.state.contract.instances = instances
                 this.$store.state.contract.instance = firstInstance
                 this.timeoutHandle = setTimeout(this.refreshStatus, 1500)

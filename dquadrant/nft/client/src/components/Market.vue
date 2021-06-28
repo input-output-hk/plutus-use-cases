@@ -44,7 +44,7 @@ export default {
     if (this.instanceId) {
       this.refresh()
     }
-    // this.items = []
+    this.items = []
   },
   computed: {
     instanceId() {
@@ -73,9 +73,9 @@ export default {
   },
   watch: {
     lastResponse(x) {
-      if (x.length && x.length > 0 && x[0].cost && typeof (x[0].cost.value) == "number" && x[0].owner && x[0].values && x[0].values) {
+      // if (x.length && x.length > 0 && x[0].cost && typeof (x[0].cost.value) == "number" && x[0].owner && x[0].values && x[0].values) {
         this.items = x
-      }
+      // }
     },
     instanceId(x) {
       if (x) {

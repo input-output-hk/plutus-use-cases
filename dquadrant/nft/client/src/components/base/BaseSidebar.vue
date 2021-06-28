@@ -1,69 +1,73 @@
 <template>
   <div class="d-flex align-items-stretch">
-    <nav id="sidebar" :class="{'active': sideBarCollapse}">
-      <div class="custom-menu" style="cursor: pointer" @click="sideBarCollapse = !sideBarCollapse">
-        <span id="sidebarCollapse" class="btn btn-primary p-0 m-0" style="cursor: pointer;z-index: 1111;">
-          <i class="fa fa-bars mt-4" aria-hidden="true"></i><span class="sr-only">My Wallets</span>
-        </span>
-      </div>
-      <div>
-        <h1 class="p-2">
-          <router-link :to="{name: 'market'}" class="logo text-decoration-none">
-            Plutus <span>Wallet</span>
-          </router-link>
-        </h1>
-        <ul class="list-unstyled components mb-5">
-          <li class="active">
-            <div class="d-flex flex-column justify-content-lg-end border-bottom pb-2 p-2">
-              <i>My balance</i>
-              <strong class="balance-style">{{ (Math.round(balance.ada / 10000) / 100).toLocaleString() }} Ada</strong>
-            </div>
-          </li>
-          <li>
-            <b-container>
-              <b-row v-for="(token,index) in balance.tokens" :key="index"
-                     class="border-bottom mt-3 mb-3 d-flex justify-content-center align-items-center">
-                <b-col class="col-8 py-1">
-                  {{ token.currency.substring(0, 3) }}
-                  <span class="text-muted">...</span>
-                  {{ token.currency.substring(token.currency.length - 3) }}
-                  <b class="text-lg-left"> : </b>
-                  {{ token.name }}
-                </b-col>
-                <b-col class="col-2 p-1">
-                  <div v-if="token.value===1" class="nft-tag-style">
-                    NFT
-                  </div>
-                </b-col>
-                <b-col class="col-2 p-1">
-                  <b-button v-b-modal="'s'+token.index" variant="success" @click="tokenClicked = token;">
-                    Sell
-                  </b-button>
-                </b-col>
-                <b-col class="col-2 p-1">
-                  <b-button v-b-modal="'a'+token.index" variant="success" @click="tokenClicked = token;">
-                    StartAuction
-                  </b-button>
-                </b-col>
-              </b-row>
-            </b-container>
-          </li>
-          <li>
-            <router-link :to="{name: 'market'}" class="btn btn-block text-left py-4 px-2">
-              My Wallets
+    <nav id="sidebar" :class="{'active': sideBarCollapse}" style="z-index: 11;">
+      <div class="overflow-y">
+        <div class="custom-menu" style="cursor: pointer;z-index: 0"
+             @click="sideBarCollapse = !sideBarCollapse">
+          <span id="sidebarCollapse" class="btn btn-primary p-0 m-0" style="cursor: pointer;z-index: 10;">
+            <i class="fa fa-bars mt-4" aria-hidden="true"></i><span class="sr-only">My Wallets</span>
+          </span>
+        </div>
+        <div>
+          <h1 class="p-2">
+            <router-link :to="{name: 'market'}" class="logo text-decoration-none">
+              Plutus <span>Wallet</span>
             </router-link>
-          </li>
-          <li>
-            <router-link :to="{name: 'mint'}" class="btn btn-block text-left py-4 px-2">
-              Mint an NFT
-            </router-link>
-          </li>
-          <li>
-            <router-link :to="{name: 'market'}" class="btn btn-block text-left py-4 px-2">
-              Buy / Sell
-            </router-link>
-          </li>
-        </ul>
+          </h1>
+          <ul class="list-unstyled components mb-5">
+            <li class="active">
+              <div class="d-flex flex-column justify-content-lg-end border-bottom pb-2 p-2">
+                <i>My balance</i>
+                <strong class="balance-style">{{ (Math.round(balance.ada / 10000) / 100).toLocaleString() }}
+                  Ada</strong>
+              </div>
+            </li>
+            <li>
+              <b-container>
+                <b-row v-for="(token,index) in balance.tokens" :key="index"
+                       class="border-bottom mt-3 mb-3 d-flex justify-content-center align-items-center">
+                  <b-col class="col-8 py-1">
+                    {{ token.currency.substring(0, 3) }}
+                    <span class="text-muted">...</span>
+                    {{ token.currency.substring(token.currency.length - 3) }}
+                    <b class="text-lg-left"> : </b>
+                    {{ token.name }}
+                  </b-col>
+                  <b-col class="col-2 p-1">
+                    <div v-if="token.value===1" class="nft-tag-style">
+                      NFT
+                    </div>
+                  </b-col>
+                  <b-col class="col-2 p-1">
+                    <b-button v-b-modal="'s'+token.index" variant="success" @click="tokenClicked = token;">
+                      Sell
+                    </b-button>
+                  </b-col>
+                  <b-col class="col-2 p-1">
+                    <b-button v-b-modal="'a'+token.index" variant="success" @click="tokenClicked = token;">
+                      StartAuction
+                    </b-button>
+                  </b-col>
+                </b-row>
+              </b-container>
+            </li>
+            <li>
+              <router-link :to="{name: 'market'}" class="btn btn-block text-left py-4 px-2">
+                My Wallets
+              </router-link>
+            </li>
+            <li>
+              <router-link :to="{name: 'mint'}" class="btn btn-block text-left py-4 px-2">
+                Mint an NFT
+              </router-link>
+            </li>
+            <li>
+              <router-link :to="{name: 'market'}" class="btn btn-block text-left py-4 px-2">
+                Buy / Sell
+              </router-link>
+            </li>
+          </ul>
+        </div>
       </div>
     </nav>
     <div id="content">
