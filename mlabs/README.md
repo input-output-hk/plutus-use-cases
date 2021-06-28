@@ -1,76 +1,85 @@
 # MLabs: Plutus Use Cases
+
 --------------------------------------------------------------------------------
+
 ## Contents
 
-- [Contents](#contents)
-- [Overview](#overview)
-  * [Prerequisites](#prerequisites)
-  * [Building, Testing, Use](#building-testing-use)
-    + [On Unix systems](#on-unix-systems)
-  * [Documentation](#documentation)
-  * [Testing](#testing)
-    + [Running Tests](#running-tests)
-- [Use Case: Lendex](#use-case-lendex)
-  * [Description](#description)
-  * [Progress & Planning](#progress--planning)
-  * [Examples](#examples)
-  * [APIs & Endpoints](#apis--endpoints)
-  * [Notes](#notes)
-- [Use Case: NFT](#use-case-nft)
-  * [Description](#description-1)
-  * [Progress & Planning](#progress--planning-1)
-  * [Examples](#examples-1)
-  * [APIs & Endpoints](#apis--endpoints-1)
-  * [Notes](#notes-1)
+- [MLabs: Plutus Use Cases](#mlabs-plutus-use-cases)
+  - [Contents](#contents)
+  - [Overview](#overview)
+    - [Prerequisites](#prerequisites)
+    - [Building, Testing, Use](#building-testing-use)
+      - [On Unix Systems](#on-unix-systems)
+    - [Documentation](#documentation)
+    - [Testing](#testing)
+      - [Running Tests](#running-tests)
+  - [Use Case: Lendex](#use-case-lendex)
+    - [Lendex: Description](#lendex-description)
+    - [Lendex: Progress & Planning](#lendex-progress--planning)
+    - [Lendex: Examples](#lendex-examples)
+    - [Lendex: APIs & Endpoints](#lendex-apis--endpoints)
+    - [Lendex: Tests](#lendex-tests)
+    - [Lendex: Notes](#lendex-notes)
+  - [Use Case: NFT](#use-case-nft)
+    - [NFT: Description](#nft-description)
+    - [NFT: Progress & Planning](#nft-progress--planning)
+    - [NFT: Examples](#nft-examples)
+    - [NFT: APIs & Endpoints](#nft-apis--endpoints)
+    - [NFT: Tests](#nft-tests)
+    - [NFT: Notes](#nft-notes)
 
 *note: the table of contents is generated using `make readme_contents`, please
 update as headings are expanded.*
+
+--------------------------------------------------------------------------------
 
 ## Overview
 
 MLabs has been working on developing two Plutus Use cases, specifically:
 
--  [Use Case: Lendex](#use-case-lendex) based on the specification of 
-   [Plutus Use case 3](https://github.com/mlabs-haskell/plutus-use-cases/tree/documentation#use-case-3-lending-and-borrowing-collateral-escrow-flashloans).
+- [Use Case: Lendex](#use-case-lendex) based on the specification of 
+  [Plutus Use case 3](https://github.com/mlabs-haskell/plutus-use-cases/tree/documentation#use-case-3-lending-and-borrowing-collateral-escrow-flashloans).
 
--  [Use Case: NFT](#use-case-nft) based on the specification of 
-   [Plutus Use case 5](https://github.com/mlabs-haskell/plutus-use-cases/tree/documentation#use-case-5-nfts-minting-transfer-buying-and-selling-nfts).
+- [Use Case: NFT](#use-case-nft) based on the specification of 
+  [Plutus Use case 5](https://github.com/mlabs-haskell/plutus-use-cases/tree/documentation#use-case-5-nfts-minting-transfer-buying-and-selling-nfts).
 
 Please refer to each individual Plutus Use Case for more specific information.
 
 ### Prerequisites
-- Git 
+
+- Git
 - Curl
 - Nix
 
 ### Building, Testing, Use
 
-#### On Unix systems
+#### On Unix Systems
+
 *It is recommended that all current updates to your system be done before
 installation*
 
-1) ***Install basic dependencies*** 
+1) ***Install basic dependencies***
 
-    ```bash
-    sudo apt install curl
-    sudo apt install git
-    ```
+```bash
+sudo apt install curl
+sudo apt install git
+```
 
 2) ***Clone Directory***
 
-	Create a directory and clone the project:
+Create a directory and clone the project:
 
-    ```bash
-	git clone https://github.com/mlabs-haskell/plutus-use-cases.git
-    ```
- 
+```bash
+git clone https://github.com/mlabs-haskell/plutus-use-cases.git
+```
+
 3) ***Install Nix***
   
-   1) **Setup Nix**
+  1) **Setup Nix**
 
-    ```bash
-    $ curl -L https://nixos.org/nix/install | sh
-    ```
+  ```bash
+  $ curl -L https://nixos.org/nix/install | sh
+  ```
     - *There is a issue with nix correctly adjusting the PATH in some machines. 
       Please re-start your terminal and make sure Nix is in the path (`nix --version`).
       See this discussion if you are having this issue: [https://github.com/NixOS/nix/issues/3317](https://github.com/NixOS/nix/issues/3317).*
@@ -129,31 +138,33 @@ cases documentation and the [test folder](https://github.com/mlabs-haskell/plutu
 *TODO: Add the explanation of how to run tests*
 
 --------------------------------------------------------------------------------
-## Use Case: Lendex 
 
-### Description
+## Use Case: Lendex
+
+### Lendex: Description
+
 The Lendex Use Case is based on the Open Source, Non-Custodial Aave Protocol,
 described in the [Aave Protocol
 Whitepaper](https://github.com/aave/aave-protocol/blob/master/docs/Aave_Protocol_Whitepaper_v1_0.pdf).
-The use case can be summaraised as a platform for a decentralised, pool-based,
+The use case can be summarised as a platform for a decentralised, pool-based,
 loan strategy.
 
 As described in the whitepaper, the model relies on Lenders depositing (Cardano)
 cryptocurrency in a Pool Contract. The same Pool Contract provides a source for
-funds to be borrowed by Borrowes through the placement of a collateral. Loans do
+funds to be borrowed by Borrowers through the placement of a collateral. Loans do
 not need to be individually matched, but rather rely on the pooled funds, the
 amounts borrowed and their respective collateral. The model enables instant
 loans and the interest rate for both borrowers and lenders is decided
-algorithimically. A general description of the interest algorithm is:
+algorithmically. A general description of the interest algorithm is:
 
-  - Borrower's interest is tied to the amount of funds available in the pool at
-    a specific time - with scarcity of funds driving the interest rate up.
-    
-  - Lender's interest rate corresponds to the earn rate, with the algorithm
-    safeguarding a liquidity reserve to guarantee ease of withdrawals at any
-    given time.
+- Borrower's interest is tied to the amount of funds available in the pool at
+  a specific time - with scarcity of funds driving the interest rate up.
+- Lender's interest rate corresponds to the earn rate, with the algorithm
+  safeguarding a liquidity reserve to guarantee ease of withdrawals at any
+  given time.
 
-### Progress & Planning
+### Lendex: Progress & Planning
+
 - Goals and status:
   - Development
     - [x] Feature Completeness as per Specifications
@@ -161,70 +172,87 @@ algorithimically. A general description of the interest algorithm is:
     - [ ] Improve Performance
     - [ ] Improve Ergonomics of Use and Installation
 
-  - Testing 
+  - Testing
     - [x] 50% Test Coverage
     - [x] 100% Test Coverage
     - [ ] QuickCheck Testing
 
-  - Documentation 
+  - Documentation
     - [x] Example
     - [ ] APIs
 
-### Examples
+### Lendex: Examples
+
 - [Lendex Demo](https://github.com/mlabs-haskell/plutus-use-cases/blob/main/mlabs/lendex-demo/Main.hs)
-  - to run the `lendex-demo` run the following command from the root folder
+  - to run the `lendex-demo` run the following command from the root folder:
+  
   ```bash
   cd mlabs \
   && nix-shell --command "cabal v2-repl lendex-demo"
   ```
+
 Are defined in [mlabs/src/Mlabs/Lending/Contract/Api.hs](https://github.com/mlabs-haskell/plutus-use-cases/blob/main/mlabs/src/Mlabs/Lending/Contract/Api.hs#L146)
-- User Actions *TODO: write descriptions*
+
+### Lendex: APIs & Endpoints
+
+- User Actions
+  
+  - Deposit
+    - [x] in use.
+    - Description: *Deposit funds to app.*
+  
   - Borrow
-    - [x] in use
+    - [x] in use.
+    - Description: *Borrow funds by depositing a collateral.*
+  
   - Repay
-    - [x] in use
+    - [x] in use.
+    - Description: *Repay part of a Loan.*
+  
   - SwapBorrowRateModel
-    - [x] in use
+    - [x] in use.
+    - Description: *Swap borrow interest rate strategy (stable to variable).*
+  
   - SetUserReserveAsCollateral
-    - [x] in use
+    - [x] in use.
+    - Description: *Set some portion of deposit as collateral or some portion of collateral as deposit.*
+  
   - Withdraw
-    - [x] in use
+    - [x] in use.
+    - Description: *Withdraw funds from deposit.*
+  
   - LiquidationCall
-    - [x] in use
-  - InterestRateFlag
-    - [x] in use
-  - toInterestRateFlag
-    - [x] in use
-  - fromInterestRateFlag
-    - [x] in use
+    - [x] in use.
+    - Description: *Call to liquidate borrows that are unsafe due to health check. For further see [docs.aave.com/faq/liquidations](https://docs.aave.com/faq/liquidations)*
 
 - Admin actions
+
   - AddReserve
-    - [x] in use
-  - StartParams
-    - [x] in use
-    
-- Price oracle actions
-  - SetAssetPrice
-    - [x] in use
-
-- Action conversions
-  - IsUserAct
-    - [x] in use
-  - IsPriceAct
-    - [x] in use
-  - IsGovernAct
-    - [x] in use
+    - [x] in use.
+    - Description: *Adds a new reserve.*
   
-### Tests
-- *TODO: cover some test examples*
+  - StartParams
+    - [x] in use.
+    - Description: *Sets the start parameters for the Lendex*.
 
-### Notes
+### Lendex: Tests
+
+- To run the tests:
+
+```bash
+stack test all  
+```
+
+- To see test cases refer to: `./test/Test/Lending`
+
+### Lendex: Notes
 
 --------------------------------------------------------------------------------
+
 ## Use Case: NFT
 
-### Description
+### NFT: Description
+
 The core functionality of the Non Fungible Tokens(i.e. NFTs) Use Case revolves
 around minting, sending, receiving NFTs into a Cardano wallet.
 
@@ -236,38 +264,64 @@ interchangeable with its equal value in another fungible asset (example: $1 and
 as easily with equivalent objects is a propert reflected in the nature of NFTs.
 
 For more details on NFT's refer to:
-  - [Forbes: What You Need To Know About NFT's](https://www.forbes.com/advisor/investing/nft-non-fungible-token/)
-  - [Cambridge Dictionary: nonfungible](https://dictionary.cambridge.org/us/dictionary/english/nonfungible)
 
-### Progress & Planning
-- Goals and status: 
+- [Forbes: What You Need To Know About NFT's](https://www.forbes.com/advisor/investing/nft-non-fungible-token/)
+- [Cambridge Dictionary: nonfungible](https://dictionary.cambridge.org/us/dictionary/english/nonfungible)
+
+### NFT: Progress & Planning
+
+- Goals and status:
   - Development *TODO: add some achieved/ future goals*
     - [x] Feature Completeness as per Specifications
     - [ ] Improve Deployment Story
     - [ ] Improve Performance
     - [ ] Improve Ergonomics of Use and Installation
 
-  - Testing 
+  - Testing
     - [x] 100% Test Coverage
     - [ ] QuickCheck Testing
 
-  - Documentation 
+  - Documentation
     - [x] Example
     - [ ] APIs
 
-### Examples
+### NFT: Examples
+
 - [NFT Demo](https://github.com/mlabs-haskell/plutus-use-cases/blob/main/mlabs/nft-demo/Main.hs)
 
-### APIs & Endpoints 
-- User Endpoints *TODO: write descriptions*
-  - Buy
-  - SetPrice
-  
-- Author Endpoints
-  - StartParams
-  
-### Tests
-- *TODO: cover some test examples*
+### NFT: APIs & Endpoints
 
-### Notes
+- User Endpoints:
+  - Buy
+    - [x] in use.
+    - Description: *User buys NFT.*
+  - SetPrice
+    - [x] in use.
+    - Description: *User sets new price for NFT.*
+  
+- Author Endpoints:
+  - StartParams
+    - [x] in use.
+    - Description: *Sets the parameters to initialise a new NFT.*
+
+- User Schemas:
+  - UserSchema
+    - [x] in use.
+    - Description: *User schema. Owner can set the price and the buyer can try to buy.*
+  - AuthorSchema
+    - [x] in use.
+    - Description: *Schema for the author of NFT*.
+
+### NFT: Tests
+
+- To run the tests:
+
+```bash
+stack test all  
+```
+
+- To see test cases refer to: `./test/Test/Nft`
+
+### NFT: Notes
+
 *TODO: Add any relevant notes*
