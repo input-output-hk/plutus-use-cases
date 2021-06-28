@@ -2,7 +2,7 @@
 
 module Fixtures.Init where
 
-import           Control.Monad              (forM_, void)
+import           Control.Monad              (forM_, forM, void)
 import qualified Data.Map                   as Map
 import           Data.Monoid                (Last (..))
 import           Data.Text                  (Text)
