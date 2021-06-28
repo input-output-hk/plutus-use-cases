@@ -26,6 +26,7 @@ import Database.Beam (MonadBeam)
 import Database.Beam.Backend.SQL.BeamExtensions
 import Database.Beam.Postgres
 import Database.Beam.Query
+import Database.Beam.Schema.Tables (primaryKey)
 import qualified Database.PostgreSQL.Simple as Pg
 import Gargoyle.PostgreSQL.Connect
 import Obelisk.Backend
@@ -159,7 +160,7 @@ getPooledTokens httpManager pool = do
       -- Persist current state of pool tokens to Postgresql
       runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
         runInsert $ insertOnConflict (_db_pooledTokens db) (insertValues pooledTokens)
-          (conflictingFields _pooledToken_symbol)
+          (conflictingFields primaryKey)
           onConflictDoNothing
       return ()
   return ()
@@ -177,19 +178,17 @@ executeSwap httpManager contractId (coinA, amountA) (coinB, amountB) = do
         , spAmountA = amountA
         , spAmountB = amountB
         }
-  print $ "executeSwap: requestUrl ..."  <> (show requestUrl)
   initReq <- parseRequest requestUrl
   let req = initReq
         { method = "POST"
         , requestHeaders = ("Content-Type","application/json"):(requestHeaders initReq)
         , requestBody = RequestBodyLBS $ Aeson.encode reqBody
         }
-  print $ "executeSwap: Json encoded SwapParams ..."  <> (show $ Aeson.encode reqBody)
   -- The response to this request does not return anything but an empty list.
   -- A useful response must be fetched from "observableState"
-  print ("are we hanging?" :: String)
+  print ("executeSwap: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
-  print ("no we are not hanging" :: String)
+  print ("executeSwap: request sent." :: String)
   fetchObservableState httpManager contractId
 
 {-
@@ -204,19 +203,17 @@ executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
         , apAmountA = amountA
         , apAmountB = amountB
         }
-  print $ "executeStake: requestUrl ..."  <> (show requestUrl)
   initReq <- parseRequest requestUrl
   let req = initReq
         { method = "POST"
         , requestHeaders = ("Content-Type","application/json"):(requestHeaders initReq)
         , requestBody = RequestBodyLBS $ Aeson.encode reqBody
         }
-  print $ "executeStake: Json encoded AddParams ..."  <> (show $ Aeson.encode reqBody)
   -- The response to this request does not return anything but an empty list.
   -- A useful response must be fetched from "observableState"
-  print ("are we hanging?" :: String)
+  print $ ("executeStake: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
-  print ("no we are not hanging" :: String)
+  print $ ("executeStake: request sent." :: String)
   fetchObservableState httpManager contractId
 
 {-
@@ -230,19 +227,17 @@ executeRemove httpManager contractId coinA coinB amount = do
         , rpCoinB = coinB
         , rpDiff = amount
         }
-  print $ "executeRemove: requestUrl ..."  <> (show requestUrl)
   initReq <- parseRequest requestUrl
   let req = initReq
         { method = "POST"
         , requestHeaders = ("Content-Type","application/json"):(requestHeaders initReq)
         , requestBody = RequestBodyLBS $ Aeson.encode reqBody
         }
-  print $ "executeRemove: Json encoded RemoveParams ..."  <> (show $ Aeson.encode reqBody)
   -- The response to this request does not return anything but an empty list.
   -- A useful response must be fetched from "observableState"
-  print ("are we hanging?" :: String)
+  print $ ("executeRemove: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
-  print ("no we are not hanging" :: String)
+  print $ ("executeRemove: request sent." :: String)
   fetchObservableState httpManager contractId
 
 -- Grabs `observaleState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
@@ -254,11 +249,9 @@ fetchObservableState httpManager contractId = do
   let val = Aeson.eitherDecode (responseBody resp) :: Either String Aeson.Value
   case val of
     Left err -> do
-      print $ "fetchObservableState: Left ..."  <> (show err)
       return $ Left err
     Right obj -> do
       let observableState = obj ^.. values . key "cicCurrentState" . key "observableState" . _String
-      print $ "fetchObservableState: Right ..."  <> (show observableState)
       return $ Right observableState
 
 -- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.

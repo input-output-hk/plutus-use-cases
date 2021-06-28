@@ -15,12 +15,16 @@ By the end of this README you will be able to run the POKE-DEX on your machine l
 ##  Running Plutus Application Backend (PAB)
 
 1. [Unpack plutus-starter GitHub Thunk]
-  1. After installing Obelisk, use `ob thunk unpack dep/plutus-starter/`
-  1. In another terminal `cd dep/plutus-starter` and run `nix-shell`
-  1. Then run `cabal new-repl exe:plutus-starter-pab`
-  1. And finally `main` to lauch the PAB and have it listen on port 8080
+  1. After installing Obelisk, use `./scripts/run-pab.sh`
+  1. Followed by `main` when prompted to lauch the PAB and have it listen on port 8080
 
 ##  Starting Obelisk Frontend
 
   1. After running the Plutus Application Backend, in a different terminal, run `ob run --no-interpret ./dep/plutus-starter`
   1. The frontend should be running on localhost:8000 when successful and visible via your browser.
+
+##  Supported Browsers
+  1. Google Chrome
+  1. Chromium
+  
+  Note: Firefox can not run the app given that `ob run`(the only instructions provided to see the fronted) does not currently support this browser, app may appear to be broken. 
