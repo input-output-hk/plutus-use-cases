@@ -18,7 +18,8 @@
 
 module Plutus.Contracts.Endpoints where
 
-import           Control.Monad                    (forM, forever, void)
+import qualified Control.Lens                     as Lens
+import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
@@ -82,11 +83,16 @@ createReserve aave CreateParams {..} =
 
 -- | Starts the Lending Pool protocol: minting pool NFTs, creating empty user configuration state and all specified liquidity reserves
 start :: HasBlockchainActions s => [CreateParams] -> Contract w s Text Aave
-start params = do
+start = start' $ do
     pkh <- pubKeyHash <$> ownPubKey
-    aaveToken  <- fmap Currency.currencySymbol $
+    fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
+
+start' :: HasBlockchainActions s => Contract w s Text CurrencySymbol -> [CreateParams] -> Contract w s Text Aave
+start' getAaveToken params = do
+    aaveToken <- getAaveToken
+    pkh <- pubKeyHash <$> ownPubKey
     let aave = Core.aave aaveToken
         payment = assetClassValue (Core.aaveProtocolInst aave) 1
     let aaveTokenTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pkh (Core.LendingPoolDatum pkh) payment
@@ -105,16 +111,38 @@ start params = do
     logInfo @Prelude.String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
     pure aave
 
-ownerEndpoint :: [CreateParams] -> Contract (Last (Either Text Aave)) BlockchainActions Void ()
-ownerEndpoint params = do
-    e <- runError $ start params
+data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
+    deriving stock    (Prelude.Eq, Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)
+
+handleContract :: forall l a p r s.
+    HasEndpoint l p s
+    => Proxy l
+    -> (a -> r)
+    -> (p -> Contract (Last (ContractResponse Text r)) s Text a)
+    -> Contract (Last (ContractResponse Text r)) s Void ()
+handleContract _ g c = do
+    e <- runError $ do
+        p <- endpoint @l
+        _ <- tell $ Last $ Just ContractPending
+        errorHandler `handleError` c p
     tell $ Last $ Just $ case e of
-        Left err -> Left err
-        Right aa -> Right aa
+        Left err -> ContractError err
+        Right a  -> ContractSuccess $ g a
+        where
+        errorHandler e = do
+            logInfo @Text ("Error submiting the transaction: " <> e)
+            throwError e
 
 type AaveOwnerSchema =
     BlockchainActions
-        .\/ Endpoint "start" ()
+        .\/ Endpoint "start" [CreateParams]
+
+data OwnerContractState = Started Aave
+    deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
+
+ownerEndpoints :: Contract (Last (ContractResponse Text OwnerContractState)) AaveOwnerSchema Void ()
+ownerEndpoints = forever $ handleContract (Proxy @"start") Started start
 
 -- | Gets current Lending Pool reserves state
 reserves :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map AssetClass Reserve)
@@ -405,30 +433,6 @@ revokeCollateral aave RevokeCollateralParams {..} = do
         getUsersCollateral :: AssetClass -> TxOutTx -> Bool
         getUsersCollateral asset tx = ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut $ tx) &&
                                       (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toData $ userDatum asset)
-
-data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
-    deriving stock    (Prelude.Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
-
-handleContract :: forall l a p r s.
-    HasEndpoint l p s
-    => Proxy l
-    -> (a -> r)
-    -> (p -> Contract (Last (ContractResponse Text r)) s Text a)
-    -> Contract (Last (ContractResponse Text r)) s Void ()
-handleContract _ g c = do
-    e <- runError $ do
-        p <- endpoint @l
-        _ <- tell $ Last $ Just ContractPending
-        errorHandler `handleError` c p
-    tell $ Last $ Just $ case e of
-        Left err -> ContractError err
-        Right a  -> ContractSuccess $ g a
-        where
-        errorHandler e = do
-            logInfo @Text ("Error submiting the transaction: " <> e)
-            throwError e
-
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "deposit" DepositParams
@@ -450,6 +454,8 @@ data UserContractState =
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
+
+Lens.makeClassyPrisms ''UserContractState
 
 -- TODO ? add repayWithCollateral
 userEndpoints :: Aave -> Contract (Last (ContractResponse Text UserContractState)) AaveUserSchema Void ()
