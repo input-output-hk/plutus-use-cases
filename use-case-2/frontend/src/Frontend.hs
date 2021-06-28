@@ -23,27 +23,21 @@ import Data.Aeson.Lens
 import Data.Int
 import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.Map as Map
-import qualified Data.HashMap.Strict as HMap
-import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
 import Data.Vessel
 import Data.Vessel.Identity
 import Data.Vessel.Vessel
 import Data.Vessel.ViewMorphism
 import Language.Javascript.JSaddle (eval, liftJSM)
--- import Obelisk.Configs
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Generated.Static
 import Reflex.Dom.Core
--- import Reflex.Dom.WebSocket
 import Rhyolite.Frontend.App
 import Safe (headMay)
--- import Text.Groom
 
 import Common.Api
 import Common.Route
@@ -84,6 +78,8 @@ app = Workflow $ do
   _ <- navBar Nothing
   divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container-fluid py-5" $ do
+      elClass "h2" "display-5 fw-bold" $ text "Welcome to POKE-DEX!"
+      el "p" $ text "POKE-DEX is a proto-type example of how a token exchange decentralized application would behave using smart contracts on the Cardano Blockchain. Below are some crypto wallets you can choose from to play around with this Dapp's features. You will be able to swap Ada for supported tokens, swap tokens, stake ada or other tokens for liquidity, and observe the wallet's portfoilio. Don't worry, this is not spending anyone's actual ADA. Select a wallet and give it a try!"
       elClass "h3" "display-5 fw-bold" $ text "Wallet Accounts"
       elClass "p" "lead" $ text "Choose one of the avaiable wallets below: "
       dmmWalletIds <- viewContracts
@@ -102,7 +98,7 @@ app = Workflow $ do
                 (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
                 return $ wid <$ domEvent Click e
             return $ leftmost walletIdEvents
-      return ((), dashboard <$> walletEv)
+      return ((), swapDashboard <$> walletEv)
 
 data Dashboard = Dashboard_Swap | Dashboard_Portfolio | Dashboard_Pool
   deriving (Eq, Ord, Show)
@@ -156,8 +152,10 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
               elClass "p" "text-white" $ text $ "ADA Balance: " <> (T.pack $ show $ fromMaybe 0 mAdaBal)
           return navSelect
 
-dashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Text -> Workflow t m ()
-dashboard wid = Workflow $ do
+swapDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
+  => Text
+  -> Workflow t m ()
+swapDashboard wid = Workflow $ do
   navEvent <- navBar $ Just wid
   let portfolioEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Portfolio
       poolEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Pool
@@ -272,7 +270,7 @@ portfolioDashboard wid = Workflow $ do
         -- incorporate the use of PAB's websockets to display the wallet's current Ada Balance
         ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
         -- filter for websocket events relevent to funds that contain the "Funds" tag and "NewObservableState" tag
-        let fundsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+        let fundsEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
               Nothing -> False
               Just incomingWebSocketData -> do
                 let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
@@ -293,7 +291,7 @@ portfolioDashboard wid = Workflow $ do
               return ()
             return ()
         return never
-  return ((), leftmost [dashboard wid <$ swapEv, poolDashboard wid <$ poolEv])
+  return ((), leftmost [swapDashboard wid <$ swapEv, poolDashboard wid <$ poolEv])
 
 poolDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
   => Text
@@ -331,31 +329,33 @@ poolDashboard wid = Workflow $ do
     dPools <- holdDyn Nothing poolsEvent
     let fundsAndPools = ffor2 dFunds dPools $ \f p -> (f,p)
     widgetHold_ blank $ ffor (updated fundsAndPools) $
-      \(mIncomingFundsWebSocketData :: Maybe Aeson.Value, mIncomingPoolsWebSocketData :: Maybe Aeson.Value) ->
+      \(mIncomingFundsWebSocketData :: Maybe Aeson.Value, _mIncomingPoolsWebSocketData :: Maybe Aeson.Value) ->
         case mIncomingFundsWebSocketData of
           Nothing -> return ()
           Just fundsWebSocketData -> do
             let currencyDetails = fundsWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
-                poolDetails = V.toList $ case mIncomingPoolsWebSocketData of
-                  Nothing -> V.empty
-                  Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
+                -- poolDetails = V.toList $ case mIncomingPoolsWebSocketData of
+                --   Nothing -> V.empty
+                --   Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
                 -- TODO: There seems to be a connection within the redeemer of utxoAt that will mention the Liquidity Pool Name.
                   -- The reason we need to find a tie between liquidity total and balance is to show liquidity token percentage.
-                liquidityTotal = case poolDetails of
-                  sthelse:_ -> case sthelse of
-                      Aeson.Array sthmore -> case V.toList sthmore of
-                        _:_:anotherwon:_ -> case anotherwon of
-                          Aeson.Array goodone -> case V.toList goodone of
-                            bslpname:liquidityTotal:_ -> case (bslpname, liquidityTotal) of
-                              (Aeson.String lpn, lqt) -> (lpn, lqt)
-                              _ -> ("", Aeson.String "")
-                          _ -> ("", Aeson.String "")
-                        _ -> ("", Aeson.String "")
-                      _ -> ("", Aeson.String "")
-                  _ -> ("", Aeson.String "")
+                -- liquidityTotal = case poolDetails of
+                --   sthelse:_ -> case sthelse of
+                --       Aeson.Array sthmore -> case V.toList sthmore of
+                --         _:_:anotherwon:_ -> case anotherwon of
+                --           Aeson.Array goodone -> case V.toList goodone of
+                --             bslpname:liquidityTotal:_ -> case (bslpname, liquidityTotal) of
+                --               (Aeson.String lpn, lqt) -> (lpn, lqt)
+                --               _ -> ("", Aeson.String "")
+                --           _ -> ("", Aeson.String "")
+                --         _ -> ("", Aeson.String "")
+                --       _ -> ("", Aeson.String "")
+                --   _ -> ("", Aeson.String "")
             divClass "p-5 mb-4 bg-light rounded-5" $ divClass "container-fluid py-5" $ do
-              el "p" $ text $ T.pack $ show poolDetails
-              el "p" $ text $ T.pack $ show liquidityTotal
+              -- WIP: el "p" $ text $ T.pack $ show poolDetails
+              -- TODO: The fst of liquidityTotal needs to look like the "token name" of the liquidity token in order to know
+              -- how to match them with one another
+              -- WIP: el "p" $ text $ T.pack $ show liquidityTotal
               elClass "ul" "list-group" $ do
                 let formattedTokenDetails = Map.filter
                       -- TODO: Don't lookup tokens by hard coded currencySymbol value
@@ -544,7 +544,7 @@ poolDashboard wid = Workflow $ do
                     return ()
                 return never
       return ()
-  return ((), leftmost [dashboard wid <$ swapEv, portfolioDashboard wid <$ portfolioEv])
+  return ((), leftmost [swapDashboard wid <$ swapEv, portfolioDashboard wid <$ portfolioEv])
 
 -- TODO: Create a websocket parsing module for this
 parseTokensToMap :: V.Vector Aeson.Value -> Map.Map Text (Integer, Text)
