@@ -44,11 +44,13 @@ export default {
               this.$http.get(
                   `/instance/${firstInstance.cicContract.unContractInstanceId}/status`,
               ).then((x) => {
-                this.$store.state.contract.status = x.data.cicCurrentState
-              }).finally(() => {
-                this.$store.state.contract.instances = instances
-                this.$store.state.contract.instance = firstInstance
-                this.timeoutHandle = setTimeout(this.refreshStatus, 1500)
+                // this.$store.state.contract.status = x.data.cicCurrentState
+                // this.$store.state.contract.instances = instances
+                // this.$store.state.contract.instance = firstInstance
+                // this.timeoutHandle = setTimeout(this.refreshStatus, 1500)
+                this.$store.dispatch('updateContractStatus', x.data.cicCurrentState)
+                this.$store.dispatch('updateContractInstances', instances)
+                this.refreshStatus()
               }))
         })
     )
@@ -58,8 +60,9 @@ export default {
       return this.$http.get(
           `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/status`,
       ).then((x) => {
-        this.$store.state.contract.status = x.data.cicCurrentState
-        this.timeoutHandle = setTimeout(this.refreshStatus, 1500)
+        // this.$store.state.contract.status = x.data.cicCurrentState
+        this.$store.dispatch('updateContractStatus', x.data.cicCurrentState)
+        this.timeoutHandle = setTimeout(this.refreshStatus, 3000)
       })
     },
     alertCountdownChanged(newValue) {
@@ -184,10 +187,12 @@ export default {
             && last.getValue[0].length
             && last.getValue[0][0].unCurrencySymbol !== undefined) {
           console.log("Balance update: \n" + JSON.stringify(last, null, 2))
-          this.$store.state.contract.funds = this.transformFunds(last.getValue)
+          this.$store.dispatch('updateContractFunds', this.transformFunds(last.getValue))
+          // this.$store.state.contract.funds = this.transformFunds(last.getValue)
         } else {
           console.log("New Api Response: \n" + JSON.stringify(last, null, 2))
-          this.$store.state.contract.lastObservable = last
+          // this.$store.state.contract.lastObservable = last
+          this.$store.dispatch('updateContractLastObservable', last)
           if (last.getTxId !== undefined) {
             this.$http.post(
                 `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/funds`, "\"\""

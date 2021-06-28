@@ -41,7 +41,8 @@ export default {
   },
   watch: {
     instanceIndex(x) {
-      this.$store.state.contract.instance = this.$store.state.contract.instances[x]
+      // this.$store.state.contract.instance = this.$store.state.contract.instances[x]
+      this.$store.dispatch('updateContractInstance', this.$store.state.contract.instances[x])
       this.$http.post(
           `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/funds`, "\"\""
       )
@@ -49,8 +50,10 @@ export default {
   },
   methods: {
     updateIndex(e) {
-      this.$store.state.contract.activeIndex = e
-      this.$store.state.contract.instance = this.$store.state.contract.instances[e]
+      // this.$store.state.contract.activeIndex = e
+      // this.$store.state.contract.instance = this.$store.state.contract.instances[e]
+      this.$store.dispatch('updateContractActiveIndex', e)
+      this.$store.dispatch('updateContractInstance', this.$store.state.contract.instances[e])
     },
   },
   data: function () {
