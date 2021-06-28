@@ -5,9 +5,11 @@
         <b-progress-bar ref="progress" :value="this.loadingProgress" :variant="variant"></b-progress-bar>
       </b-progress>
     </header>
-    <router-view></router-view>
+    <BaseSidebar>
+      <router-view></router-view>
+    </BaseSidebar>
     <b-alert
-        class="position-fixed fixed-top m-4 py-1 px-3 rounded-0"
+        class="position-fixed fixed-bottom m-4 rounded-0"
         style="z-index: 2000;"
         :variant="$store.state.alert.variant"
         :show="$store.state.alert.countDown"
@@ -22,8 +24,10 @@
 
 <script>
 
+import BaseSidebar from "@/components/base/BaseSidebar";
 export default {
-  name: "Base",
+  name: "App",
+  components: {BaseSidebar},
   created() {
     this.$task.do(
         this.$http.get('/instances').then(x => {
@@ -184,6 +188,8 @@ export default {
 }
 </script>
 <style scoped>
+@import "~font-awesome/css/font-awesome.css";
+
 header {
   position: fixed;
   top: 0;

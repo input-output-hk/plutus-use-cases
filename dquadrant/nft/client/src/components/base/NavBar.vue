@@ -1,21 +1,23 @@
 <template>
-  <b-navbar toggleable="lg" style="border-bottom: 1px solid #E8E8E8">
-    <b-navbar-brand>
-      <img src="public/favicon.ico" alt="Logo" height="30px">
+  <b-navbar toggleable="md" class="shadow-sm pl-5">
+    <b-navbar-brand class="navbar-brand">
+      <img src="https://placekitten.com/g/30/30" alt="Logo" height="30px">
     </b-navbar-brand>
-    <b-navbar-nav>
-      <b-nav-item :active="$router.currentRoute.path.startsWith('/market')" to="/market">Market</b-nav-item>
-      <b-nav-item :active="$router.currentRoute.path.startsWith('/mint')" to="/mint">Mint</b-nav-item>
-      <b-nav-item v-b-toggle.sidebar-1>Wallet</b-nav-item>
-      <b-sidebar id="sidebar-1" title="Wallet" shadow>
+    <b-navbar-toggle target="nav-collapse"></b-navbar-toggle>
+    <b-collapse id="nav-collapse" is-nav>
+      <b-navbar-nav>
+        <b-nav-item :active="$router.currentRoute.path.startsWith('/market')" to="/market">Market</b-nav-item>
+        <b-nav-item :active="$router.currentRoute.path.startsWith('/mint')" to="/mint">Mint</b-nav-item>
+        <b-nav-item :active="$router.currentRoute.path.startsWith('/auction')" to="/auction">Auction</b-nav-item>
+        <b-nav-item v-b-toggle.main-sidebar>Wallet</b-nav-item>
         <SideBar/>
-      </b-sidebar>
-    </b-navbar-nav>
-    <b-navbar-nav class="ml-auto">
-      <slot></slot>
-      <b-form-select v-on:change="updateIndex" v-model="instanceIndex" :options="options"></b-form-select>
-      <span style="min-width: 250pt" class="p-2  text-muted text-sm-left">{{ instanceId }}</span>
-    </b-navbar-nav>
+      </b-navbar-nav>
+      <b-navbar-nav class="ml-auto">
+        <slot></slot>
+        <b-form-select v-on:change="updateIndex" v-model="instanceIndex" :options="options"></b-form-select>
+        <b-nav-item class="p-2 text-muted text-sm-left">{{ instanceId }}</b-nav-item>
+      </b-navbar-nav>
+    </b-collapse>
   </b-navbar>
 </template>
 
@@ -38,8 +40,8 @@ export default {
       get: function () {
         return this.$store.state.contract.activeIndex
       },
-      set: function (x){
-        console.log("Set Wallet - "+x)
+      set: function (x) {
+        console.log("Set Wallet - " + x)
       }
     }
   },
@@ -47,14 +49,14 @@ export default {
     instanceIndex(x) {
       this.$store.state.contract.instance = this.$store.state.contract.instances[x]
       this.$http.post(
-        `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/funds`,"\"\""
+          `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/funds`, "\"\""
       )
     }
   },
   methods: {
     updateIndex(e) {
-      this.$store.state.contract.activeIndex=e
-      this.$store.state.contract.instance=this.$store.state.contract.instances[e]
+      this.$store.state.contract.activeIndex = e
+      this.$store.state.contract.instance = this.$store.state.contract.instances[e]
     },
   },
   data: function () {

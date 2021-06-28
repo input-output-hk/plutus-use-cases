@@ -1,8 +1,7 @@
 <template>
   <div>
-    <NavBar>
-    </NavBar>
-    <b-container>
+    <NavBar/>
+    <b-container class="pt-4">
       <b-row>
         <b-col>
           <b-form @submit.prevent="onsubmit()">
@@ -29,13 +28,13 @@ export default {
     onsubmit() {
       this.shouldTrigger = true
       this.$task.do(
-        this.$http.post(
-          `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/mint`
-          , JSON.stringify(this.$refs.my_input.$el.value)
-        ).then(() => {
-            this.$task.infoMessage("Transaction Submitted. After Transaction is confirmed, you will receive the NFT in your wallet")
-          }
-        )
+          this.$http.post(
+              `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/mint`
+              , JSON.stringify(this.$refs.my_input.$el.value)
+          ).then(() => {
+                this.$task.infoMessage("Transaction Submitted. After Transaction is confirmed, you will receive the NFT in your wallet")
+              }
+          )
       )
     }
   },
@@ -52,9 +51,9 @@ export default {
   },
   watch: {
     lastResponse() {
-      if(this.shouldTrigger){
-        this.shouldTrigger=false
-        this.$task.successMessage(this.token_name+" Minted Successfully")
+      if (this.shouldTrigger) {
+        this.shouldTrigger = false
+        this.$task.successMessage(this.token_name + " Minted Successfully")
       }
     }
   }
