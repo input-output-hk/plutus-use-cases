@@ -4,7 +4,6 @@ module Fixtures.Init where
 
 import           Control.Monad              (forM, forM_, void)
 import qualified Data.Map                   as Map
-import           Data.Monoid                (Last (..))
 import           Data.Text                  (Text)
 import           Data.Void                  (Void)
 import qualified Fixtures.Aave              as AaveMock
@@ -52,7 +51,7 @@ initialFunds = lovelaceValueOf 1000000 <> mconcat ((`assetClassValue` 1000) <$> 
 startContract :: Contract () Aave.AaveOwnerSchema Text ()
 startContract = void $ AaveMock.start startParams
 
-userContract :: Contract (Last (ContractResponse Text Aave.UserContractState)) Aave.AaveUserSchema Void ()
+userContract :: Contract (ContractResponse Text Aave.UserContractState) Aave.AaveUserSchema Void ()
 userContract = void $ Aave.userEndpoints AaveMock.aave
 
 distributeTrace :: Trace.EmulatorTrace ()
@@ -80,7 +79,7 @@ oracleTrace = do
     _ <- Trace.waitNSlots 5
     pure ()
 
-type UserHandle = Trace.ContractHandle (Last (ContractResponse Text Aave.UserContractState)) Aave.AaveUserSchema Void
+type UserHandle = Trace.ContractHandle (ContractResponse Text Aave.UserContractState) Aave.AaveUserSchema Void
 
 defaultTrace :: Trace.EmulatorTrace (Map.Map Wallet UserHandle)
 defaultTrace = do

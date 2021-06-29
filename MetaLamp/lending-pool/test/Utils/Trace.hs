@@ -41,13 +41,13 @@ getState ::
     , JSON.FromJSON e'
     )
     => (a -> Maybe b) ->
-    Trace.ContractHandle (Last (ContractResponse e a)) s e' ->
+    Trace.ContractHandle (ContractResponse e a) s e' ->
     Trace.EmulatorTrace b
 getState pick userHandle = do
     res <- Trace.observableState userHandle
     case res of
-        (Last (Just (ContractSuccess s))) -> maybe (throwError . GenericError $ "Unexpected state: " <> show s) pure (pick s)
-        (Last (Just (ContractError e))) -> throwError . GenericError .show $ e
+        ContractSuccess s -> maybe (throwError . GenericError $ "Unexpected state: " <> show s) pure (pick s)
+        ContractError e -> throwError . GenericError . show $ e
         s -> throwError . JSONDecodingError $ "Unexpected state: " <> show s
 
 utxoAtAddress :: Monad m => Address -> (UtxoMap -> m c)-> L.FoldM m EmulatorEvent c

@@ -115,18 +115,25 @@ data ContractResponse e a = ContractSuccess a | ContractError e | ContractPendin
     deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
+instance Semigroup (ContractResponse e a) where
+    a <> b = b
+
+instance Monoid (ContractResponse e a) where
+    mempty = ContractPending
+    mappend = (<>)
+
 handleContract :: forall l a p r s.
     HasEndpoint l p s
     => Proxy l
     -> (a -> r)
-    -> (p -> Contract (Last (ContractResponse Text r)) s Text a)
-    -> Contract (Last (ContractResponse Text r)) s Void ()
+    -> (p -> Contract (ContractResponse Text r) s Text a)
+    -> Contract (ContractResponse Text r) s Void ()
 handleContract _ g c = do
     e <- runError $ do
         p <- endpoint @l
-        _ <- tell $ Last $ Just ContractPending
+        _ <- tell ContractPending
         errorHandler `handleError` c p
-    tell $ Last $ Just $ case e of
+    tell $ case e of
         Left err -> ContractError err
         Right a  -> ContractSuccess $ g a
         where
@@ -141,7 +148,7 @@ type AaveOwnerSchema =
 data OwnerContractState = Started Aave
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
-ownerEndpoints :: Contract (Last (ContractResponse Text OwnerContractState)) AaveOwnerSchema Void ()
+ownerEndpoints :: Contract (ContractResponse Text OwnerContractState) AaveOwnerSchema Void ()
 ownerEndpoints = forever $ handleContract (Proxy @"start") Started start
 
 -- | Gets current Lending Pool reserves state
@@ -458,7 +465,7 @@ data UserContractState =
 Lens.makeClassyPrisms ''UserContractState
 
 -- TODO ? add repayWithCollateral
-userEndpoints :: Aave -> Contract (Last (ContractResponse Text UserContractState)) AaveUserSchema Void ()
+userEndpoints :: Aave -> Contract (ContractResponse Text UserContractState) AaveUserSchema Void ()
 userEndpoints aave = forever $
     handleContract (Proxy @"deposit") (const Deposited) (deposit aave)
     `select` handleContract (Proxy @"withdraw") (const Withdrawn) (withdraw aave)
@@ -483,7 +490,7 @@ data InfoContractState =
     | Users (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
-infoEndpoints :: Aave -> Contract (Last (ContractResponse Text InfoContractState)) AaveInfoSchema Void ()
+infoEndpoints :: Aave -> Contract (ContractResponse Text InfoContractState) AaveInfoSchema Void ()
 infoEndpoints aave = forever $
     handleContract (Proxy @"fundsAt") FundsAt fundsAt
     `select` handleContract (Proxy @"poolFunds") PoolFunds (const $ poolFunds aave)
