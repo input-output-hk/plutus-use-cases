@@ -1,7 +1,6 @@
 module Utils.Data where
 
 import           Data.Function              ((&))
-import           Data.Monoid                (Last (..))
 import           Plutus.Contracts.Endpoints (ContractResponse (..))
 import           Plutus.V1.Ledger.Crypto    (PubKeyHash, pubKeyHash)
 import qualified PlutusTx.AssocMap          as AssocMap
@@ -19,9 +18,9 @@ one f = foldr reducer False
 modifyAt :: PlutusTx.Eq k => (v -> v) -> k -> AssocMap.Map k v -> AssocMap.Map k v
 modifyAt f k m = maybe m (\v -> AssocMap.insert k (f v) m) (AssocMap.lookup k m)
 
-isLastError :: Last (ContractResponse e a) -> Bool
-isLastError (Last (Just (ContractError _))) = True
-isLastError _                               = False
+isLastError :: ContractResponse e a -> Bool
+isLastError (ContractError _) = True
+isLastError _                 = False
 
 getPubKey :: Wallet -> PubKeyHash
 getPubKey = pubKeyHash . walletPubKey
