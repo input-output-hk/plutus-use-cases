@@ -64,6 +64,11 @@ data ValueInfo=ValueInfo{
     value:: Integer
 } deriving(Generic,FromJSON,Prelude.Show,ToSchema,Prelude.Eq )
 
+defaultSellparam= SellParams{
+    spItems=[(ValueInfo "abcd" "defg" 32)],
+    spSaleType= Primary,
+    spCost= (ValueInfo "degf" "abde" 23)
+}
 instance ToJSON ValueInfo
   where
     toJSON (ValueInfo c t v) = object [  "currency" .= doConvert c, "token" .= doConvert t,"value".=toJSON v]

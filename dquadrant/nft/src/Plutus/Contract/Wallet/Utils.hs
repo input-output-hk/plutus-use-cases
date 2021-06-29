@@ -28,8 +28,15 @@ import Control.Lens (review)
 import Plutus.Contract.Types
 import Plutus.Contract.Constraints (MkTxError(TxOutRefNotFound, TxOutRefWrongType))
 
+--  The functions in this  module are not bounded to the marketplace use case.
+--- These functions should probably be provided by the Plutus Library itself.
+--
 
+
+-- Utxo , It's parent transaction and the datum carrried by it resolved to our required data type.
 type   ParsedUtxo a =  (TxOutRef,TxOutTx, a)
+
+
 -- Transform Utxo Map to list.
 -- But include only those utxos that have expected Datum type. Ignore others.
 flattenUtxosWithData ::   IsData a =>   UtxoMap  -> [ParsedUtxo a]
@@ -90,7 +97,7 @@ resolveTxOutRefWithData  utxos ref=  case Map.lookup ref utxos of
             Nothing -> throwError  $ review _ConstraintResolutionError   $ TxOutRefWrongType ref
     _       -> throwError  $ review _ConstraintResolutionError   $ TxOutRefNotFound ref
 
-
+-- Give TxOutRef, get Data in it
 txOutRefData :: (IsData a) => UtxoMap  -> TxOutRef -> Maybe a
 txOutRefData  dataMap ref=do
     tx <-Map.lookup ref dataMap
@@ -123,6 +130,7 @@ ownFunds = do
 type UtilSchema=
   Endpoint "funds" String
 
+-- don't restrict the return type to UtilSchema so that it can later be merged with other schemas.
 utilEndpoints :: HasEndpoint "funds" String s => Contract [Types.Value] s Text ()
 utilEndpoints= handleError (\e ->logError e) $ void fundsEp 
 

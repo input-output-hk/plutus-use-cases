@@ -30,6 +30,10 @@ import Ledger
       Address, toValidatorHash )
 import PlutusTx
 
+--  The functions in this  module are not bounded to the marketplace use case.
+--- These functions should probably be provided by the Plutus Library itself.
+
+
 -- address of this validator
 {-# INLINABLE ownAddress #-}
 ownAddress :: ScriptContext -> Address

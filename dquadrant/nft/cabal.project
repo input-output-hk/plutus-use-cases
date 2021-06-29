@@ -177,5 +177,5 @@ source-repository-package
   
 
 package plutus-tokens
-   coverage: False
-   library-coverage: False
+   coverage: True
+   library-coverage: True

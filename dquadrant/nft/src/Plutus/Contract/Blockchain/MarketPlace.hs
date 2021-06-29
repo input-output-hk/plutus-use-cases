@@ -103,7 +103,7 @@ allowSingleScript ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}} =
   where
     checkScript (TxInInfo _ (TxOut address _ _))=
       case toValidatorHash   address of
-        Just  vhash ->  traceIfFalse  "Reeming other Script utxo is Not allowed" (thisScriptHash == vhash)
+        Just  vhash ->  traceIfFalse  "Reeming other Script utxos is Not allowed" (thisScriptHash == vhash)
         _           ->  True
     thisScriptHash= ownHash ctx
 
@@ -233,7 +233,8 @@ validateBid market auction ctx@ScriptContext  {scriptContextTxInfo=info}=
     isMarketScriptPayed nAuction= ownOutputValue ctx `geq` minNewBid
 
     doValidate newAuction=
-            traceIfFalse "Malicious input datum" validInputDatum
+            allowSingleScript ctx
+        &&  traceIfFalse "Malicious input datum" validInputDatum
         &&  traceIfFalse "Only one bid per transaction" hasSingleUtxo
         &&  traceIfFalse "Insufficient payment to market contract" (isMarketScriptPayed newAuction)
         &&  traceIfFalse "Insufficient payment to previous bidder" isExBidderPaid
@@ -271,7 +272,8 @@ validateWithdraw market datum ctx=
 {-# INLINABLE validateClaimAuction  #-}
 validateClaimAuction :: Market  -> ScriptContext -> Bool
 validateClaimAuction  market@Market{mAuctionFee,mOperator} ctx@ScriptContext{scriptContextTxInfo=info} =
-          traceIfTrue  "Auction not Completed" allAuctionsNotExpired
+          allowSingleScript ctx
+      &&  traceIfTrue  "Auction not Completed" allAuctionsNotExpired
       &&  traceIfFalse "Market fee not paid" isOperatorPaid
       &&  traceIfFalse "Bidder not paid"     areWinnersPaid
       && traceIfFalse  "Is Seller Paid"      areSellersPaid
