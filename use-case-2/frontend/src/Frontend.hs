@@ -354,9 +354,9 @@ poolDashboard wid = Workflow $ do
                         el "p" $ text $ "Token Name: "
                           <> (T.pack $ show tokenName)
                           <> " (Composed of tokens "
-                          <> (T.pack $ show tokenNameA)
+                          <> (T.pack $ show $ if tokenNameA == "" then "Ada" else tokenNameA)
                           <> " and "
-                          <> (T.pack $ show tokenNameB)
+                          <> (T.pack $ show $ if tokenNameB == "" then "Ada" else tokenNameB)
                           <> " Balance: "
                           <> (T.pack $ show tokenBalance)
                           <> " Liquidity Percentage: "
