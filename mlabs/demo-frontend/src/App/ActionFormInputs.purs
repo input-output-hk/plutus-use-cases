@@ -37,18 +37,15 @@ import Data.Json.JsonTuple (JsonTuple(..))
 import PAB.AssocMap as AssocMap
 import PAB.Types (CurrencySymbol(..), Fix(..), FormArgument, FormArgumentF(..), Interval(..), TokenName(..), Value(..))
 
-actionFormInputs :: forall p. Maybe FormArgument -> HH.HTML p Action
+actionFormInputs :: forall p. FormArgument -> HH.HTML p Action
 actionFormInputs arg =
-  case arg of
-    Nothing       -> BS.empty
-    Just argument -> 
-      HH.div 
-      [ classes [ BS.wasValidated, BS.mb3 ] ]
-      [ actionArgumentField [] false argument ]
+  HH.div 
+  [ classes [ BS.wasValidated, BS.mb3 ] ]
+  [ actionArgumentField [] false arg ]
 
 actionArgumentField :: forall p. Array String -> Boolean -> FormArgument -> HH.HTML p Action
 actionArgumentField ancestors isNested (Fix (FormObjectF subFields)) =
-  HH.div [ nesting isNested ]
+  HH.div [ HP.classes $ defaultClasses isNested ]
     (mapWithIndex (\i (JsonTuple field) -> subForm i field) subFields)
  where
   subForm index (name /\ arg) =
@@ -61,7 +58,8 @@ actionArgumentField ancestors isNested (Fix (FormObjectF subFields)) =
 actionArgumentField ancestors isNested arg@(Fix FormUnitF) = BS.empty
 
 actionArgumentField ancestors isNested arg@(Fix (FormIntF n)) =
-  HH.div_
+  HH.div
+    [ HP.classes $ defaultClasses isNested ]
     [ HH.input
         [ type_ InputNumber
         , classes [ BS.formControl ]
@@ -74,7 +72,8 @@ actionArgumentField ancestors isNested arg@(Fix (FormIntF n)) =
     ]
 
 actionArgumentField ancestors _ arg@(Fix (FormBoolF b)) =
-  BS.formCheck_
+  HH.div 
+    [ HP.classes $ defaultClasses false <> [ BS.formCheck ] ]
     [ HH.input
         [ type_ InputCheckbox
         , id_ elementId
@@ -93,7 +92,8 @@ actionArgumentField ancestors _ arg@(Fix (FormBoolF b)) =
   elementId = String.joinWith "-" ancestors
 
 actionArgumentField ancestors _ arg@(Fix (FormIntegerF n)) =
-  HH.div_
+  HH.div
+    [ HP.classes $ defaultClasses false ]
     [ HH.input
         [ type_ InputNumber
         , classes (Array.cons BS.formControl (actionArgumentClass ancestors))
@@ -106,7 +106,8 @@ actionArgumentField ancestors _ arg@(Fix (FormIntegerF n)) =
     ]
 
 actionArgumentField ancestors _ arg@(Fix (FormStringF s)) =
-  HH.div_
+  HH.div
+    [ HP.classes $ defaultClasses false ]
     [ HH.input
         [ type_ InputText
         , classes (Array.cons BS.formControl (actionArgumentClass ancestors))
@@ -121,7 +122,8 @@ actionArgumentField ancestors _ arg@(Fix (FormStringF s)) =
     ]
 
 actionArgumentField ancestors _ arg@(Fix (FormRadioF options s)) =
-  BS.formGroup_
+  HH.div
+    [ HP.classes $ defaultClasses false <> [ BS.formGroup ]]
     [ HH.div_ (radioItem <$> options)
     -- , validationFeedback (joinPath ancestors <$> validate arg)
     ]
@@ -150,7 +152,8 @@ actionArgumentField ancestors _ arg@(Fix (FormRadioF options s)) =
         ]
 
 actionArgumentField ancestors _ arg@(Fix (FormHexF s)) =
-  HH.div_
+  HH.div
+    [ HP.classes $ defaultClasses false ]
     [ HH.input
         [ type_ InputText
         , classes (Array.cons BS.formControl (actionArgumentClass ancestors))
@@ -162,13 +165,14 @@ actionArgumentField ancestors _ arg@(Fix (FormHexF s)) =
     -- , validationFeedback (joinPath ancestors <$> validate arg)
     ]
 
--- actionArgumentField ancestors isNested (Fix (FormTupleF subFieldA subFieldB)) =
---   HH.div_
---     [ BS.formGroup_
---         [ SetSubField 1 <$> actionArgumentField (Array.snoc ancestors "_1") true subFieldA ]
---     , BS.formGroup_
---         [ SetSubField 2 <$> actionArgumentField (Array.snoc ancestors "_2") true subFieldB ]
---     ]
+actionArgumentField ancestors isNested (Fix (FormTupleF subFieldA subFieldB)) =
+  HH.div
+    [ HP.classes $ defaultClasses isNested ]
+    [ BS.formGroup_
+        [ SetSubField 1 <$> actionArgumentField (Array.snoc ancestors "_1") true subFieldA ]
+    , BS.formGroup_
+        [ SetSubField 2 <$> actionArgumentField (Array.snoc ancestors "_2") true subFieldB ]
+    ]
 
 -- actionArgumentField ancestors isNested (Fix (FormArrayF schema subFields)) =
 --   HH.div_
@@ -293,7 +297,8 @@ actionArgumentField ancestors _ arg@(Fix (FormHexF s)) =
 --     [ BS.valueForm (SetField <<< SetValueField) value ]
 
 actionArgumentField _ _ (Fix (FormMaybeF dataType child)) =
-  HH.div_
+  HH.div
+    [ HP.classes $ defaultClasses false ]
     [ HH.text "Unsupported Maybe"
     , HH.code_ [ HH.text $ show dataType ]
     -- , HH.code_ [ HH.text $ show child ]
@@ -301,7 +306,8 @@ actionArgumentField _ _ (Fix (FormMaybeF dataType child)) =
     ]
 
 actionArgumentField _ _ (Fix (FormUnsupportedF description)) =
-  HH.div_
+  HH.div
+    [ HP.classes $ defaultClasses false ]
     [ HH.code_ [ HH.text description ]
     ]
 
@@ -321,9 +327,14 @@ actionArgumentClass ancestors =
 
 -- validationFeedback errors = invalidFeedback_ (div_ <<< pure <<< text <<< showPathValue <$> errors)
 
-nesting :: forall r i. Boolean -> IProp ( "class" :: String | r ) i
-nesting true = classes [ H.ClassName "nested" ]
-nesting false = classes []
+nested :: H.ClassName
+nested = H.ClassName "nested"
+
+defaultClasses :: forall r i. Boolean -> Array H.ClassName
+defaultClasses isNested = 
+  case isNested of
+    true  -> [ BS.mb3, nested ]
+    false -> [ BS.mb3 ]
 
 -- valueForm :: forall p i. (ValueEvent -> i) -> Value -> HH.HTML p i
 -- valueForm handler ({ getValue: balances }) =

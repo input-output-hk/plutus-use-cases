@@ -20,7 +20,7 @@ import Web.HTML.Event.EventTypes (offline)
 import Web.HTML.HTMLSelectElement as HTMLSelectElement
 
 import App.ActionFormInputs (actionFormInputs)
-import App.Types (Action(..), Action(..), State(..), getSelectedContractSig)
+import App.Types (Action(..), State(..), getSelectedContractSig)
 import PAB.Types (ContractCall(..), ContractDefinition(..), ContractSignatureResponse, EndpointDescription, Wallet)
 
 --------------------------------------------------------------------------------
@@ -48,16 +48,18 @@ getContractSigNames state = _.csrDefinition <$> state.contractDefinitions
 getEndpointNames :: State -> Array String
 getEndpointNames state = 
   let 
-    maybeContractSig = getSelectedContractSig state state.selectedContractIdx
+    maybeContractSig = getSelectedContractSig state
   in 
     case maybeContractSig of
       Nothing   -> []
       Just csr   -> _.endpointDescription.getEndpointDescription <$> csr.csrSchemas
 
-submitBtn :: forall w i. HH.HTML w i
+submitBtn :: forall w. HH.HTML w Action
 submitBtn =
   HH.div
-    [ HP.classes [ BS.displayGrid, BS.gap2 ] ]
+    [ HP.classes [ BS.displayGrid, BS.gap2 ],
+      HE.onClick \e -> Submit
+    ]
     [ HH.button 
         [ HP.classes [ BS.btn, BS.btnPrimary ] ]
         [ HH.text "Submit" ]

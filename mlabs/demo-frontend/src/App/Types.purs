@@ -4,6 +4,7 @@ module App.Types
   , getSelectedContractSig
   , getSelectedFunctionSchema
   , FieldEvent(..)
+  , handleFormEvent
   , State
   ) where
 
@@ -11,6 +12,7 @@ import Prelude
 
 import Data.Array as Array
 import Data.BigInt (BigInt)
+import Debug.Trace (trace)
 import Data.Generic.Rep (class Generic)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
@@ -28,18 +30,28 @@ type State =
   , selectedWalletIdx :: Int
   , selectedContractIdx :: Int
   , selectedEndpointIdx :: Int
-  , argument :: Maybe FormArgument
+  , argument :: FormArgument
   }
 
-getSelectedWalleId :: State -> Int -> Maybe Int
-getSelectedWalleId state idx = Array.index state.walletIds idx
+getSelectedWalleId :: State -> Maybe Int
+getSelectedWalleId state = 
+  let
+    idx = state.selectedWalletIdx
+  in
+    Array.index state.walletIds idx
 
-getSelectedContractSig :: State -> Int -> Maybe ContractSignatureResponse
-getSelectedContractSig state idx = Array.index state.contractDefinitions idx
+getSelectedContractSig :: State -> Maybe ContractSignatureResponse
+getSelectedContractSig state = 
+  let 
+    idx = state.selectedContractIdx
+  in 
+    Array.index state.contractDefinitions idx
 
-getSelectedFunctionSchema :: State -> Int -> Int -> Maybe (FunctionSchema FormSchema)
-getSelectedFunctionSchema state contractIdx endpointIdx = 
+getSelectedFunctionSchema :: State -> Maybe (FunctionSchema FormSchema)
+getSelectedFunctionSchema state = 
  let 
+   contractIdx = state.selectedContractIdx
+   endpointIdx = state.selectedEndpointIdx
    maybeSchemas = _.csrSchemas <$> Array.index state.contractDefinitions contractIdx
  in
    case maybeSchemas of
@@ -53,6 +65,7 @@ data Action
   | SetSelectedEndpointIdx Int
   | SetField FieldEvent
   | SetSubField Int Action
+  | Submit
 
 -- TODO: Use BigInt for SetBigIntegerField
 data FieldEvent
@@ -70,7 +83,8 @@ handleFormEvent ::
   Action ->
   FormArgument ->
   FormArgument
-handleFormEvent initialValue event = cata (Fix <<< algebra event)
+handleFormEvent initialValue event = 
+  trace event \_ -> cata (Fix <<< algebra event)
   where
   algebra (SetField (SetIntField n)) (FormIntF _) = FormIntF n
 

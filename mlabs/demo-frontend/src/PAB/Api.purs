@@ -1,5 +1,6 @@
 module PAB.Api
-  ( getContractDefinitions
+  ( activateContract
+  , getContractDefinitions
   , getStatus
   , getWalletInstances
   , postEndpoint
@@ -48,6 +49,23 @@ getStatus pab { unContractInstanceId: ciid } =
   in
     getJson url
 
+activateContract ::
+  PabConfig ->
+  String -> 
+  Int ->
+  Aff ContractInstanceId
+activateContract pab caID wallet =
+  let
+    url = pab.baseUrl <> "/api/new/contract/activate"
+    payload = {
+      "caID": "User",
+      "caWallet": {
+        "getWallet": wallet
+      }
+    }
+  in 
+    postJson url payload
+
 -- | Gets the contract instances for the specific wallet
 getWalletInstances ::
   PabConfig ->
@@ -88,7 +106,7 @@ postEndpoint pab { unContractInstanceId: ciid } endpoint payload =
   let
     url =
       pab.baseUrl
-        <> contractInstPath
+        <> "/api/new/contract/instance/"
         <> ciid
         <> "/endpoint/"
         <> endpoint

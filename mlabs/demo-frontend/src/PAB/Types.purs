@@ -11,12 +11,15 @@ module PAB.Types
   , ContractSignatureResponse
   , Closure
   , CurrencySymbol(..)
+  , defContractSignatureResponse
+  , defFunctionSchema
   , defaultValue
   , EndpointDescription(..)
   , Extended(..)
   , Fix(..)
   , FormArgument(..)
   , FormArgumentF(..)
+  , formArgumentToJson
   , FormSchema(..)
   , FunctionSchema
   , InstanceStatusToClient
@@ -120,6 +123,12 @@ type ContractSignatureResponse
     , csrSchemas :: Array (FunctionSchema FormSchema)
     }
 
+defContractSignatureResponse :: ContractSignatureResponse
+defContractSignatureResponse = 
+  { csrDefinition: ""
+  , csrSchemas: [ defFunctionSchema ]
+  }
+
 newtype ContractDefinition = ContractDefinition String
 
 derive instance genericContractDefinition :: Generic ContractDefinition _
@@ -135,6 +144,13 @@ type FunctionSchema a =
   , argument            :: a
   -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
   }
+
+defFunctionSchema :: FunctionSchema FormSchema
+defFunctionSchema = 
+  { endpointDescription: { getEndpointDescription: "" }
+  , argument: FormSchemaUnit
+  }
+
 
 type EndpointDescription
   = { getEndpointDescription :: String }
