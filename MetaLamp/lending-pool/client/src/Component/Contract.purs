@@ -28,6 +28,7 @@ import Plutus.Contracts.Endpoints (BorrowParams(..), DepositParams(..), RepayPar
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), Value)
 import View.FundsTable (fundsTable)
+import Utils.WithRemoteData (runRDWith)
 
 type State
   = { userContractId :: UserContractId
@@ -168,7 +169,7 @@ component =
             lift (AaveUser.revokeCollateral userContractId $ RevokeCollateralParams { rcpUnderlyingAsset: asset, rcpAmount: amount, rcpOnBehalfOf: walletPubKey })
               >>= either (throwError <<< show) (const <<< lift <<< H.raise $ SubmitSuccess)
     OnSubmitAmount operation (AmountForm.Submit { name, amount }) ->
-      runRD _submit <<< runExceptT
+      void $ runRDWith _submit <<< runExceptT
         $ do
             { reserves } <- lift H.get
             case find (\r -> getAssetName r.asset == name) reserves of
@@ -177,46 +178,46 @@ component =
                   lift $ handleAction (Deposit { amount, asset })
                   { deposit } <- lift H.get
                   RD.maybe
-                    (throwError $ "Submit deposit failed: " <> show deposit)
+                    (throwError $ "Submit deposit failed")
                     (const <<< pure $ unit)
                     deposit
                 SubmitWithdraw -> do
                   lift $ handleAction (Withdraw { amount, asset })
                   { withdraw } <- lift H.get
                   RD.maybe
-                    (throwError $ "Submit withdraw failed: " <> show withdraw)
+                    (throwError $ "Submit withdraw failed")
                     (const <<< pure $ unit)
                     withdraw
                 SubmitBorrow -> do
                   lift $ handleAction (Borrow { amount, asset })
                   { borrow } <- lift H.get
                   RD.maybe
-                    (throwError $ "Submit borrow failed: " <> show borrow)
+                    (throwError $ "Submit borrow failed")
                     (const <<< pure $ unit)
                     borrow
                 SubmitRepay -> do
                   lift $ handleAction (Repay { amount, asset })
                   { repay } <- lift H.get
                   RD.maybe
-                    (throwError $ "Submit repay failed: " <> show repay)
+                    (throwError $ "Submit repay failed")
                     (const <<< pure $ unit)
                     repay
                 SubmitProvideCollateral -> do
                   lift $ handleAction (ProvideCollateral { amount, asset })
                   { provideCollateral } <- lift H.get
                   RD.maybe
-                    (throwError $ "Submit provideCollateral failed: " <> show provideCollateral)
+                    (throwError $ "Submit provideCollateral failed")
                     (const <<< pure $ unit)
                     provideCollateral
                 SubmitRevokeCollateral -> do
                   lift $ handleAction (RevokeCollateral { amount, asset })
                   { revokeCollateral } <- lift H.get
                   RD.maybe
-                    (throwError $ "Submit revokeCollateral failed: " <> show revokeCollateral)
+                    (throwError $ "Submit revokeCollateral failed")
                     (const <<< pure $ unit)
                     revokeCollateral
               Nothing -> throwError "Asset name not found"
-
+  
   render :: State -> H.ComponentHTML Action Slots m
   render state =
     HH.div_
@@ -224,9 +225,11 @@ component =
       , case state.submit of
           NotAsked -> HH.div_ []
           Loading -> HH.div_ []
-          Failure e -> HH.div_ [ HH.text $ "Error: " <> show e ]
+          Failure e -> HH.h4_ [ HH.text e ]
           Success _ -> HH.div_ []
-      , HH.div_
+      , case state.submit of 
+        Loading -> HH.div_ [ HH.text "Loading..." ]
+        _ -> HH.div_
           $ mapWithIndex
               ( \index (Tuple title operation) ->
                   HH.h2_
