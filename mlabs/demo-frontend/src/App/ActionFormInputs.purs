@@ -37,6 +37,8 @@ import Data.Json.JsonTuple (JsonTuple(..))
 import PAB.AssocMap as AssocMap
 import PAB.Types (CurrencySymbol(..), Fix(..), FormArgument, FormArgumentF(..), Interval(..), TokenName(..), Value(..))
 
+import Debug.Trace (spy)
+
 actionFormInputs :: forall p. FormArgument -> HH.HTML p Action
 actionFormInputs arg =
   HH.div 
@@ -46,9 +48,9 @@ actionFormInputs arg =
 actionArgumentField :: forall p. Array String -> Boolean -> FormArgument -> HH.HTML p Action
 actionArgumentField ancestors isNested (Fix (FormObjectF subFields)) =
   HH.div [ HP.classes $ defaultClasses isNested ]
-    (mapWithIndex (\i (JsonTuple field) -> subForm i field) subFields)
+    (mapWithIndex (\i (JsonTuple field) -> map (SetSubField i) (subForm field)) subFields)
  where
-  subForm index (name /\ arg) =
+  subForm (name /\ arg) =
     ( BS.formGroup_
         [ HH.label [ for name ] [ HH.text name ]
         , actionArgumentField (Array.snoc ancestors name) true arg
@@ -91,7 +93,7 @@ actionArgumentField ancestors _ arg@(Fix (FormBoolF b)) =
   where
   elementId = String.joinWith "-" ancestors
 
-actionArgumentField ancestors _ arg@(Fix (FormIntegerF n)) =
+actionArgumentField ancestors isNested arg@(Fix (FormIntegerF n)) =
   HH.div
     [ HP.classes $ defaultClasses false ]
     [ HH.input
@@ -100,7 +102,7 @@ actionArgumentField ancestors _ arg@(Fix (FormIntegerF n)) =
         , value $ maybe "" show n
         , required true
         , placeholder "Integer"
-        , HE.onValueInput (SetField <<< SetBigIntegerField <<< Int.fromString)
+        , HE.onValueInput (SetField <<< SetBigIntegerField <<< spy "int changey!" <<< Int.fromString)
         ]
     -- , validationFeedback (joinPath ancestors <$> validate arg)
     ]
