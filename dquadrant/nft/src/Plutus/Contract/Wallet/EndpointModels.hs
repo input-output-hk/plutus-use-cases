@@ -132,7 +132,7 @@ data MarketType=MtDirectSale | MtAuction  deriving (Show, Prelude.Eq,Generic,ToJ
 data ListMarketRequest  = ListMarketRequest{
     lmUtxoType::MarketType,
     lmByPkHash:: Maybe ByteString,
-    lmOwnPkHash:: Bool 
+    lmOwnPkHash:: Maybe Bool 
 } deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
 
 

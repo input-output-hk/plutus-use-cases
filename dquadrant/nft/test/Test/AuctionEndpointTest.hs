@@ -287,19 +287,19 @@ doWithdraw h u= callEndpoint @"withdraw" h  u >> wait
 
 doList ::ContractHandle [AesonTypes.Value] TestSchema Text -> EmulatorTrace [AuctionResponse]
 doList h= do
-  callEndpoint @"list" h  (ListMarketRequest MtAuction Nothing False)
+  callEndpoint @"list" h  (ListMarketRequest MtAuction Nothing  (Just False))
   wait
   lastResult h
 
 doListOfWallet :: Integer -> ContractHandle [AesonTypes.Value] TestSchema Text -> EmulatorTrace [AuctionResponse]
 doListOfWallet w h = do
-  callEndpoint @"list" h  (ListMarketRequest MtAuction (Just $ getPubKeyHash  $ pubKeyHash $ walletPubKey$ Wallet w) False)
+  callEndpoint @"list" h  (ListMarketRequest MtAuction (Just $ getPubKeyHash  $ pubKeyHash $ walletPubKey$ Wallet w)  (Just False))
   wait
   lastResult h
 
 doListOwn ::  ContractHandle [AesonTypes.Value] TestSchema Text -> EmulatorTrace [AuctionResponse]
 doListOwn h = do
-  callEndpoint @"list" h  (ListMarketRequest MtAuction Nothing True)
+  callEndpoint @"list" h  (ListMarketRequest MtAuction Nothing (Just True))
   wait
   lastResult h
 

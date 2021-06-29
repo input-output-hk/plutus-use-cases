@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -105,15 +106,18 @@ listEp market = do
   (ListMarketRequest lType lMaybePkh lOwnPkh)<-(endpoint @"list")
   ownPkh <-ownPubKey <&> pubKeyHash
   responses<-case lType of
-              MtDirectSale -> (if lOwnPkh then directSalesOfPkh market ownPkh
-                                else  case lMaybePkh of 
-                                          Just pkh -> directSalesOfPkh market $ PubKeyHash pkh
-                                          _        -> directSalesInMarket market
+              MtDirectSale -> (case  lOwnPkh of
+                               Just True   ->  directSalesOfPkh market ownPkh
+                               _           -> (case lMaybePkh of 
+                                            Just pkh -> directSalesOfPkh market $ PubKeyHash pkh
+                                            _        -> directSalesInMarket market)
+
                               )<&> map (directSaleToResponse  market) <&> toJSON
-              MtAuction   ->  (if lOwnPkh then auctionsOfPkh market ownPkh
-                                else  case lMaybePkh of 
-                                          Just pkh -> auctionsOfPkh market $ PubKeyHash pkh
-                                          _        -> auctionsInMarket market
+              MtAuction   ->  (case  lOwnPkh of
+                                Just True ->  auctionsOfPkh market ownPkh
+                                _         ->(case lMaybePkh of 
+                                            Just pkh -> auctionsOfPkh market $ PubKeyHash pkh
+                                            _        -> auctionsInMarket market)
                               )<&> map (auctionToResponse market)<&> toJSON 
   tell [responses]
   pure responses

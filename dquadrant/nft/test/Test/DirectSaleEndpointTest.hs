@@ -261,19 +261,19 @@ whenBoughtMultiple'sellerReceivesSellerShare=
 
 callListDirectSale::ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [NftsOnSaleResponse]
 callListDirectSale h=do
-  callEndpoint @"list" h $ ListMarketRequest MtDirectSale Nothing False
+  callEndpoint @"list" h $ ListMarketRequest MtDirectSale Nothing (Just False)
   wait
   lastResult h
 
 callListOwn::ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [NftsOnSaleResponse]
 callListOwn h=do
-  callEndpoint @"list" h $ ListMarketRequest MtDirectSale Nothing True
+  callEndpoint @"list" h $ ListMarketRequest MtDirectSale Nothing (Just True)
   wait
   lastResult h
 
 callListOfWallet:: Integer -> ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [NftsOnSaleResponse]
 callListOfWallet w h=do
-  callEndpoint @"list" h $ ListMarketRequest MtDirectSale (Just $ getPubKeyHash $ pubKeyHash $ walletPubKey $ Wallet w) False
+  callEndpoint @"list" h $ ListMarketRequest MtDirectSale (Just $ getPubKeyHash $ pubKeyHash $ walletPubKey $ Wallet w) (Just False)
   wait
   lastResult h
 

@@ -1,54 +1,62 @@
 <template>
   <div>
-    <NavBar>
-      <b-button @click="refresh" class="mr-5"> Refresh </b-button>
-    </NavBar>
-      <b-container class="cards" style="margin-top: 20px ">
-          <b-card-group v-if="items.length" columns>
-            <b-card
-                v-for="(item,i) in  items" :key="i"
-                style="border-radius: 10px"
-            >
-              <b-card-text>Seller: {{item.owner}}</b-card-text>
+    <NavBar/>
+    <b-row
+        v-if="items === undefined || items.length===0">
+      <b-col class="mt-5 pt-5 text-center">
+        <h3 class="text-muted">Nothing to see here</h3>
+      </b-col>
+    </b-row>
+    <b-container v-else class="container-fluid">
+      <b-row v-if="items.length" columns>
+        <b-col cols="12" lg="6" v-for="(item, i) in items" :key="i" class="my-2">
+          <b-card-group>
+            <b-card style="border-radius: 10px">
+              <b-card-text>
+                <strong>Seller</strong> {{ item.owner }}
+              </b-card-text>
               <div v-for="(value,i) in item.values" :key="i">
-                <b-card-text > Currency: {{value.currency}}</b-card-text>
-                <b-card-text > Token: {{value.token}}</b-card-text>
-
+                <b-card-text>
+                  <strong>Currency</strong> {{ value.currency }}
+                </b-card-text>
+                <b-card-text class="d-flex justify-content-between">
+                  <strong>Token</strong> <span>{{ value.token }}</span>
+                </b-card-text>
               </div>
-              <b-card-text>Cost: {{item.cost.value}} Lovelace</b-card-text>
+              <b-card-text class="d-flex justify-content-between">
+                <strong>Cost (Lovelace)</strong> <span class="text-monospace">{{ item.cost.value }}</span>
+              </b-card-text>
               <b-button
                   :data-label="i"
                   style="align-self: center"
+                  variant="primary"
                   @click="onBuy(item)"
               >
                 Buy
               </b-button>
             </b-card>
           </b-card-group>
-        <b-row v-else>
-          <b-col class="mt-5 pt-5 text-center">
-              <h3 class="text-muted">Nothing to see here</h3>
-          </b-col>
-        </b-row>
-      </b-container>
+        </b-col>
+      </b-row>
+    </b-container>
   </div>
-
 </template>
 
 <script>
 
 
 import NavBar from "./base/NavBar";
+
 export default {
   name: "Market",
   components: {NavBar},
-  created :function(){
-    if(this.instanceId){
+  created: function () {
+    if (this.instanceId) {
       this.refresh()
     }
-    this.items=[]
+    this.items = []
   },
-  computed:{
+  computed: {
     instanceId() {
       return this.$store.state.contract.instance.cicContract.unContractInstanceId
     },
@@ -56,36 +64,38 @@ export default {
       return this.$store.state.contract.lastObservable
     }
   },
-  methods:{
+  methods: {
     onBuy(item) {
       this.$task.do(
-        this.$http.post(`instance/${this.instanceId}/endpoint/buy`, {
-          ppItems:[item.reference],
-          ppValue: item.cost
-        }).then(()=>this.$task.infoMessage("Transaction Submitted."))
+          this.$http.post(`instance/${this.instanceId}/endpoint/buy`, {
+            ppItems: [item.reference],
+            ppValue: item.cost
+          }).then(() => this.$task.infoMessage("Transaction Submitted."))
       )
     },
-    refresh(){
+    refresh() {
       this.$task.do(
-        this.$http.post(`instance/${this.instanceId}/endpoint/onsale`, '""')
+          this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
+            'lmUtxoType': 'MtAuction',
+          })
       )
     }
   },
-  watch:{
-    lastResponse(x){
-      if(x.length && x.length >0 && x[0].cost && typeof (x[0].cost.value)=="number" && x[0].owner && x[0].values && x[0].values ){
-        this.items=x
-      }
+  watch: {
+    lastResponse(x) {
+      // if (x.length && x.length > 0 && x[0].cost && typeof (x[0].cost.value) == "number" && x[0].owner && x[0].values && x[0].values) {
+        this.items = x
+      // }
     },
-    instanceId(x){
-      if(x){
+    instanceId(x) {
+      if (x) {
         this.refresh()
       }
     }
   },
-  data:()=>{
+  data: () => {
     return {
-      items:[
+      items: [
         // example value
         {
           "fee": 20000,
@@ -120,11 +130,11 @@ export default {
 </script>
 
 <style scoped>
-.enough{
-  min-width: 250pt!important;
+.enough {
+  min-width: 250pt !important;
   border-bottom: 1px !important;
-  border-bottom-style: solid!important;
-  border-color: #E8E8E8!important;
+  border-bottom-style: solid !important;
+  border-color: #E8E8E8 !important;
   border-top: 0;
   border-left: 0;
   border-right: 0;

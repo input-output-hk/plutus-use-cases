@@ -1,34 +1,42 @@
 <template>
-  <div class="mx-3 my-2">
-    <div class="d-flex flex-column justify-content-lg-end border-bottom align-items-end pb-2">
-      <i style="color:gray">My balance</i>
-      <b class="balance-style">{{ (Math.round(balance.ada/10000)/100).toLocaleString() }} Ada</b>
-    </div>
-    <b-container>
-      <b-row v-for="(token,index) in balance.tokens" :key="index"
-             class="border-bottom mt-3 mb-3 d-flex justify-content-center align-items-center">
-        <b-col class="col-8 py-1">
-          {{ token.currency.substring(0, 3) }}<span
-          class="text-muted">...</span>{{ token.currency.substring(token.currency.length - 3) }}<b class="text-lg-left
-"> : </b>{{ token.name }}
-        </b-col>
-        <b-col class="col-2 p-1">
-          <div v-if="token.value===1" class="nft-tag-style">
-            NFT
-          </div>
-        </b-col>
-        <b-col class="col-2 p-1">
-          <b-button v-b-modal="'s'+token.index" variant="success" @click="tokenClicked = token;">
-            Sell
-          </b-button>
-        </b-col>
-        <b-col class="col-2 p-1">
-          <b-button v-b-modal="'a'+token.index" variant="success" @click="tokenClicked = token;">
-            StartAuction
-          </b-button>
+  <div>
+    <NavBar/>
+    <b-row
+        v-if="this.$store.state.contract === undefined || this.$store.state.contract.funds === undefined || this.$store.state.contract.funds.length===0">
+      <b-col class="mt-5 pt-5 text-center">
+        <h3 class="text-muted">Nothing to see here</h3>
+      </b-col>
+    </b-row>
+    <div v-else class="container-fluid mt-4">
+      <b-row>
+        <b-col cols="12" lg="6" class="my-2" v-for="(token,index) in this.$store.state.contract.funds.tokens" :key="index">
+          <b-card class="text-monospace">
+            <b-card-text>
+              <p><strong>Currency</strong> <span class="text-muted">{{ token.currency }}</span></p>
+            </b-card-text>
+            <b-card-text>
+              <p><strong>Token</strong> <span class="text-muted">{{ token.name }}</span></p>
+            </b-card-text>
+            <b-card-text v-if="token.value===1">
+              <strong class="badge badge-pill badge-secondary">NFT</strong>
+            </b-card-text>
+
+            <b-button-toolbar aria-label="Bid">
+              <b-button-group size="sm" class="mr-1">
+                <b-button v-b-modal="'a'+token.index" variant="primary" @click="tokenClicked = token;">
+                  Start Auction
+                </b-button>
+              </b-button-group>
+              <b-input-group size="sm" class="mr-1">
+                <b-button v-b-modal="'s'+token.index" variant="success" @click="tokenClicked = token;">
+                  Sell
+                </b-button>
+              </b-input-group>
+            </b-button-toolbar>
+          </b-card>
         </b-col>
       </b-row>
-    </b-container>
+    </div>
     <b-modal size="lg" :id="'s'+tokenClicked.index" title="Sell Token" ref="my_modal" hide-footer>
       <b-form @submit.prevent="onSell()">
         <div class="py-1"><strong>Policy : </strong><span class="text-sm-left">{{ tokenClicked.currency }}</span></div>
@@ -96,13 +104,11 @@
 </template>
 
 <script>
+import NavBar from "@/components/base/NavBar";
+
 export default {
-  name: "SideBar",
-  computed: {
-    balance() {
-      return this.$store.state.contract.funds
-    }
-  },
+  name: "BuySell",
+  components: {NavBar},
   methods: {
     onSell() {
       const amount = this.toLovelace(this.$refs.input_number.value)
@@ -111,40 +117,40 @@ export default {
         return;
       }
       this.$task.do(
-        this.$http.post(
-          `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/sell`
-          , [{
-            "spItems": [{currency: this.tokenClicked.currency, token: this.tokenClicked.name, value: 1}],
-            "spSaleType": "Primary",
-            "spCost": {currency: "", token: "", value: amount}
-          }]
-        ).then(() => {
-            this.$task.infoMessage("Transaction Submitted. NFT placed in marketplace")
-            this.$bvModal.hide('' + this.tokenClicked)
-          }
-        )
+          this.$http.post(
+              `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/sell`
+              , [{
+                "spItems": [{currency: this.tokenClicked.currency, token: this.tokenClicked.name, value: 1}],
+                "spSaleType": "Primary",
+                "spCost": {currency: "", token: "", value: amount}
+              }]
+          ).then(() => {
+                this.$task.infoMessage("Transaction Submitted. NFT placed in marketplace")
+                this.$bvModal.hide('' + this.tokenClicked)
+              }
+          )
       )
     },
     onPlaceOnAuction() {
       this.$task.do(
-        this.$http.post(
-          `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/startAuction`,
-          [{
-            apValue: [{
-              currency: this.tokenClicked.currency,
-              token: this.tokenClicked.name,
-              value: 1
-            }],
-            apMinBid:{
-              currency: this.auction.apMinBid.currency,
-              token:  this.auction.apMinBid.token,
-              value: this.toLovelace(this.auction.apMinBid.value)
-            },
-            apMinIncrement: this.toLovelace(this.auction.apMinIncrement),
-            apStartTime: {getPOSIXTime: parseInt(this.auction.apStartTime)},
-            apEndTime: {getPOSIXTime: parseInt(this.auction.apEndTime)}
-          }]
-        ))
+          this.$http.post(
+              `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/startAuction`,
+              [{
+                apValue: [{
+                  currency: this.tokenClicked.currency,
+                  token: this.tokenClicked.name,
+                  value: 1
+                }],
+                apMinBid: {
+                  currency: this.auction.apMinBid.currency,
+                  token: this.auction.apMinBid.token,
+                  value: this.toLovelace(this.auction.apMinBid.value)
+                },
+                apMinIncrement: this.toLovelace(this.auction.apMinIncrement),
+                apStartTime: {getPOSIXTime: parseInt(this.auction.apStartTime)},
+                apEndTime: {getPOSIXTime: parseInt(this.auction.apEndTime)}
+              }]
+          ))
     },
     toLovelace: (a) => {
       try {
@@ -184,16 +190,5 @@ export default {
 </script>
 
 <style scoped>
-.balance-style {
-  display: flex;
-  justify-content: flex-end;
-  font-size: 24px;
-}
 
-.nft-tag-style {
-  font-size: 12px;
-  color: #1EA2C4;
-  display: flex;
-  justify-content: center;
-}
 </style>
