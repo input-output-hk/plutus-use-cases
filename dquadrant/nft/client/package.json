@@ -13,8 +13,10 @@
     "core-js": "^3.14.0",
     "dotenv-webpack": "^3.0.0",
     "font-awesome": "^4.7.0",
+    "luxon": "^1.27.0",
     "moment": "^2.29.1",
     "vue": "^2.6.13",
+    "vue-datetime": "^1.0.0-beta.14",
     "vue-router": "^3.5.1",
     "vue-toastr": "^2.1.2",
     "vuex": "^3.6.2"

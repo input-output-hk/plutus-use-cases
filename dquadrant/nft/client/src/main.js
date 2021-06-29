@@ -16,6 +16,8 @@ import DummyAuction from "./components/DummyAuction";
 import MyWallets from "@/components/MyWallets";
 import BuySell from "@/components/BuySell";
 
+import 'vue-datetime/dist/vue-datetime.css';
+
 const routes = [
   {
     path: "",
@@ -42,8 +44,8 @@ const routes = [
     component: MyWallets
   },
   {
-    path: '/buy-sell',
-    name: 'buysell',
+    path: '/assets',
+    name: 'assets',
     component: BuySell
   }
 ];

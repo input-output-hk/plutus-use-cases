@@ -76,7 +76,7 @@ export default {
     refresh() {
       this.$task.do(
           this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
-            'lmUtxoType': 'MtAuction',
+            'lmUtxoType': 'MtDirectSale',
           })
       )
     }

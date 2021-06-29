@@ -11,7 +11,7 @@
         <div>
           <h1 class="p-2">
             <router-link :to="{name: 'market'}" class="logo text-decoration-none">
-              Plutus <span>Wallet</span>
+              Plutus <span>{{walletName}}</span>
             </router-link>
           </h1>
           <ul class="list-unstyled components mb-5">
@@ -37,8 +37,8 @@
               </router-link>
             </li>
             <li>
-              <router-link :to="{name: 'buysell'}" class="btn btn-block text-left py-4 px-2">
-                Buy / Sell
+              <router-link :to="{name: 'assets'}" class="btn btn-block text-left py-4 px-2">
+                Assets
               </router-link>
             </li>
           </ul>
@@ -55,6 +55,23 @@
 export default {
   name: "BaseSidebar",
   computed: {
+    walletName() {
+      const walletInstance = this.$store.state.contract.instances[this.$store.state.contract.activeIndex].cicWallet.getWallet
+      switch (walletInstance) {
+        case 1:
+          return "Alice (Buyer)"
+        case 2:
+          return "Bob (Buyer)"
+        case 3:
+          return "Jhon (Seller)"
+        case 4:
+          return "Mark (Seller)"
+        case 5:
+          return "Mary (Seller)"
+        default:
+          return "Wallet id " + walletInstance
+      }
+    },
     balance() {
       return this.$store.state.contract.funds
     },
