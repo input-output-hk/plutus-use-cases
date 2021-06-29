@@ -33,7 +33,8 @@ export const store = new Vuex.Store({
                 observableState: []
             },
             instances: []
-        }
+        },
+        auctionItems: []
     },
     actions: {
         updateContractActiveIndex(context, index) {
@@ -53,6 +54,12 @@ export const store = new Vuex.Store({
         },
         updateContractLastObservable(context, lastObservable) {
             context.commit('setContractLastObservable', lastObservable)
+        },
+        updateAuctionItems(context, items) {
+            context.commit('setAuctionItems', items)
+        },
+        updateAuctionItemBidPrice(context, {item, index}) {
+            context.commit('setAuctionItemBidPrice', {item, index})
         }
     },
     mutations: {
@@ -88,6 +95,12 @@ export const store = new Vuex.Store({
         },
         setContractLastObservable(state, lastObservable) {
             Vue.set(state.contract, 'lastObservable', lastObservable)
+        },
+        setAuctionItems(state, items) {
+            Vue.set(state, 'auctionItems', items)
+        },
+        setAuctionItemBidPrice(state, {item, index}) {
+            Vue.set(state.auctionItems[index], 'minNewBid', item.minNewBid)
         }
     }
 });

@@ -1,35 +1,54 @@
 <template>
   <div>
-    <NavBar></NavBar>
-    <div v-if="items.length===0">
-      <strong class="text-muted"> Nothing To See Here</strong>
-    </div>
-    <b-container class="mt-4">
-      <b-row v-for="item in items" :key="item.arBidder.bBidReference.txOutRefId.getTxId">
-        <b-col>
-          <div v-for="(content,index) in item.arValue" :key="index">
-            <h4>{{ content.currency + ':' + content.token + ' => ' + content.value }}</h4>
-          </div>
-          <div class="pb-1">
-            <strong>Owner</strong> : {{ item.arOwner.getPubKeyHash }}
-          </div>
-          <div class="pb-1" v-if="item.arOwner.getPubKeyHash!==item.arBidder.bPubKeyHash.getPubKeyHash">
-            <div>
-              <strong>Bidder</strong> : {{ item.arBidder.bPubKeyHash.getPubKeyHash }}
-            </div>
-            <div><strong>Last Bid</strong> : {{ item.arBidder.bBid.toLocaleString() }}</div>
-          </div>
-          <div class="text-muted pb-2" v-else>
-            No Bids yet
-          </div>
+    <NavBar/>
+    <b-row v-if="items === undefined || items.length===0">
+      <b-col class="mt-5 pt-5 text-center">
+        <h3 class="text-muted">Nothing to see here</h3>
+      </b-col>
+    </b-row>
+    <div v-else class="mt-4 container-fluid">
+      <b-row v-for="(item, i) in items" :key="item.arBidder.bBidReference.txOutRefId.getTxId">
+        <b-col cols="12" lg="6" v-for="(content, index) in item.arValue" :key="index" class="my-2">
+          <b-card :title="content.token" :sub-title="'Value ' + content.value" class="text-monospace">
+            <b-card-text>
+              <p><strong>Currency</strong> <span class="text-muted">{{ content.currency }}</span></p>
+            </b-card-text>
 
-          <div class="text-right">
-            <b-button variant="info" class="" @click="onBid(item)">Bid {{ item.minNewBid.toLocaleString() }}</b-button>
-          </div>
-          <hr/>
+            <b-card-text>
+              <p><strong>Owner</strong> <span class="text-muted">{{ item.arOwner.getPubKeyHash }}</span></p>
+              <div v-if="item.arOwner.getPubKeyHash!==item.arBidder.bPubKeyHash.getPubKeyHash">
+                <p>
+                  <strong>Bidder</strong> <span class="text-muted">{{ item.arBidder.bPubKeyHash.getPubKeyHash }}</span>
+                </p>
+                <p class="d-flex justify-content-between">
+                  <strong>Last Bid</strong> <span class="text-muted">{{ item.arBidder.bBid.toLocaleString() }}</span>
+                </p>
+              </div>
+              <div class="text-muted pb-2" v-else>
+                No Bids yet
+              </div>
+            </b-card-text>
+            <b-button-toolbar aria-label="Bid">
+              <b-button-group size="sm" class="mr-1">
+                <b-button variant="primary" @click="onBid(item)">
+                  Bid ({{ item.minNewBid.toLocaleString() }})
+                </b-button>
+              </b-button-group>
+              <b-input-group size="sm" class="mr-1">
+                <b-button variant="success" @click="onBidIncrease(i)">
+                  <BIconPatchPlus></BIconPatchPlus>
+                </b-button>
+              </b-input-group>
+              <b-input-group size="sm">
+                <b-button variant="warning" @click="onBidDecrease(i)">
+                  <BIconPatchMinus></BIconPatchMinus>
+                </b-button>
+              </b-input-group>
+            </b-button-toolbar>
+          </b-card>
         </b-col>
       </b-row>
-    </b-container>
+    </div>
   </div>
 </template>
 
@@ -40,7 +59,7 @@ export default {
   name: "DummyAuction",
   components: {NavBar},
   created() {
-    this.items=[]
+    this.items = []
     if (this.instanceId) {
       this.refresh()
     }
@@ -68,12 +87,36 @@ export default {
             ]
           }).then(() => this.$task.infoMessage("Transaction Submitted."))
       )
+      this.$task.do(
+          this.$http.post(`instance/${this.instanceId}/endpoint/onAuction`, '""')
+      )
+      this.$store.dispatch('updateAuctionItems', this.items)
     },
     refresh() {
       this.flight = true
       this.$task.do(
           this.$http.post(`instance/${this.instanceId}/endpoint/onAuction`, '""')
       )
+      if (this.items.length === 0)
+        this.timeoutHandle = setTimeout(this.refresh, 5000)
+      else {
+        this.$store.dispatch('updateAuctionItems', this.items)
+        clearTimeout(this.timeoutHandle)
+      }
+    },
+    onBidIncrease(index) {
+      this.$store.dispatch('updateAuctionItems', this.items)
+      const item = this.$store.state.auctionItems[index]
+      item.minNewBid += item.arMinIncrement
+      this.$store.dispatch('updateAuctionItemBidPrice', {item, index})
+    },
+    onBidDecrease(index) {
+      const item = this.$store.state.auctionItems[index]
+      if (item.arBidder.bBid + item.arMinIncrement < item.minNewBid) {
+        item.minNewBid -= item.arMinIncrement
+        this.$store.dispatch('updateAuctionItemBidPrice', {item, index})
+      }
+      if (item.minNewBid === item.arBidder.bBid + item.arMinIncrement) this.btnDisabled = true
     }
   },
 

@@ -15,11 +15,15 @@
             </router-link>
           </h1>
           <ul class="list-unstyled components mb-5">
+            <li>
+              <a href="#" class="p-2 text-decoration-none small text-justify">{{ instanceId }}</a>
+            </li>
             <li class="active">
               <div class="d-flex flex-column justify-content-lg-end border-bottom pb-2 p-2">
-                <i>My balance</i>
-                <strong class="balance-style">{{ (Math.round(balance.ada / 10000) / 100).toLocaleString() }}
-                  Ada</strong>
+                My balance
+                <strong class="balance-style">
+                  {{ (Math.round(balance / 10000) / 100).toLocaleString() }} Ada
+                </strong>
               </div>
             </li>
             <li>
@@ -52,7 +56,7 @@
               </b-container>
             </li>
             <li>
-              <router-link :to="{name: 'market'}" class="btn btn-block text-left py-4 px-2">
+              <router-link :to="{name: 'wallets'}" class="btn btn-block text-left py-4 px-2">
                 My Wallets
               </router-link>
             </li>
@@ -62,7 +66,7 @@
               </router-link>
             </li>
             <li>
-              <router-link :to="{name: 'market'}" class="btn btn-block text-left py-4 px-2">
+              <router-link :to="{name: 'buysell'}" class="btn btn-block text-left py-4 px-2">
                 Buy / Sell
               </router-link>
             </li>
@@ -145,7 +149,10 @@ export default {
   computed: {
     balance() {
       return this.$store.state.contract.funds
-    }
+    },
+    instanceId() {
+      return this.$store.state.contract.instance.cicContract.unContractInstanceId
+    },
   },
   methods: {
     onSell() {
