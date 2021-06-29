@@ -23,6 +23,8 @@ import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
 import qualified PlutusTx.Prelude             as Plutus
 
+import Data.Monoid (Last(..))
+
 import Mlabs.Emulator.Blockchain
 import Mlabs.Emulator.Types
 import Mlabs.Lending.Logic.React
@@ -129,7 +131,10 @@ runInitialise :: forall w e schema .
   ( HasTxConfirmation schema
   , HasWriteTx schema
   , SM.AsSMContractError e
-  ) => LendexId -> LendingPool -> Value -> Contract w schema e ()
-runInitialise lid lendingPool val = void $ SM.runInitialise (client lid) (lid, lendingPool) val
+  ) => LendexId -> LendingPool -> Value -> Contract (Last (LendexId, LendingPool)) schema e ()
+runInitialise lid lendingPool val = do
+  state <- SM.runInitialise (client lid) (lid, lendingPool) val
+  tell $ Last $ Just $ state
+  return ()
 
 

@@ -10,6 +10,7 @@ module Mlabs.Lending.Contract.Server(
   , adminEndpoints
   -- * Errors
   , LendexError
+  , LendexStatus(..)
 ) where
 
 import Prelude
@@ -32,6 +33,10 @@ import Mlabs.Lending.Contract.Api
 import Mlabs.Lending.Contract.StateMachine
 import qualified Mlabs.Lending.Contract.Forge as Forge
 
+import Data.Monoid (Last)
+
+type LendexStatus = Last (LendexId, LendingPool)
+
 -- | User contract monad
 type UserContract a = Contract () UserSchema LendexError a
 
@@ -39,7 +44,7 @@ type UserContract a = Contract () UserSchema LendexError a
 type OracleContract a = Contract () OracleSchema LendexError a
 
 -- | Admin contract monad
-type AdminContract a = Contract () AdminSchema LendexError a
+type AdminContract a = Contract LendexStatus AdminSchema LendexError a
 
 ----------------------------------------------------------
 -- endpoints
