@@ -28,4 +28,6 @@ p = project ./. ({ pkgs, ... }: {
   ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
   ios.bundleName = "Obelisk Minimal Example";
 });
-in builtins.removeAttrs p ["ios" "android"]
+in builtins.removeAttrs p ["ios" "android"] // {
+    plutus-starter = import deps.plutus-starter {};
+  }
