@@ -8,7 +8,6 @@ write-ghc-environment-files: never
 -- Always build tests and benchmarks.
 tests: true
 benchmarks: true
-
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus.git
@@ -175,10 +174,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/goblins
-
-
-
-package cardano-api
-  tests: false
-package ouroboros-network
-  tests: false
+  
+package plutus-tokens
+   coverage: True
+   library-coverage: True

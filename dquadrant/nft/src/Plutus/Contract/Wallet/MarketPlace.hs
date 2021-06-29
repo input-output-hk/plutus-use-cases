@@ -13,15 +13,16 @@
 {-# LANGUAGE ViewPatterns       #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 module Plutus.Contract.Wallet.MarketPlace(
-    sell,
-    cancelUtxoSale,
+    submitDirectSales,
+    withdrawUtxos,
     findMarketUtxos,
     buyDirectSaleUtxos,
-    buyDirectSaleByAssets,
-    directSalesOfPk,
+    directSalesOfPkh,
     directSalesInMarket,
     auctionsInMarket,
+    auctionsOfPkh,
     submitAuction,
     bidAuctionUtxo,
     parseMarketUtxosNoError,
@@ -70,22 +71,15 @@ import Ledger.TimeSlot (posixTimeRangeToSlotRange, slotToPOSIXTime)
 import Control.Lens (review)
 
 
+submitDirectSales:: (AsContractError  e) => Market ->[(DirectSale ,Value)] -> Contract w s e Tx
+submitDirectSales market sps=do submitTx $ Prelude.mconcat $ map toConstraint sps
+  where
+    toConstraint (ds,v)=mustPayToOtherScript valHash (Datum $ toData  ds)   v
+    valHash=validatorHash $ marketValidator market
 
-sell ::  (AsContractError e )
-        =>Market ->SellType  -> Value ->Price
-             -> Contract w s e Tx
-sell market sellType sellItem price = do
-    pk<-ownPubKey
-    let dsData= DirectSale {
-                    dsSeller= pubKeyHash pk,
-                    dsCost = price,
-                    dsType=sellType
-                    }
-        tx=mustPayToOtherScript (validatorHash $ marketValidator market) (Datum $ toData dsData) sellItem
-    submitTx tx
 
 buyDirectSaleUtxos :: (AsContractError e) => Market -> [ParsedUtxo DirectSale]  -> Contract w s e Tx
-buyDirectSaleUtxos m fUtxos= submitTxConstraintsWith @MarketType lookups tx
+buyDirectSaleUtxos m fUtxos= submitTxConstraintsWith @MarketScriptType lookups tx
     where
         tx=foldMap  toConstraint fUtxos
         lookups=otherScript (marketValidator m )Prelude.<> unspentOutputs consumedOutputs
@@ -93,7 +87,7 @@ buyDirectSaleUtxos m fUtxos= submitTxConstraintsWith @MarketType lookups tx
         consumedOutputs=Map.fromList $ map (\(a,b,c) ->(a,b)) fUtxos
 
         toConstraint (utxoRef, _, ds) = mustSpendScriptOutput utxoRef (Redeemer ( toData Buy))
-                        <> mustPayToPubKey  (dsSeller ds) (dsUserShareValue m ds)
+                        <> mustPayToPubKey  (dsSeller ds) (dsSellerShareValue m ds)
                         <> mustPayToPubKey (mOperator m) (dsMarketShareValue m ds)
 
 
@@ -123,10 +117,8 @@ bidAuctionUtxo market (ref,tx@TxOutTx{txOutTxOut=utxo},ac) bidAmount = do
 
       constraints= if isFirstBid  then constraintsExceptLastBidder else
                         constraintsExceptLastBidder<> mustPayToPubKey  (aBidder  ac) lastBidderShareValue
-  (if
-    ( ivTo $ aDuration  ac) < UpperBound (Finite (slotToPOSIXTime slot)) False
-  then  throwOver
-  else submitTxConstraintsWith @MarketType lookups constraints)
+
+  submitTxConstraintsWith @MarketScriptType lookups constraints
   where
       lookups=otherScript (marketValidator market ) Prelude.<>  unspentOutputs (Map.singleton ref tx)
       lastBidderShare       = auctionAssetValueOf ac  (txOutValue utxo)
@@ -135,12 +127,9 @@ bidAuctionUtxo market (ref,tx@TxOutTx{txOutTxOut=utxo},ac) bidAmount = do
       lastValue=txOutValue utxo
       isFirstBid= lastBidderShare == 0 && (aBidder  ac == aOwner ac)
 
-      throwOver::AsContractError e =>Contract w s e a
-      throwOver=throwError  $ review _OtherError "Auction is closed"
-
 
 claimAuctionUtxos ::AsContractError e => Market -> [ParsedUtxo Auction] -> Contract w s e Tx
-claimAuctionUtxos market refs@[(_,_,a)] =  logInfo (show constraint)>> logInfo  a>> submitTxConstraintsWith @MarketType lookups constraint
+claimAuctionUtxos market refs@[(_,_,a)] =  logInfo (show constraint)>> logInfo  a>> submitTxConstraintsWith @MarketScriptType lookups constraint
   where
   lookups=otherScript (marketValidator market ) Prelude.<>  unspentOutputs uTxoLookup
 
@@ -155,41 +144,16 @@ claimAuctionUtxos market refs@[(_,_,a)] =  logInfo (show constraint)>> logInfo  
     <> mustPayToPubKey  (mOperator market) (aMarketShareValue market auction value)
 
 
-cancelUtxoSale :: (AsContractError e) => Market -> [TxOutRef]  -> Contract w s e Tx
-cancelUtxoSale market refs=do
-  l<-lookups
-  c<-constraints
-  submitTxConstraintsWith @MarketType l c
+withdrawUtxos :: (AsContractError e) => Market -> [TxOutRef]  -> Contract w s e Tx
+withdrawUtxos market refs=do
+  utxoMap<-utxoAt  $ marketAddress market
+  let resolvedUtxos = mapMaybe (\utxo ->Map.lookup utxo utxoMap<&>(utxo,)) refs
 
+  let lookups =(otherScript $ marketValidator market) <> unspentOutputs (Map.fromList resolvedUtxos)
+  let constraints =Prelude.mconcat $ map (\(u,_)->mustSpendScriptOutput u redeemer) resolvedUtxos
+  submitTxConstraintsWith @MarketScriptType lookups constraints
   where
-    lookups=  filteredUtxos <&> \x ->
-                (otherScript $ marketValidator market) <>
-                (unspentOutputs $  Map.fromList $ map (\(a,b,_) -> (a,b)) x)
-
-    constraints = filteredUtxos <&> Prelude.mconcat . map (\(x,_,_) ->mustSpendScriptOutput x redeemer)
-
-    filteredUtxos :: AsContractError e => Contract w s e [ParsedUtxo DirectSale]
-    filteredUtxos=case refs of
-                  [a] ->  filterUtxosWithDataAt (\ref _ -> ref == a ) $ marketAddress market
-                  _   ->  filterUtxosWithDataAt (\ref _ -> ref `Prelude.elem` refSet ) $ marketAddress  market
-    refSet= Set.fromList refs
-    redeemer= Redeemer $ toData TakeBack
-
-buyDirectSaleByAssets :: (AsContractError e) => Market -> [AssetClass] -> Contract w s e Tx
-buyDirectSaleByAssets market assets =
-    case assets of
-      [asset] ->( do
-        utxoInfo <- findDirectSaleByAsset market  asset
-        case utxoInfo of
-            [v] -> buyDirectSaleUtxos market [v]
-        )
-      as       ->
-        let assets=Set.fromList as
-            doLookup (c,t, v) = AssetClass (c, t) `Prelude.elem` assets && v >0
-            hasAsset ref txOutTx=
-                         foldl (\ t a ->t || doLookup a) False  $ flattenValue (txOutValue (txOutTxOut txOutTx))
-        in
-          filterUtxosWithDataAt  hasAsset  (marketAddress market) >>=buyDirectSaleUtxos market
+    redeemer= Redeemer $ toData Withdraw
 
 parseMarketUtxo::(IsData a,AsContractError e) => Market -> TxOutRef  -> Contract w s e (TxOutRef ,TxOutTx,a)
 parseMarketUtxo market =resolveRefWithDataAt (marketAddress market)
@@ -206,37 +170,20 @@ directSalesInMarket ::  (AsContractError e) =>
              -> Contract w s e  [ParsedUtxo DirectSale]
 directSalesInMarket market = utxosWithDataAt (marketAddress market)
 
-
 auctionsInMarket :: (AsContractError e) =>
              Market
              -> Contract w s e  [ParsedUtxo Auction]
 auctionsInMarket market= utxosWithDataAt (marketAddress market)
 
-findAuctionByAsset :: (AsContractError e) => Market -> AssetClass
-             -> Contract w s e  [ParsedUtxo Auction]
-findAuctionByAsset=findMarketUtxoByAsset
+auctionsOfPkh ::(AsContractError e) =>
+             Market  ->PubKeyHash-> Contract w s e [ParsedUtxo Auction]
+auctionsOfPkh market pkh = auctionsInMarket market <&> filter (\(_,_,a)-> aOwner  a==pkh || aBidder a== pkh )
 
-findDirectSaleByAsset::(AsContractError e) =>Market -> AssetClass
-             -> Contract w s e  [ParsedUtxo DirectSale]
-findDirectSaleByAsset=findMarketUtxoByAsset
-
-directSalesOfPk ::(AsContractError e) =>
+directSalesOfPkh ::(AsContractError e) =>
              Market  ->PubKeyHash-> Contract w s e [ParsedUtxo DirectSale]
-directSalesOfPk market pkh = directSalesInMarket market <&> filter (\(_,_,ds)-> dsSeller ds==pkh)
+directSalesOfPkh market pkh = directSalesInMarket market <&> filter (\(_,_,ds)-> dsSeller ds==pkh)
 
 findMarketUtxos:: (AsContractError e,IsData st) => Market -> [TxOutRef] -> Contract w s e [ParsedUtxo st]
 findMarketUtxos market txouts =do
       let items = Set.fromList txouts
       filterUtxosWithDataAt (\x _ ->  Prelude.elem x items) $ marketAddress market
-
-
-findMarketUtxoByAsset :: (AsContractError e,IsData a) =>
-             Market -> AssetClass
-             -> Contract w s e  [(TxOutRef,TxOutTx,a )]
-findMarketUtxoByAsset market aClass=
-    let
-        havingAsset ::  TxOutTx -> Bool
-        havingAsset  tx= assetClassValueOf  (txOutValue (txOutTxOut tx)) aClass > 0
-    in do
-        utxos <-utxoAt (marketAddress market)
-        pure $ flattenUtxosWithData  $ Map.filter havingAsset utxos

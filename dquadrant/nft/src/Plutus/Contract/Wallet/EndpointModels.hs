@@ -22,28 +22,28 @@ import Ledger.TimeSlot (slotToPOSIXTime)
 import Wallet.Emulator.Wallet (walletPubKey)
 
 
-data ResponseTypes = Funds| MarketNfts|OwnNftsOnSale |Minted|PlacedOnMarket|Bought deriving(Generic,Prelude.Eq,Prelude.Show,ToJSON,FromJSON)
-data ApiResponse t  = APISequence {
-        sequence :: Integer,
-        contentType::ResponseTypes,
-        content :: t
-    }
-    deriving (Generic,Prelude.Eq ,Prelude.Show,ToJSON,FromJSON)
+-- The models in this package are the response types used to tell state.
+-- These data classes have much flatter structure compared to the default JSON types of 
+-- the classes.
+-- For example response for Asset class by default is
+-- {
+--   "unAssetClass":[{"unCurrencySymbol": "abcd...",{"unTokenName":"0xabc..."}}]
+-- }
+-- but with AssetId, the response is 
+--{
+--  "assCurrency":"abcd...",
+--  "assToken": "0xabcd..."
+--}
+-- It's much readable and is easier to understant in  frontend.
 
+
+
+-- represents an AssetClass
 data AssetId=AssetId
     {
         assCurrency :: !ByteString,
         assToken:: !ByteString
     } deriving(Generic, ToJSON,FromJSON,Prelude.Show,ToSchema )
-
-assetIdToAssetClass :: AssetId -> AssetClass
-assetIdToAssetClass AssetId{assCurrency,assToken}=AssetClass (CurrencySymbol assCurrency, TokenName $ convertString assToken )
-
-assetIdOf:: AssetClass -> AssetId
-assetIdOf (AssetClass (CurrencySymbol c, TokenName t))=AssetId{
-    assCurrency = c,
-    assToken=t
-  }
 
 data MintParams = MintParams
     { mpTokenName :: !TokenName
@@ -53,9 +53,25 @@ data MintParams = MintParams
 data SellParams =SellParams
     {
         spItems::[ValueInfo],
-        spSaleType :: SellType,
+        spSaleType :: SellType, -- Primary | Secondary
         spCost::ValueInfo
     } deriving(GHC.Generics.Generic,ToJSON ,FromJSON,ToSchema,Show)
+
+-- Singleton of a Value
+data ValueInfo=ValueInfo{
+    currency::ByteString,
+    token:: ByteString,
+    value:: Integer
+} deriving(Generic,FromJSON,Prelude.Show,ToSchema,Prelude.Eq )
+
+instance ToJSON ValueInfo
+  where
+    toJSON (ValueInfo c t v) = object [  "currency" .= doConvert c, "token" .= doConvert t,"value".=toJSON v]
+      where
+
+        doConvert bs= toJSON $ toText bs
+
+        toText bs= encodeByteString bs
 
 data PurchaseParam =PurchaseParam
   {
@@ -71,20 +87,7 @@ data AuctionParam = AuctionParam{
     apEndTime::POSIXTime
 } deriving(GHC.Generics.Generic,ToJSON,FromJSON,ToSchema)
 
-aParamToAuction :: PubKeyHash -> AuctionParam -> Auction
-aParamToAuction ownerPkh ap  =Auction {
-              aOwner        =  ownerPkh,
-              aBidder       = ownerPkh,
-              aAssetClass   = valueInfoAssetClass (apMinBid  ap),
-              aMinBid       = value ( apMinBid  ap),
-              aMinIncrement = apMinIncrement  ap,
-              aDuration     =  Interval ( LowerBound  (Finite $ apStartTime ap) True) ( UpperBound  (Finite $ apEndTime ap) False),
-              aValue        = mconcat $ map valueInfoToValue ( apValue  ap)
-          }
 instance ToSchema POSIXTime
-
-
-
 data BidParam=BidParam{
   ref :: TxOutRef,
   bidValue       :: [ValueInfo]
@@ -97,42 +100,11 @@ data ClaimParam=ClaimParam{
 instance ToSchema TxId
 instance ToSchema TxOutRef
 
-dummySellParam ::  SellParams
-dummySellParam =SellParams{
-                spItems=toValueInfo $ Ledger.Value.singleton (CurrencySymbol "ab") (TokenName "cd") 1,
-                spSaleType = Primary  ,
-                spCost=ValueInfo{
-                        currency= unCurrencySymbol adaSymbol,
-                        token=  unTokenName adaToken,
-                        value = 2000
-                }
-        }
-
-data NftsOnSaleResponse=NftsOnSaleResponse{
-    cost::ValueInfo ,
-    saleType:: SellType,
-    fee:: Integer,
-    owner:: ByteString,
-    values:: [ValueInfo],
-    reference :: TxOutRef
-}deriving(Generic,FromJSON,ToJSON,Prelude.Show)
-
-directSaleToResponse:: Market -> (TxOutRef, TxOutTx,DirectSale) -> NftsOnSaleResponse
-directSaleToResponse market (txOutRef,txOutTx,DirectSale{dsCost,dsSeller,dsType}) =
-        NftsOnSaleResponse{
-            cost=priceToValueInfo dsCost ,
-            saleType= dsType,
-            fee= if dsType == Secondary  then mPrimarySaleFee  market else mSecondarySaleFee market,
-            owner= getPubKeyHash dsSeller,
-            values= toValueInfo (txOutValue (txOutTxOut  txOutTx)),
-            reference=txOutRef
-        }
-
 data Bidder = Bidder{
       bPubKeyHash :: PubKeyHash,
       bBid  :: Integer,
       bBidReference:: TxOutRef
-} deriving (Generic,FromJSON,ToJSON,Prelude.Show)
+} deriving (Generic,FromJSON,ToJSON,Prelude.Show,Prelude.Eq)
 
 data AuctionResponse = AuctionResponse{
       arOwner :: PubKeyHash,
@@ -142,8 +114,66 @@ data AuctionResponse = AuctionResponse{
       arDuration::(Extended  POSIXTime,Extended  POSIXTime),
       arBidder :: Bidder,
       arMarketFee:: Integer
-}deriving (Generic,FromJSON,ToJSON,Prelude.Show)
+}deriving (Generic,FromJSON,ToJSON,Prelude.Show,Prelude.Eq)
 
+
+data NftsOnSaleResponse=NftsOnSaleResponse{
+    cost::ValueInfo ,
+    saleType:: SellType,
+    fee:: Integer,
+    owner:: ByteString,
+    values:: [ValueInfo],
+    reference :: TxOutRef
+}deriving(Generic,FromJSON,ToJSON,Prelude.Show,Prelude.Eq)
+
+data MarketType=MtDirectSale | MtAuction  deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
+
+
+data ListMarketRequest  = ListMarketRequest{
+    lmUtxoType::MarketType,
+    lmByPkHash:: Maybe ByteString,
+    lmOwnPkHash:: Bool 
+} deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
+
+
+assetIdToAssetClass :: AssetId -> AssetClass
+assetIdToAssetClass AssetId{assCurrency,assToken}=AssetClass (CurrencySymbol assCurrency, TokenName $ convertString assToken )
+
+assetIdOf:: AssetClass -> AssetId
+assetIdOf (AssetClass (CurrencySymbol c, TokenName t))=AssetId{
+    assCurrency = c,
+    assToken=t
+  }
+
+sellParamToDirectSale :: PubKeyHash -> SellParams->DirectSale 
+sellParamToDirectSale  pkh (SellParams items stype cost) = DirectSale {
+                      dsSeller= pkh,
+                      dsCost = valueInfoToPrice cost,
+                      dsType=stype
+                      }
+
+aParamToAuction :: PubKeyHash -> AuctionParam -> Auction
+aParamToAuction ownerPkh ap  =Auction {
+              aOwner        =  ownerPkh,
+              aBidder       = ownerPkh,
+              aAssetClass   = valueInfoAssetClass (apMinBid  ap),
+              aMinBid       = value ( apMinBid  ap),
+              aMinIncrement = apMinIncrement  ap,
+              aDuration     =  Interval ( LowerBound  (Finite $ apStartTime ap) True) ( UpperBound  (Finite $ apEndTime ap) False),
+              aValue        = mconcat $ map valueInfoToValue ( apValue  ap)
+          }
+
+
+directSaleToResponse:: Market -> ParsedUtxo DirectSale  -> NftsOnSaleResponse
+directSaleToResponse market (txOutRef,txOutTx,DirectSale{dsCost,dsSeller,dsType}) =
+        NftsOnSaleResponse{
+            cost=priceToValueInfo dsCost ,
+            saleType= dsType,
+            fee= if dsType == Secondary  then mPrimarySaleFee  market else mSecondarySaleFee market,
+            owner= getPubKeyHash dsSeller,
+            values= toValueInfo (txOutValue (txOutTxOut  txOutTx)),
+            reference=txOutRef
+        }
 
 auctionToResponse:: Market -> ParsedUtxo Auction -> AuctionResponse
 auctionToResponse market  (ref,TxOutTx tx (TxOut addr value _ ), a) = AuctionResponse{
@@ -163,26 +193,11 @@ auctionToResponse market  (ref,TxOutTx tx (TxOut addr value _ ), a) = AuctionRes
     lb (LowerBound a _ )=a
     ub (UpperBound a _) =a
 
-data ValueInfo=ValueInfo{
-    currency::ByteString,
-    token:: ByteString,
-    value:: Integer
-} deriving(Generic,FromJSON,Prelude.Show,ToSchema)
-
 valueInfoLovelace :: Integer -> ValueInfo
 valueInfoLovelace=ValueInfo (unCurrencySymbol adaSymbol) (unTokenName adaToken)
 
 valueInfoAssetClass:: ValueInfo -> AssetClass
 valueInfoAssetClass (ValueInfo c t _)= AssetClass (CurrencySymbol c, TokenName t)
-
-instance ToJSON ValueInfo
-  where
-    toJSON (ValueInfo c t v) = object [  "currency" .= doConvert c, "token" .= doConvert t,"value".=toJSON v]
-      where
-
-        doConvert bs= toJSON $ toText bs
-
-        toText bs= encodeByteString bs
 
 toValueInfo::Value ->[ValueInfo]
 toValueInfo v=map doMap $ flattenValue v

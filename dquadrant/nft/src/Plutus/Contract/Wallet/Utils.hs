@@ -67,10 +67,10 @@ resolveRefsWithDataAt addr refs= do
           )
     pure $ mapMaybe doResolve  refs
 
+--  resolve UtxoRefs and return them with datum. If the datum is not in expected type, throw error
 resolveRefsWithDataAtWithError :: (IsData  a,AsContractError e) => Address  ->[TxOutRef]  -> Contract w s e [ParsedUtxo a]
 resolveRefsWithDataAtWithError addr refs =do
   utxos <-utxoAt addr
-  --TODO: I am not sure what mapM does, since it matches the type I hope it does what I am expecting here
   mapM  (resolveTxOutRefWithData utxos)  refs
 
 
@@ -113,21 +113,12 @@ txOutTxData o =mappedData (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOut
 -------------- Utility Endpoints
 --------------
 
+-- get funds in this wallet
 ownFunds ::  Contract w s Text Value
 ownFunds = do
     pk    <- ownPubKey
     utxos <- utxoAt $ pubKeyAddress pk
     pure . mconcat . elems $ txOutValue . txOutTxOut <$> utxos
-
-
-ownFunds'':: Contract [Types.Value ] s Text  Types.Value
-ownFunds'' = do
-    pk    <- ownPubKey
-    utxos <- utxoAt $ pubKeyAddress pk
-    let v = mconcat $ Map.elems $ txOutValue . txOutTxOut Prelude.<$> utxos
-    tell [ toJSON v]
--- let's hope that in future we can return the json string without having to tell
-    return $ toJSON  v
 
 type UtilSchema=
   Endpoint "funds" String
@@ -137,12 +128,12 @@ utilEndpoints= handleError (\e ->logError e) $ void fundsEp
 
 fundsEp :: HasEndpoint "funds" String s => Contract
   [Types.Value] s Text Types.Value
-fundsEp=  endpoint @"funds" >> ownFunds''
-
-ownFunds' :: Contract (Last Value) s Text ()
-ownFunds' = do
-    ownFunds >>= tell . Last . Just
-    void $ waitNSlots 1
+fundsEp= do
+    endpoint @"funds"
+    v<- ownFunds
+    tell [ toJSON v]
+-- let's hope that in future we can return the json string without having to tell
+    return $ toJSON  v 
 
 throwNoUtxo::AsContractError e =>Contract w s e a
 throwNoUtxo=throwError  $ review _OtherError "No valid Utxo to consume"

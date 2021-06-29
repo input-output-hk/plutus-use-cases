@@ -21,7 +21,7 @@ import Playground.Contract
 import Ledger hiding(txOutDatum,fee,value,singleton,LowerBound,UpperBound)
 import Ledger.Value
 import qualified PlutusTx.Prelude as PPrelude
-import Plutus.Contract.Blockchain.MarketPlace
+import Plutus.Contract.Blockchain.MarketPlace hiding(MarketType(..))
 import Plutus.Contract.Wallet.EndpointModels
 import Plutus.Contract.Wallet.MarketPlace
 import Plutus.Contract.Blockchain.Utils
@@ -36,21 +36,19 @@ import qualified Data.ByteString.Internal as Lazy
 import qualified Ledger.Time              as Time
 import Data.Functor ((<&>), void)
 import Ledger.Interval
-import Plutus.Contract.Wallet.Utils
+import Plutus.Contract.Wallet.Utils ( throwNoUtxo )
 import Control.Lens
 import Control.Monad
 
 type MarketSchema =
         Endpoint "sell" [SellParams]
         .\/ Endpoint "buy"  PurchaseParam
-        .\/ Endpoint "onsale" String -- ignores the string
-        .\/ Endpoint "onAuction" String --ignores the string
-        .\/ Endpoint "ownOnSale" String -- ignores the string
-        .\/ Endpoint "onSaleOfPk" PubKeyHash
+        .\/ Endpoint "list" ListMarketRequest 
         .\/ Endpoint "cancelSale" [TxOutRef]
         .\/ Endpoint "startAuction" [AuctionParam]
         .\/ Endpoint "bid"  BidParam
         .\/ Endpoint "claim"  ClaimParam
+        .\/ Endpoint "withdraw" [TxOutRef]
 
 -- mkSchemaDefinitions ''MarketSchema
 
@@ -62,27 +60,22 @@ type MarketSchema =
 marketEndpoints :: (
     HasEndpoint "sell" [SellParams] s,
     HasEndpoint "buy"  PurchaseParam  s,
-    HasEndpoint "onsale" String s,
-    HasEndpoint "onAuction" String s,
-    HasEndpoint "ownOnSale" String s,
-    HasEndpoint "onSaleOfPk" PubKeyHash s,
-    HasEndpoint "cancelSale" [TxOutRef] s,
+    HasEndpoint "list" ListMarketRequest s,
     HasEndpoint "startAuction" [AuctionParam] s,
     HasEndpoint "bid" BidParam s,
-    HasEndpoint "claim" ClaimParam s
+    HasEndpoint "claim" ClaimParam s,
+    HasEndpoint "withdraw" [TxOutRef] s
     ) => Market -> Contract [AesonTypes.Value] s Text  ()
 marketEndpoints market =  handleError handler (void selections)
   where
     selections  =      sellEp market
               `select` buyEp market
-              `select` onSaleEp market
-              `select` onAuctionEp market
-              `select` ownDirectSalesEp market
-              `select` directSalesOfPkEp market
-              `select` cancelSaleEp market
+              `select` listEp market
+              `select` withdrawEp market
               `select` startAuctionEp market
               `select` bidEp market
               `select` claimEp market
+              `select` withdrawEp market
 
     handler :: Show a => a -> Contract w s e ()
     handler e = do
@@ -92,52 +85,38 @@ marketEndpoints market =  handleError handler (void selections)
 sellEp :: HasEndpoint "sell" [SellParams] s =>Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
 sellEp market =do
     sps <-(endpoint @"sell")
-    let aggregateValue=valueInfosToValue (spItems$ head sps)
-    sell market (spSaleType $head sps) aggregateValue (valueInfoToPrice $ spCost$ head sps)
-      >>=confirmAndTell
+    ownPkh <-ownPubKey <&> pubKeyHash
+    let sales=map (\x->(sellParamToDirectSale ownPkh x ,valueInfosToValue ( spItems x))) sps
+    submitDirectSales market sales >>= confirmAndTell
 
-cancelSaleEp :: HasEndpoint "cancelSale" [TxOutRef] s => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
-cancelSaleEp m =(endpoint @"cancelSale">>= cancelUtxoSale  m) >>= confirmAndTell
 
 buyEp :: (HasEndpoint "buy" PurchaseParam s) => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
 buyEp market= do
   PurchaseParam{ppItems,ppValue} <-(endpoint @"buy")
   findMarketUtxos market ppItems >>= buyDirectSaleUtxos market >>= confirmAndTell
 
-onSaleEp :: HasEndpoint "onsale" String s =>
-    Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
-onSaleEp market =
-        (endpoint @"onsale"
-        >> directSalesInMarket market)
-        >>= doReturn . map (directSaleToResponse market)
+withdrawEp :: (HasEndpoint "withdraw" [TxOutRef] s) => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
+withdrawEp market= do
+  utxos   <-(endpoint @"withdraw")
+  withdrawUtxos market utxos  >>= confirmAndTell
 
-onAuctionEp :: HasEndpoint "onAuction" String s =>
-      Market -> Contract  [AesonTypes.Value] s Text AesonTypes.Value 
-onAuctionEp market =
-        endpoint @"onAuction"
-          >> auctionsInMarket  market
-          >>= doReturn. map (auctionToResponse market)
-        
-
-directSalesOfPkEp :: (HasEndpoint "onSaleOfPk" PubKeyHash s,AsContractError e) =>
-             Market-> Contract [AesonTypes.Value ] s e AesonTypes.Value
-directSalesOfPkEp m =
-  endpoint @"onSaleOfPk"
-     >>= directSalesOfPk m
-     >>= doReturn . map (directSaleToResponse m)
-
-ownDirectSalesEp :: (HasEndpoint "ownOnSale" String s,AsContractError e) =>
-             Market-> Contract [AesonTypes.Value ] s e AesonTypes.Value
-ownDirectSalesEp m =
-  endpoint @"ownOnSale"
-     >> ownPubKey
-     >>= directSalesOfPk m . pubKeyHash
-     >>= doReturn . map (directSaleToResponse m)
-
--- updateSaleEp::  HasEndpoint "claim" [AssetId] s => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
--- updateSaleEp market=do
---     Contract.waitNSlots 1
---     pure $ toJSON ()
+listEp :: (HasEndpoint "list" ListMarketRequest s)=> Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
+listEp market = do
+  (ListMarketRequest lType lMaybePkh lOwnPkh)<-(endpoint @"list")
+  ownPkh <-ownPubKey <&> pubKeyHash
+  responses<-case lType of
+              MtDirectSale -> (if lOwnPkh then directSalesOfPkh market ownPkh
+                                else  case lMaybePkh of 
+                                          Just pkh -> directSalesOfPkh market $ PubKeyHash pkh
+                                          _        -> directSalesInMarket market
+                              )<&> map (directSaleToResponse  market) <&> toJSON
+              MtAuction   ->  (if lOwnPkh then auctionsOfPkh market ownPkh
+                                else  case lMaybePkh of 
+                                          Just pkh -> auctionsOfPkh market $ PubKeyHash pkh
+                                          _        -> auctionsInMarket market
+                              )<&> map (auctionToResponse market)<&> toJSON 
+  tell [responses]
+  pure responses
 
 startAuctionEp::  HasEndpoint "startAuction" [AuctionParam] s => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
 startAuctionEp market=do
@@ -145,15 +124,6 @@ startAuctionEp market=do
     ownPkh <-ownPubKey <&> pubKeyHash
     let as= map (aParamToAuction ownPkh) aps
     submitAuction market as >>= confirmAndTell
-  
--- TODO Investigate : Using this prime version  somehow makes all other endpoints go away. 
-startAuctionEp'::  HasEndpoint "startAuction" [AuctionParam] s => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
-startAuctionEp' market =do 
-  ownPkh <- ownPubKey <&> pubKeyHash
-  endpoint @"startAuction" 
-    <&> map (aParamToAuction ownPkh)
-    >>= submitAuction market
-    >>= confirmAndTell
 
 bidEp::  HasEndpoint "bid" BidParam  s => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
 bidEp market=do

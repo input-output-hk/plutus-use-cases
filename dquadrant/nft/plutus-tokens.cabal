@@ -22,7 +22,6 @@ maintainer:         IOHK
 -- extra-source-files: CHANGELOG.md
 
 library
-    coverage: True
     exposed-modules:
       -- Plutus.Contract.Wallet.Erc20
       Plutus.Contract.Wallet.Nft
@@ -115,4 +114,3 @@ executable tokens-pab
     containers -any,
     bytestring -any,
     prettyprinter -any
-

@@ -28,13 +28,19 @@ import Plutus.Contract.Blockchain.MarketPlace
 import Plutus.Contract.Wallet.EndpointModels
 import Control.Lens
 import Plutus.Trace.Emulator
+import qualified Data.Aeson as AesonTypes
+import Data.Text(Text)
+import Ledger (TxOutRef, pubKeyHash, PubKeyHash (getPubKeyHash))
+import Prelude (show)
 
 
 tests :: TestTree
 tests = testGroup "DirectSale"
       [ canPlaceForDirectSale
+      , canQueryOwnAndOthersAuction
       , canPlaceCombosOnSale
       , canWithdrawFromMarket
+      , canWithdrawMultipleFromMarket
       , whenSpendPrice'canBuyFromMarket
       , canBuyMultipleFromMarket
       , whenBought'operatorReceivesFee
@@ -50,16 +56,37 @@ canPlaceForDirectSale =
       (     walletFundsChange (Wallet 1) (negNft "aa")
       .&&. walletFundsChange (Wallet 2)  (negNft "ba")
       .&&. lockedByMarket ( nft "aa" <> nft "ba")
+
        )$
        do
           h1 <- getHandle 1
           h2 <- getHandle 2
+
           void $ waitNSlots 1
           callEndpoint @"sell" h1 [ sellParamLovelace (nft "aa") Primary 10_000_000 ]
-          wait
           callEndpoint @"sell" h2 [ sellParamLovelace (nft "ba") Secondary 30_000_000]
           wait
+          sales<-callListDirectSale h1
+          assertTrue "Expected two items in marketsale"  $ (length sales)==2
 
+
+canQueryOwnAndOthersAuction ::TestTree
+canQueryOwnAndOthersAuction = defaultCheck
+  "Can List Own Auction in Market"
+  assertNoFailedTransactions
+  $ do
+    h1<-getHandle 1
+    h2<- getHandle 2
+
+    callEndpoint @"sell" h1 [ sellParamLovelace (nft "aa") Primary 10_000_000 ]
+    callEndpoint @"sell" h2 [ sellParamLovelace (nft "ba") Secondary 30_000_000]
+    u1 <-waitForLastUtxos h1 <&> head
+    u2 <-lastUtxos h2 <&> head
+    callListOwn h1 >>= expectSingleResponse u1
+    callListOfWallet 1 h2 >>= expectSingleResponse u1
+
+    callListOwn h2 >>=expectSingleResponse u2
+    callListOfWallet 2 h1 >>= expectSingleResponse u2
 
 canPlaceCombosOnSale :: TestTree
 canPlaceCombosOnSale=
@@ -80,7 +107,7 @@ canWithdrawFromMarket=
   defaultCheck
     "Can Withdraw from market"
     (   walletFundsChange  (Wallet 1) (noNft "aa")
-      .&&. walletFundsChange (Wallet 2) (noNft "bb"<> lovelaceValueOf 0)
+      .&&. walletFundsChange (Wallet 2) (noNft "bb")
      )$
     do
       h1 <- getHandle 1
@@ -88,8 +115,24 @@ canWithdrawFromMarket=
       callEndpoint @"sell" h1  [sellParamLovelace (nft "aa") Primary 1000_000]
       callEndpoint @"sell" h2 [sellParamLovelace (nft "bb") Secondary 1000_000]
       wait
-      lastUtxos h1 >>= callEndpoint @"cancelSale" h1
-      lastUtxos h2 >>= callEndpoint @"cancelSale" h2
+      lastUtxos h1 >>= callEndpoint @"withdraw" h1
+      lastUtxos h2 >>= callEndpoint @"withdraw" h2
+      wait
+
+canWithdrawMultipleFromMarket :: TestTree
+canWithdrawMultipleFromMarket=
+  defaultCheck
+    "Can Withdraw  Multiple direct sales from market"
+    (   walletFundsChange  (Wallet 1) (noNft "aa"<> noNft "bb")
+     )$
+    do
+      h1 <- getHandle 1
+      callEndpoint @"sell" h1  [sellParamLovelace (nft "aa") Primary 1000_000]
+      u1 <- lastUtxos h1
+      callEndpoint @"sell" h1 [sellParamLovelace (nft "ab") Secondary 1000_000]
+      wait
+      u2 <- lastUtxos h1
+      void $ callEndpoint @"withdraw" h1 (u1 ++ u2)
       wait
 
 whenSpendPrice'canBuyFromMarket :: TestTree
@@ -129,7 +172,7 @@ canBuyMultipleFromMarket=
       callEndpoint @"sell" h3 [sellParamLovelace (nft "cc") Secondary 3_000_000]
       callEndpoint @"sell" h4 [sellParamLovelace (nft "da") Primary 4_000_000]
       wait
-      us <- allUtxos  h1
+      us <-  callListDirectSale h1 <&> map reference
       callEndpoint @"buy" h1 $ PurchaseParam (valueInfoLovelace 9_000_000) us
       wait
 
@@ -166,7 +209,7 @@ whenBoughtMultiple'operatorReceivesFee=
       callEndpoint @"sell" h2 [sellParamLovelace (nft "ba") Secondary 100_000_000]
       callEndpoint @"sell" h3 [sellParamLovelace  (nft "ca") Secondary 300_000_000]
       wait
-      utxos <- allUtxos h4
+      utxos <- callListDirectSale h4 <&> map reference
       callEndpoint @"buy" h4 $ PurchaseParam (valueInfoLovelace 600_000_000) utxos
       wait
 
@@ -210,6 +253,31 @@ whenBoughtMultiple'sellerReceivesSellerShare=
       callEndpoint @"sell" h2 [sellParamLovelace (nft "ba") Secondary 100_000_000]
       callEndpoint @"sell" h3 [sellParamLovelace  (nft "ca") Secondary 300_000_000]
       wait
-      utxos <- allUtxos h4
+      utxos <- callListDirectSale h4 <&> map reference
       callEndpoint @"buy" h4 $ PurchaseParam (valueInfoLovelace 700_000_000) utxos
       wait
+
+
+
+callListDirectSale::ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [NftsOnSaleResponse]
+callListDirectSale h=do
+  callEndpoint @"list" h $ ListMarketRequest MtDirectSale Nothing False
+  wait
+  lastResult h
+
+callListOwn::ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [NftsOnSaleResponse]
+callListOwn h=do
+  callEndpoint @"list" h $ ListMarketRequest MtDirectSale Nothing True
+  wait
+  lastResult h
+
+callListOfWallet:: Integer -> ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [NftsOnSaleResponse]
+callListOfWallet w h=do
+  callEndpoint @"list" h $ ListMarketRequest MtDirectSale (Just $ getPubKeyHash $ pubKeyHash $ walletPubKey $ Wallet w) False
+  wait
+  lastResult h
+
+expectSingleResponse:: TxOutRef  -> [NftsOnSaleResponse]  -> EmulatorTrace ()
+expectSingleResponse utxo nfts  =case nfts of
+  [a] -> assertTrue "h1 Auction response mismatch" (reference  a == utxo)
+  _   ->  throw $ "Expected single response with auction got: " ++ show nfts

@@ -6,18 +6,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Test.TestHelper
-  ( sellParamLovelace, nft, negNft,noNft, wait, getHandle, waitForLastUtxos, lastUtxos,allUtxos,operator,defaultMarket,defaultCheck,lockedByMarket,defaultMarketAddress,TestSchema,walletHasAtLeast)
 where
 import Ledger.Ada(adaSymbol,adaToken, lovelaceValueOf)
 import Ledger.Value
-import PlutusTx.Builtins (ByteString, emptyByteString)
+import PlutusTx.Builtins (ByteString, emptyByteString, encodeUtf8)
 import Ledger (txId, TxOutTx (txOutTxTx), pubKeyHash, Address, pubKeyAddress, TxId)
 import Plutus.Trace
     ( EmulatorTrace,
       ContractHandle,
       activateContractWallet, EmulatorConfig )
 import Data.Text (Text)
-import Data.Aeson (Result (Error, Success), ToJSON (toJSON), fromJSON)
+import Data.Aeson (Result (Error, Success), ToJSON (toJSON), fromJSON, encode)
 import Plutus.Trace.Emulator.ContractInstance (ContractInstanceState(ContractInstanceState))
 import Plutus.Contract.Types
     ( select,
@@ -42,6 +41,7 @@ import qualified Plutus.Trace.Emulator as EmulatorTrace
 import Plutus.Contract.Test (TracePredicate, checkPredicateOptions, defaultCheckOptions, emulatorConfig, valueAtAddress)
 import Test.Tasty (TestTree)
 import Control.Lens.Operators
+import Data.String.Conversions (convertString)
 
 type TestSchema=
   MarketSchema
@@ -115,9 +115,15 @@ lastResult h=do
     (v : _) ->  ( Extras.logDebug    @String $ "parseJson : " ++ show v ) >> pure v
   case fromJSON state of
     Success p -> pure p
-    Error  e  -> do Extras.logError @String $ "AesonError : " ++ show e
-                    EmulatorTrace.throwError (GenericError e)
+    Error  e  -> do Extras.logError @String $ "AesonError : " ++ show e ++" : "++(convertString $ encode state)
+                    EmulatorTrace.throwError (GenericError $ e ++" : " ++ (convertString $ encode state))
 
+assertTrue ::  String ->Bool -> EmulatorTrace  ()
+assertTrue b a =
+    if a then return () else EmulatorTrace.throwError (GenericError b)
+
+throw:: String -> EmulatorTrace ()
+throw s =EmulatorTrace.throwError (GenericError s)
 
 lastUtxos :: ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [TxOutRef]
 lastUtxos h = do
@@ -131,11 +137,6 @@ waitForLastUtxos h= do
   wait
   lastUtxos h
 
-allUtxos :: ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [TxOutRef]
-allUtxos h = do
-  callEndpoint @"onsale" h ""
-  wait
-  lastResult h <&> map reference
 
 configurationWithNfts :: EmulatorConfig
 configurationWithNfts = EmulatorConfig $ Left $ Map.fromList distribution
