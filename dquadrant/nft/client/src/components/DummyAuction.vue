@@ -11,9 +11,10 @@
         <b-col v-for="(item, i) in items" :key="item.arBidder.bBidReference.txOutRefId.getTxId"
                cols="12" lg="6" class="my-2">
           <div v-for="(content, index) in item.arValue" :key="index">
-            <b-card :title="content.token" :sub-title="'Value ' + content.value" class="text-monospace">
+            <b-card :title="content.token" :sub-title="content.value === 1 ? 'NFT' : content.value"
+                    class="text-monospace">
               <b-card-text>
-                <p><strong>Currency</strong> <span class="text-muted">{{ content.currency }}</span></p>
+                <p><strong>Policy</strong> <span class="text-muted">{{ content.currency }}</span></p>
               </b-card-text>
 
               <b-card-text>
@@ -32,9 +33,11 @@
                   No Bids yet
                 </div>
               </b-card-text>
+              <b-form-input class="mb-2" type="number" v-model.number="item.minNewBid"
+                            v-on:change="onBidChange(i)"></b-form-input>
               <b-button-toolbar aria-label="Bid">
                 <b-button-group size="sm" class="mr-1">
-                  <b-button variant="primary" @click="onBid(item)">
+                  <b-button variant="primary" @click="onBid(item)" :disabled="item.arBidder.bBid >= item.minNewBid">
                     Bid ({{ item.minNewBid.toLocaleString() }})
                   </b-button>
                 </b-button-group>
@@ -44,7 +47,7 @@
                   </b-button>
                 </b-input-group>
                 <b-input-group size="sm">
-                  <b-button variant="warning" @click="onBidDecrease(i)">
+                  <b-button variant="warning" @click="onBidDecrease(i)" :disabled="item.arBidder.bBid >= item.minNewBid">
                     <BIconPatchMinus></BIconPatchMinus>
                   </b-button>
                 </b-input-group>
@@ -116,12 +119,20 @@ export default {
       this.$store.dispatch('updateAuctionItemBidPrice', {item, index})
     },
     onBidDecrease(index) {
+      this.$store.dispatch('updateAuctionItems', this.items)
       const item = this.$store.state.auctionItems[index]
       if (item.arBidder.bBid + item.arMinIncrement < item.minNewBid) {
         item.minNewBid -= item.arMinIncrement
         this.$store.dispatch('updateAuctionItemBidPrice', {item, index})
       }
-      if (item.minNewBid === item.arBidder.bBid + item.arMinIncrement) this.btnDisabled = true
+    },
+    onBidChange(index) {
+      this.$store.dispatch('updateAuctionItems', this.items)
+      const item = this.$store.state.auctionItems[index]
+      if (item !== undefined && item.arBidder.bBid >= item.minNewBid) {
+        item.minNewBid = item.arBidder.bBid
+        this.$store.dispatch('updateAuctionItemBidPrice', {item, index})
+      }
     }
   },
 
