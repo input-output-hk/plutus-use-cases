@@ -35,11 +35,11 @@ library
       Plutus.OutputValue 
       Ext.Plutus.Ledger.Contexts 
       Plutus.PAB.Simulation
-      -- Backend
-      Plutus.Backend.ContractStorage
+      Plutus.ContractStorage
       Plutus.Backend.Server
       Plutus.Backend.Endpoints
       Plutus.Backend.Types
+      Plutus.Backend.ContractStorage
     build-depends:
       base >= 4.9 && < 5,
       aeson,

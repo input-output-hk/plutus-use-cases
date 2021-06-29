@@ -1,28 +1,30 @@
-{-# LANGUAGE ConstraintKinds           #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE ImplicitParams            #-}
-{-# LANGUAGE RankNTypes                #-}
-{-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Plutus.Backend.ContractStorage where
+import           Control.Monad                       (mapM, void)
+import           Control.Monad.IO.Class              (liftIO)
+import qualified Data.Map.Strict                     as Map
+import           Data.Maybe                          (fromMaybe)
+import           Debug.Trace                         (traceIO)
+import qualified Plutus.ContractStorage              as Storage
+import           Plutus.PAB.Effects.Contract.Builtin (Builtin)
+import qualified Plutus.PAB.Simulation               as Simulation
+import qualified Plutus.PAB.Simulator                as Simulator
+import qualified Plutus.PAB.Webserver.Server         as PAB.Server
+import           Wallet.Emulator.Types               (Wallet (..))
 
-import           Control.Monad.IO.Class (MonadIO (..))
-import           Wallet.Emulator.Types  (Wallet (..))
-import           Wallet.Types           (ContractInstanceId)
+saveContractIds :: Storage.WithContractStorage => Simulation.ContractIDs -> Storage.Endpoint -> IO ()
+saveContractIds Simulation.ContractIDs {..} endpoint = do
+      let cIds = Map.toList cidUser
+      mapM (\(wallet, ciId) -> Storage.saveContractId wallet endpoint ciId) cIds
+      return ()
 
-type WithContractStorage = (?contractStorage :: ContractStorage)
-
-type Endpoint = String
-
-data ContractStorage = ContractStorage
-  { getContractIdFromStorage :: forall m. MonadIO m => Wallet -> Endpoint -> m (Maybe ContractInstanceId)
-  , saveContractIdToStorage :: forall m. MonadIO m => Wallet -> Endpoint -> ContractInstanceId -> m () }
-
-withContractStorage :: ContractStorage -> (WithContractStorage => a) -> a
-withContractStorage cs a = let ?contractStorage = cs in a
-
-getContractId :: WithContractStorage => MonadIO m => Wallet -> Endpoint -> m (Maybe ContractInstanceId)
-getContractId = let ContractStorage {..} = ?contractStorage in getContractIdFromStorage
-
-saveContractId :: WithContractStorage => MonadIO m => Wallet -> Endpoint -> ContractInstanceId -> m ()
-saveContractId = let ContractStorage {..} = ?contractStorage in saveContractIdToStorage
+getContractId :: Storage.WithContractStorage => Wallet -> Storage.Endpoint -> IO (Maybe Simulation.ContractIDs)
+getContractId wallet endpoint = do
+    contractId <- Storage.getContractId wallet endpoint
+    traceIO $ "[DEBUG] get bt: " <> show wallet
+    pure $ maybe
+        Nothing
+        (\cId -> Just $ Simulation.ContractIDs {cidUser = Map.singleton wallet cId, cidInfo = cId})
+        contractId
