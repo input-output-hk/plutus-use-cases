@@ -203,17 +203,17 @@ create market CreateParams{..} = do
         marketVal    = assetClassValue (marketId market) 1
    
         lookups  = Constraints.typedValidatorLookups marketInst 
-                    <> Constraints.otherScript mrScript
-                    <> Constraints.unspentOutputs (Map.singleton oref o)
-                    <> Constraints.monetaryPolicy nftTokenPolicy
-                    <> Constraints.monetaryPolicy nftTokenMetaPolicy
+                   <> Constraints.otherScript mrScript
+                   <> Constraints.unspentOutputs (Map.singleton oref o)
+                   <> Constraints.monetaryPolicy nftTokenPolicy
+                   <> Constraints.monetaryPolicy nftTokenMetaPolicy
 
         tx       = Constraints.mustPayToTheScript marketFactoryData marketVal
-                    <> Constraints.mustPayToTheScript nftMetadataData nftTokenMetaForgedValue
-                    <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create nftMetadata)
-                    <> Constraints.mustPayToPubKey ownPK nftTokenForgedValue
-                    <> Constraints.mustForgeValue nftTokenForgedValue
-                    <> Constraints.mustForgeValue nftTokenMetaForgedValue
+                   <> Constraints.mustPayToTheScript nftMetadataData nftTokenMetaForgedValue
+                   <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create nftMetadata)
+                   <> Constraints.mustPayToPubKey ownPK nftTokenForgedValue
+                   <> Constraints.mustForgeValue nftTokenForgedValue
+                   <> Constraints.mustForgeValue nftTokenMetaForgedValue
 
 
     ledgerTx <- submitTxConstraintsWith lookups tx
@@ -241,11 +241,11 @@ sell market SellParams{..} = do
         values  = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
                   <> Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
         lookups = Constraints.typedValidatorLookups marketInst
-                   <> Constraints.otherScript mrScript
-                   <> Constraints.unspentOutputs (Map.singleton oref o)
+                  <> Constraints.otherScript mrScript
+                  <> Constraints.unspentOutputs (Map.singleton oref o)
 
-        tx      =  Constraints.mustPayToTheScript nftMetadataDatum values
-                   <> Constraints.mustSpendScriptOutput oref redeemer
+        tx      = Constraints.mustPayToTheScript nftMetadataDatum values
+                  <> Constraints.mustSpendScriptOutput oref redeemer
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
     logInfo $ "selling datum: " ++ show nftMetadataDatum
