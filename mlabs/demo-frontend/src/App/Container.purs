@@ -5,7 +5,7 @@ import Prelude
 import Affjax as AX
 import Affjax.ResponseFormat as AXRF
 import App.ActionForm (actionForm)
-import App.Types (Action(..), State(..))
+import App.Types (Action(..), State(..), getSelectedFunctionSchema)
 import Bootstrap as BS
 import Config (pabConfig)
 import Data.Argonaut as A
@@ -17,6 +17,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
+import Debug.Trace (trace, traceM)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Console (log, logShow)
 import Halogen (HalogenQ(..))
@@ -25,7 +26,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (classes, style)
 import PAB.Api as Api
-import PAB.Types (ContractCall(CallEndpoint), ContractSignatureResponse, FormArgumentF(..), Fix(..), FormArgument, PabConfig, Wallet)
+import PAB.Types (ContractCall(CallEndpoint), ContractSignatureResponse, FormArgumentF(..), Fix(..), FormArgument, PabConfig, Wallet, defaultValue, toArgument)
 import Web.HTML.Event.EventTypes (offline)
 
 --------------------------------------------------------------------------------
@@ -37,7 +38,8 @@ initialState _ =
   , selectedWalletIdx: 0
   , selectedContractIdx: 0
   , selectedEndpointIdx: 0
-  , argument: Fix $ FormObjectF [ JsonTuple ("Test Field" /\ (Fix (FormIntF $ Just 5))) ]
+  -- , argument: Fix $ FormObjectF [ JsonTuple ("Test Field" /\ (Fix (FormIntF $ Just 5))) ]
+  , argument: Nothing
   }
 
 component :: forall q i o m. MonadAff m => H.Component q i o m
@@ -68,7 +70,7 @@ render state =
             [ classes [ BS.textCenter, BS.my4 ] ]
             [ HH.text "Plutus Use Cases Demo" ]
         , HH.div 
-            [ classes [ BS.colMd6 ] ]
+            [ classes [ BS.colMd5 ] ]
             [ actionForm state
             ]
         ]
@@ -84,15 +86,23 @@ handleAction = case _ of
     contractDefs <- H.liftAff $ Api.getContractDefinitions pabConfig
     H.liftEffect $ logShow $ A.stringify $ encodeJson contractDefs
     H.modify_ _ { contractDefinitions = contractDefs }
+    setNewArgument
   SetSelectedWalletIdx i -> do
     H.modify_ _ { selectedWalletIdx = i }
   SetSelectedContractIdx i-> do
     H.modify_ _ { selectedContractIdx = i, selectedEndpointIdx = 0 }
+    setNewArgument
   SetSelectedEndpointIdx i -> do
     H.modify_ _ { selectedEndpointIdx = i }
-  SetFormField _ -> do
+    setNewArgument
+  SetField _ -> do
     pure unit
-  SetFormSubField _ _ -> do
+  SetSubField _ _ -> do
     pure unit
-
-
+ where 
+  setNewArgument = do
+    state <- H.get
+    let functionSchema = getSelectedFunctionSchema state state.selectedContractIdx state.selectedEndpointIdx
+    let newArg = toArgument defaultValue <<< _.argument <$> functionSchema
+    traceM newArg
+    H.modify_ _ { argument = newArg }

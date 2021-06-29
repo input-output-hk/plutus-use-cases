@@ -5,11 +5,13 @@ import Bootstrap as BS
 import Bootstrap as Bootstrap
 import Data.Array as Array
 -- import Data.BigInteger as BigInteger
+import Data.BigInt as BigInt
 -- import Data.Functor.Foldable (Fix(..))
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int as Int
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), fst)
 import Data.Lens (Lens', over, set, view)
+import Data.Map (Map)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
 import Data.Tuple.Nested ((/\))
@@ -30,15 +32,19 @@ import Prim.TypeError (class Warn, Text)
 -- import Validation (ValidationError, WithPath, joinPath, showPathValue, validate)
 -- import ValueEditor (valueForm)
 
-import App.Types (Action(..))
+import App.Types (Action(..), FieldEvent(..))
 import Data.Json.JsonTuple (JsonTuple(..))
-import PAB.Types (Fix(..), FormArgument, FormArgumentF(..))
+import PAB.AssocMap as AssocMap
+import PAB.Types (CurrencySymbol(..), Fix(..), FormArgument, FormArgumentF(..), Interval(..), TokenName(..), Value(..))
 
-actionFormInputs :: forall p. FormArgument -> HH.HTML p Action
-actionFormInputs argument =
-  HH.div 
-   [ classes [ BS.wasValidated, BS.mb3 ] ]
-   [ actionArgumentField [] false argument ]
+actionFormInputs :: forall p. Maybe FormArgument -> HH.HTML p Action
+actionFormInputs arg =
+  case arg of
+    Nothing       -> BS.empty
+    Just argument -> 
+      HH.div 
+      [ classes [ BS.wasValidated, BS.mb3 ] ]
+      [ actionArgumentField [] false argument ]
 
 actionArgumentField :: forall p. Array String -> Boolean -> FormArgument -> HH.HTML p Action
 actionArgumentField ancestors isNested (Fix (FormObjectF subFields)) =
@@ -62,134 +68,132 @@ actionArgumentField ancestors isNested arg@(Fix (FormIntF n)) =
         , value $ maybe "" show n
         , required true
         , placeholder "Int"
-        -- , onValueInput (Just <<< SetField <<< SetIntField <<< Int.fromString)
+        , HE.onValueInput (SetField <<< SetIntField <<< Int.fromString)
         ]
     -- , validationFeedback (joinPath ancestors <$> validate arg)
     ]
 
-actionArgumentField _ _ _ = BS.empty
+actionArgumentField ancestors _ arg@(Fix (FormBoolF b)) =
+  BS.formCheck_
+    [ HH.input
+        [ type_ InputCheckbox
+        , id_ elementId
+        , classes (Array.cons BS.formCheckInput (actionArgumentClass ancestors))
+        , checked b
+        , HE.onChecked (SetField <<< SetBoolField)
+        ]
+    , HH.label
+        [ class_ BS.formCheckLabel
+        , for elementId
+        ]
+        [ HH.text (if b then "True" else "False") ]
+    -- , validationFeedback (joinPath ancestors <$> validate arg)
+    ]
+  where
+  elementId = String.joinWith "-" ancestors
 
--- actionArgumentField ancestors _ arg@(Fix (FormBoolF b)) =
---   formCheck_
---     [ input
---         [ type_ InputCheckbox
---         , id_ elementId
---         , classes (Array.cons formCheckInput (actionArgumentClass ancestors))
---         , checked b
---         , onChecked (Just <<< SetField <<< SetBoolField)
---         ]
---     , label
---         [ class_ formCheckLabel
---         , for elementId
---         ]
---         [ text (if b then "True" else "False") ]
---     , validationFeedback (joinPath ancestors <$> validate arg)
---     ]
---   where
---   elementId = String.joinWith "-" ancestors
+actionArgumentField ancestors _ arg@(Fix (FormIntegerF n)) =
+  HH.div_
+    [ HH.input
+        [ type_ InputNumber
+        , classes (Array.cons BS.formControl (actionArgumentClass ancestors))
+        , value $ maybe "" show n
+        , required true
+        , placeholder "Integer"
+        , HE.onValueInput (SetField <<< SetBigIntegerField <<< Int.fromString)
+        ]
+    -- , validationFeedback (joinPath ancestors <$> validate arg)
+    ]
 
--- actionArgumentField ancestors _ arg@(Fix (FormIntegerF n)) =
---   div_
---     [ input
---         [ type_ InputNumber
---         , classes (Array.cons formControl (actionArgumentClass ancestors))
---         , value $ maybe "" show n
---         , required true
---         , placeholder "Integer"
---         , onValueInput (Just <<< SetField <<< SetBigIntegerField <<< BigInteger.fromString)
---         ]
---     , validationFeedback (joinPath ancestors <$> validate arg)
---     ]
+actionArgumentField ancestors _ arg@(Fix (FormStringF s)) =
+  HH.div_
+    [ HH.input
+        [ type_ InputText
+        , classes (Array.cons BS.formControl (actionArgumentClass ancestors))
+        , value $ fromMaybe "" s
+        -- empty text HH.inputs give `Just ""` as a value, which might be wanted,
+        -- so don't mark these fields as required
+        , required false
+        , placeholder "String"
+        , HE.onValueInput (SetField <<< SetStringField)
+        ]
+    -- , validationFeedback (joinPath ancestors <$> validate arg)
+    ]
 
--- actionArgumentField ancestors _ arg@(Fix (FormStringF s)) =
---   div_
---     [ input
---         [ type_ InputText
---         , classes (Array.cons formControl (actionArgumentClass ancestors))
---         , value $ fromMaybe "" s
---         -- empty text inputs give `Just ""` as a value, which might be wanted,
---         -- so don't mark these fields as required
---         , required false
---         , placeholder "String"
---         , onValueInput (Just <<< SetField <<< SetStringField)
---         ]
---     , validationFeedback (joinPath ancestors <$> validate arg)
---     ]
+actionArgumentField ancestors _ arg@(Fix (FormRadioF options s)) =
+  BS.formGroup_
+    [ HH.div_ (radioItem <$> options)
+    -- , validationFeedback (joinPath ancestors <$> validate arg)
+    ]
+  where
+  radioItem :: String -> HH.HTML p Action
+  radioItem option =
+    let
+      elementId = String.joinWith "-" (ancestors <> [ option ])
+    in
+      BS.formCheck_
+        [ HH.input
+            [ type_ InputRadio
+            , id_ elementId
+            , classes (Array.cons BS.formCheckInput (actionArgumentClass ancestors))
+            , name option
+            , value option
+            , required (s == Nothing)
+            , HE.onValueInput (SetField <<< SetRadioField)
+            , checked (Just option == s)
+            ]
+        , HH.label
+            [ class_ BS.formCheckLabel
+            , for elementId
+            ]
+            [ HH.text option ]
+        ]
 
--- actionArgumentField ancestors _ arg@(Fix (FormRadioF options s)) =
---   formGroup_
---     [ div_ (radioItem <$> options)
---     , validationFeedback (joinPath ancestors <$> validate arg)
---     ]
---   where
---   radioItem :: String -> HTML p FormEvent
---   radioItem option =
---     let
---       elementId = String.joinWith "-" (ancestors <> [ option ])
---     in
---       formCheck_
---         [ input
---             [ type_ InputRadio
---             , id_ elementId
---             , classes (Array.cons formCheckInput (actionArgumentClass ancestors))
---             , name option
---             , value option
---             , required (s == Nothing)
---             , onValueInput (Just <<< SetField <<< SetRadioField)
---             , checked (Just option == s)
---             ]
---         , label
---             [ class_ formCheckLabel
---             , for elementId
---             ]
---             [ text option ]
---         ]
-
--- actionArgumentField ancestors _ arg@(Fix (FormHexF s)) =
---   div_
---     [ input
---         [ type_ InputText
---         , classes (Array.cons formControl (actionArgumentClass ancestors))
---         , value $ fromMaybe "" s
---         , required true
---         , placeholder "String"
---         , onValueInput (Just <<< SetField <<< SetHexField)
---         ]
---     , validationFeedback (joinPath ancestors <$> validate arg)
---     ]
+actionArgumentField ancestors _ arg@(Fix (FormHexF s)) =
+  HH.div_
+    [ HH.input
+        [ type_ InputText
+        , classes (Array.cons BS.formControl (actionArgumentClass ancestors))
+        , value $ fromMaybe "" s
+        , required true
+        , placeholder "String"
+        , HE.onValueInput (SetField <<< SetHexField)
+        ]
+    -- , validationFeedback (joinPath ancestors <$> validate arg)
+    ]
 
 -- actionArgumentField ancestors isNested (Fix (FormTupleF subFieldA subFieldB)) =
---   div_
---     [ formGroup_
+--   HH.div_
+--     [ BS.formGroup_
 --         [ SetSubField 1 <$> actionArgumentField (Array.snoc ancestors "_1") true subFieldA ]
---     , formGroup_
+--     , BS.formGroup_
 --         [ SetSubField 2 <$> actionArgumentField (Array.snoc ancestors "_2") true subFieldB ]
 --     ]
 
 -- actionArgumentField ancestors isNested (Fix (FormArrayF schema subFields)) =
---   div_
+--   HH.div_
 --     [ Keyed.div [ nesting isNested ]
 --         (mapWithIndex subFormContainer subFields)
---     , button
---         [ classes [ btn, btnInfo ]
---         , onClick $ const $ Just AddSubField
---         ]
---         [ icon Plus ]
+--     -- , HH.button
+--     --     [ classes [ BS.btn, BS.btnInfo ]
+--     --     , HE.onClick $ const $ Just AddSubField
+--     --     ]
+--     --     [ icon Plus ]
 --     ]
 --   where
 --   subFormContainer i field =
 --     show i
---       /\ formGroup_
---           [ row_
---               [ col10_
+--       /\ BS.formGroup_
+--           [ BS.row_
+--               [ BS.col10_
 --                   [ SetSubField i <$> actionArgumentField (Array.snoc ancestors (show i)) true field ]
---               , col2_
---                   [ button
---                       [ classes [ btn, btnLink ]
---                       , onClick $ const $ Just (RemoveSubField i)
---                       ]
---                       [ icon Trash ]
---                   ]
+--               -- , BS.col2_
+--               --     [ HH.button
+--               --         [ classes [ BS.btn, BS.btnLink ]
+--               --         , HE.onClick $ const $ Just (RemoveSubField i)
+--               --         ]
+--               --         [ icon Trash ]
+--               --     ]
 --               ]
 --           ]
 
@@ -209,8 +213,8 @@ actionArgumentField _ _ _ = BS.empty
 --             inclusionLens = _Interval <<< _ivFrom <<< _LowerBoundInclusive
 --           in
 --             div [ classes [ col, extentFieldClass ] ]
---               [ inputGroup_
---                   [ inputGroupPrepend_
+--               [ HH.inputGroup_
+--                   [ HH.inputGroupPrepend_
 --                       [ extentFieldExtendedButton extensionLens NegInf
 --                       , extentFieldInclusionButton inclusionLens StepBackward Reverse
 --                       ]
@@ -225,9 +229,9 @@ actionArgumentField _ _ _ = BS.empty
 --             inclusionLens = _Interval <<< _ivTo <<< _UpperBoundInclusive
 --           in
 --             div [ classes [ col, extentFieldClass ] ]
---               [ inputGroup_
+--               [ HH.inputGroup_
 --                   [ extentFieldInput extensionLens
---                   , inputGroupAppend_
+--                   , HH.inputGroupAppend_
 --                       [ extentFieldInclusionButton inclusionLens StepForward Play
 --                       , extentFieldExtendedButton extensionLens PosInf
 --                       ]
@@ -240,9 +244,9 @@ actionArgumentField _ _ _ = BS.empty
 --         ]
 --     ]
 --   where
---   extentFieldClass = ClassName "extent-field"
+--   extentFieldClass = H.ClassName "extent-field"
 
---   extentFieldInclusionButton :: Lens' (Interval POSIXTime) Boolean -> Icon -> Icon -> HTML p FormEvent
+--   extentFieldInclusionButton :: Lens' (Interval Int) Boolean -> Icon -> Icon -> HTML p FormEvent
 --   extentFieldInclusionButton inclusionLens inclusionIcon exclusionIcon =
 --     button
 --       [ classes [ btn, btnSmall, btnPrimary ]
@@ -272,8 +276,8 @@ actionArgumentField _ _ _ = BS.empty
 
 --   extentFieldInput :: Lens' (Interval POSIXTime) (Extended POSIXTime) -> HTML p FormEvent
 --   extentFieldInput extensionLens =
---     input
---       [ type_ InputNumber
+--     HH.input
+--       [ type_ HH.inputNumber
 --       , class_ formControl
 --       , HP.min zero
 --       , value
@@ -284,30 +288,33 @@ actionArgumentField _ _ _ = BS.empty
 --       ]
 
 -- actionArgumentField ancestors isNested (Fix (FormValueF value)) =
---   div
+--   HH.div
 --     [ nesting isNested ]
---     [ valueForm (SetField <<< SetValueField) value ]
+--     [ BS.valueForm (SetField <<< SetValueField) value ]
 
--- actionArgumentField _ _ (Fix (FormMaybeF dataType child)) =
---   div_
---     [ text "Unsupported Maybe"
---     , code_ [ text $ show dataType ]
---     , code_ [ text $ show child ]
---     ]
+actionArgumentField _ _ (Fix (FormMaybeF dataType child)) =
+  HH.div_
+    [ HH.text "Unsupported Maybe"
+    , HH.code_ [ HH.text $ show dataType ]
+    -- , HH.code_ [ HH.text $ show child ]
+    , HH.code_ [ HH.text $ show child ]
+    ]
 
--- actionArgumentField _ _ (Fix (FormUnsupportedF description)) =
---   div_
---     [ text "Unsupported"
---     , code_ [ text description ]
---     ]
+actionArgumentField _ _ (Fix (FormUnsupportedF description)) =
+  HH.div_
+    [ HH.code_ [ HH.text description ]
+    ]
 
-inputField _ _ _ = Bootstrap.empty
+actionArgumentField _ _ _ =
+  HH.div_
+    [ HH.text "TODO: Support this data type"
+    ]
 
--- actionArgumentClass :: Array String -> Array ClassName
--- actionArgumentClass ancestors =
---   [ ClassName "action-argument"
---   , ClassName $ "action-argument-" <> Array.intercalate "-" ancestors
---   ]
+actionArgumentClass :: Array String -> Array H.ClassName
+actionArgumentClass ancestors =
+  [ H.ClassName "action-argument"
+  , H.ClassName $ "action-argument-" <> Array.intercalate "-" ancestors
+  ]
 
 -- validationFeedback :: forall p i. Array (WithPath ValidationError) -> HTML p i
 -- validationFeedback [] = validFeedback_ []
@@ -317,3 +324,65 @@ inputField _ _ _ = Bootstrap.empty
 nesting :: forall r i. Boolean -> IProp ( "class" :: String | r ) i
 nesting true = classes [ H.ClassName "nested" ]
 nesting false = classes []
+
+-- valueForm :: forall p i. (ValueEvent -> i) -> Value -> HH.HTML p i
+-- valueForm handler ({ getValue: balances }) =
+--   Keyed.div_
+--     (Array.concat (mapWithIndex (currencyRow handler) (Array.sortWith fst $ AssocMap.toTuples balances)))
+
+-- currencyRow ::
+--   forall p i.
+--   (Action -> i) ->
+--   Int ->
+--   Tuple CurrencySymbol (Map TokenName BigInt.BigInt) ->
+--   Array (Tuple String (HH.HTML p i))
+-- currencyRow handler currencyIndex (Tuple currencySymbol tokenBalances) = mapWithIndex (balanceRow handler currencyIndex currencySymbol) (Array.sortWith fst $ AssocMap.toTuples tokenBalances)
+
+
+-- balanceRow ::
+--   forall p i.
+--   (Action -> i) ->
+--   Int ->
+--   CurrencySymbol ->
+--   Int ->
+--   Tuple TokenName BigInt.BigInt ->
+--   Tuple String (HH.HTML p i)
+-- balanceRow handler currencyIndex currencySymbol tokenIndex (Tuple tokenName amount) =
+--   (show currencyIndex <> "-" <> show tokenIndex)
+--     /\ HH.div
+--         [ classes
+--             [ BS.formGroup
+--             , H.ClassName "balance"
+--             , H.ClassName ("balance-" <> show currencyIndex <> show tokenIndex)
+--             ]
+--         ]
+--         [ BS.formRow_
+--             $ [ HH.label
+--                   [ classes [ BS.col, BS.colFormLabel ] ]
+--                   [ HH.text
+--                       $ case currencySymbol.unCurrencySymbol, tokenName.unTokenName of
+--                           "", "" -> "Lovelace"
+--                           _, other -> other
+--                   ]
+--               , BS.col_
+--                   [ HH.input
+--                       [ type_ InputNumber
+--                       , classes [ BS.formControl, H.ClassName "balance-amount" ]
+--                       , value $ show amount
+--                       , required true
+--                       , placeholder "Amount"
+--                       , HP.min zero
+--                       , HE.onValueInput
+--                           $ \str ->
+--                               -- default to 0 in case of empty or invalid input
+--                               -- (for reasons I have yet to fathom, this doesn't work when you delete "0";
+--                               -- until I get to the bottom of that, this is at least an improvement)
+--                               let
+--                                 newAmount = fromMaybe zero $ BigInt.fromString str
+--                               in
+--                                 do
+--                                   pure $ handler $ SetBalance currencySymbol tokenName newAmount
+--                       ]
+--                   ]
+--               ]
+--         ]

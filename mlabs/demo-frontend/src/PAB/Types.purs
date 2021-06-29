@@ -11,6 +11,7 @@ module PAB.Types
   , ContractSignatureResponse
   , Closure
   , CurrencySymbol(..)
+  , defaultValue
   , EndpointDescription(..)
   , Extended(..)
   , Fix(..)
@@ -29,6 +30,8 @@ module PAB.Types
   , PartiallyDecodedResponse
   , RequestID(..)
   , Slot
+  , taggedJsonEncoding
+  , toArgument
   , TokenName(..)
   , UpperBound(..)
   , Value(..)
@@ -47,11 +50,12 @@ import Data.Argonaut.Decode.Generic (genericDecodeJson, genericDecodeJsonWith)
 import Data.Argonaut.Encode.Class (class EncodeJson, encodeJson)
 import Data.Argonaut.Encode.Generic (genericEncodeJson, genericEncodeJsonWith)
 import Data.Argonaut.Types.Generic (Encoding)
+import Data.BigInt (BigInt)
 import Data.Either (Either(..))
 import Data.Eq (class Eq, class Eq1)
 import Data.Functor (class Functor)
 import Data.Generic.Rep (class Generic)
-import Data.Json.JsonTuple (JsonTuple)
+import Data.Json.JsonTuple (JsonTuple(..))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.Newtype (unwrap)
@@ -113,7 +117,7 @@ type PartiallyDecodedResponse v
 
 type ContractSignatureResponse
   = { csrDefinition :: String
-    , csrSchemas :: Array (FunctionSchema)
+    , csrSchemas :: Array (FunctionSchema FormSchema)
     }
 
 newtype ContractDefinition = ContractDefinition String
@@ -126,9 +130,9 @@ instance encodeJsonContractDefinition :: EncodeJson ContractDefinition where
 instance decodeJsonContractDefinition :: DecodeJson ContractDefinition where
   decodeJson a = genericDecodeJson a
 
-type FunctionSchema =
+type FunctionSchema a =
   { endpointDescription :: EndpointDescription
-  , argument            :: FormSchema
+  , argument            :: a
   -- ^ All contract endpoints take a single argument. (Multiple arguments must be wrapped up into a container.)
   }
 
@@ -174,11 +178,12 @@ instance decodeJsonFormSchema :: DecodeJson FormSchema where
 type FormArgument
   = Fix FormArgumentF
 
+-- TODO: Use BigInt for FormIntegerF
 data FormArgumentF a
     = FormUnitF
     | FormBoolF Boolean
     | FormIntF (Maybe Int)
-    | FormIntegerF (Maybe Int)
+    | FormIntegerF (Maybe Int) 
     | FormStringF (Maybe String)
     | FormHexF (Maybe String)
     | FormRadioF (Array String) (Maybe String)
@@ -210,6 +215,9 @@ derive instance newtypeFix :: Newtype (Fix f) _
 derive instance genericFix :: Generic (Fix f) _
 
 derive instance eqFix :: Eq1 f => Eq (Fix f)
+
+instance showFix :: Show (Fix FormArgumentF) where
+  show (Fix a) = genericShow a
 
 instance recursiveFix ∷ Functor f ⇒ Recursive (Fix f) f where
   project (Fix v) = v
@@ -339,7 +347,7 @@ data CombinedWSStreamToServer
 data ContractCall a
   = CallEndpoint
     { caller         :: Wallet
-    , argumentValues :: ContractCall a
+    , argumentValues :: FunctionSchema a
     }
     -- ^ Call one of the defined endpoints of your contract.
 
@@ -390,6 +398,9 @@ data LowerBound = LowerBound Extended Closure
 
 derive instance genericLowerBound :: Generic LowerBound _
 
+instance showLowerBound :: Show LowerBound where
+  show a = genericShow a
+
 instance encodeJsonLowerBound :: EncodeJson LowerBound where
   encodeJson a = genericEncodeJson a
 
@@ -400,6 +411,9 @@ data UpperBound = UpperBound Extended Closure
 
 derive instance genericUpperBound :: Generic UpperBound _
 
+instance showUpperBound :: Show UpperBound where
+  show a = genericShow a
+
 instance encodeJsonUpperBound :: EncodeJson UpperBound where
   encodeJson a = genericEncodeJson a
 
@@ -408,9 +422,12 @@ instance decodeJsonUpperBound :: DecodeJson UpperBound where
 
 type Closure = Boolean
 
-data Extended = NegInf | Finite A.Json | PosInf
+data Extended = NegInf | Finite Int | PosInf
 
 derive instance genericExtended :: Generic Extended _
+
+instance showExtended :: Show Extended where
+  show a = genericShow a
 
 instance encodeJsonExtended :: EncodeJson Extended where
   encodeJson a = genericEncodeJson a
@@ -428,7 +445,7 @@ type TokenName
   = { unTokenName :: String }
 
 type Value
-  = { getValue :: Array (Tuple CurrencySymbol (Array (Tuple TokenName Int))) }
+  = { getValue :: Array (JsonTuple CurrencySymbol (Array (JsonTuple TokenName Int))) }
 
 -- derive instance genericValue :: Generic Value _
 
@@ -442,7 +459,16 @@ type Value
 --   decodeJson a = genericDecodeJson a
 
 lovelaceValueOf :: Int -> Value
-lovelaceValueOf lovelace = { getValue: [ Tuple { unCurrencySymbol: "" } [ Tuple { unTokenName: "" } lovelace ] ] }
+lovelaceValueOf lovelace = 
+  { getValue: 
+      [ JsonTuple $ Tuple 
+          { unCurrencySymbol: "" } 
+          [ (JsonTuple $ Tuple { unTokenName: "" } lovelace) ] 
+      ] 
+  }
+
+defaultValue :: Value
+defaultValue = lovelaceValueOf 0
 
 type Wallet
   = { getWallet :: Int }
