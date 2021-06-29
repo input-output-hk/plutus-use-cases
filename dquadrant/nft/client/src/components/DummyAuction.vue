@@ -7,45 +7,50 @@
       </b-col>
     </b-row>
     <div v-else class="mt-4 container-fluid">
-      <b-row v-for="(item, i) in items" :key="item.arBidder.bBidReference.txOutRefId.getTxId">
-        <b-col cols="12" lg="6" v-for="(content, index) in item.arValue" :key="index" class="my-2">
-          <b-card :title="content.token" :sub-title="'Value ' + content.value" class="text-monospace">
-            <b-card-text>
-              <p><strong>Currency</strong> <span class="text-muted">{{ content.currency }}</span></p>
-            </b-card-text>
+      <b-row>
+        <b-col v-for="(item, i) in items" :key="item.arBidder.bBidReference.txOutRefId.getTxId"
+               cols="12" lg="6" class="my-2">
+          <div v-for="(content, index) in item.arValue" :key="index">
+            <b-card :title="content.token" :sub-title="'Value ' + content.value" class="text-monospace">
+              <b-card-text>
+                <p><strong>Currency</strong> <span class="text-muted">{{ content.currency }}</span></p>
+              </b-card-text>
 
-            <b-card-text>
-              <p><strong>Owner</strong> <span class="text-muted">{{ item.arOwner.getPubKeyHash }}</span></p>
-              <div v-if="item.arOwner.getPubKeyHash!==item.arBidder.bPubKeyHash.getPubKeyHash">
-                <p>
-                  <strong>Bidder</strong> <span class="text-muted">{{ item.arBidder.bPubKeyHash.getPubKeyHash }}</span>
-                </p>
-                <p class="d-flex justify-content-between">
-                  <strong>Last Bid</strong> <span class="text-muted">{{ item.arBidder.bBid.toLocaleString() }}</span>
-                </p>
-              </div>
-              <div class="text-muted pb-2" v-else>
-                No Bids yet
-              </div>
-            </b-card-text>
-            <b-button-toolbar aria-label="Bid">
-              <b-button-group size="sm" class="mr-1">
-                <b-button variant="primary" @click="onBid(item)">
-                  Bid ({{ item.minNewBid.toLocaleString() }})
-                </b-button>
-              </b-button-group>
-              <b-input-group size="sm" class="mr-1">
-                <b-button variant="success" @click="onBidIncrease(i)">
-                  <BIconPatchPlus></BIconPatchPlus>
-                </b-button>
-              </b-input-group>
-              <b-input-group size="sm">
-                <b-button variant="warning" @click="onBidDecrease(i)">
-                  <BIconPatchMinus></BIconPatchMinus>
-                </b-button>
-              </b-input-group>
-            </b-button-toolbar>
-          </b-card>
+              <b-card-text>
+                <p><strong>Owner</strong> <span class="text-muted">{{ item.arOwner.getPubKeyHash }}</span></p>
+                <div v-if="item.arOwner.getPubKeyHash!==item.arBidder.bPubKeyHash.getPubKeyHash">
+                  <p>
+                    <strong>Bidder</strong> <span class="text-muted">{{
+                      item.arBidder.bPubKeyHash.getPubKeyHash
+                    }}</span>
+                  </p>
+                  <p class="d-flex justify-content-between">
+                    <strong>Last Bid</strong> <span class="text-muted">{{ item.arBidder.bBid.toLocaleString() }}</span>
+                  </p>
+                </div>
+                <div class="text-muted pb-2" v-else>
+                  No Bids yet
+                </div>
+              </b-card-text>
+              <b-button-toolbar aria-label="Bid">
+                <b-button-group size="sm" class="mr-1">
+                  <b-button variant="primary" @click="onBid(item)">
+                    Bid ({{ item.minNewBid.toLocaleString() }})
+                  </b-button>
+                </b-button-group>
+                <b-input-group size="sm" class="mr-1">
+                  <b-button variant="success" @click="onBidIncrease(i)">
+                    <BIconPatchPlus></BIconPatchPlus>
+                  </b-button>
+                </b-input-group>
+                <b-input-group size="sm">
+                  <b-button variant="warning" @click="onBidDecrease(i)">
+                    <BIconPatchMinus></BIconPatchMinus>
+                  </b-button>
+                </b-input-group>
+              </b-button-toolbar>
+            </b-card>
+          </div>
         </b-col>
       </b-row>
     </div>

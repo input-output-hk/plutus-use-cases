@@ -76,14 +76,15 @@ export default {
         } else {
           this.loadingProgress += 12;
         }
-      } else {
-        this.loadingProgress -= 5
-        if (this.loadingProgress < 70) {
-          this.increasing = true
-        } else {
-          this.loadingProgress -= 5;
-        }
       }
+      // else {
+      //   this.loadingProgress -= 5
+      //   if (this.loadingProgress < 70) {
+      //     this.increasing = true
+      //   } else {
+      //     this.loadingProgress -= 5;
+      //   }
+      // }
     },
     transformFunds(funds) {
       let tokenBalances = []

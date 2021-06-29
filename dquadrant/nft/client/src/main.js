@@ -13,6 +13,8 @@ import Base from "@/components/base/Base";
 import Market from "./components/Market";
 import MIntToken from "./components/MIntToken";
 import DummyAuction from "./components/DummyAuction";
+import MyWallets from "@/components/MyWallets";
+import BuySell from "@/components/BuySell";
 
 const routes = [
   {
@@ -33,6 +35,16 @@ const routes = [
     path: '/dummy-auction',
     name: 'auction',
     component: DummyAuction
+  },
+  {
+    path: '/wallets',
+    name: 'wallets',
+    component: MyWallets
+  },
+  {
+    path: '/buy-sell',
+    name: 'buysell',
+    component: BuySell
   }
 ];
 

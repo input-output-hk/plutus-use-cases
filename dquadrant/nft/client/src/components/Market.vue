@@ -1,28 +1,43 @@
 <template>
   <div>
     <NavBar/>
-    <b-container class="cards" style="margin-top: 20px ">
-      <b-card-group v-if="items.length" columns>
-        <b-card
-            v-for="(item,i) in  items" :key="i"
-            style="border-radius: 10px"
-        >
-          <b-card-text>Seller: {{ item.owner }}</b-card-text>
-          <div v-for="(value,i) in item.values" :key="i">
-            <b-card-text> Currency: {{ value.currency }}</b-card-text>
-            <b-card-text> Token: {{ value.token }}</b-card-text>
-
-          </div>
-          <b-card-text>Cost: {{ item.cost.value }} Lovelace</b-card-text>
-          <b-button
-              :data-label="i"
-              style="align-self: center"
-              @click="onBuy(item)"
-          >
-            Buy
-          </b-button>
-        </b-card>
-      </b-card-group>
+    <b-row
+        v-if="items === undefined || items.length===0">
+      <b-col class="mt-5 pt-5 text-center">
+        <h3 class="text-muted">Nothing to see here</h3>
+      </b-col>
+    </b-row>
+    <b-container v-else class="container-fluid">
+      <b-row v-if="items.length" columns>
+        <b-col cols="12" lg="6" v-for="(item, i) in items" :key="i" class="my-2">
+          <b-card-group>
+            <b-card style="border-radius: 10px">
+              <b-card-text>
+                <strong>Seller</strong> {{ item.owner }}
+              </b-card-text>
+              <div v-for="(value,i) in item.values" :key="i">
+                <b-card-text>
+                  <strong>Currency</strong> {{ value.currency }}
+                </b-card-text>
+                <b-card-text class="d-flex justify-content-between">
+                  <strong>Token</strong> <span>{{ value.token }}</span>
+                </b-card-text>
+              </div>
+              <b-card-text class="d-flex justify-content-between">
+                <strong>Cost (Lovelace)</strong> <span class="text-monospace">{{ item.cost.value }}</span>
+              </b-card-text>
+              <b-button
+                  :data-label="i"
+                  style="align-self: center"
+                  variant="primary"
+                  @click="onBuy(item)"
+              >
+                Buy
+              </b-button>
+            </b-card>
+          </b-card-group>
+        </b-col>
+      </b-row>
       <b-row v-else>
         <b-col class="mt-5 pt-5 text-center">
           <h3 class="text-muted">Nothing to see here</h3>
@@ -56,8 +71,6 @@ export default {
   },
   methods: {
     onBuy(item) {
-
-
       this.$task.do(
           this.$http.post(`instance/${this.instanceId}/endpoint/buy`, {
             ppItems: [item.reference],
