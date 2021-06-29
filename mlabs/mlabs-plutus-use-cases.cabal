@@ -266,6 +266,8 @@ Test-suite mlabs-plutus-use-cases-tests
                      , tasty
                      , tasty-hunit
                      , tasty-expected-failure
+                     , tasty-quickcheck
+                     , QuickCheck
                      , text
   hs-source-dirs:      test
   Main-is:             Main.hs
@@ -273,6 +275,7 @@ Test-suite mlabs-plutus-use-cases-tests
                        Test.Lending.Contract
                        Test.Lending.Init
                        Test.Lending.Logic
+                       Test.Lending.QuickCheck
                        Test.Nft.Contract
                        Test.Nft.Init
                        Test.Nft.Logic
