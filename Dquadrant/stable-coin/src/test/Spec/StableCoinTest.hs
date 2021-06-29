@@ -75,8 +75,8 @@ bp = BankParam
             oracleAddr = oracleAddress oracle
             }
 
-address :: Address
-address = Scripts.validatorAddress $ CoinsMachine.scriptInstance bp
+coinsMachineAddress :: Address
+coinsMachineAddress = Scripts.validatorAddress $ CoinsMachine.scriptInstance bp
 
 
 reserveCoinsValue :: BankParam -> Integer -> Value
@@ -89,8 +89,18 @@ stableCoinsValue bankParam@BankParam {stableCoinTokenName} tokenAmount =
   let mpHash = Scripts.forwardingMonetaryPolicyHash $ CoinsMachine.scriptInstance bankParam
    in Value.singleton (Value.mpsSymbol mpHash) stableCoinTokenName tokenAmount
 
+adaVal :: Integer -> Value
+adaVal x = Ada.lovelaceValueOf x
+
 initialAdaValue :: Value
-initialAdaValue = Ada.lovelaceValueOf 100
+initialAdaValue = adaVal 100_000_000
+
+oracleFee :: Value
+oracleFee = adaVal $ oFee oracle
+
+--value of oracle for getting multiple time oracle used in same test
+oracleFeeMultiply :: Integer -> Value
+oracleFeeMultiply mulBy = adaVal (oFee oracle * mulBy)
 
 oracleToken :: Value
 oracleToken =
@@ -99,14 +109,22 @@ oracleToken =
     -- This currency is created by the initial transaction.
     Value.singleton oracleSymbol oracleTokenName 1
 
-
 -- | 'CheckOptions' that inclues 'oracletoken' in the initial distribution of wallet 1.
 options :: CheckOptions
 options =
-    let initialDistribution = defaultDist & over (at (Wallet 1) . _Just) ((<>) oracleToken)
-        
+    let initialDistribution = Map.fromList
+                                [ (oracleW1, initialAdaValue <> oracleToken)
+                                  , (w2, initialAdaValue)
+                                ]
 
     in defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution
+
+
+emCfg :: Trace.EmulatorConfig
+emCfg = Trace.EmulatorConfig $ Left $ Map.fromList [(Wallet 1, v), (Wallet 2, v)]
+ where
+  v :: Value
+  v = Ada.lovelaceValueOf 100_000_000
 
 tests :: TestTree
 tests =
@@ -115,48 +133,50 @@ tests =
     [ 
       checkPredicateOptions options "mint stablecoins"
           ( 
-            -- (valueAtAddress address (== initialAdaValue))
-              -- .&&. 
+            (valueAtAddress coinsMachineAddress (== (adaVal 100)))
+              .&&. 
               assertNoFailedTransactions
-              .&&. walletFundsChange w2 ((stableCoinsValue bp 50))
+              .&&. walletFundsChange w2 ((stableCoinsValue bp 100) <> (negate (adaVal 100)) <> (negate oracleFee))
           )
       $ mintStableCoins 100
-      
-    --   checkPredicate "mint reservecoins"
-    --     ( (valueAtAddress coinsMachineAddress (== initialAdaValue))
-    --         .&&. assertNoFailedTransactions
-    --         .&&. walletFundsChange w1 ((reserveCoinsValue bp 100) <> (negate initialAdaValue))
-    --     )
-    --     $ mintReserveCoins 100 1 1
+    ,
+      checkPredicateOptions options "mint reservecoins"
+        ( (valueAtAddress coinsMachineAddress (== (adaVal 100)))
+            .&&. assertNoFailedTransactions
+            .&&. walletFundsChange w2 ((reserveCoinsValue bp 100) <> (negate (adaVal 100)) <> (negate oracleFee))
+        )
+        $ mintReserveCoins 100
         
-    --     --Mint 10 stable coin, redeem 5 stable coin
-    --     -- So value at address is 5 and user also have  stable coin with charge of 10 at rate 1:1
-    -- , 
-    --   checkPredicate "mint stablecoins redeem stablecoins"
-    --     ( ( valueAtAddress coinsMachineAddress (== (Ada.lovelaceValueOf 5)))
-    --         .&&. assertNoFailedTransactions
-    --         .&&. walletFundsChange w1 ((stableCoinsValue bp 5) <> (negate (Ada.lovelaceValueOf 5)))
-    --     )
-    --     $ mintAndRedeemStableCoins 10 5 1 1
-    -- ,    
-    --   checkPredicate "mint reservecoins redeem reservecoins"
-    --     ( ( valueAtAddress coinsMachineAddress (== (Ada.lovelaceValueOf 5)))
-    --         .&&. assertNoFailedTransactions
-    --         .&&. walletFundsChange w1 ((reserveCoinsValue bp 5) <> (negate (Ada.lovelaceValueOf 5)))
-    --     )
-    --     $ mintAndRedeemReserveCoins 10 5 1 1
-    -- ,    
-        -- checkPredicate "mint stablecoins try redeem more stablecoins than minted should fail"
+        --Mint 10 stable coin, redeem 5 stable coin
+        -- So value at coinsMachineAddress is 5 and user also have  
+        -- 5 stable coins and only 5 ada is cutoff at final wallet balances with rate 1:1
+    ,   -- Oracle fee * 2 as double fee is required for minting and redeeming
+      checkPredicateOptions options "mint stablecoins redeem stablecoins"
+        ( ( valueAtAddress coinsMachineAddress (== (adaVal 5)))
+            .&&. assertNoFailedTransactions
+            .&&. walletFundsChange w2 ((stableCoinsValue bp 5) <> (negate (adaVal 5)) <> (negate (oracleFeeMultiply 2)))
+        )
+        $ mintAndRedeemStableCoins 10 5
+    ,    
+      checkPredicateOptions options "mint reservecoins redeem reservecoins"
+        ( ( valueAtAddress coinsMachineAddress (== (adaVal 5)))
+            .&&. assertNoFailedTransactions
+            .&&. walletFundsChange w2 ((reserveCoinsValue bp 5) <> (negate (adaVal 5)) <> (negate (oracleFeeMultiply 2)))
+        )
+        $ mintAndRedeemReserveCoins 10 5
+    -- ,
+        -- --TODO improve on error testing to test specific log message of error
+        -- checkPredicateOptions options "mint stablecoins try redeem more stablecoins than minted should fail"
         -- (  
-        --    assertContractError CoinsMachine.endpoints (Trace.walletInstanceTag w1) (\_ -> True) "should throw insufficent funds"
+        --    assertContractError (coinsContract bp) (Trace.walletInstanceTag w2) (\_ -> True) "should throw insufficent funds"
         -- )
-        -- $ mintAndRedeemStableCoins 10 15 1 1
-        -- ,
-        -- checkPredicate "mint reserve coins try redeem more reserve coins than minted should fail"
+        -- $ mintAndRedeemStableCoins 10 15
+    -- ,
+        -- checkPredicateOptions options "mint reserve coins try redeem more reserve coins than minted should fail"
         -- (  
-        --    assertContractError CoinsMachine.endpoints (Trace.walletInstanceTag w1) (\_ -> True) "should throw insufficent funds"
+        --    assertContractError (coinsContract bp) (Trace.walletInstanceTag w2) (\_ -> True) "should throw insufficent funds"
         -- )
-        -- $ mintAndRedeemStableCoins 10 15 1 1
+        -- $ mintAndRedeemReserveCoins 10 15
         
     ]
 
@@ -181,7 +201,9 @@ tests =
 
 --     void $ activateContractWallet (Wallet 1) ownFunds'
 
-initialise :: Trace.EmulatorTrace (Trace.ContractHandle [Types.Value ] BankStateSchema Text)
+type CoinsContractHandle = (Trace.ContractHandle [Types.Value ] BankStateSchema Text)
+
+initialise :: Trace.EmulatorTrace CoinsContractHandle
 initialise = do
   oracleHdl <- Trace.activateContractWallet oracleW1 $ runMockOracle oracle
   void $ Trace.waitNSlots 10
@@ -199,6 +221,10 @@ initialise = do
 mintStableCoins :: Integer -> Trace.EmulatorTrace ()
 mintStableCoins tokenAmount = do
   hdl <- initialise
+  void $ callStableMintEndpoint tokenAmount hdl
+
+callStableMintEndpoint :: Integer -> CoinsContractHandle -> Trace.EmulatorTrace ()
+callStableMintEndpoint tokenAmount hdl = do
   Trace.callEndpoint @"mintStableCoin"
     hdl
     EndpointInput
@@ -207,55 +233,43 @@ mintStableCoins tokenAmount = do
       }
   void $ Trace.waitNSlots 2
 
--- mintReserveCoins :: Integer -> Integer -> Integer -> Trace.EmulatorTrace ()
--- mintReserveCoins tokenAmount rateNume rateDeno = do
---   hdl <- initialise
---   Trace.callEndpoint @"mintReserveCoin"
---     hdl
---     CoinsMachine.EndpointInput
---       { rateNume = rateNume,
---         rateDeno = rateDeno,
---         tokenAmount = tokenAmount
---       }
---   void $ Trace.waitNSlots 2
+mintReserveCoins :: Integer -> Trace.EmulatorTrace ()
+mintReserveCoins tokenAmount = do
+  hdl <- initialise
+  void $ callReserveMintEndpoint tokenAmount hdl
 
+callReserveMintEndpoint :: Integer -> CoinsContractHandle -> Trace.EmulatorTrace ()
+callReserveMintEndpoint tokenAmount hdl = do
+  Trace.callEndpoint @"mintReserveCoin"
+    hdl
+    EndpointInput
+      { 
+        tokenAmount = tokenAmount
+      }
+  void $ Trace.waitNSlots 2
 
--- mintAndRedeemStableCoins :: Integer -> Integer -> Integer -> Integer -> Trace.EmulatorTrace ()
--- mintAndRedeemStableCoins tokenAmountToMint tokenAmountToRedeem rateNume rateDeno = do
---   hdl <- initialise
---   Trace.callEndpoint @"mintStableCoin"
---     hdl
---     CoinsMachine.EndpointInput
---       { rateNume = rateNume,
---         rateDeno = rateDeno,
---         tokenAmount = tokenAmountToMint
---       }
---   void $ Trace.waitNSlots 2  
---   Trace.callEndpoint @"redeemStableCoin"
---       hdl
---       CoinsMachine.EndpointInput
---         { rateNume = rateNume,
---           rateDeno = rateDeno,
---           tokenAmount = tokenAmountToRedeem
---         }
---   void $ Trace.waitNSlots 2
+mintAndRedeemStableCoins :: Integer -> Integer -> Trace.EmulatorTrace ()
+mintAndRedeemStableCoins tokenAmountToMint tokenAmountToRedeem = do
+  hdl <- initialise
+  void $ callStableMintEndpoint tokenAmountToMint hdl
 
--- mintAndRedeemReserveCoins :: Integer -> Integer -> Integer -> Integer -> Trace.EmulatorTrace ()
--- mintAndRedeemReserveCoins tokenAmountToMint tokenAmountToRedeem rateNume rateDeno = do
---   hdl <- initialise
---   Trace.callEndpoint @"mintReserveCoin"
---     hdl
---     CoinsMachine.EndpointInput
---       { rateNume = rateNume,
---         rateDeno = rateDeno,
---         tokenAmount = tokenAmountToMint
---       }
---   void $ Trace.waitNSlots 2  
---   Trace.callEndpoint @"redeemReserveCoin"
---       hdl
---       CoinsMachine.EndpointInput
---         { rateNume = rateNume,
---           rateDeno = rateDeno,
---           tokenAmount = tokenAmountToRedeem
---         }
---   void $ Trace.waitNSlots 2
+  Trace.callEndpoint @"redeemStableCoin"
+      hdl
+      EndpointInput
+        {
+          tokenAmount = tokenAmountToRedeem
+        }
+  void $ Trace.waitNSlots 2
+
+mintAndRedeemReserveCoins :: Integer -> Integer -> Trace.EmulatorTrace ()
+mintAndRedeemReserveCoins tokenAmountToMint tokenAmountToRedeem = do
+  hdl <- initialise
+  void $ callReserveMintEndpoint tokenAmountToMint hdl
+
+  Trace.callEndpoint @"redeemReserveCoin"
+      hdl
+      EndpointInput
+        {
+          tokenAmount = tokenAmountToRedeem
+        }
+  void $ Trace.waitNSlots 2
