@@ -38,11 +38,6 @@
           </b-card-group>
         </b-col>
       </b-row>
-      <b-row v-else>
-        <b-col class="mt-5 pt-5 text-center">
-          <h3 class="text-muted">Nothing to see here</h3>
-        </b-col>
-      </b-row>
     </b-container>
   </div>
 </template>

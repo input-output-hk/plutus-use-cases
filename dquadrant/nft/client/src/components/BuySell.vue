@@ -9,33 +9,31 @@
     </b-row>
     <div v-else class="container-fluid mt-4">
       <b-row>
-        <b-col cols="12" lg="6" class="my-2">
-          <div v-for="(token,index) in this.$store.state.contract.funds.tokens" :key="index">
-            <b-card class="text-monospace">
-              <b-card-text>
-                <p><strong>Currency</strong> <span class="text-muted">{{ token.currency }}</span></p>
-              </b-card-text>
-              <b-card-text>
-                <p><strong>Token</strong> <span class="text-muted">{{ token.name }}</span></p>
-              </b-card-text>
-              <b-card-text v-if="token.value===1">
-                <strong class="badge badge-pill badge-secondary">NFT</strong>
-              </b-card-text>
+        <b-col cols="12" lg="6" class="my-2" v-for="(token,index) in this.$store.state.contract.funds.tokens" :key="index">
+          <b-card class="text-monospace">
+            <b-card-text>
+              <p><strong>Currency</strong> <span class="text-muted">{{ token.currency }}</span></p>
+            </b-card-text>
+            <b-card-text>
+              <p><strong>Token</strong> <span class="text-muted">{{ token.name }}</span></p>
+            </b-card-text>
+            <b-card-text v-if="token.value===1">
+              <strong class="badge badge-pill badge-secondary">NFT</strong>
+            </b-card-text>
 
-              <b-button-toolbar aria-label="Bid">
-                <b-button-group size="sm" class="mr-1">
-                  <b-button v-b-modal="'a'+token.index" variant="primary" @click="tokenClicked = token;">
-                    Start Auction
-                  </b-button>
-                </b-button-group>
-                <b-input-group size="sm" class="mr-1">
-                  <b-button v-b-modal="'s'+token.index" variant="success" @click="tokenClicked = token;">
-                    Sell
-                  </b-button>
-                </b-input-group>
-              </b-button-toolbar>
-            </b-card>
-          </div>
+            <b-button-toolbar aria-label="Bid">
+              <b-button-group size="sm" class="mr-1">
+                <b-button v-b-modal="'a'+token.index" variant="primary" @click="tokenClicked = token;">
+                  Start Auction
+                </b-button>
+              </b-button-group>
+              <b-input-group size="sm" class="mr-1">
+                <b-button v-b-modal="'s'+token.index" variant="success" @click="tokenClicked = token;">
+                  Sell
+                </b-button>
+              </b-input-group>
+            </b-button-toolbar>
+          </b-card>
         </b-col>
       </b-row>
     </div>
