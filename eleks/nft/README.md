@@ -1,6 +1,6 @@
 # NFT Marketplace.
 
-The main idea of this prototype is to demonstrate the possibility of the business use case for NFT Marketplace, implemented with Plutus smart-contract language on the Cardano blockchain. On the high level DApp consists of the Plutus part which is implemented business logic and store metadata of the marketplace through the smart-contracts(onchain/offchain) and client UI part through which user is able to interact with smart-contracts to mint, sell, buy and transfer NTFs.
+The main idea of this prototype is to demonstrate the possibility of the business use case for NFT Marketplace, implemented with Plutus smart-contract language on the Cardano blockchain. On the high level DApp consists of the Plutus part which is implemented business logic and store metadata of the marketplace through the smart-contracts(onchain/offchain) and client UI part which is provide ability for user to interact with smart-contracts to mint, sell, buy and transfer NTFs.
 
 ## Core functionality 
 1. SignIn ability with one of the pre definied default wallets 
