@@ -1,7 +1,6 @@
 # NFT Marketplace.
 
-This project is an NFT marketplace demo.
-User can create, sell or buy NFT tokens on a marketplace. Solution does not require external database or metadata storage.
+The main idea of this prototype is to demonstrate the possibility of the business use case for NFT Marketplace, implemented with Plutus smart-contract language on the Cardano blockchain. On the high level DApp consists of the Plutus part which is implemented business logic and store metadata of the marketplace through the smart-contracts(onchain/offchain) and client UI part through which user is able to interact with smart-contracts to mint, sell, buy and transfer NTFs.
 
 ## Core functionality 
 1. SignIn ability with one of the pre definied default wallets 
@@ -17,6 +16,12 @@ This prototype performs like a real-life decentralized application (DApp), all t
 DApp utilize IPFS network through third party provider(https://nft.storage/) for storing NFT's associated file.
 
 ![System Context Diagram](./screenshots/1625033390582.jpg)
+
+## Technology Stack
+1. Plutus
+2. Plutus Application Backend (PAB)
+3. IPFS
+4. ReactJS
 
 ### Start Contract
 On a contract start we create single NFT market token used to uniqely identity marketplace.
