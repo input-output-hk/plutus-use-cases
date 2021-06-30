@@ -69,12 +69,14 @@ export default {
   },
   methods: {
     onBuy(item) {
+      clearTimeout(this.timeoutHandle)
       this.$task.do(
           this.$http.post(`instance/${this.instanceId}/endpoint/buy`, {
             ppItems: [item.reference],
             ppValue: item.cost
           }).then(() => this.$task.infoMessage("Transaction Submitted."))
       )
+      this.timeoutHandle = setTimeout(this.refresh, 10000)
     },
     refresh() {
       this.$task.do(
