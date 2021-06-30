@@ -1,13 +1,18 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
-module Spec.Types
+module Spec.Helper
     where
 
 import           Contracts.NFT          as NFTMarket
+import qualified Data.ByteString.Char8  as B
+import qualified Data.Semigroup         as Semigroup
+import           Data.Monoid            (Last (..))
+import           Data.Text              (Text)
+import           Data.Void              (Void)
 import qualified Spec.MockNFTCurrency   as MockCurrency
 import           Ledger                 (PubKeyHash, pubKeyHash)
 import           Ledger.Value           (CurrencySymbol(..), TokenName (..), AssetClass(..))
-import qualified Data.ByteString.Char8  as B
+import qualified Plutus.Trace.Emulator  as Trace
 import           Wallet.Emulator        (Wallet, walletPubKey)
 
 mockMarketId :: AssetClass
@@ -93,3 +98,29 @@ createNftMeta testToken = NFTMetadata
     , nftSeller = testTokenSeller testToken
     , nftSellPrice = testTokenSellPrice testToken
     }
+
+extractNFTMarket:: Trace.ContractHandle ( Last (Either Text NFTMarket)) MarketOwnerSchema Void -> Trace.EmulatorTrace NFTMarket
+extractNFTMarket handle = do
+    t <- Trace.observableState handle
+    
+    case t of
+        Last (Just (Right market)) -> return market
+        _                          -> Trace.throwError (Trace.GenericError "market not found")
+
+extractTokenMeta:: 
+    Trace.ContractHandle ( Last (Either Text MarketContractState)) MarketUserSchema Void -> Trace.EmulatorTrace NFTMetadataDto
+extractTokenMeta handle = do
+    t <- Trace.observableState handle
+    case t of
+        Data.Monoid.Last (Just (Right (NFTMarket.Created nftMeta))) -> return nftMeta
+        _                                                           -> 
+            Trace.throwError (Trace.GenericError "created nft metadata not found")
+
+extractCurrencyForgedNFT:: 
+    Trace.ContractHandle (Maybe (Semigroup.Last MockCurrency.MockNFTCurrency)) MockCurrency.CurrencySchema Text
+    -> Trace.EmulatorTrace MockCurrency.MockNFTCurrency
+extractCurrencyForgedNFT handle = do
+    t <- Trace.observableState handle
+    case t of
+        Just (Semigroup.Last currency) -> return currency
+        _                              -> Trace.throwError (Trace.GenericError "currency not found")

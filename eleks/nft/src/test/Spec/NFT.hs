@@ -40,7 +40,7 @@ import qualified Prelude
 import           Prelude                                (read, show, String)
 import           Test.Tasty
 import           Spec.MockNFTCurrency                   as MockCurrency 
-import           Spec.Types
+import           Spec.Helper
 
 w1, w2, ownerWallet :: Wallet
 w1 = Wallet 1
@@ -439,29 +439,3 @@ buyNftTokenTrace hdl nftTokenMeta = do
     let nftTokenBuyParams = NFTMarket.BuyParams { bpTokenName = nftDtoTokenName nftTokenMeta }
     Trace.callEndpoint @"buy" hdl nftTokenBuyParams
     void $ Trace.waitNSlots 5
-
-extractNFTMarket:: Trace.ContractHandle ( Last (Either Text NFTMarket)) MarketOwnerSchema Void -> Trace.EmulatorTrace NFTMarket
-extractNFTMarket handle = do
-    t <- Trace.observableState handle
-    
-    case t of
-        Last (Just (Right market)) -> return market
-        _                          -> Trace.throwError (Trace.GenericError "market not found")
-
-extractTokenMeta:: 
-    Trace.ContractHandle ( Last (Either Text MarketContractState)) MarketUserSchema Void -> Trace.EmulatorTrace NFTMetadataDto
-extractTokenMeta handle = do
-    t <- Trace.observableState handle
-    case t of
-        Data.Monoid.Last (Just (Right (NFTMarket.Created nftMeta))) -> return nftMeta
-        _                                                           -> 
-            Trace.throwError (Trace.GenericError "created nft metadata not found")
-
-extractCurrencyForgedNFT:: 
-    Trace.ContractHandle (Maybe (Semigroup.Last MockCurrency.MockNFTCurrency)) MockCurrency.CurrencySchema Text
-    -> Trace.EmulatorTrace MockCurrency.MockNFTCurrency
-extractCurrencyForgedNFT handle = do
-    t <- Trace.observableState handle
-    case t of
-        Just (Semigroup.Last currency) -> return currency
-        _                              -> Trace.throwError (Trace.GenericError "currency not found")

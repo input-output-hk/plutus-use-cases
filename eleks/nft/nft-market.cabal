@@ -56,7 +56,7 @@ test-suite plutus-example-projects-test
   other-modules:
     Spec.NFT
     Spec.MockNFTCurrency
-    Spec.Types
+    Spec.Helper
   default-language: Haskell2010
   ghc-options: -Wall -Wnoncanonical-monad-instances
               -Wincomplete-uni-patterns -Wincomplete-record-updates
