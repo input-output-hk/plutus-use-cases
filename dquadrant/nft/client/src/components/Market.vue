@@ -24,7 +24,7 @@
                 </b-card-text>
               </div>
               <b-card-text class="d-flex justify-content-between">
-                <strong>Cost (Lovelace)</strong> <span class="text-monospace">{{ item.cost.value }}</span>
+                <strong>Cost (Lovelace)</strong> <span class="text-monospace">{{ item.cost.value.toLocaleString() }}</span>
               </b-card-text>
               <b-button
                   :data-label="i"
@@ -87,7 +87,8 @@ export default {
       // const encoded = new Buffer(myString).toString('hex'); // encoded === 54686973206973206d7920737472696e6720746f20626520656e636f6465642f6465636f646564
       // const decoded = new Buffer(encoded, 'hex').toString(); // decoded === "This is my string to be encoded/decoded"
 
-      this.items.forEach(x=>x.values.forEach(v =>v.token = new buffer.Buffer (v.token,"hex").toString()))
+      if(this.items !== undefined && this.items.length > 0)
+        this.items.forEach(x=>x.values.forEach(v =>v.token = new buffer.Buffer (v.token,"hex").toString()))
       // }
     },
     instanceId(x) {
