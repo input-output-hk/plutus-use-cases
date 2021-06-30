@@ -71,68 +71,6 @@ main = void $ Simulator.runSimulationWith handlers $ do
         Simulator.logString @(Builtin NFTMarketContracts) $ "NFT user contract started for " ++ show w
         return (w, cid)
 
-    let nftTokenParams = NFTMarket.CreateParams { cpTokenName = "TestToken", cpDescription = "TestDescrition", cpAuthor = "Author1", cpFile = "file1" }
-    Simulator.logString @(Builtin NFTMarketContracts) $ "nft token create params: " ++ show (encode nftTokenParams)
-    void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" nftTokenParams
-    token1Meta <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
-        Success (Monoid.Last (Just (Right (NFTMarket.Created nftMeta)))) -> Just nftMeta
-        _                                                      -> Nothing
-    Simulator.logString @(Builtin NFTMarketContracts) $ "Token 1 created"
-    Simulator.waitNSlots 10
-
-    -- let nftTokenParams2 = NFTMarket.CreateParams { cpTokenName = "TestToken2", cpDescription = "TestDescrition2", cpAuthor = "Author2", cpFile = "file2" }
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "nft token create params: " ++ show (encode nftTokenParams2)
-    -- void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" nftTokenParams2
-    -- token2Meta <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
-    --     Success (Monoid.Last (Just (Right (NFTMarket.Created nftMeta)))) -> Just nftMeta
-    --     _                                                      -> Nothing
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "Token 2 created"
-    -- Simulator.waitNSlots 10
-
-    -- let nftTransferParams = NFTMarket.TransferParams { tpTokenName = nftDtoTokenSymbol token1Meta, tpReceiverWallet = 1 }
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "nft token transfer params: " ++ show (encode nftTransferParams)
-    -- void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "transfer" nftTransferParams
-    -- transferedTokenMeta <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
-    --     Success (Monoid.Last (Just (Right (NFTMarket.Transfered nftMeta)))) -> Just nftMeta
-    --     _                                                                   -> Nothing
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "Token transfered"
-    -- Simulator.waitNSlots 10
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "Enter to show user tokens"
-    -- void $ liftIO getLine
-
-    -- let nftTokenSellParams = NFTMarket.SellParams { spTokenName = nftDtoTokenName token1Meta, spSellPrice = 1000}
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "sell token: " ++ show (encode nftTokenSellParams)
-    -- void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "sell" nftTokenSellParams
-    -- nftSellingMetaDto <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
-    --     Success (Monoid.Last (Just (Right (NFTMarket.Selling metadDto)))) -> Just metadDto
-    --     _                                                      -> Nothing
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "Selling metadata" ++ show nftSellingMetaDto
-    -- Simulator.waitNSlots 10
-
-    -- let nftTokenCancelSellParams = NFTMarket.CancelSellParams { cspTokenName = nftDtoTokenSymbol token1Meta }
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "cancel sell token: " ++ show (encode nftTokenCancelSellParams)
-    -- void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "cancelSell" nftTokenCancelSellParams
-    -- nftCancelSellingMetaDto <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
-    --     Success (Monoid.Last (Just (Right (NFTMarket.CancelSelling metadDto)))) -> Just metadDto
-    --     _                                                      -> Nothing
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "Cancel selling metadata" ++ show nftCancelSellingMetaDto
-    -- Simulator.waitNSlots 10
-
-    -- let nftTokenBuyParams = NFTMarket.BuyParams { bpTokenName = nftDtoTokenName token1Meta }
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "buy token: " ++ show (encode nftTokenSellParams)
-    -- void $ Simulator.callEndpointOnInstance (cids Map.! Wallet 1) "buy" nftTokenBuyParams
-    -- nftButingMetaDto <- flip Simulator.waitForState (cids Map.! Wallet 1) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
-    --     Success (Monoid.Last (Just (Right (NFTMarket.Buyed metadDto)))) -> Just metadDto
-    --     --Success (Monoid.Last (Just (Left err ))) -> Nothing
-    --     _ -> Nothing
-    
-    -- _ <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "userNftTokens" ()
-    -- metas1 <- flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.MarketContractState))) of
-    --         Success (Monoid.Last (Just (Right (NFTMarket.Tokens metas)))) -> Just metas
-    --         _                                                             -> Nothing
-    -- Simulator.logString @(Builtin NFTMarketContracts) $ "Wallet 2 nfts " ++ show metas1
-
-    
     Simulator.waitNSlots 10
     Simulator.logString @(Builtin NFTMarketContracts) $ "Enter to continue"
     void $ liftIO getLine
