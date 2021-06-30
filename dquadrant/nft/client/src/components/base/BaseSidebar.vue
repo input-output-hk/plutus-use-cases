@@ -27,17 +27,20 @@
               </div>
             </li>
             <li>
-              <router-link :to="{name: 'wallets'}" class="btn btn-block text-left py-4 px-2">
+              <router-link :class="$router.currentRoute.path.startsWith('/wallets') ? 'btn-light text-dark rounded-0' : ''"
+                           :to="{name: 'wallets'}" class="btn btn-block text-left py-4 px-2">
                 My Wallets
               </router-link>
             </li>
             <li>
-              <router-link :to="{name: 'mint'}" class="btn btn-block text-left py-4 px-2">
+              <router-link :class="$router.currentRoute.path.startsWith('/mint') ? 'btn-light text-dark rounded-0' : ''"
+                           :to="{name: 'mint'}" class="btn btn-block text-left py-4 px-2">
                 Mint an NFT
               </router-link>
             </li>
             <li>
-              <router-link :to="{name: 'assets'}" class="btn btn-block text-left py-4 px-2">
+              <router-link :class="$router.currentRoute.path.startsWith('/assets') ? 'btn-light text-dark rounded-0' : ''"
+                           :to="{name: 'assets'}" class="btn btn-block text-left py-4 px-2">
                 Assets
               </router-link>
             </li>
@@ -56,6 +59,13 @@ export default {
   name: "BaseSidebar",
   computed: {
     walletName() {
+      if(this.$store.state.contract === undefined
+          || this.$store.state.contract.instances === undefined
+          || this.$store.state.contract.instances.length === 0
+          || this.$store.state.contract.instances[this.$store.state.contract.activeIndex].cicWallet === undefined
+          || this.$store.state.contract.instances[this.$store.state.contract.activeIndex].cicWallet.getWallet === undefined)
+        return "Wallet id undefined"
+
       const walletInstance = this.$store.state.contract.instances[this.$store.state.contract.activeIndex].cicWallet.getWallet
       switch (walletInstance) {
         case 1:

@@ -84,6 +84,10 @@ export default {
       this.refresh()
     }
   },
+  destroyed() {
+    if(typeof this.timeoutHandle === "number")
+      clearTimeout(this.timeoutHandle)
+  },
   computed: {
     instanceId() {
       return this.$store.state.contract.instance.cicContract.unContractInstanceId
@@ -197,6 +201,7 @@ export default {
   data: () => {
     return {
       flight: false,
+      timeoutHandle: undefined,
       items: [
         {
           "arMarketFee": 5000000,
