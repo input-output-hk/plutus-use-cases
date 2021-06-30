@@ -1,6 +1,9 @@
 # NFT Marketplace.
 
-The main idea of this prototype is to demonstrate the possibility of the business use case for NFT Marketplace, implemented with Plutus smart-contract language on the Cardano blockchain. On the high level DApp consists of the Plutus part which is implemented business logic and store metadata of the marketplace through the smart-contracts(onchain/offchain) and client UI part which is provide ability for user to interact with smart-contracts to mint, sell, buy and transfer NTFs.
+The main idea of this prototype is to demonstrate the possibility of the business use case for NFT Marketplace, implemented with Plutus smart-contract language on the Cardano blockchain. 
+On the high level, the DApp consists of the following components:​
+- the Plutus part with implemented business logic and the marketplace metadata storage based on onchain/offchain smart contracts, and 
+- the client Web UI part that allows users to interact with smart contracts to mint, sell, buy and transfer NTFs.
 
 ## Core functionality 
 1. SignIn ability with one of the pre defined default wallets 
@@ -38,12 +41,14 @@ At any moment token owner can put token on sale, he transfers his NFT token to t
 
 ![Selling NFT](./screenshots/selling.jpg)
 
-### Buy token.
+### Buy token
 If token is on sale, any user can buy it. Buyer receives the NFT token, Seller gets the price.
+
 ![Buying NFT](./screenshots/buy.jpg)
 
 ### Cancel selling
 Token owner could decide to cancell sell. He will get the NFT token back from the market script. Token will be removed from the store.
+
 ![Buying NFT](./screenshots/cancel-sell.jpg)
 
 ### Transfer token
@@ -51,14 +56,14 @@ Owner could transfer token to any other user directly. Market NFT metadata track
 
 ## Setting up
 
-For now, the only supported tooling setup is to use the provided VSCode devcontainer to get an environment with the correct tools set up.
+Follow next steps to get an environment with the correct tools set up.
 
 - Run the nix terminal
   - Clone https://github.com/input-output-hk/plutus 
   - Set up your machine to run Nix terminal, following the Plutus README (make sure to set up the binary cache!)
-  - Run nix shell in the plutus folder
-- Clone this repository
-  - In the nix terminal switch to the current folder
+  - Run `nix-shell` command in the plutus folder
+- Clone the current repository
+  - In the nix terminal switch to the root folder
   - `cabal build` from the terminal should work
 
 ## The Plutus Application Backend (PAB) example
@@ -222,9 +227,12 @@ curl -H "Content-Type: application/json" \
 ```
 
 ## Frontend App
+To set up and configure the client side App follow next manual
+
 [Run frontend](market-web-app/README.md)
 
-## Run unit tests
+## Unit tests
+Run next command in the console of the root directory of the current project and see results on the screen
 ```
 cabal test
 ```
