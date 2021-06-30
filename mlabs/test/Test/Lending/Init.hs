@@ -10,6 +10,7 @@ module Test.Lending.Init(
   , toUserId
   , toPubKeyHash
   , lendexId
+  , fromToken
 ) where
 
 import Prelude

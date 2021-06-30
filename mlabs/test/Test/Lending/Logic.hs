@@ -2,6 +2,10 @@
 module Test.Lending.Logic(
     test
   , testScript
+  , fromToken
+  , testAppConfig
+  , user1, user2, user3
+  , coin1, coin2, coin3
 ) where
 
 import Test.Tasty
