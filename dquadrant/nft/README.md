@@ -21,7 +21,8 @@ trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 - cd to /home/user/plutus and Checkout `plutus-starter-devcontainer/v1.0.6` tag
 - On the Plutus repository root, issue `nix-shell` command
 - Inside the nix shell, `cd` to `/home/user/plutus-use-cases/dquadrant/nft`
-
+- create a link for hpc. It's required for tests and might be different folder for other architectures. `ln - s ./dist-newstyle/build/x86_64-linux/ghc-8.10.4.20210212/plutus-tokens-0.1.0.0/hpc/vanilla/mix/plutus-tokens-0.1.0.0 ./hpc"
+  `
 ##### Running Tests
  `cabal test plutus-tokens:test:tokens-test`
 
@@ -54,14 +55,14 @@ after each endpoint call, to receive the response, you will have to issue a get 
 The response in the last item of `cicCurrentState.observabaleState` list in the json response
 
 ```http request
-GET http://localhost:8080/api/new/contract/instance/__INSTANCE_ID__/status
+GET http://localhost:8080/api/new/contract/instance/{{instance_id}}/status
 ```
 
 You can send `Enter` key input to the pab process to list the funds in console.
 Each instance also has utility endpoint `funds` to list funds in wallet.
 
 ```http request
-GET http://localhost:8080/api/new/contract/instance/__INSTANCE_ID__/funds
+GET http://localhost:8080/api/new/contract/instance/{{instance_id}}/funds
 ```
 
 **NOTE**: The endpoints that create transactions will return immediately, but the transaction won't be confirmed yet. You can poll the `status` endpoint and find out when it gets confirmed from the `observableState`.
@@ -70,10 +71,10 @@ GET http://localhost:8080/api/new/contract/instance/__INSTANCE_ID__/funds
 NFT can be minted by calling ` mint` endpoint on the instance id. The token name must be hex encoded.
 
 ```http request
-GET http://localhost:8080/api/new/contract/instance/__INSTANCE_ID__/mint
+GET http://localhost:8080/api/new/contract/instance/{{instance_id}}/mint
 Content-Type: application/json
 
-"${Token name in hex encoding}"
+{{token_name_hex}}
 ```
 
 ### DirectSale
@@ -87,13 +88,15 @@ Requires list of Objects. Each object has `spItems`, the list of tokens to be so
 `spSaleType` `Primary` if it's you created the NFT `Secondary` if you own the nft,
 but you didn't create it.
 ```http request
-POST http://localhost:8080/api/new/contract/instances/${instance_id}/sell
+POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/sell
 Content-Type: application/json
 
 [{
-  "spItems": [{currency: "${NftPolicy}", token: "${NftTokenName}", value: 1}],
+  "spItems": [
+    {currency: {{policy_id}}, token: {{token_name_hex}}, value: 1}
+    ],
   "spSaleType": "Primary",
-  "spCost": {currency: "", token: "", value: 100}
+  "spCost": {"currency": "", "token": "", "value": 100}
 }]
 ```
 #### List Items on Direct Sale.
@@ -101,7 +104,7 @@ Content-Type: application/json
 Will return a list of items in sale, each items has an extra key : `reference` and it's value is the `TxOutRef` model.
 You use the `reference` to buy it from market
 ```http request
-POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/list
+POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/list
 Content-Type: application/json
 
 {
@@ -113,11 +116,11 @@ Purchase transaction can be made posting  list of `PurchaseParam` model to the e
 each object in the list corresponds to a sale. In PurchaseRequestObject has `ppItems`: the list of tokens to be sold and `ppValue` : total cost of those items
 
 ```http request
-POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/buy
+POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/buy
 Content-Type: application/json
 
 [{
-   "ppItems": [ "${Refrence object in response}"],
+   "ppItems": [ {{utxo_ref_object}} ],
    "ppValue": {
             "currency": "",
             "token": "",
@@ -135,18 +138,18 @@ with `Auction` Datum. The Datum contains auction's expiry, startBid ,increment a
 List of Auction Items. The model contains `apValue` the value to be placed on auction `apMinBid`,
 the starting bid , `apMinIncrement` minimum increment to be added to bid in each new bid, and other configurations. respectively as shown below
 ```http request
-POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/startAuction
+POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/startAuction
 Content-Type: application/json
 
 [{
   "apValue": [{
-    "currency": "${Policy_id}",
-    "token": "${Token Name in Hex}",
+    "currency": {{policy_id}}},
+    "token": {{token_name_hex}},
     "value": 1
   }],
   "apMinBid": {
-    "currency": "${Policy_id to receive bid in},
-    "token": "${Token Name in Hex}",
+    "currency": {{policy_id}}},
+    "token": {{token_name_hex}},
     "value": 2000000
   },
   "apMinIncrement": 1000000,
@@ -160,7 +163,7 @@ Content-Type: application/json
 Will return a list of items in auction, each items has a key `reference` and it's value is the `TxOutRef` model.
 You use the `reference` to bid it from market
 ```http request
-POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/list
+POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/list
 Content-Type: application/json
 
 {
@@ -175,16 +178,16 @@ and `bidValue` list of tokens and it's value to place on bid.
 Bidding is done only on the token having same policyId and tokenName as provided in createAuction endpoint.
 Other values will be received by the auction creator as tips.
 ```http request
-POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/bid
+POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/bid
 Content-Type: application/json
 
 {
-  "ref": "${reference Modal returned in Auction Listing},
+  "ref": {{utxo_ref_object}},
   "bidValue": [
     {
-      "currency": "${Policy Id}",
-      "token": "${Tokenname in hex}",
-      "value": "${bid balue}"
+      "currency": {{policy_id}},
+      "token": {{token_name_hex}},
+      "value": 200000
     }
   ]
 }
@@ -194,9 +197,11 @@ Once the Auction deadline is reached, auctions chan be claimed by the highest bi
 It required list of `TxOutRef` objects and when`ignoreUnClaimable` is set, Wallet code will ignore the utxos that can't be claimed and create transaction from claimable utxos.
 
 ```http request
-POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/bid
+POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/bid
+Content-Type: application/json
+
 {
-  "references":[ "${Utxo Refreence object returned in listing}",.. ],
+  "references":[ {{utxo_ref_object}} ],
   "ignoreUnClaimable": true
 }
 ```
