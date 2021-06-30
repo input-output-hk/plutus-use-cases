@@ -3,7 +3,7 @@
     <NavBar/>
     <b-row>
       <b-col cols="12" md="4" class="my-2" v-for="(option, i) in options" :key="i">
-        <b-card :title="'Wallet '+ i" class="mx-2 shadow-sm">
+        <b-card :title="'Wallet '+ option.wallet" class="mx-2 shadow-sm">
           <b-card-text class="d-flex justify-content-between">
             <p></p>
             <b-button variant="primary" @click="updateIndex(i)" :disabled="instanceIndex === i">

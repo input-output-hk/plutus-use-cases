@@ -35,7 +35,7 @@ export default {
           if (x.data.length === 0) {
             throw Error("PAB responded with empty list of contract instances")
           }
-          return x.data.sort((a, b) => a.cicWallet.getWallet > b.cicWallet.getWallet)
+          return x.data.sort((a, b) => a.cicWallet.getWallet - b.cicWallet.getWallet)
         }).then((instances) => {
           const firstInstance = instances[0]
           this.$http.post(

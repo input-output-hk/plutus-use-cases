@@ -30,7 +30,15 @@
                   </p>
                 </div>
                 <div class="text-muted pb-2" v-else>
-                  No Bids yet
+                  <p>No Bids yet</p>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <strong>Start Time</strong>
+                  <p class="text-muted">{{ item | parseStartTime }}</p>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <strong>End Time</strong>
+                  <p class="text-muted">{{ item | parseEndTime }}</p>
                 </div>
               </b-card-text>
               <b-form-input class="mb-2" type="number" v-model.number="item.minNewBid"
@@ -47,7 +55,8 @@
                   </b-button>
                 </b-input-group>
                 <b-input-group size="sm">
-                  <b-button variant="warning" @click="onBidDecrease(i)" :disabled="item.arBidder.bBid >= item.minNewBid">
+                  <b-button variant="warning" @click="onBidDecrease(i)"
+                            :disabled="item.arBidder.bBid >= item.minNewBid">
                     <BIconPatchMinus></BIconPatchMinus>
                   </b-button>
                 </b-input-group>
@@ -62,6 +71,7 @@
 
 <script>
 import NavBar from "./base/NavBar";
+import moment from "moment";
 
 export default {
   name: "DummyAuction",
@@ -80,6 +90,28 @@ export default {
       return this.$store.state.contract.lastObservable
     }
   },
+  filters: {
+    parseStartTime(item) {
+      let timeStamp;
+      if (item.arDuration !== undefined && item.arDuration.length !== 0) {
+        timeStamp = item.arDuration[0].contents.getPOSIXTime
+        timeStamp = moment(timeStamp).format("MM/DD/YYYY hh:mm a")
+      } else {
+        timeStamp = 'Start Time Unspecified'
+      }
+      return timeStamp
+    },
+    parseEndTime(item) {
+      let timeStamp;
+      if (item.arDuration !== undefined && item.arDuration.length !== 0) {
+        timeStamp = item.arDuration[1].contents.getPOSIXTime
+        timeStamp = moment(timeStamp).format("MM/DD/YYYY hh:mm a")
+      } else {
+        timeStamp = 'End Time Unspecified'
+      }
+      return timeStamp
+    },
+  },
   methods: {
     onBid(item) {
       this.flight = true
@@ -97,7 +129,7 @@ export default {
       )
       this.$task.do(
           this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
-            lmUtxoType:"MtAuction"
+            lmUtxoType: "MtAuction"
           })
       )
       this.$store.dispatch('updateAuctionItems', this.items)
