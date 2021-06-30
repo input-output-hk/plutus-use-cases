@@ -19,14 +19,18 @@ import           Servant.Server
 import           Wallet.Emulator.Types          (Wallet (..), walletPubKey)
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin)
 
+type AaveSimulation a = Simulator.Simulation (Builtin Simulation.AaveContracts) a
+
 deposit :: WithContractStorage => DepositRequest -> IO OperationStatus
 deposit depositRequest@DepositRequest{..} =  do
     mbContractIDs <- ContractStorage.getContractId wallet "activate"
     case mbContractIDs of
-        Nothing -> return . FailOperation $ "Can't find contractId for wallet: " <> show wallet
+        Nothing ->
+            -- For real wallets: call activate
+            return . FailOperation $ "Can't find contractId for wallet: " <> show wallet
         Just contractIDs -> makeDeposit depositRequest contractIDs
 
-activate :: forall t . WithContractStorage => String -> Simulator.Simulation (Builtin Simulation.AaveContracts) ()
+activate :: WithContractStorage => String -> AaveSimulation ()
 activate endpoint = do
     contractIDs <- Simulation.activateContracts
     liftIO $ ContractStorage.saveContractIds contractIDs endpoint
