@@ -3,16 +3,25 @@
 This project is an NFT marketplace demo.
 User can create, sell or buy NFT tokens on a marketplace. Solution does not require external database or metadata storage.
 
+## Core functionality 
+    - SignIn ability with one of the pre definied default wallets 
+    - Mint a new NFT token and displaying it on the "My collection" page
+    - Choose a certain NFT token from "My collection" page, set a price for it and put up for sale.
+    - Use the marketplace Storefront page to view the list of all NFT tokens that are for sale
+    - Cancel NFT token from sale
+    - Buy a particular NFT token and view it on the "My collection" page
+    - Transfer NFT tokens directly to other user wallet without Buy/Sell options
+    
 ## DApp Architecture
 This prototype performs like a real-life decentralized application (DApp), all the core functionality features implemented as on-chain/off-chain code using Plutus capabilities. Thereby, the solution doesn't require any additional functionality and storage in the classic backend and databases manner.
-
-DApp utilize IPFS network through third party provider(https://nft.storage/) for storing NFT's file.
+DApp utilize IPFS network through third party provider(https://nft.storage/) for storing NFT's associated file.
 
 ![System Context Diagram](./screenshots/1625033390582.jpg)
 
 ### Start Contract
 On a contract start we create single NFT market token used to uniqely identity marketplace.
 Market token is stored in the script address and it is datum contains info of the all metadata tokens created in the marketplace to validate token uniqueness.
+
 ### Create NFT
 On NFT token create we create two unique native tokens. One is the NFT token and it is send to the owner wallet.
 Another one is the NFT metadata token. Metadata token is stored in the market script address and never leaves it. In the metadata token datum we store the Symbol of the NFT token and all metadata information (e.g. name, description, file). Market token utxo is consumed in the creation transaction, existing tokens list is taken from the market it is and used to verify new token uniqueness.
@@ -24,7 +33,7 @@ At any moment token owner can put token on sale, he transfers his NFT token to t
 
 ![Selling NFT](./screenshots/selling.jpg)
 
-### Buy token on sale.
+### Buy token.
 If token is on sale, any user can buy it. Buyer receives the NFT token, Seller gets the price.
 ![Buying NFT](./screenshots/buy.jpg)
 
