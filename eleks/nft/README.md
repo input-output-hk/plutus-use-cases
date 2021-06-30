@@ -10,18 +10,18 @@ The main idea of this prototype is to demonstrate the possibility of the busines
 5. Cancel NFT token from sale
 6. Buy a particular NFT token and view it on the "My collection" page
 7. Transfer NFT tokens directly to other user wallet without Buy/Sell options
-    
-## DApp Architecture
-This prototype performs like a real-life decentralized application (DApp), all the core functionality features implemented as on-chain/off-chain code using Plutus capabilities. Thereby, the solution doesn't require any additional functionality and storage in the classic backend and databases manner.
-DApp utilize IPFS network through third party provider(https://nft.storage/) for storing NFT's associated file.
-
-![System Context Diagram](./screenshots/1625033390582.jpg)
 
 ## Technology Stack
 1. Plutus
 2. Plutus Application Backend (PAB)
 3. IPFS
 4. ReactJS
+ 
+## DApp Architecture
+This prototype performs like a real-life decentralized application (DApp), all the core functionality features implemented as on-chain/off-chain code using Plutus capabilities. Thereby, the solution doesn't require any additional functionality and storage in the classic backend and databases manner.
+DApp utilize IPFS network through third party provider(https://nft.storage/) for storing NFT's associated file.
+
+![System Context Diagram](./screenshots/1625033390582.jpg)
 
 ### Start Contract
 On a contract start we create single NFT market token used to uniqely identity marketplace.
