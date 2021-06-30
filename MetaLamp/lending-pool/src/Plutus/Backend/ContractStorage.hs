@@ -6,7 +6,6 @@ import           Control.Monad                       (mapM, void)
 import           Control.Monad.IO.Class              (liftIO)
 import qualified Data.Map.Strict                     as Map
 import           Data.Maybe                          (fromMaybe)
-import           Debug.Trace                         (traceIO)
 import qualified Plutus.ContractStorage              as Storage
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import qualified Plutus.PAB.Simulation               as Simulation
@@ -23,7 +22,6 @@ saveContractIds Simulation.ContractIDs {..} endpoint = do
 getContractId :: Storage.WithContractStorage => Wallet -> Storage.Endpoint -> IO (Maybe Simulation.ContractIDs)
 getContractId wallet endpoint = do
     contractId <- Storage.getContractId wallet endpoint
-    traceIO $ "[DEBUG] get bt: " <> show wallet
     pure $ maybe
         Nothing
         (\cId -> Just $ Simulation.ContractIDs {cidUser = Map.singleton wallet cId, cidInfo = cId})

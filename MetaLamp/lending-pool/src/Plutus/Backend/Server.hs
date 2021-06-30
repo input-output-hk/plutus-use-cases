@@ -9,7 +9,7 @@ import           Control.Monad.IO.Class         (liftIO)
 import           Data.Map                       (insert, (!?))
 import           Network.Wai.Handler.Warp       (run)
 import qualified Plutus.Backend.ContractStorage as LendingPool
-import           Plutus.Backend.Endpoints       (deposit)
+import           Plutus.Backend.Endpoints       (activate, deposit)
 import           Plutus.Backend.Types
 import           Plutus.ContractStorage         (ContractStorage (..),
                                                  WithContractStorage,
@@ -17,6 +17,8 @@ import           Plutus.ContractStorage         (ContractStorage (..),
 import qualified Plutus.PAB.Simulation          as PAB
 import           Servant
 import           Servant.API
+import qualified Plutus.PAB.Simulator           as Simulator
+import qualified Plutus.PAB.Simulation          as Simulation
 
 runServer :: IO ()
 runServer = do
@@ -29,9 +31,15 @@ runServer = do
             getContractIdFromStorage = \wallet endpoint -> liftIO $ do
               (!? (wallet, endpoint)) <$> readMVar storage
           }
+    activateContractsForMockWallets contractStorage
     print "Lending pool backend started on port 8081."
     print "Use Wallet 1, 2 or 3 to request simulation."
     run 8081 $ withContractStorage contractStorage backendApp
+    where
+      activateContractsForMockWallets contractStorage = 
+        Simulator.runSimulationWith Simulation.handlers $
+          withContractStorage contractStorage $ 
+            activate "activate"
 
 
 type LendingPoolAPI =
