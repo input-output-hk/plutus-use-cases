@@ -99,7 +99,7 @@ data BidParam=BidParam{
 } deriving(Generic,ToJSON,FromJSON,ToSchema)
 
 data ClaimParam=ClaimParam{
-  refreences ::[TxOutRef],
+  refrences ::[TxOutRef],
   ignoreUnClaimable :: Bool
 } deriving(Generic,ToJSON,FromJSON,ToSchema)
 instance ToSchema TxId

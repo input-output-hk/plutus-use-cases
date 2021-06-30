@@ -1,5 +1,10 @@
-# Plutus Tokens MarketPlace
+Plutus Tokens MarketPlace
+=========================
 
+A famous website sets up a marketplace in Cardano Blockchain.
+You can mint a new nft or bring your tokens to the Market.  The tokens can be place either for sale or Auction.
+
+The Items you place on sale or auction will be listed on their website. So, for each sale, they will charge you some fee.
 
 ## Setting up
 
@@ -18,10 +23,10 @@ trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 - Inside the nix shell, `cd` to `/home/user/plutus-use-cases/dquadrant/nft`
 
 ##### Running Tests
- ` cabal test plutus-tokens:test:tokens-test`
+ `cabal test plutus-tokens:test:tokens-test`
 
 ##### Starting PAB server
- `cabal run tokens-pab`
+ ` rm -rf ./*.tix && cabal run tokens-pab`
 
 Pab server will be available  available on http://localhost:8080 .
 
@@ -29,13 +34,48 @@ In the PAB server simulation,
 - Wallet 10 is operator of the market
 - Wallet 1-5 have active endpoints to interact with them.
 
-During the simulation at anytime, you can give `\n` (NewLine or Enter) key input to the pab-server to see it's status.
+During the simulation at anytime, you can give `\n` (NewLine or Enter) key input to the pab-server to see Funds of wallets.
 It will list all the wallets and balances in them.
 
-##### Starting the client  [Instructions here](./client/README.md)
+#### Starting the client
+You can interact with the pab server either using api endpoints or with webapp.
+Webap project Instructions for starting webapp is in [subfolder ./client/README.md](./client/README.md)
 
+## Using the PAB server endpoints
 
-## Architecture
+Wallet instances in the pab-server can be listed with a get request
+
+```http request
+GET http://localhost:8080/api/new/contract/instances
+```
+
+Once you have the instance ID, you can call pab endpoints for the wallet instance.
+after each endpoint call, to receive the response, you will have to issue a get request.
+The response in the last item of `cicCurrentState.observabaleState` list in the json response
+
+```http request
+GET http://localhost:8080/api/new/contract/instance/__INSTANCE_ID__/status
+```
+
+You can send `Enter` key input to the pab process to list the funds in console.
+Each instance also has utility endpoint `funds` to list funds in wallet.
+
+```http request
+GET http://localhost:8080/api/new/contract/instance/__INSTANCE_ID__/funds
+```
+
+**NOTE**: The endpoints that create transactions will return immediately, but the transaction won't be confirmed yet. You can poll the `status` endpoint and find out when it gets confirmed from the `observableState`.
+
+### Minting NFT
+NFT can be minted by calling ` mint` endpoint on the instance id. The token name must be hex encoded.
+
+```http request
+GET http://localhost:8080/api/new/contract/instance/__INSTANCE_ID__/mint
+Content-Type: application/json
+
+"${Token name in hex encoding}"
+```
+
 ### DirectSale
 Direct Sale is created by submitting a utxo to scriptAddress with Datum containing `DirectSale` Datum.
 Anyone can then claim the utxos by paying enough to the seller and fees to operator.
@@ -48,6 +88,8 @@ Requires list of Objects. Each object has `spItems`, the list of tokens to be so
 but you didn't create it.
 ```http request
 POST http://localhost:8080/api/new/contract/instances/${instance_id}/sell
+Content-Type: application/json
+
 [{
   "spItems": [{currency: "${NftPolicy}", token: "${NftTokenName}", value: 1}],
   "spSaleType": "Primary",
@@ -56,28 +98,32 @@ POST http://localhost:8080/api/new/contract/instances/${instance_id}/sell
 ```
 #### List Items on Direct Sale.
 
-Will return a list of items in sale, each items has a key `reference` and it's value is the `TxOutRef` model.
+Will return a list of items in sale, each items has an extra key : `reference` and it's value is the `TxOutRef` model.
 You use the `reference` to buy it from market
 ```http request
-POST http://localhost:8080/api/new/contract/instances/${instance_id}/list
+POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/list
+Content-Type: application/json
+
 {
   "lmUtxoType": "MtDirectSale",
 }
 ```
 #### Purchase  items
-Purchase transaction can be made posting  `PurchaseParam` model to the endpoint.
-`ppItems` are the List of Reference returned in the list response
+Purchase transaction can be made posting  list of `PurchaseParam` model to the endpoint.
+each object in the list corresponds to a sale. In PurchaseRequestObject has `ppItems`: the list of tokens to be sold and `ppValue` : total cost of those items
 
 ```http request
-POST http://localhost:8080/api/new/contract/instances/${instance_id}/buy
-{
-   "ppItems": [${Refreence in response}],
-   "ppValue": "cost": {
+POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/buy
+Content-Type: application/json
+
+[{
+   "ppItems": [ "${Refrence object in response}"],
+   "ppValue": {
             "currency": "",
             "token": "",
             "value": 200000
           }
-}
+}]
 ```
 
 ### Auction
@@ -89,7 +135,9 @@ with `Auction` Datum. The Datum contains auction's expiry, startBid ,increment a
 List of Auction Items. The model contains `apValue` the value to be placed on auction `apMinBid`,
 the starting bid , `apMinIncrement` minimum increment to be added to bid in each new bid, and other configurations. respectively as shown below
 ```http request
-POST http://localhost:8080/api/new/contract/instances/${instance_id}/startAuction
+POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/startAuction
+Content-Type: application/json
+
 [{
   "apValue": [{
     "currency": "${Policy_id}",
@@ -98,7 +146,7 @@ POST http://localhost:8080/api/new/contract/instances/${instance_id}/startAuctio
   }],
   "apMinBid": {
     "currency": "${Policy_id to receive bid in},
-    "token": "$(Token Name in Hex)"
+    "token": "${Token Name in Hex}",
     "value": 2000000
   },
   "apMinIncrement": 1000000,
@@ -112,7 +160,9 @@ POST http://localhost:8080/api/new/contract/instances/${instance_id}/startAuctio
 Will return a list of items in auction, each items has a key `reference` and it's value is the `TxOutRef` model.
 You use the `reference` to bid it from market
 ```http request
-POST http://localhost:8080/api/new/contract/instances/${instance_id}/list
+POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/list
+Content-Type: application/json
+
 {
   "lmUtxoType": "MtAuction",
 }
@@ -125,20 +175,28 @@ and `bidValue` list of tokens and it's value to place on bid.
 Bidding is done only on the token having same policyId and tokenName as provided in createAuction endpoint.
 Other values will be received by the auction creator as tips.
 ```http request
-POST http://localhost:8080/api/new/contract/instances/${instance_id}/bid
+POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/bid
+Content-Type: application/json
+
 {
-  "ref": item.arBidder.bBidReference,
+  "ref": "${reference Modal returned in Auction Listing},
   "bidValue": [
     {
-      "currency": item.arMinBid.currency,
-      "token": item.arMinBid.token,
-      "value": item.minNewBid
+      "currency": "${Policy Id}",
+      "token": "${Tokenname in hex}",
+      "value": "${bid balue}"
     }
   ]
 }
 ```
 ### Claim Auction
+Once the Auction deadline is reached, auctions chan be claimed by the highest bidder
+It required list of `TxOutRef` objects and when`ignoreUnClaimable` is set, Wallet code will ignore the utxos that can't be claimed and create transaction from claimable utxos.
 
-
-
-
+```http request
+POST http://localhost:8080/api/new/contract/instances/__INSTANCE_ID__/bid
+{
+  "references":[ "${Utxo Refreence object returned in listing}",.. ],
+  "ignoreUnClaimable": true
+}
+```
