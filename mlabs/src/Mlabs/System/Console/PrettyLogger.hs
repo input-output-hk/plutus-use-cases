@@ -1,3 +1,15 @@
+{-# OPTIONS_GHC -fplugin=RecordDotPreprocessor #-} 
+
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE GADTs                 #-}
+
 module Mlabs.System.Console.PrettyLogger
   ( module Mlabs.System.Console.PrettyLogger
   , module System.Console.ANSI

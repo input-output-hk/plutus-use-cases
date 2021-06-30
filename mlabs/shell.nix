@@ -31,6 +31,7 @@ with import ./nix { };
       ghcid
       git
       haskellPackages.fourmolu
+      haskellPackages.record-dot-preprocessor
       nixfmt
       plutus.plutus.haskell-language-server
       plutus.plutus.hlint
