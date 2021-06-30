@@ -16,6 +16,7 @@
     "font-awesome": "^4.7.0",
     "luxon": "^1.27.0",
     "moment": "^2.29.1",
+    "string-hex": "^1.0.0",
     "vue": "^2.6.13",
     "vue-datetime": "^1.0.0-beta.14",
     "vue-router": "^3.5.1",

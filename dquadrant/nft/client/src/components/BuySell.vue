@@ -146,7 +146,7 @@ export default {
               }]
           ).then(() => {
                 this.$task.infoMessage("Transaction Submitted. ")
-                this.$bvModal.hide('' + this.tokenClicked)
+                this.$bvModal.hide('s' + this.tokenClicked.index)
               }
           )
       )
@@ -178,7 +178,11 @@ export default {
                 apStartTime: {getPOSIXTime: startTime},
                 apEndTime: {getPOSIXTime: endTime}
               }]
-          ))
+          )).then(() => {
+            this.$task.infoMessage("Placing on auction. Please wait a moment.")
+            this.$bvModal.hide('a' + this.tokenClicked.index)
+          }
+      )
     },
     toLovelace: (a) => {
       try {
