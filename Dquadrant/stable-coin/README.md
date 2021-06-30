@@ -1,23 +1,161 @@
-# Plutus Platform starter project
+# Welcome to the Stable Coin Use Case Project
 
-This project gives a simple starter project for using the Plutus Platform.
+This project aims to develop a simple stable coin use case project using the Plutus Platform.
 
 ## Setting up
 
-For now, the only supported tooling setup is to use the provided VSCode devcontainer to get an environment with the correct tools set up.
+##### Setup and run nix shell
+1. Install Nix from
+https://nixos.org/nix/
 
-- Install Docker
-- Install VSCode
-  - Install the [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
-  - You do *not* need to install the Haskell extension
-- Get the docker image (for now, we need to build this with Nix)
-  - Clone https://github.com/input-output-hk/plutus 
-  - Set up your machine to build things with Nix, following the Plutus README (make sure to set up the binary cache!)
-  - Build and load the docker container: `docker load < $(nix-build default.nix -A devcontainer)`
-- Clone this repository and open it in VSCode
-  - It will ask if you want to open it in the container, say yes.
-  - `cabal build` from the terminal should work
-  - Opening a Haskell file should give you IDE features (it takes a little while to set up the first time)
+2. Setup binary caches
+Note: This is most needed to speed up build up process.
+```
+mkdir ~/.config/nix
+echo 'substituters = https://hydra.iohk.io https://iohk.cachix.org https://cache.nixos.org/' >> ~/.config/nix/nix.conf
+echo 'trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' >> ~/.config/nix/nix.
+conf
+```
+3. Clone https://github.com/input-output-hk/plutus
+
+4. Switched to cloned plutus directory.
+5. Run 
+```
+nix build -f default.nix plutus.haskell.packages.plutus-core.components.library 
+```
+from the root to build the Plutus Core library.
+
+6. Start nix shell from plutus folder with command
+```
+nix-shell
+```
+With these avobe steps nix-shell terminal should be running.
+
+These below steps should be done inside nix-shell
+
+
+##### Build and run this repo
+1. Clone this repository
+
+2. Build the project
+```
+cabal build 
+```
+3. Run the PAB for stablecoin
+```
+cabal run stablecoin-pab
+```
+Wait for Contract activation upto slot 19 as shown in running terminal.
+The PAB server is started on port 8080.
+
+4. Get oracle contract instance with response from below command in which inside json structue tag named as "OracleContract"
+```
+curl -s http://localhost/api/new/contract/instances | jq
+```
+You can find contract instance id inside "cicContract":{
+  "unContractInstanceId":\<Contract Instance Id\> 
+}
+5. Export oracle instance id as
+``` 
+export ORACLE_ID = <Contract Id from above step>
+```
+6. Set initial exchange rate for 1 usd to ada in lovelaces from
+```
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data <Type your Exchange Rate> \
+  http://localhost:8080/api/new/contract/instance/$ORACLE_ID/endpoint/update
+```
+7. Like as step 4 export Contract instance id for another wallet having tag StableContract
+```
+export INSTANCE_ID = <Contract Id for StableContract>
+```
+8. Mint reserve token with
+```
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '
+  {
+    "tokenAmount": <Type your token amount to mint in number>         
+  }' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/mintReserveCoin
+```
+9. Mint stable token with
+```
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '
+  {
+    "tokenAmount": <Type your token amount to mint in number>         
+  }' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/mintStableCoin
+```
+10. Redeem reserve token with
+```
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '
+  {
+    "tokenAmount": <Type your token amount to mint in number>         
+  }' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/redeemStableCoin
+```
+11. Redeem stable token with
+```
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '
+  {
+    "tokenAmount": <Type your token amount to mint in number>         
+  }' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/redeemStableCoin
+```
+12. After minting and redeeming you can check your balance with
+  * Post call to funds endpoint to update funds to contract status
+```
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '" "' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/funds
+```
+
+  * Check status endpoint of contract to get latest state of your funds
+  ```
+  curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  ```
+13. Get current circulating supply of tokens in stable contract with
+  * Post call to currentState endpoint to update currentState to contract status
+```
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '" "' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/currentState
+```
+
+  * Check status endpoint of contract to get latest state of stable coin contract
+  ```
+  curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  ```
+
+14. Get current rate of exchanges from
+  * Post call to currentRates endpoint to update current rates to contract status
+```
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '" "' \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/currentRates
+```
+
+  * Check status endpoint of contract to get latest state of your funds
+  ```
+  curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  ```
 
 
 ## The Plutus Application Backend (PAB) example
