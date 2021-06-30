@@ -86,6 +86,9 @@ main = void $ Simulator.runSimulationWith handlers $ do
 
     printOnReturn= do
         void $ liftIO getLine
+        slot <- Simulator.currentSlot
+        Simulator.logString  @(Builtin Market) $ "--------------------------------"
+        Simulator.logString  @(Builtin Market) $ "--------------------------------"
         Simulator.logString @(Builtin Market) "Current Balances"
         b <- Simulator.currentBalances
         Simulator.logBalances @(Builtin Market) b 

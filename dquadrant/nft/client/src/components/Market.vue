@@ -43,8 +43,7 @@
 </template>
 
 <script>
-
-
+const buffer=require("buffer")
 import NavBar from "./base/NavBar";
 
 export default {
@@ -85,6 +84,10 @@ export default {
     lastResponse(x) {
       // if (x.length && x.length > 0 && x[0].cost && typeof (x[0].cost.value) == "number" && x[0].owner && x[0].values && x[0].values) {
         this.items = x
+      // const encoded = new Buffer(myString).toString('hex'); // encoded === 54686973206973206d7920737472696e6720746f20626520656e636f6465642f6465636f646564
+      // const decoded = new Buffer(encoded, 'hex').toString(); // decoded === "This is my string to be encoded/decoded"
+
+      this.items.forEach(x=>x.values.forEach(v =>v.token = new buffer.Buffer (v.token,"hex").toString()))
       // }
     },
     instanceId(x) {

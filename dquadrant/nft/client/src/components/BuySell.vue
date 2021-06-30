@@ -124,6 +124,9 @@
 import {Datetime} from 'vue-datetime';
 import NavBar from "@/components/base/NavBar";
 import moment from "moment";
+const buffer=require("buffer")
+
+import moment from "moment";
 
 export default {
   name: "BuySell",
@@ -153,12 +156,12 @@ export default {
           this.$http.post(
               `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/sell`
               , [{
-                "spItems": [{currency: this.tokenClicked.currency, token: this.tokenClicked.name, value: 1}],
+                "spItems": [{currency: this.tokenClicked.currency, token: new Buffer(this.tokenClicked.name,"hex").toString(), value: 1}],
                 "spSaleType": "Primary",
                 "spCost": {currency: "", token: "", value: amount}
               }]
           ).then(() => {
-                this.$task.infoMessage("Transaction Submitted. NFT placed in marketplace")
+                this.$task.infoMessage("Transaction Submitted. ")
                 this.$bvModal.hide('' + this.tokenClicked)
               }
           )
@@ -179,7 +182,7 @@ export default {
               [{
                 apValue: [{
                   currency: this.tokenClicked.currency,
-                  token: this.tokenClicked.name,
+                  token: new buffer.Buffer(this.tokenClicked.name).toString("hex"),
                   value: 1
                 }],
                 apMinBid: {

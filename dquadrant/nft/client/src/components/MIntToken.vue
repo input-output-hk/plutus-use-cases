@@ -20,6 +20,7 @@
 
 <script>
 import NavBar from "./base/NavBar";
+const hex = require('string-hex')
 
 export default {
   name: "MIntToken",
@@ -32,11 +33,13 @@ export default {
   },
   methods: {
     onsubmit() {
+
+
       this.shouldTrigger = true
       this.$task.do(
           this.$http.post(
               `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/mint`
-              , JSON.stringify(this.$refs.my_input.$el.value)
+              , JSON.stringify(hex(this.$refs.my_input.$el.value))
           ).then(() => {
                 this.$task.infoMessage("Transaction Submitted. After Transaction is confirmed, you will receive the NFT in your wallet")
               }

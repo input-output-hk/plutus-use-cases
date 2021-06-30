@@ -72,6 +72,7 @@
 <script>
 import NavBar from "./base/NavBar";
 import moment from "moment";
+const buffer=require("buffer")
 
 export default {
   name: "DummyAuction",
@@ -127,20 +128,16 @@ export default {
             ]
           }).then(() => this.$task.infoMessage("Transaction Submitted."))
       )
-      this.$task.do(
           this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
             lmUtxoType: "MtAuction"
           })
-      )
       this.$store.dispatch('updateAuctionItems', this.items)
     },
     refresh() {
       this.flight = true
-      this.$task.do(
-          this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
-            lmUtxoType: "MtAuction"
-          })
-      )
+      this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
+        lmUtxoType: "MtAuction"
+      })
       if (this.items.length === 0)
         this.timeoutHandle = setTimeout(this.refresh, 5000)
       else {
@@ -181,6 +178,7 @@ export default {
           const items = JSON.parse(JSON.stringify(newVal))
           items.forEach(x => {
             x.minNewBid = x.arBidder.bBid === 0 ? x.arMinBid.value : (x.arBidder.bBid + x.arMinIncrement)
+            x.arValue.forEach(v=>{v.token=new buffer.Buffer(v.token,"hex").toString()})
           })
           this.items = items
         }

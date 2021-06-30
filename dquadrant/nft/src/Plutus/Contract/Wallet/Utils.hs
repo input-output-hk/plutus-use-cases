@@ -13,12 +13,12 @@ import Plutus.Contract
 
 import Data.Text ( Text )
 import Ledger ( pubKeyAddress, TxOut (txOutValue), TxOutTx (txOutTxOut, txOutTxTx), txOutTxDatum, TxOutRef, Address, DatumHash, Datum(..), Tx (txData), txOutDatum)
-import Ledger.Value ( Value, flattenValue )
+import Ledger.Value ( Value, flattenValue, toString )
 import Data.Monoid
 import Control.Monad (void)
 import qualified Data.Aeson.Types as Types
 import qualified Data.Map as Map
-import Data.Aeson (toJSON)
+import Data.Aeson (toJSON, encode)
 import Ledger.AddressMap
 import PlutusTx
 import Playground.Contract ( TxOutRef )
@@ -139,6 +139,8 @@ fundsEp :: HasEndpoint "funds" String s => Contract
 fundsEp= do
     endpoint @"funds"
     v<- ownFunds
+    slot<-currentSlot 
+    logInfo  (toJSON  slot)
     tell [ toJSON v]
 -- let's hope that in future we can return the json string without having to tell
     return $ toJSON  v 
