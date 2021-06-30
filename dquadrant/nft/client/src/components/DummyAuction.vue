@@ -71,7 +71,8 @@
 
 <script>
 import NavBar from "./base/NavBar";
-import moment from "moment";
+// import moment from "moment";
+import {parseTimeStampToDate} from '@/util/util';
 const buffer=require("buffer")
 
 export default {
@@ -96,7 +97,8 @@ export default {
       let timeStamp;
       if (item.arDuration !== undefined && item.arDuration.length !== 0) {
         timeStamp = item.arDuration[0].contents.getPOSIXTime
-        timeStamp = moment(timeStamp).format("MM/DD/YYYY hh:mm a")
+        // timeStamp = moment(timeStamp).format("MM/DD/YYYY hh:mm a")
+        timeStamp = parseTimeStampToDate(timeStamp)
       } else {
         timeStamp = 'Start Time Unspecified'
       }
@@ -106,7 +108,8 @@ export default {
       let timeStamp;
       if (item.arDuration !== undefined && item.arDuration.length !== 0) {
         timeStamp = item.arDuration[1].contents.getPOSIXTime
-        timeStamp = moment(timeStamp).format("MM/DD/YYYY hh:mm a")
+        // timeStamp = moment(timeStamp).format("MM/DD/YYYY hh:mm a")
+        timeStamp = parseTimeStampToDate(timeStamp)
       } else {
         timeStamp = 'End Time Unspecified'
       }

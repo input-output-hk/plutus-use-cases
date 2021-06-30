@@ -82,19 +82,6 @@
                           placeholder="No validation"></b-form-input>
           </b-col>
         </b-row>
-        <!--        <b-row class="my-1">-->
-        <!--          <b-col sm="3"><label for="input-start">Start Time</label></b-col>-->
-        <!--          <b-col sm="9">-->
-        <!--            <b-form-input id="input-start" v-model="auction.apStartTime" :state="null"-->
-        <!--                          placeholder="No validation"></b-form-input>-->
-        <!--          </b-col>-->
-        <!--        </b-row>-->
-        <!--        <b-row class="my-1">-->
-        <!--          <b-col sm="3"><label for="input-end">End Time</label></b-col>-->
-        <!--          <b-col sm="9">-->
-        <!--            <b-form-input id="input-end" v-model="auction.apEndTime" :state="null"></b-form-input>-->
-        <!--          </b-col>-->
-        <!--        </b-row>-->
         <b-row class="my-1">
           <b-col sm="3"><label for="input-start">Start Time</label></b-col>
           <b-col sm="9">
@@ -125,9 +112,6 @@ import {Datetime} from 'vue-datetime';
 import NavBar from "@/components/base/NavBar";
 import moment from "moment";
 const buffer=require("buffer")
-
-import moment from "moment";
-
 export default {
   name: "BuySell",
   components: {NavBar, datetime: Datetime},
@@ -156,7 +140,7 @@ export default {
           this.$http.post(
               `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/sell`
               , [{
-                "spItems": [{currency: this.tokenClicked.currency, token: new Buffer(this.tokenClicked.name,"hex").toString(), value: 1}],
+                "spItems": [{currency: this.tokenClicked.currency, token: new Buffer(this.tokenClicked.name).toString("hex"), value: 1}],
                 "spSaleType": "Primary",
                 "spCost": {currency: "", token: "", value: amount}
               }]
