@@ -3,7 +3,13 @@
 This project is an NFT marketplace demo.
 User can create, sell or buy NFT tokens on a marketplace. Solution does not require external database or metadata storage.
 
-## Architecture
+## DApp Architecture
+This prototype performs like a real-life decentralized application (DApp), all the core functionality features implemented as on-chain/off-chain code using Plutus capabilities. Thereby, the solution doesn't require any additional functionality and storage in the classic backend and databases manner.
+
+DApp utilize IPFS network through third party provider(https://nft.storage/) for storing NFT's file.
+
+![System Context Diagram](./screenshots/1625033390582.jpg)
+
 ### Start Contract
 On a contract start we create single NFT market token used to uniqely identity marketplace.
 Market token is stored in the script address and it is datum contains info of the all metadata tokens created in the marketplace to validate token uniqueness.
