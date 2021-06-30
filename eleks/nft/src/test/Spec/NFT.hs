@@ -27,17 +27,15 @@ import           Ledger                                 (PubKeyHash(..), pubKeyH
 import           Ledger.Ada                             as Ada
 import           Ledger.Index                           (ValidationError (ScriptFailure))
 import           Ledger.Scripts                         (ScriptError (EvaluationError))
-import qualified Ledger.Value                           as Value
 import           Ledger.Value                           (CurrencySymbol(..), TokenName (..), assetClassValue)
 import           Plutus.Contract                        hiding (when)
 import           Plutus.Contract.Test
-import           Plutus.Trace.Emulator                  (ContractInstanceTag, EmulatorTrace)
+import           Plutus.Trace.Emulator                  (EmulatorTrace)
 import qualified Plutus.Trace.Emulator                  as Trace
 import           Plutus.Trace.Emulator.Types  
-import qualified PlutusTx
 import           PlutusTx.Prelude                       as PlutusTx
 import qualified Prelude
-import           Prelude                                (read, show, String)
+import           Prelude                                (read, show)
 import           Test.Tasty
 import           Spec.MockNFTCurrency                   as MockCurrency 
 import           Spec.Helper
@@ -79,12 +77,12 @@ tests = testGroup "nft"
         )
         createNftTokenFlowTrace
         ,
-        -- checkPredicate "Should fail if duplicate token created"
-        -- ( 
-        --     assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists"]) -> True; _ -> False  })
-        -- )
-        -- createDuplicateNftTokenFailureTrace
-        -- ,
+        checkPredicate "Should fail if duplicate token created"
+        ( 
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists"]) -> True; _ -> False  })
+        )
+        createDuplicateNftTokenFailureTrace
+        ,
         checkPredicate "Should start sell NFT token"
         ( 
             assertNoFailedTransactions
@@ -151,12 +149,12 @@ tests = testGroup "nft"
         )
         cancelSellFailureIfNotSaleTrace
         ,
-        -- checkPredicate "Should fail cancel sell if not token owner"
-        --     ( 
-        --         assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["owner should sign"]) -> True; _ -> False  })
-        --     )
-        -- cancelSellFailureIfNotOwnerTrace
-        -- ,
+        checkPredicate "Should fail cancel sell if not token owner"
+            ( 
+                assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["owner should sign"]) -> True; _ -> False  })
+            )
+        cancelSellFailureIfNotOwnerTrace
+        ,
         checkPredicate "Should buy NFT token"
         ( 
            assertNoFailedTransactions
