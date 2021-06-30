@@ -82,10 +82,10 @@ transition bankParam@BankParam {oracleParam,oracleAddr} State {stateData = oldSt
           rcRate = calcReserveCoinRate bankParam oldStateData rate
           scRate = calcStableCoinRate oldStateData rate
           (newConstraints, newStateData) = stateWithConstraints bankParam oldStateData bankInputAction scRate rcRate
-          eitherValidState = isNewStateValid bankParam newStateData rate
-        
-      guard (isRight eitherValidState)
+          eitherValidState = shouldTransitToNextState bankParam newStateData rate
 
+      guard (isRight eitherValidState)
+      
       let state =
             State
               { stateData = newStateData,
@@ -158,9 +158,9 @@ calcReserveCoinRate BankParam {rcDefaultRate} bs@CoinsMachineState {reserveCoinA
     equity = calcEquity bs rate
     rcRate = equity `divide` reserveCoinAmount
 
-{-# INLINEABLE isNewStateValid #-}
-isNewStateValid :: BankParam -> CoinsMachineState -> Integer -> Either Prelude.String ()
-isNewStateValid bankParam bankState@CoinsMachineState {baseReserveAmount, stableCoinAmount, reserveCoinAmount} rate = do
+{-# INLINEABLE shouldTransitToNextState #-}
+shouldTransitToNextState :: BankParam -> CoinsMachineState -> Integer -> Either Prelude.String ()
+shouldTransitToNextState bankParam bankState@CoinsMachineState {baseReserveAmount, stableCoinAmount, reserveCoinAmount} rate = do
   unless (baseReserveAmount >= 0) (throwError "Invalid state : Base reserve amount is in negative.")
   unless (reserveCoinAmount >= 0) (throwError "Invalid state : Reserve coins amount is in negative.")
   unless (stableCoinAmount >= 0) (throwError "Invalid state : Stable coins amount is in negative.")
@@ -253,7 +253,6 @@ checkContext bankParam@BankParam{oracleAddr} oldBankState BankInput{oracleOutput
     -- Is rate provided in input is same as orcale value derived from oracle input of transaction
     isValidOracleUsed :: Bool
     isValidOracleUsed =  oracleValue' == rate
-    -- isValidOracleUsed = True
 
 {-# INLINEABLE isFinal #-}
 isFinal :: CoinsMachineState -> Bool

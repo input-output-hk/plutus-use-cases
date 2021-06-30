@@ -106,20 +106,21 @@ smRunStep bankParam@BankParam{oracleParam} bankInputAction = do
     Just (oref, o, x) -> do      
       let lookups = Constraints.unspentOutputs (Map.singleton oref o)
                     <> Constraints.otherScript (oracleValidator oracleParam)               
-                                  
-          -- tx = Constraints.mustSpendScriptOutput oref  (Redeemer $ PlutusTx.toData Use)
-          --                 <>  Constraints.mustPayToOtherScript
-          --                           (validatorHash $ oracleValidator oracleParam)
-          --                           (Datum $ PlutusTx.toData x)
-          --                           oNftValue      
+                                 
           input =
             BankInput
               { bankInputAction = bankInputAction
               , oracleOutput = (oref, txOutTxOut o, x)
               }
 
-      void $ mapError' $ SmUtil.runStepWith client input lookups
-      void $ logInfo @Prelude.String $ "Endpoint call completed " ++ Prelude.show bankInputAction
+      result <-  mapError' $ SmUtil.runStepWith client input lookups
+      
+      case result of
+        SM.TransitionFailure e -> do
+          void $ logInfo @Prelude.String $ "Transistion Faliure "
+          throwError "Transistion Faliure"
+        _ -> do
+          void $ logInfo @Prelude.String $ "Endpoint call completed " ++ Prelude.show bankInputAction
 
 --TODO check for validation in offchain
 mintStableCoin :: HasBlockchainActions s => BankParam -> EndpointInput -> Contract w s Text ()
@@ -148,8 +149,6 @@ type BankStateSchema =
     .\/ Endpoint "stableRate" Prelude.String
     .\/ Endpoint "reserveRate" Prelude.String
     .\/ Endpoint "currentRates" Prelude.String
-
-mkSchemaDefinitions ''BankStateSchema
 
 --TODO writer value [Types.Value]
 coinsContract :: BankParam -> Contract [Types.Value] BankStateSchema Text ()

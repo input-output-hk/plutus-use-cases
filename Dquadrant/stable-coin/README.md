@@ -102,7 +102,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '
   {
-    "tokenAmount": <Type your token amount to mint in number>         
+    "tokenAmount": <Type your token amount to redeem in number>         
   }' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/redeemStableCoin
 ```
@@ -112,7 +112,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '
   {
-    "tokenAmount": <Type your token amount to mint in number>         
+    "tokenAmount": <Type your token amount to redeem in number>         
   }' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/redeemStableCoin
 ```

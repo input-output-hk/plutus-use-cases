@@ -53,8 +53,6 @@ import Plutus.Contracts.Coins.Endpoints
 
 import Plutus.Contracts.Oracle.Core
 
-import Plutus.Contracts.Utils.Funds
-
 import qualified Data.Aeson.Types as AesonTypes
 
 
@@ -77,7 +75,7 @@ main =
             { stableCoinTokenName = stableCoinName,
             reserveCoinTokenName = reserveCoinName,
             minReserveRatio = P.zero,
-            maxReserveRatio = 4 % 1,
+            maxReserveRatio = 100 % 1,
             rcDefaultRate = 1000000,
             oracleParam = oracle,
             oracleAddr = oracleAddress oracle

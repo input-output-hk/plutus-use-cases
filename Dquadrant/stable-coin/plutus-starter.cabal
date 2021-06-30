@@ -14,8 +14,6 @@ library
                        Plutus.Contracts.Coins.Types
                        Plutus.Contracts.Coins.Endpoints
                        Plutus.Contracts.Oracle.Core
-                       Plutus.Contracts.Oracle.Funds
-                       Plutus.Contracts.Utils.Funds
                        Plutus.Contracts.Utils.StateMachine
                      
   build-depends:       aeson
@@ -103,8 +101,8 @@ test-suite stablecoin-tests
   Default-Language:    Haskell2010
   Build-Depends:       base              >=4.9 && <5
                      , data-default
-                    --  , freer-extras
-                    --  , freer-simple
+                     , freer-extras
+                     , freer-simple
                      , lens
                      , stable-coin-starter
                      , mtl
@@ -130,6 +128,7 @@ test-suite stablecoin-tests
   Main-is:             Spec.hs
   Other-modules:
                        Spec.StableCoinTest
+                       Spec.OracleTest
   default-extensions:
     RecordWildCards
     OverloadedStrings

@@ -8,8 +8,7 @@
 
 -- | Missing functions for StateMachine
 module Plutus.Contracts.Utils.StateMachine (
-    runInitialiseWith
-  , runStepWith
+   runStepWith
 ) where
 
 import Prelude
@@ -32,33 +31,6 @@ import Ledger.Value
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
 
 import Plutus.Contracts.Oracle.Core
-
-
--- | Initialise a state machine
-runInitialiseWith ::
-    forall w e state schema input.
-    ( PlutusTx.IsData state
-    , PlutusTx.IsData input
-    , HasTxConfirmation schema
-    , HasWriteTx schema
-    , AsSMContractError e
-    )
-    => StateMachineClient state input
-    -- ^ The state machine
-    -> state
-    -- ^ The initial state
-    -> Value
-    -- ^ The value locked by the contract at the beginning
-    -> ScriptLookups (StateMachine state input)
-    -> TxConstraints (Scripts.RedeemerType (StateMachine state input)) (Scripts.DatumType (StateMachine state input))
-    -> Contract w schema e state
-runInitialiseWith StateMachineClient{scInstance} initialState initialValue customLookups customConstraints = mapError (review _SMContractError) $ do
-    let StateMachineInstance{typedValidator, stateMachine} = scInstance
-        tx = mustPayToTheScript initialState (initialValue <> SM.threadTokenValue stateMachine) <> customConstraints
-    let lookups = Constraints.typedValidatorLookups typedValidator <> customLookups
-    utx <- either (throwing _ConstraintResolutionError) pure (Constraints.mkTx lookups tx)
-    submitTxConfirmed utx
-    pure initialState
 
 -- | Run one step of a state machine, returning the new state.
 runStepWith ::
@@ -110,5 +82,7 @@ runGuardedStepWith smc input userLookups guard = mapError (review _SMContractErr
                 submitTxConfirmed utx
                 pure $ Right $ TransitionSuccess ns
             Just a  -> pure $ Left a
-    Left e -> pure $ Right $ TransitionFailure e
+    Left e -> do
+        logInfo @String "Here"
+        pure $ Right $ TransitionFailure e
 

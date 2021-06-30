@@ -24,7 +24,6 @@ module Plutus.Contracts.Oracle.Core
     , oracleValidator
     , oracleAddress
     , OracleSchema
-    , OracleParams (..)
     , runOracle
     , runMockOracle
     , findOracle
@@ -139,11 +138,6 @@ oracleValidator = Scripts.validatorScript . oracleInst
 
 oracleAddress :: Oracle -> Ledger.Address
 oracleAddress = scriptAddress . oracleValidator
-
-data OracleParams = OracleParams
-    { opFees   :: !Integer
-    , opSymbol :: !CurrencySymbol
-    } deriving (Prelude.Show, Generic, FromJSON, ToJSON)
 
 startOracle :: forall w s. HasBlockchainActions s => Contract w s Text Oracle
 startOracle = do
