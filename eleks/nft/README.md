@@ -1,18 +1,35 @@
 # NFT Marketplace.
 
-This project is an NFT marketplace demo.
-User can create, sell or buy NFT tokens on a marketplace. Solution does not require external database or metadata storage.
+The main idea of this prototype is to demonstrate the possibility of the business use case for NFT Marketplace, implemented with Plutus smart-contract language on the Cardano blockchain. 
+On the high level, the DApp consists of the following components:​
+- the Plutus part with implemented business logic and the marketplace metadata storage based on onchain/offchain smart contracts, and 
+- the client Web UI part that allows users to interact with smart contracts to mint, sell, buy and transfer NTFs.
 
+## Core functionality 
+1. SignIn ability with one of the pre defined default wallets 
+2. Mint a new NFT token and displaying it on the "My collection" page
+3. Choose a certain NFT token from "My collection" page, set a price for it and put up for sale.
+4. Use the marketplace Storefront page to view the list of all NFT tokens that are for sale
+5. Cancel NFT token from sale
+6. Buy a particular NFT token and view it on the "My collection" page
+7. Transfer NFT tokens directly to other user wallet without Buy/Sell options
+
+## Technology Stack
+1. Plutus
+2. Plutus Application Backend (PAB)
+3. IPFS
+4. ReactJS
+ 
 ## DApp Architecture
 This prototype performs like a real-life decentralized application (DApp), all the core functionality features implemented as on-chain/off-chain code using Plutus capabilities. Thereby, the solution doesn't require any additional functionality and storage in the classic backend and databases manner.
-
-DApp utilize IPFS network through third party provider(https://nft.storage/) for storing NFT's file.
+DApp utilize IPFS network through third party provider(https://nft.storage/) for storing NFT's associated file.
 
 ![System Context Diagram](./screenshots/1625033390582.jpg)
 
 ### Start Contract
 On a contract start we create single NFT market token used to uniqely identity marketplace.
 Market token is stored in the script address and it is datum contains info of the all metadata tokens created in the marketplace to validate token uniqueness.
+
 ### Create NFT
 On NFT token create we create two unique native tokens. One is the NFT token and it is send to the owner wallet.
 Another one is the NFT metadata token. Metadata token is stored in the market script address and never leaves it. In the metadata token datum we store the Symbol of the NFT token and all metadata information (e.g. name, description, file). Market token utxo is consumed in the creation transaction, existing tokens list is taken from the market it is and used to verify new token uniqueness.
@@ -24,12 +41,14 @@ At any moment token owner can put token on sale, he transfers his NFT token to t
 
 ![Selling NFT](./screenshots/selling.jpg)
 
-### Buy token on sale.
+### Buy token
 If token is on sale, any user can buy it. Buyer receives the NFT token, Seller gets the price.
+
 ![Buying NFT](./screenshots/buy.jpg)
 
 ### Cancel selling
 Token owner could decide to cancell sell. He will get the NFT token back from the market script. Token will be removed from the store.
+
 ![Buying NFT](./screenshots/cancel-sell.jpg)
 
 ### Transfer token
@@ -37,14 +56,14 @@ Owner could transfer token to any other user directly. Market NFT metadata track
 
 ## Setting up
 
-For now, the only supported tooling setup is to use the provided VSCode devcontainer to get an environment with the correct tools set up.
+Follow next steps to get an environment with the correct tools set up.
 
 - Run the nix terminal
   - Clone https://github.com/input-output-hk/plutus 
   - Set up your machine to run Nix terminal, following the Plutus README (make sure to set up the binary cache!)
-  - Run nix shell in the plutus folder
-- Clone this repository
-  - In the nix terminal switch to the current folder
+  - Run `nix-shell` command in the plutus folder
+- Clone the current repository
+  - In the nix terminal switch to the root folder
   - `cabal build` from the terminal should work
 
 ## The Plutus Application Backend (PAB) example
@@ -208,9 +227,12 @@ curl -H "Content-Type: application/json" \
 ```
 
 ## Frontend App
+To set up and configure the client side App follow next manual
+
 [Run frontend](market-web-app/README.md)
 
-## Run unit tests
+## Unit tests
+Run next command in the console of the root directory of the current project and see results on the screen
 ```
 cabal test
 ```

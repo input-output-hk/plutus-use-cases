@@ -16,6 +16,18 @@ Then run this command to install all needed for the project packages.
 npm install
 ```
 
+## Setting up IPFS
+We can upload file to IPFS storage for storing NFT's associated file directly from the client side without server API endpoint.
+For this purpose we will use free service provided by https://nft.storage
+
+Create an account on the nft.storage service and generate an API access key.
+Replace the acquired key for the IPFS_API_TOKEN constant in the file :
+```bash
+./eleks/nft/market-web-app/src/helpers/constants.js
+```
+
+
+
 ## Run app
 Run this command to run the application. The app will run on **:3000** port.
 
