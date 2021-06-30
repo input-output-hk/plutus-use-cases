@@ -4,13 +4,13 @@ This project is an NFT marketplace demo.
 User can create, sell or buy NFT tokens on a marketplace. Solution does not require external database or metadata storage.
 
 ## Core functionality 
-    - SignIn ability with one of the pre definied default wallets 
-    - Mint a new NFT token and displaying it on the "My collection" page
-    - Choose a certain NFT token from "My collection" page, set a price for it and put up for sale.
-    - Use the marketplace Storefront page to view the list of all NFT tokens that are for sale
-    - Cancel NFT token from sale
-    - Buy a particular NFT token and view it on the "My collection" page
-    - Transfer NFT tokens directly to other user wallet without Buy/Sell options
+1. SignIn ability with one of the pre definied default wallets 
+2. Mint a new NFT token and displaying it on the "My collection" page
+3. Choose a certain NFT token from "My collection" page, set a price for it and put up for sale.
+4. Use the marketplace Storefront page to view the list of all NFT tokens that are for sale
+5. Cancel NFT token from sale
+6. Buy a particular NFT token and view it on the "My collection" page
+7. Transfer NFT tokens directly to other user wallet without Buy/Sell options
     
 ## DApp Architecture
 This prototype performs like a real-life decentralized application (DApp), all the core functionality features implemented as on-chain/off-chain code using Plutus capabilities. Thereby, the solution doesn't require any additional functionality and storage in the classic backend and databases manner.
