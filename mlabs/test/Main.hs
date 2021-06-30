@@ -8,6 +8,7 @@ import qualified Test.Lending.Logic    as Lending.Logic
 import qualified Test.Lending.QuickCheck as Lending.QuickCheck
 import qualified Test.Nft.Logic        as Nft.Logic
 import qualified Test.Nft.Contract     as Nft.Contract
+import qualified Test.Demo.Contract.Mint as Demo.Contract.Mint
 
 main :: IO ()
 main = defaultMain $ testGroup "tests"
@@ -16,6 +17,7 @@ main = defaultMain $ testGroup "tests"
   , testGroup "Lending" [ Lending.Logic.test
                         , contract Lending.Contract.test
                         , Lending.QuickCheck.test ]
+  , testGroup "Demo"    [ Demo.Contract.Mint.test ]
   ]
   where
     contract
