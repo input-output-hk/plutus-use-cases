@@ -2,6 +2,12 @@
 
 This project aims to develop a simple stable coin use case project using the Plutus Platform.
 
+The stable coin arcitecutre used here is mainly based on age-usd provided by Emurgo.
+https://github.com/Emurgo/age-usd
+This protocol is based on crypto backed algorithimic stable coin protocol.
+
+Here are primilary two tokens in action Reserve Tokens and Stable Token. 
+Reserve tokens is used to provide reserves to insure the stability of tokens incase of price fluctuations. Stable tokens holders can redeem their tokens in current exchange rate for usd to ada regardless of initial price they paid to mint tokens. So the value is stable in terms of pegged rate of usd to ada at any moment. Reserve providers can benefit from increasing value of ada compared to usd as when redeeming  reserve tokens they get more underlying ada value compared to thier inital amount they used for minting reserve tokens. But also they bear loss when ada price is decreasing as they get less amount to cover more stable tokens amount to provide stable tokens holder stability.
 ## Setting up
 
 ##### Setup and run nix shell
