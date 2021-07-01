@@ -142,6 +142,7 @@ claimAuctionUtxos market refs@[(_,_,a)] =  logInfo (show constraint)>> logInfo  
     <> mustPayToPubKey (aBidder auction) (aValue auction)
     <> mustPayToPubKey (aOwner auction) (aSellerShareValue  market auction  value )
     <> mustPayToPubKey  (mOperator market) (aMarketShareValue market auction value)
+    <> mustValidateIn ( posixTimeRangeToSlotRange $ aClaimInterval auction)
 
 
 withdrawUtxos :: (AsContractError e) => Market -> [TxOutRef]  -> Contract w s e Tx

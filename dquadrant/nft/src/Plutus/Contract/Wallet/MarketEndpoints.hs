@@ -146,7 +146,7 @@ claimEp market=do
 confirmAndTell ::  AsContractError e =>  Tx -> Contract [AesonTypes.Value] s e AesonTypes.Value
 confirmAndTell  tx = do
   let id=txId tx
-  awaitTxConfirmed id
+  -- awaitTxConfirmed id -- TODO not sure if this is necessary at 
   doReturn id
 
 doReturn :: ToJSON a => a -> Contract [AesonTypes.Value] s e AesonTypes.Value

@@ -74,7 +74,7 @@ NFT can be minted by calling ` mint` endpoint on the instance id. The token name
 GET http://localhost:8080/api/new/contract/instance/{{instance_id}}/mint
 Content-Type: application/json
 
-{{token_name_hex}}
+{{ token_name_hex }}
 ```
 
 ### DirectSale
@@ -92,9 +92,11 @@ POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/sell
 Content-Type: application/json
 
 [{
-  "spItems": [
-    {currency: {{policy_id}}, token: {{token_name_hex}}, value: 1}
-    ],
+  "spItems": [{
+    currency: {{ policy_id }} ,
+    token: {{ token_name_hex }} ,
+    value: 1
+  }],
   "spSaleType": "Primary",
   "spCost": {"currency": "", "token": "", "value": 100}
 }]
@@ -107,7 +109,6 @@ You use the `reference` to buy it from market
 POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/list
 Content-Type: application/json
 
-{
   "lmUtxoType": "MtDirectSale",
 }
 ```
@@ -120,7 +121,7 @@ POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/buy
 Content-Type: application/json
 
 [{
-   "ppItems": [ {{utxo_ref_object}} ],
+   "ppItems": [ {{ utxo_ref_object }} ],
    "ppValue": {
             "currency": "",
             "token": "",
@@ -143,13 +144,13 @@ Content-Type: application/json
 
 [{
   "apValue": [{
-    "currency": {{policy_id}}},
-    "token": {{token_name_hex}},
+    "currency": {{ policy_id }} ,
+    "token": {{ token_name_hex }} ,
     "value": 1
   }],
   "apMinBid": {
-    "currency": {{policy_id}}},
-    "token": {{token_name_hex}},
+    "currency": {{ policy_id }} ,
+    "token": {{ token_name_hex }} ,
     "value": 2000000
   },
   "apMinIncrement": 1000000,
@@ -182,11 +183,11 @@ POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/bid
 Content-Type: application/json
 
 {
-  "ref": {{utxo_ref_object}},
+  "ref": {{ utxo_ref_object }} ,
   "bidValue": [
     {
-      "currency": {{policy_id}},
-      "token": {{token_name_hex}},
+      "currency": {{ policy_id }} ,
+      "token": {{ token_name_hex }} ,
       "value": 200000
     }
   ]
@@ -201,7 +202,7 @@ POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/bid
 Content-Type: application/json
 
 {
-  "references":[ {{utxo_ref_object}} ],
+  "references":[ {{ utxo_ref_object }} ],
   "ignoreUnClaimable": true
 }
 ```

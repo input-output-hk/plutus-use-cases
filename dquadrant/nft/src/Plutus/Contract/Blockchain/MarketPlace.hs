@@ -51,7 +51,7 @@ import Ledger
       mkValidatorScript,
       Address,
       Validator,
-      AssetClass, TxInInfo, toValidatorHash )
+      AssetClass, TxInInfo, toValidatorHash, Interval (Interval, ivFrom, ivTo), Extended (PosInf) )
 import Ledger.Value
 import qualified Ledger.Typed.Scripts as Scripts
 import Data.Aeson (FromJSON, ToJSON)
@@ -69,6 +69,8 @@ import Ledger.Contexts
       TxInInfo(TxInInfo),
       TxInfo(TxInfo, txInfoInputs, txInfoValidRange),
       TxOut(TxOut, txOutValue) )
+import Ledger.Interval (UpperBound(UpperBound),LowerBound(LowerBound))
+import Ledger.Time (POSIXTime)
 
 
 ---------------------------------------------------------------------------------------------
@@ -191,6 +193,10 @@ data Auction = Auction{
 } deriving (Generic, Show,ToJSON,FromJSON,Prelude.Eq)
 PlutusTx.unstableMakeIsData ''Auction
 
+aClaimInterval :: Auction-> Interval POSIXTime
+aClaimInterval Auction{aDuration}= Interval (toLower $ ivTo aDuration) (UpperBound PosInf False)
+  where
+    toLower (UpperBound  a _)=LowerBound a False 
 
 {-# INLINABLE auctionAssetValue #-}
 auctionAssetValue :: Auction -> Integer -> Value
@@ -339,18 +345,18 @@ instance Scripts.ValidatorTypes MarketScriptType where
     type instance DatumType MarketScriptType = PubKeyHash
 
 
-marketValidator :: Market -> Validator
-marketValidator market = Ledger.mkValidatorScript $
-    $$(PlutusTx.compile [|| validatorParam ||])
-        `PlutusTx.applyCode`
-            PlutusTx.liftCode market
-    where validatorParam m = Scripts.wrapValidator (mkMarket m)
-
-
 -- marketValidator :: Market -> Validator
--- marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
---     where
---         a _ _ _=()
+-- marketValidator market = Ledger.mkValidatorScript $
+--     $$(PlutusTx.compile [|| validatorParam ||])
+--         `PlutusTx.applyCode`
+--             PlutusTx.liftCode market
+--     where validatorParam m = Scripts.wrapValidator (mkMarket m)
+
+
+marketValidator :: Market -> Validator
+marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
+    where
+        a _ _ _=()
 
 marketAddress :: Market -> Ledger.Address
 marketAddress = scriptAddress . marketValidator

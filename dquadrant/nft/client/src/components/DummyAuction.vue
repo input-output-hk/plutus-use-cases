@@ -60,7 +60,11 @@
                     <BIconPatchMinus></BIconPatchMinus>
                   </b-button>
                 </b-input-group>
+                <b-input-group  @click="claim(item)" class="float-right ml-5 pl-5">
+                  <b-button> Claim </b-button>
+                </b-input-group>
               </b-button-toolbar>
+
             </b-card>
           </div>
         </b-col>
@@ -121,6 +125,14 @@ export default {
     },
   },
   methods: {
+    claim(item){
+      this.$task.do(
+        this.$http.post(`instance/${this.instanceId}/endpoint/claim`,{
+          references: [item.arBidder.bBidReference],
+          ignoreUnClaimable: false
+        }).then(()=>this.$task.infoMessage("Submitted Claim operation"))
+      )
+    },
     onBid(item) {
       this.flight = true
       this.$task.do(
@@ -135,9 +147,9 @@ export default {
             ]
           }).then(() => this.$task.infoMessage("Transaction Submitted."))
       )
-          this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
-            lmUtxoType: "MtAuction"
-          })
+        this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
+          lmUtxoType: "MtAuction"
+        })
       this.$store.dispatch('updateAuctionItems', this.items)
     },
     refresh() {

@@ -51,6 +51,15 @@ import Data.ByteString (ByteString)
 import qualified Data.Map as Map
 import Wallet.Emulator.Wallet (Entity)
 
+
+defaultMarket :: Market
+defaultMarket = Market{
+  mOperator   = pubKeyHash (walletPubKey (Wallet 10)),
+  mAuctionFee =5_000_000 ,  -- 5%
+  mPrimarySaleFee =5_000_000, -- 5%
+  mSecondarySaleFee=2_500_000 -- 2.5%
+}
+
 instance Pretty Market where
     pretty = viaShow
 
@@ -94,15 +103,6 @@ main = void $ Simulator.runSimulationWith handlers $ do
         Simulator.logBalances @(Builtin Market) b 
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 5]]
-
-defaultMarket :: Market
-defaultMarket = Market
-    {
-    mOperator   = pubKeyHash (walletPubKey (Wallet 10)),
-    mAuctionFee =5_000_000 ,
-    mPrimarySaleFee =2_000_000,
-    mSecondarySaleFee=4_000_000
-    }
 
 handleMarketContracts ::
     ( Member (Error PABError) effs

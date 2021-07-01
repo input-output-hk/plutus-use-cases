@@ -177,8 +177,10 @@ export default {
       if (oldVal !== undefined && newVal.length > oldVal.length) {
         const log = newVal[newVal.length - 1]
         if (log._logLevel === "Error") {
+          console.error("PAB Error : "+JSON.stringify(log._logMessageContent,null,2))
           this.$task.errorMessage(log._logMessageContent)
         } else {
+          console.log("PAB Log : "+JSON.stringify(log._logMessageContent,null,2))
           this.$task.infoMessage(log._logMessageContent)
         }
       }

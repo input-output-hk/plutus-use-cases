@@ -65,9 +65,9 @@ data ValueInfo=ValueInfo{
 } deriving(Generic,FromJSON,Prelude.Show,ToSchema,Prelude.Eq )
 
 defaultSellparam= SellParams{
-    spItems=[(ValueInfo "abcd" "defg" 32)],
+    spItems=[ValueInfo "abcd" "defg" 32],
     spSaleType= Primary,
-    spCost= (ValueInfo "degf" "abde" 23)
+    spCost= ValueInfo "degf" "abde" 23
 }
 instance ToJSON ValueInfo
   where
@@ -99,7 +99,7 @@ data BidParam=BidParam{
 } deriving(Generic,ToJSON,FromJSON,ToSchema)
 
 data ClaimParam=ClaimParam{
-  refrences ::[TxOutRef],
+  references ::[TxOutRef],
   ignoreUnClaimable :: Bool
 } deriving(Generic,ToJSON,FromJSON,ToSchema)
 instance ToSchema TxId
@@ -110,6 +110,7 @@ data Bidder = Bidder{
       bBid  :: Integer,
       bBidReference:: TxOutRef
 } deriving (Generic,FromJSON,ToJSON,Prelude.Show,Prelude.Eq)
+
 
 data AuctionResponse = AuctionResponse{
       arOwner :: PubKeyHash,
@@ -137,7 +138,7 @@ data MarketType=MtDirectSale | MtAuction  deriving (Show, Prelude.Eq,Generic,ToJ
 data ListMarketRequest  = ListMarketRequest{
     lmUtxoType::MarketType,
     lmByPkHash:: Maybe ByteString,
-    lmOwnPkHash:: Maybe Bool 
+    lmOwnPkHash:: Maybe Bool
 } deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
 
 
@@ -150,7 +151,7 @@ assetIdOf (AssetClass (CurrencySymbol c, TokenName t))=AssetId{
     assToken=t
   }
 
-sellParamToDirectSale :: PubKeyHash -> SellParams->DirectSale 
+sellParamToDirectSale :: PubKeyHash -> SellParams->DirectSale
 sellParamToDirectSale  pkh (SellParams items stype cost) = DirectSale {
                       dsSeller= pkh,
                       dsCost = valueInfoToPrice cost,
