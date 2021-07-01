@@ -42,7 +42,7 @@ import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
 import           PlutusTx.Sqrt
 import           Prelude                          (Semigroup (..))
-import qualified Prelude
+import qualified Prelude                          as Haskell (Int, Semigroup(..), String, div, dropWhile, flip, show, (^))     
 import           Text.Printf                      (printf)
 import Plutus.Contracts.Data
 import Plutus.Contracts.Helpers
@@ -54,7 +54,7 @@ import Plutus.Contracts.LiquidityPool
 -- Each Liquidity pool creates another UTXO with a different token from the factory (state token)
 -- each time a pool is created a new token is minted
 -- CurrencySymbol uniquely identifies this "factory", sits at the specific address
-create :: HasBlockchainActions s => Uniswap -> CreateParams -> Contract w s Text ()
+create :: forall w s. Uniswap -> CreateParams -> Contract w s Text ()
 create us CreateParams{..} = do
     when (cpCoinA == cpCoinB)               $ throwError "coins must be different"
     when (cpAmountA <= 0 || cpAmountB <= 0) $ throwError "amounts must be positive"
@@ -70,23 +70,23 @@ create us CreateParams{..} = do
         usVal    = coin (usCoin us) 1
         lpVal    = coin cpCoinA cpAmountA <> coin cpCoinB cpAmountB <> coin psC 1
 
-        lookups  = Constraints.scriptInstanceLookups usInst        <>
+        lookups  = Constraints.typedValidatorLookups usInst        <>
                    Constraints.otherScript usScript                <>
-                   Constraints.monetaryPolicy (liquidityPolicy us) <>
+                   Constraints.mintingPolicy (liquidityPolicy us) <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
         tx       = Constraints.mustPayToTheScript usDat1 usVal                                               <>
                    Constraints.mustPayToTheScript usDat2 lpVal                                               <>
-                   Constraints.mustForgeValue (coin psC 1 <> coin lC liquidity)                              <>
+                   Constraints.mustMintValue (coin psC 1 <> coin lC liquidity)                              <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create lp)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "created liquidity pool: " ++ show lp
+    logInfo $ "created liquidity pool: " ++ Haskell.show lp
 
 -- | Closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
-close :: HasBlockchainActions s => Uniswap -> CloseParams -> Contract w s Text ()
+close :: forall w s. Uniswap -> CloseParams -> Contract w s Text ()
 close us CloseParams{..} = do
     ((oref1, o1, lps), (oref2, o2, lp, liquidity)) <- findUniswapFactoryAndPool us clpCoinA clpCoinB
     pkh                                            <- pubKeyHash <$> ownPubKey
@@ -101,14 +101,14 @@ close us CloseParams{..} = do
         lVal     = coin lC liquidity
         redeemer = Redeemer $ PlutusTx.toData Close
 
-        lookups  = Constraints.scriptInstanceLookups usInst        <>
+        lookups  = Constraints.typedValidatorLookups usInst        <>
                    Constraints.otherScript usScript                <>
-                   Constraints.monetaryPolicy (liquidityPolicy us) <>
+                   Constraints.mintingPolicy (liquidityPolicy us) <>
                    Constraints.ownPubKeyHash pkh                   <>
                    Constraints.unspentOutputs (Map.singleton oref1 o1 <> Map.singleton oref2 o2)
 
         tx       = Constraints.mustPayToTheScript usDat usVal          <>
-                   Constraints.mustForgeValue (negate $ psVal <> lVal) <>
+                   Constraints.mustMintValue (negate $ psVal <> lVal) <>
                    Constraints.mustSpendScriptOutput oref1 redeemer    <>
                    Constraints.mustSpendScriptOutput oref2 redeemer    <>
                    Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Pool lp liquidity)
@@ -116,4 +116,4 @@ close us CloseParams{..} = do
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "closed liquidity pool: " ++ show lp
+    logInfo $ "closed liquidity pool: " ++ Haskell.show lp

@@ -33,8 +33,7 @@ import           Plutus.Contract
 -- to write tests for error conditions.
 
 type Schema =
-    BlockchainActions
-        .\/ Endpoint "throwError" ()
+        Endpoint "throwError" ()
         .\/ Endpoint "catchError" ()
         .\/ Endpoint "catchContractError" ()
 

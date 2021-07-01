@@ -59,11 +59,12 @@ import           Data.Semigroup          (Last (..))
 import           GHC.Generics            (Generic)
 import qualified PlutusTx.AssocMap       as AssocMap
 import           Prelude                 (Semigroup (..))
-import qualified Prelude
+
 import           Schema                  (ToSchema)
 import           Text.Printf             (printf)
+import qualified Prelude                 as Haskell
 
-{-# ANN module ("HLint: ignore Use uncurry" :: String) #-}
+{-# ANN module ("HLint: ignore Use uncurry" :: Haskell.String) #-}
 
 -- | A currency that can be created exactly once
 data OneShotCurrency = OneShotCurrency
@@ -74,7 +75,7 @@ data OneShotCurrency = OneShotCurrency
   -- ^ How many units of each 'TokenName' are to
   --   be forged.
   }
-  deriving stock (Generic, Prelude.Show)
+  deriving stock (Generic, Haskell.Show, Haskell.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.makeLift ''OneShotCurrency
@@ -94,8 +95,8 @@ mkCurrency (TxOutRef h i) amts =
 
 -- The only input that the policy script gets is the Context 
 {-# INLINABLE validate #-}
-validate :: OneShotCurrency -> V.ScriptContext -> Bool
-validate c@(OneShotCurrency (refHash, refIdx) _) ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
+validate :: OneShotCurrency -> () -> V.ScriptContext -> Bool
+validate c@(OneShotCurrency (refHash, refIdx) _) _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
     let
         -- see note [Obtaining the currency symbol]
         ownSymbol = V.ownCurrencySymbol ctx
@@ -121,9 +122,9 @@ validate c@(OneShotCurrency (refHash, refIdx) _) ctx@V.ScriptContext{V.scriptCon
     --     hasUTxO :: Bool -- V.spendsOutput basically checks the  same
     --     hasUTxO = any (\i -> txInInfoOutRef i == TxOutRef refHash refIdx) $ txInfoInputs txinfo
 
-curPolicy :: OneShotCurrency -> MonetaryPolicy
-curPolicy cur = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \c -> Scripts.wrapMonetaryPolicy (validate c) ||])
+curPolicy :: OneShotCurrency -> MintingPolicy
+curPolicy cur = mkMintingPolicyScript $
+    $$(PlutusTx.compile [|| \c -> Scripts.wrapMintingPolicy (validate c) ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode cur
 
@@ -150,7 +151,7 @@ currencySymbol = scriptCurrencySymbol . curPolicy
 data CurrencyError =
     CurPubKeyError PubKeyError
     | CurContractError ContractError
-    deriving stock (Prelude.Eq, Show, Generic)
+    deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
 makeClassyPrisms ''CurrencyError
@@ -168,10 +169,7 @@ instance AsPubKeyError CurrencyError where
 --   be forged afterwards.
 forgeContract
     :: forall w s e.
-    ( HasWriteTx s
-    , HasTxConfirmation s
-    , AsCurrencyError e
-    )
+    (AsCurrencyError e)
     => PubKeyHash
     -> [(TokenName, Integer)]
     -> Contract w s e OneShotCurrency
@@ -179,11 +177,11 @@ forgeContract pk amounts = mapError (review _CurrencyError) $ do
     (txOutRef, txOutTx, pkInst) <- PK.pubKeyContract pk (Ada.lovelaceValueOf 1)
     let theCurrency = mkCurrency txOutRef amounts
         curVali     = curPolicy theCurrency
-        lookups     = Constraints.monetaryPolicy curVali
+        lookups     = Constraints.mintingPolicy curVali
                         <> Constraints.otherScript (Scripts.validatorScript pkInst)
                         <> Constraints.unspentOutputs (Map.singleton txOutRef txOutTx)
     let forgeTx = Constraints.mustSpendScriptOutput txOutRef unitRedeemer
-                    <> Constraints.mustForgeValue (forgedValue theCurrency)
+                    <> Constraints.mustMintValue (forgedValue theCurrency)
     tx <- submitTxConstraintsWith @Scripts.Any lookups forgeTx
     _ <- awaitTxConfirmed (txId tx)
     pure theCurrency
@@ -195,12 +193,11 @@ data SimpleMPS =
         { tokenName :: TokenName
         , amount    :: Integer
         }
-        deriving stock (Prelude.Eq, Prelude.Show, Generic)
+        deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 type CurrencySchema =
-    BlockchainActions
-        .\/ Endpoint "Create native token" SimpleMPS
+    Endpoint "Create native token" SimpleMPS
 
 -- | Use 'forgeContract' to create the currency specified by a 'SimpleMPS'
 forgeCurrency
@@ -213,13 +210,7 @@ forgeCurrency = do
     pure cur
 
 -- | Create a thread token for a state machine
-createThreadToken ::
-    forall s w.
-    ( HasOwnPubKey s
-    , HasTxConfirmation s
-    , HasWriteTx s
-    )
-    => Contract w s CurrencyError AssetClass
+createThreadToken :: forall s w. Contract w s CurrencyError AssetClass
 createThreadToken = do
     ownPK <- pubKeyHash <$> ownPubKey
     let tokenName :: TokenName = "thread token"

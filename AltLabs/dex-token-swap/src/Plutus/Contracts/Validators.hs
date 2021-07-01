@@ -62,6 +62,7 @@ import           PlutusTx.Sqrt
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 import           Text.Printf
+import qualified Prelude                           as Haskell (Int, Semigroup(..), String, div, dropWhile, flip, show, (^))     
 
 import Plutus.Contracts.Data                      
 import Plutus.Contracts.Helpers
@@ -324,8 +325,8 @@ mkUniswapValidator _  c (Pool lp a)   Add         ctx = validateAdd c lp a ctx
 mkUniswapValidator _  _ _             _           _   = False
 
 
-uniswapInstance :: Uniswap -> Scripts.ScriptInstance Uniswapping
-uniswapInstance us = Scripts.validator @Uniswapping
+uniswapInstance :: Uniswap -> Scripts.TypedValidator Uniswapping
+uniswapInstance us = Scripts.mkTypedValidator @Uniswapping
     ($$(PlutusTx.compile [|| mkUniswapValidator ||])
         `PlutusTx.applyCode` PlutusTx.liftCode us
         `PlutusTx.applyCode` PlutusTx.liftCode c)
@@ -354,10 +355,10 @@ getUniswapDatum o = case txOutDatumHash $ txOutTxOut o of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
-findUniswapInstance :: HasBlockchainActions s => Uniswap -> Coin -> (UniswapDatum -> Maybe a) -> Contract w s Text (TxOutRef, TxOutTx, a)
+findUniswapInstance :: forall a b w s. Uniswap -> Coin -> (UniswapDatum -> Maybe a) -> Contract w s Text (TxOutRef, TxOutTx, a)
 findUniswapInstance us c f = do
     let addr = uniswapAddress us
-    logInfo @String $ printf "looking for Uniswap instance at address %s containing coin %s " (show addr) (show c)
+    logInfo @Haskell.String $ printf "looking for Uniswap instance at address %s containing coin %s " (Haskell.show addr) (Haskell.show c)
     utxos <- utxoAt addr
     go  [x | x@(_, o) <- Map.toList utxos, coinValueOf (txOutValue $ txOutTxOut o) c == 1]
   where
@@ -367,22 +368,21 @@ findUniswapInstance us c f = do
         case f d of
             Nothing -> go xs
             Just a  -> do
-                logInfo @String $ printf "found Uniswap instance with datum: %s" (show d)
+                logInfo @Haskell.String $ printf "found Uniswap instance with datum: %s" (Haskell.show d)
                 return (oref, o, a)
 
-findUniswapFactory :: HasBlockchainActions s => Uniswap -> Contract w s Text (TxOutRef, TxOutTx, [LiquidityPool])
+findUniswapFactory :: forall w s. Uniswap -> Contract w s Text (TxOutRef, TxOutTx, [LiquidityPool])
 findUniswapFactory us@Uniswap{..} = findUniswapInstance us usCoin $ \case
     Factory lps -> Just lps
     Pool _ _    -> Nothing
 
-findUniswapPool :: HasBlockchainActions s => Uniswap -> LiquidityPool -> Contract w s Text (TxOutRef, TxOutTx, Integer)
+findUniswapPool :: forall w s. Uniswap -> LiquidityPool -> Contract w s Text (TxOutRef, TxOutTx, Integer)
 findUniswapPool us lp = findUniswapInstance us (poolStateCoin us) $ \case
         Pool lp' l
             | lp == lp' -> Just l
         _               -> Nothing
 
-findUniswapFactoryAndPool :: HasBlockchainActions s
-                          => Uniswap
+findUniswapFactoryAndPool :: forall w s. Uniswap
                           -> Coin
                           -> Coin
                           -> Contract w s Text ( (TxOutRef, TxOutTx, [LiquidityPool])

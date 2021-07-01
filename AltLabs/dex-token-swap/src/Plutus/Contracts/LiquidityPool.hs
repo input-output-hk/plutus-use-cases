@@ -17,9 +17,9 @@ import           PlutusTx.Sqrt
 {-# INLINABLE calculateInitialLiquidity #-}
 calculateInitialLiquidity :: Integer -> Integer -> Integer
 calculateInitialLiquidity outA outB = case isqrt (outA * outB) of
-    Exact l
+    Exactly l
         | l > 0 -> l
-    Irrational l
+    Approximately l
         | l > 0 -> l + 1
     _           -> traceError "insufficient liquidity"
 
@@ -32,8 +32,8 @@ calculateAdditionalLiquidity :: Integer -> Integer -> Integer -> Integer -> Inte
 calculateAdditionalLiquidity oldA oldB liquidity delA delB =
   case rsqrt ((liquidity * liquidity * newProd) % oldProd) of
     Imaginary    -> traceError "insufficient liquidity"
-    Exact x      -> x - liquidity
-    Irrational x -> x - liquidity
+    Exactly x      -> x - liquidity
+    Approximately x -> x - liquidity
   where
     oldProd, newProd :: Integer
     oldProd = oldA * oldB

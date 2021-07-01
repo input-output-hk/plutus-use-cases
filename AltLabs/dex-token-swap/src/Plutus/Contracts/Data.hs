@@ -38,7 +38,7 @@ module Plutus.Contracts.Data
 
 import           Ledger
 import           Ledger.Value        (AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
-import           Playground.Contract (FromJSON, Generic, ToJSON, ToSchema)
+import           Playground.Contract (FromJSON, Generic, ToJSON, ToSchema, Show)
 import qualified Ledger.Typed.Scripts             as Scripts
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
@@ -48,6 +48,7 @@ import qualified Prelude
 import           Text.Printf         (PrintfArg)
 import qualified Data.Aeson.Encode.Pretty                as JSON
 import           Data.Text.Prettyprint.Doc
+import qualified Prelude             as Haskell
 
 uniswapTokenName, poolStateTokenName :: TokenName
 -- state token for the "factory" (unique token)
@@ -64,7 +65,7 @@ poolStateTokenName = "Pool State"
 type Coin = AssetClass
 
 -- Note: An orphan instance here because of the alias above.
-deriving anyclass instance ToSchema AssetClass
+-- deriving anyclass instance ToSchema AssetClass
 
 -- 2 token liquidity Pool
 -- Order does not matter A/B == B/A pool
@@ -72,7 +73,7 @@ data LiquidityPool = LiquidityPool
     { lpCoinA :: Coin
     , lpCoinB :: Coin
     }
-    deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+    deriving (Haskell.Show, Generic, ToJSON, FromJSON, ToSchema)
 
 instance Eq LiquidityPool where
     {-# INLINABLE (==) #-}
@@ -111,7 +112,7 @@ newtype Uniswap = Uniswap
       deriving newtype  (Prelude.Eq, Prelude.Ord)
 
 data Uniswapping
-instance Scripts.ScriptType Uniswapping where
+instance Scripts.ValidatorTypes Uniswapping where
     type instance RedeemerType Uniswapping = UniswapAction
     type instance DatumType Uniswapping = UniswapDatum
 

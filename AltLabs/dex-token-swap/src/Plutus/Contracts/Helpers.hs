@@ -55,7 +55,8 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..), unless
 import           PlutusTx.Sqrt
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
-import           Text.Printf                    
+import           Text.Printf               
+import qualified Prelude                           as Haskell (Int, Semigroup(..), String, div, dropWhile, flip, show, (^))     
 
 import Plutus.Contracts.Data
 import Plutus.Contracts.LiquidityPool
@@ -89,12 +90,12 @@ valueWithin = txOutValue . txInInfoResolved
 
 -- GETTERS
 -- | Gets the caller's funds.
-funds :: HasBlockchainActions s => Contract w s Text Value
+funds :: forall w s. Contract w s Text Value
 funds = do
     pkh <- pubKeyHash <$> ownPubKey
     os  <- map snd . Map.toList <$> utxoAt (pubKeyHashAddress pkh)
     let v = mconcat [txOutValue $ txOutTxOut o | o <- os]
-    logInfo @String $ "own funds: " ++ show (Ledger.Value.flattenValue v)
+    logInfo @Haskell.String $ "own funds: " ++ Haskell.show (Ledger.Value.flattenValue v)
     return v
 
 -- Checks if swap is possible
@@ -131,22 +132,23 @@ findSwapA oldA oldB inA
     cs outB = checkSwap oldA oldB (oldA + inA) (oldB - outB)
 
     ub' :: Integer
-    ub' = head $ dropWhile cs [2 ^ i | i <- [0 :: Int ..]]
+    ub' = head $ dropWhile cs [2 Haskell.^ i | i <- [0 :: Haskell.Int ..]]
 
     go :: Integer -> Integer -> Integer
     go lb ub
         | ub == (lb + 1) = lb
         | otherwise      =
       let
-        m = div (ub + lb) 2
+        m = Haskell.div (ub + lb) 2
       in
         if cs m then go m ub else go lb m
 
 findSwapB :: Integer -> Integer -> Integer -> Integer
 findSwapB oldA oldB = findSwapA oldB oldA
 
-validateLiquidityForging :: Uniswap -> TokenName -> ScriptContext -> Bool
-validateLiquidityForging us tn ctx = case [ i
+{-# INLINABLE validateLiquidityForging #-}
+validateLiquidityForging :: Uniswap -> TokenName -> () -> ScriptContext -> Bool
+validateLiquidityForging us tn _ ctx = case [ i
                                           | i <- txInfoInputs $ scriptContextTxInfo ctx
                                           , let v = valueWithin i
                                           , (coinValueOf v usC == 1) ||
@@ -160,9 +162,9 @@ validateLiquidityForging us tn ctx = case [ i
     usC = usCoin us
     lpC = mkCoin (ownCurrencySymbol ctx) tn
 
-liquidityPolicy :: Uniswap -> MonetaryPolicy
-liquidityPolicy us = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \u t -> Scripts.wrapMonetaryPolicy (validateLiquidityForging u t) ||])
+liquidityPolicy :: Uniswap -> MintingPolicy
+liquidityPolicy us = mkMintingPolicyScript $
+    $$(PlutusTx.compile [|| \u t -> Scripts.wrapMintingPolicy (validateLiquidityForging u t) ||])
         `PlutusTx.applyCode` PlutusTx.liftCode us
         `PlutusTx.applyCode` PlutusTx.liftCode poolStateTokenName
 

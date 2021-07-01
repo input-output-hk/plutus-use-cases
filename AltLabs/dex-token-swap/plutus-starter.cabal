@@ -19,7 +19,7 @@ maintainer:         Your email
 -- A copyright notice.
 -- copyright:
 -- category:
--- extra-source-files: CHANGELOG.md
+-- extra-source-files: CHANGELOG.md\
 
 flag defer-plugin-errors
     description:
@@ -32,14 +32,26 @@ source-repository this
     location: https://github.com/input-output-hk/plutus-use-cases
     branch: AltLabs/dex-token-swap
 
+common lang
+    default-language: Haskell2010
+    default-extensions: ExplicitForAll ScopedTypeVariables
+                        DeriveGeneric StandaloneDeriving DeriveLift
+                        GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
+                        DeriveTraversable
+    ghc-options: -Wall -Wnoncanonical-monad-instances
+                 -Wincomplete-uni-patterns -Wincomplete-record-updates
+                 -Wredundant-constraints -Widentities
+                 -- See Plutus Tx readme
+                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    if flag(defer-plugin-errors)
+        ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
 library
     exposed-modules:
       Plutus.Contracts
-      -- Plutus.PAB.Effects.ContractTest.Uniswap
       Effects.Uniswap
       Plutus.Contracts.Data
       Plutus.Contracts.Helpers
-      -- Plutus.Contracts.UniswapHelpers
       Plutus.Contracts.Validators
       Plutus.Contracts.PubKey
       Plutus.Contracts.Uniswap
@@ -61,6 +73,8 @@ library
       bytestring-encoding,
       playground-common,
       plutus-contract,
+      plutus-chain-index,
+      cardano-api,
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
@@ -98,6 +112,8 @@ test-suite plutus-example-projects-test
     plutus-contract -any,
     plutus-ledger -any,
     plutus-starter -any,
+    plutus-chain-index,
+    cardano-api,
     lens -any,
     aeson-pretty -any,
     freer-simple -any,
@@ -128,6 +144,8 @@ executable plutus-starter-pab
     stm -any,
     unix,
     plutus-contract -any,
+    plutus-chain-index,
+    cardano-api,
     plutus-pab -any,
     plutus-starter -any,
     aeson -any,

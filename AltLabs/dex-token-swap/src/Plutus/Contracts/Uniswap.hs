@@ -51,7 +51,7 @@ import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
 import           PlutusTx.Sqrt
 import           Prelude                          (Semigroup (..))
-import qualified Prelude
+import qualified Prelude                          as Haskell (Int, Semigroup(..), String, div, dropWhile, flip, show, (^))     
 import           Text.Printf                      (printf)
 import Plutus.Contracts.Data
 -- import Plutus.Contracts.UniswapHelpers
@@ -66,11 +66,11 @@ import Plutus.Contracts.PoolForgery               (create, close)
 -- "factory" only exists once, to keep track which pools already exist
 -- it doesn't carry any value, it only keeps track of existing pools in it's DATUM
 -- this factory can be identified by 1 NFT (hence the forgeContract)
-start :: HasBlockchainActions s => Contract w s Text Uniswap
+start :: forall w s. Contract w s Text Uniswap
 start = do
     pkh <- pubKeyHash <$> ownPubKey
     cs  <- fmap Currency.currencySymbol $
-           mapError (pack . show @Currency.CurrencyError) $
+           mapError (pack . Haskell.show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(uniswapTokenName, 1)]
     let c    = mkCoin cs uniswapTokenName
         us   = uniswap cs
@@ -79,11 +79,11 @@ start = do
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo @String $ printf "started Uniswap %s at address %s" (show us) (show $ uniswapAddress us)
+    logInfo @Haskell.String $ printf "started Uniswap %s at address %s" (Haskell.show us) (Haskell.show $ uniswapAddress us)
     return us
 
 -- | Removes some liquidity from a liquidity pool in exchange for liquidity tokens.
-remove :: HasBlockchainActions s => Uniswap -> RemoveParams -> Contract w s Text ()
+remove :: forall w s. Uniswap -> RemoveParams -> Contract w s Text ()
 remove us RemoveParams{..} = do
     (_, (oref, o, lp, liquidity)) <- findUniswapFactoryAndPool us rpCoinA rpCoinB
     pkh                           <- pubKeyHash <$> ownPubKey
@@ -102,23 +102,23 @@ remove us RemoveParams{..} = do
         val          = psVal <> coin rpCoinA outA <> coin rpCoinB outB
         redeemer     = Redeemer $ PlutusTx.toData Remove
 
-        lookups  = Constraints.scriptInstanceLookups usInst          <>
+        lookups  = Constraints.typedValidatorLookups usInst          <>
                    Constraints.otherScript usScript                  <>
-                   Constraints.monetaryPolicy (liquidityPolicy us)   <>
+                   Constraints.mintingPolicy (liquidityPolicy us)   <>
                    Constraints.unspentOutputs (Map.singleton oref o) <>
                    Constraints.ownPubKeyHash pkh
 
         tx       = Constraints.mustPayToTheScript dat val          <>
-                   Constraints.mustForgeValue (negate lVal)        <>
+                   Constraints.mustMintValue (negate lVal)        <>
                    Constraints.mustSpendScriptOutput oref redeemer
 
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "removed liquidity from pool: " ++ show lp
+    logInfo $ "removed liquidity from pool: " ++ Haskell.show lp
 
 -- | Adds some liquidity to an existing liquidity pool in exchange for newly minted liquidity tokens.
-add :: HasBlockchainActions s => Uniswap -> AddParams -> Contract w s Text ()
+add :: forall w s. Uniswap -> AddParams -> Contract w s Text ()
 add us AddParams{..} = do
     pkh                           <- pubKeyHash <$> ownPubKey
     (_, (oref, o, lp, liquidity)) <- findUniswapFactoryAndPool us apCoinA apCoinB
@@ -131,7 +131,7 @@ add us AddParams{..} = do
         delL   = calculateAdditionalLiquidity oldA oldB liquidity apAmountA apAmountB
         inVal  = coin apCoinA apAmountA <> coin apCoinB apAmountB
     when (delL <= 0) $ throwError "insufficient liquidity"
-    logInfo @String $ printf "oldA = %d, oldB = %d, newA = %d, newB = %d, delL = %d" oldA oldB newA newB delL
+    logInfo @Haskell.String $ printf "oldA = %d, oldB = %d, newA = %d, newB = %d, delL = %d" oldA oldB newA newB delL
 
     let usInst       = uniswapInstance us
         usScript     = uniswapScript us
@@ -143,27 +143,27 @@ add us AddParams{..} = do
         val          = psVal <> coin apCoinA newA <> coin apCoinB newB
         redeemer     = Redeemer $ PlutusTx.toData Add
 
-        lookups  = Constraints.scriptInstanceLookups usInst             <>
+        lookups  = Constraints.typedValidatorLookups usInst             <>
                    Constraints.otherScript usScript                     <>
-                   Constraints.monetaryPolicy (liquidityPolicy us)      <>
+                   Constraints.mintingPolicy (liquidityPolicy us)      <>
                    Constraints.ownPubKeyHash pkh                        <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
         tx       = Constraints.mustPayToTheScript dat val          <>
-                   Constraints.mustForgeValue lVal                 <>
+                   Constraints.mustMintValue lVal                 <>
                    Constraints.mustSpendScriptOutput oref redeemer
 
-    logInfo @String $ printf "val = %s, inVal = %s" (show val) (show inVal)
-    logInfo $ show lookups
-    logInfo $ show tx
+    logInfo @Haskell.String $ printf "val = %s, inVal = %s" (Haskell.show val) (Haskell.show inVal)
+    logInfo $ Haskell.show lookups
+    logInfo $ Haskell.show tx
 
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "added liquidity to pool: " ++ show lp
+    logInfo $ "added liquidity to pool: " ++ Haskell.show lp
 
 -- | Uses a liquidity pool two swap one sort of coins in the pool against the other.
-swap :: HasBlockchainActions s => Uniswap -> SwapParams -> Contract w s Text ()
+swap :: forall w s. Uniswap -> SwapParams -> Contract w s Text ()
 swap us SwapParams{..} = do
     unless (spAmountA > 0 && spAmountB == 0 || spAmountA == 0 && spAmountB > 0) $ throwError "exactly one amount must be positive"
     (_, (oref, o, lp, liquidity)) <- findUniswapFactoryAndPool us spCoinA spCoinB
@@ -180,12 +180,12 @@ swap us SwapParams{..} = do
         return (oldA - outA, oldB + spAmountB)
     pkh <- pubKeyHash <$> ownPubKey
 
-    logInfo @String $ printf "oldA = %d, oldB = %d, old product = %d, newA = %d, newB = %d, new product = %d" oldA oldB (oldA * oldB) newA newB (newA * newB)
+    logInfo @Haskell.String $ printf "oldA = %d, oldB = %d, old product = %d, newA = %d, newB = %d, new product = %d" oldA oldB (oldA * oldB) newA newB (newA * newB)
 
     let inst    = uniswapInstance us
         val     = coin spCoinA newA <> coin spCoinB newB <> coin (poolStateCoin us) 1
 
-        lookups = Constraints.scriptInstanceLookups inst                 <>
+        lookups = Constraints.typedValidatorLookups inst                 <>
                   Constraints.otherScript (Scripts.validatorScript inst) <>
                   Constraints.unspentOutputs (Map.singleton oref o)      <>
                   Constraints.ownPubKeyHash pkh
@@ -193,16 +193,16 @@ swap us SwapParams{..} = do
         tx      = mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData Swap) <>
                   Constraints.mustPayToTheScript (Pool lp liquidity) val
 
-    logInfo $ show tx
+    logInfo $ Haskell.show tx
     ledgerTx <- submitTxConstraintsWith lookups tx
-    logInfo $ show ledgerTx
+    logInfo $ Haskell.show ledgerTx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    logInfo $ "swapped with: " ++ show lp
+    logInfo $ "swapped with: " ++ Haskell.show lp
 
 -- | Finds all liquidity pools and their liquidity belonging to the Uniswap instance.
 -- This merely inspects the blockchain and does not issue any transactions.
-pools :: forall w s. HasBlockchainActions s => Uniswap -> Contract w s Text [((Coin, Integer), (Coin, Integer))]
+pools :: forall w s. Uniswap -> Contract w s Text [((Coin, Integer), (Coin, Integer))]
 pools us = do
     utxos <- utxoAt (uniswapAddress us)
     go $ snd <$> Map.toList utxos
@@ -222,7 +222,7 @@ pools us = do
                             amtA  = coinValueOf v coinA
                             amtB  = coinValueOf v coinB
                             s     = ((coinA, amtA), (coinB, amtB))
-                        logInfo $ "found pool: " ++ show s
+                        logInfo $ "found pool: " ++ Haskell.show s
                         ss <- go os
                         return $ s : ss
             else go os
@@ -230,7 +230,7 @@ pools us = do
         c :: Coin
         c = poolStateCoin us
 
-ownerEndpoint :: Contract (Last (Either Text Uniswap)) BlockchainActions Void ()
+ownerEndpoint :: Contract (Last (Either Text Uniswap)) EmptySchema Void ()
 ownerEndpoint = do
     e <- runError start
     tell $ Last $ Just $ case e of
@@ -238,13 +238,11 @@ ownerEndpoint = do
         Right us -> Right us
 
 type UniswapOwnerSchema =
-    BlockchainActions
-        .\/ Endpoint "start" ()
+    Endpoint "start" ()
 
 -- | Schema for the endpoints for users of Uniswap.
 type UniswapUserSchema =
-    BlockchainActions
-        .\/ Endpoint "create" CreateParams
+        Endpoint "create" CreateParams
         .\/ Endpoint "swap"   SwapParams
         .\/ Endpoint "close"  CloseParams
         .\/ Endpoint "remove" RemoveParams
@@ -252,8 +250,6 @@ type UniswapUserSchema =
         .\/ Endpoint "pools"  ()
         .\/ Endpoint "funds"  ()
         .\/ Endpoint "stop"   ()
-
-
 
 -- | Provides the following endpoints for users of a Uniswap instance:
 --
@@ -278,7 +274,7 @@ userEndpoints us =
       f (Proxy @"funds")  Funds           (\_us () -> funds))    >> userEndpoints us)
   where
     f :: forall l a p.
-         HasEndpoint l p UniswapUserSchema
+        (HasEndpoint l p UniswapUserSchema,  FromJSON p)
       => Proxy l
       -> (a -> UserContractState)
       -> (Uniswap -> p -> Contract (Last (Either Text UserContractState)) UniswapUserSchema Text a)
