@@ -110,10 +110,26 @@ Important to note here are data types used by validators which are `UniswapActio
 
 All data types ending with *Params (eg. CreateParams) contain the structure that the consumable JSON api endpoints expect.
 
-#### Playing with swap API with curl
+## Test Specs
 
-(TODO)
+### Unit Tests
 
-coming very soon...
+To run the unit tests simply run: 
 
+```bash
+cabal test
+```
 
+for more coloured output use `--test-show-detail` flag:
+
+```bash
+cabal test --test-show-details=direct
+```
+
+### Integration Tests
+
+Scenarios for creating / adding / swapping / closing will be covered via a python script that calls the PAB endpoints.
+
+```bash
+python3 bin/test.py
+```
