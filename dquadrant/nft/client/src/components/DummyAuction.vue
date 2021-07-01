@@ -84,6 +84,10 @@ export default {
       this.refresh()
     }
   },
+  destroyed() {
+    if(typeof this.timeoutHandle === "number")
+      clearTimeout(this.timeoutHandle)
+  },
   computed: {
     instanceId() {
       return this.$store.state.contract.instance.cicContract.unContractInstanceId
@@ -141,12 +145,12 @@ export default {
       this.$http.post(`instance/${this.instanceId}/endpoint/list`, {
         lmUtxoType: "MtAuction"
       })
-      // if (this.items.length === 0)
-      this.timeoutHandle = setTimeout(this.refresh, 5000)
-      // else {
-      this.$store.dispatch('updateAuctionItems', this.items)
-      // clearTimeout(this.timeoutHandle)
-      // }
+      if (this.items.length === 0)
+        this.timeoutHandle = setTimeout(this.refresh, 5000)
+      else {
+        this.$store.dispatch('updateAuctionItems', this.items)
+        clearTimeout(this.timeoutHandle)
+      }
     },
     onBidIncrease(index) {
       this.$store.dispatch('updateAuctionItems', this.items)
@@ -197,6 +201,7 @@ export default {
   data: () => {
     return {
       flight: false,
+      timeoutHandle: undefined,
       items: [
         {
           "arMarketFee": 5000000,

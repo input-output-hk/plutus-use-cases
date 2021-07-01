@@ -55,6 +55,10 @@ export default {
     }
     this.items = []
   },
+  destroyed() {
+    if(typeof this.timeoutHandle === "number")
+      clearTimeout(this.timeoutHandle)
+  },
   computed: {
     instanceId() {
       return this.$store.state.contract.instance.cicContract.unContractInstanceId
@@ -65,12 +69,14 @@ export default {
   },
   methods: {
     onBuy(item) {
+      clearTimeout(this.timeoutHandle)
       this.$task.do(
           this.$http.post(`instance/${this.instanceId}/endpoint/buy`, {
             ppItems: [item.reference],
             ppValue: item.cost
           }).then(() => this.$task.infoMessage("Transaction Submitted."))
       )
+      this.timeoutHandle = setTimeout(this.refresh, 10000)
     },
     refresh() {
       this.$task.do(
@@ -78,6 +84,7 @@ export default {
             'lmUtxoType': 'MtDirectSale',
           })
       )
+      this.timeoutHandle = setTimeout(this.refresh, 5000)
     }
   },
   watch: {
@@ -87,8 +94,12 @@ export default {
       // const encoded = new Buffer(myString).toString('hex'); // encoded === 54686973206973206d7920737472696e6720746f20626520656e636f6465642f6465636f646564
       // const decoded = new Buffer(encoded, 'hex').toString(); // decoded === "This is my string to be encoded/decoded"
 
-      if(this.items !== undefined && this.items.length > 0)
-        this.items.forEach(x=>x.values.forEach(v =>v.token = new buffer.Buffer (v.token,"hex").toString()))
+      if(this.items !== undefined && this.items.length > 0) {
+        this.items.forEach(x=> {
+          if (x.values !== undefined && this.items.length > 0)
+            x.values.forEach(v => v.token = new buffer.Buffer (v.token,"hex").toString())
+        })
+      }
       // }
     },
     instanceId(x) {
@@ -99,6 +110,7 @@ export default {
   },
   data: () => {
     return {
+      timeoutHandle: undefined,
       items: [
         // example value
         {
