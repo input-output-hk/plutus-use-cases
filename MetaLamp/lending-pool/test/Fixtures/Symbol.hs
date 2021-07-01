@@ -13,8 +13,8 @@ import qualified Ledger
 import qualified Ledger.Constraints        as Constraints
 import           Ledger.Typed.Scripts      (MonetaryPolicy)
 import qualified Ledger.Typed.Scripts      as Scripts
+import qualified Plutus.Abstract.TxUtils   as TxUtils
 import           Plutus.Contract
-import qualified Plutus.Contracts.TxUtils  as TxUtils
 import           Plutus.V1.Ledger.Contexts (ScriptContext)
 import qualified Plutus.V1.Ledger.Scripts  as Scripts
 import           Plutus.V1.Ledger.Value    (CurrencySymbol, TokenName,

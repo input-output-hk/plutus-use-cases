@@ -15,7 +15,7 @@
 {-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-specialise #-}
 
-module Plutus.Contracts.Oracle
+module Plutus.Contracts.Service.Oracle
     ( Oracle (..)
     , OracleRedeemer (..)
     , oracleTokenName
@@ -36,27 +36,26 @@ module Plutus.Contracts.Oracle
     , findOracleValueInTxInputs
     ) where
 
-import           Control.Monad             hiding (fmap)
-import           Data.Aeson                (FromJSON, ToJSON)
-import qualified Data.Map                  as Map
-import           Data.Monoid               (Last (..))
-import           Data.Text                 (Text, pack)
-import           GHC.Generics              (Generic)
-import           Ledger                    hiding (singleton)
-import           Ledger.Ada                as Ada
-import           Ledger.Constraints        as Constraints
-import qualified Ledger.Typed.Scripts      as Scripts
-import           Ledger.Value              as Value
-import           Plutus.Contract           as Contract hiding (when)
-import           Plutus.Contracts.Currency as Currency
-import qualified Plutus.Contracts.TxUtils  as TxUtils
-import           Plutus.OutputValue
-import qualified Plutus.State.Select       as Select
+import           Control.Monad               hiding (fmap)
+import           Data.Aeson                  (FromJSON, ToJSON)
+import qualified Data.Map                    as Map
+import           Data.Monoid                 (Last (..))
+import           Data.Text                   (Text, pack)
+import           GHC.Generics                (Generic)
+import           Ledger                      hiding (singleton)
+import           Ledger.Ada                  as Ada
+import           Ledger.Constraints          as Constraints
+import qualified Ledger.Typed.Scripts        as Scripts
+import           Ledger.Value                as Value
+import           Plutus.Abstract.OutputValue
+import qualified Plutus.Abstract.TxUtils     as TxUtils
+import           Plutus.Contract             as Contract hiding (when)
+import           Plutus.Contracts.Currency   as Currency
 import qualified PlutusTx
-import           PlutusTx.Prelude          hiding (Semigroup (..), unless)
-import           Prelude                   (Semigroup (..))
-import qualified Prelude                   as Prelude
-import           Schema                    (ToSchema)
+import           PlutusTx.Prelude            hiding (Semigroup (..), unless)
+import           Prelude                     (Semigroup (..))
+import qualified Prelude                     as Prelude
+import           Schema                      (ToSchema)
 
 data Oracle = Oracle
     { oSymbol   :: CurrencySymbol

@@ -24,7 +24,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData(..))
 import Network.RemoteData as RD
-import Plutus.Contracts.Endpoints (BorrowParams(..), DepositParams(..), RepayParams(..), WithdrawParams(..), ProvideCollateralParams(..), RevokeCollateralParams(..))
+import Plutus.Contracts.LendingPool.OffChain.User (BorrowParams(..), DepositParams(..), RepayParams(..), WithdrawParams(..), ProvideCollateralParams(..), RevokeCollateralParams(..))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), Value)
 import View.FundsTable (fundsTable)

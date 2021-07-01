@@ -2,7 +2,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module Plutus.Contracts.FungibleToken where
+module Plutus.Contracts.Service.FungibleToken where
 
 import           Ledger.Typed.Scripts      (MonetaryPolicy)
 import qualified Ledger.Typed.Scripts      as Scripts

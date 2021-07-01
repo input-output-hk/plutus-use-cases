@@ -5,10 +5,10 @@ module Spec.Start where
 
 import qualified Fixtures
 import           Plutus.Contract.Test
-import qualified Plutus.Contracts.Core as Aave
+import qualified Plutus.Contracts.LendingPool.OnChain.Core as Aave
 import           Test.Tasty
-import qualified Utils.Data            as Utils
-import qualified Utils.Trace           as Utils
+import qualified Utils.Data                                as Utils
+import qualified Utils.Trace                               as Utils
 
 tests :: TestTree
 tests = testGroup "start" [checkPredicate

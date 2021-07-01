@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module Plutus.State.Select where
+module Plutus.Abstract.State.Select where
 
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString                  as BS
@@ -22,8 +22,8 @@ import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Scripts                   as Scripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
+import           Plutus.Abstract.OutputValue      (OutputValue (..))
 import           Plutus.Contract                  hiding (when)
-import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Value
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..),
