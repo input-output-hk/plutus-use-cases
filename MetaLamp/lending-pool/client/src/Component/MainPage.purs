@@ -28,7 +28,7 @@ import Halogen.HTML.Properties (classes)
 import Network.RemoteData (RemoteData(..))
 import Network.RemoteData as RD
 import Network.RemoteData as RemoteData
-import Plutus.Contracts.LendingPool.OnChain.Core (Reserve(..), UserConfig)
+import Plutus.Contracts.LendingPool.OnChain.Core.Script (Reserve(..), UserConfig)
 import Plutus.PAB.Simulation (AaveContracts)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)

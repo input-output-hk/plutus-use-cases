@@ -6,7 +6,7 @@ import Data.BigInteger (fromInt)
 import Data.Maybe (fromMaybe)
 import Data.Tuple (Tuple(..))
 import Halogen.HTML as HH
-import Plutus.Contracts.LendingPool.OnChain.Core (UserConfig(..))
+import Plutus.Contracts.LendingPool.OnChain.Core.Script (UserConfig(..))
 import Plutus.V1.Ledger.Value (AssetClass)
 import View.Utils (assetName)
 

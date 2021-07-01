@@ -13,7 +13,6 @@ import qualified Data.Aeson                       as JSON
 
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (mapMaybe)
-import           Data.Monoid                      (Last (..))
 import           Data.String                      (fromString)
 import           Data.Text.Prettyprint.Doc        (Doc)
 import           Data.Void                        (Void)

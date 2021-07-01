@@ -3,7 +3,7 @@ module View.ReserveInfo where
 import Prelude
 import Data.BigInteger (BigInteger)
 import Halogen.HTML as HH
-import Plutus.Contracts.LendingPool.OnChain.Core (Reserve(..))
+import Plutus.Contracts.LendingPool.OnChain.Core.Script (Reserve(..))
 import Plutus.V1.Ledger.Value (AssetClass)
 import View.Utils (assetName)
 
