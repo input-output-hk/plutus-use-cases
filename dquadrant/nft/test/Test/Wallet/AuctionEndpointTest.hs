@@ -14,7 +14,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-module Test.AuctionEndpointTest
+module Test.Wallet.AuctionEndpointTest
 (tests)
 where
 
@@ -32,6 +32,17 @@ import Prelude (show, Eq ((==)))
 import Data.Functor
 import qualified Data.Aeson.Types as AesonTypes
 import Data.Text (Text)
+
+
+-- Tests in this file test wallet code and not the validator itself
+-- The tests will pass with the correct validator but it will also pass if
+-- you replace the market validator with a dummyOne like this.
+--
+-- marketValidator :: Market -> Validator
+-- marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
+--     where
+--         a _ _ _=()
+
 
 
 tests :: TestTree
@@ -107,6 +118,7 @@ canQueryOwnAndOthersAuction = defaultCheck
 
     doListOwn h2 >>=expectSingleAuction (defaultResponse u2 "ba")
     doListOfWallet 2 h1 >>= expectSingleAuction (defaultResponse u2 "ba")
+    throw $ "We just fail"
 
 canWithdrawFromAuction ::TestTree
 canWithdrawFromAuction=defaultCheck

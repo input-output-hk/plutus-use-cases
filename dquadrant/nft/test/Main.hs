@@ -1,6 +1,6 @@
 
-import  qualified Test.DirectSaleEndpointTest
-import  qualified Test.AuctionEndpointTest
+import  qualified Test.Wallet.DirectSaleEndpointTest
+import  qualified Test.Wallet.AuctionEndpointTest
 
 import           Test.Tasty
 
@@ -9,6 +9,6 @@ main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "marketplacce" [
-        Test.DirectSaleEndpointTest.tests,
-        Test.AuctionEndpointTest.tests
+        Test.Wallet.DirectSaleEndpointTest.tests,
+        Test.Wallet.AuctionEndpointTest.tests
     ]

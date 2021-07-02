@@ -51,8 +51,8 @@ import Ledger
       mkValidatorScript,
       Address,
       Validator,
-      AssetClass, TxInInfo, toValidatorHash, Interval (Interval, ivFrom, ivTo), Extended (PosInf) )
-import Ledger.Value
+      AssetClass, TxInInfo, toValidatorHash, Interval (Interval, ivFrom, ivTo), Extended (PosInf), after )
+import Ledger.Value hiding(lt)
 import qualified Ledger.Typed.Scripts as Scripts
 import Data.Aeson (FromJSON, ToJSON)
 import Plutus.Contract.Data.Payment
@@ -74,7 +74,7 @@ import Ledger.Time (POSIXTime)
 
 
 ---------------------------------------------------------------------------------------------
------ Foreign functions (these use be in some other file but PLC plugin didn't agree)
+----- Foreign functions (these used be in some other file but PLC plugin didn't agree)
 ---------------------------------------------------------------------------------------------
 
 -- moving this function to Data/Payment.hs will give following error
@@ -109,6 +109,13 @@ allowSingleScript ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}} =
         _           ->  True
     thisScriptHash= ownHash ctx
 
+allScriptInputsCount:: ScriptContext ->Integer
+allScriptInputsCount ctx@(ScriptContext info purpose)=
+    foldl (\c txOutTx-> c + countTxOut txOutTx) 0 (txInfoInputs  info)
+  where
+  countTxOut (TxInInfo _ (TxOut addr _ _)) = if isJust (toValidatorHash addr) then 1 else 0
+
+
 ----------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------
 
@@ -130,7 +137,7 @@ data Market = Market
     ,   mAuctionFee         :: !Integer
     } deriving (Show,Generic, FromJSON, ToJSON)
 
-data MarketRedeemer =  ClaimBid| Bid | Buy | Withdraw | Collect
+data MarketRedeemer =  ClaimBid| Bid | Buy | Withdraw 
     deriving (Generic,FromJSON,ToJSON,Show,Prelude.Eq)
 
 data SellType = Primary | Secondary  deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
@@ -183,20 +190,20 @@ aMarketShareValue Market{mAuctionFee} Auction{aAssetClass} fValue = assetClassVa
 
 
 data Auction = Auction{
-    aOwner  :: !PubKeyHash,
-    aBidder:: !PubKeyHash,
-    aAssetClass:: !AssetClass,
-    aMinBid :: !Integer,
-    aMinIncrement :: !Integer,
-    aDuration:: !POSIXTimeRange,
-    aValue:: Value
+    aOwner  :: !PubKeyHash, -- pkh Who created the auction.
+    aBidder:: !PubKeyHash, -- Current Bidder 
+    aAssetClass:: !AssetClass, -- The Bidding currency for auction. 
+    aMinBid :: !Integer, -- starting Bid
+    aMinIncrement :: !Integer, -- min increment  from previous auction per bid
+    aDuration:: !POSIXTimeRange, -- Auction duration
+    aValue:: Value  -- The value that's placed on Auction. this is what winner gets.
 } deriving (Generic, Show,ToJSON,FromJSON,Prelude.Eq)
 PlutusTx.unstableMakeIsData ''Auction
 
 aClaimInterval :: Auction-> Interval POSIXTime
 aClaimInterval Auction{aDuration}= Interval (toLower $ ivTo aDuration) (UpperBound PosInf False)
   where
-    toLower (UpperBound  a _)=LowerBound a False 
+    toLower (UpperBound  a _)=LowerBound a True
 
 {-# INLINABLE auctionAssetValue #-}
 auctionAssetValue :: Auction -> Integer -> Value
@@ -210,21 +217,27 @@ auctionAssetValueOf Auction{aAssetClass} value = assetClassValueOf value aAssetC
 {-# INLINABLE  validateBid #-}
 validateBid :: Market -> Auction -> ScriptContext -> Bool
 validateBid market auction ctx@ScriptContext  {scriptContextTxInfo=info}=
-  let
-    hasSingleUtxo=    length (ownInputs ctx) == 1
+  case txOutDatum  ctx newTxOut of
+    Just nAuction@Auction{} ->
+            traceIfFalse "Unacceptible modification to output datum" (validOutputDatum nAuction)
+        &&  traceIfFalse "Only one bid per transaction" (allScriptInputsCount  ctx ==1 )
+        &&  traceIfFalse "This auction looks like a scam" validInputDatum
+        &&  traceIfFalse "Insufficient payment to market contract" isMarketScriptPayed
+        &&  traceIfFalse "Insufficient payment to previous bidder" isExBidderPaid
+        &&  traceIfFalse "Not during the auction period" duringTheValidity
+    _       -> traceError "Output Datum can't be parsed to Auction"
+  where
     duringTheValidity  =   aDuration auction `contains` txInfoValidRange info
-    validOutputDatum    =  case txOutDatum ctx newTxOut of
-        Just nAuction@Auction{} ->  aMinIncrement auction == aMinIncrement nAuction &&
+    validOutputDatum  nAuction  =  aMinIncrement auction == aMinIncrement nAuction &&
                                       aAssetClass auction == aAssetClass nAuction &&
                                       aDuration auction == aDuration nAuction &&
-                                      aOwner auction== aOwner auction
-        _                        ->  traceError "Malformed Output Datum"
+                                      aOwner auction== aOwner nAuction &&
+                                      aBidder nAuction /= aOwner auction
 
     -- without this check, auction creator might say that 
     -- they are placing asset on auction datum without locking them.
     validInputDatum = ownInputValue ctx `geq` aValue auction
-    minNewBid =
-        ownInputValue ctx <>
+    minNewBid = ownInputValue ctx <>
         auctionAssetValue auction (
             if  lastAuctionAssetValue == 0
             then  aMinBid auction
@@ -236,28 +249,14 @@ validateBid market auction ctx@ScriptContext  {scriptContextTxInfo=info}=
 
     lastAuctionAssetValue= assetClassValueOf  (ownInputValue ctx ) (aAssetClass auction)
 
-    isMarketScriptPayed nAuction= ownOutputValue ctx `geq` minNewBid
+    isMarketScriptPayed = ownOutputValue ctx `geq` minNewBid
 
-    doValidate newAuction=
-            allowSingleScript ctx
-        &&  traceIfFalse "Malicious input datum" validInputDatum
-        &&  traceIfFalse "Only one bid per transaction" hasSingleUtxo
-        &&  traceIfFalse "Insufficient payment to market contract" (isMarketScriptPayed newAuction)
-        &&  traceIfFalse "Insufficient payment to previous bidder" isExBidderPaid
-        &&  traceIfFalse "Not during the auction period" duringTheValidity
-        &&  traceIfFalse "Unacceptible modification to output datum" validOutputDatum
-    newTxOut=(case getContinuingOutputs ctx of
-        [txOut] -> txOut
-        _       -> traceError "MultipleOutputs"
-      )
-  in
-    case txOutDatum  ctx newTxOut of
-          Just nAuction@Auction{} -> doValidate nAuction
-          _       -> traceError "Multiple outputs"
+    newTxOut=case getContinuingOutputs ctx of
+       [txOut] -> txOut
+       _       -> traceError "MultipleOutputs"
 
 
 {-# INLINABLE  validateWithdraw #-}
-validateWithdraw :: Market->Data -> ScriptContext -> Bool
 validateWithdraw market datum ctx=
           isDirectSale
       ||  isAuction
@@ -279,14 +278,14 @@ validateWithdraw market datum ctx=
 validateClaimAuction :: Market  -> ScriptContext -> Bool
 validateClaimAuction  market@Market{mAuctionFee,mOperator} ctx@ScriptContext{scriptContextTxInfo=info} =
           allowSingleScript ctx
-      &&  traceIfTrue  "Auction not Completed" allAuctionsNotExpired
+      &&  traceIfFalse  "Auction not Expired" allAuctionsExpired
       &&  traceIfFalse "Market fee not paid" isOperatorPaid
       &&  traceIfFalse "Bidder not paid"     areWinnersPaid
-      && traceIfFalse  "Is Seller Paid"      areSellersPaid
+      && traceIfFalse  "Sellers not paid"      areSellersPaid
       where
         -- auction validity
-        allAuctionsNotExpired = all isAuctionPeriod auctionsWithTxOut
-        isAuctionPeriod (txOut,auction) = not $ aDuration auction `contains` txInfoValidRange info
+        allAuctionsExpired =  all isAuctionExpired auctionsWithTxOut
+        isAuctionExpired (txOut,auction) = (ivTo  $ aDuration auction) < (ivTo $ txInfoValidRange info)
 
         -- Check that each of the parties are paid
         areWinnersPaid  = validatePayment (\pkh v->valuePaidTo info pkh `geq` v)  totalWinnerPayment
@@ -304,7 +303,10 @@ validateClaimAuction  market@Market{mAuctionFee,mOperator} ctx@ScriptContext{scr
         aWinnerPayment  (txOut,auction) = payment (aBidder auction) $ aValue auction
 
         auctionsWithTxOut:: [(TxOut,Auction)]
-        auctionsWithTxOut=ownInputsWithDatum ctx
+        auctionsWithTxOut=ownInputsWithDatum  ctx
+
+
+
 
 {-# INLINABLE validateBuy #-}
 validateBuy:: Market -> ScriptContext ->Bool
@@ -324,15 +326,15 @@ validateBuy market@Market{mOperator,mPrimarySaleFee,mSecondarySaleFee} ctx=
         sellerSharePayment (txOut,dsale) = payment (dsSeller dsale)  $  dsSellerShareValue market dsale
         marketFeeValue    (txOut,dsale)  = dsMarketShareValue market dsale
 
-        salesWithTxOut :: [(TxOut,DirectSale)]
-        salesWithTxOut= ownInputsWithDatum ctx
+        salesWithTxOut:: [(TxOut,DirectSale)]
+        salesWithTxOut = ownInputsWithDatum ctx
 
 {-# INLINABLE mkMarket #-}
 mkMarket :: Market ->  Data -> MarketRedeemer -> ScriptContext  -> Bool
-mkMarket market d action ctx = 
+mkMarket market d action ctx =
     case  action of
         Buy       -> validateBuy market ctx
-        Withdraw -> validateWithdraw market d ctx
+        Withdraw  -> validateWithdraw market d ctx
         Bid       -> case fromData d of
                     Just auction -> validateBid market auction ctx
                     _            -> traceError "Invalid Auction datum"
@@ -345,18 +347,18 @@ instance Scripts.ValidatorTypes MarketScriptType where
     type instance DatumType MarketScriptType = PubKeyHash
 
 
--- marketValidator :: Market -> Validator
--- marketValidator market = Ledger.mkValidatorScript $
---     $$(PlutusTx.compile [|| validatorParam ||])
---         `PlutusTx.applyCode`
---             PlutusTx.liftCode market
---     where validatorParam m = Scripts.wrapValidator (mkMarket m)
-
-
 marketValidator :: Market -> Validator
-marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
-    where
-        a _ _ _=()
+marketValidator market = Ledger.mkValidatorScript $
+    $$(PlutusTx.compile [|| validatorParam ||])
+        `PlutusTx.applyCode`
+            PlutusTx.liftCode market
+    where validatorParam m = Scripts.wrapValidator (mkMarket m)
+
+
+-- marketValidator :: Market -> Validator
+-- marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
+--     where
+--         a _ _ _=()
 
 marketAddress :: Market -> Ledger.Address
 marketAddress = scriptAddress . marketValidator

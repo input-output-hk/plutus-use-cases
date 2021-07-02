@@ -9,7 +9,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
-
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveGeneric #-}
 module Main
     ( main
@@ -49,8 +49,11 @@ import qualified Plutus.Contract.Wallet as MWallet
 import qualified Data.Aeson.Types as AesonTypes
 import Data.ByteString (ByteString)
 import qualified Data.Map as Map
-import Wallet.Emulator.Wallet (Entity)
-
+import Wallet.Emulator.Wallet (Entity (WalletEntity))
+import qualified Wallet.Emulator.Wallet as Wallet
+import GHC.Conc (atomically)
+import Ledger.Ada (adaToken,adaSymbol)
+import Prelude
 
 defaultMarket :: Market
 defaultMarket = Market{
@@ -79,28 +82,27 @@ endpoints=doSelection  >> endpoints
 
 main :: IO ()
 main = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin Market) "Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
-
-
-    forM_ wallets wInit 
+    forM_ wallets wInit
             -- cid <- Simulator.activateContract w  defaultMarket
             -- liftIO $ writeFile ('W' : show (getWallet w) ++ ".cid") $ show $ unContractInstanceId cid
+    Simulator.logString @(Builtin Market) "Press enter to view Balances."
     loop
   where
     loop= printOnReturn >>loop
 
     wInit w = Simulator.activateContract w  defaultMarket
 
-
     printOnReturn= do
         void $ liftIO getLine
         slot <- Simulator.currentSlot
-        Simulator.logString  @(Builtin Market) $ "--------------------------------"
-        Simulator.logString  @(Builtin Market) $ "--------------------------------"
-        Simulator.logString @(Builtin Market) "Current Balances"
-        b <- Simulator.currentBalances
-        Simulator.logBalances @(Builtin Market) b 
+        slot<-  liftIO $ atomically slot
+        b<-Simulator.currentBalances
+        Simulator.logString  @(Builtin Market) $ "---------------------------------------------------------------------"
+        Simulator.logString @(Builtin Market) $  "-------  Balances at SlotNo :" ++ (show $ getSlot slot)
+        Simulator.logString  @(Builtin Market) $ "---------------------------------------------------------------------"
+        logBalances @(Builtin Market) b
+
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 5]]
 
@@ -118,3 +120,23 @@ handlers :: SimulatorEffectHandlers (Builtin Market)
 handlers =
     Simulator.mkSimulatorHandlers @(Builtin Market) []
     $ interpret handleMarketContracts
+
+logBalances :: forall t effs. Member (LogMsg (PABMultiAgentMsg t)) effs
+            => Map.Map Wallet.Entity Value
+            -> Eff effs ()
+logBalances bs = do
+    forM_ (Map.toList bs) $ \(e, v) -> do
+        logString @t $ showEntity e <> ": "
+        forM_ (Value.flattenValue v) $ \(cs, tn, a) ->
+            if cs==adaSymbol && tn == adaToken  then
+              logString @t $ "           " <> prettyShow (a `divMod` 1_000_000)
+            else
+              logString @t $ "    {" <> show cs <> ", " <> show tn <> "}: " <> show a
+  where
+  prettyShow (l,s)=(
+      if s==0 then show l
+      else show l ++ "."++show s
+    ) ++ " Ada"
+  showEntity e= case e of
+    WalletEntity w ->  show w++ " (pkh: " ++(show $ pubKeyHash $ walletPubKey w)++" )"
+    _ -> show e

@@ -71,10 +71,12 @@ import Ledger.TimeSlot (posixTimeRangeToSlotRange, slotToPOSIXTime)
 import Control.Lens (review)
 
 
+-- Create direct sale. in the tuple (DirectSale,Value), DirectSale contains 
+-- data required to validate buy  action. Value is the amount to be put on directsale.
 submitDirectSales:: (AsContractError  e) => Market ->[(DirectSale ,Value)] -> Contract w s e Tx
 submitDirectSales market sps=do submitTx $ Prelude.mconcat $ map toConstraint sps
   where
-    toConstraint (ds,v)=mustPayToOtherScript valHash (Datum $ toData  ds)   v
+    toConstraint (ds,v)=mustPayToOtherScript valHash (Datum $ toData  ds) v
     valHash=validatorHash $ marketValidator market
 
 

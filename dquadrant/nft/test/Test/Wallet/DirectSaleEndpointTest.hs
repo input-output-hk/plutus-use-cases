@@ -14,7 +14,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-module Test.DirectSaleEndpointTest
+module Test.Wallet.DirectSaleEndpointTest
 (tests)
 where
 
@@ -32,6 +32,16 @@ import qualified Data.Aeson as AesonTypes
 import Data.Text(Text)
 import Ledger (TxOutRef, pubKeyHash, PubKeyHash (getPubKeyHash))
 import Prelude (show)
+
+
+-- Tests in this file test wallet code and not the validator itself
+-- The tests will pass with the correct validator but it will also pass if
+-- you replace the market validator with a dummyOne like this.
+--
+-- marketValidator :: Market -> Validator
+-- marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
+--     where
+--         a _ _ _=()
 
 
 tests :: TestTree

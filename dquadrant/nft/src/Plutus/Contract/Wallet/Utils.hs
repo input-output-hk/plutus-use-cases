@@ -139,8 +139,6 @@ fundsEp :: HasEndpoint "funds" String s => Contract
 fundsEp= do
     endpoint @"funds"
     v<- ownFunds
-    slot<-currentSlot 
-    logInfo  (toJSON  slot)
     tell [ toJSON v]
 -- let's hope that in future we can return the json string without having to tell
     return $ toJSON  v 
