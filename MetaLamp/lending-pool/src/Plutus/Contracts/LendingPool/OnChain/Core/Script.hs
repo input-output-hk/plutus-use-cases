@@ -90,29 +90,30 @@ PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig
 Lens.makeClassy_ ''UserConfig
 
+type UserConfigId = (AssetClass, PubKeyHash)
+
 data AaveRedeemer =
     StartRedeemer
-  | DepositRedeemer (AssetClass, PubKeyHash)
-  | WithdrawRedeemer (AssetClass, PubKeyHash)
-  | BorrowRedeemer (AssetClass, PubKeyHash) [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
-  | RepayRedeemer (AssetClass, PubKeyHash)
-  | ProvideCollateralRedeemer (AssetClass, PubKeyHash)
-  | RevokeCollateralRedeemer (AssetClass, PubKeyHash) AssetClass [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
+  | DepositRedeemer UserConfigId
+  | WithdrawRedeemer UserConfigId
+  | BorrowRedeemer UserConfigId [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
+  | RepayRedeemer UserConfigId
+  | ProvideCollateralRedeemer UserConfigId
+  | RevokeCollateralRedeemer UserConfigId AssetClass [(CurrencySymbol, PubKeyHash, Integer, AssetClass)]
     deriving Show
 
 PlutusTx.unstableMakeIsData ''AaveRedeemer
 PlutusTx.makeLift ''AaveRedeemer
 
--- TODO: solve purescript generation issue with type synonyms
-type UserConfigId = (AssetClass, PubKeyHash)
 type LendingPoolOperator = PubKeyHash
+
 type Oracles = AssocMap.Map AssetClass Integer -- Shows how many lovelaces should be paid for a specific asset
 
 data AaveDatum =
     LendingPoolDatum LendingPoolOperator
   | ReservesDatum AssetClass (AssocMap.Map AssetClass Reserve) -- State token and reserve currency -> reserve map
   | ReserveFundsDatum
-  | UserConfigsDatum AssetClass (AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -- State token and UserConfigId -> user config map
+  | UserConfigsDatum AssetClass (AssocMap.Map UserConfigId UserConfig) -- State token and UserConfigId -> user config map
   | UserCollateralFundsDatum PubKeyHash AssetClass -- User pub key and aToken asset type
   deriving stock (Show)
 

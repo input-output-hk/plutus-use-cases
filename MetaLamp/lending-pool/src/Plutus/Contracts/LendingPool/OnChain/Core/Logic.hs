@@ -39,8 +39,10 @@ import           Playground.Contract
 import           Plutus.Contract                                  hiding (when)
 import           Plutus.Contracts.LendingPool.OnChain.Core.Script (AaveDatum (..),
                                                                    AaveRedeemer (..),
+                                                                   Oracles,
                                                                    Reserve (..),
-                                                                   UserConfig (..))
+                                                                   UserConfig (..),
+                                                                   UserConfigId)
 import qualified Plutus.Contracts.Service.Oracle                  as Oracle
 import           Plutus.V1.Ledger.Value
 import qualified PlutusTx
@@ -52,7 +54,7 @@ import           Prelude                                          (Semigroup (..
 import qualified Prelude
 
 {-# INLINABLE pickUserConfigs #-}
-pickUserConfigs :: AaveDatum -> Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+pickUserConfigs :: AaveDatum -> Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
 pickUserConfigs (UserConfigsDatum stateToken configs) = Just (stateToken, configs)
 pickUserConfigs _ = Nothing
 
@@ -69,14 +71,14 @@ pickUserCollateralFunds _ = Nothing
 {-# INLINABLE totalDebtAndCollateralInLovelace #-}
 totalDebtAndCollateralInLovelace ::
      PubKeyHash
-  -> AssocMap.Map AssetClass Integer
-  -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig
+  -> Oracles
+  -> AssocMap.Map UserConfigId UserConfig
   -> Maybe UserConfig
 totalDebtAndCollateralInLovelace actor oracles userConfigs =
   foldrM addCollateral (UserConfig 0 0) $ AssocMap.toList userConfigs
   where
     addCollateral ::
-         ((AssetClass, PubKeyHash), UserConfig)
+         (UserConfigId, UserConfig)
       -> UserConfig
       -> Maybe UserConfig
     addCollateral ((asset, user), userConfig) currentTotal
@@ -91,8 +93,8 @@ totalDebtAndCollateralInLovelace actor oracles userConfigs =
 {-# INLINABLE doesCollateralCoverDebt #-}
 doesCollateralCoverDebt ::
      PubKeyHash
-  -> AssocMap.Map AssetClass Integer
-  -> AssocMap.Map (AssetClass, PubKeyHash) UserConfig
+  -> Oracles
+  -> AssocMap.Map UserConfigId UserConfig
   -> Bool
 doesCollateralCoverDebt actor oracles userConfigs = maybe False (\UserConfig{..} -> ucDebt <= ucCollateralizedInvestment) $
   totalDebtAndCollateralInLovelace actor oracles userConfigs
@@ -129,7 +131,7 @@ checkNegativeFundsTransformation ctx asset actor = isValidFundsChange
 checkNegativeReservesTransformation :: AssetClass
   -> AssocMap.Map AssetClass Reserve
   -> ScriptContext
-  -> (AssetClass, PubKeyHash)
+  -> UserConfigId
   -> Bool
 checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
       maybe False checkreserves reservesOutputDatum
@@ -164,7 +166,7 @@ checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
 checkPositiveReservesTransformation :: AssetClass
   -> AssocMap.Map AssetClass Reserve
   -> ScriptContext
-  -> (AssetClass, PubKeyHash)
+  -> UserConfigId
   -> Bool
 checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = maybe False checkreserves reservesOutputDatum
   where
