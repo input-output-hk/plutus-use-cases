@@ -35,6 +35,7 @@ library
       Plutus.OutputValue 
       Ext.Plutus.Ledger.Contexts 
       Plutus.PAB.Simulation
+      Plutus.PAB.ContractsActivation
       Plutus.ContractStorage
       Plutus.Backend.Server
       Plutus.Backend.Endpoints

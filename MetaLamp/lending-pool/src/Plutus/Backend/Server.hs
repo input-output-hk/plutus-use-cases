@@ -9,16 +9,16 @@ import           Control.Monad.IO.Class         (liftIO)
 import           Data.Map                       (insert, (!?))
 import           Network.Wai.Handler.Warp       (run)
 import qualified Plutus.Backend.ContractStorage as LendingPool
-import           Plutus.Backend.Endpoints       (activate, deposit)
+import           Plutus.Backend.Endpoints       (startupActivation, deposit)
 import           Plutus.Backend.Types
 import           Plutus.ContractStorage         (ContractStorage (..),
                                                  WithContractStorage,
                                                  withContractStorage)
 import qualified Plutus.PAB.Simulation          as PAB
+import qualified Plutus.PAB.Simulation          as Simulation
+import qualified Plutus.PAB.Simulator           as Simulator
 import           Servant
 import           Servant.API
-import qualified Plutus.PAB.Simulator           as Simulator
-import qualified Plutus.PAB.Simulation          as Simulation
 
 runServer :: IO ()
 runServer = do
@@ -36,10 +36,9 @@ runServer = do
     print "Use Wallet 1, 2 or 3 to request simulation."
     run 8081 $ withContractStorage contractStorage backendApp
     where
-      activateContractsForMockWallets contractStorage = 
+      activateContractsForMockWallets contractStorage =
         Simulator.runSimulationWith Simulation.handlers $
-          withContractStorage contractStorage $ 
-            activate "activate"
+          withContractStorage contractStorage $ startupActivation 
 
 
 type LendingPoolAPI =
