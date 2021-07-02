@@ -1,5 +1,4 @@
-{-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DataKinds #-}
 
 module Spec.Shared where
 
@@ -18,7 +17,7 @@ reservesChange reserves = Utils.datumsAtAddress Fixtures.aaveAddress (Utils.one 
         check (Aave.ReservesDatum _ reserves') = reserves' == reserves
         check _                                = False
 
-userConfigsChange :: AssocMap.Map (AssetClass, PubKeyHash) Aave.UserConfig -> TracePredicate
+userConfigsChange :: AssocMap.Map Aave.UserConfigId Aave.UserConfig -> TracePredicate
 userConfigsChange configs = Utils.datumsAtAddress Fixtures.aaveAddress (Utils.one check)
     where
         check (Aave.UserConfigsDatum _ configs') = configs' == configs

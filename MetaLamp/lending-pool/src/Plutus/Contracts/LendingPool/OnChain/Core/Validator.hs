@@ -55,7 +55,8 @@ import           Plutus.Contracts.LendingPool.OnChain.Core.Script (AaveDatum (..
                                                                    AaveRedeemer (..),
                                                                    AaveScript,
                                                                    Reserve (..),
-                                                                   UserConfig (..))
+                                                                   UserConfig (..),
+                                                                   UserConfigId)
 import qualified Plutus.Contracts.Service.Oracle                  as Oracle
 import           Plutus.V1.Ledger.Value
 import qualified PlutusTx
@@ -117,7 +118,7 @@ validateStart aave (LendingPoolDatum operator) ctx =
 validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateDeposit #-}
-validateDeposit :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
+validateDeposit :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
 validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   traceIfFalse "validateDeposit: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
@@ -126,14 +127,14 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     userConfigsOutputDatumHash =
       findOnlyOneDatumHashByValue (assetClassValue stateToken 1) $ scriptOutputsAt scriptsHash txInfo
     userConfigsOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
     userConfigsOutputDatum =
       userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
-    checkUserConfigs :: (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
+    checkUserConfigs :: (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
       maybe
@@ -152,7 +153,7 @@ validateDeposit aave (ReservesDatum stateToken reserves) ctx userConfigId =
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateWithdraw #-}
-validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
+validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
 validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
   -- TODO add implementation for this case
   traceIfFalse "validateWithdraw: User Configs Datum change is not valid" False
@@ -165,7 +166,7 @@ validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateBorrow #-}
-validateBorrow :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Bool
+validateBorrow :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Bool
 validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) oracles =
   traceIfFalse "validateBorrow: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
@@ -175,7 +176,7 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     userConfigsOutputDatumHash =
       findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     userConfigsOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
     userConfigsOutputDatum =
       userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
@@ -191,7 +192,7 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
     checkUserConfigs ::
-         (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
+         (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken && doesCollateralCoverDebt actor oracleValues newUserConfigs &&
       maybe False (checkRedeemerConfig $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
@@ -211,7 +212,7 @@ validateBorrow aave ReserveFundsDatum ctx (reserveId, actor) oracles =
 validateBorrow _ _ _ _ _ = trace "validateBorrow: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateRepay #-}
-validateRepay :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
+validateRepay :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
 validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
   traceIfFalse "validateRepay: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
@@ -221,7 +222,7 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
     userConfigsOutputDatumHash =
       findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     userConfigsOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
     userConfigsOutputDatum =
       userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
@@ -231,7 +232,7 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
     isValidUserConfigsTransformation :: Bool
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
-    checkUserConfigs :: (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
+    checkUserConfigs :: (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
       (Just True ==
@@ -250,7 +251,7 @@ validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId =
 validateRepay _ _ _ _ = trace "validateRepay: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateProvideCollateral #-}
-validateProvideCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> Bool
+validateProvideCollateral :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
 validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) =
   traceIfFalse "validateProvideCollateral: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
@@ -261,7 +262,7 @@ validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx us
     userConfigsOutputDatumHash =
       findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     userConfigsOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
     userConfigsOutputDatum =
       userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
@@ -279,7 +280,7 @@ validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx us
     isValidUserConfigsTransformation =
       fromMaybe False $ checkUserConfigs <$> userConfigsOutputDatum <*> collateralOutputDatum
     checkUserConfigs ::
-         (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> (PubKeyHash, AssetClass) -> Bool
+         (AssetClass, AssocMap.Map UserConfigId UserConfig) -> (PubKeyHash, AssetClass) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) (user, aTokenAsset) =
       newStateToken == stateToken && user == actor &&
       maybe False (checkRedeemerConfig aTokenAsset $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
@@ -293,7 +294,7 @@ validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx us
 validateProvideCollateral _ _ _ _ = trace "validateProvideCollateral: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateRevokeCollateral #-}
-validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> (AssetClass, PubKeyHash) -> AssetClass -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Bool
+validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> AssetClass -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Bool
 validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(reserveId, actor) aTokenAsset oracles =
   traceIfFalse "validateRevokeCollateral: User Configs Datum change is not valid" isValidUserConfigsTransformation
   where
@@ -304,7 +305,7 @@ validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx use
     userConfigsOutputDatumHash =
       findOnlyOneDatumHashByValue (assetClassValue stateToken 1) scriptOutputs
     userConfigsOutputDatum ::
-         Maybe (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
+         Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
     userConfigsOutputDatum =
       userConfigsOutputDatumHash >>= parseDatum txInfo >>= pickUserConfigs
 
@@ -320,7 +321,7 @@ validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx use
     isValidUserConfigsTransformation =
       maybe False checkUserConfigs userConfigsOutputDatum
     checkUserConfigs ::
-         (AssetClass, AssocMap.Map (AssetClass, PubKeyHash) UserConfig) -> Bool
+         (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken && doesCollateralCoverDebt actor oracleValues newUserConfigs &&
       fromMaybe False (checkRedeemerConfig <$> (AssocMap.lookup userConfigId userConfigs) <*> (AssocMap.lookup userConfigId newUserConfigs))

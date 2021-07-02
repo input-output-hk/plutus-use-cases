@@ -43,7 +43,7 @@ oracles = fmap
 startParams :: [Aave.CreateParams]
 startParams = fmap (\o -> Aave.CreateParams (Oracle.oAsset o) o) oracles
 
-initialUsers :: AssocMap.Map (AssetClass, PubKeyHash) Aave.UserConfig
+initialUsers :: AssocMap.Map Aave.UserConfigId Aave.UserConfig
 initialUsers = AssocMap.empty
 
 initialReserves :: AssocMap.Map AssetClass Aave.Reserve
