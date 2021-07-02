@@ -8,7 +8,7 @@ import           Ledger.Typed.Scripts      (MonetaryPolicy)
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Plutus.V1.Ledger.Contexts (ScriptContext)
 import qualified Plutus.V1.Ledger.Scripts  as Scripts
-import           Plutus.V1.Ledger.Value    (TokenName, Value)
+import           Plutus.V1.Ledger.Value    (TokenName)
 import qualified PlutusTx
 import           PlutusTx.Prelude
 
