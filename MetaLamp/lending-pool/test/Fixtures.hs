@@ -1,6 +1,6 @@
-module Fixtures (module Fixtures.Aave, module Fixtures.Asset, module Fixtures.Init, module Fixtures.Wallet) where
+module Fixtures (module Export) where
 
-import           Fixtures.Aave
-import           Fixtures.Asset
-import           Fixtures.Init
-import           Fixtures.Wallet
+import           Fixtures.Aave   as Export
+import           Fixtures.Asset  as Export
+import           Fixtures.Init   as Export
+import           Fixtures.Wallet as Export

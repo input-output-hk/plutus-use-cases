@@ -16,170 +16,56 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 
-module Plutus.Contracts.Endpoints where
+module Plutus.Contracts.LendingPool.OffChain.User where
 
-import qualified Control.Lens                     as Lens
-import           Control.Monad                    hiding (fmap)
-import qualified Data.ByteString                  as BS
-import qualified Data.Map                         as Map
-import           Data.Monoid                      (Last (..))
-import           Data.Proxy                       (Proxy (..))
-import           Data.Text                        (Text, pack)
-import qualified Data.Text                        as Text
-import           Data.Void                        (Void)
-import           Ledger                           hiding (singleton)
-import           Ledger.Constraints               as Constraints
-import           Ledger.Constraints.OnChain       as Constraints
-import           Ledger.Constraints.TxConstraints as Constraints
-import qualified Ledger.Scripts                   as Scripts
-import qualified Ledger.Typed.Scripts             as Scripts
+import qualified Control.Lens                                 as Lens
+import           Control.Monad                                hiding (fmap)
+import qualified Data.ByteString                              as BS
+import qualified Data.Map                                     as Map
+import           Data.Monoid                                  (Last (..))
+import           Data.Proxy                                   (Proxy (..))
+import           Data.Text                                    (Text, pack)
+import qualified Data.Text                                    as Text
+import           Data.Void                                    (Void)
+import           Ext.Plutus.Ledger.Value                      (utxoValue)
+import           Ledger                                       hiding (singleton)
+import           Ledger.Constraints                           as Constraints
+import           Ledger.Constraints.OnChain                   as Constraints
+import           Ledger.Constraints.TxConstraints             as Constraints
+import qualified Ledger.Scripts                               as Scripts
+import qualified Ledger.Typed.Scripts                         as Scripts
 import           Playground.Contract
-import           Plutus.Contract                  hiding (when)
-import qualified Plutus.Contracts.AToken          as AToken
-import           Plutus.Contracts.Core            (Aave, AaveDatum (..),
-                                                   AaveRedeemer (..),
-                                                   Reserve (..),
-                                                   UserConfig (..))
-import qualified Plutus.Contracts.Core            as Core
-import           Plutus.Contracts.Currency        as Currency
-import qualified Plutus.Contracts.FungibleToken   as FungibleToken
-import qualified Plutus.Contracts.Oracle          as Oracle
-import qualified Plutus.Contracts.State           as State
-import qualified Plutus.Contracts.TxUtils         as TxUtils
-import           Plutus.OutputValue               (OutputValue (..))
-import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
-import qualified Plutus.V1.Ledger.Address         as Addr
-import           Plutus.V1.Ledger.Value           as Value
+import           Plutus.Abstract.ContractResponse             (ContractResponse,
+                                                               withContractResponse)
+import           Plutus.Abstract.OutputValue                  (OutputValue (..))
+import qualified Plutus.Abstract.TxUtils                      as TxUtils
+import           Plutus.Contract                              hiding (when)
+import           Plutus.Contracts.Currency                    as Currency
+import qualified Plutus.Contracts.LendingPool.OffChain.AToken as AToken
+import qualified Plutus.Contracts.LendingPool.OffChain.State  as State
+import           Plutus.Contracts.LendingPool.OnChain.Core    (Aave,
+                                                               AaveDatum (..),
+                                                               AaveRedeemer (..),
+                                                               Reserve (..),
+                                                               UserConfig (..))
+import qualified Plutus.Contracts.LendingPool.OnChain.Core    as Core
+import qualified Plutus.Contracts.Service.FungibleToken       as FungibleToken
+import qualified Plutus.Contracts.Service.Oracle              as Oracle
+import           Plutus.V1.Ledger.Ada                         (adaValueOf,
+                                                               lovelaceValueOf)
+import qualified Plutus.V1.Ledger.Address                     as Addr
+import           Plutus.V1.Ledger.Value                       as Value
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                as AssocMap
-import           PlutusTx.Prelude                 hiding (Monoid (..),
-                                                   Semigroup (..), mconcat,
-                                                   unless)
-import           Prelude                          (Monoid (..), Semigroup (..),
-                                                   show, subtract)
+import qualified PlutusTx.AssocMap                            as AssocMap
+import           PlutusTx.Prelude                             hiding
+                                                              (Monoid (..),
+                                                               Semigroup (..),
+                                                               mconcat, unless)
+import           Prelude                                      (Monoid (..),
+                                                               Semigroup (..),
+                                                               show, subtract)
 import qualified Prelude
-import           Text.Printf                      (printf)
-
-data CreateParams =
-    CreateParams
-        { cpAsset  :: AssetClass,
-          cpOracle :: Oracle.Oracle
-         }
-    deriving stock (Prelude.Eq, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON, ToSchema)
-
-PlutusTx.makeLift ''CreateParams
-
-createReserve :: Aave -> CreateParams -> Reserve
-createReserve aave CreateParams {..} =
-    Reserve
-        { rCurrency = cpAsset,
-          rAmount = 0,
-          rAToken = AToken.makeAToken (Core.aaveHash aave) cpAsset,
-          rLiquidityIndex = 1,
-          rCurrentStableBorrowRate = 11 % 10, -- TODO configure borrow rate when lending core will be ready
-          rTrustedOracle = Oracle.toTuple cpOracle
-           }
-
--- | Starts the Lending Pool protocol: minting pool NFTs, creating empty user configuration state and all specified liquidity reserves
-start :: HasBlockchainActions s => [CreateParams] -> Contract w s Text Aave
-start = start' $ do
-    pkh <- pubKeyHash <$> ownPubKey
-    fmap Currency.currencySymbol $
-           mapError (pack . show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
-
-start' :: HasBlockchainActions s => Contract w s Text CurrencySymbol -> [CreateParams] -> Contract w s Text Aave
-start' getAaveToken params = do
-    aaveToken <- getAaveToken
-    pkh <- pubKeyHash <$> ownPubKey
-    let aave = Core.aave aaveToken
-        payment = assetClassValue (Core.aaveProtocolInst aave) 1
-    let aaveTokenTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pkh (Core.LendingPoolDatum pkh) payment
-    -- TODO how to ensure that newly minted owner token is paid to the script before someone else spends it?
-    ledgerTx <- TxUtils.submitTxPair aaveTokenTx
-    void $ awaitTxConfirmed $ txId ledgerTx
-
-    let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve aave params)) params
-    reservesTx <- State.putReserves aave Core.StartRedeemer reserveMap
-    ledgerTx <- TxUtils.submitTxPair reservesTx
-    void $ awaitTxConfirmed $ txId ledgerTx
-    userConfigsTx <- State.putUserConfigs aave Core.StartRedeemer AssocMap.empty
-    ledgerTx <- TxUtils.submitTxPair userConfigsTx
-    void $ awaitTxConfirmed $ txId ledgerTx
-
-    logInfo @Prelude.String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)
-    pure aave
-
-data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
-    deriving stock    (Prelude.Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
-
-instance Semigroup (ContractResponse e a) where
-    a <> b = b
-
-instance Monoid (ContractResponse e a) where
-    mempty = ContractPending
-    mappend = (<>)
-
-handleContract :: forall l a p r s.
-    HasEndpoint l p s
-    => Proxy l
-    -> (a -> r)
-    -> (p -> Contract (ContractResponse Text r) s Text a)
-    -> Contract (ContractResponse Text r) s Void ()
-handleContract _ g c = do
-    e <- runError $ do
-        p <- endpoint @l
-        _ <- tell ContractPending
-        errorHandler `handleError` c p
-    tell $ case e of
-        Left err -> ContractError err
-        Right a  -> ContractSuccess $ g a
-        where
-        errorHandler e = do
-            logInfo @Text ("Error submiting the transaction: " <> e)
-            throwError e
-
-type AaveOwnerSchema =
-    BlockchainActions
-        .\/ Endpoint "start" [CreateParams]
-
-data OwnerContractState = Started Aave
-    deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
-
-ownerEndpoints :: Contract (ContractResponse Text OwnerContractState) AaveOwnerSchema Void ()
-ownerEndpoints = forever $ handleContract (Proxy @"start") Started start
-
--- | Gets current Lending Pool reserves state
-reserves :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map AssetClass Reserve)
-reserves aave = ovValue <$> State.findAaveReserves aave
-
--- | Gets current Lending Pool user configs state
-users :: HasBlockchainActions s => Aave -> Contract w s Text (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
-users aave = ovValue <$> State.findAaveUserConfigs aave
-
-valueAt :: HasBlockchainActions s => Address -> Contract w s Text Value
-valueAt address = do
-    os <- map snd . Map.toList <$> utxoAt address
-    pure $ mconcat [txOutValue $ txOutTxOut o | o <- os]
-
-getOwnPubKey :: HasBlockchainActions s => Contract w s Text PubKeyHash
-getOwnPubKey = pubKeyHash <$> ownPubKey
-
--- | Gets all UTxOs belonging to a user and concats them into one Value
-fundsAt :: HasBlockchainActions s => PubKeyHash -> Contract w s Text Value
-fundsAt pkh = valueAt (pubKeyHashAddress pkh)
-
-balanceAt :: HasBlockchainActions s => PubKeyHash -> AssetClass -> Contract w s Text Integer
-balanceAt pkh asset = flip assetClassValueOf asset <$> fundsAt pkh
-
--- | Gets all UTxOs belonging to the Lending Pool script and concats them into one Value
-poolFunds :: HasBlockchainActions s => Aave -> Contract w s Text Value
-poolFunds aave = valueAt (Core.aaveAddress aave)
-
-ownPubKeyBalance :: HasBlockchainActions s => Contract w s Text Value
-ownPubKeyBalance = getOwnPubKey >>= fundsAt
+import           Text.Printf                                  (printf)
 
 data DepositParams =
   DepositParams {
@@ -355,6 +241,13 @@ data ProvideCollateralParams =
 PlutusTx.unstableMakeIsData ''ProvideCollateralParams
 PlutusTx.makeLift ''ProvideCollateralParams
 
+-- | Gets all UTxOs belonging to a user and concats them into one Value
+fundsAt :: HasBlockchainActions s => PubKeyHash -> Contract w s Text Value
+fundsAt pkh = utxoValue <$> utxoAt (pubKeyHashAddress pkh)
+
+balanceAt :: HasBlockchainActions s => PubKeyHash -> AssetClass -> Contract w s Text Integer
+balanceAt pkh asset = flip assetClassValueOf asset <$> fundsAt pkh
+
 -- | User deposits N amount of aToken as collateral, his investment entry state is increased by N
 provideCollateral :: (HasBlockchainActions s) => Aave -> ProvideCollateralParams -> Contract w s Text ()
 provideCollateral aave ProvideCollateralParams {..} = do
@@ -440,6 +333,13 @@ revokeCollateral aave RevokeCollateralParams {..} = do
         getUsersCollateral :: AssetClass -> TxOutTx -> Bool
         getUsersCollateral asset tx = ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut $ tx) &&
                                       (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toData $ userDatum asset)
+
+getOwnPubKey :: HasBlockchainActions s => Contract w s Text PubKeyHash
+getOwnPubKey = pubKeyHash <$> ownPubKey
+
+ownPubKeyBalance :: HasBlockchainActions s => Contract w s Text Value
+ownPubKeyBalance = getOwnPubKey >>= fundsAt
+
 type AaveUserSchema =
     BlockchainActions
         .\/ Endpoint "deposit" DepositParams
@@ -467,32 +367,11 @@ Lens.makeClassyPrisms ''UserContractState
 -- TODO ? add repayWithCollateral
 userEndpoints :: Aave -> Contract (ContractResponse Text UserContractState) AaveUserSchema Void ()
 userEndpoints aave = forever $
-    handleContract (Proxy @"deposit") (const Deposited) (deposit aave)
-    `select` handleContract (Proxy @"withdraw") (const Withdrawn) (withdraw aave)
-    `select` handleContract (Proxy @"borrow") (const Borrowed) (borrow aave)
-    `select` handleContract (Proxy @"repay") (const Repaid) (repay aave)
-    `select` handleContract (Proxy @"provideCollateral") (const CollateralProvided) (provideCollateral aave)
-    `select` handleContract (Proxy @"revokeCollateral") (const CollateralRevoked) (revokeCollateral aave)
-    `select` handleContract (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
-    `select` handleContract (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)
-
-type AaveInfoSchema =
-    BlockchainActions
-    .\/ Endpoint "fundsAt" PubKeyHash
-    .\/ Endpoint "poolFunds" ()
-    .\/ Endpoint "reserves" ()
-    .\/ Endpoint "users" ()
-
-data InfoContractState =
-    FundsAt Value
-    | PoolFunds Value
-    | Reserves (AssocMap.Map AssetClass Reserve)
-    | Users (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
-    deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
-
-infoEndpoints :: Aave -> Contract (ContractResponse Text InfoContractState) AaveInfoSchema Void ()
-infoEndpoints aave = forever $
-    handleContract (Proxy @"fundsAt") FundsAt fundsAt
-    `select` handleContract (Proxy @"poolFunds") PoolFunds (const $ poolFunds aave)
-    `select` handleContract (Proxy @"reserves") Reserves (const $ reserves aave)
-    `select` handleContract (Proxy @"users") Users (const $ users aave)
+    withContractResponse (Proxy @"deposit") (const Deposited) (deposit aave)
+    `select` withContractResponse (Proxy @"withdraw") (const Withdrawn) (withdraw aave)
+    `select` withContractResponse (Proxy @"borrow") (const Borrowed) (borrow aave)
+    `select` withContractResponse (Proxy @"repay") (const Repaid) (repay aave)
+    `select` withContractResponse (Proxy @"provideCollateral") (const CollateralProvided) (provideCollateral aave)
+    `select` withContractResponse (Proxy @"revokeCollateral") (const CollateralRevoked) (revokeCollateral aave)
+    `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
+    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)

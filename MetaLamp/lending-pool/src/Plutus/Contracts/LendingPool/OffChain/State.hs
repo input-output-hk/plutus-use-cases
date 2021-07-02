@@ -8,59 +8,64 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module Plutus.Contracts.State where
+module Plutus.Contracts.LendingPool.OffChain.State where
 
 import           Control.Lens
-import           Control.Monad                    hiding (fmap)
-import qualified Data.ByteString                  as BS
-import qualified Data.Map                         as Map
-import           Data.Monoid                      (Last (..))
-import           Data.Proxy                       (Proxy (..))
-import           Data.Text                        (Text, pack)
-import qualified Data.Text                        as Text
-import           Data.Void                        (Void)
-import           Ledger                           hiding (singleton)
-import           Ledger.Constraints               as Constraints
-import           Ledger.Constraints.OnChain       as Constraints
-import           Ledger.Constraints.TxConstraints as Constraints
-import qualified Ledger.Scripts                   as Scripts
-import qualified Ledger.Typed.Scripts             as Scripts
+import           Control.Monad                             hiding (fmap)
+import qualified Data.ByteString                           as BS
+import qualified Data.Map                                  as Map
+import           Data.Monoid                               (Last (..))
+import           Data.Proxy                                (Proxy (..))
+import           Data.Text                                 (Text, pack)
+import qualified Data.Text                                 as Text
+import           Data.Void                                 (Void)
+import           Ledger                                    hiding (singleton)
+import           Ledger.Constraints                        as Constraints
+import           Ledger.Constraints.OnChain                as Constraints
+import           Ledger.Constraints.TxConstraints          as Constraints
+import qualified Ledger.Scripts                            as Scripts
+import qualified Ledger.Typed.Scripts                      as Scripts
 import           Playground.Contract
-import           Plutus.Contract                  hiding (when)
-import           Plutus.Contracts.Core            (Aave (..), AaveDatum (..),
-                                                   AaveRedeemer (..),
-                                                   AaveScript, Reserve (..),
-                                                   UserConfig (..))
-import qualified Plutus.Contracts.Core            as Core
-import           Plutus.Contracts.Currency        as Currency
-import qualified Plutus.Contracts.FungibleToken   as FungibleToken
-import qualified Plutus.Contracts.TxUtils         as TxUtils
-import           Plutus.OutputValue               (OutputValue (..), _ovValue)
-import qualified Plutus.State.Select              as Select
-import           Plutus.State.Update              (PutStateHandle (..),
-                                                   StateHandle (..))
-import qualified Plutus.State.Update              as Update
-import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
-import           Plutus.V1.Ledger.Value           as Value
+import           Plutus.Abstract.OutputValue               (OutputValue (..),
+                                                            _ovValue)
+import qualified Plutus.Abstract.State                     as State
+import           Plutus.Abstract.State.Update              (PutStateHandle (..),
+                                                            StateHandle (..))
+import qualified Plutus.Abstract.TxUtils                   as TxUtils
+import           Plutus.Contract                           hiding (when)
+import           Plutus.Contracts.Currency                 as Currency
+import           Plutus.Contracts.LendingPool.OnChain.Core (Aave (..),
+                                                            AaveDatum (..),
+                                                            AaveRedeemer (..),
+                                                            AaveScript,
+                                                            Reserve (..),
+                                                            UserConfig (..))
+import qualified Plutus.Contracts.LendingPool.OnChain.Core as Core
+import qualified Plutus.Contracts.Service.FungibleToken    as FungibleToken
+import           Plutus.V1.Ledger.Ada                      (adaValueOf,
+                                                            lovelaceValueOf)
+import           Plutus.V1.Ledger.Value                    as Value
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                as AssocMap
-import           PlutusTx.Prelude                 hiding (Functor (..),
-                                                   Semigroup (..), unless)
-import           Prelude                          (Semigroup (..), fmap)
+import qualified PlutusTx.AssocMap                         as AssocMap
+import           PlutusTx.Prelude                          hiding (Functor (..),
+                                                            Semigroup (..),
+                                                            unless)
+import           Prelude                                   (Semigroup (..),
+                                                            fmap)
 import qualified Prelude
 
 findOutputsBy :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text [OutputValue a]
-findOutputsBy aave = Select.findOutputsBy (Core.aaveAddress aave)
+findOutputsBy aave = State.findOutputsBy (Core.aaveAddress aave)
 
 findOutputBy :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text (OutputValue a)
-findOutputBy aave = Select.findOutputBy (Core.aaveAddress aave)
+findOutputBy aave = State.findOutputBy (Core.aaveAddress aave)
 
 findAaveOwnerToken :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue PubKeyHash)
 findAaveOwnerToken aave@Aave{..} = findOutputBy aave aaveProtocolInst (^? Core._LendingPoolDatum)
 
 reserveStateToken, userStateToken :: Aave -> AssetClass
-reserveStateToken aave = Update.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveReserve"
-userStateToken aave = Update.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveUser"
+reserveStateToken aave = State.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveReserve"
+userStateToken aave = State.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveUser"
 
 findAaveReserves :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue (AssocMap.Map AssetClass Reserve))
 findAaveReserves aave = findOutputBy aave (reserveStateToken aave) (^? Core._ReservesDatum . _2)
@@ -81,13 +86,13 @@ findAaveUserConfig aave userConfigId = do
 putState :: (HasBlockchainActions s) => Aave -> StateHandle AaveScript a -> a -> Contract w s Text (TxUtils.TxPair AaveScript)
 putState aave stateHandle newState = do
     ownerTokenOutput <- fmap Core.LendingPoolDatum <$> findAaveOwnerToken aave
-    Update.putState
+    State.putState
         PutStateHandle { script = Core.aaveInstance aave, ownerToken = aaveProtocolInst aave, ownerTokenOutput = ownerTokenOutput }
         stateHandle
         newState
 
 updateState :: (HasBlockchainActions s) => Aave ->  StateHandle AaveScript a -> OutputValue a -> Contract w s Text (TxUtils.TxPair AaveScript, a)
-updateState aave = Update.updateState (Core.aaveInstance aave)
+updateState aave = State.updateState (Core.aaveInstance aave)
 
 makeReserveHandle :: Aave -> (AssocMap.Map AssetClass Reserve -> AaveRedeemer) -> StateHandle AaveScript (AssocMap.Map AssetClass Reserve)
 makeReserveHandle aave toRedeemer =

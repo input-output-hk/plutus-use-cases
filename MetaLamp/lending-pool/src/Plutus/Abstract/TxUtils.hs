@@ -7,34 +7,37 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module Plutus.Contracts.TxUtils where
+module Plutus.Abstract.TxUtils where
 
-import           Control.Lens                     (review)
-import           Control.Monad                    (void)
-import           Data.ByteString                  (ByteString)
-import qualified Data.Map                         as Map
-import           Data.Text                        (Text)
-import           Data.Void                        (Void)
-import           Ledger                           hiding (singleton)
-import qualified Ledger.Constraints               as Constraints
-import qualified Ledger.Constraints.OnChain       as Constraints
-import qualified Ledger.Constraints.TxConstraints as Constraints
-import           Ledger.Typed.Scripts             (DatumType, MonetaryPolicy,
-                                                   RedeemerType, TypedValidator)
-import qualified Ledger.Typed.Scripts             as Scripts
+import           Control.Lens                           (review)
+import           Control.Monad                          (void)
+import           Data.ByteString                        (ByteString)
+import qualified Data.Map                               as Map
+import           Data.Text                              (Text)
+import           Data.Void                              (Void)
+import           Ledger                                 hiding (singleton)
+import qualified Ledger.Constraints                     as Constraints
+import qualified Ledger.Constraints.OnChain             as Constraints
+import qualified Ledger.Constraints.TxConstraints       as Constraints
+import           Ledger.Typed.Scripts                   (DatumType,
+                                                         MonetaryPolicy,
+                                                         RedeemerType,
+                                                         TypedValidator)
+import qualified Ledger.Typed.Scripts                   as Scripts
+import           Plutus.Abstract.OutputValue            (OutputValue (..))
 import           Plutus.Contract
-import qualified Plutus.Contracts.FungibleToken   as FungibleToken
-import           Plutus.OutputValue               (OutputValue (..))
-import           Plutus.V1.Ledger.Contexts        (ScriptContext,
-                                                   scriptCurrencySymbol)
-import qualified Plutus.V1.Ledger.Scripts         as Scripts
-import           Plutus.V1.Ledger.Value           (AssetClass (unAssetClass),
-                                                   TokenName (..), assetClass,
-                                                   assetClassValue,
-                                                   assetClassValueOf)
+import qualified Plutus.Contracts.Service.FungibleToken as FungibleToken
+import           Plutus.V1.Ledger.Contexts              (ScriptContext,
+                                                         scriptCurrencySymbol)
+import qualified Plutus.V1.Ledger.Scripts               as Scripts
+import           Plutus.V1.Ledger.Value                 (AssetClass (unAssetClass),
+                                                         TokenName (..),
+                                                         assetClass,
+                                                         assetClassValue,
+                                                         assetClassValueOf)
 import qualified PlutusTx
-import           PlutusTx.Prelude                 hiding (Semigroup (..))
-import           Prelude                          (Semigroup (..))
+import           PlutusTx.Prelude                       hiding (Semigroup (..))
+import           Prelude                                (Semigroup (..))
 import qualified Prelude
 
 type TxPair a = (Constraints.ScriptLookups a, Constraints.TxConstraints (RedeemerType a) (DatumType a))

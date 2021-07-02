@@ -15,7 +15,7 @@
 {-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-specialise #-}
 
-module Plutus.Contracts.Oracle
+module Plutus.Contracts.Service.Oracle
     ( Oracle (..)
     , OracleRedeemer (..)
     , oracleTokenName
@@ -47,15 +47,13 @@ import           Ledger.Ada                as Ada
 import           Ledger.Constraints        as Constraints
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
+import qualified Plutus.Abstract.TxUtils   as TxUtils
 import           Plutus.Contract           as Contract hiding (when)
 import           Plutus.Contracts.Currency as Currency
-import qualified Plutus.Contracts.TxUtils  as TxUtils
-import           Plutus.OutputValue
-import qualified Plutus.State.Select       as Select
 import qualified PlutusTx
 import           PlutusTx.Prelude          hiding (Semigroup (..), unless)
 import           Prelude                   (Semigroup (..))
-import qualified Prelude                   as Prelude
+import qualified Prelude
 import           Schema                    (ToSchema)
 
 data Oracle = Oracle

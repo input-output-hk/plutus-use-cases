@@ -5,14 +5,15 @@
 
 module Fixtures.Aave where
 
-import           Data.Text                  (Text)
-import           Fixtures.Symbol            (forgeSymbol, getSymbol)
+import           Data.Text                                   (Text)
+import           Fixtures.Symbol                             (forgeSymbol,
+                                                              getSymbol)
 import qualified Ledger
+import qualified Plutus.Abstract.TxUtils                     as TxUtils
 import           Plutus.Contract
-import qualified Plutus.Contracts.Core      as Aave
-import qualified Plutus.Contracts.Endpoints as Aave
-import qualified Plutus.Contracts.TxUtils   as TxUtils
-import           Plutus.V1.Ledger.Value     (CurrencySymbol)
+import qualified Plutus.Contracts.LendingPool.OffChain.Owner as Aave
+import qualified Plutus.Contracts.LendingPool.OnChain.Core   as Aave
+import           Plutus.V1.Ledger.Value                      (CurrencySymbol)
 import           PlutusTx.Prelude
 
 aaveSymbol :: CurrencySymbol

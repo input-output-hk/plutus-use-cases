@@ -5,29 +5,28 @@
 
 module Utils.Trace where
 
-import qualified Control.Foldl               as L
-import           Control.Monad               (unless)
-import           Control.Monad.Freer.Error   (throwError)
-import           Control.Monad.Freer.Writer  (tell)
-import qualified Data.Aeson                  as JSON
+import qualified Control.Foldl                    as L
+import           Control.Monad                    (unless)
+import           Control.Monad.Freer.Error        (throwError)
+import           Control.Monad.Freer.Writer       (tell)
+import qualified Data.Aeson                       as JSON
 
-import qualified Data.Map                    as Map
-import           Data.Maybe                  (mapMaybe)
-import           Data.Monoid                 (Last (..))
-import           Data.String                 (fromString)
-import           Data.Text.Prettyprint.Doc   (Doc)
-import           Data.Void                   (Void)
-import           Ledger                      (Address)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (mapMaybe)
+import           Data.String                      (fromString)
+import           Data.Text.Prettyprint.Doc        (Doc)
+import           Data.Void                        (Void)
+import           Ledger                           (Address)
 import qualified Ledger
-import           Ledger.AddressMap           (UtxoMap)
-import           Plutus.Contract             (HasBlockchainActions)
-import           Plutus.Contract.Test        (TracePredicate)
-import           Plutus.Contracts.Endpoints  (ContractResponse (..))
-import qualified Plutus.Trace.Emulator       as Trace
-import           Plutus.Trace.Emulator.Types (EmulatorRuntimeError (..))
-import           PlutusTx                    (IsData, fromData)
-import qualified Wallet.Emulator.Folds       as Folds
-import           Wallet.Emulator.MultiAgent  (EmulatorEvent)
+import           Ledger.AddressMap                (UtxoMap)
+import           Plutus.Abstract.ContractResponse (ContractResponse (..))
+import           Plutus.Contract                  (HasBlockchainActions)
+import           Plutus.Contract.Test             (TracePredicate)
+import qualified Plutus.Trace.Emulator            as Trace
+import           Plutus.Trace.Emulator.Types      (EmulatorRuntimeError (..))
+import           PlutusTx                         (IsData, fromData)
+import qualified Wallet.Emulator.Folds            as Folds
+import           Wallet.Emulator.MultiAgent       (EmulatorEvent)
 
 getState ::
     (Show a

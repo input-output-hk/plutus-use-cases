@@ -2,10 +2,10 @@
 
 module Fixtures.Asset where
 
-import qualified Fixtures.Aave           as AaveMock
-import qualified Plutus.Contracts.AToken as AToken
-import           Plutus.PAB.Simulation   (toAsset)
-import           Plutus.V1.Ledger.Value  (AssetClass)
+import qualified Fixtures.Aave                               as AaveMock
+import qualified Plutus.Contracts.LendingPool.OnChain.AToken as AToken
+import           Plutus.PAB.Simulation                       (toAsset)
+import           Plutus.V1.Ledger.Value                      (AssetClass)
 
 mogus :: AssetClass
 mogus = toAsset "MOGUS"

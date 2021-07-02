@@ -3,7 +3,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell        #-}
 
-module Plutus.OutputValue where
+module Plutus.Abstract.OutputValue where
 
 import           Control.Lens     (makeClassy_)
 import           Ledger           (TxOutRef, TxOutTx)

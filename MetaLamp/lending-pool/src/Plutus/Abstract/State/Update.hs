@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module Plutus.State.Update where
+module Plutus.Abstract.State.Update where
 
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString                  as BS
@@ -31,9 +31,9 @@ import qualified Ledger.Scripts                   as UntypedScripts
 import           Ledger.Typed.Scripts             (DatumType, RedeemerType)
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
+import           Plutus.Abstract.OutputValue      (OutputValue (..))
+import qualified Plutus.Abstract.TxUtils          as TxUtils
 import           Plutus.Contract                  hiding (when)
-import qualified Plutus.Contracts.TxUtils         as TxUtils
-import           Plutus.OutputValue               (OutputValue (..))
 import           Plutus.V1.Ledger.Value
 import           PlutusTx                         (IsData)
 import qualified PlutusTx

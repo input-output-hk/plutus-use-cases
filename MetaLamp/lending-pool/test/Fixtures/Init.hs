@@ -2,28 +2,32 @@
 
 module Fixtures.Init where
 
-import           Control.Monad              (forM, forM_, void)
-import qualified Data.Map                   as Map
-import           Data.Text                  (Text)
-import           Data.Void                  (Void)
-import qualified Fixtures.Aave              as AaveMock
-import           Fixtures.Asset             (defaultAssets)
-import           Fixtures.Symbol            (forgeSymbol, getSymbol)
-import           Fixtures.Wallet            (ownerWallet, userWallets)
+import           Control.Monad                               (forM, forM_, void)
+import qualified Data.Map                                    as Map
+import           Data.Text                                   (Text)
+import           Data.Void                                   (Void)
+import qualified Fixtures.Aave                               as AaveMock
+import           Fixtures.Asset                              (defaultAssets)
+import           Fixtures.Symbol                             (forgeSymbol,
+                                                              getSymbol)
+import           Fixtures.Wallet                             (ownerWallet,
+                                                              userWallets)
+import           Plutus.Abstract.ContractResponse            (ContractResponse (..))
 import           Plutus.Contract
-import qualified Plutus.Contracts.Core      as Aave
-import           Plutus.Contracts.Endpoints (ContractResponse (..))
-import qualified Plutus.Contracts.Endpoints as Aave
-import qualified Plutus.Contracts.Oracle    as Oracle
-import           Plutus.PAB.Simulation      (distributeFunds)
-import qualified Plutus.Trace.Emulator      as Trace
-import           Plutus.V1.Ledger.Ada       (lovelaceValueOf)
-import           Plutus.V1.Ledger.Crypto    (PubKeyHash (..))
-import           Plutus.V1.Ledger.Value     (AssetClass (..), Value,
-                                             assetClassValue)
-import qualified PlutusTx.AssocMap          as AssocMap
-import           Utils.Data                 (getPubKey)
-import           Wallet.Emulator.Wallet     (Wallet)
+import qualified Plutus.Contracts.LendingPool.OffChain.Owner as Aave
+import qualified Plutus.Contracts.LendingPool.OffChain.User  as Aave
+import qualified Plutus.Contracts.LendingPool.OnChain.Core   as Aave
+import qualified Plutus.Contracts.Service.Oracle             as Oracle
+import           Plutus.PAB.Simulation                       (distributeFunds)
+import qualified Plutus.Trace.Emulator                       as Trace
+import           Plutus.V1.Ledger.Ada                        (lovelaceValueOf)
+import           Plutus.V1.Ledger.Crypto                     (PubKeyHash (..))
+import           Plutus.V1.Ledger.Value                      (AssetClass (..),
+                                                              Value,
+                                                              assetClassValue)
+import qualified PlutusTx.AssocMap                           as AssocMap
+import           Utils.Data                                  (getPubKey)
+import           Wallet.Emulator.Wallet                      (Wallet)
 
 oracles :: [Oracle.Oracle]
 oracles = fmap

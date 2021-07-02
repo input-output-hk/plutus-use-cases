@@ -5,21 +5,22 @@
 
 module Spec.Repay where
 
-import           Control.Lens               (over)
-import qualified Data.Map                   as Map
+import           Control.Lens                               (over)
+import qualified Data.Map                                   as Map
 import qualified Fixtures
 import           Plutus.Contract.Test
-import qualified Plutus.Contracts.Core      as Aave
-import qualified Plutus.Contracts.Endpoints as Aave
-import qualified Plutus.Trace.Emulator      as Trace
-import           Plutus.V1.Ledger.Value     (AssetClass, assetClassValue)
-import qualified PlutusTx.AssocMap          as AssocMap
-import           Spec.Borrow                (borrow)
-import           Spec.Deposit               (deposit)
-import           Spec.ProvideCollateral     (provideCollateral)
-import qualified Spec.Shared                as Shared
+import qualified Plutus.Contracts.LendingPool.OffChain.User as Aave
+import qualified Plutus.Contracts.LendingPool.OnChain.Core  as Aave
+import qualified Plutus.Trace.Emulator                      as Trace
+import           Plutus.V1.Ledger.Value                     (AssetClass,
+                                                             assetClassValue)
+import qualified PlutusTx.AssocMap                          as AssocMap
+import           Spec.Borrow                                (borrow)
+import           Spec.Deposit                               (deposit)
+import           Spec.ProvideCollateral                     (provideCollateral)
+import qualified Spec.Shared                                as Shared
 import           Test.Tasty
-import qualified Utils.Data                 as Utils
+import qualified Utils.Data                                 as Utils
 
 tests :: TestTree
 tests = testGroup "repay" [
