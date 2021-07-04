@@ -57,25 +57,18 @@ import           Plutus.Contracts.Helpers           (mkCoin)
 import PlutusTx.Builtins (ByteString, emptyByteString, encodeUtf8)
 import           Data.Void                        (Void)
 
-main :: IO ()
-main = putStrLn "testing area, coming soon..."
-
 genWallet :: Gen Wallet
 genWallet = elements US.wallets
 
 genNonNeg :: Gen Integer
 genNonNeg = getNonNegative <$> arbitrary
 
-
-
 -- tokenProperty :: Map Wallet TokenName
 -- tokenCurrencies :: Map Wallet CurrencySymbol
 -- tokenCurrencies = Map.fromList $ zip wallets tokenNames
 
-
 -- coins :: Map Wallet Coin
 -- coins = Map.fromList [(w, Coin (token))]
-
 
 newtype UniswapState = UniswapState
      { _usCoin :: Coin }
@@ -110,9 +103,6 @@ prop_US = withMaxSuccess 100 . propRunActionsWithOptions
         cs = oneShotCurrencySymbol
         v  = mconcat [Ledger.Value.singleton cs tn amount | tn <- US.tokenNames]
         amount = 1_000_000
-
-tests :: TestTree
-tests = testProperty "uniswap model" prop_US
 
 test :: IO ()
 test = quickCheck prop_US
@@ -253,20 +243,25 @@ instance ContractModel UniswapModel where
 deriving instance Eq (ContractInstanceKey UniswapModel w s e)
 deriving instance Show (ContractInstanceKey UniswapModel w s e)
 
--- tests :: TestTree
--- tests = testGroup "uniswap" [
---     checkPredicate "should spawnxr a new pool"
---     (assertNotDone US.initContract
---                    (Trace.walletInstanceTag w1)
---                    "initContract"
---     .&&. assertNoFailedTransactions)
---     traceInitUniswap
+traceTests :: [TestTree]
+traceTests = [
+    checkPredicate "can prepare token distribution for uniswap"
+    (assertNotDone US.initContract
+                   (Trace.walletInstanceTag (Wallet 1))
+                   "initContract"
+    .&&. assertNoFailedTransactions)
+    traceInitUniswap
 
---     , checkPredicate "hm..."
---     (assertNotDone start
---                    (Trace.walletInstanceTag w1)
---                    "start uniswap"
---     .&&. assertNoFailedTransactions)
---     traceStartUniswap
---   ]
+    , checkPredicate "can start uniswap instance"
+    (assertNotDone ownerEndpoint 
+                   (Trace.walletInstanceTag (Wallet 1))
+                   "start uniswap"
+    .&&. assertNoFailedTransactions)
+    traceStartUniswap
+  ]
 
+propTests :: TestTree
+propTests = (testProperty "uniswap model" prop_US) 
+
+tests :: TestTree
+tests = testGroup "uniswap" (traceTests  <> [propTests])
