@@ -5,6 +5,17 @@
 {-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 -- | State transitions for Lending app
 module Mlabs.Lending.Logic.State(
     St
@@ -235,7 +246,7 @@ getLiquidationBonus coin =
 
 {-# INLINABLE modifyUsers #-}
 modifyUsers :: (Map UserId User -> Map UserId User) -> St ()
-modifyUsers f = modify' $ \lp -> lp { lp'users = f $ lp'users lp }
+modifyUsers f = modify' $ \lp -> lp { lp'users = f $ lp.lp'users }
 
 {-# INLINABLE modifyReserve #-}
 -- | Modify reserve for a given asset.
@@ -247,8 +258,8 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 modifyReserve' :: Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
   st <- get
-  case M.lookup asset $ lp'reserves st of
-    Just reserve -> either throwError (\x -> put $ st { lp'reserves = M.insert asset x $ lp'reserves st}) (f reserve)
+  case M.lookup asset $ st.lp'reserves of
+    Just reserve -> either throwError (\x -> put $ st { lp'reserves = M.insert asset x $ st.lp'reserves}) (f reserve)
     Nothing      -> throwError $ "Asset is not supported"
 
 {-# INLINABLE modifyUser #-}
@@ -263,11 +274,11 @@ modifyUser' uid f = do
   st <- get
   case f $ fromMaybe defaultUser $ M.lookup uid $ lp'users st of
     Left msg   -> throwError msg
-    Right user -> put $ st { lp'users = M.insert uid user $ lp'users st }
+    Right user -> put $ st { lp'users = M.insert uid user $ st.lp'users }
 
 {-# INLINABLE modifyHealthReport #-}
 modifyHealthReport :: (HealthReport -> HealthReport) -> St ()
-modifyHealthReport f = modify' $ \lp -> lp { lp'healthReport = f $ lp'healthReport lp }
+modifyHealthReport f = modify' $ \lp -> lp { lp'healthReport = f $ lp.lp'healthReport }
 
 {-# INLINABLE modifyWalletAndReserve #-}
 -- | Modify user wallet and reserve wallet with the same function.
@@ -290,7 +301,7 @@ modifyReserveWallet coin f = modifyReserveWallet' coin (Right . f)
 -- | Modify reserve wallet for a given asset. It can throw errors.
 modifyReserveWallet' :: Coin -> (Wallet -> Either Error Wallet) -> St ()
 modifyReserveWallet' coin f =
-  modifyReserve' coin $ \r -> fmap (\w -> r { reserve'wallet = w }) $ f $ reserve'wallet r
+  modifyReserve' coin $ \r -> fmap (\w -> r { reserve'wallet = w }) $ f $ r.reserve'wallet
 
 {-# INLINABLE modifyWallet #-}
 -- | Modify internal user wallet that is allocated for a given user id and asset.
@@ -308,7 +319,7 @@ modifyWallet' uid coin f = modifyUser' uid $ \(User ws time health) -> do
 {-# INLINABLE getNormalisedIncome #-}
 getNormalisedIncome :: Coin -> St Ray
 getNormalisedIncome asset =
-  getsReserve asset $ (ri'normalisedIncome . reserve'interest)
+  getsReserve asset (ri'normalisedIncome . reserve'interest)
 
 {-# INLINABLE getCumulativeBalance #-}
 getCumulativeBalance :: UserId -> Coin -> St Ray

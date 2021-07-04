@@ -204,8 +204,8 @@ react input = do
         , moveFromTo Self uid adaCoin adaBonus
         ]
       where
-        borrowAsset  = badBorrow'asset debt
-        borrowUserId = badBorrow'userId debt
+        borrowAsset  = debt.badBorrow'asset
+        borrowUserId = debt.badBorrow'userId
 
         receiveAsset aCoin
           | receiveATokens = aCoin
@@ -272,11 +272,11 @@ react input = do
 
     addReserve cfg@CoinCfg{..} = do
       st <- get
-      if M.member coinCfg'coin (lp'reserves st)
+      if M.member coinCfg'coin (st.lp'reserves)
         then throwError "Reserve is already present"
         else do
-          let newReserves = M.insert coinCfg'coin (initReserve cfg) $ lp'reserves st
-              newCoinMap  = M.insert coinCfg'aToken coinCfg'coin $ lp'coinMap st
+          let newReserves = M.insert coinCfg'coin (initReserve cfg) $ st.lp'reserves
+              newCoinMap  = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
           put $ st { lp'reserves = newReserves, lp'coinMap = newCoinMap }
           return []
 
@@ -297,7 +297,7 @@ react input = do
           us <- fmap setTimestamp . M.toList <$> gets lp'users
           pure $ fmap snd $ L.take userUpdateSpan $ L.sortOn fst us
 
-        setTimestamp (uid, user) = (user'lastUpdateTime user - currentTime, (uid, user))
+        setTimestamp (uid, user) = (user.user'lastUpdateTime - currentTime, (uid, user))
 
     updateSingleUserHealth currentTime uid = do
       user <- getUser uid
@@ -310,7 +310,7 @@ react input = do
       pure (uid, user { user'lastUpdateTime = currentTime
                       , user'health = M.fromList health })
       where
-        userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user'wallets user
+        userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user.user'wallets
 
     reportUserHealth uid (asset, health)
       | health >= R.fromInteger 1 = modifyHealthReport $ M.delete (BadBorrow uid asset)

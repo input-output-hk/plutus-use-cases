@@ -2,7 +2,10 @@
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MonoLocalBinds        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
@@ -14,6 +17,8 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 
@@ -116,8 +121,8 @@ type MintSchema =
 mintContract :: MintParams -> Contract w MintSchema Text ()
 mintContract mp = do
   let
-    tn       = mpTokenName mp
-    amt      = mpAmount mp
+    tn       = mp.mpTokenName
+    amt      = mp.mpAmount
     payVal   = Ada.lovelaceValueOf $ amt * tokenToLovelaceXR
     forgeVal = Value.singleton curSymbol tn amt
     lookups  = Constraints.monetaryPolicy curPolicy

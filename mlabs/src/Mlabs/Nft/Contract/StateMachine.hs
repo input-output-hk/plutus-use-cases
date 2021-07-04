@@ -1,3 +1,13 @@
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 module Mlabs.Nft.Contract.StateMachine(
     NftMachine
   , NftMachineClient
@@ -113,7 +123,7 @@ nftSymbol nid = Forge.currencySymbol (nftAddress nid) nid
 
 -- | NFT coin (AssetClass)
 nftCoin :: NftId -> AssetClass
-nftCoin nid = AssetClass (nftSymbol nid, nftId'token nid)
+nftCoin nid = AssetClass (nftSymbol nid, nid.nftId'token)
 
 -- | Single value of NFT coin. We check that there is only one NFT-coin can be minted.
 nftValue :: NftId -> Value

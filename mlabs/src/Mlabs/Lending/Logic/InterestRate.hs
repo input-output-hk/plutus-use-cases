@@ -20,14 +20,14 @@ updateReserveInterestRates currentTime reserve = reserve { reserve'interest = ne
   where
     nextInterest Reserve{..} = reserve'interest
       { ri'liquidityRate     = liquidityRate
-      , ri'liquidityIndex    = getCumulatedLiquidityIndex liquidityRate yearDelta $ ri'liquidityIndex reserve'interest
-      , ri'normalisedIncome  = getNormalisedIncome liquidityRate yearDelta $ ri'liquidityIndex reserve'interest
+      , ri'liquidityIndex    = getCumulatedLiquidityIndex liquidityRate yearDelta $ reserve'interest.ri'liquidityIndex
+      , ri'normalisedIncome  = getNormalisedIncome liquidityRate yearDelta $ reserve'interest.ri'liquidityIndex
       , ri'lastUpdateTime    = currentTime
       }
       where
         yearDelta      = getYearDelta lastUpdateTime currentTime
         liquidityRate  = getLiquidityRate reserve
-        lastUpdateTime = ri'lastUpdateTime reserve'interest
+        lastUpdateTime = reserve'interest.ri'lastUpdateTime
 
 {-# INLINABLE getYearDelta #-}
 getYearDelta :: Integer -> Integer -> Ray
