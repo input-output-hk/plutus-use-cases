@@ -230,7 +230,7 @@ pools us = do
         c :: Coin
         c = poolStateCoin us
 
-ownerEndpoint :: Contract (Last (Either Text Uniswap)) EmptySchema Void ()
+ownerEndpoint :: Contract (Last (Either Text Uniswap)) UniswapOwnerSchema Void ()
 ownerEndpoint = do
     e <- runError start
     tell $ Last $ Just $ case e of

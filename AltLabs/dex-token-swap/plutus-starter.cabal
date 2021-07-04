@@ -93,6 +93,7 @@ test-suite dex-swap-test
   hs-source-dirs: specs
   other-modules:
     CurrencySpec
+    UniswapSpec
   default-language: Haskell2010
   default-extensions: ExplicitForAll ScopedTypeVariables
                         DeriveGeneric StandaloneDeriving DeriveLift
@@ -117,12 +118,16 @@ test-suite dex-swap-test
     lens -any,
     aeson-pretty -any,
     freer-simple -any,
-    prettyprinter -any
+    prettyprinter -any,
+    containers,
+    text
   build-depends:
     base >=4.9 && <5,
+    QuickCheck,
     tasty -any,
     tasty-hunit -any,
-    tasty-hedgehog >=0.2.0.0
+    tasty-hedgehog >=0.2.0.0,
+    tasty-quickcheck
 
 -- | The PAB
 executable plutus-starter-pab

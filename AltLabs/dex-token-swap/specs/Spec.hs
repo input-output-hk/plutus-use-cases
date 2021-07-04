@@ -2,6 +2,7 @@
 module Main(main) where
 
 import qualified CurrencySpec
+import qualified UniswapSpec
 import           Test.Tasty
 import           Test.Tasty.Hedgehog       (HedgehogTestLimit (..))
 
@@ -18,5 +19,5 @@ limit = HedgehogTestLimit (Just 5)
 tests :: TestTree
 tests = localOption limit $ testGroup "use cases" [
     CurrencySpec.tests,
-    -- TODO: add more
+    UniswapSpec.tests
   ]

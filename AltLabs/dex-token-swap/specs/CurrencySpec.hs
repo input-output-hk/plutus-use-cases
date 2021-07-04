@@ -12,8 +12,7 @@ import qualified Ledger
 import           Plutus.Contract
 import           Plutus.Contract.Test
 
-import           Plutus.Contracts.Currency (OneShotCurrency)
-import qualified Plutus.Contracts.Currency as Cur
+import Plutus.Contracts.Currency ( forgeContract, CurrencyError, OneShotCurrency )
 import qualified Plutus.Trace.Emulator     as Trace
 
 import           Test.Tasty
@@ -21,9 +20,9 @@ import           Test.Tasty
 wallet :: Wallet
 wallet = Wallet 1
 
-mintingContract :: Contract () EmptySchema Cur.CurrencyError OneShotCurrency
+mintingContract :: Contract () EmptySchema CurrencyError OneShotCurrency
 mintingContract =
-  Cur.forgeContract pkHash amounts
+  forgeContract pkHash amounts
   where
     amounts = [("CUR_X", 100), ("CUR_Y", 1000), ("CUR_Z", 4000)]
     pkHash = Ledger.pubKeyHash . walletPubKey $ wallet

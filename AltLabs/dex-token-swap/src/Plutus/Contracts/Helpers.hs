@@ -174,17 +174,3 @@ liquidityCurrency = scriptCurrencySymbol . liquidityPolicy
 poolStateCoin :: Uniswap -> Coin
 poolStateCoin = flip mkCoin poolStateTokenName . liquidityCurrency
 
--- uniswapInstance :: Uniswap -> Scripts.ScriptInstance Uniswapping
--- uniswapInstance us = Scripts.validator @Uniswapping
---     ($$(PlutusTx.compile [|| mkUniswapValidator ||])
---         `PlutusTx.applyCode` PlutusTx.liftCode us
---         `PlutusTx.applyCode` PlutusTx.liftCode c)
---      $$(PlutusTx.compile [|| wrap ||])
---   where
---     c :: Coin
---     c = poolStateCoin us
-
---     wrap = Scripts.wrapValidator @UniswapDatum @UniswapAction
-
--- uniswapScript :: Uniswap -> Validator
--- uniswapScript = Scripts.validatorScript . uniswapInstance
