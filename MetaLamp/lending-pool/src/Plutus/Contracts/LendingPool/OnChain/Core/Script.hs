@@ -63,6 +63,16 @@ data Reserve = Reserve
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
+-- seems like the only way to define PlutusTx's Eq for data that doesn't break validators
+instance Eq Reserve where
+  a == b = 
+    rCurrency a == rCurrency b && rAToken a == rAToken b && 
+    rAmount a == rAmount b && rLiquidityIndex a == rLiquidityIndex b 
+    && rCurrentStableBorrowRate a == rCurrentStableBorrowRate b && rTrustedOracle a == rTrustedOracle b
+
+instance Eq (CurrencySymbol, PubKeyHash, Integer, AssetClass) where
+  (a1, b1, c1, d1) == (a2, b2, c2, d2) = a1 == a2 && b1 == b2 && c1 == c2 && d1 == d2
+
 PlutusTx.unstableMakeIsData ''Reserve
 PlutusTx.makeLift ''Reserve
 Lens.makeClassy_ ''Reserve
@@ -85,6 +95,9 @@ data UserConfig = UserConfig
     }
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+instance Eq UserConfig where
+  a == b = ucDebt a == ucDebt b && ucCollateralizedInvestment a == ucCollateralizedInvestment b
 
 PlutusTx.unstableMakeIsData ''UserConfig
 PlutusTx.makeLift ''UserConfig

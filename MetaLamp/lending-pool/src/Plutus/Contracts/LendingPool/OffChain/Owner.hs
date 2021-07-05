@@ -102,7 +102,6 @@ start' getAaveToken params = do
     let aave = Core.aave aaveToken
         payment = assetClassValue (Core.aaveProtocolInst aave) 1
     let aaveTokenTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pkh (Core.LendingPoolDatum pkh) payment
-    -- TODO how to ensure that newly minted owner token is paid to the script before someone else spends it?
     ledgerTx <- TxUtils.submitTxPair aaveTokenTx
     void $ awaitTxConfirmed $ txId ledgerTx
 

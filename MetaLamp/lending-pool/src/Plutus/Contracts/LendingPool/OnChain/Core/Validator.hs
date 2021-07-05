@@ -50,7 +50,8 @@ import           Plutus.Contracts.LendingPool.OnChain.Core.Logic  (areOraclesTru
                                                                    doesCollateralCoverDebt,
                                                                    pickReserves,
                                                                    pickUserCollateralFunds,
-                                                                   pickUserConfigs)
+                                                                   pickUserConfigs,
+                                                                   assertInsertAt)
 import           Plutus.Contracts.LendingPool.OnChain.Core.Script (AaveDatum (..),
                                                                    AaveRedeemer (..),
                                                                    AaveScript,
@@ -92,10 +93,6 @@ makeAaveValidator :: Aave
                    -> ScriptContext
                    -> Bool
 makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
--- TODO ? further validators should check that ReservesDatum & UserConfigsDatum transormation happens one time
--- & ReserveFundsDatum transormation happens at least one time
--- TODO ? check that reedeemers contain the same data during transformation
--- TODO validate that userConfigId and reserveId are the only datum changed in trasformation and other users datum is not modified
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
 makeAaveValidator aave datum (BorrowRedeemer userConfigId oracles) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId oracles
@@ -117,6 +114,7 @@ validateStart aave (LendingPoolDatum operator) ctx =
       outs -> isJust $ AssocMap.lookup scriptsDatumHash $ AssocMap.fromList outs
 validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management is not allowed" False
 
+
 {-# INLINABLE validateDeposit #-}
 validateDeposit :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
 validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
@@ -137,6 +135,7 @@ validateDeposit aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId 
     checkUserConfigs :: (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
+      assertInsertAt userConfigId userConfigs newUserConfigs &&
       maybe
         False
         (checkRedeemerConfig (AssocMap.lookup userConfigId userConfigs))
@@ -194,7 +193,9 @@ validateBorrow aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(
     checkUserConfigs ::
          (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
-      newStateToken == stateToken && doesCollateralCoverDebt actor oracleValues newUserConfigs &&
+      newStateToken == stateToken && 
+      assertInsertAt userConfigId userConfigs newUserConfigs &&
+      doesCollateralCoverDebt actor oracleValues newUserConfigs &&
       maybe False (checkRedeemerConfig $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
     checkRedeemerConfig :: Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
@@ -235,6 +236,7 @@ validateRepay aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId@(r
     checkUserConfigs :: (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
       newStateToken == stateToken &&
+      assertInsertAt userConfigId userConfigs newUserConfigs &&
       (Just True ==
        (checkRedeemerConfig <$> AssocMap.lookup userConfigId userConfigs <*> AssocMap.lookup userConfigId newUserConfigs))
     checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
@@ -282,7 +284,9 @@ validateProvideCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx us
     checkUserConfigs ::
          (AssetClass, AssocMap.Map UserConfigId UserConfig) -> (PubKeyHash, AssetClass) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) (user, aTokenAsset) =
-      newStateToken == stateToken && user == actor &&
+      newStateToken == stateToken && 
+      assertInsertAt userConfigId userConfigs newUserConfigs &&
+      user == actor &&
       maybe False (checkRedeemerConfig aTokenAsset $ AssocMap.lookup userConfigId userConfigs) (AssocMap.lookup userConfigId newUserConfigs)
     checkRedeemerConfig :: AssetClass -> Maybe UserConfig -> UserConfig -> Bool
     checkRedeemerConfig asset oldState newState =
@@ -323,7 +327,9 @@ validateRevokeCollateral aave  (UserConfigsDatum stateToken userConfigs) ctx use
     checkUserConfigs ::
          (AssetClass, AssocMap.Map UserConfigId UserConfig) -> Bool
     checkUserConfigs (newStateToken, newUserConfigs) =
-      newStateToken == stateToken && doesCollateralCoverDebt actor oracleValues newUserConfigs &&
+      newStateToken == stateToken && 
+      assertInsertAt userConfigId userConfigs newUserConfigs &&
+      doesCollateralCoverDebt actor oracleValues newUserConfigs &&
       fromMaybe False (checkRedeemerConfig <$> (AssocMap.lookup userConfigId userConfigs) <*> (AssocMap.lookup userConfigId newUserConfigs))
     checkRedeemerConfig :: UserConfig -> UserConfig -> Bool
     checkRedeemerConfig oldState newState =
