@@ -53,6 +53,13 @@ import           PlutusTx.Prelude                                 hiding
 import           Prelude                                          (Semigroup (..))
 import qualified Prelude
 
+assertMapChange :: (Eq k, Eq a) => ((k, a) -> Bool) -> AssocMap.Map k a -> AssocMap.Map k a -> Bool
+assertMapChange filterChanged old new = traceIfFalse "Unexpected datum change" $ f old == f new
+  where f = filter filterChanged . AssocMap.toList
+
+assertInsertAt :: (Eq k, Eq a) => k -> AssocMap.Map k a -> AssocMap.Map k a -> Bool
+assertInsertAt key = assertMapChange $ (/= key) . fst
+
 {-# INLINABLE pickUserConfigs #-}
 pickUserConfigs :: AaveDatum -> Maybe (AssetClass, AssocMap.Map UserConfigId UserConfig)
 pickUserConfigs (UserConfigsDatum stateToken configs) = Just (stateToken, configs)
@@ -134,7 +141,7 @@ checkNegativeReservesTransformation :: AssetClass
   -> UserConfigId
   -> Bool
 checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
-      maybe False checkreserves reservesOutputDatum
+      maybe False (checkReserves reserves) reservesOutputDatum
   where
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
@@ -150,9 +157,10 @@ checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
     remainderDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
     remainderValue = (`findValueByDatumHash` scriptOutputs) <$> remainderDatumHash
 
-    checkreserves :: (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
-    checkreserves (newStateToken, newReserves) =
+    checkReserves :: AssocMap.Map AssetClass Reserve -> (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
+    checkReserves reserves (newStateToken, newReserves) =
       newStateToken == stateToken &&
+      assertInsertAt reserveId reserves newReserves &&
       maybe
         False
         checkReserveState
@@ -168,7 +176,7 @@ checkPositiveReservesTransformation :: AssetClass
   -> ScriptContext
   -> UserConfigId
   -> Bool
-checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = maybe False checkreserves reservesOutputDatum
+checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = maybe False (checkReserves reserves) reservesOutputDatum
   where
     txInfo = scriptContextTxInfo ctx
     (scriptsHash, scriptsDatumHash) = ownHashes ctx
@@ -184,9 +192,10 @@ checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = may
     investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
     investmentValue = (`findValueByDatumHash` scriptOutputs) <$> investmentDatumHash
 
-    checkreserves :: (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
-    checkreserves (newStateToken, newReserves) =
+    checkReserves :: AssocMap.Map AssetClass Reserve -> (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
+    checkReserves reserves (newStateToken, newReserves) =
       newStateToken == stateToken &&
+      assertInsertAt reserveId reserves newReserves &&
       maybe
         False
         checkReserveState
