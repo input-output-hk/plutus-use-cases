@@ -73,10 +73,10 @@ createDepositScript (DepositTestInput ds) =
   mapM_ (\(user, coin, amt) -> userAct user $ DepositAct amt coin) ds
 
 noErrorsProp :: App st act -> Bool
-noErrorsProp app = null (app'log app)
+noErrorsProp app = null (app.app'log)
 
 someErrorsProp :: App st act -> Bool
-someErrorsProp app = not (null (app'log app))
+someErrorsProp app = not (null (app.app'log))
 
 hasWallet :: App st act -> UserId -> BchWallet -> Bool
 hasWallet app uid wal = lookupAppWallet uid app == Just wal

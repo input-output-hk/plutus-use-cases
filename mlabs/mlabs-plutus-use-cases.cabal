@@ -19,7 +19,7 @@ Hs-Source-Dirs:      src/
 
 
 library
-  Ghc-Options:    -Wall
+  Ghc-Options:    -Wall -fplugin=RecordDotPreprocessor
   build-depends:       base >=4.14 && <4.15
                      , aeson
                      , ansi-terminal
@@ -39,6 +39,8 @@ library
                      , plutus-use-cases
                      , prettyprinter
                      , pretty-show
+                     , record-dot-preprocessor
+                     , record-hasfield
                      , row-types
                      , stm
                      , lens

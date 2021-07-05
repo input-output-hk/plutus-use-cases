@@ -1,3 +1,13 @@
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 module Mlabs.System.Console.PrettyLogger
   ( module Mlabs.System.Console.PrettyLogger
   , module System.Console.ANSI
@@ -32,9 +42,9 @@ logPretty = logPrettyStyled defLogStyle
 logPrettyStyled :: MonadIO m => LogStyle -> String -> m ()
 logPrettyStyled style string = liftIO $ do
   setSGR
-    (  getColorList (color style)
-    <> getBgColorList (bgColor style)
-    <> getConsoleIntensityList (isBold style)
+    (  getColorList (style.color)
+    <> getBgColorList (style.bgColor)
+    <> getConsoleIntensityList (style.isBold)
     )
   putStr string
   setSGR [Reset]

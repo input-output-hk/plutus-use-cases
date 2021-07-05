@@ -1,3 +1,13 @@
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 -- | Inits logic test suite app emulator
 module Mlabs.Lending.Logic.App(
   -- * Application
@@ -55,7 +65,7 @@ data AppConfig = AppConfig
 initApp :: AppConfig -> LendingApp
 initApp AppConfig{..} = App
   { app'st = LendingPool
-      { lp'reserves       = (AM.fromList (fmap (\x -> (coinCfg'coin x, initReserve x)) appConfig'reserves))
+      { lp'reserves       = (AM.fromList (fmap (\x -> (x.coinCfg'coin, initReserve x)) appConfig'reserves))
       , lp'users          = AM.empty
       , lp'currency       = appConfig'currencySymbol
       , lp'coinMap        = coinMap

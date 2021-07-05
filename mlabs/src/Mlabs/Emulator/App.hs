@@ -1,3 +1,13 @@
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 -- | Lending app emulator
 module Mlabs.Emulator.App(
     App(..)
@@ -68,7 +78,7 @@ noErrors app = case app'log app of
       print msg
 
 someErrors :: App st act -> Assertion
-someErrors app = assertBool "Script fails" $ not $ null (app'log app)
+someErrors app = assertBool "Script fails" $ not $ null (app.app'log)
 
 -- | Check that we have those wallets after script was run.
 checkWallets :: (Show act, Show st) => [(UserId, BchWallet)] -> App st act -> Assertion
