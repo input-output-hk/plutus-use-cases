@@ -58,6 +58,32 @@ executable pab
     base >= 4.9 && < 5,
     plutus-starter
 
+executable owner-contract
+  main-is: Main.hs
+  hs-source-dirs: owner-contract
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    text,
+    plutus-starter,
+    plutus-ledger-api,
+    plutus-pab,
+    plutus-tx
+
+executable user-contract
+  main-is: Main.hs
+  hs-source-dirs: user-contract
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    text,
+    plutus-starter,
+    plutus-ledger-api,
+    plutus-pab,
+    plutus-tx
+
 executable pab-simulation
   main-is: Main.hs
   hs-source-dirs: pab-simulation
