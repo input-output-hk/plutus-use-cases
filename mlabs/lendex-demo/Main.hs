@@ -1,5 +1,12 @@
 -- | Console demo for Lendex
-module Main where
+module Main (main, 
+initContract, 
+activateInit, 
+activateAdmin, 
+activateUser,
+activateOracle, 
+startParams, 
+toCoin) where
 
 import Prelude
 

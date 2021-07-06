@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 -- | Transition function for NFTs
-module Mlabs.Nft.Logic.React where
+module Mlabs.Nft.Logic.React(react, checkInputs) where
 
 import Control.Monad.State.Strict (modify', gets)
 
