@@ -8,8 +8,6 @@
 
 module Common.Plutus.Contracts.Uniswap.Estimates where
 
-import Common.Plutus.Contracts.Uniswap.Types
-
 traceIfFalse :: String -> Bool -> Bool
 traceIfFalse _ a = if a then True else False
 
@@ -64,4 +62,15 @@ findSwapA oldA oldB inA
         m = div (ub + lb) 2
       in
         if cs m then go m ub else go lb m
+
+calculateRemoval
+  :: Integer -- amount of first coin of token pool
+  -> Integer -- amount of second coin of token pool
+  -> Integer -- total amount of liquidity in token pool
+  -> Integer -- amount of liquidity being redeemed from token pool
+  -> (Integer, Integer) -- (amount of first coin liquidity remaining, amount of second coin liquidity remaining)
+calculateRemoval inA inB liquidity diff = (g inA, g inB)
+  where
+    g :: Integer -> Integer
+    g x = x - div (x * diff) liquidity
 
