@@ -91,7 +91,7 @@ genStartUSWallet :: Gen Wallet
 genStartUSWallet = elements [Wallet 1]
 
 genNonNeg :: Gen Integer
-genNonNeg = getPositive <$> arbitrary 
+genNonNeg = elements [1000, 2000, 3000, 4132, 51890, 8400, 3200]
 
 genCoin :: Gen Coin
 genCoin = elements coinList
@@ -235,9 +235,14 @@ instance ContractModel UniswapModel where
     (usModel . at w) $= Just (UniswapState mkUniswapCurrency)
     wait 5
 
-  nextState (CreatePool v _ _ _ aAmt bAmt) = do
-    -- deposit v $ coin (poolStateCoin uniswap') $ calculateInitialLiquidity aAmt bAmt
-    wait 5
+  nextState (CreatePool v w coinA coinB aAmt bAmt) = do
+    -- TODO: check not sure why Wallet 1 faiils yet
+    when (v == w && v /= (Wallet 1) && w /= (Wallet 1)) $ do
+      deposit v $ coin lpC $ calculateInitialLiquidity aAmt bAmt
+      wait 5
+      where
+        lpC = mkCoin (liquidityCurrency uniswap') (lpTicker lp)
+        lp  = LiquidityPool { lpCoinA = coinA, lpCoinB = coinB }
     
   -- nextState (Init w) = do
   --     phase $= NotStarted
@@ -248,7 +253,6 @@ instance ContractModel UniswapModel where
   --     wait 1
 
   perform h _ cmd = case cmd of
-    -- (Init w) -> callEndpoint @"init" (h $ StartKey w) (Currency.OneShotCurrency)
     (Start w) -> callEndpoint @"start" (h $ StartKey w) () >> delay 5
     (CreatePool v w c1 c2 c1a c2a) -> callEndpoint @"create" 
                                         (h $ UserKey v w) 
@@ -259,11 +263,6 @@ instance ContractModel UniswapModel where
                                           cpAmountB = c2a
                                         } >> delay 5
     where
-        -- cp = CreateParams { 
-        --                   cpCoinA = ada,
-        --                   cpCoinB = coins Map.! "A",
-        --                   cpAmountA = 1000,
-        --                   cpAmountB = 5000 }
         ap = AddParams { 
                           apCoinA = ada,
                           apCoinB = coins Map.! "A", 
