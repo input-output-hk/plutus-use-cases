@@ -9,6 +9,7 @@
 
 module Plutus.PAB.App where
 
+import qualified Data.Aeson as JSON
 import qualified Data.Text as T
 import           Control.Monad                               (forM, forM_, void,
                                                               when)
@@ -92,10 +93,10 @@ import Plutus.PAB.Simulation
 defaultContracts :: [ContractExe]
 defaultContracts = [
     ContractExe distributeFundsExe,
-    ContractExe createOraclesExe
-    -- ContractExe aaveStart,
-    -- ContractExe aaveUser,
-    -- ContractExe aaveInfo
+    ContractExe createOraclesExe,
+    ContractExe aaveStartExe,
+    ContractExe aaveUserExe,
+    ContractExe aaveInfoExe
     ]
 
 distributeFundsExe = "./contracts/distribute-funds"
@@ -109,15 +110,16 @@ aaveUserExe = "./contracts/aave-user"
 aaveInfoExe = "./contracts/aave-info"
 
 runApp = do
-    let eventfulBackend = App.InMemoryBackend
+    let eventfulBackend = App.SqliteBackend
     logConfig <- defaultConfig
     (trace :: Trace IO (PrettyObject (AppMsg ContractExe)), switchboard) <- setupTrace_ logConfig "pab"
     
     serviceAvailability <- newToken
 
     config@Config {..} <- decodeFileThrow "./plutus-pab.yaml"
-
-    App.runApp eventfulBackend (toPABMsg $ convertLog PrettyObject trace) config $ do
+    let trace' = toPABMsg $ convertLog PrettyObject trace
+    App.migrate trace' dbConfig
+    App.runApp eventfulBackend trace' config $ do
         App.AppEnv{App.walletClientEnv} <- Core.askUserEnv @ContractExe @App.AppEnv
         (mvar, _) <- PABServer.startServer pabWebserverConfig (Left walletClientEnv) serviceAvailability
         _ <- installContracts
@@ -131,28 +133,28 @@ runApp = do
 
 fillWithAssets = do
     cidFunds <- Core.activateContract ownerWallet $ ContractExe distributeFundsExe
-    _        <- Core.waitUntilFinished cidFunds
+    res        <- Core.waitUntilFinished cidFunds
+    Log.logDebug @(PABMultiAgentMsg ContractExe) $ UserLog $ "Final Results: " <> (T.pack $ show res)
 
     cidOracles  <- Core.activateContract ownerWallet $ ContractExe createOraclesExe
     oracles  <- flip Core.waitForState cidOracles $ \json -> case (fromJSON json :: Result (Monoid.Last [Oracle.Oracle])) of
                     Success (Monoid.Last (Just res)) -> Just res
                     _                                -> Nothing
     Log.logDebug @(PABMultiAgentMsg ContractExe) $ UserLog $ "Initialization finished. Created oracles: " <> (T.pack $ show oracles)
-    pure ()
 
+    cidStart <- Core.activateContract ownerWallet $ ContractExe aaveStartExe -- AaveStart
+    _  <- Core.callEndpointOnInstance cidStart "start" $ fmap (\o -> Aave.CreateParams (Oracle.oAsset o) o) oracles
+    aa <- flip Core.waitForState cidStart $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.OwnerContractState)) of
+        Success (ContractSuccess (Aave.Started aa)) -> Just aa
+        _                                           -> Nothing
+    liftIO $ writeFile "aa.aave" $ show $ JSON.encode aa
+    Log.logDebug @(PABMultiAgentMsg ContractExe) $ UserLog $ "Aave instance created: " <> (T.pack $ show aa)
 
-    -- cidStart <- Core.activateContract ownerWallet $ ContractExe aaveStart -- AaveStart
-    -- _  <- Core.callEndpointOnInstance cidStart "start" $ fmap (\o -> Aave.CreateParams (Oracle.oAsset o) o) oracles
-    -- aa <- flip Core.waitForState cidStart $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.OwnerContractState)) of
-    --     Success (ContractSuccess (Aave.Started aa)) -> Just aa
-    --     _                                           -> Nothing
-    -- -- Core.logString @(Builtin AaveContracts) $ "Aave instance created: " ++ show aa
+    cidInfo <- Core.activateContract ownerWallet $ ContractExe aaveInfoExe -- AaveInfo aa
 
-    -- cidInfo <- Core.activateContract ownerWallet $ ContractExe aaveInfo -- AaveInfo aa
+    cidUser <- fmap Map.fromList $ forM userWallets $ \w -> do
+        cid <- Core.activateContract w $ ContractExe aaveUserExe --AaveUser aa
+        Log.logDebug @(PABMultiAgentMsg ContractExe) $ UserLog $ "Aave user contract started for " <> (T.pack $ show w)
+        return (w, cid)
 
-    -- cidUser <- fmap Map.fromList $ forM userWallets $ \w -> do
-    --     cid <- Core.activateContract w $ ContractExe aaveUser --AaveUser aa
-    --     -- Core.logString @(Builtin AaveContracts) $ "Aave user contract started for " ++ show w
-    --     return (w, cid)
-
-    -- pure $ ContractIDs cidUser cidInfo
+    pure $ ContractIDs cidUser cidInfo

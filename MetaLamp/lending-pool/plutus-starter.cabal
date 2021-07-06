@@ -88,6 +88,48 @@ executable create-oracles
      plutus-pab,
      plutus-tx
 
+executable aave-info
+   main-is: Main.hs
+   hs-source-dirs: aave-info
+   ghc-options:
+     -threaded
+   build-depends:
+     base >= 4.9 && < 5,
+     aeson,
+     text,
+     plutus-starter,
+     plutus-ledger-api,
+     plutus-pab,
+     plutus-tx
+
+executable aave-start
+   main-is: Main.hs
+   hs-source-dirs: aave-start
+   ghc-options:
+     -threaded
+   build-depends:
+     base >= 4.9 && < 5,
+     aeson,
+     text,
+     plutus-starter,
+     plutus-ledger-api,
+     plutus-pab,
+     plutus-tx
+
+executable aave-user
+   main-is: Main.hs
+   hs-source-dirs: aave-user
+   ghc-options:
+     -threaded
+   build-depends:
+     base >= 4.9 && < 5,
+     aeson,
+     text,
+     plutus-starter,
+     plutus-ledger-api,
+     plutus-pab,
+     plutus-tx
+
 executable pab-simulation
   main-is: Main.hs
   hs-source-dirs: pab-simulation
