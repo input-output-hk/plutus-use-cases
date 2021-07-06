@@ -13,61 +13,68 @@
 
 module Plutus.PAB.Simulation where
 
-import           Control.Monad                               (forM, forM_, void,
-                                                              when)
-import           Control.Monad.Freer                         (Eff, Member,
-                                                              interpret,
-                                                              type (~>))
-import           Control.Monad.Freer.Error                   (Error)
-import           Control.Monad.Freer.Extras.Log              (LogMsg)
-import           Control.Monad.IO.Class                      (MonadIO (..))
-import           Data.Aeson                                  (FromJSON,
-                                                              Result (..),
-                                                              ToJSON, encode,
-                                                              fromJSON)
-import qualified Data.ByteString                             as BS
-import qualified Data.Map.Strict                             as Map
-import qualified Data.Monoid                                 as Monoid
-import qualified Data.Semigroup                              as Semigroup
-import           Data.Text                                   (Text)
-import           Data.Text.Prettyprint.Doc                   (Pretty (..),
-                                                              viaShow)
-import           GHC.Generics                                (Generic)
+import           Control.Monad                                       (forM,
+                                                                      forM_,
+                                                                      void,
+                                                                      when)
+import           Control.Monad.Freer                                 (Eff,
+                                                                      Member,
+                                                                      interpret,
+                                                                      type (~>))
+import           Control.Monad.Freer.Error                           (Error)
+import           Control.Monad.Freer.Extras.Log                      (LogMsg)
+import           Control.Monad.IO.Class                              (MonadIO (..))
+import           Data.Aeson                                          (FromJSON,
+                                                                      Result (..),
+                                                                      ToJSON,
+                                                                      encode,
+                                                                      fromJSON)
+import qualified Data.ByteString                                     as BS
+import qualified Data.Map.Strict                                     as Map
+import qualified Data.Monoid                                         as Monoid
+import qualified Data.Semigroup                                      as Semigroup
+import           Data.Text                                           (Text)
+import           Data.Text.Prettyprint.Doc                           (Pretty (..),
+                                                                      viaShow)
+import           GHC.Generics                                        (Generic)
 import           Ledger
-import           Ledger.Ada                                  (adaSymbol,
-                                                              adaToken,
-                                                              adaValueOf,
-                                                              lovelaceValueOf)
+import           Ledger.Ada                                          (adaSymbol,
+                                                                      adaToken,
+                                                                      adaValueOf,
+                                                                      lovelaceValueOf)
 import           Ledger.Constraints
-import qualified Ledger.Constraints.OffChain                 as Constraints
-import qualified Ledger.Typed.Scripts                        as Scripts
-import           Ledger.Value                                as Value
-import           Plutus.Abstract.ContractResponse            (ContractResponse (..))
-import           Plutus.Contract                             hiding (when)
-import           Plutus.Contracts.Currency                   as Currency
-import qualified Plutus.Contracts.LendingPool.OffChain.Info  as Aave
-import qualified Plutus.Contracts.LendingPool.OffChain.Owner as Aave
-import qualified Plutus.Contracts.LendingPool.OffChain.User  as Aave
-import qualified Plutus.Contracts.LendingPool.OnChain.Core   as Aave
-import qualified Plutus.Contracts.Service.FungibleToken      as FungibleToken
-import qualified Plutus.Contracts.Service.Oracle             as Oracle
-import           Plutus.PAB.Effects.Contract                 (ContractEffect (..))
-import           Plutus.PAB.Effects.Contract.Builtin         (Builtin,
-                                                              SomeBuiltin (..),
-                                                              type (.\\))
-import qualified Plutus.PAB.Effects.Contract.Builtin         as Builtin
-import           Plutus.PAB.Monitoring.PABLogMsg             (PABMultiAgentMsg)
-import           Plutus.PAB.Simulator                        (Simulation,
-                                                              SimulatorEffectHandlers)
-import qualified Plutus.PAB.Simulator                        as Simulator
-import           Plutus.PAB.Types                            (PABError (..))
-import qualified Plutus.PAB.Webserver.Server                 as PAB.Server
-import           Plutus.V1.Ledger.Crypto                     (getPubKeyHash,
-                                                              pubKeyHash)
-import           Prelude                                     hiding (init)
-import           Wallet.Emulator.Types                       (Wallet (..),
-                                                              walletPubKey)
-import           Wallet.Types                                (ContractInstanceId)
+import qualified Ledger.Constraints.OffChain                         as Constraints
+import qualified Ledger.Typed.Scripts                                as Scripts
+import           Ledger.Value                                        as Value
+import           Plutus.Abstract.ContractResponse                    (ContractResponse (..))
+import           Plutus.Contract                                     hiding
+                                                                     (when)
+import           Plutus.Contracts.Currency                           as Currency
+import qualified Plutus.Contracts.LendingPool.OffChain.Info          as Aave
+import qualified Plutus.Contracts.LendingPool.OffChain.Owner         as Aave
+import qualified Plutus.Contracts.LendingPool.OffChain.User          as Aave
+import qualified Plutus.Contracts.LendingPool.OnChain.Core           as Aave
+import           Plutus.Contracts.LendingPool.OnChain.Core.Validator (Aave (..))
+import qualified Plutus.Contracts.Service.FungibleToken              as FungibleToken
+import qualified Plutus.Contracts.Service.Oracle                     as Oracle
+import           Plutus.PAB.Effects.Contract                         (ContractEffect (..))
+import           Plutus.PAB.Effects.Contract.Builtin                 (Builtin,
+                                                                      SomeBuiltin (..),
+                                                                      type (.\\))
+import qualified Plutus.PAB.Effects.Contract.Builtin                 as Builtin
+import           Plutus.PAB.Monitoring.PABLogMsg                     (PABMultiAgentMsg)
+import           Plutus.PAB.Simulator                                (Simulation,
+                                                                      SimulatorEffectHandlers)
+import qualified Plutus.PAB.Simulator                                as Simulator
+import           Plutus.PAB.Types                                    (PABError (..))
+import qualified Plutus.PAB.Webserver.Server                         as PAB.Server
+import           Plutus.V1.Ledger.Crypto                             (getPubKeyHash,
+                                                                      pubKeyHash)
+import           Prelude                                             hiding
+                                                                     (init)
+import           Wallet.Emulator.Types                               (Wallet (..),
+                                                                      walletPubKey)
+import           Wallet.Types                                        (ContractInstanceId)
 
 ownerWallet :: Wallet
 ownerWallet = Wallet 1
@@ -119,7 +126,7 @@ createOracles assets = do
 
 data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
-activateContracts :: Simulation (Builtin AaveContracts) ContractIDs
+activateContracts :: Simulation (Builtin AaveContracts) (ContractIDs, Aave)
 activateContracts = do
     cidFunds <- Simulator.activateContract ownerWallet $ DistributeFunds userWallets testAssets
     _        <- Simulator.waitUntilFinished cidFunds
@@ -144,7 +151,7 @@ activateContracts = do
         Simulator.logString @(Builtin AaveContracts) $ "Aave user contract started for " ++ show w
         return (w, cid)
 
-    pure $ ContractIDs cidUser cidInfo
+    pure $ (ContractIDs cidUser cidInfo, aa)
 
 runLendingPool :: IO ()
 runLendingPool = void $ Simulator.runSimulationWith handlers $ do
@@ -159,13 +166,13 @@ runLendingPoolSimulation :: IO ()
 runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
-    ContractIDs {..} <- activateContracts
+    (ContractIDs {..}, aave) <- activateContracts
     let userCid = cidUser Map.! Wallet 2
         sender = pubKeyHash . walletPubKey $ Wallet 2
 
     _  <-
         Simulator.callEndpointOnInstance userCid "deposit" $
-            Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 400 }
+            Aave.DepositParams { Aave.dpAsset = head testAssets, Aave.dpOnBehalfOf = sender, Aave.dpAmount = 400, Aave.dpAave = aave }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.UserContractState)) of
         Success (ContractSuccess Aave.Deposited) -> Just ()
         _                                        -> Nothing
@@ -173,7 +180,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "withdraw" $
-            Aave.WithdrawParams { Aave.wpAsset = head testAssets, Aave.wpUser = sender, Aave.wpAmount = 30 }
+            Aave.WithdrawParams { Aave.wpAsset = head testAssets, Aave.wpUser = sender, Aave.wpAmount = 30, Aave.wpAave = aave }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.UserContractState)) of
         Success (ContractSuccess Aave.Withdrawn) -> Just ()
         _                                        -> Nothing
@@ -181,7 +188,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "provideCollateral" $
-            Aave.ProvideCollateralParams { Aave.pcpUnderlyingAsset = head testAssets, Aave.pcpOnBehalfOf = sender, Aave.pcpAmount = 200 }
+            Aave.ProvideCollateralParams { Aave.pcpUnderlyingAsset = head testAssets, Aave.pcpOnBehalfOf = sender, Aave.pcpAmount = 200, Aave.pcpAave = aave }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.UserContractState)) of
         Success (ContractSuccess Aave.CollateralProvided) -> Just ()
         _                                                 -> Nothing
@@ -189,7 +196,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "revokeCollateral" $
-            Aave.RevokeCollateralParams { Aave.rcpUnderlyingAsset = head testAssets, Aave.rcpOnBehalfOf = sender, Aave.rcpAmount = 50 }
+            Aave.RevokeCollateralParams { Aave.rcpUnderlyingAsset = head testAssets, Aave.rcpOnBehalfOf = sender, Aave.rcpAmount = 50, Aave.rcpAave = aave }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.UserContractState)) of
         Success (ContractSuccess Aave.CollateralRevoked) -> Just ()
         _                                                -> Nothing
@@ -199,7 +206,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
     let lender = pubKeyHash . walletPubKey $ Wallet 3
     _  <-
         Simulator.callEndpointOnInstance lenderCid "deposit" $
-            Aave.DepositParams { Aave.dpAsset = testAssets !! 1, Aave.dpOnBehalfOf = lender, Aave.dpAmount = 200 }
+            Aave.DepositParams { Aave.dpAsset = testAssets !! 1, Aave.dpOnBehalfOf = lender, Aave.dpAmount = 200, Aave.dpAave = aave }
     flip Simulator.waitForState lenderCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.UserContractState)) of
         Success (ContractSuccess Aave.Deposited) -> Just ()
         _                                        -> Nothing
@@ -207,7 +214,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "borrow" $
-            Aave.BorrowParams { Aave.bpAsset = testAssets !! 1, Aave.bpAmount = 35, Aave.bpOnBehalfOf = sender }
+            Aave.BorrowParams { Aave.bpAsset = testAssets !! 1, Aave.bpAmount = 35, Aave.bpOnBehalfOf = sender, Aave.bpAave = aave }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.UserContractState)) of
         Success (ContractSuccess Aave.Borrowed) -> Just ()
         _                                       -> Nothing
@@ -215,7 +222,7 @@ runLendingPoolSimulation = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "repay" $
-            Aave.RepayParams { Aave.rpAsset = testAssets !! 1, Aave.rpAmount = 25, Aave.rpOnBehalfOf = sender }
+            Aave.RepayParams { Aave.rpAsset = testAssets !! 1, Aave.rpAmount = 25, Aave.rpOnBehalfOf = sender, Aave.rpAave = aave }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Aave.UserContractState)) of
         Success (ContractSuccess Aave.Repaid) -> Just ()
         _                                     -> Nothing
@@ -279,8 +286,8 @@ handleAaveContract = Builtin.handleBuiltin getSchema getContract where
     DistributeFunds _ _         -> Builtin.endpointsToSchemas @Empty
     CreateOracles _ -> Builtin.endpointsToSchemas @Empty
   getContract = \case
-    AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints aave
-    AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints aave
+    AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints
+    AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints
     AaveStart           -> SomeBuiltin Aave.ownerEndpoints
     DistributeFunds wallets assets -> SomeBuiltin $ distributeFunds wallets assets
     CreateOracles assets -> SomeBuiltin $ createOracles assets

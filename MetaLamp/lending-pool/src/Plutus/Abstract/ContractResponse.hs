@@ -65,6 +65,7 @@ instance Monoid (ContractResponse e a) where
     mempty = ContractPending
     mappend = (<>)
 
+
 withContractResponse :: forall l a p r s.
     HasEndpoint l p s
     => Proxy l

@@ -72,6 +72,7 @@ newtype Aave = Aave
     } deriving stock    (Prelude.Eq, Show, Generic)
       deriving anyclass (ToJSON, FromJSON, ToSchema)
 
+PlutusTx.unstableMakeIsData ''Aave
 PlutusTx.makeLift ''Aave
 
 aaveInstance :: Aave -> Scripts.TypedValidator AaveScript

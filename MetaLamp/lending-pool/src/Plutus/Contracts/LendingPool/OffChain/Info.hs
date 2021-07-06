@@ -79,9 +79,9 @@ poolFunds aave =  utxoValue <$> utxoAt (Core.aaveAddress aave)
 type AaveInfoSchema =
     BlockchainActions
     .\/ Endpoint "fundsAt" PubKeyHash
-    .\/ Endpoint "poolFunds" ()
-    .\/ Endpoint "reserves" ()
-    .\/ Endpoint "users" ()
+    .\/ Endpoint "poolFunds" Aave
+    .\/ Endpoint "reserves" Aave
+    .\/ Endpoint "users" Aave
 
 data InfoContractState =
     FundsAt Value
@@ -90,9 +90,10 @@ data InfoContractState =
     | Users (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
-infoEndpoints :: Aave -> Contract (ContractResponse Text InfoContractState) AaveInfoSchema Void ()
-infoEndpoints aave = forever $
+infoEndpoints :: Contract (ContractResponse Text InfoContractState) AaveInfoSchema Void ()
+infoEndpoints = forever $
     withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
-    `select` withContractResponse (Proxy @"poolFunds") PoolFunds (const $ poolFunds aave)
-    `select` withContractResponse (Proxy @"reserves") Reserves (const $ reserves aave)
-    `select` withContractResponse (Proxy @"users") Users (const $ users aave)
+    `select` withContractResponse (Proxy @"poolFunds") PoolFunds poolFunds
+    `select` withContractResponse (Proxy @"reserves") Reserves reserves
+    `select` withContractResponse (Proxy @"users") Users users
+
