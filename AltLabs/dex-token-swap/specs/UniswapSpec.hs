@@ -50,15 +50,40 @@ import           Plutus.Trace.Emulator              as Trace
 
 import qualified Effects.Uniswap as US
 import qualified Plutus.Contracts.Currency               as Currency
+
 import           Plutus.Contracts.Uniswap           (start, ownerEndpoint, userEndpoints,)
 import           Plutus.Contracts.PoolForgery       (create)
 import           Plutus.Contracts.Data
-import           Plutus.Contracts.Helpers           (mkCoin)
+import           Plutus.Contracts.Helpers           (mkCoin, liquidityCurrency, poolStateCoin)
 -- import Test.QuickCheck
-import PlutusTx.Builtins (ByteString, emptyByteString, encodeUtf8)
-import           Data.Void                        (Void)
-import           Ledger.Ada                              (adaSymbol, adaToken)
+import           PlutusTx.Builtins                  (ByteString, emptyByteString, encodeUtf8)
+import           Data.Void                          (Void)
+import           Ledger.Ada                         (adaSymbol, adaToken)
+import           Plutus.Contracts.LiquidityPool     (calculateInitialLiquidity)
 
+-- Currency mock helpers
+oneShotCurrencySymbol :: CurrencySymbol
+oneShotCurrencySymbol = "4f3c205fda58ef457ba5d104cd432f169f30b1d90082997cf0e374964200b738"
+
+mkUniswapCurrency :: AssetClass
+mkUniswapCurrency = mkCoin oneShotCurrencySymbol uniswapTokenName 
+
+usFactoryNFT :: Value
+usFactoryNFT = Ledger.Value.singleton oneShotCurrencySymbol uniswapTokenName 1
+
+swapToken :: TokenName -> Value
+swapToken tn = Ledger.Value.singleton oneShotCurrencySymbol tn 1_000_000
+
+coins :: Map TokenName AssetClass
+coins = Map.fromList [(tn, mkCoin oneShotCurrencySymbol tn) | tn <- US.tokenNames]
+
+ada :: AssetClass
+ada   = mkCoin adaSymbol adaToken
+
+coinList :: [Coin]
+coinList = [mkCoin oneShotCurrencySymbol tn | tn <- US.tokenNames]
+
+-- GENERATORS
 genWallet :: Gen Wallet
 genWallet = elements US.wallets
 
@@ -66,7 +91,10 @@ genStartUSWallet :: Gen Wallet
 genStartUSWallet = elements [Wallet 1]
 
 genNonNeg :: Gen Integer
-genNonNeg = getNonNegative <$> arbitrary
+genNonNeg = getPositive <$> arbitrary 
+
+genCoin :: Gen Coin
+genCoin = elements coinList
 
 -- tokenProperty :: Map Wallet TokenName
 -- tokenCurrencies :: Map Wallet CurrencySymbol
@@ -87,27 +115,6 @@ newtype UniswapModel = UniswapModel
         } deriving Show
 
 makeLenses ''UniswapModel
-
-oneShotCurrencySymbol :: CurrencySymbol
-oneShotCurrencySymbol = "4f3c205fda58ef457ba5d104cd432f169f30b1d90082997cf0e374964200b738"
-
-mkUniswapCurrency :: AssetClass
-mkUniswapCurrency = mkCoin oneShotCurrencySymbol uniswapTokenName 
-
--- mkUniswapCoin :: Integer -> Value
--- mkUniswapCoin = coin mkUniswapCurrency 
--- mkSwapCoin :: AssetClass -> Integer -> Value
--- mkSwapCoin a i = coin a i
-
-usFactoryNFT :: Value
-usFactoryNFT = Ledger.Value.singleton oneShotCurrencySymbol uniswapTokenName 1
-
-swapToken :: TokenName -> Value
-swapToken tn = Ledger.Value.singleton oneShotCurrencySymbol tn 1_000_000
-
-coins :: Map TokenName AssetClass
-coins = Map.fromList [(tn, mkCoin oneShotCurrencySymbol tn) | tn <- US.tokenNames]
-ada   = mkCoin adaSymbol adaToken
 
 prop_US :: Actions UniswapModel -> Property
 prop_US = withMaxSuccess 20 . propRunActionsWithOptions
@@ -167,6 +174,9 @@ traceStartUniswap = do
 delay :: Int -> EmulatorTrace ()
 delay = void . Trace.waitNSlots . fromIntegral
 
+uniswap' :: Uniswap
+uniswap' = U.uniswap oneShotCurrencySymbol
+
 uss :: Map Wallet Uniswap
 uss = Map.fromList
   [
@@ -197,43 +207,38 @@ configWithTokens = EmulatorConfig $ Left $ Map.fromList distribution
 
 instanceSpec :: [ContractInstanceSpec UniswapModel]
 instanceSpec =
-  -- [ContractInstanceSpec (InitKey w) w US.initContract | w <- US.wallets]
   [ContractInstanceSpec (StartKey w) w ownerEndpoint | w <- [Wallet 1]] ++ 
-  -- [ContractInstanceSpec (CreatePoolKey w) w create | w <- US.wallets] ++ 
-  [ContractInstanceSpec (UserKey w) w $ userEndpoints $ uss Map.! w | w <- US.wallets]
+  [ContractInstanceSpec (UserKey v w) w $ userEndpoints $ uss Map.! v | v <- US.wallets, w <- US.wallets]
   -- [ContractInstanceSpec (UseKey v w) w $ useEndpoints $ tss Map.! v | v <- wallets, w <- wallets]
 
 instance ContractModel UniswapModel where
   data Action UniswapModel =
         Start Wallet
-        | User Wallet
-        | CreatePool Wallet
+        | CreatePool Wallet Wallet Coin Coin Integer Integer
       deriving (Show, Eq)
 
-  instanceTag key _ = fromString $ "instance tag for: " ++ (show key)
+  instanceTag key _ = fromString $ "instance tag for: " ++ show key
 
   data ContractInstanceKey UniswapModel w s e where
-    -- InitKey :: Wallet -> ContractInstanceKey UniswapModel () Currency.CurrencySchema Text
     StartKey :: Wallet -> ContractInstanceKey UniswapModel (Last (Either Text Uniswap)) UniswapOwnerSchema Void
-    UserKey :: Wallet -> ContractInstanceKey UniswapModel (Last (Either Text UserContractState)) UniswapUserSchema Void
-    -- CreatePoolKey :: Wallet -> ContractInstanceKey UniswapModel (Last (Either Text UserContractState)) UniswapUserSchema Text
+    UserKey :: Wallet -> Wallet -> ContractInstanceKey UniswapModel (Last (Either Text UserContractState)) UniswapUserSchema Void
 
-  arbitraryAction _ = oneof $
-    -- ( Init  <$> genWallet ) :
-    [(Start <$> genStartUSWallet), CreatePool <$> genWallet]
-    -- [ User <$> genWallet ]
-    -- [SetPrice <$> genWallet <*> genWallet <*> genNonNeg ]
-
+  arbitraryAction _ = oneof
+    [
+      Start <$> genStartUSWallet, 
+      CreatePool <$> genWallet <*> genWallet <*> genCoin <*> genCoin <*> genNonNeg <*> genNonNeg
+    ]
   initialState = UniswapModel Map.empty
 
   nextState (Start w) = do
     -- withdraw w usFactoryNFT
     (usModel . at w) $= Just (UniswapState mkUniswapCurrency)
-    wait 1
+    wait 5
 
-  nextState (CreatePool w) = do
-    -- withdraw w $ coin (coins Map.! "A") 500_000
-    wait 1
+  nextState (CreatePool v _ _ _ aAmt bAmt) = do
+    -- deposit v $ coin (poolStateCoin uniswap') $ calculateInitialLiquidity aAmt bAmt
+    wait 5
+    
   -- nextState (Init w) = do
   --     phase $= NotStarted
   --     withdraw w (1000000 * 4)
@@ -244,16 +249,30 @@ instance ContractModel UniswapModel where
 
   perform h _ cmd = case cmd of
     -- (Init w) -> callEndpoint @"init" (h $ StartKey w) (Currency.OneShotCurrency)
-    (Start w) -> callEndpoint @"start" (h $ StartKey w) () >> delay 1
-    (CreatePool w) -> callEndpoint @"create" (h $ UserKey w) cp >> delay 1
-
+    (Start w) -> callEndpoint @"start" (h $ StartKey w) () >> delay 5
+    (CreatePool v w c1 c2 c1a c2a) -> callEndpoint @"create" 
+                                        (h $ UserKey v w) 
+                                        CreateParams {
+                                          cpCoinA = c1,
+                                          cpCoinB = c2,
+                                          cpAmountA = c1a,
+                                          cpAmountB = c2a
+                                        } >> delay 5
     where
-        cp = CreateParams ada (coins Map.! "A") 100000 500000
-    -- (AddLiquidity) -> callEndpoint @"create" (h $ UserKey w) () >> delay 1
-    -- (SwapTokens) -> callEndpoint @"create" (h $ UserKey w) () >> delay 1
+        -- cp = CreateParams { 
+        --                   cpCoinA = ada,
+        --                   cpCoinB = coins Map.! "A",
+        --                   cpAmountA = 1000,
+        --                   cpAmountB = 5000 }
+        ap = AddParams { 
+                          apCoinA = ada,
+                          apCoinB = coins Map.! "A", 
+                          apAmountA = 800, 
+                          apAmountB = 1400 }
+
 
   precondition s (Start w) = isNothing $ getUniswapState s w
-  precondition s (CreatePool w)   = isJust $ getUniswapState s w
+  precondition s (CreatePool v _ _ _ _ _) = isJust $ getUniswapState s v
 
 deriving instance Eq (ContractInstanceKey UniswapModel w s e)
 deriving instance Show (ContractInstanceKey UniswapModel w s e)
@@ -263,14 +282,14 @@ getUniswapState s v = s ^. contractState . usModel . at v
 
 traceTests :: [TestTree]
 traceTests = [
-    -- checkPredicate "can prepare token distribution for uniswap"
-    -- (assertNotDone US.initContract
-    --                (Trace.walletInstanceTag (Wallet 1))
-    --                "initContract"
-    -- .&&. assertNoFailedTransactions)
-    -- traceInitUniswap
+    checkPredicate "can prepare token distribution for uniswap"
+    (assertNotDone US.initContract
+                   (Trace.walletInstanceTag (Wallet 1))
+                   "initContract"
+    .&&. assertNoFailedTransactions)
+    traceInitUniswap
 
-    -- , 
+    , 
     checkPredicate "can start uniswap instance"
     (assertNotDone ownerEndpoint 
                    (Trace.walletInstanceTag (Wallet 1))
