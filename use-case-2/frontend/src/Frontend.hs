@@ -39,7 +39,7 @@ import Obelisk.Route
 import Obelisk.Generated.Static
 import Reflex.Dom.Core
 import Rhyolite.Frontend.App
-import Safe (headMay)
+import Safe (headMay, readMay)
 
 import Common.Api
 import Common.Route
@@ -333,6 +333,7 @@ portfolioDashboard wid = Workflow $ do
         return never
   return ((), leftmost [swapDashboard wid <$ swapEv, poolDashboard wid <$ poolEv])
 
+-- TODO: This entire widget needs to be refactored to better allow websocket data to reach various components in this widget with ease
 poolDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
   => Text
   -> Workflow t m ()
@@ -431,7 +432,7 @@ poolDashboard wid = Workflow $ do
                         def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                       return $ _dropdown_value coinAChoice
                     -- Select second token
-                    selectionB<- divClass "input-group row mt-3" $ do
+                    selectionB <- divClass "input-group row mt-3" $ do
                       coinBChoice <- dropdown fstOpt (constDyn $ dropdownList) $
                         def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                       return $ _dropdown_value coinBChoice
@@ -473,6 +474,39 @@ poolDashboard wid = Workflow $ do
                                 let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
                                     failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                                 newObservableStateTag == ["NewObservableState"] && failureMessageTag /= [""]
+                          poolsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                            Nothing -> False
+                            Just incomingWebSocketData -> do
+                              let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                                  poolsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+                              observableStateTag == ["NewObservableState"] && poolsTag == ["Pools"]
+                      -- use pool map to calculate and display tokens to be redeemed when removing liquidity
+                      dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
+                        let poolDetails = case mIncomingPoolsWebSocketData of
+                              Nothing -> V.empty
+                              Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
+                        parseLiquidityTokensToMap poolDetails
+                      let poolSelection = ffor2 selectionA selectionB $ \a b -> (a,b)
+                          redeemEstimate = ffor3 dynPoolMap poolSelection amount $ \poolMap (selA,selB) amt -> do
+                            let (liquidityPoolAmount, ((tknameA, coinAPoolAmount), (tknameB, coinBPoolAmount))) = fromMaybe (1,(("",0),("",0)))
+                                  $ headMay
+                                  $ Map.elems
+                                  $ flip Map.filter poolMap
+                                  $ \(_, ((nameA,_),(nameB,_))) -> nameA == (_pooledToken_name selA) && nameB == (_pooledToken_name selB)
+                                redeemAmount :: Integer = fromMaybe 0 $ readMay $ T.unpack amt
+                                (remainingLiqA, remainingLiqB) = calculateRemoval coinAPoolAmount coinBPoolAmount liquidityPoolAmount redeemAmount
+                            ((tknameA, coinAPoolAmount - remainingLiqA), (tknameB, coinBPoolAmount - remainingLiqB))
+                      display redeemEstimate
+                      divClass "p-3 mt-2" $ widgetHold_ blank $ ffor (updated redeemEstimate) $ \((tna, redeemableAmountA), (tnb, redeemableAmountB)) ->
+                        elClass "p" "text-info" $ text
+                          $ "When redeeming this liquidity amount, you will receive "
+                          <> (T.pack $ show redeemableAmountA)
+                          <> " "
+                          <> (T.pack $ show $ if tna == "" then "ADA" else tna)
+                          <> " and "
+                          <> (T.pack $ show redeemableAmountB)
+                          <> " "
+                          <> (T.pack $ show $ if tnb == "" then "ADA" else tnb)
                       -- this event will cause the success message to disappear when it occurs
                       vanishEvent <- delay 7 observableStateSuccessEvent
                       -- show success message based on new observable state
