@@ -173,4 +173,3 @@ liquidityCurrency = scriptCurrencySymbol . liquidityPolicy
 
 poolStateCoin :: Uniswap -> Coin
 poolStateCoin = flip mkCoin poolStateTokenName . liquidityCurrency
-

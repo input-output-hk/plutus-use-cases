@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds            #-}
@@ -17,6 +18,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
+{-# LANGUAGE RecordWildCards #-}
 module UniswapSpec
   (
     tests
@@ -51,7 +53,7 @@ import           Plutus.Trace.Emulator              as Trace
 import qualified Effects.Uniswap as US
 import qualified Plutus.Contracts.Currency               as Currency
 
-import           Plutus.Contracts.Uniswap           (start, ownerEndpoint, userEndpoints,)
+import           Plutus.Contracts.Uniswap           (start', ownerEndpoint, userEndpoints,)
 import           Plutus.Contracts.PoolForgery       (create)
 import           Plutus.Contracts.Data
 import           Plutus.Contracts.Helpers           (mkCoin, liquidityCurrency, poolStateCoin)
@@ -109,9 +111,12 @@ newtype UniswapState = UniswapState
 
 makeLenses ''UniswapState
 
-newtype UniswapModel = UniswapModel
+type PoolState = ((Coin, Integer),(Coin, Integer))
+
+data UniswapModel = UniswapModel
         {
-          _usModel :: Map Wallet UniswapState
+          _usModel :: Map Wallet UniswapState,
+          _usPools  :: Map LiquidityPool PoolState
         } deriving Show
 
 makeLenses ''UniswapModel
@@ -129,13 +134,6 @@ prop_US = withMaxSuccess 20 . propRunActionsWithOptions
 
 test :: IO ()
 test = quickCheck prop_US
-
--- data UniswapModel = UniswapModel
---   {
---     _coin   :: Coin,
---     _phase  :: Phase
---   }
---   deriving (Show)
 
 data Phase = NotStarted | Initialized | Started | Closed
     deriving (Eq, Show)
@@ -191,77 +189,86 @@ configWithTokens :: EmulatorConfig
 configWithTokens = EmulatorConfig $ Left $ Map.fromList distribution
   where
     distribution= [
-        (Wallet 1,  swapToken "A" <> swapToken "B" <> swapToken "C" <> swapToken "D"),
-        (Wallet 2 , swapToken "A" <> swapToken "B" <> swapToken "C" <> swapToken "D"),
-        (Wallet 3 , swapToken "A" <> swapToken "B" <> swapToken "C" <> swapToken "D"),
-        (Wallet 4 , swapToken "A" <> swapToken "B" <> swapToken "C" <> swapToken "D")
+        (Wallet 1,  love <> usFactoryNFT  <> swapToken "A" <> swapToken "B" <> swapToken "C" <> swapToken "D"),
+        (Wallet 2 , love <> swapToken "A" <> swapToken "B" <> swapToken "C" <> swapToken "D"),
+        (Wallet 3 , love <> swapToken "A" <> swapToken "B" <> swapToken "C" <> swapToken "D"),
+        (Wallet 4 , love <> swapToken "A" <> swapToken "B" <> swapToken "C" <> swapToken "D")
       ]
+    love = Ada.lovelaceValueOf 1_000_000_000
     
-    -- d = Map.fromList $ [ (w, v) | w <- US.wallets]
-    -- cs = oneShotCurrencySymbol
-    -- v  = mconcat [Ledger.Value.singleton cs tn amount | tn <- US.tokenNames]
-          
-
--- defaultCheck :: String -> TracePredicate -> EmulatorTrace () -> TestTree
--- defaultCheck = checkPredicateOptions (defaultCheckOptions & emulatorConfig .~ configurationWithNfts)
-
 instanceSpec :: [ContractInstanceSpec UniswapModel]
 instanceSpec =
-  [ContractInstanceSpec (StartKey w) w ownerEndpoint | w <- [Wallet 1]] ++ 
-  [ContractInstanceSpec (UserKey v w) w $ userEndpoints $ uss Map.! v | v <- US.wallets, w <- US.wallets]
+  [ContractInstanceSpec (StartKey w) w ownerEndpoint' | w <- [Wallet 1]] ++ 
+  [ContractInstanceSpec (UserKey w) w $ userEndpoints $ uss Map.! w | w <- US.wallets]
   -- [ContractInstanceSpec (UseKey v w) w $ useEndpoints $ tss Map.! v | v <- wallets, w <- wallets]
+
+type UniswapOwnerSchema' = Endpoint "start" CurrencySymbol
+
+ownerEndpoint' :: Contract (Last (Either Text Uniswap)) UniswapOwnerSchema' Void ()
+ownerEndpoint' = startHandler >> ownerEndpoint'
+    where
+      startHandler :: Contract (Last (Either Text Uniswap)) UniswapOwnerSchema' Void ()
+      startHandler = do
+           e <- runError $ (endpoint @"start" >>= start')
+           tell $ Last $ Just e
 
 instance ContractModel UniswapModel where
   data Action UniswapModel =
         Start Wallet
-        | CreatePool Wallet Wallet Coin Coin Integer Integer
+        | CreatePool Wallet Coin Coin Integer Integer
       deriving (Show, Eq)
 
   instanceTag key _ = fromString $ "instance tag for: " ++ show key
 
   data ContractInstanceKey UniswapModel w s e where
-    StartKey :: Wallet -> ContractInstanceKey UniswapModel (Last (Either Text Uniswap)) UniswapOwnerSchema Void
-    UserKey :: Wallet -> Wallet -> ContractInstanceKey UniswapModel (Last (Either Text UserContractState)) UniswapUserSchema Void
+    StartKey :: Wallet -> ContractInstanceKey UniswapModel (Last (Either Text Uniswap)) UniswapOwnerSchema' Void
+    UserKey :: Wallet -> ContractInstanceKey UniswapModel (Last (Either Text UserContractState)) UniswapUserSchema Void
 
   arbitraryAction _ = oneof
     [
       Start <$> genStartUSWallet, 
-      CreatePool <$> genWallet <*> genWallet <*> genCoin <*> genCoin <*> genNonNeg <*> genNonNeg
+      CreatePool <$> genWallet <*> genCoin <*> genCoin <*> genNonNeg <*> genNonNeg
     ]
-  initialState = UniswapModel Map.empty
+  initialState = UniswapModel Map.empty Map.empty
 
   nextState (Start w) = do
-    -- withdraw w usFactoryNFT
+    withdraw w usFactoryNFT
     (usModel . at w) $= Just (UniswapState mkUniswapCurrency)
-    wait 5
+    wait 2
 
-  nextState (CreatePool v w coinA coinB aAmt bAmt) = do
-    -- TODO: check not sure why Wallet 1 faiils yet
-    when (v == w && v /= (Wallet 1) && w /= (Wallet 1)) $ do
-      deposit v $ coin lpC $ calculateInitialLiquidity aAmt bAmt
-      wait 5
+  nextState (CreatePool v coinA coinB aAmt bAmt) = do
+    when (coinA /= coinB) $ do
+
+      let pool@LiquidityPool{..} = LiquidityPool coinA coinB
+      let pool'@LiquidityPool{..} = LiquidityPool coinB coinA
+      sPool <- getPoolState pool
+      sPool' <- getPoolState pool'
+      sUniswap <- getUniswapState' v
+
+      case (sUniswap, sPool, sPool') of
+        (Just _, Nothing, Nothing) -> do
+                              (usPools . at pool) $= Just (mkPool (coinA, coinB) aAmt bAmt)
+                              deposit v $ coin lpC $ calculateInitialLiquidity aAmt bAmt
+                              withdraw v $ coin coinA aAmt <> coin coinB bAmt
+        _                  -> return ()
+       
+    wait 2
+
       where
         lpC = mkCoin (liquidityCurrency uniswap') (lpTicker lp)
         lp  = LiquidityPool { lpCoinA = coinA, lpCoinB = coinB }
     
-  -- nextState (Init w) = do
-  --     phase $= NotStarted
-  --     withdraw w (1000000 * 4)
-  --     -- withdraw w $  nfts Map.! w
-  --     -- (tsModel . at w) $= Just (TSState 0 0 0)
-  --     (usModel . at w) $= Just (UniswapState {_usCoin=__usCoin} )
-  --     wait 1
 
   perform h _ cmd = case cmd of
-    (Start w) -> callEndpoint @"start" (h $ StartKey w) () >> delay 5
-    (CreatePool v w c1 c2 c1a c2a) -> callEndpoint @"create" 
-                                        (h $ UserKey v w) 
+    (Start w) -> callEndpoint @"start" (h $ StartKey w) oneShotCurrencySymbol >> delay 1
+    (CreatePool v c1 c2 c1a c2a) -> callEndpoint @"create" 
+                                        (h $ UserKey v) 
                                         CreateParams {
                                           cpCoinA = c1,
                                           cpCoinB = c2,
                                           cpAmountA = c1a,
                                           cpAmountB = c2a
-                                        } >> delay 5
+                                        } >> delay 2
     where
         ap = AddParams { 
                           apCoinA = ada,
@@ -271,13 +278,29 @@ instance ContractModel UniswapModel where
 
 
   precondition s (Start w) = isNothing $ getUniswapState s w
-  precondition s (CreatePool v _ _ _ _ _) = isJust $ getUniswapState s v
+  precondition s (CreatePool v _ _ _ _) = isJust $ getUniswapState s v
 
 deriving instance Eq (ContractInstanceKey UniswapModel w s e)
 deriving instance Show (ContractInstanceKey UniswapModel w s e)
 
 getUniswapState :: ModelState UniswapModel -> Wallet -> Maybe UniswapState
 getUniswapState s v = s ^. contractState . usModel . at v
+
+getUniswapState' :: Wallet -> Spec UniswapModel (Maybe UniswapState)
+getUniswapState' w = do
+    s <- getModelState
+    return $ getUniswapState s w
+
+getPoolState' :: ModelState UniswapModel -> LiquidityPool -> Maybe PoolState
+getPoolState' s pool@LiquidityPool{..} = s ^. contractState . usPools . at pool
+
+getPoolState :: LiquidityPool -> Spec UniswapModel (Maybe PoolState)
+getPoolState pool = do
+    s <- getModelState
+    return $ getPoolState' s pool
+
+mkPool :: (Coin, Coin) -> Integer -> Integer -> PoolState
+mkPool (ca, cb) a b = ((ca, a), (cb, b))
 
 traceTests :: [TestTree]
 traceTests = [
@@ -301,4 +324,4 @@ propTests :: TestTree
 propTests = (testProperty "uniswap model" prop_US)
 
 tests :: TestTree
-tests = testGroup "uniswap" ([propTests] <> traceTests)
+tests = testGroup "uniswap" ([propTests])

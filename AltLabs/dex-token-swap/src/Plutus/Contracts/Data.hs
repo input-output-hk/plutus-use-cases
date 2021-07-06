@@ -80,6 +80,21 @@ instance Eq LiquidityPool where
     x == y = (lpCoinA x == lpCoinA y && lpCoinB x == lpCoinB y) ||
              (lpCoinA x == lpCoinB y && lpCoinB x == lpCoinA y)
 
+instance Haskell.Eq LiquidityPool where
+    x == y = plutusEq x y
+      where
+        plutusEq :: Eq s => s -> s -> Bool
+        plutusEq s1 s2 = s1 == s2
+
+instance Haskell.Ord LiquidityPool where
+    compare (LiquidityPool a b) (LiquidityPool a' b') =
+        let lp  = order (a,b)
+            lp' = order (a', b')
+        in compare (lp) (lp')
+        where
+            order  :: (Coin, Coin) -> (Coin, Coin)
+            order (ca, cb) = (ca, cb)
+        
 -- | Type of the Uniswap user contract state.
 data UserContractState =
       Pools [((Coin, Integer), (Coin, Integer))]

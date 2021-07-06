@@ -26,7 +26,7 @@ module Plutus.Contracts.Uniswap
     , Uniswap (..), uniswap
     , UniswapUserSchema, UserContractState (..)
     , UniswapOwnerSchema
-    , start, create, add, remove, close, swap, pools
+    , start, start', create, add, remove, close, swap, pools
     , ownerEndpoint, userEndpoints
     , rsqrt, isqrt
     ) where
@@ -72,6 +72,19 @@ start = do
     cs  <- fmap Currency.currencySymbol $
            mapError (pack . Haskell.show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(uniswapTokenName, 1)]
+    let c    = mkCoin cs uniswapTokenName
+        us   = uniswap cs
+        inst = uniswapInstance us
+        tx   = mustPayToTheScript (Factory []) $ coin c 1
+    ledgerTx <- submitTxConstraints inst tx
+    void $ awaitTxConfirmed $ txId ledgerTx
+
+    logInfo @Haskell.String $ printf "started Uniswap %s at address %s" (Haskell.show us) (Haskell.show $ uniswapAddress us)
+    return us
+
+start' :: forall w s. CurrencySymbol -> Contract w s Text Uniswap
+start' cs = do
+    pkh <- pubKeyHash <$> ownPubKey
     let c    = mkCoin cs uniswapTokenName
         us   = uniswap cs
         inst = uniswapInstance us
