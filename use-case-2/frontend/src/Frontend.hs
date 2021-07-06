@@ -15,6 +15,7 @@ module Frontend where
 import Prelude hiding (id, (.), filter)
 import Control.Category
 
+import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO)
@@ -26,6 +27,7 @@ import qualified Data.HashMap.Lazy as HMap
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Read as T
 import qualified Data.Vector as V
 import Data.Vessel
 import Data.Vessel.Identity
@@ -42,6 +44,7 @@ import Safe (headMay)
 import Common.Api
 import Common.Route
 import Common.Plutus.Contracts.Uniswap.Types
+import Common.Plutus.Contracts.Uniswap.Estimates
 import Common.Schema
 
 
@@ -157,6 +160,10 @@ swapDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)
   -> Workflow t m ()
 swapDashboard wid = Workflow $ do
   navEvent <- navBar $ Just wid
+  pb <- getPostBuild
+  -- recurring event used to poll for pool balance
+  pollingEvent <- tickLossyFromPostBuildTime 10
+  requesting_ $ (Api_CallPools (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
   let portfolioEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Portfolio
       poolEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Pool
   _ <- divClass "p-5 mb-4 bg-light rounded-5" $ do
@@ -231,6 +238,39 @@ swapDashboard wid = Workflow $ do
                                 let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
                                     failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                                 newObservableStateTag == ["NewObservableState"] && failureMessageTag /= [""]
+                          -- Pools is used to get information about liquidity pools and token pairs to provide swap estimations
+                          poolsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                            Nothing -> False
+                            Just incomingWebSocketData -> do
+                              let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                                  poolsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+                              observableStateTag == ["NewObservableState"] && poolsTag == ["Pools"]
+                      dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
+                        let poolDetails = case mIncomingPoolsWebSocketData of
+                              Nothing -> V.empty
+                              Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
+                        parseLiquidityTokensToMap poolDetails
+                      -- Determine what amount will be received after
+                      let swapInput = ffor2 amountA amountB $ \a b -> (a,b)
+                          ffor4 a b c d f = liftA3 f a b c <*> d
+                          swapEstimate = ffor4 selectionA selectionB swapInput dynPoolMap $ \selA selB (amtA, amtB) poolMap -> do
+                            let ((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) = fromMaybe (("", 0), ("", 0))
+                                  $ fmap snd
+                                  $ headMay
+                                  $ Map.elems
+                                  $ Map.filter (\(_,((tknameA,_), (tknameB, _)))
+                                  -> tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB)) poolMap
+                            (amtA',_) :: (Integer, Text) <- T.decimal amtA
+                            (amtB',_) :: (Integer, Text) <- T.decimal amtB
+                            let (swapAmount, estimatedTkName) = if amtA' == 0 then (amtB',coinAName) else (amtA',coinBName)
+                            return $ (findSwapA coinAPoolAmount coinBPoolAmount swapAmount, estimatedTkName)
+                      -- display estimated funds to be received during swap and the token name to be received
+                      divClass "p-3 mt-2" $ widgetHold_ blank $ ffor (updated swapEstimate) $ \case
+                        Left err -> elClass "p" "text-danger" $ text $ T.pack $ show err
+                        Right (estimate, eTokenName) -> elClass "p" "text-info" $ text
+                          $ "In this transaction you will receive "
+                          <> (T.pack $ show estimate)
+                          <> " " <> (T.pack $ show $ if "" == eTokenName then "ADA" else eTokenName)
                       -- this event will cause the success message to disappear when it occurs
                       vanishEvent <- delay 7 observableStateSuccessEvent
                       -- show success message based on new observable state
@@ -349,7 +389,7 @@ poolDashboard wid = Workflow $ do
                     let mLiquidityInfo = Map.lookup tokenName poolMap
                     case mLiquidityInfo of
                       Nothing -> blank
-                      Just (lqTotal, (tokenNameA,tokenNameB)) -> do
+                      Just (lqTotal, ((tokenNameA, _),(tokenNameB,_))) -> do
                         let lqPercentage :: Double = ((fromIntegral tokenBalance) / (fromIntegral lqTotal)) * 100
                         el "p" $ text $ "Token Name: "
                           <> (T.pack $ show tokenName)
@@ -560,15 +600,18 @@ parseTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
     _ -> Nothing
   _ -> Just Map.empty
 
-parseLiquidityTokensToMap :: V.Vector Aeson.Value -> Map.Map Text (Integer, (Text, Text)) -- (LiquidityAmount, (CoinA, CoinB))
+-- returns Map of TokenName (LiquidityAmount, ((CoinA, CoinAPoolAmount), (CoinB, CoinBPoolAmount)))
+parseLiquidityTokensToMap :: V.Vector Aeson.Value -> Map.Map Text (Integer, ((Text,Integer), (Text, Integer)))
 parseLiquidityTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
   Aeson.Array xs -> case V.toList xs of
     coinA:coinB:(Aeson.Array liquidityCoin):_-> case V.toList liquidityCoin of
       (Aeson.Object obj):(Aeson.Number lqAmount):_ -> case HMap.toList obj of
         (_, Aeson.String lqTokenName):_ -> do
           let tna = coinA ^. nth 0 . key "unAssetClass" . values . key "unTokenName" . _String
+              tnaPool = fromMaybe 0 $ coinA ^? nth 1 . _Integer
               tnb = coinB ^. nth 0 . key "unAssetClass" . values . key "unTokenName" . _String
-          Just $ Map.singleton lqTokenName ((fromMaybe 0 $ lqAmount ^? _Integer), (tna,tnb))
+              tnbPool = fromMaybe 0 $ coinB ^? nth 1 . _Integer
+          Just $ Map.singleton lqTokenName ((fromMaybe 0 $ lqAmount ^? _Integer), ((tna, tnaPool),(tnb, tnbPool)))
         _ -> Nothing
       _ -> Nothing
     _ -> Nothing
