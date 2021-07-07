@@ -21,9 +21,8 @@ import Control.Monad
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (fromMaybe)
 import qualified Data.Map as Map
-import qualified Data.HashMap.Lazy as HMap
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -45,6 +44,7 @@ import Common.Route
 import Common.Plutus.Contracts.Uniswap.Types
 import Common.Plutus.Contracts.Uniswap.Estimates
 import Common.Schema
+import Frontend.WebsocketParse
 
 
 -- This runs in a monad that can be run on the client or the server.
@@ -623,41 +623,6 @@ poolDashboard wid = Workflow $ do
                 return never
       return ()
   return ((), leftmost [swapDashboard wid <$ swapEv, portfolioDashboard wid <$ portfolioEv])
-
--- TODO: Create a websocket parsing module for this
-parseTokensToMap :: V.Vector Aeson.Value -> Map.Map Text (Integer, Text)
-parseTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
-  Aeson.Array xs -> case V.toList xs of
-    symbol:(Aeson.Array tokens):_ ->
-      let currencySymbol = symbol ^. key "unCurrencySymbol" . _String
-          tokens' = ffor tokens $ \case
-            Aeson.Array xs' -> case V.toList xs' of
-              tokenName:tokenAmount:_ -> Just
-                ( tokenName ^. key "unTokenName" . _String
-                , (fromMaybe 0 $ tokenAmount ^? _Integer, currencySymbol)
-                )
-              _ -> Nothing
-            _ -> Nothing
-      in Just $ Map.fromList $ catMaybes $ V.toList tokens'
-    _ -> Nothing
-  _ -> Just Map.empty
-
--- returns Map of TokenName (LiquidityAmount, ((CoinA, CoinAPoolAmount), (CoinB, CoinBPoolAmount)))
-parseLiquidityTokensToMap :: V.Vector Aeson.Value -> Map.Map Text (Integer, ((Text,Integer), (Text, Integer)))
-parseLiquidityTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
-  Aeson.Array xs -> case V.toList xs of
-    coinA:coinB:(Aeson.Array liquidityCoin):_-> case V.toList liquidityCoin of
-      (Aeson.Object obj):(Aeson.Number lqAmount):_ -> case HMap.toList obj of
-        (_, Aeson.String lqTokenName):_ -> do
-          let tna = coinA ^. nth 0 . key "unAssetClass" . values . key "unTokenName" . _String
-              tnaPool = fromMaybe 0 $ coinA ^? nth 1 . _Integer
-              tnb = coinB ^. nth 0 . key "unAssetClass" . values . key "unTokenName" . _String
-              tnbPool = fromMaybe 0 $ coinB ^? nth 1 . _Integer
-          Just $ Map.singleton lqTokenName ((fromMaybe 0 $ lqAmount ^? _Integer), ((tna, tnaPool),(tnb, tnbPool)))
-        _ -> Nothing
-      _ -> Nothing
-    _ -> Nothing
-  _ -> Just Map.empty
 
 viewContracts :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe [Text])))
 viewContracts = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_ContractList . identityV
