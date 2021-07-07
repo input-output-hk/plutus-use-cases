@@ -27,7 +27,6 @@ import qualified Data.HashMap.Lazy as HMap
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Read as T
 import qualified Data.Vector as V
 import Data.Vessel
 import Data.Vessel.Identity
@@ -166,12 +165,14 @@ swapDashboard wid = Workflow $ do
   requesting_ $ (Api_CallPools (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
   let portfolioEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Portfolio
       poolEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Pool
-  _ <- divClass "p-5 mb-4 bg-light rounded-5" $ do
-    divClass "container-fluid py-5" $ do
-      elClass "h3" "display-5 fw-bold" $ text "Swap Tokens"
+  _ <- divClass "container" $ do
+    divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
+      elClass "h1" "display-5 fw-bold" $ text "Swap Tokens"
       el "p" $ text "What would you like to swap?"
+    -- widget that contains the swap form
+    divClass "card-group mb-3 text-center" $ do
       dmmPooledTokens <- viewPooledTokens
-      _ <- switchHold never <=< dyn $ ffor dmmPooledTokens $ \case
+      formEvent <- switchHold never <=< dyn $ ffor dmmPooledTokens $ \case
         Nothing -> return never
         Just mPoolTokens -> case mPoolTokens of
           Nothing -> return never
@@ -184,32 +185,33 @@ swapDashboard wid = Workflow $ do
                 elClass "p" "text-warning" $ text "There are no tokens available to swap."
                 return never
               Just fstOpt -> do
-                divClass "form container" $ do
-                  divClass "form-group" $ do
-                    -- Select first token and amount
+                divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
+                  divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
+                  divClass "card-body" $ divClass "form container" $ divClass "form-group" $ do
                     -- TODO: Create a convenient widget function out of the dropdown text input for coins
+                    -- Select first token and amount
                     (selectionA, amountA) <- divClass "input-group row" $ do
                       coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
-                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
+                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control") }
                       coinAAmountInput <- inputElement $ def
                         & inputElementConfig_elementConfig . elementConfig_initialAttributes
-                          .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                          .~ ("class" =: "form-control" <> "type" =: "number")
                         & inputElementConfig_initialValue
                           .~ ("0" :: Text)
                       return (_dropdown_value coinAChoice, _inputElement_value coinAAmountInput)
                     -- Select second token and amount
                     (selectionB, amountB) <- divClass "input-group row mt-3" $ do
                       coinBChoice <- dropdown fstOpt (constDyn $ dropdownList) $
-                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
+                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control") }
                       coinBAmountInput <- inputElement $ def
                         & inputElementConfig_elementConfig . elementConfig_initialAttributes
-                          .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
+                          .~ ("class" =: "form-control" <> "type" =: "number")
                         & inputElementConfig_initialValue
                           .~ ("0" :: Text)
                       return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
                     -- TODO: add loading modal
                     swap <- divClass "input-group row mt-3" $ do
-                      (e,_) <- elClass' "button" "btn btn-primary" $ text "Swap"
+                      (e,_) <- elClass' "button" "btn btn-lg btn-block btn-outline-primary" $ text "Swap"
                       return $ domEvent Click e
                     let pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
                         toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
@@ -221,10 +223,11 @@ swapDashboard wid = Workflow $ do
                           <*> (toAmount <$> amountB))
                     -- This response doesn't return anything useful, so it is thrown away
                     _ <- requesting $ tagPromptlyDyn requestLoad swap
-                    _ <- fmap (switch . current) $ prerender (return never) $ do
+                    fmap (switch . current) $ prerender (return never) $ do
                       ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
                       -- TODO: Create abstracted function for filtering out websocket events
-                      let observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
+                      let ffor4 a b c d f = liftA3 f a b c <*> d
+                          observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                             -> case mIncomingWebSocketData of
                               Nothing -> False
                               Just incomingWebSocketData -> do
@@ -238,39 +241,6 @@ swapDashboard wid = Workflow $ do
                                 let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
                                     failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                                 newObservableStateTag == ["NewObservableState"] && failureMessageTag /= [""]
-                          -- Pools is used to get information about liquidity pools and token pairs to provide swap estimations
-                          poolsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
-                            Nothing -> False
-                            Just incomingWebSocketData -> do
-                              let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
-                                  poolsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
-                              observableStateTag == ["NewObservableState"] && poolsTag == ["Pools"]
-                      dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
-                        let poolDetails = case mIncomingPoolsWebSocketData of
-                              Nothing -> V.empty
-                              Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
-                        parseLiquidityTokensToMap poolDetails
-                      -- Determine what amount will be received after
-                      let swapInput = ffor2 amountA amountB $ \a b -> (a,b)
-                          ffor4 a b c d f = liftA3 f a b c <*> d
-                          swapEstimate = ffor4 selectionA selectionB swapInput dynPoolMap $ \selA selB (amtA, amtB) poolMap -> do
-                            let ((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) = fromMaybe (("", 0), ("", 0))
-                                  $ fmap snd
-                                  $ headMay
-                                  $ Map.elems
-                                  $ Map.filter (\(_,((tknameA,_), (tknameB, _)))
-                                  -> tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB)) poolMap
-                            (amtA',_) :: (Integer, Text) <- T.decimal amtA
-                            (amtB',_) :: (Integer, Text) <- T.decimal amtB
-                            let (swapAmount, estimatedTkName) = if amtA' == 0 then (amtB',coinAName) else (amtA',coinBName)
-                            return $ (findSwapA coinAPoolAmount coinBPoolAmount swapAmount, estimatedTkName)
-                      -- display estimated funds to be received during swap and the token name to be received
-                      divClass "p-3 mt-2" $ widgetHold_ blank $ ffor (updated swapEstimate) $ \case
-                        Left err -> elClass "p" "text-danger" $ text $ T.pack $ show err
-                        Right (estimate, eTokenName) -> elClass "p" "text-info" $ text
-                          $ "In this transaction you will receive "
-                          <> (T.pack $ show estimate)
-                          <> " " <> (T.pack $ show $ if "" == eTokenName then "ADA" else eTokenName)
                       -- this event will cause the success message to disappear when it occurs
                       vanishEvent <- delay 7 observableStateSuccessEvent
                       -- show success message based on new observable state
@@ -284,10 +254,48 @@ swapDashboard wid = Workflow $ do
                           Just incomingWebSocketData -> do
                             let errMsg = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                             elClass "p" "text-danger" $ text $ T.concat errMsg
-                      return never
-                    return ()
-                return never
-      return ()
+                      return $ updated $ fmap Just $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> ((selA, amtA), (selB, amtB))
+      -- widget that shows transaction details such as swap estimates, etc.
+      divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
+        divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Transaction Details"
+        divClass "card-body" $ do
+          poolMapEv <- fmap (switch . current) $ prerender (return never) $ do
+            ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+            -- TODO: Create abstracted function for filtering out websocket events
+            -- Pools is used to get information about liquidity pools and token pairs to provide swap estimations
+            let poolsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                  Nothing -> False
+                  Just incomingWebSocketData -> do
+                    let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                        poolsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+                    observableStateTag == ["NewObservableState"] && poolsTag == ["Pools"]
+            dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
+              let poolDetails = case mIncomingPoolsWebSocketData of
+                    Nothing -> V.empty
+                    Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
+              parseLiquidityTokensToMap poolDetails
+            return $ fmap Just $ updated dynPoolMap
+          -- combine events from from updates and smart contract pool data to perform swap estimates
+          dynPoolMap <- holdDyn Nothing poolMapEv
+          poolAndFormEvent <- holdDyn (Nothing, Nothing) $ attachPromptlyDyn dynPoolMap formEvent
+          let swapEstimate = ffor poolAndFormEvent $ \case
+                (Just poolMap, Just ((selA, amtA), (selB, amtB))) -> do
+                  let ((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) = fromMaybe (("", 0), ("", 0))
+                        $ fmap snd
+                        $ headMay
+                        $ Map.elems
+                        $ Map.filter (\(_,((tknameA,_), (tknameB, _)))
+                        -> tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB)) poolMap
+                  let amtA' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtA
+                      amtB' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtB
+                      (swapAmount, estimatedTkName) = if amtA' == 0 then (amtB',coinAName) else (amtA',coinBName)
+                  (findSwapA coinAPoolAmount coinBPoolAmount swapAmount, estimatedTkName)
+                _ -> (0, "")
+          widgetHold_ blank $ ffor (updated swapEstimate) $ \(estimate, eTokenName) ->
+            elClass "p" "text-info" $ text
+              $ "Estimated to receive "
+              <> (T.pack $ show estimate)
+              <> " " <> (T.pack $ show $ if "" == eTokenName then "ADA" else eTokenName)
   return ((), leftmost [(portfolioDashboard wid) <$ portfolioEv, poolDashboard wid <$ poolEv])
 
 portfolioDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
