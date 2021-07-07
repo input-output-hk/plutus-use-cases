@@ -17,13 +17,13 @@ import Plutus.V1.Ledger.Contexts
 import Mlabs.Nft.Logic.Types
 
 {-# INLINABLE validate #-}
--- | Validation of Minting of NFT-token. We guarantee unqiqueness of NFT
+-- | Validation of Minting of NFT-token. We guarantee uniqueness of NFT
 -- by make the script depend on spending of concrete TxOutRef in the list of inputs.
 -- TxOutRef for the input is specified inside NftId value.
 --
 -- Also we check that
 --
--- * user mints token that coressponds to the content of NFT (token name is hash of NFT content)
+-- * user mints token that corresponds to the content of NFT (token name is hash of NFT content)
 -- * user spends NFT token to the StateMachine script
 --
 -- First argument is an address of NFT state machine script. We use it to check

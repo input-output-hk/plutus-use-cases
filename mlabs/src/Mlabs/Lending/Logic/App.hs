@@ -45,7 +45,7 @@ type LendingApp = App LendingPool Act
 runLendingApp :: AppConfig -> Script -> LendingApp
 runLendingApp cfg acts = runApp react (initApp cfg) acts
 
--- Configuration paprameters for app.
+-- Configuration parameters for app.
 data AppConfig = AppConfig
   { appConfig'reserves :: [CoinCfg]
   -- ^ coins with ratios to base currencies for each reserve
@@ -80,7 +80,7 @@ initApp AppConfig{..} = App
     coinMap = AM.fromList $ fmap (\CoinCfg{..} -> (coinCfg'aToken, coinCfg'coin)) $ appConfig'reserves
 
 -- | Default application.
--- It allocates three users nad three reserves for Dollars, Euros and Liras.
+-- It allocates three users and three reserves for Dollars, Euros and Liras.
 -- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
 defaultAppConfig :: AppConfig
 defaultAppConfig = AppConfig reserves users curSym admins oracles

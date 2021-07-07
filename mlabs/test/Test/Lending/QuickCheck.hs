@@ -84,7 +84,7 @@ hasWallet app uid wal = lookupAppWallet uid app == Just wal
 checkWalletsProp :: (Show act, Show st) => [(UserId, BchWallet)] -> App st act -> Bool
 checkWalletsProp wals app = all (uncurry $ hasWallet app) wals
 
--- Map maniplation helper functions
+-- Map manipulation helper functions
 walletListToNestedMap :: [(UserId, BchWallet)] -> Map UserId (Map Coin Integer)
 walletListToNestedMap wals =
   addNestedMaps $ map (\(user, BchWallet wal) -> Map.singleton user wal) wals

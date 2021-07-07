@@ -41,7 +41,7 @@ import qualified Plutus.Contract.StateMachine as SM
 -- | Blockchain state is a set of wallets
 newtype BchState = BchState (Map UserId BchWallet)
 
--- " For simplicity wallet is a map of coins to balances.
+-- | For simplicity wallet is a map of coins to balances.
 newtype BchWallet = BchWallet (Map Coin Integer)
   deriving newtype (Show, P.Eq)
 
@@ -52,7 +52,7 @@ instance Eq BchWallet where
 defaultBchWallet :: BchWallet
 defaultBchWallet = BchWallet M.empty
 
--- | We can give money to vallets and take it from them.
+-- | We can give money to wallets and take it from them.
 -- We can mint new aToken coins on lending platform and burn it.
 data Resp
   = Move
@@ -80,7 +80,7 @@ moveFromTo from to coin amount =
   , Move to   coin amount
   ]
 
--- | Applies reponse to the blockchain state.
+-- | Applies response to the blockchain state.
 applyResp :: Resp -> BchState -> Either String BchState
 applyResp resp (BchState wallets) = fmap BchState $ case resp of
   Move addr coin amount -> updateWallet addr coin amount wallets

@@ -51,8 +51,8 @@ data Input = Input
 --
 -- For burn case we check that:
 --
--- * user deposit has diminished properly on user's internal wallet for leding pool state
--- * script has paid enough real tokens to the use rin return
+-- * user deposit has diminished properly on user's internal wallet for lending pool state
+-- * script has paid enough real tokens to the user in return
 --
 -- Note that during burn user does not pay aTokens to the app they just get burned.
 -- Only app pays to user in compensation for burn.
@@ -110,7 +110,7 @@ validate lendexId ctx = case (getInState, getOutState) of
           && checkUserPays
           && checkScriptPays uid
 
-        -- Check that user balance has growed on user inner wallet deposit
+        -- Check that user balance has grown on user inner wallet deposit
         checkUserDepositDiff uid = traceIfFalse "User deposit has not growed after Mint" $
           checkUserDepositDiffBy (\dep1 dep2 -> dep2 - dep1 == amount) st1 st2 coin uid
 
@@ -119,7 +119,7 @@ validate lendexId ctx = case (getInState, getOutState) of
         checkUserPays = traceIfFalse "User does not pay for Mint" $
           stVal2 == (stVal1 <> Value.assetClassValue coin amount)
 
-        -- Check that user recieved aCoins
+        -- Check that user received aCoins
         checkScriptPays uid = traceIfFalse "User has not received aCoins for Mint" $
           checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue aCoin amount :: TxConstraints () ()) ctx
 
@@ -134,7 +134,7 @@ validate lendexId ctx = case (getInState, getOutState) of
         checkUserDepositDiff uid = traceIfFalse "User deposit has not diminished after Burn" $
           checkUserDepositDiffBy (\dep1 dep2 -> dep1 - dep2 == amount) st1 st2 coin uid
 
-        -- Check that user recieved coins
+        -- Check that user received coins
         checkScriptPays uid = traceIfFalse "User does not receive for Burn" $
           checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue coin amount :: TxConstraints () ()) ctx
 
