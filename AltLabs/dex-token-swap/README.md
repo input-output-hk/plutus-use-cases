@@ -23,6 +23,8 @@ The scope of this phase is to:
 * Research and document the different strategies for scaling the PAB 
 * Implement a solution that would allow a large number of users to interact with the PAB
 * Work related to the integration of the PAB & wallet management 
+* Test setup on different hardware configurations  
+* Benchmark & publish results of PAB running on different configurations  
 
 ## CodeBase
 
