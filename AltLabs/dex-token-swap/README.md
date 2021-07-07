@@ -126,6 +126,12 @@ To add liquidity one must invoke the User contract's `add` endpoint, which produ
 
 ![Alt text](./img/AddLP.jpg?raw=true "Optional Title")
 
+### 3 — Swap
+
+To swap token eg. A for B, there is a `swap` endpoint on the User contranct instance.
+
+![Alt text](./img/SwapLP.jpg?raw=true "Optional Title")
+
 ## Test Specs
 
 ### Unit Tests
