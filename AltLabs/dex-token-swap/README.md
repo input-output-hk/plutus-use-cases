@@ -110,6 +110,16 @@ Important to note here are data types used by validators which are `UniswapActio
 
 All data types ending with *Params (eg. CreateParams) contain the structure that the consumable JSON api endpoints expect.
 
+## User Contract Endpoints
+
+After the PAB has started a Uniswap "Factory" contract is started. The instance of this contract is later on used to parametrize the endpoints consumable by the end user.
+
+### 1 — Create Liquidity Pool
+
+The first step is to consume the "Factory" output via the User ` create` endpoint to create a new liquidity pool. The Factory UTXO keeps a track of the list of pools in it's DATUM, which is updated whenever a new pool is created.
+
+![Alt text](./img/CreateLP.jpg?raw=true "Optional Title")
+
 ## Test Specs
 
 ### Unit Tests
