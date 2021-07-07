@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
--- | State transitions for Lending app
+-- | State transitions for NFT app
 module Mlabs.Nft.Logic.State(
     St
   , isOwner
@@ -22,7 +22,7 @@ import Mlabs.Control.Monad.State
 import Mlabs.Nft.Logic.Types
 import Mlabs.Lending.Logic.Types
 
--- | State update of lending pool
+-- | State update of NFT
 type St = PlutusState Nft
 
 -----------------------------------------------------------

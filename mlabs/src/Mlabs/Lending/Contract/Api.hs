@@ -86,7 +86,7 @@ data SwapBorrowRateModel = SwapBorrowRateModel
 data SetUserReserveAsCollateral = SetUserReserveAsCollateral
   { setCollateral'asset           :: Coin       -- ^ which asset to use as collateral or not
   , setCollateral'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
-  , setCollateral'portion         :: Ray        -- ^ poriton of deposit/collateral to change status (0, 1)
+  , setCollateral'portion         :: Ray        -- ^ portion of deposit/collateral to change status (0, 1)
   }
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
@@ -186,7 +186,7 @@ toInterestRateFlag = InterestRateFlag . \case
   VariableRate -> 1
 
 ----------------------------------------------------------
--- boilerplate to logic-act coversions
+-- boilerplate to logic-act conversions
 
 class IsEndpoint a => IsUserAct a where
   toUserAct :: a -> UserAct

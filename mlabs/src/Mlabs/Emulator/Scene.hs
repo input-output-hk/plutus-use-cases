@@ -24,7 +24,7 @@ import qualified Data.List as L
 -- | Scene is users with balances and value that is owned by application script.
 -- It can be built with Monoid instance from parts with handy functions:
 --
--- owns, apOwns, appAddress
+-- 'owns', 'apOwns', 'appAddress'
 --
 -- With monoid instance we can specify only differences between test stages
 -- and then add them app with @<>@ to the initial state of the scene.
@@ -53,7 +53,7 @@ appOwns v = Scene { scene'users = mempty, scene'appValue = coinDiff v, scene'app
 appAddress :: Address -> Scene
 appAddress addr = Scene { scene'users = mempty, scene'appValue = mempty, scene'appAddress = Just addr }
 
--- | Truns scene to plutus checks. Every user ownership turns into walletFundsChange check.
+-- | Turns scene to plutus checks. Every user ownership turns into 'walletFundsChange' check.
 checkScene :: Scene -> TracePredicate
 checkScene Scene{..} = withAddressCheck $
   (concatPredicates $ fmap (uncurry walletFundsChange) $ M.toList scene'users)

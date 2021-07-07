@@ -84,7 +84,7 @@ test = testGroup "Logic"
 testScript :: Script -> LendingApp
 testScript script = runLendingApp testAppConfig script
 
--- | Check that we have those wallets after script was run.
+-- | Checks that we have those wallets after script was run.
 testWallets :: [(UserId, BchWallet)] -> Script -> Assertion
 testWallets wals script = do
   noErrors app
@@ -226,8 +226,8 @@ aCoin2 = fromToken aToken2
 -- aCoin3 = fromToken aToken3
 
 -- | Default application.
--- It allocates three users nad three reserves for Dollars, Euros and Liras.
--- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
+-- It allocates three users and three reserves for Dollars, Euros and Liras.
+-- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros and user 3 has liras.
 testAppConfig :: AppConfig
 testAppConfig = AppConfig reserves users lendingPoolCurrency admins oracles
   where

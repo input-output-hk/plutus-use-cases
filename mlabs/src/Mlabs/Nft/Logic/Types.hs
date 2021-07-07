@@ -45,7 +45,7 @@ data Nft = Nft
 data NftId = NftId
   { nftId'token  :: TokenName     -- ^ token name is identified by content of the NFT (it's hash of it)
   , nftId'outRef :: TxOutRef      -- ^ TxOutRef that is used for minting of NFT,
-                                  -- with it we can guarantee unqiqueness of NFT
+                                  -- with it we can guarantee uniqueness of NFT
   }
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)

@@ -39,7 +39,7 @@ type Sim a = Simulation (Builtin LendexContracts) a
 -- | Lendex schemas
 data LendexContracts
   = Init                  -- ^ init wallets
-  | User                  -- ^ we read Lendex identifier and instanciate schema for the user actions
+  | User                  -- ^ we read Lendex identifier and instantiate schema for the user actions
   | Oracle                -- ^ price oracle actions
   | Admin                 -- ^ govern actions
   deriving stock (Show, Generic)

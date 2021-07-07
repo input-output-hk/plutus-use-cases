@@ -39,7 +39,7 @@ type Sim a = Simulation (Builtin NftContracts) a
 -- | NFT schemas
 data NftContracts
   = StartNft           -- ^ author can start NFT and provide NftId
-  | User NftId         -- ^ we read NftId and instanciate schema for the user actions
+  | User NftId         -- ^ we read NftId and instantiate schema for the user actions
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
