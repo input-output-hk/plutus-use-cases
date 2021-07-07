@@ -20,7 +20,7 @@ import Ledger
 import Ledger.Value
 import PlutusTx ( applyCode, liftCode, compile )
 import Ledger.Typed.Scripts (wrapMonetaryPolicy)
- 
+
 {-# INLINABLE mkPolicy #-}
 mkPolicy :: TxOutRef -> TokenName -> ScriptContext -> Bool
 mkPolicy oref tn ctx@ScriptContext {scriptContextTxInfo=info@TxInfo{}} =
@@ -46,7 +46,7 @@ policy oref tn = mkMonetaryPolicyScript $
 
 -- policy::TxOutRef -> TokenName -> MonetaryPolicy
 -- policy oref tn=mkMonetaryPolicyScript   $$(PlutusTx.compile [||a ||])
---   where 
+--   where
 --     a _=()
 
 

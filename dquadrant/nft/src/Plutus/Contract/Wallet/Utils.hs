@@ -19,7 +19,7 @@ import Control.Monad (void)
 import qualified Data.Aeson.Types as Types
 import qualified Data.Map as Map
 import Data.Aeson (toJSON, encode)
-import Ledger.AddressMap
+import Ledger.AddressMap ()
 import PlutusTx
 import Playground.Contract ( TxOutRef )
 import Data.Maybe ( isJust, fromJust, catMaybes, mapMaybe )

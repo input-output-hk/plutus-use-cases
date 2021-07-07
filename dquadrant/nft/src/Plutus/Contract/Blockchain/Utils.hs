@@ -29,6 +29,8 @@ import Ledger
       scriptHashAddress,
       Address, toValidatorHash )
 import PlutusTx
+import Ledger.Credential
+import Ledger.Address (addressCredential)
 
 --  The functions in this  module are not bounded to the marketplace use case.
 --- These functions should probably be provided by the Plutus Library itself.
@@ -47,19 +49,16 @@ ownInputs ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}}=
     where
     resolved=map (\x->txInInfoResolved x) txInfoInputs
 
---
---  Commented code below is invalid because ScriptCredential is not exported by Ledger.Address.
---  Better add this function to  the library
 
--- allowSingleScript:: ScriptContext  -> Bool
--- allowSingleScript ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}} =
---     checkScript txInfoInputs
---   where
---     checkScript (TxInInfo _ (TxOut address _ _))= 
---       case addressCredential  address of
---         ScriptCredential vhash ->  traceIfFalse  @String "Reeming other Script utxo is Not allowed" (thisScriptHash == vhash)
---         _ -> True
---     thisScriptHash= ownHash ctx
+allowSingleScript':: ScriptContext  -> Bool
+allowSingleScript' ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}} =
+    all checkScript txInfoInputs
+  where
+    checkScript (TxInInfo _ (TxOut address _ _))=
+      case addressCredential  address of
+        ScriptCredential vhash ->  traceIfFalse  "Reeming other Script utxo is Not allowed" (thisScriptHash == vhash)
+        _ -> True
+    thisScriptHash= ownHash ctx
 
 -- get List of valid parsed datums to the script in this transaction
 {-# INLINABLE ownInputDatums #-}

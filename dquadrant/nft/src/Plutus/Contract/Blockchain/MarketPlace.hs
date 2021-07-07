@@ -79,7 +79,7 @@ import Ledger.Time (POSIXTime)
 
 -- moving this function to Data/Payment.hs will give following error
 --
---GHC Core to PLC plugin: E043:Error: Reference to a name which is not a local, a builtin, or an external INLINABLE function: 
+--GHC Core to PLC plugin: E043:Error: Reference to a name which is not a local, a builtin, or an external INLINABLE function:
 -- Variable Plutus.Contract.Data.Payment.$s$fFoldable[]_$cfoldMap
 --            OtherCon []
 --Context: Compiling expr: Plutus.Contract.Data.Payment.$s$fFoldable[]_$cfoldMap
@@ -94,7 +94,7 @@ validatePayment f p=
 -- moving this function to Blockchain/Utils.hs will give following error
 --
 --GHC Core to PLC plugin: E043:Error: Reference to a name which is not a local, a builtin,
---  or an external INLINABLE function: Variable 
+--  or an external INLINABLE function: Variable
 --  Plutus.Contract.Blockchain.Utils.$s$fFoldable[]_$cfoldMap
 --           No unfolding
 
@@ -137,7 +137,7 @@ data Market = Market
     ,   mAuctionFee         :: !Integer
     } deriving (Show,Generic, FromJSON, ToJSON)
 
-data MarketRedeemer =  ClaimBid| Bid | Buy | Withdraw 
+data MarketRedeemer =  ClaimBid| Bid | Buy | Withdraw
     deriving (Generic,FromJSON,ToJSON,Show,Prelude.Eq)
 
 data SellType = Primary | Secondary  deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
@@ -178,8 +178,8 @@ aSellerShareValue m@Market{mAuctionFee} a@Auction{aAssetClass,aValue} fValue =
   fValue - aValue-aMarketShareValue m a fValue
 
 
--- Operator's share for auction, 
--- if the split is fractional, market receives the extra. 
+-- Operator's share for auction,
+-- if the split is fractional, market receives the extra.
 -- For example if market  fee is 3.22, operator will receive 4 Ada.
 {-# INLINABLE aMarketShareValue #-}
 aMarketShareValue :: Market -> Auction -> Value-> Value
@@ -191,8 +191,8 @@ aMarketShareValue Market{mAuctionFee} Auction{aAssetClass} fValue = assetClassVa
 
 data Auction = Auction{
     aOwner  :: !PubKeyHash, -- pkh Who created the auction.
-    aBidder:: !PubKeyHash, -- Current Bidder 
-    aAssetClass:: !AssetClass, -- The Bidding currency for auction. 
+    aBidder:: !PubKeyHash, -- Current Bidder
+    aAssetClass:: !AssetClass, -- The Bidding currency for auction.
     aMinBid :: !Integer, -- starting Bid
     aMinIncrement :: !Integer, -- min increment  from previous auction per bid
     aDuration:: !POSIXTimeRange, -- Auction duration
@@ -234,7 +234,7 @@ validateBid market auction ctx@ScriptContext  {scriptContextTxInfo=info}=
                                       aOwner auction== aOwner nAuction &&
                                       aBidder nAuction /= aOwner auction
 
-    -- without this check, auction creator might say that 
+    -- without this check, auction creator might say that
     -- they are placing asset on auction datum without locking them.
     validInputDatum = ownInputValue ctx `geq` aValue auction
     minNewBid = ownInputValue ctx <>

@@ -43,6 +43,15 @@ import Test.Tasty (TestTree)
 import Control.Lens.Operators
 import Data.String.Conversions (convertString)
 
+
+defaultMarket :: Market
+defaultMarket = Market {
+    mOperator   = pubKeyHash (walletPubKey (Wallet 9)),
+    mAuctionFee =1_000_000 , -- for consistency keep it 1%
+    mPrimarySaleFee =2_000_000,-- for consistency keep it 2%
+    mSecondarySaleFee=3_000_000 -- for consistency keep it 3%
+    }
+
 type TestSchema=
   MarketSchema
   .\/ Endpoint "filterTxOuts" TxId
@@ -64,15 +73,6 @@ filterTxOutsEp= do
 testEndpoints :: Contract [AesonTypes.Value] TestSchema Text  ()
 testEndpoints= handleError (\e -> logError e) (marketEndpoints defaultMarket `select`filterTxOutsEp) >>testEndpoints
 
-defaultMarket :: Market
-defaultMarket = Market
-    {
-    mOperator   = pubKeyHash (walletPubKey (Wallet 9)),
-    mAuctionFee =1_000_000 , -- for consistency keep it 1%
-    mPrimarySaleFee =2_000_000,-- for consistency keep it 2%
-    mSecondarySaleFee=3_000_000 -- for consistency keep it 3%
-    }
-
 defaultMarketAddress :: Address
 defaultMarketAddress=marketAddress  defaultMarket
 
@@ -88,13 +88,17 @@ sellParamLovelace _values sType lovelace=SellParams{
         }
 
 nft :: ByteString  -> Value
-nft t =singleton (CurrencySymbol t)  (TokenName emptyByteString)  1
+nft t =cardanoToken t  1
+
+cardanoToken :: ByteString -> Integer -> Value
+cardanoToken t = singleton (CurrencySymbol t)  (TokenName emptyByteString)
+
 
 negNft::ByteString   -> Value
-negNft t=singleton (CurrencySymbol t) (TokenName emptyByteString) (-1)
+negNft t=cardanoToken t (-1)
 
 noNft:: ByteString -> Value
-noNft t =singleton (CurrencySymbol t) (TokenName emptyByteString ) 0
+noNft t =cardanoToken t  0
 
 operator :: Wallet
 operator=Wallet 9

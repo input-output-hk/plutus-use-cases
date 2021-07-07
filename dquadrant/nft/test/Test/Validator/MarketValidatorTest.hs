@@ -1,71 +1,140 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NumericUnderscores#-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
 module Test.Validator.MarketValidatorTest
-(tests)
+-- (tests)
 where
 
+import Test.Tasty ( TestTree, defaultMain, testGroup, TestName )
+import Test.Tasty.HUnit
+import Test.ValidatorTestFramework
+import Plutus.Contract.Blockchain.MarketPlace
 import Test.TestHelper
-import Control.Monad (void)
-import Ledger.Ada ( lovelaceValueOf, adaSymbol, adaToken )
-import Plutus.Contract.Test
-import PlutusTx.Prelude
-import Test.Tasty
-import Plutus.Contract.Blockchain.MarketPlace
-import Plutus.Contract.Wallet.EndpointModels
-import Control.Lens hiding (to)
-import Plutus.Trace.Emulator
-import qualified Data.Aeson as AesonTypes
-import Data.Text(Text)
-import Ledger (TxOutRef, pubKeyHash, PubKeyHash (getPubKeyHash), Value, Address, ScriptContext, TxInInfo, Tx, Datum, TxOut, TxId)
-import Prelude (show, String, IO, Integral (toInteger))
-import Plutus.Contract.Blockchain.MarketPlace
-import qualified Data.Map as Map
-import qualified PlutusTx.AssocMap as AssocMap
-import Ledger.Value(singleton, Value (Value))
-import Ledger.Contexts
-import Ledger.Interval hiding (singleton)
-import Plutus.V1.Ledger.TxId (TxId(TxId))
-import PlutusTx (IsData(toData))
+import Ledger.Value
 
---- It's WIP ..
+import PlutusTx (fromData)
+import Ledger
+import PlutusTx.Prelude
+import Plutus.Contract.Test
+import Ledger.Ada
+
+main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "MarketValidator Unit Test"
-      [ ]
-type TestTx=[(Datum,Datum,ScriptContext,Datum->Datum->ScriptContext->Bool)]
+tests = testGroup "Market Validator Unit Test" [
+      execMarket "Can buy single item" (
+            builderRedeem Buy (nft "a") defaultSale
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 100_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 98_000_000)
+        <>  builderPayTo (Wallet 2) (nft "a")
+        <>  builderPayTo operator (lovelaceValueOf 2_000_000)
+      ),
+      execMarket "Can buy and gift to another wallet" (
+            builderRedeem Buy (nft "a") defaultSale
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 100_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 98_000_000)
+        <>  builderPayTo (Wallet 3) (nft "a")
+        <>  builderPayTo operator (lovelaceValueOf 2_000_000)
+      ),
+      execMarket "Can buy multiple items " (
+            builderRedeem Buy (nft "a") (primarySale (Wallet 1) (priceInAda 100_000_000))
+        <>  builderRedeem Buy (nft "b") (primarySale (Wallet 2) (priceInAda 200_000_000))
+        <>  builderRedeem Buy (nft "c") (primarySale (Wallet 3) (priceInAda 300_000_000))
+        <>  builderSpend (Wallet 4) (lovelaceValueOf 600_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 98_000_000)
+        <>  builderPayTo (Wallet 2) (lovelaceValueOf 196_000_000)
+        <>  builderPayTo (Wallet 3) (lovelaceValueOf 294_000_000)
+        <>  builderPayTo (Wallet 2) (nft "a"<>nft"b"<>nft"c")
+        <>  builderPayTo operator (lovelaceValueOf 12_000_000)
+      ),
 
-type TInput =[(Value,Address)]
+      execFailMarket "Cannot Pay less to seller" (
+            builderRedeem Buy (nft "a") defaultSale
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 99_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 97_000_000)
+        <>  builderPayTo (Wallet 2) (nft "a")
+        <>  builderPayTo operator (lovelaceValueOf 2_000_000)
+      ),
+      execFailMarket "Cannot Pay less fees" (
+            builderRedeem Buy (nft "a") defaultSale
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 99_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 98_000_000)
+        <>  builderPayTo (Wallet 2) (nft "a")
+        <>  builderPayTo operator (lovelaceValueOf 1_000_000)
+      ),
+      execMarket "Can give tips to the seller" (
+            builderRedeem Buy (nft "a") defaultSale
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 110_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 108_000_000)
+        <>  builderPayTo (Wallet 2) (nft "a")
+        <>  builderPayTo operator (lovelaceValueOf 2_000_000)
+      ),
+       execMarket "Can give tips to the market" (
+            builderRedeem Buy (nft "a") defaultSale
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 110_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 108_000_000)
+        <>  builderPayTo (Wallet 2) (nft "a")
+        <>  builderPayTo operator (lovelaceValueOf 12_000_000)
+      ),
+      execFailMarket "Cannot double satisfy on identical sale" (
+            builderRedeem Buy (nft "a") (primarySale (Wallet 1) (priceInAda 100_000_000))
+        <>  builderRedeem Buy (nft "a") (primarySale (Wallet 1) (priceInAda 100_000_000))
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 100_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 98_000_000)
+        <>  builderPayTo (Wallet 2)  (cardanoToken "a" 2)
+        <>  builderPayTo operator (lovelaceValueOf 2_000_000)
+      ),
+      execFailMarket "Cannot double satisfy payment to seller" (
+            builderRedeem Buy (nft "a") (primarySale (Wallet 1) (priceInAda 100_000_000))
+        <>  builderRedeem Buy (nft "b") (primarySale (Wallet 1) (priceInAda 100_000_000))
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 102_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf 98_000_000)
+        <>  builderPayTo (Wallet 2)  (nft "a"<>nft "b")
+        <>  builderPayTo operator (lovelaceValueOf 4_000_000)
+      ),
+      execFailMarket "Cannot double satisfy marketFee" (
+            builderRedeem Buy (nft "a") (primarySale (Wallet 1) (priceInAda 100_000_000))
+        <>  builderRedeem Buy (nft "b") (primarySale (Wallet 3) (priceInAda 100_000_000))
+        <>  builderSpend (Wallet 2) (lovelaceValueOf 198_000_000)
+        <>  builderPayTo (Wallet 1) (lovelaceValueOf  98_000_000)
+        <>  builderPayTo (Wallet 3) (lovelaceValueOf  98_000_000)
+        <>  builderPayTo (Wallet 2)  (nft "a"<>nft "b")
+        <>  builderPayTo operator (lovelaceValueOf 2_000_000)
+      )
+  ]
 
-cannotBuyWithLesserValue= mkMarket defaultMarket  (toData $ toInteger 32) Buy ScriptContext{
-    scriptContextTxInfo =TxInfo{
-      txInfoInputs        =[] --[TxInInfo] -- ^ Transaction inputs
-    , txInfoOutputs     =  [] -- [TxOut] -- ^ Transaction outputs
-    , txInfoFee         =  defaultFee -- ^ The fee paid by this transaction.
-    , txInfoForge       =  defaultForge -- ^ The 'Value' forged by this transaction.
-    , txInfoDCert       = [] -- ^ Digests of certificates included in this transaction
-    , txInfoWdrl        = [] -- ^ Withdrawals
-    , txInfoValidRange  = to 32
- -- ^ The valid range for the transaction.
-    , txInfoSignatories =  []--[PubKeyHash] -- ^ Signatures provided with the transaction, attested that they all signed the tx
-    , txInfoData        =  []--[(DatumHash, Datum)]
-    , txInfoId          = TxId "a"
-    },
-    scriptContextPurpose =Spending (TxOutRef (TxId "b") 0)
-  }
+execMarketTimed :: TestName-> TestContextBuilder -> POSIXTimeRange -> TestTree
+execMarketTimed name ctx range =testCase name (executeSpendContext  _marketValidator ctx range @?= True)
+  where
+    _marketValidator d r ctx= case fromData r of
+      Just redeemer -> mkMarket defaultMarket d redeemer ctx
+      _     -> False
 
-defaultFee=singleton adaSymbol  adaToken  20
-defaultForge=Value AssocMap.empty
+defaultSale :: DirectSale
+defaultSale= DirectSale (pubKeyHash $ walletPubKey $ Wallet 1) (Price (adaSymbol, adaToken, 100_000_000)) Primary
+
+primarySale :: Wallet -> Price  -> DirectSale
+primarySale w cost = DirectSale (pubKeyHash $ walletPubKey w) cost Primary
+
+priceInToken :: ByteString -> Integer -> Price
+priceInToken token iValue = Price (CurrencySymbol token, TokenName "", iValue)
+priceInAda :: Integer->Price
+priceInAda v=Price (adaSymbol, adaToken, v)
+
+execMarket :: TestName-> TestContextBuilder -> TestTree
+execMarket testName  ctx = execMarketTimed testName ctx  always
+
+execFailMarketTimed :: TestName-> TestContextBuilder -> POSIXTimeRange -> TestTree
+execFailMarketTimed name ctx range =testCase name (executeSpendContext  _marketValidator ctx range @?= False)
+  where
+    _marketValidator d r ctx= case fromData r of
+      Just redeemer -> mkMarket defaultMarket d redeemer ctx
+      _     -> False
+
+execFailMarket :: TestName-> TestContextBuilder -> TestTree
+execFailMarket testName  ctx = execFailMarketTimed testName ctx  always
+
+
