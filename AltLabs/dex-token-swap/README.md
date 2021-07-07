@@ -1,13 +1,28 @@
 ## [Use case 2] — DEX Token Swap, Liquidity and Stake Pools
 
-Our main goal of this project is to get onboarded into the Plutus smart contract ecosystem, and gain full understanding of it's mechanics of the UTxO transaction model.
+The main goal of this project is to get onboarded into the Plutus smart contract ecosystem, and gain full understanding of it's mechanics of the UTxO transaction model.
 
-The project should make available the following functionallity that can be consumed by the WebUI:
+The project should make available the following functionality  that can be consumed by the WebUI:
 
-* Swap 2 tokens within a pre-made liquidity pool
-* Contribute to the liquidity pool by adding tokens
+* Swap a particular tokens pair within a pre-made liquidity pool
+* Add liquidity to a pool 
 
-The examples are based on the plutus-use-cases uniswap example from the official plutus repo.
+Some of the work part of this project is based on the plutus-use-cases Uniswap example from the official Plutus repo.
+
+## Challenges
+
+While working on this project, as our objective was to abstract away the complexity related to working directly with smart contracts to as many developers as possible.
+
+This will allow a large number of users to be onboarded to the ecosystem as building DApps using NT's would be simpler, but at the latter stages of development we realized that in order for us to acomplish that mission substantial work related to scaling the PAB is necessary.    
+
+## Next steps - Phase 2  
+
+In the second phase our objective is to focus on scaling the PAB, this can be done in a couple of ways, depending on how wallets will be managed.
+
+The scope of this phase is to:
+* Research and document the different strategies for scaling the PAB 
+* Implement a solution that would allow a large number of users to interact with the PAB
+* Work related to the integration of the PAB & wallet management 
 
 ## CodeBase
 
