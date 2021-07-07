@@ -6,16 +6,20 @@
  - This modules is full of functions used to provide estimates for swaps, liquidity redemption, etc.
 -}
 
+{-# LANGUAGE DerivingStrategies #-}
+
 module Common.Plutus.Contracts.Uniswap.Estimates where
+
+import Data.Ratio
 
 traceIfFalse :: String -> Bool -> Bool
 traceIfFalse _ a = if a then True else False
 
-checkSwap 
-  :: Integer -- Amount A 
-  -> Integer -- Amount B 
-  -> Integer -- Amount A 
-  -> Integer -- Amount B 
+checkSwap
+  :: Integer -- Amount A
+  -> Integer -- Amount B
+  -> Integer -- Amount A
+  -> Integer -- Amount B
   -> Bool
 checkSwap oldA oldB newA newB =
     traceIfFalse "expected positive oldA" (oldA > 0) &&
@@ -73,4 +77,60 @@ calculateRemoval inA inB liquidity diff = (g inA, g inB)
   where
     g :: Integer -> Integer
     g x = x - div (x * diff) liquidity
+
+-- | Integer square-root representation, discarding imaginary integers.
+data Sqrt
+  -- | The number was negative, so we don't even attempt to compute it;
+  -- just note that the result would be imaginary.
+  = Imaginary
+  -- | An exact integer result. The 'rsqrt' of 4 is 'Exactly 2'.
+  | Exactly Integer
+  -- | The Integer component (i.e. the floor) of a non-integral result. The
+  -- 'rsqrt 2' is 'Approximately 1'.
+  | Approximately Integer
+  deriving stock (Show, Eq)
+
+{-# INLINABLE rsqrt #-}
+-- | Calculates the sqrt of a ratio of integers. As x / 0 is undefined,
+-- calling this function with `d=0` results in an error.
+rsqrt :: Rational -> Sqrt
+rsqrt r
+    | n * d < 0 = Imaginary
+    | n == 0    = Exactly 0
+    | n == d    = Exactly 1
+    | n < d     = Approximately 0
+    | n < 0     = rsqrt $ negate n % negate d
+    | otherwise = go 1 $ 1 + div n d
+  where
+    n = numerator r
+    d = denominator r
+    go :: Integer -> Integer -> Sqrt
+    go l u
+        | l * l * d == n = Exactly l
+        | u == (l + 1)   = Approximately l
+        | otherwise      =
+              let
+                m = div (l + u) 2
+              in
+                if m * m * d <= n then go m u
+                                  else go l m
+
+calculateAdditionalLiquidity
+  :: Integer -- Liquidity Pool Balance for first coin of token pool
+  -> Integer -- Liquidity Pool Balance for second coin of token pool
+  -> Integer -- Liquidity Pool Balance
+  -> Integer -- Amount of first coin being added to token pool
+  -> Integer -- Amount of second coin being added to token pool
+  -> Integer -- Amount of Liquidity to be recieved
+calculateAdditionalLiquidity oldA oldB liquidity delA delB =
+  case rsqrt ratio of
+    Imaginary       -> (-1) -- TODO: Throw error here
+    Exactly x       -> x - liquidity
+    Approximately x -> x - liquidity
+  where
+    ratio = (liquidity * liquidity * newProd) % oldProd
+
+    oldProd, newProd :: Integer
+    oldProd = oldA * oldB
+    newProd = (oldA + delA) * (oldB + delB)
 
