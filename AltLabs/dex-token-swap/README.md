@@ -120,6 +120,12 @@ The first step is to consume the "Factory" output via the User ` create` endpoin
 
 ![Alt text](./img/CreateLP.jpg?raw=true "Optional Title")
 
+### 2 — Add Liquidity
+
+To add liquidity one must invoke the User contract's `add` endpoint, which produces the following Tx outputs:
+
+![Alt text](./img/AddLP.jpg?raw=true "Optional Title")
+
 ## Test Specs
 
 ### Unit Tests
