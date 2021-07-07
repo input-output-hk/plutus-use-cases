@@ -71,11 +71,11 @@ type OracleSchema =
     .\/ Endpoint "update" UpdateOracleParams
 
 data OracleContractState =
-    Started
-    | Updated 
+    Started Oracle.Oracle
+    | Updated Oracle.Oracle
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
 oracleEndpoints :: Contract (ContractResponse Text OracleContractState) OracleSchema Void ()
 oracleEndpoints = forever $
-    withContractResponse (Proxy @"start") (const Started) start
-    `select` withContractResponse (Proxy @"update") (const Updated) update
+    withContractResponse (Proxy @"start") Started start
+    `select` withContractResponse (Proxy @"update") Updated update
