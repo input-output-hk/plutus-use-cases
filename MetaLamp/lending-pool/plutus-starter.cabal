@@ -23,7 +23,27 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Plutus.Abstract.State Plutus.Abstract.State.Select Plutus.Abstract.State.Update Plutus.Abstract.ContractResponse Plutus.Abstract.OutputValue Plutus.Abstract.TxUtils Plutus.Contracts.Service.FungibleToken Plutus.Contracts.Service.Oracle Plutus.Contracts.LendingPool.OnChain.Core Plutus.Contracts.LendingPool.OnChain.Core.Script Plutus.Contracts.LendingPool.OnChain.Core.Validator Plutus.Contracts.LendingPool.OnChain.Core.Logic Plutus.Contracts.LendingPool.OnChain.AToken Plutus.Contracts.LendingPool.OffChain.AToken Plutus.Contracts.LendingPool.OffChain.Info Plutus.Contracts.LendingPool.OffChain.Owner Plutus.Contracts.LendingPool.OffChain.State Plutus.Contracts.LendingPool.OffChain.User Plutus.PAB.Simulation Ext.Plutus.Ledger.Value Ext.Plutus.Ledger.Contexts
+      Plutus.Abstract.State 
+      Plutus.Abstract.State.Select 
+      Plutus.Abstract.State.Update 
+      Plutus.Abstract.ContractResponse 
+      Plutus.Abstract.OutputValue 
+      Plutus.Abstract.TxUtils 
+      Plutus.Contracts.Service.FungibleToken 
+      Plutus.Contracts.Service.Oracle 
+      Plutus.Contracts.Service.OracleContract
+      Plutus.Contracts.LendingPool.OnChain.Core 
+      Plutus.Contracts.LendingPool.OnChain.Core.Script 
+      Plutus.Contracts.LendingPool.OnChain.Core.Validator 
+      Plutus.Contracts.LendingPool.OnChain.Core.Logic 
+      Plutus.Contracts.LendingPool.OnChain.AToken 
+      Plutus.Contracts.LendingPool.OffChain.AToken 
+      Plutus.Contracts.LendingPool.OffChain.Info 
+      Plutus.Contracts.LendingPool.OffChain.Owner 
+      Plutus.Contracts.LendingPool.OffChain.State 
+      Plutus.Contracts.LendingPool.OffChain.User 
+      Plutus.PAB.Simulation Ext.Plutus.Ledger.Value 
+      Ext.Plutus.Ledger.Contexts
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -97,6 +117,19 @@ executable generate-purs
     plutus-ledger,
     plutus-tx
 
+executable oracle-contract
+  main-is: Main.hs
+  hs-source-dirs: oracle-contract
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    text,
+    plutus-starter,
+    plutus-ledger-api,
+    plutus-pab,
+    plutus-tx
+
 executable owner-contract
   main-is: Main.hs
   hs-source-dirs: owner-contract
@@ -136,45 +169,45 @@ executable info-contract
     plutus-pab,
     plutus-tx
 
-test-suite test
-    type: exitcode-stdio-1.0
-    main-is: Main.hs
-    hs-source-dirs: test
-    other-modules:
-      Spec.Start Spec.Deposit Spec.Withdraw Spec.ProvideCollateral Spec.RevokeCollateral Spec.Borrow Spec.Repay Spec.Shared Utils.Data Utils.Trace Fixtures Fixtures.Symbol Fixtures.Aave Fixtures.Asset Fixtures.Init Fixtures.Wallet
-    default-language: Haskell2010
-    ghc-options: -Wall -Wnoncanonical-monad-instances
-                 -Wincomplete-uni-patterns -Wincomplete-record-updates
-                 -Wredundant-constraints -Widentities -rtsopts
-                 -- See Plutus Tx readme
-                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    build-depends:
-        plutus-core -any,
-        plutus-tx -any,
-        plutus-contract -any,
-        plutus-ledger -any,
-        plutus-starter,
-        plutus-ledger-api,
-        plutus-tx-plugin
-    build-depends:
-        base >=4.9 && <5,
-        aeson -any,
-        bytestring -any,
-        containers -any,
-        data-default -any,
-        freer-extras -any,
-        hedgehog -any,
-        prettyprinter -any,
-        tasty -any,
-        tasty-hunit -any,
-        tasty-hedgehog >=0.2.0.0,
-        tasty-golden -any,
-        tasty-quickcheck -any,
-        text -any,
-        lens -any,
-        mtl -any,
-        row-types -any,
-        QuickCheck -any,
-        freer-simple -any,
-        foldl -any,
-        streaming -any
+-- test-suite test
+--     type: exitcode-stdio-1.0
+--     main-is: Main.hs
+--     hs-source-dirs: test
+--     other-modules:
+--       Spec.Start Spec.Deposit Spec.Withdraw Spec.ProvideCollateral Spec.RevokeCollateral Spec.Borrow Spec.Repay Spec.Shared Utils.Data Utils.Trace Fixtures Fixtures.Symbol Fixtures.Aave Fixtures.Asset Fixtures.Init Fixtures.Wallet
+--     default-language: Haskell2010
+--     ghc-options: -Wall -Wnoncanonical-monad-instances
+--                  -Wincomplete-uni-patterns -Wincomplete-record-updates
+--                  -Wredundant-constraints -Widentities -rtsopts
+--                  -- See Plutus Tx readme
+--                  -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+--     build-depends:
+--         plutus-core -any,
+--         plutus-tx -any,
+--         plutus-contract -any,
+--         plutus-ledger -any,
+--         plutus-starter,
+--         plutus-ledger-api,
+--         plutus-tx-plugin
+--     build-depends:
+--         base >=4.9 && <5,
+--         aeson -any,
+--         bytestring -any,
+--         containers -any,
+--         data-default -any,
+--         freer-extras -any,
+--         hedgehog -any,
+--         prettyprinter -any,
+--         tasty -any,
+--         tasty-hunit -any,
+--         tasty-hedgehog >=0.2.0.0,
+--         tasty-golden -any,
+--         tasty-quickcheck -any,
+--         text -any,
+--         lens -any,
+--         mtl -any,
+--         row-types -any,
+--         QuickCheck -any,
+--         freer-simple -any,
+--         foldl -any,
+--         streaming -any
