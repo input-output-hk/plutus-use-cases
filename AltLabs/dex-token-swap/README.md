@@ -132,6 +132,18 @@ To swap token eg. A for B, there is a `swap` endpoint on the User contranct inst
 
 ![Alt text](./img/SwapLP.jpg?raw=true "Optional Title")
 
+### 4 — Remove
+
+To withdraw tokens from a pool there is a `remove` endpoint on the User contract instance, which takes the liquidity shares amount as an input.
+
+![Alt text](./img/RemoveLP.jpg?raw=true "Optional Title")
+
+### 5 — Close
+
+The `close` endpoint on the user contranct instance, closes a liquidity pool by burning all remaining liquidity tokens in exchange for all liquidity remaining in the pool.
+
+![Alt text](./img/CloseLP.jpg?raw=true "Optional Title")
+
 ## Test Specs
 
 ### Unit Tests
