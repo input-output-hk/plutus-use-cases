@@ -605,6 +605,35 @@ poolDashboard wid = Workflow $ do
                                 let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
                                     failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                                 newObservableStateTag == ["NewObservableState"] && failureMessageTag /= [""]
+                          poolsEvent = flip ffilter  (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                            Nothing -> False
+                            Just incomingWebSocketData -> do
+                              let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                                  poolsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+                              observableStateTag == ["NewObservableState"] && poolsTag == ["Pools"]
+                      -- use pool map to calculate and display tokens to be redeemed when removing liquidity
+                      dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
+                        let poolDetails = case mIncomingPoolsWebSocketData of
+                              Nothing -> V.empty
+                              Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
+                        parseLiquidityTokensToMap poolDetails
+                      let ffor4 a b c d f = liftA3 f a b c <*> d
+                          poolSelectionAmounts = ffor4 selectionA amountA selectionB amountB $ \a b c d -> ((a,b),(c,d))
+                          liquidityEstimate = ffor2 dynPoolMap poolSelectionAmounts $ \poolMap ((selA,amtA) ,(selB, amtB)) -> do
+                            let (liquidityPoolAmount, ((_, coinAPoolAmount), (_, coinBPoolAmount))) = fromMaybe (1,(("",1),("",1)))
+                                  $ headMay
+                                  $ Map.elems
+                                  $ flip Map.filter poolMap
+                                  $ \(_, ((nameA,_),(nameB,_))) -> nameA == (_pooledToken_name selA) && nameB == (_pooledToken_name selB)
+                                stakeAmountA :: Integer = fromMaybe 0 $ readMay $ T.unpack amtA
+                                stakeAmountB :: Integer = fromMaybe 0 $ readMay $ T.unpack amtB
+                            calculateAdditionalLiquidity coinAPoolAmount coinBPoolAmount liquidityPoolAmount stakeAmountA stakeAmountB
+                      display liquidityEstimate
+                      divClass "p-3 mt-2" $ widgetHold_ blank $ ffor (updated liquidityEstimate) $ \liqEst ->
+                        elClass "p" "text-info" $ text
+                          $ "Staking this amount to the pool will yield "
+                          <> (T.pack $ show liqEst)
+                          <> " Liquidity Tokens"
                       -- this event will cause the success message to disappear when it occurs
                       vanishEvent <- delay 7 observableStateSuccessEvent
                       -- show success message based on new observable state
