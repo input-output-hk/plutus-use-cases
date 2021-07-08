@@ -37,7 +37,7 @@ import Obelisk.Route
 import Obelisk.Generated.Static
 import Reflex.Dom.Core
 import Rhyolite.Frontend.App
-import Safe (headMay, readMay)
+import Safe (headMay, initMay, readMay)
 
 import Common.Api
 import Common.Route
@@ -109,11 +109,9 @@ navBar :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t
 navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
   divClass "container-fluid" $ do
     elAttr "a" ("class" =: "navbar-brand" <> "href" =: "#") $ text "POKE-DEX - Plutus Obelisk Koin Economy Decentralized Exchange "
-      -- Note: This websocket keeps track of Slot number
-      --   el "p" $ text "-------------------------------"
-      -- Note: This websocket keeps track of Slot number
-      -- ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-      -- _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show a
+    -- Note: This websocket keeps track of Slot number
+    -- ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+    -- _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show a
     case mWid of
       Nothing -> return never
       Just wid -> do
@@ -176,12 +174,9 @@ swapDashboard wid = Workflow $ do
           Just poolTokens -> do
             let dropdownList = Map.fromListWith (\_ tkName -> tkName) $ flip fmap poolTokens $ \pt ->
                   if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
-                firstOption = headMay $ Map.keys dropdownList
-            case firstOption of
-              Nothing -> do
-                elClass "p" "text-warning" $ text "There are no tokens available to swap."
-                return never
-              Just fstOpt -> do
+                twoOptions = initMay $ Map.keys dropdownList
+            case twoOptions of
+              Just (fstOpt:sndOpt:_) -> do
                 divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
                   divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
                   divClass "card-body" $ divClass "form container" $ divClass "form-group" $ do
@@ -196,10 +191,15 @@ swapDashboard wid = Workflow $ do
                         & inputElementConfig_initialValue
                           .~ ("0" :: Text)
                       return (_dropdown_value coinAChoice, _inputElement_value coinAAmountInput)
+                    let noduplicateDropdownList = Map.filterWithKey (\k _ -> k /= fstOpt) dropdownList
+                    dynNonDuplicateDropdownList <- holdDyn noduplicateDropdownList $ ffor (updated selectionA)
+                      $ \choice -> Map.filterWithKey (\k _ -> k /= choice) dropdownList
                     -- Select second token and amount
                     (selectionB, amountB) <- divClass "input-group row mt-3" $ do
-                      coinBChoice <- dropdown fstOpt (constDyn $ dropdownList) $
-                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control") }
+                      coinBChoice <- dropdown sndOpt dynNonDuplicateDropdownList $ DropdownConfig
+                        { _dropdownConfig_attributes = constDyn ("class" =: "form-control")
+                        , _dropdownConfig_setValue = (ffor (updated dynNonDuplicateDropdownList) $ \opts -> fst $ Map.elemAt 0 opts)
+                        }
                       coinBAmountInput <- inputElement $ def
                         & inputElementConfig_elementConfig . elementConfig_initialAttributes
                           .~ ("class" =: "form-control" <> "type" =: "number")
@@ -252,6 +252,9 @@ swapDashboard wid = Workflow $ do
                             let errMsg = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                             elClass "p" "text-danger" $ text $ T.concat errMsg
                       return $ updated $ fmap Just $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> ((selA, amtA), (selB, amtB))
+              _ -> do
+                elClass "p" "text-warning" $ text "There are no tokens available to swap."
+                return never
       -- widget that shows transaction details such as swap estimates, etc.
       divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
         divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Transaction Details"
@@ -413,12 +416,12 @@ poolDashboard wid = Workflow $ do
                 Just poolTokens -> do
                   let dropdownList = Map.fromListWith (\_ tkName -> tkName) $ flip fmap poolTokens $ \pt ->
                         if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
-                      firstOption = headMay $ Map.keys dropdownList
-                  case firstOption of
+                      twoOptions = initMay $ Map.keys dropdownList
+                  case twoOptions of
                     Nothing -> do
                       elClass "p" "text-warning" $ text "There are no tokens available to redeem."
                       return never
-                    Just fstOpt -> do
+                    Just (fstOpt:sndOpt:_) -> do
                       (selA, selB, amt) <- divClass "form container" $ do
                         divClass "form-group" $ do
                           -- Select first token
@@ -427,10 +430,15 @@ poolDashboard wid = Workflow $ do
                             coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
                               def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
                             return $ _dropdown_value coinAChoice
+                          let noduplicateDropdownList = Map.filterWithKey (\k _ -> k /= fstOpt) dropdownList
+                          dynNonDuplicateDropdownList <- holdDyn noduplicateDropdownList $ ffor (updated selectionA)
+                            $ \choice -> Map.filterWithKey (\k _ -> k /= choice) dropdownList
                           -- Select second token
                           selectionB <- divClass "input-group row mt-3" $ do
-                            coinBChoice <- dropdown fstOpt (constDyn $ dropdownList) $
-                              def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
+                            coinBChoice <- dropdown sndOpt dynNonDuplicateDropdownList $ DropdownConfig
+                              { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1")
+                              , _dropdownConfig_setValue = (ffor (updated dynNonDuplicateDropdownList) $ \opts -> fst $ Map.elemAt 0 opts)
+                              }
                             return $ _dropdown_value coinBChoice
                           -- Select amount
                           amount <- divClass "input-group row mt-3" $ do
@@ -536,12 +544,12 @@ poolDashboard wid = Workflow $ do
                 Just poolTokens -> do
                   let dropdownList = Map.fromListWith (\_ tkName -> tkName) $ flip fmap poolTokens $ \pt ->
                         if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
-                      firstOption = headMay $ Map.keys dropdownList
-                  case firstOption of
+                      twoOptions = initMay $ Map.keys dropdownList
+                  case twoOptions of
                     Nothing -> do
                       elClass "p" "text-warning" $ text "There are no tokens available to stake."
                       return never
-                    Just fstOpt -> do
+                    Just (fstOpt:sndOpt:_) -> do
                       divClass "form container" $ do
                         divClass "form-group" $ do
                           -- Select first token and amount
@@ -555,10 +563,15 @@ poolDashboard wid = Workflow $ do
                               & inputElementConfig_initialValue
                                 .~ ("0" :: Text)
                             return (_dropdown_value coinAChoice, _inputElement_value coinAAmountInput)
+                          let noduplicateDropdownList = Map.filterWithKey (\k _ -> k /= fstOpt) dropdownList
+                          dynNonDuplicateDropdownList <- holdDyn noduplicateDropdownList $ ffor (updated selectionA)
+                            $ \choice -> Map.filterWithKey (\k _ -> k /= choice) dropdownList
                           -- Select second token and amount
                           (selectionB, amountB) <- divClass "input-group row mt-3" $ do
-                            coinBChoice <- dropdown fstOpt (constDyn $ dropdownList) $
-                              def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
+                            coinBChoice <- dropdown sndOpt dynNonDuplicateDropdownList $ DropdownConfig
+                              { _dropdownConfig_attributes = constDyn ("class" =: "form-control")
+                              , _dropdownConfig_setValue = (ffor (updated dynNonDuplicateDropdownList) $ \opts -> fst $ Map.elemAt 0 opts)
+                              }
                             coinBAmountInput <- inputElement $ def
                               & inputElementConfig_elementConfig . elementConfig_initialAttributes
                                 .~ ("class" =: "form-control col-md-4" <> "type" =: "number")
