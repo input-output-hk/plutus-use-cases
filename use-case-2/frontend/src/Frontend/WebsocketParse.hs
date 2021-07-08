@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Frontend.WebsocketParse where
 
@@ -13,7 +14,7 @@ import Data.Text (Text)
 import qualified Data.Vector as V
 import Reflex.Dom.Core
 
--- TODO: Create a websocket parsing module for this
+-- returns Map of currencySymbol (token amount, token name)
 parseTokensToMap :: V.Vector Aeson.Value -> Map.Map Text (Integer, Text)
 parseTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
   Aeson.Array xs -> case V.toList xs of
@@ -48,3 +49,20 @@ parseLiquidityTokensToMap cd = mconcat $ catMaybes $ V.toList $ ffor cd $ \case
     _ -> Nothing
   _ -> Just Map.empty
 
+-- filter websocket events for "Funds" related events
+wsFilterFunds :: Reflex t => Event t (Maybe Aeson.Value) -> Event t (Maybe Aeson.Value)
+wsFilterFunds recv = flip ffilter recv $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+  Nothing -> False
+  Just incomingWebSocketData -> do
+    let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+        fundsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+    observableStateTag == ["NewObservableState"] && fundsTag == ["Funds"]
+
+-- filter websocket events for "Pools" related events
+wsFilterPools :: Reflex t => Event t (Maybe Aeson.Value) -> Event t (Maybe Aeson.Value)
+wsFilterPools recv = flip ffilter recv $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+  Nothing -> False
+  Just incomingWebSocketData -> do
+    let observableStateTag = incomingWebSocketData ^.. key "tag" . _String
+        poolsTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+    observableStateTag == ["NewObservableState"] && poolsTag == ["Pools"]
