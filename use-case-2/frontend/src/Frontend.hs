@@ -120,13 +120,13 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
         -- select which page of the dashboard the user would like to see
         navSelect <- elClass "ul" "nav navbar-nav" $ do
           swapEv <- do
-            (e,_) <- elClass' "li" "text-white nav-item ms-5" $ text "Swap"
+            (e,_) <- elAttr' "li" ("class" =: "text-white nav-item ms-5" <> "style" =: "cursor: pointer;") $ text "Swap"
             return $ Dashboard_Swap  <$ domEvent Click e
           portfolioEv <- do
-            (e,_) <- elClass' "li" "text-white nav-item ms-5" $ text "Portfolio"
+            (e,_) <- elAttr' "li" ("class" =: "text-white nav-item ms-5" <> "style" =: "cursor: pointer;") $ text "Portfolio"
             return $ Dashboard_Portfolio  <$ domEvent Click e
           poolEv <- do
-            (e,_) <- elClass' "li" "text-white nav-item ms-5" $ text "Pool"
+            (e,_) <- elAttr' "li" ("class" =: "text-white nav-item ms-5" <> "style" =: "cursor: pointer;") $ text "Pool"
             return $ Dashboard_Pool  <$ domEvent Click e
           return $ leftmost [swapEv, portfolioEv, poolEv]
         -- event that fires once the page has finished loading
@@ -134,20 +134,22 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
         -- recurring event used to poll for wallet balance
         pollingEvent <- tickLossyFromPostBuildTime 10
         requesting_ $ (Api_CallFunds (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
-        fmap (switch . current) $ prerender (return never) $ do
-          -- incorporate the use of PAB's websockets to display the wallet's current Ada Balance
-          ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-          -- filter for websocket events relevent to funds that contain the "Funds" tag and "NewObservableState" tag
-          let fundsEvent = wsFilterFunds $ _webSocket_recv ws
-          widgetHold_ blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
-            Nothing -> return ()
-            Just incomingWebSocketData -> do
-              -- aeson-lens happened here to unpack the json object received from the websocket
-              let currencyDetails = incomingWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
-                  mAdaBal = fmap fst <$> Map.lookup "" $ parseTokensToMap currencyDetails
-              -- TODO: Use the ADA coin symbol
-              elClass "p" "text-white" $ text $ "ADA Balance: " <> (T.pack $ show $ fromMaybe 0 mAdaBal)
-          return navSelect
+        elClass "p" "text-white" $ do
+          text $ "ADA Balance: "
+          fmap (switch . current) $ prerender (return never) $ do
+            -- incorporate the use of PAB's websockets to display the wallet's current Ada Balance
+            ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+            -- filter for websocket events relevent to funds that contain the "Funds" tag and "NewObservableState" tag
+            let fundsEvent = wsFilterFunds $ _webSocket_recv ws
+            widgetHold_ blank $ ffor fundsEvent $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+              Nothing -> return ()
+              Just incomingWebSocketData -> do
+                -- aeson-lens happened here to unpack the json object received from the websocket
+                let currencyDetails = incomingWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
+                    mAdaBal = fmap fst <$> Map.lookup "" $ parseTokensToMap currencyDetails
+                -- TODO: Use the ADA coin symbol
+                text (T.pack $ show $ fromMaybe 0 mAdaBal)
+            return navSelect
 
 swapDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
   => Text
@@ -440,7 +442,7 @@ poolDashboard wid = Workflow $ do
                             return $ _inputElement_value coinBAmountInput
                           -- TODO: add loading modal
                           redeem <- divClass "input-group row mt-3" $ do
-                            (e,_) <- elClass' "button" "btn btn-primary" $ text "Redeem"
+                            (e,_) <- elClass' "button" "btn btn-lg btn-block btn-outline-primary" $ text "Redeem"
                             return $ domEvent Click e
                           let pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
                               toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
@@ -513,7 +515,7 @@ poolDashboard wid = Workflow $ do
                 tdPlaceholder = el "p" $ text "See liquidity redemption details here after selecting a pool and amount to redeem."
             divClass "p-3 mt-2" $ widgetHold_ tdPlaceholder $ ffor (updated redeemEstimate) $ \((tna, redeemableAmountA), (tnb, redeemableAmountB)) ->
               elClass "p" "text-info" $ text
-                $ "When redeeming this liquidity amount, you will receive "
+                $ "When redeeming this liquidity amount, you are estimated to receive "
                 <> (T.pack $ show redeemableAmountA)
                 <> " "
                 <> (T.pack $ show $ if tna == "" then "ADA" else tna)
@@ -565,7 +567,7 @@ poolDashboard wid = Workflow $ do
                             return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
                           -- TODO: add loading modal
                           stake <- divClass "input-group row mt-3" $ do
-                            (e,_) <- elClass' "button" "btn btn-primary" $ text "Stake"
+                            (e,_) <- elClass' "button" "btn btn-lg btn-block btn-outline-primary" $ text "Stake"
                             return $ domEvent Click e
                           let pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
                               toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
@@ -639,7 +641,7 @@ poolDashboard wid = Workflow $ do
               tdPlaceholder = el "p" $ text "See staking details here after selecting and specifying the amount of tokens to be staked."
           divClass "p-3 mt-2" $ widgetHold_ tdPlaceholder $ ffor (updated liquidityEstimate) $ \liqEst ->
             elClass "p" "text-info" $ text
-              $ "Staking this amount to the pool will yield "
+              $ "Staking this amount to the pool is estimated to yield "
               <> (T.pack $ show liqEst)
               <> " Liquidity Tokens"
 
