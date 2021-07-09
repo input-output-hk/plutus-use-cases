@@ -22,6 +22,10 @@ let
       # Cardano-node
       "https://github.com/input-output-hk/cardano-node.git"."00125da81e187ce382c6ac8faa48cef480a8914b"
       = "1s9az0d1w0cplf6i060sgjxynq8rdd3c46gmzljdc9hhi569hfs0";
+
+      # WIN32
+      "https://github.com/input-output-hk/Win32-network"."5b3d08c454f425da5cf045fe7865950d7c806691"
+      = "0npyihbaqlih9abdbaj451lm1h0kl5braczy8vn41s3ivbbnvpcw";
       
       "https://github.com/Quid2/flat.git"."95e5d7488451e43062ca84d5376b3adcc465f1cd"
       = "06l31x3y93rjpryvlxnpsyq2zyxvb0z6lik6yq2fvh36i5zwvwa3";
