@@ -2,3 +2,4 @@ db
 ghcid-output.txt
 static.out
 .obelisk/impl/.attr-cache
+result

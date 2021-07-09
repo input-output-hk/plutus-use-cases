@@ -14,10 +14,12 @@ library
                , mtl
                , obelisk-route
                , text
+               , th-abstraction
                , vessel
   exposed-modules:
     Common.Api
     Common.Route
     Common.Schema
     Common.Plutus.Contracts.Uniswap.Types
+    Common.Plutus.Contracts.Uniswap.Estimates
   ghc-options: -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -O -fno-show-valid-hole-fits

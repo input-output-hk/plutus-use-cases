@@ -1,7 +1,13 @@
+{- Once GHC 8.10 is supported in Obelisk (currently only supports GHC 8.6)
+ - , we will be able to reference plutus and plutus-starter ADTs directly.
+ - For now, they will come from this module. This module is not necessary
+ - for creating smart contracts, view at your own discretion.
+-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Common.Plutus.Contracts.Uniswap.Types where
 

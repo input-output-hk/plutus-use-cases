@@ -6,6 +6,8 @@ build-type: Simple
 library
   hs-source-dirs: src
   build-depends: base
+               , aeson
+               , aeson-gadt-th
                , common
                , containers
                , groom
@@ -13,6 +15,8 @@ library
                , obelisk-route
                , jsaddle
                , reflex-dom
+               , lens
+               , lens-aeson
                , obelisk-executable-config-lookup
                , obelisk-generated-static
                , rhyolite-frontend
@@ -20,9 +24,11 @@ library
                , scientific
                , text
                , unordered-containers
+               , vector
                , vessel
   exposed-modules:
     Frontend
+    Frontend.WebsocketParse
   ghc-options: -Wall -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -O -fno-show-valid-hole-fits
 
 executable frontend
