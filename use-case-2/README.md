@@ -46,7 +46,7 @@ By the end of this README you will be able to run the POKE-DEX on your machine l
       $ nix-shell
       $ cabal new-repl exe:plutus-starter-pab`
       ```
-    At this point you can use `:r ` to reload and see what the GHC compiler has to say about the changes you've made. When you're comfortable with your changes, run `main` to start PAB which will cause it to listen on port 8080
+      At this point you can use `:r ` to reload and see what the GHC compiler has to say about the changes you've made. When you're comfortable with your changes, run `main` to start PAB which will cause it to listen on port 8080
 
   1. Developing the "App" Part of the "DApp"
     Now that we've got PAB ready for action, let's return back to the top level of this Obelisk project (`plutus-use-cases/use-case-2`) and briefly go over this application's components.
