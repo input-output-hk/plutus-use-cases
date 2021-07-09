@@ -10,26 +10,29 @@ tests: true
 benchmarks: true
 
 -- Plutus revision from 2021/06/11
+--  tag: fdbe53b2a9c9d029232cf6712680f785f47e2244
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus.git
+  tag: 9dd9ae48a399ddca8d559eb9a17056c96fbe2243
+  --   ^ most recent tag 2021/07/09
   subdir:
+    freer-extras
     playground-common
     plutus-core
     plutus-contract
     plutus-ledger
+    plutus-ledger-api
     plutus-tx
     plutus-tx-plugin
-    prettyprinter-configurable
-    plutus-ledger-api
     plutus-pab
     plutus-use-cases
-    freer-extras
+    prettyprinter-configurable
     quickcheck-dynamic
-    -- freer-extras
+    word-array
+    -- ^ from IOHK Failling
     -- playground-common
     -- plutus-core
-    -- plutus-contract
     -- plutus-ledger
     -- plutus-ledger-api
     -- plutus-tx
@@ -39,9 +42,8 @@ source-repository-package
     -- prettyprinter-configurable
     -- quickcheck-dynamic
     -- word-array
-  tag: 9dd9ae48a399ddca8d559eb9a17056c96fbe2243
---  tag: fdbe53b2a9c9d029232cf6712680f785f47e2244
-  --   ^^^^^ Manually pinned to the latest on the 2021/07/09
+--    plutus-contract
+
   
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.
