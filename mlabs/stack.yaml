@@ -10,7 +10,7 @@ packages:
 
 extra-deps:
 - git: https://github.com/input-output-hk/plutus.git
-  commit: 62be7a2d6dff285ad72d5bc6f5f11991ffae888b
+  commit: 9dd9ae48a399ddca8d559eb9a17056c96fbe2243
   subdirs:
     - playground-common
     - plutus-core

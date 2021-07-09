@@ -6,8 +6,8 @@ packages: ./.
 write-ghc-environment-files: never
 
 -- Always build tests and benchmarks.
-tests: true
-benchmarks: true
+--tests: true
+--benchmarks: true
 
 -- Plutus revision from 2021/06/11
 --  tag: fdbe53b2a9c9d029232cf6712680f785f47e2244

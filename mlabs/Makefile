@@ -5,6 +5,10 @@ hoogle: requires_nix_shell
 build: 
 	stack build --ghc-options="-Wall"
 
+# Not working ATM
+build-nix:
+	nix-build -A mlabs-plutus-use-cases --show-trace
+
 repl: 
 	stack ghci
 
