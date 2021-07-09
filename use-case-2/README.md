@@ -41,6 +41,7 @@ By the end of this README you will be able to run the POKE-DEX on your machine l
   1. use your favorite text editor to open `pab/Main.hs` to inspect the source code of what PAB is running when launching this Dapp.
   1. Building and Running PAB in GHCI Repl
     Now that you've used `ob thunk unpack` to get into `dep/plutus-starter`, from inside `dep/plutus-starter` you can get into a repl using the following commands:
+    
     - `nix-shell`
     - `cabal new-repl exe:plutus-starter-pab`, at this point you can use `:r ` to reload and see what the GHC compiler has to say about the changes you've made.
     - When you're comfortable with your changes, run `main` to start PAB which will cause it to listen on port 8080
