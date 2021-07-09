@@ -1,4 +1,4 @@
-with import ./nix { };
+with import ./nix/shell.nix { };
 (plutus.plutus.haskell.project.shellFor (pab.env_variables // {
 
   # Select packages who's dependencies should be added to the shell env
