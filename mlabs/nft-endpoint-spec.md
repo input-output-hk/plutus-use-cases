@@ -53,3 +53,7 @@ the funds sent by the caller ('the buyer') are split such that (`share` * `price
 for example, if the author set a share to 1/10, and the buyer paid 100 ada,  the authoer would receive 10 ada and the owner would receive the rest.
 the owner is set to the caller if the above is successful
 the asking price is set to the Buy.newprice
+
+### QueryCurrentOwner
+
+Returns the address of the current owner

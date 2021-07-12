@@ -57,6 +57,14 @@ behaviour:
 
 -- @anton:  what does this endpoint do?
 
+### QueryAllLendexes
+
+returns a list of all lendexes that have been started with `StartParams`
+
+it should provide the lendex address/instanceid, as well as the startParams it is currently using as config.
+
+if no lendexes, it should succeed with an empty list.
+
 ## Oracle Contract
 
 ### SetAssetPrice
@@ -198,8 +206,41 @@ if repaying Ada, the user's stake delegation should be changed to some default? 
 invariant outcomes:
 can't repay a negative amount but 0 is ok.
 
+### QuerySupportedCurrency
+Returns the name of the underlying, the name of the atoken, and the exchange rate between them.
+
+### QueryInterestRatePerBlock
+returns the current effective interest rate for both Stable and Variable interest rate types, expressed as a Rational
+
+### QueryCurrentBalance
+returns the user's funds currently locked in the current lendex, including both underlying tokens and aTokens of multiple kinds. also returns the user's current borrow amount and advances interest.
+
 ### SwapBorrowRateModel
 
+### QueryInsolventAccounts
+
+Return a list of `MLabs.Lending.Contract.Api.LiquidationCall` data that are eligible for liquidation, along with the lendex's liquidation bonus rate.
+
+to be eligible for liquidation, the total value of a loan must be greater than 80% of the total value of all of the user's collateral.
 ### LiquidationCall
+
+prerequisite: 
+  User has `debtToCover` of `debtAsset`
+  There is an outstanding loan which greater than 80% of the value of the user's collateral, which must be reflected in the input.
+
+input: MLabs.Lending.Contract.Api.LiquidationCall
+(collateral, debtUser, debtAsset, debtToCover, receiveAToken)
+
+behavior:
+
+the user can specify the amount they wish to cover in `debtToCover`, once this is paid by the user, it is reduced from the user's total outstanding debt.
+
+the user's wallet balance of `debtAsset` is reduced by `debtToCover`
+let e be the exchange rate between debtAsset and the Collateral Tokens (keep in mind these are aTokens)
+the contract will transfer (`debtToCover` * e * liquidation bonus) worth of collateral to the user's wallet.
+
+this may all or part of the borrower's outstanding debt and/or collateral
+
+negative inputs not permitted.
 
 
