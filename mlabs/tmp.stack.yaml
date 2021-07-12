@@ -9,97 +9,136 @@ packages:
 - .
 
 extra-deps:
+- beam-core-0.9.0.0@sha256:e5b1cb4d5b8a8a166f3373e8718672a3884feb9a5a133404b047b0af76538023,5282
+- beam-migrate-0.5.0.0@sha256:d3f7e333ec9e96122ccec6be0d38a88f766dfc248323be73fd0b3cee245ea421,4923
+- beam-sqlite-0.5.0.0@sha256:d785bf40101235a72b80652ce27be9c8048de5f7c171ccb23e1e62b8f1ce6e7c,3496
+
 - git: https://github.com/input-output-hk/plutus.git
-  commit: 62be7a2d6dff285ad72d5bc6f5f11991ffae888b
+  commit: 0c4e71a9eda191b12725b8ab08017a96237777c4
   subdirs:
+    - doc
+    - freer-extras
+    - marlowe
+    - marlowe-actus
+    - marlowe-dashboard-server
+    - marlowe-playground-server
+    - marlowe-symbolic
     - playground-common
-    - plutus-core
+    - plutus-benchmark
+    - plutus-chain-index
     - plutus-contract
+    - plutus-core
+    - plutus-errors
     - plutus-ledger
+    - plutus-ledger-api
+    - plutus-metatheory
+    - plutus-pab
+    - plutus-playground-server
     - plutus-tx
     - plutus-tx-plugin
-    - prettyprinter-configurable
-    - plutus-ledger-api
-    - plutus-pab
     - plutus-use-cases
-    - freer-extras
+    - prettyprinter-configurable
     - quickcheck-dynamic
+    - web-ghc
+    - word-array
+
 # Flat compression
 - pure-zlib-0.6.7@sha256:5a1cdf87bf3079b7d3abace1f94eeb3c597c687a38a08ee2908783e609271467,3487
+
 # FEAT/NEAT and deps
+- Stream-0.4.7.2@sha256:ed78165aa34c4e23dc53c9072f8715d414a585037f2145ea0eb2b38300354c53,1009
 - lazy-search-0.1.2.0
+- lazysmallcheck-0.6@sha256:dac7a1e4877681f1260309e863e896674dd6efc1159897b7945893e693f2a6bc,1696
 - size-based-0.1.2.0
 - testing-feat-1.1.0.0
-- Stream-0.4.7.2@sha256:ed78165aa34c4e23dc53c9072f8715d414a585037f2145ea0eb2b38300354c53,1009
-- lazysmallcheck-0.6@sha256:dac7a1e4877681f1260309e863e896674dd6efc1159897b7945893e693f2a6bc,1696
+
 # Other missing packages
 - aws-lambda-haskell-runtime-3.0.3
 - aws-lambda-haskell-runtime-wai-1.0.2@sha256:5ce655247461b562c8048011ddc022130135a03417def8203aad92366cc979ab,1965
+- barbies-2.0.2.0
+- base16-bytestring-1.0.1.0
 - composition-prelude-3.0.0.2
 - constraints-extras-0.3.0.2
 - dependent-map-0.4.0.0
 - dependent-sum-0.6.2.0
 - dependent-sum-template-0.1.0.3
 - eventful-memory-0.2.0
-- barbies-2.0.2.0
-- nothunks-0.1.2
 - indexed-traversable-instances-0.1
-- base16-bytestring-1.0.1.0
+- nothunks-0.1.2
+
+extra-deps:
+# --------------------------------------------------------------------------------
 # A revision was added to keep the bounds down, we don't actually want this!
 # we work around the newer persistent-template by adding flags below
+- async-timer-0.1.4.1
+- canonical-json-0.6.0.0@sha256:9021f435ccb884a3b4c55bcc6b50eb19d5fc3cc3f29d5fcbdef016f5bbae23a2,3488
 - eventful-sql-common-0.2.0@rev:0
 - eventful-sqlite-0.2.0
 - monoidal-containers-0.6.0.1
 - recursion-schemes-5.1.3
 - row-types-0.4.0.0
-- time-out-0.2@sha256:b9a6b4dee64f030ecb2a25dca0faff39b3cb3b5fefbb8af3cdec4142bfd291f2
-- time-interval-0.1.1@sha256:7bfd3601853d1af7caa18248ec10b01701d035ac274a93bb4670fea52a14d4e8
-- time-units-1.0.0@sha256:27cf54091c4a0ca73d504fc11d5c31ab4041d17404fe3499945e2055697746c1
-- servant-websockets-2.0.0
-- servant-subscriber-0.7.0.0
 - safe-exceptions-checked-0.1.0
-- async-timer-0.1.4.1
 - sbv-8.9
-- wl-pprint-1.2.1@sha256:aea676cff4a062d7d912149d270e33f5bb0c01b68a9db46ff13b438141ff4b7c
-- witherable-0.4.1
-- canonical-json-0.6.0.0@sha256:9021f435ccb884a3b4c55bcc6b50eb19d5fc3cc3f29d5fcbdef016f5bbae23a2,3488
+- servant-subscriber-0.7.0.0
+- servant-websockets-2.0.0
 - statistics-linreg-0.3@sha256:95c6efe6c7f6b26bc6e9ada90ab2d18216371cf59a6ef2b517b4a6fd35d9a76f,2544
+- time-interval-0.1.1@sha256:7bfd3601853d1af7caa18248ec10b01701d035ac274a93bb4670fea52a14d4e8
+- time-out-0.2@sha256:b9a6b4dee64f030ecb2a25dca0faff39b3cb3b5fefbb8af3cdec4142bfd291f2
+- time-units-1.0.0@sha256:27cf54091c4a0ca73d504fc11d5c31ab4041d17404fe3499945e2055697746c1
+- witherable-0.4.1
+- wl-pprint-1.2.1@sha256:aea676cff4a062d7d912149d270e33f5bb0c01b68a9db46ff13b438141ff4b7c
+
 # cabal.project is the source of truth for these pins, they are explained there
 # and need to be kept in sync.
+# cabal.project is the source of truth for these pins, they are explained there
+# and need to be kept in sync.
+- git: https://github.com/Quid2/flat.git
+  commit: 95e5d7488451e43062ca84d5376b3adcc465f1cd
+
 - git: https://github.com/shmish111/purescript-bridge.git
   commit: 6a92d7853ea514be8b70bab5e72077bf5a510596
-- git: https://github.com/eskimor/servant-purescript.git
-  commit: 6454d5bcb9aa2a5d6e3a3dc935423b67b6f3993c
+
+- git: https://github.com/shmish111/servant-purescript.git
+  commit: a76104490499aa72d40c2790d10e9383e0dbde63
+
 - git: https://github.com/input-output-hk/cardano-crypto.git
-  commit: f73079303f663e028288f9f4a9e08bcca39a923e
-- git: https://github.com/michaelpj/unlit.git
-  commit: 9ca1112093c5ffd356fc99c7dafa080e686dd748
+  commit: ce8f1934e4b6252084710975bd9bbc0a4648ece4
+
 - git: https://github.com/input-output-hk/ouroboros-network
-  commit: 6cb9052bde39472a0555d19ade8a42da63d3e904
+  commit: e50613562d6d4a0f933741fcf590b0f69a1eda67
   subdirs:
     - typed-protocols
     - typed-protocols-examples
     - ouroboros-network
+    - ouroboros-network-testing
     - ouroboros-network-framework
+    - ouroboros-consensus
+    - ouroboros-consensus-byron
+    - ouroboros-consensus-cardano
+    - ouroboros-consensus-shelley
     - io-sim
     - io-sim-classes
     - network-mux
-    - Win32-network
+
 - git: https://github.com/input-output-hk/cardano-prelude
-  commit: ee4e7b547a991876e6b05ba542f4e62909f4a571
+  commit: fd773f7a58412131512b9f694ab95653ac430852
   subdirs:
     - cardano-prelude
     - cardano-prelude-test
+
 - git: https://github.com/input-output-hk/cardano-base
-  commit: 4251c0bb6e4f443f00231d28f5f70d42876da055
+  commit: a715c7f420770b70bbe95ca51d3dec83866cb1bd
   subdirs:
     - binary
+    - binary/test
+    - slotting
     - cardano-crypto-class
     - cardano-crypto-tests
     - cardano-crypto-praos
-    - slotting
+    - strict-containers
+
 - git: https://github.com/input-output-hk/cardano-ledger-specs
-  commit: 097890495cbb0e8b62106bcd090a5721c3f4b36f
+  commit: a3ef848542961079b7cd53d599e5385198a3035c
   subdirs:
     - byron/chain/executable-spec
     - byron/crypto
@@ -111,21 +150,38 @@ extra-deps:
     - semantics/small-steps-test
     - shelley/chain-and-ledger/dependencies/non-integer
     - shelley/chain-and-ledger/executable-spec
+    - shelley/chain-and-ledger/shelley-spec-ledger-test
     - shelley-ma/impl
+    - cardano-ledger-core
+    - alonzo/impl
+
 - git: https://github.com/input-output-hk/iohk-monitoring-framework
-  commit: a89c38ed5825ba17ca79fddb85651007753d699d
+  commit: 34abfb7f4f5610cabb45396e0496472446a0b2ca
   subdirs:
     - contra-tracer
     - iohk-monitoring
     - tracer-transformers
     - plugins/backend-ekg
+
+- git: https://github.com/input-output-hk/cardano-node.git
+  commit: b3cabae6b3bf30a0b1b4e78bc4b67282dabad0a6
+  subdirs:
+    - cardano-api
+
+- git: https://github.com/input-output-hk/Win32-network
+  commit: 94153b676617f8f33abe8d8182c37377d2784bd1
+
+- git: https://github.com/input-output-hk/hedgehog-extras
+  commit: 8bcd3c9dc22cc44f9fcfe161f4638a384fc7a187
+
 allow-newer: true
 
 extra-package-dbs: []
-
-
 
 ghc-options:
   # Newer versions of persistent-template require some extra language extensions. Fortunately
   # we can hack around this here rather than having to fork eventful & co (for now)
   eventful-sql-common: "-XDerivingStrategies -XStandaloneDeriving -XUndecidableInstances -XDataKinds -XFlexibleInstances -XMultiParamTypeClasses"
+
+nix:
+  shell-file: shell.nix
