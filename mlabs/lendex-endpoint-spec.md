@@ -132,6 +132,9 @@ other notes:
 
 ### SetUserReserveAsCollateral
 
+
+we want to deprecate this in favor of AddCollateral, RemoveCollateral
+
 input:
 Mlabs.Lending.Contract.Api.SetUserReserveAsCollateral
 (asset, useAsCollateral, portion)
@@ -150,6 +153,44 @@ if useAsCollateral is false, then move (`contractTokens` of `asset` * `portion`)
 @anton - why is the `useAsCollateral` flag necessary? the Api for this endpoint feels a bit strange
 
 `asset` must refer to a supported token for this Lendex
+
+### AddCollateral
+
+input: { amount :: Integer, assetClass :: AssetClass }
+
+prerequisite:
+the assetClass is an aToken
+the user has `amount` of `assetClass` in their wallet (implies that `Deposit` has been called)
+
+behavior:
+
+transfers `amount` of `assetClass` from the user's wallet to the contract, locked as the user's Collateral.
+
+invariant behaviors/inputs:
+
+can't supply a negative `amount`
+
+under no circumstances can we release funds to the user.
+
+
+### RemoveCollateral
+
+input: { amount :: Integer, assetClass :: AssetClass }
+
+prerequisite:
+the assetClass is an aToken
+the user has `amount` of `assetClass` locked in the contract as collateral (implies `Deposit` and `AddCollateral` endpoints)
+
+behaviors:
+let `transferAmount` equal the `amount` in hte input, or the user's total collateral in `assetClass`, whichever is Lower.
+1) transfers `transferAmount` of `assetClass` from the contract to the user, if the user has sufficient collateral in that assetClass,
+
+invariant behaviors:
+can't supply a negative `amount`
+under no circumstances should this reduce the funds of a user, except for network service fees.
+
+
+
 
 ### Borrow
 
