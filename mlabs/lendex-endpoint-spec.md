@@ -83,7 +83,7 @@ Prerequisite: wallet holds underlying currency for Market
 
 Expected outcome: 
 Wallet balance of underlying token reduces by (x * e) (plus fees).
-Wallet balance of aToken increases by x.
+Wallet balance of aToken increases by x, these should be newly minted aTokens.
 where
   x = amount of atokens specified in request body, rounded down such that the wallet has enough underlying token (if necessary)
   e = exchange rate aToken: underlying
