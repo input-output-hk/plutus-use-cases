@@ -187,9 +187,16 @@ executeSwap httpManager contractId (coinA, amountA) (coinB, amountB) = do
   -- The response to this request does not return anything but an empty list.
   -- A useful response must be fetched from "observableState"
   print ("executeSwap: sending request to pab..." :: String)
-  _ <- httpLbs req httpManager
+  sth <- httpLbs req httpManager
+  print ("executeSwap: here is what the swap response looks like... " ++ (show $ responseBody sth))
   print ("executeSwap: request sent." :: String)
-  fetchObservableState httpManager contractId
+  -- TODO: return observablestate, however extract transaction fee out of it first
+  eitherObState <- fetchObservableState httpManager contractId
+  case eitherObState of
+    Left err -> return $ Left err
+    Right stuff -> do
+      -- TODO: persist transaction fee and details to psql
+      return $ Right stuff
 
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"apAmountA":4500,"apAmountB":9000,"apCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"apCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/3b0bafe2-14f4-4d34-a4d8-633afb8e52eb/endpoint/add

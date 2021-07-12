@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "plutus-starter",
-  "branch": "is/poke-dex-modifications",
+  "branch": "is-action-response-with-txDetails",
   "private": false,
-  "rev": "6d49c6285218cfc776f4e3cdb2e62a499d02c6c2",
-  "sha256": "1zkpzfcpw1za99i6894i8i61wf8h307x5bkjwzcgxyglhv6l3msv"
+  "rev": "07d1d69fdd3129c820789d910fe74a2f4d71f15b",
+  "sha256": "1fwsn1i89fqvp7si741vra62ri520v025lr55xw149a929agg24r"
 }

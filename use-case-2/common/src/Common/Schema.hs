@@ -18,6 +18,7 @@ data Db f = Db
   { _db_counter :: f (TableEntity CounterT)
   , _db_contracts :: f (TableEntity ContractT)
   , _db_pooledTokens :: f (TableEntity PooledTokenT)
+  , _db_txFeeDataSet :: f (TableEntity TxFeeDataSetT)
   }
   deriving (Generic, Database be)
 
@@ -39,9 +40,18 @@ data PooledTokenT f = PooledToken
   }
   deriving (Generic)
 
+data TxFeeDataSetT f = TxFeeDataSet
+  { _txFeeDataSet_id :: Columnar f Int32
+  , _txFeeDataSet_txFee :: Columnar f Text
+  , _txFeeDataSet_smartContractAction :: Columnar f Text
+  , _txFeeDataSet_estProcessingTime :: Columnar f Text
+  }
+  deriving (Generic)
+
 instance Beamable CounterT
 instance Beamable ContractT
 instance Beamable PooledTokenT
+instance Beamable TxFeeDataSetT
 
 instance Table CounterT where
   newtype PrimaryKey CounterT f = CounterId { _counterId_id :: Columnar f Int32 }
@@ -58,13 +68,20 @@ instance Table PooledTokenT where
     deriving (Generic)
   primaryKey pl = PooledTokenId (_pooledToken_symbol pl) (_pooledToken_name pl)
 
+instance Table TxFeeDataSetT where
+  data PrimaryKey TxFeeDataSetT f = TxFeeDataSetId { _txFeeDataId_id :: Columnar f Int32}
+    deriving (Generic)
+  primaryKey = TxFeeDataSetId . _txFeeDataSet_id
+
 instance Beamable (PrimaryKey CounterT)
 instance Beamable (PrimaryKey ContractT)
 instance Beamable (PrimaryKey PooledTokenT)
+instance Beamable (PrimaryKey TxFeeDataSetT)
 
 type Counter = CounterT Identity
 type Contract = ContractT Identity
 type PooledToken = PooledTokenT Identity
+type TxFeeData = TxFeeDataSetT Identity
 
 deriving instance Show Counter
 deriving instance Eq Counter
@@ -81,3 +98,8 @@ deriving instance Eq PooledToken
 deriving instance Ord PooledToken
 deriving instance FromJSON PooledToken
 deriving instance ToJSON PooledToken
+
+deriving instance Show TxFeeData
+deriving instance Eq TxFeeData
+deriving instance FromJSON TxFeeData
+deriving instance ToJSON TxFeeData
