@@ -4,25 +4,25 @@ module Main where
 import Prelude
 
 import Control.Monad (when)
-import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Functor (void)
 import Data.Monoid (Last(..))
 
 import Ledger.Constraints (mustPayToPubKey)
 import Playground.Contract (TokenName, Wallet(..))
 import Plutus.Contract hiding (when)
-import qualified Plutus.Contracts.Currency as Currency
-import qualified Plutus.PAB.Simulator as Simulator
+import Plutus.Contracts.Currency qualified as Currency
+import Plutus.PAB.Simulator qualified as Simulator
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import Plutus.V1.Ledger.Tx (txId)
-import qualified Plutus.V1.Ledger.Value as Value
-import qualified Wallet.Emulator.Wallet as Wallet
+import Plutus.V1.Ledger.Value qualified as Value
+import Wallet.Emulator.Wallet qualified as Wallet
 
-import qualified Mlabs.Data.Ray as R
+import Mlabs.Data.Ray qualified as R
 import Mlabs.Plutus.PAB ( call, printBalance, waitForLast )
-import qualified Mlabs.Lending.Contract as Contract
-import qualified Mlabs.Lending.Contract.Simulator.Handler as Handler
+import Mlabs.Lending.Contract qualified as Contract
+import Mlabs.Lending.Contract.Simulator.Handler qualified as Handler
 import Mlabs.Lending.Logic.Types hiding (Wallet(..), User(..))
 import Mlabs.System.Console.PrettyLogger ( logNewLine )
 import Mlabs.System.Console.Utils ( logAction, logMlabs )

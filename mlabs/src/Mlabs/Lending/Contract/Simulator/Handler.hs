@@ -7,18 +7,17 @@ module Mlabs.Lending.Contract.Simulator.Handler(
 ) where
 
 import Prelude
-import Data.Monoid (Last)
-import Control.Monad.IO.Class
-import Data.Functor (void)
 
-import Data.Aeson (ToJSON, FromJSON)
-import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
-import GHC.Generics
-import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)
-
-import Plutus.Contract
+import Control.Monad.Freer.Extras.Log (LogMsg)
+import Control.Monad.IO.Class(MonadIO(liftIO))
+import Data.Aeson (ToJSON, FromJSON)
+import Data.Functor (void)
+import Data.Monoid (Last)
+import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
+import GHC.Generics (Generic)
+import Plutus.Contract (BlockchainActions, Contract, Empty)
 import Plutus.V1.Ledger.Value (CurrencySymbol)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\))
@@ -30,8 +29,8 @@ import Plutus.PAB.Types (PABError (..))
 import Plutus.PAB.Webserver.Server qualified as PAB.Server
 
 import Mlabs.Lending.Logic.Types (LendexId)
-import qualified Mlabs.Lending.Contract.Api as L
-import qualified Mlabs.Lending.Contract.Server as L
+import Mlabs.Lending.Contract.Api qualified as Api
+import Mlabs.Lending.Contract.Server qualified as Server
 
 -- | Shortcut for Simulator monad for NFT case
 type Sim a = Simulation (Builtin LendexContracts) a
@@ -48,7 +47,7 @@ data LendexContracts
 instance Pretty LendexContracts where
   pretty = viaShow
 
-type InitContract = Contract (Last CurrencySymbol) BlockchainActions L.LendexError ()
+type InitContract = Contract (Last CurrencySymbol) BlockchainActions Server.LendexError ()
 
 handleLendexContracts ::
   ( Member (Error PABError) effs
@@ -61,14 +60,14 @@ handleLendexContracts lendexId initHandler = Builtin.handleBuiltin getSchema get
   where
     getSchema = \case
       Init      -> Builtin.endpointsToSchemas @Empty
-      User      -> Builtin.endpointsToSchemas @(L.UserSchema   .\\ BlockchainActions)
-      Oracle    -> Builtin.endpointsToSchemas @(L.OracleSchema .\\ BlockchainActions)
-      Admin     -> Builtin.endpointsToSchemas @(L.AdminSchema  .\\ BlockchainActions)
+      User      -> Builtin.endpointsToSchemas @(Api.UserSchema   .\\ BlockchainActions)
+      Oracle    -> Builtin.endpointsToSchemas @(Api.OracleSchema .\\ BlockchainActions)
+      Admin     -> Builtin.endpointsToSchemas @(Api.AdminSchema  .\\ BlockchainActions)
     getContract = \case
       Init      -> SomeBuiltin initHandler
-      User      -> SomeBuiltin $ L.userEndpoints lendexId
-      Oracle    -> SomeBuiltin $ L.oracleEndpoints lendexId
-      Admin     -> SomeBuiltin $ L.adminEndpoints lendexId
+      User      -> SomeBuiltin $ Server.userEndpoints lendexId
+      Oracle    -> SomeBuiltin $ Server.oracleEndpoints lendexId
+      Admin     -> SomeBuiltin $ Server.adminEndpoints lendexId
 
 handlers :: LendexId -> InitContract -> SimulatorEffectHandlers (Builtin LendexContracts)
 handlers lid initContract =

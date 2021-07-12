@@ -3,18 +3,15 @@ module Test.Nft.Logic(
     test
 ) where
 
-import Test.Tasty
-import Test.Tasty.HUnit
-
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
-
-import Mlabs.Emulator.App
-import Mlabs.Emulator.Blockchain
-import Mlabs.Emulator.Types
-
-import Mlabs.Nft.Logic.App
-
 import qualified Data.Map.Strict as M
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit (testCase)
+
+import Mlabs.Emulator.App (checkWallets, noErrors, someErrors )
+import Mlabs.Emulator.Blockchain (BchWallet(..) )
+import Mlabs.Emulator.Types (adaCoin, UserId(UserId) )
+import Mlabs.Nft.Logic.App (buy, defaultAppCfg, runNftApp, setPrice, Script )
 
 -- | Test suite for a logic of lending application
 test :: TestTree

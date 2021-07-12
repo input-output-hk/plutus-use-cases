@@ -9,31 +9,28 @@ module Mlabs.Nft.Contract.Server(
 ) where
 
 import Prelude
-import Control.Monad
 
-import qualified Data.Map as M
+import Control.Monad (forever)
 import Data.List.Extra (firstJust)
+import qualified Data.Map as M
 import Data.Monoid (Last(..))
+import Ledger.Constraints (monetaryPolicy, mustForgeValue, mustIncludeDatum, ownPubKeyHash)
+import Plutus.V1.Ledger.Crypto (pubKeyHash)
+import Plutus.V1.Ledger.Address (pubKeyAddress)
+import Plutus.V1.Ledger.Api (Datum)
+import Plutus.Contract (Contract, logError, ownPubKey, tell, throwError, utxoAt)
 
-import Playground.Contract
-import Plutus.V1.Ledger.Crypto
-import Plutus.V1.Ledger.Api
-import Plutus.Contract
-import Ledger.Constraints
-import Plutus.V1.Ledger.Address
-
-import Mlabs.Emulator.Types
-import Mlabs.Nft.Logic.Types
-
-import Mlabs.Plutus.Contract
-import Mlabs.Nft.Contract.Api
-import Mlabs.Nft.Contract.StateMachine
+import Mlabs.Emulator.Types (ownUserId)
+import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, toUserAct, StartParams(..), UserSchema)
+import qualified Mlabs.Nft.Contract.StateMachine as SM
+import Mlabs.Nft.Logic.Types (Act(UserAct), initNft, NftId, toNftId)
+import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
 
 -- | NFT contract for the user
-type UserContract a = Contract () UserSchema NftError a
+type UserContract a = Contract () UserSchema SM.NftError a
 
 -- | Contract for the author of NFT
-type AuthorContract a = Contract (Last NftId) AuthorSchema NftError a
+type AuthorContract a = Contract (Last NftId) AuthorSchema SM.NftError a
 
 ----------------------------------------------------------------
 -- endpoints
@@ -59,10 +56,10 @@ userAction nid input = do
   pkh <- pubKeyHash <$> ownPubKey
   act <- getUserAct input
   inputDatum <- findInputStateDatum nid
-  let lookups = monetaryPolicy (nftPolicy nid) <>
+  let lookups = monetaryPolicy (SM.nftPolicy nid) <>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
-  runStepWith nid act lookups constraints
+  SM.runStepWith nid act lookups constraints
 
 -- | Initialise NFt endpoint.
 -- We save NftId to the contract writer.
@@ -73,11 +70,11 @@ startNft StartParams{..} = do
     []        -> logError @String "No UTXO found"
     oref : _ -> do
       let nftId   = toNftId oref sp'content
-          val     = nftValue nftId
-          lookups = monetaryPolicy $ nftPolicy nftId
+          val     = SM.nftValue nftId
+          lookups = monetaryPolicy $ SM.nftPolicy nftId
           tx      = mustForgeValue val
       authorId <- ownUserId
-      runInitialiseWith nftId (initNft oref authorId sp'content sp'share sp'price) val lookups tx
+      SM.runInitialiseWith nftId (initNft oref authorId sp'content sp'share sp'price) val lookups tx
       tell $ Last $ Just nftId
 
 
@@ -95,7 +92,7 @@ getUserAct act = do
 -- | Finds Datum for NFT state machine script.
 findInputStateDatum :: NftId -> UserContract Datum
 findInputStateDatum nid = do
-  utxos <- utxoAt (nftAddress nid)
+  utxos <- utxoAt (SM.nftAddress nid)
   maybe err pure $ firstJust (readDatum . snd) $ M.toList utxos
   where
-    err = throwError $ toNftError "Can not find NFT app instance"
+    err = throwError $ SM.toNftError "Can not find NFT app instance"

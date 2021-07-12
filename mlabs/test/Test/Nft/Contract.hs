@@ -3,14 +3,13 @@ module Test.Nft.Contract(
 ) where
 
 import Prelude
-import Test.Tasty
-import Test.Nft.Init
 
-import Plutus.Contract.Test hiding (tx)
+import Plutus.Contract.Test (checkPredicateOptions, Wallet(..))
+import Test.Tasty (TestTree, testGroup)
+import Test.Nft.Init (adaCoin, checkOptions, runScript, Script, userAct, w1, w2, w3)
 
-import Mlabs.Emulator.Scene
-import Mlabs.Nft.Logic.Types ( UserAct(..))
-
+import Mlabs.Emulator.Scene (checkScene, owns, Scene)
+import Mlabs.Nft.Logic.Types (UserAct(..))
 
 test :: TestTree
 test = testGroup "Contract"

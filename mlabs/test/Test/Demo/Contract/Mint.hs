@@ -16,29 +16,29 @@ module Test.Demo.Contract.Mint
   ( test
   ) where
 
-import Control.Lens
-import Control.Monad hiding (fmap)
-import qualified Data.Map as Map
-import Ledger
-import Ledger.Ada as Ada
-import Ledger.Value
-import Plutus.Contract.Test
-import Plutus.Trace.Emulator as Emulator
 import PlutusTx.Prelude
-import Test.Tasty
 
-import Mlabs.Demo.Contract.Mint
+import Control.Lens ((&), (.~))
+import Control.Monad (void)
+import qualified Data.Map as Map
+import Ledger.Ada (lovelaceValueOf)
+import Ledger.Value (AssetClass(..), assetClassValue, TokenName, Value)
+import qualified Plutus.Contract.Test as Test
+import Plutus.Trace.Emulator as Emulator
+import Test.Tasty (TestTree)
+
+import Mlabs.Demo.Contract.Mint (curSymbol, mintEndpoints, MintParams(..))
 
 test :: TestTree
-test = checkPredicateOptions
-  (defaultCheckOptions & emulatorConfig .~ emCfg)
+test = Test.checkPredicateOptions
+  (Test.defaultCheckOptions & Test.emulatorConfig .~ emCfg)
   "mint trace"
-  (    walletFundsChange
-      (Wallet 1)
-      (Ada.lovelaceValueOf (-15_000_000) <> assetClassValue usdToken 15)
-  .&&. walletFundsChange
-         (Wallet 2)
-         (  Ada.lovelaceValueOf (-50_000_000)
+  (    Test.walletFundsChange
+      (Test.Wallet 1)
+      (lovelaceValueOf (-15_000_000) <> assetClassValue usdToken 15)
+  Test..&&. Test.walletFundsChange
+         (Test.Wallet 2)
+         (  lovelaceValueOf (-50_000_000)
          <> assetClassValue usdToken 20
          <> assetClassValue cadToken 30
          )
@@ -46,10 +46,10 @@ test = checkPredicateOptions
   mintTrace
 
 emCfg :: EmulatorConfig
-emCfg = EmulatorConfig $ Left $ Map.fromList [(Wallet 1, v), (Wallet 2, v)]
+emCfg = EmulatorConfig $ Left $ Map.fromList [(Test.Wallet 1, v), (Test.Wallet 2, v)]
  where
   v :: Value
-  v = Ada.lovelaceValueOf 100_000_000
+  v = lovelaceValueOf 100_000_000
 
 usd :: TokenName
 usd = "USD"
@@ -65,8 +65,8 @@ cadToken = AssetClass (curSymbol, cad)
 
 mintTrace :: EmulatorTrace ()
 mintTrace = do
-  h1 <- activateContractWallet (Wallet 1) mintEndpoints
-  h2 <- activateContractWallet (Wallet 2) mintEndpoints
+  h1 <- activateContractWallet (Test.Wallet 1) mintEndpoints
+  h2 <- activateContractWallet (Test.Wallet 2) mintEndpoints
 
   -- Scenario 1: Buy single currency.
   callEndpoint @"mint" h1 MintParams { mpTokenName = usd, mpAmount = 5 }

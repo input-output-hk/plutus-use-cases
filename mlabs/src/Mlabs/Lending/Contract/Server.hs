@@ -9,131 +9,128 @@ module Mlabs.Lending.Contract.Server(
   , oracleEndpoints
   , adminEndpoints
   -- * Errors
-  , LendexError
+  , StateMachine.LendexError
 ) where
 
 import Prelude
-import Control.Monad
 
-import qualified Data.Map as M
+import Control.Monad (forever)
 import Data.List.Extra (firstJust)
+import Data.Map (toList)
+import Ledger.Constraints (ownPubKeyHash, monetaryPolicy, mustIncludeDatum)
+import Plutus.Contract qualified as Contract
+import Plutus.V1.Ledger.Api (Datum, getSlot)
+import Plutus.V1.Ledger.Crypto (pubKeyHash)
 
-import Playground.Contract
-import Plutus.V1.Ledger.Crypto
-import Plutus.V1.Ledger.Api
-import Plutus.Contract
-import Ledger.Constraints
-
-import Mlabs.Emulator.Types
-import Mlabs.Lending.Logic.Types
-
-import Mlabs.Plutus.Contract
-import Mlabs.Lending.Contract.Api
-import Mlabs.Lending.Contract.StateMachine
-import qualified Mlabs.Lending.Contract.Forge as Forge
+import Mlabs.Emulator.Types (ownUserId)
+import Mlabs.Lending.Contract.Api qualified as Api
+import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
+import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
+import Mlabs.Lending.Logic.Types qualified as Types
+import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
 
 -- | User contract monad
-type UserContract a = Contract () UserSchema LendexError a
+type UserContract a = Contract.Contract () Api.UserSchema StateMachine.LendexError a
 
 -- | Oracle contract monad
-type OracleContract a = Contract () OracleSchema LendexError a
+type OracleContract a = Contract.Contract () Api.OracleSchema StateMachine.LendexError a
 
 -- | Admin contract monad
-type AdminContract a = Contract () AdminSchema LendexError a
+type AdminContract a = Contract.Contract () Api.AdminSchema StateMachine.LendexError a
 
 ----------------------------------------------------------
 -- endpoints
 
 -- | Endpoints for user
-userEndpoints :: LendexId -> UserContract  ()
+userEndpoints :: Types.LendexId -> UserContract  ()
 userEndpoints lid = forever $ selects
-  [ act $ getEndpoint @Deposit
-  , act $ getEndpoint @Borrow
-  , act $ getEndpoint @Repay
-  , act $ getEndpoint @SwapBorrowRateModel
-  , act $ getEndpoint @SetUserReserveAsCollateral
-  , act $ getEndpoint @Withdraw
-  , act $ getEndpoint @LiquidationCall
+  [ act $ getEndpoint @Api.Deposit
+  , act $ getEndpoint @Api.Borrow
+  , act $ getEndpoint @Api.Repay
+  , act $ getEndpoint @Api.SwapBorrowRateModel
+  , act $ getEndpoint @Api.SetUserReserveAsCollateral
+  , act $ getEndpoint @Api.Withdraw
+  , act $ getEndpoint @Api.LiquidationCall
   ]
   where
-    act :: IsUserAct a => UserContract a -> UserContract ()
+    act :: Api.IsUserAct a => UserContract a -> UserContract ()
     act readInput = readInput >>= userAction lid
 
 
 -- | Endpoints for price oracle
-oracleEndpoints :: LendexId -> OracleContract ()
+oracleEndpoints :: Types.LendexId -> OracleContract ()
 oracleEndpoints lid = forever $ selects
-  [ act $ getEndpoint @SetAssetPrice
+  [ act $ getEndpoint @Api.SetAssetPrice
   ]
   where
-    act :: IsPriceAct a => OracleContract a -> OracleContract ()
+    act :: Api.IsPriceAct a => OracleContract a -> OracleContract ()
     act readInput = readInput >>= priceOracleAction lid
 
 -- | Endpoints for admin
-adminEndpoints :: LendexId -> AdminContract ()
+adminEndpoints :: Types.LendexId -> AdminContract ()
 adminEndpoints lid = do
-  getEndpoint @StartParams >>= (startLendex lid)
+  getEndpoint @Api.StartParams >>= (startLendex lid)
   forever $ selects
-    [ act $ getEndpoint @AddReserve
+    [ act $ getEndpoint @Api.AddReserve
     ]
   where
-    act :: IsGovernAct a => AdminContract a -> AdminContract ()
+    act :: Api.IsGovernAct a => AdminContract a -> AdminContract ()
     act readInput = readInput >>= adminAction lid
 
 -- actions
 
-userAction :: IsUserAct a => LendexId -> a -> UserContract ()
+userAction :: Api.IsUserAct a => Types.LendexId -> a -> UserContract ()
 userAction lid input = do
-  pkh <- pubKeyHash <$> ownPubKey
+  pkh <- pubKeyHash <$> Contract.ownPubKey
   act <- getUserAct input
   inputDatum <- findInputStateDatum lid
-  let lookups = monetaryPolicy (Forge.currencyPolicy lid) <>
+  let lookups = monetaryPolicy (currencyPolicy lid) <>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
-  runStepWith lid act lookups constraints
+  StateMachine.runStepWith lid act lookups constraints
 
-priceOracleAction :: IsPriceAct a => LendexId -> a -> OracleContract ()
-priceOracleAction lid input = runStep lid =<< getPriceAct input
+priceOracleAction :: Api.IsPriceAct a => Types.LendexId -> a -> OracleContract ()
+priceOracleAction lid input = StateMachine.runStep lid =<< getPriceAct input
 
-adminAction :: IsGovernAct a => LendexId -> a -> AdminContract ()
-adminAction lid input = runStep lid =<< getGovernAct input
+adminAction :: Api.IsGovernAct a => Types.LendexId -> a -> AdminContract ()
+adminAction lid input = StateMachine.runStep lid =<< getGovernAct input
 
-startLendex :: LendexId -> StartParams -> AdminContract ()
-startLendex lid StartParams{..} =
-  runInitialise lid  (initLendingPool (Forge.currencySymbol lid) sp'coins (fmap UserId sp'admins) (fmap UserId sp'oracles)) sp'initValue
+startLendex :: Types.LendexId -> Api.StartParams -> AdminContract ()
+startLendex lid Api.StartParams{..} =
+  StateMachine.runInitialise lid  (Types.initLendingPool (currencySymbol lid) sp'coins (fmap Types.UserId sp'admins) (fmap Types.UserId sp'oracles)) sp'initValue
 
 ----------------------------------------------------------
 -- to act conversion
 
 -- | Converts endpoint inputs to logic actions
-getUserAct :: IsUserAct a => a -> UserContract Act
+getUserAct :: Api.IsUserAct a => a -> UserContract Types.Act
 getUserAct act = do
   uid <- ownUserId
   t   <- getCurrentTime
-  pure $ UserAct t uid $ toUserAct act
+  pure $ Types.UserAct t uid $ Api.toUserAct act
 
 -- | Converts endpoint inputs to logic actions
-getPriceAct :: IsPriceAct a => a -> OracleContract Act
+getPriceAct :: Api.IsPriceAct a => a -> OracleContract Types.Act
 getPriceAct act = do
   uid <- ownUserId
   t   <- getCurrentTime
-  pure $ PriceAct t uid $ toPriceAct act
+  pure $ Types.PriceAct t uid $ Api.toPriceAct act
 
-getGovernAct :: IsGovernAct a => a -> AdminContract Act
+getGovernAct :: Api.IsGovernAct a => a -> AdminContract Types.Act
 getGovernAct act = do
   uid <- ownUserId
-  pure $ GovernAct uid $ toGovernAct act
+  pure $ Types.GovernAct uid $ Api.toGovernAct act
 
-getCurrentTime :: (HasBlockchainActions s, AsContractError e) => Contract w s e Integer
-getCurrentTime = getSlot <$> currentSlot
+getCurrentTime :: (Contract.HasBlockchainActions s, Contract.AsContractError e) => Contract.Contract w s e Integer
+getCurrentTime = getSlot <$> Contract.currentSlot
 
 ----------------------------------------------------------
 
-findInputStateDatum :: LendexId -> UserContract Datum
+findInputStateDatum :: Types.LendexId -> UserContract Datum
 findInputStateDatum lid = do
-  utxos <- utxoAt (lendexAddress lid)
-  maybe err pure $ firstJust (readDatum . snd) $ M.toList utxos
+  utxos <- Contract.utxoAt (StateMachine.lendexAddress lid)
+  maybe err pure $ firstJust (readDatum . snd) $ toList utxos
   where
-    err = throwError $ toLendexError "Can not find Lending app instance"
+    err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
 
 

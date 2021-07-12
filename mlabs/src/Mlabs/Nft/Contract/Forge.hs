@@ -5,16 +5,16 @@ module Mlabs.Nft.Contract.Forge(
 ) where
 
 import PlutusTx.Prelude
+
 import Ledger (CurrencySymbol, Address)
-
 import Ledger.Typed.Scripts (MonetaryPolicy)
-import qualified Plutus.V1.Ledger.Value as Value
-import qualified Plutus.V1.Ledger.Scripts as Scripts
-import qualified Ledger.Typed.Scripts     as Scripts
-import qualified PlutusTx                 as PlutusTx
-import Plutus.V1.Ledger.Contexts
+import qualified Plutus.V1.Ledger.Value    as Value
+import qualified Plutus.V1.Ledger.Scripts  as Scripts
+import qualified Ledger.Typed.Scripts      as Scripts
+import qualified Plutus.V1.Ledger.Contexts as Contexts
+import qualified PlutusTx
 
-import Mlabs.Nft.Logic.Types
+import Mlabs.Nft.Logic.Types ( NftId(NftId) )
 
 {-# INLINABLE validate #-}
 -- | Validation of Minting of NFT-token. We guarantee uniqueness of NFT
@@ -28,25 +28,25 @@ import Mlabs.Nft.Logic.Types
 --
 -- First argument is an address of NFT state machine script. We use it to check
 -- that NFT coin was payed to script after minting.
-validate :: Address -> NftId -> ScriptContext -> Bool
+validate :: Address -> NftId -> Contexts.ScriptContext -> Bool
 validate stateAddr (NftId token oref) ctx =
      traceIfFalse "UTXO not consumed"     hasUtxo
   && traceIfFalse "wrong amount minted"   checkMintedAmount
   && traceIfFalse "Does not pay to state" paysToState
   where
-    info = scriptContextTxInfo ctx
+    info = Contexts.scriptContextTxInfo ctx
 
-    hasUtxo = any (\inp -> txInInfoOutRef inp == oref) $ txInfoInputs info
+    hasUtxo = any (\inp -> Contexts.txInInfoOutRef inp == oref) $ Contexts.txInfoInputs info
 
-    checkMintedAmount = case Value.flattenValue (txInfoForge info) of
-      [(cur, tn, val)] -> ownCurrencySymbol ctx == cur && token == tn && val == 1
+    checkMintedAmount = case Value.flattenValue (Contexts.txInfoForge info) of
+      [(cur, tn, val)] -> Contexts.ownCurrencySymbol ctx == cur && token == tn && val == 1
       _ -> False
 
-    paysToState = any hasNftToken $ txInfoOutputs info
+    paysToState = any hasNftToken $ Contexts.txInfoOutputs info
 
-    hasNftToken TxOut{..} =
+    hasNftToken Contexts.TxOut{..} =
          txOutAddress == stateAddr
-      && txOutValue == Value.singleton (ownCurrencySymbol ctx) token 1
+      && txOutValue == Value.singleton (Contexts.ownCurrencySymbol ctx) token 1
 
 -------------------------------------------------------------------------------
 
@@ -61,5 +61,5 @@ currencyPolicy stateAddr nid = Scripts.mkMonetaryPolicyScript $
 -- | Currency symbol of NFT
 -- First argument is an address of NFT state machine script.
 currencySymbol :: Address -> NftId -> CurrencySymbol
-currencySymbol stateAddr nid = scriptCurrencySymbol (currencyPolicy stateAddr nid)
+currencySymbol stateAddr nid = Contexts.scriptCurrencySymbol (currencyPolicy stateAddr nid)
 
