@@ -34,7 +34,7 @@ makePolicy tokenName = Scripts.mkMonetaryPolicyScript $
 getSymbol :: TokenName -> CurrencySymbol
 getSymbol = Ledger.scriptCurrencySymbol . makePolicy
 
-forgeSymbol :: HasBlockchainActions s => TokenName -> Contract () s Text CurrencySymbol
+forgeSymbol :: TokenName -> Contract () s Text CurrencySymbol
 forgeSymbol tokenName = do
     pkh <- Ledger.pubKeyHash <$> ownPubKey
     let symbol = getSymbol tokenName

@@ -44,7 +44,7 @@ type TxPair a = (Constraints.ScriptLookups a, Constraints.TxConstraints (Redeeme
 
 type IsScriptData a = (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a))
 
-submitTxPair :: (AsContractError e, HasWriteTx s, IsScriptData a) =>
+submitTxPair :: (AsContractError e, IsScriptData a) =>
     TxPair a
     -> Contract w s e Tx
 submitTxPair = Prelude.uncurry submitTxConstraintsWith
