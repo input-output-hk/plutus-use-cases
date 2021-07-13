@@ -273,11 +273,11 @@ handleAaveContract ::
     ~> Eff effs
 handleAaveContract = Builtin.handleBuiltin getSchema getContract where
   getSchema = \case
-    AaveUser _ -> Builtin.endpointsToSchemas @Aave.AaveUserSchema
-    AaveInfo _ -> Builtin.endpointsToSchemas @Aave.AaveInfoSchema
-    AaveStart  -> Builtin.endpointsToSchemas @Aave.AaveOwnerSchema
-    DistributeFunds _ _         -> Builtin.endpointsToSchemas @Empty
-    CreateOracles _ -> Builtin.endpointsToSchemas @Empty
+    AaveUser _          -> Builtin.endpointsToSchemas @Aave.AaveUserSchema
+    AaveInfo _          -> Builtin.endpointsToSchemas @Aave.AaveInfoSchema
+    AaveStart           -> Builtin.endpointsToSchemas @Aave.AaveOwnerSchema
+    DistributeFunds _ _ -> Builtin.endpointsToSchemas @Empty
+    CreateOracles _     -> Builtin.endpointsToSchemas @Empty
   getContract = \case
     AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints aave
     AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints aave

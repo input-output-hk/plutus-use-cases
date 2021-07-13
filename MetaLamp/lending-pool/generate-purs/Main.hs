@@ -43,13 +43,11 @@ import           Language.PureScript.Bridge.CodeGenSwitches (ForeignOptions (For
                                                              genForeign,
                                                              unwrapSingleConstructors)
 import           Language.PureScript.Bridge.TypeParameters  (A)
-import           Ledger.Constraints.OffChain                (UnbalancedTx)
 import qualified PSGenerator.Common
 import           Plutus.Contract.Checkpoint                 (CheckpointKey,
                                                              CheckpointStore,
                                                              CheckpointStoreItem)
-import           Plutus.Contract.Effects                    (TxConfirmed, ActiveEndpoint, UtxoAtAddress, WriteTxResponse, PABReq(..), PABResp(..))
-import           Wallet.Types                               (EndpointValue)
+import           Plutus.Contract.Effects                    (TxConfirmed)
 import           Plutus.Contract.Resumable                  (Responses)
 import           Plutus.PAB.Effects.Contract.ContractExe    (ContractExe)
 import           Plutus.PAB.Events.ContractInstanceState    (PartiallyDecodedResponse)
@@ -76,8 +74,6 @@ import           Servant.PureScript                         (HasBridge,
                                                              writeAPIModuleWithSettings)
 import           System.Directory                           (doesDirectoryExist,
                                                              removeDirectoryRecursive)
-import           Wallet.Effects                             (AddressChangeRequest (..),
-                                                             AddressChangeResponse (..))
 import           Wallet.Emulator.Wallet                     (Wallet (..))
 
 myBridge :: BridgePart
@@ -125,22 +121,13 @@ myTypes =
     , (equal <*> (genericShow <*> mkSumType))
           (Proxy @(ContractSignatureResponse A))
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(PartiallyDecodedResponse A))
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @PABReq)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @PABResp)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @UnbalancedTx)
 
     -- Contract request / response types
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @ActiveEndpoint)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @(EndpointValue A))
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @TxConfirmed)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @UtxoAtAddress)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @WriteTxResponse)
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @CheckpointStore)
     , (order <*> (genericShow <*> mkSumType)) (Proxy @CheckpointKey)
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(CheckpointStoreItem A))
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(Responses A))
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @AddressChangeRequest)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @AddressChangeResponse)
 
     -- Logging types
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(LogMessage A))
