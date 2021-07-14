@@ -20,18 +20,19 @@ module Mlabs.Nft.Logic.App(
   , setPrice
 ) where
 
-import PlutusTx.Prelude
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
-import Playground.Contract (TxOutRef(..))
-import Plutus.V1.Ledger.TxId
+import qualified Prelude as Hask (uncurry)
+import           PlutusTx.Prelude
+import           Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import           Playground.Contract (TxOutRef(..))
+import           Plutus.V1.Ledger.TxId
 
-import Mlabs.Emulator.App
-import Mlabs.Emulator.Blockchain
-import Mlabs.Emulator.Types
+import           Mlabs.Emulator.App
+import           Mlabs.Emulator.Blockchain
+import           Mlabs.Emulator.Types
 import qualified Mlabs.Emulator.Script as S
 
-import Mlabs.Nft.Logic.React
-import Mlabs.Nft.Logic.Types
+import           Mlabs.Nft.Logic.React
+import           Mlabs.Nft.Logic.Types
 
 import qualified Data.Map.Strict as M
 import qualified Mlabs.Data.Ray as R
@@ -70,7 +71,7 @@ defaultAppCfg = AppCfg users dummyOutRef "mona-lisa" (fst $ users !! 0)
     userNames = ["1", "2", "3"]
 
     users = fmap (\userName -> (UserId (PubKeyHash userName), wal (adaCoin, 1000))) userNames
-    wal cs = BchWallet $ uncurry M.singleton cs
+    wal cs = BchWallet $ Hask.uncurry M.singleton cs
 
 -------------------------------------------------------
 -- script endpoints

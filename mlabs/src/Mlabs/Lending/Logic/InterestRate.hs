@@ -8,6 +8,7 @@ module Mlabs.Lending.Logic.InterestRate(
   , getCumulativeBalance
 )  where
 
+import Prelude (String)
 import PlutusTx.Prelude
 import Mlabs.Data.Ray (Ray)
 import qualified Mlabs.Data.Ray as R

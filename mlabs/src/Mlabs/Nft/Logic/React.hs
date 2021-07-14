@@ -18,7 +18,6 @@ import Mlabs.Lending.Logic.Types (adaCoin)
 import Mlabs.Nft.Logic.State
 import Mlabs.Nft.Logic.Types
 
-import qualified Mlabs.Data.Maybe as Maybe
 
 {-# INLINABLE react #-}
 -- | State transitions for NFT contract logic.
@@ -65,7 +64,7 @@ checkInputs :: Act -> St ()
 checkInputs (UserAct _uid act) = case act of
   BuyAct price newPrice -> do
     isPositive "Buy price" price
-    Maybe.mapM_ (isPositive "New price") newPrice
+    mapM_ (isPositive "New price") newPrice
 
-  SetPriceAct price -> Maybe.mapM_ (isPositive "Set price") price
+  SetPriceAct price -> mapM_ (isPositive "Set price") price
 

@@ -26,14 +26,15 @@ module Mlabs.Emulator.Blockchain(
   , updateRespValue
 ) where
 
-import qualified Prelude as P
-import PlutusTx.Prelude hiding (fromMaybe, maybe)
-import Plutus.V1.Ledger.Value (assetClassValue, Value)
-import Ledger.Constraints
+import           Prelude (String, Show)
+import qualified Prelude as Hask (Eq)
+import           PlutusTx.Prelude hiding (fromMaybe, maybe)
+import           Plutus.V1.Ledger.Value (assetClassValue, Value)
+import           Ledger.Constraints
 
-import Data.Maybe
-import Data.Map.Strict (Map)
-import Mlabs.Emulator.Types (Coin, UserId(..))
+import           Data.Maybe
+import           Data.Map.Strict (Map)
+import           Mlabs.Emulator.Types (Coin, UserId(..))
 
 import qualified Data.Map.Strict as M
 import qualified Plutus.Contract.StateMachine as SM
@@ -43,7 +44,7 @@ newtype BchState = BchState (Map UserId BchWallet)
 
 -- | For simplicity wallet is a map of coins to balances.
 newtype BchWallet = BchWallet (Map Coin Integer)
-  deriving newtype (Show, P.Eq)
+  deriving newtype (Show, Hask.Eq)
 
 instance Eq BchWallet where
   (BchWallet a) == (BchWallet b) = M.toList a == M.toList b

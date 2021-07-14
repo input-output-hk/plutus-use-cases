@@ -58,9 +58,11 @@ module Mlabs.Lending.Logic.State(
   , getCumulativeBalance
 ) where
 
+import           Prelude (String, Show)
+import qualified Prelude as Hask
 import qualified PlutusTx.Numeric as N
-import PlutusTx.Prelude
-import PlutusTx.AssocMap (Map)
+import           PlutusTx.Prelude
+import           PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
 
 import Control.Monad.Except       hiding (Functor(..), mapM)
@@ -195,7 +197,7 @@ convertCoin Convert{..} amount =
 {-# INLINABLE weightedTotal #-}
 -- | Weigted total of currencies in base currency
 weightedTotal :: [(Coin, Integer)] -> St Integer
-weightedTotal = fmap sum . mapM (uncurry toAda)
+weightedTotal = fmap sum . mapM (Hask.uncurry toAda)
 
 {-# INLINABLE walletTotal #-}
 -- | Collects cumulative value for given wallet field

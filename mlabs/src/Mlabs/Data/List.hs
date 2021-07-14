@@ -6,8 +6,10 @@ module Mlabs.Data.List(
   , mapM_
 ) where
 
-import PlutusTx.Prelude hiding (take, mapM_)
-import Mlabs.Data.Ord (comparing)
+import           PlutusTx.Prelude hiding (take, mapM_)
+import           Mlabs.Data.Ord (comparing)
+import           Prelude (Monad)
+import qualified Prelude as Hask
 
 {-# INLINABLE take #-}
 -- | 'take' @n@, applied to a list @xs@, returns the prefix of @xs@
@@ -49,7 +51,7 @@ take n
 -- [(1,"Hello"),(2,"world"),(4,"!")]
 sortOn :: Ord b => (a -> b) -> [a] -> [a]
 sortOn f =
-  map snd . sortBy (comparing fst) . map (\x -> let y = f x in y `seq` (y, x))
+  map snd . sortBy (comparing fst) . map (\x -> let y = f x in y `Hask.seq` (y, x))
 
 {-# INLINABLE sortBy #-}
 -- | The 'sortBy' function is the non-overloaded version of 'sort'.

@@ -27,7 +27,7 @@ import PlutusTx.Prelude hiding (Monoid(..), Semigroup(..))
 import qualified Ledger as Ledger
 import Ledger.Contexts
 import Ledger.Scripts
-import qualified Ledger.Typed.Scripts as Scripts
+import qualified Ledger.Typed.Scripts.Validators as Validators
 import qualified PlutusTx as PlutusTx
 
 {-# INLINABLE mkValidator #-}
@@ -36,22 +36,22 @@ mkValidator :: () -> () -> ScriptContext -> Bool
 mkValidator _ _ _ = False
 
 data Burning
-instance Scripts.ScriptType Burning where
+instance Validators.ValidatorTypes Burning where
   type DatumType Burning = ()
   type RedeemerType Burning = ()
 
-burnInst :: Scripts.ScriptInstance Burning
-burnInst = Scripts.validator @Burning
+burnInst :: Validators.TypedValidator Burning
+burnInst = Validators.mkTypedValidator @Burning
     $$(PlutusTx.compile [|| mkValidator ||])
     $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator @() @()
+    wrap = Validators.wrapValidator @() @()
 
 burnValidator :: Validator
-burnValidator = Scripts.validatorScript burnInst
+burnValidator = Validators.validatorScript burnInst
 
 burnValHash :: Ledger.ValidatorHash
 burnValHash = validatorHash burnValidator
 
 burnScrAddress :: Ledger.Address
-burnScrAddress = Scripts.scriptAddress burnInst
+burnScrAddress = Validators.validatorAddress burnInst

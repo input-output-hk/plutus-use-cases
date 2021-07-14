@@ -17,11 +17,12 @@ import Data.String
 import           Plutus.Contract
 import qualified Plutus.Contract.StateMachine as SM
 import           Ledger                       hiding (singleton)
-import qualified Ledger.Typed.Scripts         as Scripts
+import qualified Ledger.Typed.Scripts.Validators as Validators
 import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
 import qualified PlutusTx.Prelude             as Plutus
+import qualified Ledger.TimeSlot                  as TimeSlot
 
 import Mlabs.Emulator.Blockchain
 import Mlabs.Emulator.Types
@@ -46,7 +47,8 @@ machine lid = (SM.mkStateMachine Nothing (transition lid) isFinal)
 
     checkTimestamp _ input ctx = maybe True check $ getInputTime input
       where
-        check t = member (Slot t) range
+        -- ! Not sure if all Ok here
+        check t = TimeSlot.slotToPOSIXTime (Slot t) `member` range
         range = txInfoValidRange $ scriptContextTxInfo ctx
 
     getInputTime = \case
@@ -55,26 +57,26 @@ machine lid = (SM.mkStateMachine Nothing (transition lid) isFinal)
       _                 -> Nothing
 
 {-# INLINABLE mkValidator #-}
-mkValidator :: LendexId -> Scripts.ValidatorType Lendex
+mkValidator :: LendexId -> Validators.ValidatorType Lendex
 mkValidator lid = SM.mkValidator (machine lid)
 
 client :: LendexId -> SM.StateMachineClient (LendexId, LendingPool) Act
 client lid = SM.mkStateMachineClient $ SM.StateMachineInstance (machine lid) (scriptInstance lid)
 
 lendexValidatorHash :: LendexId -> ValidatorHash
-lendexValidatorHash lid = Scripts.scriptHash (scriptInstance lid)
+lendexValidatorHash lid = Validators.validatorHash (scriptInstance lid)
 
 lendexAddress :: LendexId -> Address
 lendexAddress lid = scriptHashAddress (lendexValidatorHash lid)
 
-scriptInstance :: LendexId -> Scripts.ScriptInstance Lendex
-scriptInstance lid = Scripts.validator @Lendex
+scriptInstance :: LendexId -> Validators.TypedValidator Lendex
+scriptInstance lid = Validators.mkTypedValidator @Lendex
   ($$(PlutusTx.compile [|| mkValidator ||])
       `PlutusTx.applyCode` (PlutusTx.liftCode lid)
   )
   $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator
+    wrap = Validators.wrapValidator
 
 {-# INLINABLE transition #-}
 transition ::
@@ -121,7 +123,7 @@ runStepWith :: forall w e schema .
   => LendexId
   -> Act
   -> ScriptLookups Lendex
-  -> TxConstraints (Scripts.RedeemerType Lendex) (Scripts.DatumType Lendex)
+  -> TxConstraints (Validators.RedeemerType Lendex) (Validators.DatumType Lendex)
   -> Contract w schema e ()
 runStepWith lid act lookups constraints = void $ SM.runStepWith (client lid) act lookups constraints
 

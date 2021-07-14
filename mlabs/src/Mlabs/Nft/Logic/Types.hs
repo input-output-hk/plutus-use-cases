@@ -29,16 +29,17 @@ module Mlabs.Nft.Logic.Types(
 
 import Data.Aeson (FromJSON, ToJSON)
 
+import           Prelude (Show)
 import qualified Prelude as Hask
 import qualified PlutusTx as PlutusTx
-import PlutusTx.Prelude
-import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
-import GHC.Generics
-import Playground.Contract (TxOutRef, ToSchema)
-import Plutus.V1.Ledger.TxId
+import           PlutusTx.Prelude
+import           Plutus.V1.Ledger.Value (TokenName(..), tokenName)
+import           GHC.Generics
+import           Playground.Contract (TxOutRef, ToSchema)
+import           Plutus.V1.Ledger.TxId
 
-import Mlabs.Emulator.Types (UserId(..))
-import Mlabs.Data.Ray (Ray)
+import           Mlabs.Emulator.Types (UserId(..))
+import           Mlabs.Data.Ray (Ray)
 
 -- | Data for NFTs
 data Nft = Nft

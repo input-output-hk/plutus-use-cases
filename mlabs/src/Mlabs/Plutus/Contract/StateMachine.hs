@@ -40,9 +40,9 @@ runInitialiseWith ::
     -> TxConstraints (Scripts.RedeemerType (StateMachine state input)) (Scripts.DatumType (StateMachine state input))
     -> Contract w schema e state
 runInitialiseWith StateMachineClient{scInstance} initialState initialValue customLookups customConstraints = mapError (review _SMContractError) $ do
-    let StateMachineInstance{validatorInstance, stateMachine} = scInstance
+    let StateMachineInstance{stateMachine, typedValidator} = scInstance
         tx = mustPayToTheScript initialState (initialValue <> SM.threadTokenValue stateMachine) <> customConstraints
-    let lookups = Constraints.scriptInstanceLookups validatorInstance <> customLookups
+    let lookups = Constraints.typedValidatorLookups typedValidator <> customLookups
     utx <- either (throwing _ConstraintResolutionError) pure (Constraints.mkTx lookups tx)
     submitTxConfirmed utx
     pure initialState

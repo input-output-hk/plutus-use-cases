@@ -27,17 +27,17 @@ import Data.String
 import           Plutus.Contract
 import qualified Plutus.Contract.StateMachine as SM
 import           Ledger                       hiding (singleton)
-import qualified Ledger.Typed.Scripts         as Scripts
+import qualified Ledger.Typed.Scripts.Validators as Validators
 import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
 import qualified PlutusTx.Prelude             as Plutus
-import Plutus.V1.Ledger.Value
+import           Plutus.V1.Ledger.Value
 
-import Mlabs.Emulator.Blockchain
-import Mlabs.Emulator.Types
-import Mlabs.Nft.Logic.React
-import Mlabs.Nft.Logic.Types
+import           Mlabs.Emulator.Blockchain
+import           Mlabs.Emulator.Types
+import           Mlabs.Nft.Logic.React
+import           Mlabs.Nft.Logic.Types
 import qualified Mlabs.Nft.Contract.Forge as Forge
 import qualified Mlabs.Plutus.Contract.StateMachine as SM
 
@@ -60,7 +60,7 @@ machine nftId = (SM.mkStateMachine Nothing (transition nftId) isFinal)
 
 {-# INLINABLE mkValidator #-}
 -- | State machine validator
-mkValidator :: NftId -> Scripts.ValidatorType NftMachine
+mkValidator :: NftId -> Validators.ValidatorType NftMachine
 mkValidator nftId = SM.mkValidator (machine nftId)
 
 -- | State machine client
@@ -69,21 +69,21 @@ client nftId = SM.mkStateMachineClient $ SM.StateMachineInstance (machine nftId)
 
 -- | NFT validator hash
 nftValidatorHash :: NftId -> ValidatorHash
-nftValidatorHash nftId = Scripts.scriptHash (scriptInstance nftId)
+nftValidatorHash nftId = Validators.validatorHash (scriptInstance nftId)
 
 -- | NFT script address
 nftAddress :: NftId -> Address
 nftAddress nftId = scriptHashAddress (nftValidatorHash nftId)
 
 -- | NFT script instance
-scriptInstance :: NftId -> Scripts.ScriptInstance NftMachine
-scriptInstance nftId = Scripts.validator @NftMachine
+scriptInstance :: NftId -> Validators.TypedValidator NftMachine
+scriptInstance nftId = Validators.mkTypedValidator @NftMachine
   ($$(PlutusTx.compile [|| mkValidator ||])
     `PlutusTx.applyCode` (PlutusTx.liftCode nftId)
   )
   $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator
+    wrap = Validators.wrapValidator
 
 {-# INLINABLE transition #-}
 -- | State transitions for NFT
@@ -141,7 +141,7 @@ runStepWith :: forall w e schema .
   => NftId
   -> Act
   -> ScriptLookups NftMachine
-  -> TxConstraints (Scripts.RedeemerType NftMachine) (Scripts.DatumType NftMachine)
+  -> TxConstraints (Validators.RedeemerType NftMachine) (Validators.DatumType NftMachine)
   -> Contract w schema e ()
 runStepWith nid act lookups constraints = void $ SM.runStepWith (client nid) act lookups constraints
 
@@ -156,6 +156,6 @@ runInitialiseWith ::
   -> Nft
   -> Value
   -> ScriptLookups NftMachine
-  -> TxConstraints (Scripts.RedeemerType NftMachine) (Scripts.DatumType NftMachine)
+  -> TxConstraints (Validators.RedeemerType NftMachine) (Validators.DatumType NftMachine)
   -> Contract w schema e ()
 runInitialiseWith nftId nft val lookups tx = void $ SM.runInitialiseWith (client nftId) nft val lookups tx

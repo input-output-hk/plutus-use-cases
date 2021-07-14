@@ -25,13 +25,12 @@ import qualified PlutusTx as PlutusTx
 
 import Plutus.Contract (HasBlockchainActions, AsContractError, Contract, ownPubKey)
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
-import Playground.Contract (ToSchema)
 
 -- | Address of the wallet that can hold values of assets
 data UserId
   = UserId PubKeyHash  -- user address
   | Self               -- addres of the lending platform
-  deriving stock (Show, Generic, Hask.Eq, Hask.Ord)
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON)
 
 
@@ -47,8 +46,6 @@ adaCoin = AssetClass (Ada.adaSymbol, Ada.adaToken)
 
 -- | Custom currency
 type Coin = AssetClass
-
-deriving newtype instance ToSchema AssetClass
 
 PlutusTx.unstableMakeIsData ''UserId
 
