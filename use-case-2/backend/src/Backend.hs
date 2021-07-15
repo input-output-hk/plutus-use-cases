@@ -26,6 +26,7 @@ import Data.Text (Text)
 import Data.Time.Clock
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as U
 import Data.Vessel
 import Database.Beam (MonadBeam)
 import Database.Beam.Backend.SQL.BeamExtensions
@@ -40,6 +41,7 @@ import Rhyolite.Backend.App
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.Serializable
 import Rhyolite.Backend.Listen
+import Statistics.Regression
 
 import Backend.Notification
 import Backend.Schema
@@ -83,7 +85,7 @@ requestHandler httpManager pool = RequestHandler $ \case
     executeRemove httpManager (T.unpack $ unContractInstanceId contractId) coinA coinB amount
   Api_CallFunds cid -> callFunds httpManager cid
   Api_CallPools cid -> callPools httpManager cid
-  Api_EstimateTransactionFee action -> estimateTransactionFee httpManager pool action
+  Api_EstimateTransactionFee action -> estimateTransactionFee pool action
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler _ _ = return mempty
@@ -321,20 +323,41 @@ callPools httpManager contractId = do
   _ <- httpLbs req httpManager
   return ()
 
-estimateTransactionFee :: Manager -> Pool Pg.Connection -> SmartContractAction -> IO Integer
-estimateTransactionFee httpManager pool action = case action of
-  -- TODO: We may require more information such as what tokens are being swapped in order to increase estimation accuracy
-  SmartContractAction_Swap _amount -> do
-    -- Query for all swaps that have occurred in order to construct a data set
-    runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+estimateTransactionFee :: MonadIO m => Pool Pg.Connection -> SmartContractAction -> m Integer
+estimateTransactionFee pool action = case action of
+  SmartContractAction_Swap -> do
+    (regressionResults, preds, res) <- runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+      -- Query for all swaps that have occurred in order to construct a data set
       previousTxDataSet <- runSelectReturningList
         $ select
         $ filter_ (\a -> _txFeeDataSet_smartContractAction a ==. (val_ "Swap"))
-        $ _all (_db_txFeeDataSet db)
+        $ all_ (_db_txFeeDataSet db)
       -- TODO: Perform Multiple regression on data set to estimate transaction fee
+      txFees :: [Double] <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_txFee txData
+      let responder = U.fromList txFees
+      -- TODO: add more variants to predictors
+      -- TODO: store script size in database to be used as a predictor
+      -- TODO: We may require more information such as what tokens are being swapped in order to increase estimation accuracy
+      scriptSizes <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_estProcessingTime txData
+      let preds :: U.Vector Double = U.fromList scriptSizes
+          predictors = fmap (\_ -> preds) [0]
+      if (predictors == [] || responder == U.empty)
+         then return (Nothing, predictors, responder)
+         else return $ (Just $ olsRegress predictors responder, predictors, responder)
       -- TODO: Find Covariance Line when comparing the expected value(estimation) VS the actual value
-      return ()
-    return $ undefined
+    case regressionResults of
+      Nothing -> do
+        liftIO $ print $ "estimateTransactionFee: predictors " ++ (show preds)
+        liftIO $ print $ "estimateTransactionFee: responder " ++ (show res)
+        return 10
+      Just (leastSquaresVector, goodnessOfFit) -> do
+        liftIO $ print $ "estimateTransactionFee: predictors " ++ (show preds)
+        liftIO $ print $ "estimateTransactionFee: responder " ++ (show res)
+        liftIO $ print $ "estimateTransactionFee: least squares vector consist of " ++ (show $ U.toList leastSquaresVector)
+        liftIO $ print $ "estimateTransactionFee: here is the goodnessFit " ++ (show goodnessOfFit)
+        -- TODO: This is the y-intercept, for now it will always come out to the correct answer
+        let b = ceiling $ last $ U.toList leastSquaresVector
+        return b
 
 ensureCounterExists :: MonadBeam Postgres m => m ()
 ensureCounterExists = do

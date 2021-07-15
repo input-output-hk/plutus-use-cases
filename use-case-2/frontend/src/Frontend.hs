@@ -219,12 +219,13 @@ swapDashboard wid = Workflow $ do
                           <*> (pooledTokenToCoin <$> selectionB)
                           <*> (toAmount <$> amountA)
                           <*> (toAmount <$> amountB))
-                    -- This response doesn't return anything useful, so it is thrown away
-                    responseVal <- requesting $ tagPromptlyDyn requestLoad swap
+                    -- This response returns transaction fee information, it does not return the swap response
+                    _responseVal <- requesting $ tagPromptlyDyn requestLoad swap
                     ----------------DEBUG--------------------------------------
-                    widgetHold_ blank $ ffor responseVal $ \iResp -> case runIdentity iResp of
-                      Left err -> el "pre" $ text $ T.pack $ groom err
-                      Right resp -> el "pre" $ text $ T.pack $ groom resp
+                      -- Used to display what the actual transaction fee is
+                    -- widgetHold_ blank $ ffor responseVal $ \iResp -> case runIdentity iResp of
+                    --   Left err -> el "pre" $ text $ T.pack $ groom err
+                    --   Right resp -> el "pre" $ text $ T.pack $ groom resp
                     ----------------DEBUG--------------------------------------
                     fmap (switch . current) $ prerender (return never) $ do
                       ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
@@ -292,11 +293,16 @@ swapDashboard wid = Workflow $ do
                       (swapAmount, estimatedTkName) = if amtA' == 0 then (amtB',coinAName) else (amtA',coinBName)
                   (findSwapA coinAPoolAmount coinBPoolAmount swapAmount, estimatedTkName)
                 _ -> (0, "")
+          txFeeEstimateResp <- requesting $ fmap (\sca -> Api_EstimateTransactionFee sca) $ SmartContractAction_Swap <$ formEvent
           widgetHold_ blank $ ffor (updated swapEstimate) $ \(estimate, eTokenName) ->
             elClass "p" "text-info" $ text
               $ "Estimated to receive "
               <> (T.pack $ show estimate)
               <> " " <> (T.pack $ show $ if "" == eTokenName then "ADA" else eTokenName)
+          widgetHold_ blank $ ffor txFeeEstimateResp $ \txFeeEstimate ->
+            elClass "p" "text-warning" $ text
+              $ "Estimated transaction fee: "
+              <> (T.pack $ show $ runIdentity txFeeEstimate)
   return ((), leftmost [(portfolioDashboard wid) <$ portfolioEv, poolDashboard wid <$ poolEv])
 
 portfolioDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))

@@ -30,4 +30,5 @@ p = project ./. ({ pkgs, ... }: {
 });
 in builtins.removeAttrs p ["ios" "android"] // {
     plutus-starter = import deps.plutus-starter {};
+    statistics = hackGet ./deps/statistics;
   }

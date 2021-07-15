@@ -25,7 +25,7 @@ import Common.Schema
 commonStuff :: String
 commonStuff = "Here is a string defined in Common.Api"
 
-data SmartContractAction = SmartContractAction_Swap Int  --Amount
+data SmartContractAction = SmartContractAction_Swap
   deriving (Eq, Ord, Show, Generic)
 
 instance ToJSON SmartContractAction
