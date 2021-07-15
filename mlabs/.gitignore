@@ -7,3 +7,5 @@ demo-frontend/.cache
 demo-frontend/dist
 stack.yaml.lock
 result*
+*~
+*#
