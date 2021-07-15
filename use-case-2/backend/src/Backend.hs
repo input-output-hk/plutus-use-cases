@@ -356,7 +356,7 @@ estimateTransactionFee pool action = case action of
         liftIO $ print $ "estimateTransactionFee: least squares vector consist of " ++ (show $ U.toList leastSquaresVector)
         liftIO $ print $ "estimateTransactionFee: here is the goodnessFit " ++ (show goodnessOfFit)
         -- TODO: This is the y-intercept, for now it will always come out to the correct answer
-        let b = ceiling $ last $ U.toList leastSquaresVector
+        let b = round $ last $ U.toList leastSquaresVector
         return b
 
 ensureCounterExists :: MonadBeam Postgres m => m ()

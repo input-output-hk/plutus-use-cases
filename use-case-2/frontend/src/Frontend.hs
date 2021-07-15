@@ -303,6 +303,7 @@ swapDashboard wid = Workflow $ do
             elClass "p" "text-warning" $ text
               $ "Estimated transaction fee: "
               <> (T.pack $ show $ runIdentity txFeeEstimate)
+              <> " ADA"
   return ((), leftmost [(portfolioDashboard wid) <$ portfolioEv, poolDashboard wid <$ poolEv])
 
 portfolioDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
