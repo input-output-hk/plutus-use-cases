@@ -46,6 +46,7 @@ import Common.Plutus.Contracts.Uniswap.Estimates
 import Common.Schema
 import Frontend.WebsocketParse
 
+import Text.Groom
 
 -- This runs in a monad that can be run on the client or the server.
 -- To run code in a pure client or pure server context, use one of the
@@ -219,7 +220,12 @@ swapDashboard wid = Workflow $ do
                           <*> (toAmount <$> amountA)
                           <*> (toAmount <$> amountB))
                     -- This response doesn't return anything useful, so it is thrown away
-                    _ <- requesting $ tagPromptlyDyn requestLoad swap
+                    responseVal <- requesting $ tagPromptlyDyn requestLoad swap
+                    ----------------DEBUG--------------------------------------
+                    widgetHold_ blank $ ffor responseVal $ \iResp -> case runIdentity iResp of
+                      Left err -> el "pre" $ text $ T.pack $ groom err
+                      Right resp -> el "pre" $ text $ T.pack $ groom resp
+                    ----------------DEBUG--------------------------------------
                     fmap (switch . current) $ prerender (return never) $ do
                       ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
                       -- TODO: Create abstracted function for filtering out websocket events

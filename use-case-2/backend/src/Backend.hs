@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Backend where
 
+import Control.Applicative (liftA3)
 import Control.Concurrent (threadDelay)
 import Control.Exception
 import Control.Monad.Identity
@@ -14,11 +15,15 @@ import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson.Lens
 import qualified Data.Aeson as Aeson
+import qualified Data.HashMap.Strict as HMap
+import Data.Int (Int32)
 import Data.Maybe
 import Data.Pool
 import Data.Proxy
+import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
+import Data.Time.Clock
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import Data.Vessel
@@ -57,7 +62,7 @@ backend = Backend
         withResource pool $ \conn -> runBeamPostgres conn ensureCounterExists
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
-          (requestHandler httpManager)
+          (requestHandler httpManager pool)
           (\(nm :: DbNotification Notification) q -> fmap (fromMaybe emptyV) $ mapDecomposedV (notifyHandler nm) q)
           (QueryHandler $ \q -> fmap (fromMaybe emptyV) $ mapDecomposedV (queryHandler pool) q)
           vesselFromWire
@@ -68,16 +73,17 @@ backend = Backend
   , _backend_routeEncoder = fullRouteEncoder
   }
 
-requestHandler :: Manager -> RequestHandler Api IO
-requestHandler httpManager = RequestHandler $ \case
+requestHandler :: Manager -> Pool Pg.Connection -> RequestHandler Api IO
+requestHandler httpManager pool = RequestHandler $ \case
   Api_Swap contractId coinA coinB amountA amountB ->
-    executeSwap httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
+    executeSwap httpManager pool (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
   Api_Stake contractId coinA coinB amountA amountB ->
     executeStake httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
   Api_RedeemLiquidity contractId coinA coinB amount ->
     executeRemove httpManager (T.unpack $ unContractInstanceId contractId) coinA coinB amount
   Api_CallFunds cid -> callFunds httpManager cid
   Api_CallPools cid -> callPools httpManager cid
+  Api_EstimateTransactionFee action -> estimateTransactionFee httpManager pool action
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler _ _ = return mempty
@@ -125,7 +131,7 @@ getPooledTokens httpManager pool = do
       print ("getPooledTokens: Admin user wallet not found" :: Text)
       return ()
     Just wid -> do
-      -- In order to retreive list of pooled tokens, a request must be made to the pools endpoint first and then the response 
+      -- In order to retreive list of pooled tokens, a request must be made to the pools endpoint first and then the response
       -- can be found be found in instances within the observable state key
       let prString = "http://localhost:8080/api/new/contract/instance/" ++ (T.unpack $ _contract_id wid) ++ "/endpoint/pools"
       print $ "prString: " ++ prString -- DEBUG
@@ -169,8 +175,13 @@ getPooledTokens httpManager pool = do
   {-
   curl -H "Content-Type: application/json"      --request POST   --data '{"spAmountA":112,"spAmountB":0,"spCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"spCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/36951109-aacc-4504-89cc-6002cde36e04/endpoint/swap
   -}
-executeSwap :: Manager -> String -> (Coin AssetClass , Amount Integer) -> (Coin AssetClass, Amount Integer) -> IO (Either String [Text])
-executeSwap httpManager contractId (coinA, amountA) (coinB, amountB) = do
+executeSwap :: Manager
+  -> Pool Pg.Connection
+  -> String
+  -> (Coin AssetClass , Amount Integer)
+  -> (Coin AssetClass, Amount Integer)
+  -> IO (Either String Aeson.Value)
+executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/swap"
       reqBody = SwapParams {
           spCoinA = coinA
@@ -187,21 +198,39 @@ executeSwap httpManager contractId (coinA, amountA) (coinB, amountB) = do
   -- The response to this request does not return anything but an empty list.
   -- A useful response must be fetched from "observableState"
   print ("executeSwap: sending request to pab..." :: String)
-  sth <- httpLbs req httpManager
-  print ("executeSwap: here is what the swap response looks like... " ++ (show $ responseBody sth))
+  startTime <- getCurrentTime
+  _ <- httpLbs req httpManager
   print ("executeSwap: request sent." :: String)
-  -- TODO: return observablestate, however extract transaction fee out of it first
-  eitherObState <- fetchObservableState httpManager contractId
+  -- TODO: Instead of using threaddelay, consider using the websocket on the backend as well.
+  -- TODO: Use Rhyolite.Backend.WebSocket
+  threadDelay 10000000
+  -- TODO: this timestamp needs to be captured as soon as the websocket updates observableState, refactor to use ws asap
+  endTime <- getCurrentTime
+  eitherObState <- fetchObservableStateFees httpManager contractId
+  -- print ("executeSwap: here is what the eitherObState looks like... " ++ (show eitherObState))
   case eitherObState of
     Left err -> return $ Left err
-    Right stuff -> do
-      -- TODO: persist transaction fee and details to psql
-      return $ Right stuff
+    Right txFeeDetails -> case txFeeDetails of
+      Aeson.Array xs -> case V.toList xs of
+        _:(Aeson.Number txFee):_ -> do
+          let contractAction = "Swap" -- TODO: create ADT with Text Iso' for Smart Contract Actions
+              processingTime :: Int32 = fromIntegral $ fromEnum $ diffUTCTime endTime startTime
+              txFee' :: Int32 = (fromIntegral $ coefficient txFee)
+          -- persist transaction fee and details to psql
+          runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+            runInsert $
+              insertOnConflict (_db_txFeeDataSet db) (insertExpressions [TxFeeDataSet default_ (val_ txFee') (val_ contractAction) (val_ processingTime)])
+              (conflictingFields _txFeeDataSet_id)
+              onConflictDoNothing
+          -- print ("executeSwap: here is what the observableState looks like... " ++ (show stuff))
+          return $ Right txFeeDetails
+        _ -> return $ Left "Error unexpected data type in txFeeDetails"
+      _ -> return $ Left "Error parsing txFeeDetails as a JSON Array"
 
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"apAmountA":4500,"apAmountB":9000,"apCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"apCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/3b0bafe2-14f4-4d34-a4d8-633afb8e52eb/endpoint/add
 -}
-executeStake :: Manager -> String -> (Coin AssetClass , Amount Integer) -> (Coin AssetClass, Amount Integer) -> IO (Either String [Text])
+executeStake :: Manager -> String -> (Coin AssetClass , Amount Integer) -> (Coin AssetClass, Amount Integer) -> IO (Either String Aeson.Value)
 executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/add"
       reqBody = AddParams {
@@ -221,12 +250,12 @@ executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
   print $ ("executeStake: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
   print $ ("executeStake: request sent." :: String)
-  fetchObservableState httpManager contractId
+  fetchObservableStateFees httpManager contractId
 
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"rpDiff":2461,"rpCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"rpCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/9079d01a-342b-4d4d-88b5-7525ff1118d6/endpoint/remove
 -}
-executeRemove :: Manager -> String -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> IO (Either String [Text])
+executeRemove :: Manager -> String -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> IO (Either String Aeson.Value)
 executeRemove httpManager contractId coinA coinB amount = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/remove"
       reqBody = RemoveParams {
@@ -245,11 +274,11 @@ executeRemove httpManager contractId coinA coinB amount = do
   print $ ("executeRemove: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
   print $ ("executeRemove: request sent." :: String)
-  fetchObservableState httpManager contractId
+  fetchObservableStateFees httpManager contractId
 
--- Grabs `observaleState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
-fetchObservableState :: Manager -> String -> IO (Either String [Text])
-fetchObservableState httpManager contractId = do
+-- Grabs transaction fees from `observaleState` field from the contract instance status endpoint.
+fetchObservableStateFees :: Manager -> String -> IO (Either String Aeson.Value)
+fetchObservableStateFees httpManager contractId = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/status"
   initReq <- parseRequest requestUrl
   resp <- httpLbs initReq httpManager
@@ -258,8 +287,11 @@ fetchObservableState httpManager contractId = do
     Left err -> do
       return $ Left err
     Right obj -> do
-      let observableState = obj ^.. values . key "cicCurrentState" . key "observableState" . _String
-      return $ Right observableState
+      -- TODO: If there is a need to filter the observable state by tag. "tag" can be found in the result of "contents" lens
+      let txFeeDetails = obj ^. key "cicCurrentState" . key "observableState" . key "Right"
+            . key "contents" . key "txFee" . key "getValue" . nth 0 . nth 1 . nth 0 . _Array
+      print $ "fetchObservableStateFees: the value of txFeeDetails is: " ++ (show txFeeDetails)
+      return $ Right $ Aeson.Array txFeeDetails
 
 -- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
 callFunds :: Manager -> ContractInstanceId Text -> IO ()
@@ -288,6 +320,21 @@ callPools httpManager contractId = do
         }
   _ <- httpLbs req httpManager
   return ()
+
+estimateTransactionFee :: Manager -> Pool Pg.Connection -> SmartContractAction -> IO Integer
+estimateTransactionFee httpManager pool action = case action of
+  -- TODO: We may require more information such as what tokens are being swapped in order to increase estimation accuracy
+  SmartContractAction_Swap _amount -> do
+    -- Query for all swaps that have occurred in order to construct a data set
+    runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+      previousTxDataSet <- runSelectReturningList
+        $ select
+        $ filter_ (\a -> _txFeeDataSet_smartContractAction a ==. (val_ "Swap"))
+        $ _all (_db_txFeeDataSet db)
+      -- TODO: Perform Multiple regression on data set to estimate transaction fee
+      -- TODO: Find Covariance Line when comparing the expected value(estimation) VS the actual value
+      return ()
+    return $ undefined
 
 ensureCounterExists :: MonadBeam Postgres m => m ()
 ensureCounterExists = do

@@ -12,7 +12,9 @@ import Control.Monad.Identity
 import Data.Aeson (FromJSON(..), ToJSON(..))
 import Data.Int
 import Data.Text
+import Data.Time.Clock
 import Database.Beam
+import Database.Beam.Backend.SQL.Types (SqlSerial)
 
 data Db f = Db
   { _db_counter :: f (TableEntity CounterT)
@@ -40,11 +42,12 @@ data PooledTokenT f = PooledToken
   }
   deriving (Generic)
 
+-- TODO: add timestamp
 data TxFeeDataSetT f = TxFeeDataSet
-  { _txFeeDataSet_id :: Columnar f Int32
-  , _txFeeDataSet_txFee :: Columnar f Text
+  { _txFeeDataSet_id :: Columnar f (SqlSerial Int32)
+  , _txFeeDataSet_txFee :: Columnar f Int32
   , _txFeeDataSet_smartContractAction :: Columnar f Text
-  , _txFeeDataSet_estProcessingTime :: Columnar f Text
+  , _txFeeDataSet_estProcessingTime :: Columnar f Int32
   }
   deriving (Generic)
 
@@ -69,7 +72,7 @@ instance Table PooledTokenT where
   primaryKey pl = PooledTokenId (_pooledToken_symbol pl) (_pooledToken_name pl)
 
 instance Table TxFeeDataSetT where
-  data PrimaryKey TxFeeDataSetT f = TxFeeDataSetId { _txFeeDataId_id :: Columnar f Int32}
+  data PrimaryKey TxFeeDataSetT f = TxFeeDataSetId { _txFeeDataId_id :: Columnar f (SqlSerial Int32)}
     deriving (Generic)
   primaryKey = TxFeeDataSetId . _txFeeDataSet_id
 
