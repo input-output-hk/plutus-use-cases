@@ -337,7 +337,7 @@ portfolioDashboard wid = Workflow $ do
                 elAttr "th" ("scope" =: "col") $ text "Balance"
               let formattedTokenDetails = Map.filter
                     -- TODO: Don't lookup tokens by hard coded currencySymbol value
-                    (\(_,cs) -> cs == "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e") $
+                    (\(_,cs) -> cs == "4195b7e88acc9a061b21f962266770d2e676f76f2a686f6fa15ac155f383c9ad") $
                     parseTokensToMap currencyDetails
               el"tbody" $ do
                 forM_ (Map.toList formattedTokenDetails) $ \(tokenName, (tokenBalance,_)) -> do
