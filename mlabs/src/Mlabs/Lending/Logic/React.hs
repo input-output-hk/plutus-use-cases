@@ -27,7 +27,6 @@ import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import Mlabs.Lending.Logic.State
 import Mlabs.Lending.Logic.Types
 
-import qualified Mlabs.Data.AssocMap as M
 import qualified Mlabs.Data.List as L
 
 {-# INLINABLE react #-}

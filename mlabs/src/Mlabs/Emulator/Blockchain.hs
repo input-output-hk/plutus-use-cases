@@ -109,8 +109,8 @@ toConstraints = \case
     Self       -> mempty -- we already check this constraint with StateMachine
     -- pays to the user
     UserId pkh -> mustPayToPubKey pkh (assetClassValue coin amount)
-  Mint coin amount      -> mustForgeValue (assetClassValue coin amount)
-  Burn coin amount      -> mustForgeValue (assetClassValue coin $ negate amount)
+  Mint coin amount      -> mustMintValue (assetClassValue coin amount)
+  Burn coin amount      -> mustMintValue (assetClassValue coin $ negate amount)
   _ -> mempty
 
 {-# INLINABLE updateRespValue #-}

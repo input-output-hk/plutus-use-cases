@@ -23,7 +23,7 @@ import Plutus.V1.Ledger.Value (AssetClass(..))
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import qualified PlutusTx as PlutusTx
 
-import Plutus.Contract (HasBlockchainActions, AsContractError, Contract, ownPubKey)
+import Plutus.Contract (AsContractError, Contract, ownPubKey)
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
 
 -- | Address of the wallet that can hold values of assets
@@ -50,5 +50,5 @@ type Coin = AssetClass
 PlutusTx.unstableMakeIsData ''UserId
 
 -- | Get user id of the wallet owner.
-ownUserId :: (AsContractError e, HasBlockchainActions s) => Contract w s e UserId
+ownUserId :: AsContractError e => Contract w s e UserId
 ownUserId = fmap (UserId . pubKeyHash) ownPubKey

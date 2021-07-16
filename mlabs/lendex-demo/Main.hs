@@ -105,7 +105,7 @@ initContract = do
   logInfo @String "Start forge"
   cur   <-
       mapError (toLendexError . show @Currency.CurrencyError)
-      (Currency.forgeContract ownPK (fmap (, amount) [token1, token2, token3]))
+      (Currency.mintContract ownPK (fmap (, amount) [token1, token2, token3]))
   let cs = Currency.currencySymbol cur
   tell $ Last (Just cs)
   logInfo @String "Forged coins"

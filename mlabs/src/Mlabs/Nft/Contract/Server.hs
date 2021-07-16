@@ -59,7 +59,7 @@ userAction nid input = do
   pkh <- pubKeyHash <$> ownPubKey
   act <- getUserAct input
   inputDatum <- findInputStateDatum nid
-  let lookups = monetaryPolicy (nftPolicy nid) <>
+  let lookups = mintingPolicy (nftPolicy nid) <>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
   runStepWith nid act lookups constraints
@@ -74,8 +74,8 @@ startNft StartParams{..} = do
     oref : _ -> do
       let nftId   = toNftId oref sp'content
           val     = nftValue nftId
-          lookups = monetaryPolicy $ nftPolicy nftId
-          tx      = mustForgeValue val
+          lookups = mintingPolicy $ nftPolicy nftId
+          tx      = mustMintValue val
       authorId <- ownUserId
       runInitialiseWith nftId (initNft oref authorId sp'content sp'share sp'price) val lookups tx
       tell $ Last $ Just nftId

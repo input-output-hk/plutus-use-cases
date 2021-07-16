@@ -154,26 +154,23 @@ data SetAssetPrice = SetAssetPrice Coin Ray
 
 -- | User actions
 type UserSchema =
-  BlockchainActions
-    .\/ Call Deposit
-    .\/ Call Borrow
-    .\/ Call Repay
-    .\/ Call SwapBorrowRateModel
-    .\/ Call SetUserReserveAsCollateral
-    .\/ Call Withdraw
-    .\/ Call LiquidationCall
+  Call Deposit
+  .\/ Call Borrow
+  .\/ Call Repay
+  .\/ Call SwapBorrowRateModel
+  .\/ Call SetUserReserveAsCollateral
+  .\/ Call Withdraw
+  .\/ Call LiquidationCall
 
 
 -- | Oracle schema
 type OracleSchema =
-  BlockchainActions
-    .\/ Call SetAssetPrice
+  Call SetAssetPrice
 
 -- | Admin schema
 type AdminSchema =
-  BlockchainActions
-    .\/ Call AddReserve
-    .\/ Call StartParams
+  Call AddReserve
+  .\/ Call StartParams
 
 ----------------------------------------------------------
 -- proxy types for ToSchema instance

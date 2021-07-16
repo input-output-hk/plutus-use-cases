@@ -11,7 +11,7 @@ module Mlabs.Plutus.Contract(
   , callEndpoint'
 ) where
 
-import Data.Aeson (ToJSON)
+import Data.Aeson (ToJSON, FromJSON)
 import Playground.Contract (ToSchema)
 
 import Control.Monad.Freer (Eff)
@@ -49,7 +49,7 @@ readDatum txOut = do
 
 type Call a = Endpoint (EndpointSymbol a) a
 
-class (ToSchema a, ToJSON a, KnownSymbol (EndpointSymbol a)) => IsEndpoint a where
+class (ToSchema a, ToJSON a, FromJSON a, KnownSymbol (EndpointSymbol a)) => IsEndpoint a where
   type EndpointSymbol a :: Symbol
 
 callEndpoint' ::

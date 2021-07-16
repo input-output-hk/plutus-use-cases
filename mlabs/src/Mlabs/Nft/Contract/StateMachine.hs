@@ -39,7 +39,7 @@ import           Mlabs.Emulator.Types
 import           Mlabs.Nft.Logic.React
 import           Mlabs.Nft.Logic.Types
 import qualified Mlabs.Nft.Contract.Forge as Forge
-import qualified Mlabs.Plutus.Contract.StateMachine as SM
+import qualified Plutus.Contract.StateMachine as SM
 
 
 type NftMachine = SM.StateMachine Nft Act
@@ -114,7 +114,7 @@ transition nftId SM.State{stateData=oldData, stateValue=oldValue} input
 -- NFT forge policy
 
 -- | NFT monetary policy
-nftPolicy :: NftId -> MonetaryPolicy
+nftPolicy :: NftId -> MintingPolicy
 nftPolicy nid = Forge.currencyPolicy (nftAddress nid)  nid
 
 -- | NFT currency symbol
@@ -132,30 +132,20 @@ nftValue nid = assetClassValue (nftCoin nid) 1
 ------------------------------------------------------------------------
 
 runStepWith :: forall w e schema .
-  ( SM.AsSMContractError e
-  , HasUtxoAt schema
-  , HasWriteTx schema
-  , HasOwnPubKey schema
-  , HasTxConfirmation schema
-  )
+  SM.AsSMContractError e
   => NftId
   -> Act
   -> ScriptLookups NftMachine
   -> TxConstraints (Validators.RedeemerType NftMachine) (Validators.DatumType NftMachine)
   -> Contract w schema e ()
-runStepWith nid act lookups constraints = void $ SM.runStepWith (client nid) act lookups constraints
+runStepWith nid act lookups constraints = void $ SM.runStepWith lookups constraints (client nid) act
 
 runInitialiseWith ::
-  ( SM.AsSMContractError e
-  , HasUtxoAt schema
-  , HasWriteTx schema
-  , HasOwnPubKey schema
-  , HasTxConfirmation schema
-  )
+  SM.AsSMContractError e
   => NftId
   -> Nft
   -> Value
   -> ScriptLookups NftMachine
   -> TxConstraints (Validators.RedeemerType NftMachine) (Validators.DatumType NftMachine)
   -> Contract w schema e ()
-runInitialiseWith nftId nft val lookups tx = void $ SM.runInitialiseWith (client nftId) nft val lookups tx
+runInitialiseWith nftId nft val lookups tx = void $ SM.runInitialiseWith lookups tx (client nftId) nft val

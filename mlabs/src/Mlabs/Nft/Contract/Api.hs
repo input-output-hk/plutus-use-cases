@@ -66,14 +66,12 @@ data StartParams = StartParams
 
 -- | User schema. Owner can set the price and the buyer can try to buy.
 type UserSchema =
-  BlockchainActions
-    .\/ Call Buy
-    .\/ Call SetPrice
+  Call Buy
+  .\/ Call SetPrice
 
 -- | Schema for the author of NFT
 type AuthorSchema =
-  BlockchainActions
-    .\/ Call StartParams
+  Call StartParams
 
 ----------------------------------------------------------------------
 -- classes

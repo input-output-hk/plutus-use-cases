@@ -25,6 +25,7 @@ library
                      , ansi-terminal
                      , bytestring
                      , containers
+                     , data-default
                      , extra
                      , freer-simple
                      , mtl
@@ -54,7 +55,6 @@ library
   exposed-modules:
         Mlabs.Control.Check
         Mlabs.Control.Monad.State
-        Mlabs.Data.AssocMap
         Mlabs.Data.List
         Mlabs.Data.Ray
         Mlabs.Data.Ord
@@ -89,7 +89,6 @@ library
         Mlabs.Nft.Contract.Server
         Mlabs.Nft.Contract.StateMachine
         Mlabs.Plutus.Contract
-        Mlabs.Plutus.Contract.StateMachine
         Mlabs.Plutus.PAB
         Mlabs.System.Console.PrettyLogger
         Mlabs.System.Console.Utils

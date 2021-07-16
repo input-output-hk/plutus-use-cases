@@ -19,6 +19,7 @@ import qualified Data.Map as M
 import Data.List.Extra (firstJust)
 
 import Playground.Contract
+import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Crypto
 import Plutus.V1.Ledger.Api
 import Plutus.Contract
@@ -87,7 +88,7 @@ userAction lid input = do
   pkh <- pubKeyHash <$> ownPubKey
   act <- getUserAct input
   inputDatum <- findInputStateDatum lid
-  let lookups = monetaryPolicy (Forge.currencyPolicy lid) <>
+  let lookups = mintingPolicy (Forge.currencyPolicy lid) <>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
   runStepWith lid act lookups constraints
@@ -124,7 +125,7 @@ getGovernAct act = do
   uid <- ownUserId
   pure $ GovernAct uid $ toGovernAct act
 
-getCurrentTime :: (HasBlockchainActions s, AsContractError e) => Contract w s e Integer
+getCurrentTime :: AsContractError e => Contract w s e Integer
 getCurrentTime = getSlot <$> currentSlot
 
 ----------------------------------------------------------

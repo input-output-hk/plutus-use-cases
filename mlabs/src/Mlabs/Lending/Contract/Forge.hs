@@ -18,7 +18,7 @@ import Control.Monad.State.Strict (evalStateT)
 import PlutusTx.Prelude
 import Ledger (CurrencySymbol)
 
-import Ledger.Typed.Scripts (MonetaryPolicy)
+import Ledger.Typed.Scripts (MintingPolicy)
 import qualified Plutus.V1.Ledger.Value as Value
 import qualified Plutus.V1.Ledger.Scripts as Scripts
 import qualified Ledger.Typed.Scripts     as Scripts
@@ -36,7 +36,7 @@ data Input = Input
   }
 
 {-# INLINABLE validate #-}
--- | Validation script for monetary policy.
+-- | Validation script for minting policy.
 --
 -- We allow user to forge coins just in two cases:
 --
@@ -56,8 +56,8 @@ data Input = Input
 --
 -- Note that during burn user does not pay aTokens to the app they just get burned.
 -- Only app pays to user in compensation for burn.
-validate :: LendexId -> ScriptContext -> Bool
-validate lendexId ctx = case (getInState, getOutState) of
+validate :: LendexId -> () -> ScriptContext -> Bool
+validate lendexId _ ctx = case (getInState, getOutState) of
   (Just st1, Just st2) ->
         if (hasLendexId  st1 && hasLendexId st2)
           then all (isValidForge st1 st2) $ Value.flattenValue $ txInfoForge info
@@ -95,7 +95,7 @@ validate lendexId ctx = case (getInState, getOutState) of
       | isValidCurrency st1 st2 cur = fromAToken (input'state st1) token
       | otherwise                   = Nothing
 
-    -- check if states are based on the same monetary policy script
+    -- check if states are based on the same minting policy script
     isValidCurrency st1 st2 cur =
       cur == lp'currency (input'state st1) && cur == lp'currency (input'state st2)
 
@@ -151,9 +151,9 @@ validate lendexId ctx = case (getInState, getOutState) of
 
 -------------------------------------------------------------------------------
 
-currencyPolicy :: LendexId -> MonetaryPolicy
-currencyPolicy lid = Scripts.mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validate ||])
+currencyPolicy :: LendexId -> MintingPolicy
+currencyPolicy lid = Scripts.mkMintingPolicyScript $
+  $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . validate ||])
   `PlutusTx.applyCode` (PlutusTx.liftCode lid)
 
 currencySymbol :: LendexId -> CurrencySymbol

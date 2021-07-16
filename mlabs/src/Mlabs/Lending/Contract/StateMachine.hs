@@ -13,6 +13,7 @@ import Control.Monad.State.Strict (runStateT)
 
 import Data.Functor (void)
 import Data.String
+import Data.Default (Default (def))
 
 import           Plutus.Contract
 import qualified Plutus.Contract.StateMachine as SM
@@ -22,13 +23,13 @@ import           Ledger.Constraints
 import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
 import qualified PlutusTx.Prelude             as Plutus
-import qualified Ledger.TimeSlot                  as TimeSlot
+import qualified Ledger.TimeSlot              as TimeSlot (posixTimeRangeToSlotRange)
 
 import Mlabs.Emulator.Blockchain
 import Mlabs.Emulator.Types
 import Mlabs.Lending.Logic.React
 import Mlabs.Lending.Logic.Types
-import qualified Mlabs.Plutus.Contract.StateMachine as SM
+import qualified Plutus.Contract.StateMachine as SM
 
 type Lendex = SM.StateMachine (LendexId, LendingPool) Act
 
@@ -48,7 +49,7 @@ machine lid = (SM.mkStateMachine Nothing (transition lid) isFinal)
     checkTimestamp _ input ctx = maybe True check $ getInputTime input
       where
         -- ! Not sure if all Ok here
-        check t = TimeSlot.slotToPOSIXTime (Slot t) `member` range
+        check t = Slot t `member` TimeSlot.posixTimeRangeToSlotRange def range
         range = txInfoValidRange $ scriptContextTxInfo ctx
 
     getInputTime = \case
@@ -105,33 +106,22 @@ transition lid SM.State{stateData=oldData, stateValue=oldValue} input
 -- specific versions of SM-functions
 
 runStep :: forall w e schema .
-  ( SM.AsSMContractError e
-  , HasUtxoAt schema
-  , HasWriteTx schema
-  , HasOwnPubKey schema
-  , HasTxConfirmation schema
-  ) => LendexId -> Act -> Contract w schema e ()
+  SM.AsSMContractError e
+  => LendexId -> Act -> Contract w schema e ()
 runStep lid act = void $ SM.runStep (client lid) act
 
 runStepWith :: forall w e schema .
-  ( SM.AsSMContractError e
-  , HasUtxoAt schema
-  , HasWriteTx schema
-  , HasOwnPubKey schema
-  , HasTxConfirmation schema
-  )
+  SM.AsSMContractError e
   => LendexId
   -> Act
   -> ScriptLookups Lendex
   -> TxConstraints (Validators.RedeemerType Lendex) (Validators.DatumType Lendex)
   -> Contract w schema e ()
-runStepWith lid act lookups constraints = void $ SM.runStepWith (client lid) act lookups constraints
+runStepWith lid act lookups constraints = void $ SM.runStepWith lookups constraints (client lid) act 
 
 runInitialise :: forall w e schema .
-  ( HasTxConfirmation schema
-  , HasWriteTx schema
-  , SM.AsSMContractError e
-  ) => LendexId -> LendingPool -> Value -> Contract w schema e ()
+  SM.AsSMContractError e
+  => LendexId -> LendingPool -> Value -> Contract w schema e ()
 runInitialise lid lendingPool val = void $ SM.runInitialise (client lid) (lid, lendingPool) val
 
 
