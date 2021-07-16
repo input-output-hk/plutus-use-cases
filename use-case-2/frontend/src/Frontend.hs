@@ -391,7 +391,7 @@ poolDashboard wid = Workflow $ do
                       poolMap = parseLiquidityTokensToMap poolDetails
                       formattedTokenDetails = Map.filter
                         -- TODO: Don't lookup tokens by hard coded currencySymbol value
-                        (\(_,cs) -> cs == "078ea50abc14180a537b6815a6e8562021bde4eaf0d4c5738290b423df3abeb8") $
+                        (\(_,cs) -> cs == "fe5cdcd31cf4e2facf00b6e9f0fa836adf3670f7c6c0e90cbd2c2b9719961f69") $
                         parseTokensToMap currencyDetails
                   case Map.toList formattedTokenDetails of
                     []-> blank
