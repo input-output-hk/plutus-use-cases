@@ -32,11 +32,13 @@ library
                , rhyolite-backend
                , rhyolite-backend-db
                , rhyolite-backend-notification-postgres
+               , scientific
                , statistics
                , text
                , time
                , obelisk-backend
                , obelisk-route
+               , unordered-containers
                , vector
                , vessel
   exposed-modules:

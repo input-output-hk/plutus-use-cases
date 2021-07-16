@@ -12,7 +12,6 @@ import Control.Monad.Identity
 import Data.Aeson (FromJSON(..), ToJSON(..))
 import Data.Int
 import Data.Text
-import Data.Time.Clock
 import Database.Beam
 import Database.Beam.Backend.SQL.Types (SqlSerial)
 

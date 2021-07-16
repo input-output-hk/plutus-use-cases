@@ -15,7 +15,6 @@ import Data.GADT.Compare.TH
 import Data.GADT.Show.TH
 import Data.Semigroup (First(..))
 import Data.Text (Text)
-import qualified Data.Vector as V
 import Data.Vessel
 import GHC.Generics
 
