@@ -71,7 +71,6 @@ import Mlabs.Data.Ray (Ray)
 import qualified Mlabs.Data.Ray as R
 import qualified Mlabs.Lending.Logic.InterestRate as IR
 import qualified Mlabs.Lending.Logic.Types as Types
--- jozef: Feels very strange.
 import Mlabs.Lending.Logic.Types
     ( initReserve,
       CoinRate(coinRate'value),

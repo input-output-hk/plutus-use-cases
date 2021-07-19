@@ -12,7 +12,6 @@ import           PlutusTx.Prelude
 
 import           Mlabs.Data.Ray            (Ray)
 import qualified Mlabs.Data.Ray            as R
--- jozef: Is there a better way? Possibly merge into one line.
 import qualified Mlabs.Lending.Logic.Types as Types
 import           Mlabs.Lending.Logic.Types (Wallet(..), Reserve(..), ReserveInterest(..))
 
