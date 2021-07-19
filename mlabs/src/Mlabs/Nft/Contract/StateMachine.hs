@@ -20,25 +20,25 @@ module Mlabs.Nft.Contract.StateMachine(
   , runInitialiseWith
 ) where
 
-import Control.Monad.State.Strict (runStateT)
-import Data.Functor (void)
-import Data.String
-
-import           Plutus.Contract
-import qualified Plutus.Contract.StateMachine as SM
-import           Ledger                       hiding (singleton)
-import qualified Ledger.Typed.Scripts         as Scripts
-import           Ledger.Constraints
-import qualified PlutusTx                     as PlutusTx
 import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-import qualified PlutusTx.Prelude             as Plutus
-import Plutus.V1.Ledger.Value
 
-import Mlabs.Emulator.Blockchain
-import Mlabs.Emulator.Types
-import Mlabs.Nft.Logic.React
-import Mlabs.Nft.Logic.Types
-import qualified Mlabs.Nft.Contract.Forge as Forge
+import           Control.Monad.State.Strict   (runStateT)
+import           Data.Functor                 (void)
+import           Data.String                  (fromString)
+import           Ledger                       (Address, MonetaryPolicy, scriptHashAddress, ValidatorHash)
+import qualified Ledger.Typed.Scripts         as Scripts
+import           Ledger.Constraints           (mustBeSignedBy, ScriptLookups, TxConstraints)
+import           Plutus.Contract              (Contract, HasUtxoAt, HasOwnPubKey, HasTxConfirmation, HasWriteTx)
+import qualified Plutus.Contract.StateMachine as SM
+import           Plutus.V1.Ledger.Value       (AssetClass(..), assetClassValue, CurrencySymbol, Value)
+import qualified PlutusTx
+import qualified PlutusTx.Prelude             as Plutus
+
+import Mlabs.Emulator.Blockchain                    (toConstraints, updateRespValue)
+import Mlabs.Emulator.Types                         (UserId(..))
+import Mlabs.Nft.Logic.React                        (react)
+import Mlabs.Nft.Logic.Types                        (Act(UserAct), Nft(nft'id), NftId)
+import qualified Mlabs.Nft.Contract.Forge           as Forge
 import qualified Mlabs.Plutus.Contract.StateMachine as SM
 
 

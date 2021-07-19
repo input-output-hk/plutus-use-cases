@@ -18,21 +18,18 @@ module Mlabs.Emulator.App(
   , checkWallets
 ) where
 
-import Test.Tasty.HUnit
-import Text.Show.Pretty
-
 import PlutusTx.Prelude
-import Control.Monad.State.Strict hiding (Functor(..))
 
+import Control.Monad.State.Strict ( foldM )
+import Data.Map.Strict qualified as M
 import Data.List (foldl')
+import Test.Tasty.HUnit ( Assertion, (@=?), assertBool, assertFailure )
+import Text.Show.Pretty ( pPrint )
 
-import Mlabs.Emulator.Blockchain
-import Mlabs.Emulator.Script
-import Mlabs.Emulator.Types
-
-import Mlabs.Control.Monad.State
-
-import qualified Data.Map.Strict as M
+import Mlabs.Control.Monad.State ( runStateT, PlutusState )
+import Mlabs.Emulator.Blockchain ( applyResp, BchState(..), BchWallet, Resp )
+import Mlabs.Emulator.Script ( runScript, Script )
+import Mlabs.Emulator.Types ( UserId )
 
 -- | Prototype application
 data App st act = App

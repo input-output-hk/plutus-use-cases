@@ -10,20 +10,19 @@
 
 module Test.Lending.QuickCheck where
 
-import Mlabs.Emulator.Types (UserId(..), Coin, adaCoin)
-import Mlabs.Lending.Logic.Types (UserAct(..))
-import Mlabs.Lending.Logic.App (AppConfig(..), Script, runLendingApp, userAct)
-import Mlabs.Emulator.Blockchain (BchWallet(..))
-import Mlabs.Emulator.App (App(..), lookupAppWallet)
-import Test.Lending.Logic (fromToken, testAppConfig, coin1, coin2, coin3, user1, user2, user3)
-import qualified Plutus.V1.Ledger.Value as Value
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
-
+import qualified Plutus.V1.Ledger.Value as Value
+import Test.Lending.Logic (fromToken, testAppConfig, coin1, coin2, coin3, user1, user2, user3)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 import qualified Test.QuickCheck as QC
 
+import Mlabs.Emulator.App (App(..), lookupAppWallet)
+import Mlabs.Emulator.Blockchain (BchWallet(..))
+import Mlabs.Emulator.Types (UserId(..), Coin, adaCoin)
+import Mlabs.Lending.Logic.App (AppConfig(..), Script, runLendingApp, userAct)
+import Mlabs.Lending.Logic.Types (UserAct(..))
 
 allUsers :: [UserId]
 allUsers = [Self, user1, user2, user3]

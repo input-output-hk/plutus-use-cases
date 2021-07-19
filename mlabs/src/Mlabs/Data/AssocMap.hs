@@ -4,10 +4,9 @@ module Mlabs.Data.AssocMap(
 )  where
 
 import PlutusTx.Prelude (Bool, (.), ($), snd)
-
-import qualified PlutusTx.Prelude as Plutus (filter)
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
+import qualified PlutusTx.Prelude as Plutus (filter)
 
 filter :: (v -> Bool) -> Map k v -> Map k v
 filter f m = M.fromList $ Plutus.filter (f . snd) $ M.toList m

@@ -21,14 +21,11 @@ module Mlabs.Demo.Contract.Burn
   ( burnScrAddress
   , burnValHash
   ) where
-      
-import PlutusTx.Prelude hiding (Monoid(..), Semigroup(..))
 
-import qualified Ledger as Ledger
-import Ledger.Contexts
-import Ledger.Scripts
-import qualified Ledger.Typed.Scripts as Scripts
-import qualified PlutusTx as PlutusTx
+import Ledger ( ValidatorHash, Address, ScriptContext, Validator, validatorHash )
+import Ledger.Typed.Scripts qualified as Scripts
+import PlutusTx qualified
+import PlutusTx.Prelude ( Bool(False) )
 
 {-# INLINABLE mkValidator #-}
 -- | A validator script that can be used to burn any tokens sent to it.

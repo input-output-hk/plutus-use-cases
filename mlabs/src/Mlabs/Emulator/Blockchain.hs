@@ -26,20 +26,19 @@ module Mlabs.Emulator.Blockchain(
   , updateRespValue
 ) where
 
-import qualified Prelude as P
 import PlutusTx.Prelude hiding (fromMaybe, maybe)
-import Plutus.V1.Ledger.Value (assetClassValue, Value)
-import Ledger.Constraints
 
-import Data.Maybe
-import Data.Map.Strict (Map)
+import Data.Map.Strict as M ( Map, empty, toList, alterF )
+import Data.Maybe ( maybe, fromMaybe )
+import Prelude qualified as P
+import Ledger.Constraints ( mustForgeValue, mustPayToPubKey )
+import Plutus.Contract.StateMachine ( TxConstraints, Void )
+import Plutus.V1.Ledger.Value (assetClassValue, Value)
+
 import Mlabs.Emulator.Types (Coin, UserId(..))
 
-import qualified Data.Map.Strict as M
-import qualified Plutus.Contract.StateMachine as SM
-
 -- | Blockchain state is a set of wallets
-newtype BchState = BchState (Map UserId BchWallet)
+newtype BchState = BchState (M.Map UserId BchWallet)
 
 -- | For simplicity wallet is a map of coins to balances.
 newtype BchWallet = BchWallet (Map Coin Integer)
@@ -101,7 +100,7 @@ applyResp resp (BchState wallets) = fmap BchState $ case resp of
 ---------------------------------------------------------------
 
 {-# INLINABLE toConstraints #-}
-toConstraints :: Resp -> SM.TxConstraints SM.Void SM.Void
+toConstraints :: Resp -> TxConstraints Void Void
 toConstraints = \case
   Move addr coin amount | amount > 0 -> case addr of
     -- pays to lendex app

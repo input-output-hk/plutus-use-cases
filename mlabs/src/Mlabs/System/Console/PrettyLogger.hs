@@ -13,8 +13,10 @@ module Mlabs.System.Console.PrettyLogger
   , module System.Console.ANSI
   ) where
 
-import Control.Monad.IO.Class (MonadIO(..))
 import Prelude
+
+import Control.Monad.IO.Class (MonadIO(..))
+-- jozef: Cannot make it qualified as is also exported above
 import System.Console.ANSI
 
 -------------------------------------------------------------------------------

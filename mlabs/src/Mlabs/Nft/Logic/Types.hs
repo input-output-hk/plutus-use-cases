@@ -27,15 +27,15 @@ module Mlabs.Nft.Logic.Types(
   , UserAct(..)
 ) where
 
-import Data.Aeson (FromJSON, ToJSON)
-
-import qualified Prelude as Hask
-import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude
-import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
-import GHC.Generics
+
+import Data.Aeson (FromJSON, ToJSON)
+import GHC.Generics (Generic)
 import Playground.Contract (TxOutRef, ToSchema)
-import Plutus.V1.Ledger.TxId
+import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
+import Plutus.V1.Ledger.TxId (TxId(TxId))
+import qualified PlutusTx
+import qualified Prelude as Hask
 
 import Mlabs.Emulator.Types (UserId(..))
 import Mlabs.Data.Ray (Ray)

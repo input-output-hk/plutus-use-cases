@@ -12,43 +12,34 @@ module Test.Nft.Init(
   , nftContent
 ) where
 
-import Control.Monad.Reader
-
 import Prelude
 
-import Control.Lens
-
-import PlutusTx.Prelude (ByteString)
-
-import Plutus.V1.Ledger.Value (Value)
-import qualified Plutus.V1.Ledger.Ada as Ada
-import qualified Plutus.V1.Ledger.Value as Value
-import Plutus.V1.Ledger.Contexts (pubKeyHash)
+import Control.Lens ((&), (.~))
+import Control.Monad.Freer (Eff)
+import Control.Monad.Freer.Error (Error)
+import Control.Monad.Freer.Extras.Log (LogMsg)
+import Control.Monad.Reader (ask, lift, ReaderT, runReaderT)
 import qualified Data.Map as M
-
-import Plutus.Contract.Test hiding (tx)
-import qualified Plutus.Trace.Emulator as Trace
-
-import Mlabs.Emulator.Types
-import Mlabs.Nft.Logic.Types (UserAct(..), NftId)
-import qualified Mlabs.Nft.Contract as N
-import qualified Mlabs.Nft.Contract.Emulator.Client as N
-
+import Plutus.Contract.Test (CheckOptions, defaultCheckOptions, emulatorConfig, Wallet(..), walletPubKey)
+import Plutus.Trace.Emulator (EmulatorRuntimeError, EmulatorTrace, initialChainState)
+import Plutus.Trace.Effects.EmulatorControl (EmulatorControl)
+import Plutus.Trace.Effects.EmulatedWalletAPI (EmulatedWalletAPI)
+import Plutus.Trace.Effects.RunContract (RunContract)
+import Plutus.Trace.Effects.Waiting (Waiting)
+import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
+import Plutus.V1.Ledger.Contexts (pubKeyHash)
+import Plutus.V1.Ledger.Value (Value, singleton)
+import PlutusTx.Prelude (ByteString)
 import Test.Utils (next)
 
-import Control.Monad.Freer
-import Plutus.Trace.Effects.RunContract
-import Plutus.Trace.Effects.Waiting
-import Plutus.Trace.Effects.EmulatorControl
-import Plutus.Trace.Effects.EmulatedWalletAPI
-import Control.Monad.Freer.Extras.Log
-import Control.Monad.Freer.Error
-import Plutus.Trace.Emulator
-
 import qualified Mlabs.Data.Ray as R
+import qualified Mlabs.Nft.Contract as N
+import qualified Mlabs.Nft.Contract.Emulator.Client as N
+import Mlabs.Emulator.Types (adaCoin, UserId(..))
+import Mlabs.Nft.Logic.Types (UserAct(..), NftId)
 
 checkOptions :: CheckOptions
-checkOptions = defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution
+checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
 
 -- | Wallets that are used for testing.
 w1, w2, w3 :: Wallet
@@ -65,7 +56,7 @@ type Script = ScriptM ()
 
 -- | Script runner. It inits NFT by user 1 and provides nft id to all sequent
 -- endpoint calls.
-runScript :: Script -> Trace.EmulatorTrace ()
+runScript :: Script -> EmulatorTrace ()
 runScript script = do
   nftId <- N.callStartNft w1 $ N.StartParams
     { sp'content = nftContent
@@ -94,5 +85,5 @@ initialDistribution = M.fromList
   , (w3, val 1000)
   ]
   where
-    val x = Value.singleton Ada.adaSymbol Ada.adaToken x
+    val x = singleton adaSymbol adaToken x
 

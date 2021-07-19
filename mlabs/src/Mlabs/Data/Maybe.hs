@@ -3,7 +3,7 @@ module Mlabs.Data.Maybe(
   mapM_
 ) where
 
-import PlutusTx.Prelude hiding (mapM_)
+import PlutusTx.Prelude ( Monad(return), Maybe(..) )
 
 {-# INLINABLE mapM_ #-}
 mapM_ :: Monad f => (a -> f ()) -> Maybe a -> f ()

@@ -52,18 +52,18 @@ module Mlabs.Lending.Logic.Types(
   , fromAToken
 ) where
 
-import Data.Aeson (FromJSON, ToJSON)
-
-import qualified Prelude as Hask
-import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude hiding ((%))
+
+import Data.Aeson (FromJSON, ToJSON)
+import GHC.Generics ( Generic )
+import Playground.Contract (ToSchema)
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
+import qualified PlutusTx
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
-import Playground.Contract (ToSchema)
-import GHC.Generics
+import qualified Prelude as Hask
 
-import Mlabs.Emulator.Types
+import Mlabs.Emulator.Types ( adaCoin, Coin, UserId(..) )
 import Mlabs.Data.Ray (Ray, (%))
 import qualified Mlabs.Data.Ray as R
 

@@ -7,6 +7,7 @@ module Mlabs.Data.List(
 ) where
 
 import PlutusTx.Prelude hiding (take, mapM_)
+
 import Mlabs.Data.Ord (comparing)
 
 {-# INLINABLE take #-}
