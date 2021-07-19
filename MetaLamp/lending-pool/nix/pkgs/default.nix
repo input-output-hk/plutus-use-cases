@@ -17,6 +17,8 @@ let
 
   cabal-install = plutus.plutus.cabal-install;
 
+  nodejs = plutus.pkgs.nodejs;
+
   purs = plutus.plutus.purs;
 
   spago = plutus.plutus.spago;
@@ -28,5 +30,5 @@ let
   cardano-repo-tool = plutus.plutus.cardano-repo-tool;
 in
 {
-  inherit haskell hlint cabal-install purs spago stylish-haskell haskell-language-server cardano-repo-tool;
+  inherit haskell hlint cabal-install nodejs purs spago stylish-haskell haskell-language-server cardano-repo-tool;
 }
