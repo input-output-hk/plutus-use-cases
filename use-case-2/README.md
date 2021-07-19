@@ -8,6 +8,11 @@ The frontend and middleware of this Dapp is made possible using Obelisk, a frame
 
 By the end of this README you will be able to run the POKE-DEX on your machine locally and observe the behaviors of smart contracts against the Cardano mock chain by the power of PAB. Start by installing Obelisk, then running PAB, followed by running Obelisk as explained below
 
+## System Requirements
+
+* Linux (i686, x86_64, aarch64).
+* macOS (x86_64).
+
 ## Installing Obelisk
 
 1. [Install Obelisk](https://github.com/obsidiansystems/obelisk#installing-obelisk).
