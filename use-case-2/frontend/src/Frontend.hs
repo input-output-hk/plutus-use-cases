@@ -95,7 +95,6 @@ app = Workflow $ do
           Just walletIds -> do
             walletIdEvents <- elClass "ul" "list-group" $ do
               forM walletIds $ \wid -> fmap (switch . current) $ prerender (return never) $ do
-                -- TODO: Add some highlight on hover for list items
                 (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
                 return $ wid <$ domEvent Click e
             return $ leftmost walletIdEvents
@@ -144,7 +143,6 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
                 -- aeson-lens happened here to unpack the json object received from the websocket
                 let currencyDetails = incomingWebSocketData ^. key "contents" . key "Right" . key "contents" . key "getValue" . _Array
                     mAdaBal = fmap fst <$> Map.lookup "" $ parseTokensToMap currencyDetails
-                -- TODO: Use the ADA coin symbol
                 text (T.pack $ show $ fromMaybe 0 mAdaBal)
             return navSelect
 
@@ -179,7 +177,6 @@ swapDashboard wid = Workflow $ do
                 divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
                   divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
                   divClass "card-body" $ divClass "form container" $ divClass "form-group" $ do
-                    -- TODO: Create a convenient widget function out of the dropdown text input for coins
                     -- Select first token and amount
                     (selectionA, amountA) <- divClass "input-group row" $ do
                       coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
@@ -219,15 +216,8 @@ swapDashboard wid = Workflow $ do
                           <*> (toAmount <$> amountB))
                     -- This response returns transaction fee information, it does not return the swap response
                     _responseVal <- requesting $ tagPromptlyDyn requestLoad swap
-                    ----------------DEBUG--------------------------------------
-                      -- Used to display what the actual transaction fee is
-                    -- widgetHold_ blank $ ffor responseVal $ \iResp -> case runIdentity iResp of
-                    --   Left err -> el "pre" $ text $ T.pack $ groom err
-                    --   Right resp -> el "pre" $ text $ T.pack $ groom resp
-                    ----------------DEBUG--------------------------------------
                     fmap (switch . current) $ prerender (return never) $ do
                       ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-                      -- TODO: Create abstracted function for filtering out websocket events
                       let ffor4 a b c d f = liftA3 f a b c <*> d
                           observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                             -> case mIncomingWebSocketData of
@@ -266,7 +256,6 @@ swapDashboard wid = Workflow $ do
         divClass "card-body" $ do
           poolMapEv <- fmap (switch . current) $ prerender (return never) $ do
             ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-            -- TODO: Create abstracted function for filtering out websocket events
             -- Pools is used to get information about liquidity pools and token pairs to provide swap estimations
             let poolsEvent = wsFilterPools $ _webSocket_recv ws
             dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
@@ -334,7 +323,7 @@ portfolioDashboard wid = Workflow $ do
                 elAttr "th" ("scope" =: "col") $ text "Token Name"
                 elAttr "th" ("scope" =: "col") $ text "Balance"
               let formattedTokenDetails = Map.filter
-                    -- TODO: Don't lookup tokens by hard coded currencySymbol value
+                    -- Note: If token names change, this hash will need to change. Otherwise, the token balances will not be found.
                     (\(_,cs) -> cs == "4195b7e88acc9a061b21f962266770d2e676f76f2a686f6fa15ac155f383c9ad") $
                     parseTokensToMap currencyDetails
               el"tbody" $ do
@@ -347,7 +336,6 @@ portfolioDashboard wid = Workflow $ do
         return never
   return ((), leftmost [swapDashboard wid <$ swapEv, poolDashboard wid <$ poolEv])
 
--- TODO: This entire widget needs to be refactored to better allow websocket data to reach various components in this widget with ease
 poolDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
   => Text
   -> Workflow t m ()
@@ -388,7 +376,7 @@ poolDashboard wid = Workflow $ do
                         Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
                       poolMap = parseLiquidityTokensToMap poolDetails
                       formattedTokenDetails = Map.filter
-                        -- TODO: Don't lookup tokens by hard coded currencySymbol value
+                        -- Note: If token names change, this hash will need to change. Otherwise, the pool balances will not be found.
                         (\(_,cs) -> cs == "fe5cdcd31cf4e2facf00b6e9f0fa836adf3670f7c6c0e90cbd2c2b9719961f69") $
                         parseTokensToMap currencyDetails
                   case Map.toList formattedTokenDetails of
@@ -412,7 +400,7 @@ poolDashboard wid = Workflow $ do
                                   el "td" $ text $ T.pack $ show tokenBalance
                                   el "td" $ text $ T.pack $ show lqPercentage <> "%"
           return never
-      -- TODO: Widget to redeem liquidity pool blanance
+    -- Widget to redeem liquidity pool blanance
     divClass "card-group mb-3 text-center" $ do
       divClass "row row-cols-1 row-cols-md-2 g-4 mb-3" $ do
         redeemFormEvent <- divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
@@ -433,7 +421,6 @@ poolDashboard wid = Workflow $ do
                       (selA, selB, amt) <- divClass "form container" $ do
                         divClass "form-group" $ do
                           -- Select first token
-                          -- TODO: Create a convenient widget function out of the dropdown text input for coins
                           selectionA <- divClass "input-group row" $ do
                             coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
                               def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
@@ -471,7 +458,6 @@ poolDashboard wid = Workflow $ do
                           _ <- requesting $ tagPromptlyDyn requestLoad redeem
                           _ <- fmap (switch . current) $ prerender (return never) $ do
                             ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-                            -- TODO: Create an abstracted function for filtering out websocket events
                             let observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                                   -> case mIncomingWebSocketData of
                                     Nothing -> False
@@ -561,7 +547,6 @@ poolDashboard wid = Workflow $ do
                       divClass "form container" $ do
                         divClass "form-group" $ do
                           -- Select first token and amount
-                          -- TODO: Create a convenient widget function out of the dropdown text input for coins
                           (selectionA, amountA) <- divClass "input-group row" $ do
                             coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
                               def { _dropdownConfig_attributes = constDyn ("class" =: "form-control col-md-1") }
@@ -602,7 +587,6 @@ poolDashboard wid = Workflow $ do
                           _ <- requesting $ tagPromptlyDyn requestLoad stake
                           fmap (switch . current) $ prerender (return never) $ do
                             ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-                            -- TODO: Create an abstracted function for filtering out websocket events
                             let observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                                   -> case mIncomingWebSocketData of
                                     Nothing -> False

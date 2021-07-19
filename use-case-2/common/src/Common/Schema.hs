@@ -34,9 +34,9 @@ data PooledTokenT f = PooledToken
   }
   deriving (Generic)
 
--- TODO: add timestamp
--- TODO: There may need to be optional fields of information depending on the smart contract action and parameters used.
-  -- For example staking amounts, swap amounts, etc.
+-- Possible Improvements: There could be optional fields of information depending on
+-- which smart contract action and parameters are used in order to improve regression
+-- accuracy. For example staking amounts, swap amounts, etc.
 data TxFeeDataSetT f = TxFeeDataSet
   { _txFeeDataSet_id :: Columnar f (SqlSerial Int32)
   , _txFeeDataSet_txFee :: Columnar f Int32

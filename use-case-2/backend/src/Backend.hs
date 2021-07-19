@@ -286,7 +286,7 @@ fetchObservableStateFees httpManager contractId = do
     Left err -> do
       return $ Left err
     Right obj -> do
-      -- TODO: If there is a need to filter the observable state by tag. "tag" can be found in the result of "contents" lens
+      -- Note: If there is a need to filter the observable state by tag. "tag" can be found in the result of "contents" lens
       let txFeeDetails = obj ^. key "cicCurrentState" . key "observableState" . key "Right"
             . key "contents" . key "txFee" . key "getValue" . nth 0 . nth 1 . nth 0 . _Array
       print $ "fetchObservableStateFees: the value of txFeeDetails is: " ++ (show txFeeDetails)
