@@ -8,17 +8,19 @@
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Mlabs.System.Console.PrettyLogger
-  ( module Mlabs.System.Console.PrettyLogger
-  , module System.Console.ANSI
-  ) where
+module Mlabs.System.Console.PrettyLogger where
 
 import Prelude
 
 import Control.Monad.IO.Class (MonadIO(..))
--- jozef: Cannot make it qualified as is also exported above
-import System.Console.ANSI
-
+import System.Console.ANSI (
+  ConsoleIntensity(BoldIntensity),
+  ConsoleLayer(Foreground, Background),
+  Color,
+  ColorIntensity(Dull, Vivid),
+  SGR(SetConsoleIntensity, SetColor, Reset),
+  setSGR
+  )
 -------------------------------------------------------------------------------
 
 data LogStyle = LogStyle

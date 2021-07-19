@@ -10,9 +10,9 @@ import Prelude
 import Control.Monad.IO.Class ( MonadIO )
 import qualified Plutus.V1.Ledger.Value as Value
 import qualified Data.ByteString.Char8 as Char8
+import System.Console.ANSI (Color(Cyan, Red, Green, Black))
 
--- jozef: Maybe again can be done nice via one line import?
-import Mlabs.System.Console.PrettyLogger (Color(Cyan, Red, Green, Black), LogColor(Vibrant, Standard))
+import Mlabs.System.Console.PrettyLogger (LogColor(Vibrant, Standard))
 import qualified Mlabs.System.Console.PrettyLogger as Pretty
 
 logMlabs :: MonadIO m => m ()

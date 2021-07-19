@@ -26,7 +26,6 @@ import Mlabs.Emulator.Blockchain ( moveFromTo, Resp(Burn, Mint) )
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import qualified Mlabs.Lending.Logic.State as State
 import qualified Mlabs.Lending.Logic.Types as Types
--- jozef: Seems very strange. Can be avoided?
 import Mlabs.Lending.Logic.Types
     ( initReserve,
       adaCoin,

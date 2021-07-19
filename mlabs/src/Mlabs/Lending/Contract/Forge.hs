@@ -26,7 +26,6 @@ import PlutusTx (IsData(fromData), liftCode, applyCode, compile)
 
 import Mlabs.Lending.Logic.State ( getsWallet )
 
--- jozef: cannon make it via record-dot-preprocessor
 import Mlabs.Lending.Logic.Types ( LendingPool(lp'currency), Wallet(wallet'deposit) )
 import Mlabs.Lending.Logic.Types qualified as Types
 

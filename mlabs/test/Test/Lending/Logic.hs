@@ -18,7 +18,6 @@ import qualified Mlabs.Data.Ray as R
 import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
 import Mlabs.Emulator.Blockchain (BchWallet(..))
 import Mlabs.Lending.Logic.App (Script, AppConfig(AppConfig), LendingApp, runLendingApp, toCoin, userAct, priceAct) 
--- jozef: looks like overkill
 import Mlabs.Lending.Logic.Types
     ( adaCoin,
       CoinCfg(CoinCfg, coinCfg'coin, coinCfg'rate, coinCfg'aToken,
