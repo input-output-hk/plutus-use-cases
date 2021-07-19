@@ -16,18 +16,11 @@ import Database.Beam
 import Database.Beam.Backend.SQL.Types (SqlSerial)
 
 data Db f = Db
-  { _db_counter :: f (TableEntity CounterT) -- TODO: Remove counter db
-  , _db_contracts :: f (TableEntity ContractT)
+  { _db_contracts :: f (TableEntity ContractT)
   , _db_pooledTokens :: f (TableEntity PooledTokenT)
   , _db_txFeeDataSet :: f (TableEntity TxFeeDataSetT)
   }
   deriving (Generic, Database be)
-
-data CounterT f = Counter
-  { _counter_id :: Columnar f Int32
-  , _counter_amount :: Columnar f Int32
-  }
-  deriving (Generic)
 
 data ContractT f = Contract
   { _contract_id :: Columnar f Text
@@ -52,15 +45,9 @@ data TxFeeDataSetT f = TxFeeDataSet
   }
   deriving (Generic)
 
-instance Beamable CounterT
 instance Beamable ContractT
 instance Beamable PooledTokenT
 instance Beamable TxFeeDataSetT
-
-instance Table CounterT where
-  newtype PrimaryKey CounterT f = CounterId { _counterId_id :: Columnar f Int32 }
-    deriving (Generic)
-  primaryKey = CounterId . _counter_id
 
 instance Table ContractT where
   newtype PrimaryKey ContractT f = ContractId { _contractId_id :: Columnar f Text }
@@ -77,20 +64,13 @@ instance Table TxFeeDataSetT where
     deriving (Generic)
   primaryKey = TxFeeDataSetId . _txFeeDataSet_id
 
-instance Beamable (PrimaryKey CounterT)
 instance Beamable (PrimaryKey ContractT)
 instance Beamable (PrimaryKey PooledTokenT)
 instance Beamable (PrimaryKey TxFeeDataSetT)
 
-type Counter = CounterT Identity
 type Contract = ContractT Identity
 type PooledToken = PooledTokenT Identity
 type TxFeeData = TxFeeDataSetT Identity
-
-deriving instance Show Counter
-deriving instance Eq Counter
-deriving instance FromJSON Counter
-deriving instance ToJSON Counter
 
 deriving instance Show Contract
 deriving instance Eq Contract

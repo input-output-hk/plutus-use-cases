@@ -6,7 +6,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Backend where
 
-import Control.Applicative (liftA3)
 import Control.Concurrent (threadDelay)
 import Control.Exception
 import Control.Monad.Identity
@@ -15,7 +14,6 @@ import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson.Lens
 import qualified Data.Aeson as Aeson
-import qualified Data.HashMap.Strict as HMap
 import Data.Int (Int32)
 import Data.Maybe
 import Data.Pool
@@ -61,7 +59,6 @@ backend = Backend
         withResource pool runMigrations
         getWallets httpManager pool
         getPooledTokens httpManager pool
-        withResource pool $ \conn -> runBeamPostgres conn ensureCounterExists
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
           (requestHandler httpManager pool)
@@ -340,7 +337,7 @@ estimateTransactionFee pool action = case action of
       -- TODO: We may require more information such as what tokens are being swapped in order to increase estimation accuracy
       scriptSizes <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_estProcessingTime txData
       let preds :: U.Vector Double = U.fromList scriptSizes
-          predictors = fmap (\_ -> preds) [0]
+          predictors = fmap (\_ -> preds) ([0] :: [Integer])
       if (predictors == [] || responder == U.empty)
          then return (Nothing, predictors, responder)
          else return $ (Just $ olsRegress predictors responder, predictors, responder)
@@ -358,12 +355,6 @@ estimateTransactionFee pool action = case action of
         -- TODO: This is the y-intercept, for now it will always come out to the correct answer
         let b = round $ last $ U.toList leastSquaresVector
         return b
-
-ensureCounterExists :: MonadBeam Postgres m => m ()
-ensureCounterExists = do
-  runInsert $ insertOnConflict (_db_counter db) (insertValues [(Counter 0 0)])
-    (conflictingFields _counter_id)
-    onConflictDoNothing
 
 -- | Run a 'MonadBeam' action inside a 'Serializable' transaction. This ensures only safe
 -- actions happen inside the 'Serializable'

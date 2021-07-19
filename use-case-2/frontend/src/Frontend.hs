@@ -46,8 +46,6 @@ import Common.Plutus.Contracts.Uniswap.Estimates
 import Common.Schema
 import Frontend.WebsocketParse
 
-import Text.Groom
-
 -- This runs in a monad that can be run on the client or the server.
 -- To run code in a pure client or pure server context, use one of the
 -- `prerender` functions.
@@ -431,9 +429,6 @@ poolDashboard wid = Workflow $ do
                         if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
                       twoOptions = initMay $ Map.keys dropdownList
                   case twoOptions of
-                    Nothing -> do
-                      elClass "p" "text-warning" $ text "There are no tokens available to redeem."
-                      return never
                     Just (fstOpt:sndOpt:_) -> do
                       (selA, selB, amt) <- divClass "form container" $ do
                         divClass "form-group" $ do
@@ -507,6 +502,9 @@ poolDashboard wid = Workflow $ do
                             return never
                           return (selectionA, selectionB, amount)
                       return $ fmap Just $ updated $ ffor3 selA selB amt $ \a b c -> (a, b, c)
+                    _ -> do
+                      elClass "p" "text-warning" $ text "There are no tokens available to redeem."
+                      return never
         divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
           divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Redeem Transaction Details"
           divClass "card-body" $ do
@@ -559,9 +557,6 @@ poolDashboard wid = Workflow $ do
                         if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
                       twoOptions = initMay $ Map.keys dropdownList
                   case twoOptions of
-                    Nothing -> do
-                      elClass "p" "text-warning" $ text "There are no tokens available to stake."
-                      return never
                     Just (fstOpt:sndOpt:_) -> do
                       divClass "form container" $ do
                         divClass "form-group" $ do
@@ -638,6 +633,9 @@ poolDashboard wid = Workflow $ do
                             let ffor4 a b c d f = liftA3 f a b c <*> d
                                 poolSelectionAmounts = ffor4 selectionA amountA selectionB amountB $ \a b c d -> ((a,b),(c,d))
                             return $ fmap Just $ updated poolSelectionAmounts
+                    _ -> do
+                      elClass "p" "text-warning" $ text "There are no tokens available to stake."
+                      return never
       divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
         divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Stake Transaction Details"
         divClass "card-body" $ do
