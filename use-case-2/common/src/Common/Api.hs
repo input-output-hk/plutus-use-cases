@@ -38,9 +38,6 @@ data Q (v :: (* -> *) -> *) where
   Q_PooledTokens :: Q (IdentityV (First (Maybe [PooledToken])))
 
 data Api :: * -> * where
-  -- TODO: Coin and Amount will eventually be imported from plutus itself.
-  -- Once GHC 8.10 is supported in Obelisk, we will be able to reference
-  -- plutus ADTs directly. For now, they will come from Common.Plutus.Contracts.Uniswap.Types
   Api_Swap :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String Aeson.Value)
   Api_Stake :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String Aeson.Value)
   Api_RedeemLiquidity :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Api (Either String Aeson.Value)
