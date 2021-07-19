@@ -1,14 +1,18 @@
 module Plutus.Contracts.NftMarketplace.OnChain.NFT where
 
-import qualified Data.Text as T
+import qualified Data.Text        as T
+import           Ledger
+import           Plutus.Contract
+import           PlutusTx.Prelude hiding (Semigroup (..))
 
-data NFT = NFT
-  { nftId :: T.Text
-  , nftName :: T.Text
-  , nftDescription :: T.Text
-  , nftIssuer :: Maybe PubKey
-  , nftIpfsCid :: T.Text
-  }
+data NFT =
+  NFT
+    { nftId          :: T.Text
+    , nftName        :: T.Text
+    , nftDescription :: T.Text
+    , nftIssuer      :: Maybe PubKeyHash
+    , nftIpfsCid     :: T.Text
+    }
 
 -- Marketplace model:
 -- 1. Store only files from IPFS network
