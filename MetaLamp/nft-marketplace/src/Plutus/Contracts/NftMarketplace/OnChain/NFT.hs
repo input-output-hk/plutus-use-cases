@@ -1,11 +1,13 @@
 module Plutus.Contracts.NftMarketplace.OnChain.NFT where
 
+import qualified Data.Text as T
+
 data NFT = NFT
-  { nftId :: Text
-  , nftName :: Text
-  , nftDescription :: Text
+  { nftId :: T.Text
+  , nftName :: T.Text
+  , nftDescription :: T.Text
   , nftIssuer :: Maybe PubKey
-  , nftIpfsCid :: Text
+  , nftIpfsCid :: T.Text
   }
 
 -- Marketplace model:
