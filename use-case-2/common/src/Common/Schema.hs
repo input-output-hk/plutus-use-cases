@@ -16,7 +16,7 @@ import Database.Beam
 import Database.Beam.Backend.SQL.Types (SqlSerial)
 
 data Db f = Db
-  { _db_counter :: f (TableEntity CounterT)
+  { _db_counter :: f (TableEntity CounterT) -- TODO: Remove counter db
   , _db_contracts :: f (TableEntity ContractT)
   , _db_pooledTokens :: f (TableEntity PooledTokenT)
   , _db_txFeeDataSet :: f (TableEntity TxFeeDataSetT)
