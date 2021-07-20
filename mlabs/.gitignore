@@ -6,3 +6,6 @@ demo-frontend/node_modules
 demo-frontend/.cache
 demo-frontend/dist
 stack.yaml.lock
+result*
+*~
+*#
