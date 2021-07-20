@@ -133,8 +133,7 @@ dtoStrToByteStr :: String -> ByteString
 dtoStrToByteStr = B64.decodeLenient . B.pack 
 
 forgeMarketToken:: 
-    forall w s. HasBlockchainActions s 
-    => TokenName
+    forall w s. TokenName
     -> PubKeyHash
     -> Contract w s Text CurrencySymbol
 forgeMarketToken tokenName pk = fmap Currency.currencySymbol $
@@ -143,10 +142,7 @@ forgeMarketToken tokenName pk = fmap Currency.currencySymbol $
 
 -- | Creates a Marketplace "factory". This factory will keep track of the existing nft tokens
 start ::
-    forall w w' s. 
-    (HasBlockchainActions s
-    )
-    => (TokenName -> PubKeyHash -> Contract w s Text CurrencySymbol)
+    forall w w' s. (TokenName -> PubKeyHash -> Contract w s Text CurrencySymbol)
     -> Contract w s Text NFTMarket
 start forgeNft = do
     pkh <- pubKeyHash <$> ownPubKey
@@ -165,8 +161,7 @@ start forgeNft = do
 
 -- | Creates an NFT token
 create :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> CreateParams 
     -> Contract w s Text NFTMetadataDto
 create market CreateParams{..} = do
@@ -224,8 +219,7 @@ create market CreateParams{..} = do
 
 -- | Set token for selling
 sell :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> SellParams 
     -> Contract w s Text NFTMetadataDto
 sell market SellParams{..} = do
@@ -255,8 +249,7 @@ sell market SellParams{..} = do
 
 -- | Cacnel token selling
 cancelSell :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> CancelSellParams 
     -> Contract w s Text NFTMetadataDto
 cancelSell market CancelSellParams{..} = do
@@ -289,8 +282,7 @@ cancelSell market CancelSellParams{..} = do
 
 -- | Byt token
 buy :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> BuyParams 
     -> Contract w s Text NFTMetadataDto
 buy market BuyParams{..} = do
@@ -325,8 +317,7 @@ buy market BuyParams{..} = do
 
 -- | Transfer token to other user address
 transfer :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> TransferParams 
     -> Contract w s Text NFTMetadataDto
 transfer market TransferParams{..} = do
@@ -359,8 +350,7 @@ getNFTMarketDatum o = case txOutDatumHash $ txOutTxOut o of
                 Just d  -> return d
 
 findNFTMartketInstance :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall a w s. NFTMarket 
     -> AssetClass 
     -> (NFTMarketDatum -> Maybe a) 
     -> Contract w s Text (TxOutRef, TxOutTx, a)
@@ -380,16 +370,14 @@ findNFTMartketInstance market asset f = do
                 return (oref, o, a)
 
 findNFTMarketFactory :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> Contract w s Text (TxOutRef, TxOutTx, [NFTMetadata])
 findNFTMarketFactory nftm@NFTMarket{..} = findNFTMartketInstance nftm marketId $ \case
     Factory nfts -> Just nfts
     NFTMeta _    -> Nothing
 
 findNftMetadata :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> NFTMetadata 
     -> Contract w s Text (TxOutRef, TxOutTx, NFTMetadata)
 findNftMetadata market nftMeta = findNFTMartketInstance market (assetClass (nftMetaTokenSymbol nftMeta) (nftMetaTokenName nftMeta)) $ \case
@@ -398,8 +386,7 @@ findNftMetadata market nftMeta = findNFTMartketInstance market (assetClass (nftM
         _               -> Nothing
         
 findMarketFactoryAndNftMeta :: 
-    HasBlockchainActions s
-    => NFTMarket
+    forall w s. NFTMarket
     -> TokenName
     -> Contract w s Text ((TxOutRef, TxOutTx, [NFTMetadata])
                           ,(TxOutRef, TxOutTx, NFTMetadata))
@@ -419,8 +406,7 @@ findMarketFactoryAndNftMeta market tokenName  = do
 
 -- | Finds all nft metadatas belonging to the market
 queryNftMetadatas :: 
-    forall w s. HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> Contract w s Text [NFTMetadata]
 queryNftMetadatas market = do
     (_, _, nftMarketMetas) <- findNFTMarketFactory market
@@ -443,7 +429,7 @@ queryNftMetadatas market = do
             else query nftMarketMetas os
 
 -- | Gets the caller's public key hash.
-userPubKeyHash :: HasBlockchainActions s => Contract w s Text [Char]
+userPubKeyHash :: forall w s. Contract w s Text [Char]
 userPubKeyHash = do
     logInfo @String $ printf "start getting userPubKeyHash"
     pkh <- pubKeyHash <$> ownPubKey
@@ -451,8 +437,7 @@ userPubKeyHash = do
  
 -- | Gets the caller's NFTs.
 userNftTokens :: 
-    HasBlockchainActions s 
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> Contract w s Text [NFTMetadataDto]
 userNftTokens market = do
     logInfo @String $ printf "start userNftTokens"
@@ -471,8 +456,7 @@ userNftTokens market = do
 
 -- | Gets the selling NFT's
 sellingTokens :: 
-    HasBlockchainActions s
-    => NFTMarket 
+    forall w s. NFTMarket 
     -> Contract w s Text [NFTMetadataDto]
 sellingTokens market = do
     logInfo @String $ printf "start sellingTokens"
@@ -497,13 +481,11 @@ ownerEndpoint forgeNft = start' forgeNft >> ownerEndpoint forgeNft
                 Right market -> Right market
 
 type MarketOwnerSchema =
-    BlockchainActions
-        .\/ Endpoint "start" ()
+        Endpoint "start" ()
 
 -- | Schema for the endpoints for users of NFTMarket.
 type MarketUserSchema =
-    BlockchainActions
-        .\/ Endpoint "create" CreateParams
+         Endpoint "create" CreateParams
         .\/ Endpoint "sell" SellParams
         .\/ Endpoint "cancelSell" CancelSellParams
         .\/ Endpoint "buy" BuyParams
@@ -551,7 +533,7 @@ userEndpoints market =
       f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints market)
   where
     f :: forall l a p.
-         HasEndpoint l p MarketUserSchema
+         (HasEndpoint l p MarketUserSchema, FromJSON p)
       => Proxy l
       -> (a -> MarketContractState)
       -> (NFTMarket -> p -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Text a)

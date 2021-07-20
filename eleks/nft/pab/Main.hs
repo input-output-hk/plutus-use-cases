@@ -27,7 +27,7 @@ import           Data.Aeson                          (FromJSON (..), Result (..)
                                                      , defaultOptions, Options(..), decode, encode, parseJSON, fromJSON)
 import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
 import           GHC.Generics                        (Generic)
-import           Plutus.Contract                     (BlockchainActions, ContractError)
+import           Plutus.Contract                     (ContractError)
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
@@ -104,8 +104,8 @@ handleNFTMarketContract ::
     ~> Eff effs
 handleNFTMarketContract = Builtin.handleBuiltin getSchema getContract where
     getSchema = \case
-        NFTStartContract -> Builtin.endpointsToSchemas @(NFTMarket.MarketOwnerSchema .\\ BlockchainActions)
-        NFTUserContract _ -> Builtin.endpointsToSchemas @(NFTMarket.MarketUserSchema .\\ BlockchainActions)
+        NFTStartContract -> Builtin.endpointsToSchemas @(NFTMarket.MarketOwnerSchema)
+        NFTUserContract _ -> Builtin.endpointsToSchemas @(NFTMarket.MarketUserSchema)
     getContract = \case
         NFTStartContract -> SomeBuiltin (NFTMarket.ownerEndpoint NFTMarket.forgeMarketToken)
         NFTUserContract market -> SomeBuiltin (NFTMarket.userEndpoints market)

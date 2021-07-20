@@ -373,8 +373,7 @@ shouldGetWalletKeyTrace = do
     void $ Trace.waitNSlots 5
 
 forgeMockNftToken:: 
-    forall w s. HasBlockchainActions s 
-    => TokenName
+    forall w s. TokenName
     -> PubKeyHash
     -> Contract w s Text CurrencySymbol
 forgeMockNftToken tokenName pk = 

@@ -96,11 +96,7 @@ currencySymbol :: MockNFTCurrency -> CurrencySymbol
 currencySymbol = scriptCurrencySymbol . testNftCurPolicy
 
 forgeContract
-    :: forall w s.
-    ( HasWriteTx s
-    , HasTxConfirmation s
-    )
-    => PubKeyHash
+    :: forall w s. PubKeyHash
     -> TokenName
     -> Contract w s Text MockNFTCurrency
 forgeContract _ tokenName = do
@@ -122,8 +118,7 @@ data ForgeNftParams =
         deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 type CurrencySchema =
-    BlockchainActions
-        .\/ Endpoint "create" ForgeNftParams
+        Endpoint "create" ForgeNftParams
 
 -- | Use 'forgeContract' to create the currency specified by a 'SimpleMPS'
 forgeNftToken
