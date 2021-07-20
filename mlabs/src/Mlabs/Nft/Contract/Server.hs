@@ -75,7 +75,8 @@ startNft StartParams{..} = do
       let nftId   = toNftId oref sp'content
           val     = nftValue nftId
           lookups = mintingPolicy $ nftPolicy nftId
-          tx      = mustMintValue val
+          tx      = mustMintValue val 
+                    <> mustSpendPubKeyOutput oref
       authorId <- ownUserId
       runInitialiseWith nftId (initNft oref authorId sp'content sp'share sp'price) val lookups tx
       tell $ Last $ Just nftId

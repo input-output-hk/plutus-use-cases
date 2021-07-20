@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NumericUnderscores #-}
 -- | Init blockchain state for tests
 module Test.Nft.Init(
     Script
@@ -89,9 +90,9 @@ nftContent = "Mona Lisa"
 -- We have 3 users. All of them get 1000 lovelace at the start.
 initialDistribution :: M.Map Wallet Value
 initialDistribution = M.fromList
-  [ (w1, val 1000)
-  , (w2, val 1000)
-  , (w3, val 1000)
+  [ (w1, val 1000_000_000)
+  , (w2, val 1000_000_000)
+  , (w3, val 1000_000_000)
   ]
   where
     val x = Value.singleton Ada.adaSymbol Ada.adaToken x

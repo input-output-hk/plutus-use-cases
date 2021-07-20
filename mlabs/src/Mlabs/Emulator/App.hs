@@ -25,7 +25,6 @@ import Test.Tasty.HUnit
 import Text.Show.Pretty
 
 import PlutusTx.Prelude
--- import Control.Monad.State.Strict (PlutusState)
 
 import Data.List (foldl')
 
