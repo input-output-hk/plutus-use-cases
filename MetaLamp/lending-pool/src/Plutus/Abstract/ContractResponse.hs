@@ -66,7 +66,7 @@ instance Monoid (ContractResponse e a) where
     mappend = (<>)
 
 withContractResponse :: forall l a p r s.
-    HasEndpoint l p s
+    (HasEndpoint l p s, FromJSON p)
     => Proxy l
     -> (a -> r)
     -> (p -> Contract (ContractResponse Text r) s Text a)

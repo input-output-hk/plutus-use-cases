@@ -20,7 +20,6 @@ import           Ledger                           (Address)
 import qualified Ledger
 import           Ledger.AddressMap                (UtxoMap)
 import           Plutus.Abstract.ContractResponse (ContractResponse (..))
-import           Plutus.Contract                  (HasBlockchainActions)
 import           Plutus.Contract.Test             (TracePredicate)
 import qualified Plutus.Trace.Emulator            as Trace
 import           Plutus.Trace.Emulator.Types      (EmulatorRuntimeError (..))
@@ -31,7 +30,6 @@ import           Wallet.Emulator.MultiAgent       (EmulatorEvent)
 getState ::
     (Show a
     , Show e
-    , HasBlockchainActions s
     , Trace.ContractConstraints s
     , JSON.FromJSON e
     , JSON.FromJSON a
@@ -47,7 +45,7 @@ getState pick userHandle = do
     case res of
         ContractSuccess s -> maybe (throwError . GenericError $ "Unexpected state: " <> show s) pure (pick s)
         ContractError e -> throwError . GenericError . show $ e
-        s -> throwError . JSONDecodingError $ "Unexpected state: " <> show s
+        s -> throwError $ EmulatorJSONDecodingError ("Unexpected state: " <> show s) (JSON.toJSON s)
 
 utxoAtAddress :: Monad m => Address -> (UtxoMap -> m c)-> L.FoldM m EmulatorEvent c
 utxoAtAddress address check = Folds.postMapM check (L.generalize $ Folds.utxoAtAddress address)

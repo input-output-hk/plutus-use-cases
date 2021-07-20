@@ -80,7 +80,7 @@ PlutusTx.unstableMakeIsData ''DepositParams
 PlutusTx.makeLift ''DepositParams
 
 -- | The user puts N amount of his asset into a corresponding reserve, in exchange he gets N equivalent aTokens
-deposit :: (HasBlockchainActions s) => Aave -> DepositParams -> Contract w s Text ()
+deposit :: Aave -> DepositParams -> Contract w s Text ()
 deposit aave DepositParams {..} = do
     reserve <- State.findAaveReserve aave dpAsset
     forgeTx <- AToken.forgeATokensFrom aave reserve dpOnBehalfOf dpAmount
@@ -117,7 +117,7 @@ PlutusTx.unstableMakeIsData ''WithdrawParams
 PlutusTx.makeLift ''WithdrawParams
 
 -- | The user withdraws N amount of a specific asset from the corresponding reserve, N aTokens are taken from his wallet and burned
-withdraw :: (HasBlockchainActions s) => Aave -> WithdrawParams -> Contract w s Text ()
+withdraw :: Aave -> WithdrawParams -> Contract w s Text ()
 withdraw aave WithdrawParams {..} = do
     reserve <- State.findAaveReserve aave wpAsset
     let userConfigId = (wpAsset, wpUser)
@@ -143,7 +143,7 @@ PlutusTx.unstableMakeIsData ''BorrowParams
 PlutusTx.makeLift ''BorrowParams
 
 -- | The user borrows N amount of a needed asset from the corresponding reserve, his debt entry state is encreased by N
-borrow :: (HasBlockchainActions s) => Aave -> BorrowParams -> Contract w s Text ()
+borrow :: Aave -> BorrowParams -> Contract w s Text ()
 borrow aave BorrowParams {..} = do
     reserves <- ovValue <$> State.findAaveReserves aave
     reserve <- maybe (throwError "Reserve not found") pure $ AssocMap.lookup bpAsset reserves
@@ -207,7 +207,7 @@ PlutusTx.unstableMakeIsData ''RepayParams
 PlutusTx.makeLift ''RepayParams
 
 -- | The user repays N amount of a specific asset to the corresponding reserve, his debt entry state is decreased by N
-repay :: (HasBlockchainActions s) => Aave -> RepayParams -> Contract w s Text ()
+repay :: Aave -> RepayParams -> Contract w s Text ()
 repay aave RepayParams {..} = do
     reserve <- State.findAaveReserve aave rpAsset
 
@@ -242,14 +242,14 @@ PlutusTx.unstableMakeIsData ''ProvideCollateralParams
 PlutusTx.makeLift ''ProvideCollateralParams
 
 -- | Gets all UTxOs belonging to a user and concats them into one Value
-fundsAt :: HasBlockchainActions s => PubKeyHash -> Contract w s Text Value
+fundsAt :: PubKeyHash -> Contract w s Text Value
 fundsAt pkh = utxoValue <$> utxoAt (pubKeyHashAddress pkh)
 
-balanceAt :: HasBlockchainActions s => PubKeyHash -> AssetClass -> Contract w s Text Integer
+balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
 balanceAt pkh asset = flip assetClassValueOf asset <$> fundsAt pkh
 
 -- | User deposits N amount of aToken as collateral, his investment entry state is increased by N
-provideCollateral :: (HasBlockchainActions s) => Aave -> ProvideCollateralParams -> Contract w s Text ()
+provideCollateral :: Aave -> ProvideCollateralParams -> Contract w s Text ()
 provideCollateral aave ProvideCollateralParams {..} = do
     reserve <- State.findAaveReserve aave pcpUnderlyingAsset
 
@@ -291,7 +291,7 @@ PlutusTx.unstableMakeIsData ''RevokeCollateralParams
 PlutusTx.makeLift ''RevokeCollateralParams
 
 -- | User withdraws N amount of collateralized aToken, his investment entry state is decreased by N
-revokeCollateral :: (HasBlockchainActions s) => Aave -> RevokeCollateralParams -> Contract w s Text ()
+revokeCollateral :: Aave -> RevokeCollateralParams -> Contract w s Text ()
 revokeCollateral aave RevokeCollateralParams {..} = do
     reserves <- ovValue <$> State.findAaveReserves aave
     reserve <- maybe (throwError "Reserve not found") pure $ AssocMap.lookup rcpUnderlyingAsset reserves
@@ -334,22 +334,21 @@ revokeCollateral aave RevokeCollateralParams {..} = do
         getUsersCollateral asset tx = ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut $ tx) &&
                                       (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toData $ userDatum asset)
 
-getOwnPubKey :: HasBlockchainActions s => Contract w s Text PubKeyHash
+getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
 
-ownPubKeyBalance :: HasBlockchainActions s => Contract w s Text Value
+ownPubKeyBalance :: Contract w s Text Value
 ownPubKeyBalance = getOwnPubKey >>= fundsAt
 
 type AaveUserSchema =
-    BlockchainActions
-        .\/ Endpoint "deposit" DepositParams
-        .\/ Endpoint "withdraw" WithdrawParams
-        .\/ Endpoint "borrow" BorrowParams
-        .\/ Endpoint "repay" RepayParams
-        .\/ Endpoint "provideCollateral" ProvideCollateralParams
-        .\/ Endpoint "revokeCollateral" RevokeCollateralParams
-        .\/ Endpoint "ownPubKey" ()
-        .\/ Endpoint "ownPubKeyBalance" ()
+    Endpoint "deposit" DepositParams
+    .\/ Endpoint "withdraw" WithdrawParams
+    .\/ Endpoint "borrow" BorrowParams
+    .\/ Endpoint "repay" RepayParams
+    .\/ Endpoint "provideCollateral" ProvideCollateralParams
+    .\/ Endpoint "revokeCollateral" RevokeCollateralParams
+    .\/ Endpoint "ownPubKey" ()
+    .\/ Endpoint "ownPubKeyBalance" ()
 
 data UserContractState =
     Deposited

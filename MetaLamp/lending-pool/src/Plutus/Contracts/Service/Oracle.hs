@@ -181,7 +181,7 @@ data OracleParams = OracleParams
     deriving stock (Prelude.Eq, Prelude.Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
-startOracle :: forall w s. HasBlockchainActions s => OracleParams -> Contract w s Text Oracle
+startOracle :: forall w s. OracleParams -> Contract w s Text Oracle
 startOracle op = do
     pkh <- pubKeyHash <$> Contract.ownPubKey
     osc <- mapError (pack . Prelude.show) (forgeContract pkh [(oracleTokenName, 1)] :: Contract w s CurrencyError OneShotCurrency)
@@ -195,7 +195,7 @@ startOracle op = do
     logInfo @Prelude.String $ "started oracle " ++ Prelude.show oracle
     return oracle
 
-updateOracle :: forall w s. HasBlockchainActions s => Oracle -> Integer -> Contract w s Text ()
+updateOracle :: forall w s. Oracle -> Integer -> Contract w s Text ()
 updateOracle oracle x = do
     m <- findOracle oracle
     let c = Constraints.mustPayToTheScript x $ assetClassValue (oracleAsset oracle) 1
@@ -213,7 +213,7 @@ updateOracle oracle x = do
             awaitTxConfirmed $ txId ledgerTx
             logInfo @Prelude.String $ "updated oracle value to " ++ Prelude.show x
 
-findOracle :: forall w s. HasBlockchainActions s => Oracle -> Contract w s Text (Maybe (TxOutRef, TxOutTx, Integer))
+findOracle :: forall w s. Oracle -> Contract w s Text (Maybe (TxOutRef, TxOutTx, Integer))
 findOracle oracle = do
     utxos <- Map.filter f <$> utxoAt (oracleAddress oracle)
     return $ case Map.toList utxos of
@@ -227,7 +227,7 @@ findOracle oracle = do
 
 useOracle ::
      forall a w s.
-     ( HasBlockchainActions s, TxUtils.IsScriptData a
+     ( TxUtils.IsScriptData a
      )
   => (CurrencySymbol, PubKeyHash, Integer, AssetClass)
   -> Contract w s Text (TxUtils.TxPair a)
@@ -244,7 +244,7 @@ useOracle (fromTuple -> oracle) = do
   where
     oracleCoin = oracleAsset oracle
 
-type OracleSchema = BlockchainActions .\/ Endpoint "update" Integer
+type OracleSchema = Endpoint "update" Integer
 
 runOracle :: OracleParams -> Contract (Last Oracle) OracleSchema Text ()
 runOracle op = do

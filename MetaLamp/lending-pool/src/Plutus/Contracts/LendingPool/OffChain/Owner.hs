@@ -88,14 +88,14 @@ createReserve aave CreateParams {..} =
            }
 
 -- | Starts the Lending Pool protocol: minting pool NFTs, creating empty user configuration state and all specified liquidity reserves
-start :: HasBlockchainActions s => [CreateParams] -> Contract w s Text Aave
+start :: [CreateParams] -> Contract w s Text Aave
 start = start' $ do
     pkh <- pubKeyHash <$> ownPubKey
     fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
            Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
 
-start' :: HasBlockchainActions s => Contract w s Text CurrencySymbol -> [CreateParams] -> Contract w s Text Aave
+start' :: Contract w s Text CurrencySymbol -> [CreateParams] -> Contract w s Text Aave
 start' getAaveToken params = do
     aaveToken <- getAaveToken
     pkh <- pubKeyHash <$> ownPubKey
@@ -118,8 +118,7 @@ start' getAaveToken params = do
     pure aave
 
 type AaveOwnerSchema =
-    BlockchainActions
-        .\/ Endpoint "start" [CreateParams]
+    Endpoint "start" [CreateParams]
 
 data OwnerContractState = Started Aave
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
