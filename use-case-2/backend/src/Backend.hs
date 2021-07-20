@@ -4,6 +4,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module Backend where
 
 import Control.Concurrent (threadDelay)
@@ -200,28 +201,24 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
   startTime <- getCurrentTime
   _ <- httpLbs req httpManager
   print ("executeSwap: request sent." :: String)
-  -- TODO: Instead of using threaddelay, consider using the websocket on the backend as well.
-  -- TODO: Use Rhyolite.Backend.WebSocket
+  -- Allow enough time to pass for observable state to be updated (10 secs)
   threadDelay 10000000
-  -- TODO: this timestamp needs to be captured as soon as the websocket updates observableState, refactor to use ws asap
   endTime <- getCurrentTime
   eitherObState <- fetchObservableStateFees httpManager contractId
-  -- print ("executeSwap: here is what the eitherObState looks like... " ++ (show eitherObState))
   case eitherObState of
     Left err -> return $ Left err
     Right txFeeDetails -> case txFeeDetails of
       Aeson.Array xs -> case V.toList xs of
         _:(Aeson.Number txFee):_ -> do
-          let contractAction = "Swap" -- TODO: create ADT with Text Iso' for Smart Contract Actions
+          let contractAction = "Swap"
               processingTime :: Int32 = fromIntegral $ fromEnum $ diffUTCTime endTime startTime
               txFee' :: Int32 = (fromIntegral $ coefficient txFee)
-          -- persist transaction fee and details to psql
+          -- persist transaction fee and details to postgres for use in regression when estimating transaction fees later
           runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
             runInsert $
               insertOnConflict (_db_txFeeDataSet db) (insertExpressions [TxFeeDataSet default_ (val_ txFee') (val_ contractAction) (val_ processingTime)])
               (conflictingFields _txFeeDataSet_id)
               onConflictDoNothing
-          -- print ("executeSwap: here is what the observableState looks like... " ++ (show stuff))
           return $ Right txFeeDetails
         _ -> return $ Left "Error unexpected data type in txFeeDetails"
       _ -> return $ Left "Error parsing txFeeDetails as a JSON Array"
@@ -323,38 +320,26 @@ callPools httpManager contractId = do
 estimateTransactionFee :: MonadIO m => Pool Pg.Connection -> SmartContractAction -> m Integer
 estimateTransactionFee pool action = case action of
   SmartContractAction_Swap -> do
-    (regressionResults, preds, res) <- runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+    -- Perform Multiple regression on data set to estimate transaction fee
+    (regressionResults, _preds, _res) <- runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
       -- Query for all swaps that have occurred in order to construct a data set
       previousTxDataSet <- runSelectReturningList
         $ select
         $ filter_ (\a -> _txFeeDataSet_smartContractAction a ==. (val_ "Swap"))
         $ all_ (_db_txFeeDataSet db)
-      -- TODO: Perform Multiple regression on data set to estimate transaction fee
       txFees :: [Double] <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_txFee txData
       let responder = U.fromList txFees
-      -- TODO: add more variants to predictors
-      -- TODO: store script size in database to be used as a predictor
-      -- TODO: We may require more information such as what tokens are being swapped in order to increase estimation accuracy
-      scriptSizes <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_estProcessingTime txData
-      let preds :: U.Vector Double = U.fromList scriptSizes
+      processingTimes <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_estProcessingTime txData
+      let preds :: U.Vector Double = U.fromList processingTimes
           predictors = fmap (\_ -> preds) ([0] :: [Integer])
       if (predictors == [] || responder == U.empty)
          then return (Nothing, predictors, responder)
          else return $ (Just $ olsRegress predictors responder, predictors, responder)
-      -- TODO: Find Covariance Line when comparing the expected value(estimation) VS the actual value
     case regressionResults of
-      Nothing -> do
-        liftIO $ print $ "estimateTransactionFee: predictors " ++ (show preds)
-        liftIO $ print $ "estimateTransactionFee: responder " ++ (show res)
-        return 10
-      Just (leastSquaresVector, goodnessOfFit) -> do
-        liftIO $ print $ "estimateTransactionFee: predictors " ++ (show preds)
-        liftIO $ print $ "estimateTransactionFee: responder " ++ (show res)
-        liftIO $ print $ "estimateTransactionFee: least squares vector consist of " ++ (show $ U.toList leastSquaresVector)
-        liftIO $ print $ "estimateTransactionFee: here is the goodnessFit " ++ (show goodnessOfFit)
-        -- TODO: This is the y-intercept, for now it will always come out to the correct answer
-        let b = round $ last $ U.toList leastSquaresVector
-        return b
+      Nothing -> return 10
+      Just (leastSquaresVector, _goodnessOfFit) -> do
+        -- This is the y-intercept, for now it will always come out to the correct answer
+        return $ round $ last $ U.toList leastSquaresVector
 
 -- | Run a 'MonadBeam' action inside a 'Serializable' transaction. This ensures only safe
 -- actions happen inside the 'Serializable'
