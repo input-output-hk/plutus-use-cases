@@ -13,18 +13,18 @@ module Mlabs.Emulator.Types(
   , ownUserId
 ) where
 
-import Data.Aeson (FromJSON, ToJSON)
-import qualified Prelude as Hask
 import PlutusTx.Prelude
 
-import GHC.Generics
-import qualified Plutus.V1.Ledger.Ada as Ada
-import Plutus.V1.Ledger.Value (AssetClass(..))
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
-import qualified PlutusTx as PlutusTx
-
+import Data.Aeson (FromJSON, ToJSON)
+import Prelude qualified as Hask
+import GHC.Generics ( Generic )
 import Plutus.Contract (AsContractError, Contract, ownPubKey)
+import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import Plutus.V1.Ledger.Value (AssetClass(..))
+import PlutusTx ( unstableMakeIsData ) 
+import Playground.Contract (ToSchema)
 
 -- | Address of the wallet that can hold values of assets
 data UserId

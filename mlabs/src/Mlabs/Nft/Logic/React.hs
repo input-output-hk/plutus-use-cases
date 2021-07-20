@@ -12,12 +12,14 @@ import Control.Monad.State.Strict (modify', gets)
 
 import PlutusTx.Prelude
 
-import Mlabs.Control.Check
-import Mlabs.Emulator.Blockchain
+import Mlabs.Control.Check (isPositive)
+import Mlabs.Emulator.Blockchain (Resp(Move))
 import Mlabs.Lending.Logic.Types (adaCoin)
-import Mlabs.Nft.Logic.State
+import Mlabs.Nft.Logic.State (getAuthorShare, isOwner, isRightPrice, St)
 import Mlabs.Nft.Logic.Types
-
+    ( Act(..),
+      Nft(nft'author, nft'owner, nft'price),
+      UserAct(SetPriceAct, BuyAct) )
 
 {-# INLINABLE react #-}
 -- | State transitions for NFT contract logic.

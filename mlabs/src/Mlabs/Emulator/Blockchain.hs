@@ -26,25 +26,23 @@ module Mlabs.Emulator.Blockchain(
   , updateRespValue
 ) where
 
-import           Prelude (String, Show)
-import qualified Prelude as Hask (Eq)
-import           PlutusTx.Prelude hiding (fromMaybe, maybe)
-import           Plutus.V1.Ledger.Value (assetClassValue, Value)
-import           Ledger.Constraints
+import PlutusTx.Prelude hiding (fromMaybe, maybe)
 
-import           Data.Maybe
-import           Data.Map.Strict (Map)
-import           Mlabs.Emulator.Types (Coin, UserId(..))
+import Data.Map.Strict as M ( Map, empty, toList, alterF )
+import Data.Maybe ( maybe, fromMaybe )
+import qualified Prelude as Hask ( Show, Eq, String )
+import Ledger.Constraints ( mustMintValue, mustPayToPubKey )
+import Plutus.Contract.StateMachine ( TxConstraints, Void )
+import Plutus.V1.Ledger.Value (assetClassValue, Value)
 
-import qualified Data.Map.Strict as M
-import qualified Plutus.Contract.StateMachine as SM
+import Mlabs.Emulator.Types (Coin, UserId(..))
 
 -- | Blockchain state is a set of wallets
-newtype BchState = BchState (Map UserId BchWallet)
+newtype BchState = BchState (M.Map UserId BchWallet)
 
 -- | For simplicity wallet is a map of coins to balances.
 newtype BchWallet = BchWallet (Map Coin Integer)
-  deriving newtype (Show, Hask.Eq)
+  deriving newtype (Hask.Show, Hask.Eq)
 
 instance Eq BchWallet where
   (BchWallet a) == (BchWallet b) = M.toList a == M.toList b
@@ -72,7 +70,7 @@ data Resp
       , mint'amount :: Integer
       }
   -- ^ burns coins for lending platform
-  deriving (Show)
+  deriving (Hask.Show)
 
 -- | Moves from first user to second user
 moveFromTo :: UserId -> UserId -> Coin -> Integer -> [Resp]
@@ -82,7 +80,7 @@ moveFromTo from to coin amount =
   ]
 
 -- | Applies response to the blockchain state.
-applyResp :: Resp -> BchState -> Either String BchState
+applyResp :: Resp -> BchState -> Either Hask.String BchState
 applyResp resp (BchState wallets) = fmap BchState $ case resp of
   Move addr coin amount -> updateWallet addr coin amount wallets
   Mint coin amount      -> updateWallet Self coin amount wallets
@@ -90,7 +88,7 @@ applyResp resp (BchState wallets) = fmap BchState $ case resp of
   where
     updateWallet addr coin amt m = M.alterF (maybe (pure Nothing) (fmap Just . updateBalance coin amt)) addr m
 
-    updateBalance :: Coin -> Integer -> BchWallet -> Either String BchWallet
+    updateBalance :: Coin -> Integer -> BchWallet -> Either Hask.String BchWallet
     updateBalance coin amt (BchWallet bals) = fmap BchWallet $ M.alterF (upd amt) coin bals
 
     upd amt x
@@ -102,7 +100,7 @@ applyResp resp (BchState wallets) = fmap BchState $ case resp of
 ---------------------------------------------------------------
 
 {-# INLINABLE toConstraints #-}
-toConstraints :: Resp -> SM.TxConstraints SM.Void SM.Void
+toConstraints :: Resp -> TxConstraints Void Void
 toConstraints = \case
   Move addr coin amount | amount > 0 -> case addr of
     -- pays to lendex app

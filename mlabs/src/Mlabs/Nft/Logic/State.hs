@@ -14,13 +14,14 @@ module Mlabs.Nft.Logic.State(
   , getAuthorShare
 ) where
 
-import qualified Mlabs.Data.Ray as R
 import PlutusTx.Prelude
 
-import Mlabs.Control.Monad.State
+import Mlabs.Control.Monad.State ( guardError, gets, PlutusState )
+import qualified Mlabs.Data.Ray as R
+import Mlabs.Lending.Logic.Types (UserId)
+import Mlabs.Nft.Logic.Types (Nft(nft'owner, nft'price, nft'share))
 
-import Mlabs.Nft.Logic.Types
-import Mlabs.Lending.Logic.Types
+
 
 -- | State update of NFT
 type St = PlutusState Nft

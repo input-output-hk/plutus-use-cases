@@ -20,22 +20,21 @@ module Mlabs.Nft.Logic.App(
   , setPrice
 ) where
 
-import qualified Prelude as Hask (uncurry)
-import           PlutusTx.Prelude
-import           Plutus.V1.Ledger.Crypto (PubKeyHash(..))
-import           Playground.Contract (TxOutRef(..))
-import           Plutus.V1.Ledger.TxId
-
-import           Mlabs.Emulator.App
-import           Mlabs.Emulator.Blockchain
-import           Mlabs.Emulator.Types
-import qualified Mlabs.Emulator.Script as S
-
-import           Mlabs.Nft.Logic.React
-import           Mlabs.Nft.Logic.Types
+import PlutusTx.Prelude
+import qualified Prelude as Hask ( uncurry )
 
 import qualified Data.Map.Strict as M
+import Playground.Contract (TxOutRef(..))
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import Plutus.V1.Ledger.TxId ( TxId(TxId) )
+
+import Mlabs.Emulator.App (runApp, App(..))
+import Mlabs.Emulator.Blockchain (defaultBchWallet, BchState(BchState), BchWallet(..))
 import qualified Mlabs.Data.Ray as R
+import qualified Mlabs.Emulator.Script as S
+import Mlabs.Emulator.Types (adaCoin, UserId(..))
+import Mlabs.Nft.Logic.React (react)
+import Mlabs.Nft.Logic.Types (initNft, Act(..), Nft, UserAct(SetPriceAct, BuyAct))
 
 -- | NFT test emulator. We use it test the logic.
 type NftApp = App Nft Act

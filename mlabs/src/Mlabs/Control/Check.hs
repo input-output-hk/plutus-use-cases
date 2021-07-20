@@ -8,10 +8,10 @@ module Mlabs.Control.Check(
   , isUnitRangeRay
 ) where
 
-import Control.Monad.Except (MonadError(..))
-
 import PlutusTx.Prelude
+import Control.Monad.Except (MonadError(..))
 import qualified PlutusTx.Ratio as R
+
 import Mlabs.Data.Ray (Ray)
 import qualified Mlabs.Data.Ray as Ray
 import           Prelude (String)

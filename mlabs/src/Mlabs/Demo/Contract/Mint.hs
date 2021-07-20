@@ -33,26 +33,24 @@ module Mlabs.Demo.Contract.Mint
       
 import PlutusTx.Prelude hiding (Monoid(..), Semigroup(..), null)
 
-import Plutus.Contract as Contract
-import qualified Ledger as Ledger
-import qualified Ledger.Ada as Ada
-import qualified Ledger.Constraints as Constraints
-import Ledger.Contexts
-import Ledger.Scripts
-import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (CurrencySymbol, TokenName)
-import qualified Ledger.Value as Value
-import qualified PlutusTx as PlutusTx
-
-import Control.Monad
+import Control.Monad (void)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Text hiding (all, filter, foldr)
-import Data.Void
+import Data.Text (Text)
 import GHC.Generics (Generic)
+import Ledger qualified
+import Ledger.Ada qualified as Ada
+import Ledger.Constraints qualified as Constraints
+import Ledger.Contexts (scriptContextTxInfo, ScriptContext, TxInfo, txInfoForge, txInfoOutputs, TxOut, txOutAddress, txOutValue)
+import Ledger.Value (CurrencySymbol, TokenName)
+import Ledger.Value qualified as Value
+import Ledger.Scripts (MintingPolicy, Datum(Datum), mkMintingPolicyScript)
+import Ledger.Typed.Scripts qualified as Scripts
+import Plutus.Contract as Contract
+import PlutusTx qualified
 import Prelude (Semigroup(..))
 import Schema (ToSchema)
-
-import Mlabs.Demo.Contract.Burn
+import Data.Void (Void)
+import Mlabs.Demo.Contract.Burn (burnScrAddress, burnValHash)
 
 ------------------------------------------------------------------------------
 -- On-chain code.

@@ -18,28 +18,24 @@ module Mlabs.Emulator.App(
   , checkWallets
 ) where
 
-import Prelude (String, Show)
-import qualified Prelude as Hask
-import Control.Monad (foldM)
-import Test.Tasty.HUnit
-import Text.Show.Pretty
-
+import qualified Prelude as Hask ( String, Show, print, uncurry )
 import PlutusTx.Prelude
 
+import Control.Monad.State.Strict ( foldM )
+import Data.Map.Strict qualified as M
 import Data.List (foldl')
+import Test.Tasty.HUnit ( Assertion, (@=?), assertBool, assertFailure )
+import Text.Show.Pretty ( pPrint )
 
-import Mlabs.Emulator.Blockchain
-import Mlabs.Emulator.Script
-import Mlabs.Emulator.Types
-
-import Mlabs.Control.Monad.State
-
-import qualified Data.Map.Strict as M
+import Mlabs.Control.Monad.State ( runStateT, PlutusState )
+import Mlabs.Emulator.Blockchain ( applyResp, BchState(..), BchWallet, Resp )
+import Mlabs.Emulator.Script ( runScript, Script )
+import Mlabs.Emulator.Types ( UserId )
 
 -- | Prototype application
 data App st act = App
   { app'st      :: !st                   -- ^ lending pool
-  , app'log     :: ![(act, st, String)]  -- ^ error log
+  , app'log     :: ![(act, st, Hask.String)]  -- ^ error log
                                          -- ^ it reports on which act and pool state error has happened
   , app'wallets :: !BchState             -- ^ current state of blockchain
   }
@@ -67,7 +63,7 @@ runApp react app acts = foldl' go app (runScript acts)
 ---------------------------------------------------
 -- test functions
 
-noErrors :: (Show act, Show st) => App st act -> Assertion
+noErrors :: (Hask.Show act, Hask.Show st) => App st act -> Assertion
 noErrors app = case app'log app of
   [] -> assertBool "no errors" True
   xs -> do
@@ -83,7 +79,7 @@ someErrors :: App st act -> Assertion
 someErrors app = assertBool "Script fails" $ not $ null (app.app'log)
 
 -- | Check that we have those wallets after script was run.
-checkWallets :: (Show act, Show st) => [(UserId, BchWallet)] -> App st act -> Assertion
+checkWallets :: (Hask.Show act, Hask.Show st) => [(UserId, BchWallet)] -> App st act -> Assertion
 checkWallets wals app = mapM_ (Hask.uncurry $ hasWallet app) wals
 
 -- | Checks that application state contains concrete wallet for a given user id.

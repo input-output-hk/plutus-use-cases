@@ -8,20 +8,30 @@ module Test.Lending.Logic(
   , coin1, coin2, coin3
 ) where
 
-import Test.Tasty
-import Test.Tasty.HUnit
-
-import Plutus.V1.Ledger.Value
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
-
-import Mlabs.Emulator.App
-import Mlabs.Emulator.Blockchain
-import Mlabs.Lending.Logic.App
-import Mlabs.Lending.Logic.Types
-
-
 import qualified Data.Map.Strict as M
+import Plutus.V1.Ledger.Value (TokenName, AssetClass(AssetClass), CurrencySymbol, currencySymbol, tokenName)
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit (Assertion, testCase)
+
 import qualified Mlabs.Data.Ray as R
+import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
+import Mlabs.Emulator.Blockchain (BchWallet(..))
+import Mlabs.Lending.Logic.App (Script, AppConfig(AppConfig), LendingApp, runLendingApp, toCoin, userAct, priceAct) 
+import Mlabs.Lending.Logic.Types
+    ( adaCoin,
+      CoinCfg(CoinCfg, coinCfg'coin, coinCfg'rate, coinCfg'aToken,
+              coinCfg'interestModel, coinCfg'liquidationBonus),
+      BadBorrow(BadBorrow),
+      InterestRate(StableRate),
+      Coin,
+      PriceAct(SetAssetPriceAct),
+      UserAct(LiquidationCallAct, DepositAct,
+              SetUserReserveAsCollateralAct, BorrowAct, WithdrawAct, RepayAct,
+              act'useAsCollateral, act'portion, act'asset, act'amount, act'rate,
+              act'collateral, act'debt, act'debtToCover, act'receiveAToken),
+      UserId(..),
+      defaultInterestModel )
 
 -- | Test suite for a logic of lending application
 test :: TestTree

@@ -52,25 +52,24 @@ module Mlabs.Lending.Logic.Types(
   , fromAToken
 ) where
 
+import PlutusTx.Prelude hiding ((%))
+
 import Data.Aeson (FromJSON, ToJSON)
-
-import           Prelude (Show)
-import qualified Prelude as Hask
-import qualified PlutusTx as PlutusTx
-import           PlutusTx.Prelude hiding ((%))
-import           Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
-import           PlutusTx.AssocMap (Map)
+import GHC.Generics ( Generic )
+import Playground.Contract (ToSchema)
+import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
+import qualified PlutusTx
+import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
-import           Playground.Contract (ToSchema)
-import           GHC.Generics
+import qualified Prelude as Hask ( Show, Eq )
 
-import           Mlabs.Emulator.Types
-import           Mlabs.Data.Ray (Ray, (%))
+import Mlabs.Emulator.Types ( adaCoin, Coin, UserId(..) )
+import Mlabs.Data.Ray (Ray, (%))
 import qualified Mlabs.Data.Ray as R
 
 -- | Unique identifier of the lending pool state.
 newtype LendexId = LendexId ByteString
-  deriving stock (Show, Generic)
+  deriving stock (Hask.Show, Generic)
   deriving newtype (Eq)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -84,7 +83,7 @@ data LendingPool = LendingPool
   , lp'admins         :: ![UserId]               -- ^ we accept govern acts only for those users
   , lp'trustedOracles :: ![UserId]               -- ^ we accept price changes only for those users
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Reserve of give coin in the pool.
@@ -97,7 +96,7 @@ data Reserve = Reserve
   , reserve'aToken               :: !TokenName  -- ^ aToken corresponding to the coin of the reserve
   , reserve'interest             :: !ReserveInterest -- ^ reserve liquidity params
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 type HealthReport = Map BadBorrow Ray
@@ -108,7 +107,7 @@ data BadBorrow = BadBorrow
   { badBorrow'userId :: !UserId   -- ^ user identifier
   , badBorrow'asset  :: !Coin     -- ^ asset of the borrow
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
 instance Eq BadBorrow where
@@ -120,7 +119,7 @@ data CoinRate = CoinRate
   { coinRate'value          :: !Ray      -- ^ ratio to ada
   , coinRate'lastUpdateTime :: !Integer  -- ^ last time price was updated
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Parameters for calculation of interest rates.
@@ -131,7 +130,7 @@ data ReserveInterest = ReserveInterest
   , ri'normalisedIncome   :: !Ray
   , ri'lastUpdateTime     :: !Integer
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 data InterestModel = InterestModel
@@ -140,7 +139,7 @@ data InterestModel = InterestModel
   , im'slope2              :: !Ray
   , im'base                :: !Ray
   }
-  deriving (Show, Generic, Hask.Eq)
+  deriving (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 defaultInterestModel :: InterestModel
@@ -159,7 +158,7 @@ data CoinCfg = CoinCfg
   , coinCfg'interestModel    :: InterestModel
   , coinCfg'liquidationBonus :: Ray
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 {-# INLINABLE initLendingPool #-}
@@ -212,7 +211,7 @@ data User = User
   , user'lastUpdateTime  :: !Integer
   , user'health          :: !Health
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Health ratio for user per borrow
@@ -236,7 +235,7 @@ data Wallet = Wallet
   , wallet'borrow        :: !Integer   -- ^ amount of borrow
   , wallet'scaledBalance :: !Ray       -- ^ scaled balance
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 
@@ -260,7 +259,7 @@ data Act
       { governAct'userd     :: UserId
       , goverAct'act        :: GovernAct
       }                              -- ^ app admin's actions
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Lending pool action
@@ -310,19 +309,19 @@ data UserAct
       }
   -- ^ call to liquidate borrows that are unsafe due to health check
   -- (see <https://docs.aave.com/faq/liquidations> for description)
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Acts that can be done by admin users.
 data GovernAct
   = AddReserveAct CoinCfg  -- ^ Adds new reserve
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Updates for the prices of the currencies on the markets
 data PriceAct
   = SetAssetPriceAct Coin Ray        -- ^ Set asset price
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 {-# INLINABLE toLendingToken #-}
@@ -339,7 +338,7 @@ fromLendingToken :: LendingPool -> Coin -> Maybe Coin
 fromLendingToken lp (AssetClass (_ ,tn)) = fromAToken lp tn
 
 data InterestRate = StableRate | VariableRate
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 ---------------------------------------------------------------

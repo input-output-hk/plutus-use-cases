@@ -6,10 +6,10 @@ module Mlabs.Data.List(
   , mapM_
 ) where
 
-import           PlutusTx.Prelude hiding (take, mapM_)
-import           Mlabs.Data.Ord (comparing)
-import           Prelude (Monad)
-import qualified Prelude as Hask
+import qualified Prelude as Hask (Monad, seq)
+import PlutusTx.Prelude hiding (take, mapM_)
+
+import Mlabs.Data.Ord (comparing)
 
 {-# INLINABLE take #-}
 -- | 'take' @n@, applied to a list @xs@, returns the prefix of @xs@
@@ -93,7 +93,7 @@ sortBy cmp = mergeAll . sequences
 
 
 {-# INLINABLE mapM_ #-}
-mapM_ :: Monad f => (a -> f ()) -> [a] -> f ()
+mapM_ :: Hask.Monad f => (a -> f ()) -> [a] -> f ()
 mapM_ f = \case
   []   -> return ()
   a:as -> do

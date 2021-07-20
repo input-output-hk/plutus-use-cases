@@ -13,25 +13,25 @@ module Mlabs.Lending.Contract.Forge(
   , currencyPolicy
 ) where
 
-import Control.Monad.State.Strict (evalStateT)
-
 import PlutusTx.Prelude
+
+import Control.Monad.State.Strict (evalStateT)
 import Ledger (CurrencySymbol)
+import Ledger.Constraints (checkScriptContext, mustPayToPubKey, TxConstraints)
+import Ledger.Typed.Scripts as Scripts (MintingPolicy, wrapMintingPolicy)
+import Plutus.V1.Ledger.Contexts qualified as Contexts
+import Plutus.V1.Ledger.Scripts as Scripts (Datum(getDatum), mkMintingPolicyScript)
+import Plutus.V1.Ledger.Value qualified as Value
+import PlutusTx (IsData(fromData), liftCode, applyCode, compile)
 
-import Ledger.Typed.Scripts (MintingPolicy)
-import qualified Plutus.V1.Ledger.Value as Value
-import qualified Plutus.V1.Ledger.Scripts as Scripts
-import qualified Ledger.Typed.Scripts     as Scripts
-import qualified PlutusTx                 as PlutusTx
-import Plutus.V1.Ledger.Contexts
-import Ledger.Constraints
+import Mlabs.Lending.Logic.State ( getsWallet )
 
-import Mlabs.Lending.Logic.Types
-import Mlabs.Lending.Logic.State
+import Mlabs.Lending.Logic.Types ( LendingPool(lp'currency), Wallet(wallet'deposit) )
+import Mlabs.Lending.Logic.Types qualified as Types
 
 data Input = Input
-  { input'lendexId :: !LendexId
-  , input'state    :: !LendingPool
+  { input'lendexId :: !Types.LendexId
+  , input'state    :: !Types.LendingPool
   , input'value    :: !Value.Value
   }
 
@@ -56,11 +56,11 @@ data Input = Input
 --
 -- Note that during burn user does not pay aTokens to the app they just get burned.
 -- Only app pays to user in compensation for burn.
-validate :: LendexId -> () -> ScriptContext -> Bool
+validate :: Types.LendexId -> () -> Contexts.ScriptContext -> Bool
 validate lendexId _ ctx = case (getInState, getOutState) of
   (Just st1, Just st2) ->
         if (hasLendexId  st1 && hasLendexId st2)
-          then all (isValidForge st1 st2) $ Value.flattenValue $ txInfoForge info
+          then all (isValidForge st1 st2) $ Value.flattenValue $ Contexts.txInfoForge info
           else traceIfFalse "Bad Lendex identifier" False
   (Just _  , Nothing)  -> traceIfFalse "Failed to find LendingPool state in outputs" False
   (Nothing,  Just _)   -> traceIfFalse "Failed to find LendingPool state in inputs" False
@@ -69,19 +69,19 @@ validate lendexId _ ctx = case (getInState, getOutState) of
     hasLendexId x = input'lendexId x == lendexId
 
     -- find datum of lending app state in the inputs
-    getInState = getStateForOuts $ fmap txInInfoResolved $ txInfoInputs info
+    getInState = getStateForOuts $ fmap Contexts.txInInfoResolved $ Contexts.txInfoInputs info
 
     -- find datum of lending app state in the outputs
-    getOutState = getStateForOuts $ txInfoOutputs info
+    getOutState = getStateForOuts $ Contexts.txInfoOutputs info
 
     getStateForOuts outs = uniqueElement $ mapMaybe stateForTxOut outs
 
-    stateForTxOut :: TxOut -> Maybe Input
+    stateForTxOut :: Contexts.TxOut -> Maybe Input
     stateForTxOut out = do
-      dHash <- txOutDatumHash out
-      dat   <- Scripts.getDatum <$> findDatum dHash info
+      dHash <- Contexts.txOutDatumHash out
+      dat   <- Scripts.getDatum <$> Contexts.findDatum dHash info
       (lid, st) <- PlutusTx.fromData dat
-      pure $ Input lid st (txOutValue out)
+      pure $ Input lid st (Contexts.txOutValue out)
 
     isValidForge :: Input -> Input -> (Value.CurrencySymbol, Value.TokenName, Integer) -> Bool
     isValidForge st1 st2 (cur, token, amount) = case getTokenCoin st1 st2 cur token of
@@ -92,7 +92,7 @@ validate lendexId _ ctx = case (getInState, getOutState) of
         aCoin = Value.AssetClass (cur, token)
 
     getTokenCoin st1 st2 cur token
-      | isValidCurrency st1 st2 cur = fromAToken (input'state st1) token
+      | isValidCurrency st1 st2 cur = Types.fromAToken (input'state st1) token
       | otherwise                   = Nothing
 
     -- check if states are based on the same minting policy script
@@ -144,18 +144,18 @@ validate lendexId _ ctx = case (getInState, getOutState) of
       dep2 <- getDeposit uid coin st2
       pure $ cond dep1 dep2
 
-    getDeposit uid coin st = evalStateT (getsWallet (UserId uid) coin wallet'deposit) st
+    getDeposit uid coin st = evalStateT (getsWallet (Types.UserId uid) coin wallet'deposit) st
 
-    users = txInfoSignatories info
-    info  = scriptContextTxInfo ctx
+    users = Contexts.txInfoSignatories info
+    info  = Contexts.scriptContextTxInfo ctx
 
 -------------------------------------------------------------------------------
 
-currencyPolicy :: LendexId -> MintingPolicy
+currencyPolicy :: Types.LendexId -> MintingPolicy
 currencyPolicy lid = Scripts.mkMintingPolicyScript $
   $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . validate ||])
   `PlutusTx.applyCode` (PlutusTx.liftCode lid)
 
-currencySymbol :: LendexId -> CurrencySymbol
-currencySymbol lid = scriptCurrencySymbol (currencyPolicy lid)
+currencySymbol :: Types.LendexId -> CurrencySymbol
+currencySymbol lid = Contexts.scriptCurrencySymbol (currencyPolicy lid)
 

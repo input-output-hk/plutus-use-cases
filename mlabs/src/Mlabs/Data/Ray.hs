@@ -19,16 +19,15 @@ module Mlabs.Data.Ray(
   , properFraction
 ) where
 
-import Data.Aeson
+import PlutusTx.Prelude hiding (fromInteger, fromRational, recip, (%), round, properFraction, toRational)
 
-import GHC.Generics
-
-import qualified Prelude as Hask
-import           PlutusTx (IsData, Lift)
-import           PlutusCore.Default (DefaultUni)
-import           PlutusTx.Prelude hiding (fromInteger, fromRational, recip, (%), round, properFraction, toRational)
-import           Playground.Contract (ToSchema)
-import qualified PlutusTx.Ratio as R
+import Data.Aeson ( FromJSON, ToJSON )
+import GHC.Generics ( Generic )
+import Playground.Contract (ToSchema)
+import PlutusCore.Default (DefaultUni)
+import PlutusTx (IsData, Lift)
+import PlutusTx.Ratio qualified as R
+import Prelude qualified as Hask
 
 {-# INLINABLE base #-}
 -- | Base precision (27 precision digits are allowed)

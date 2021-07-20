@@ -6,22 +6,19 @@ module Mlabs.Nft.Contract.Simulator.Handler(
 ) where
 
 import Prelude
-import Data.Monoid (Last)
-import Control.Monad.IO.Class
-import Data.Functor (void)
-import Data.Default (Default (def))
 
-import Data.Aeson (ToJSON, FromJSON)
-import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
-import Data.Text (Text)
-import qualified Data.Text as T
-import GHC.Generics
-import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)
-
-
-import Plutus.Contract
+import Control.Monad.Freer.Extras.Log (LogMsg)
+import Control.Monad.IO.Class (MonadIO(..))
+import Data.Aeson (ToJSON, FromJSON)
+import Data.Default (Default (def))
+import Data.Functor (void)
+import Data.Monoid (Last)
+import Data.Text (Text, pack)
+import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
+import GHC.Generics (Generic)
+import Plutus.Contract (Contract, mapError)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..))
 import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
@@ -69,7 +66,7 @@ handlers sp =
     $ interpret (handleNftContracts sp)
 
 startNftContract :: Nft.StartParams -> Contract (Last NftId) Nft.AuthorSchema Text ()
-startNftContract startParams = mapError (T.pack . show) $ Nft.startNft startParams
+startNftContract startParams = mapError (pack . show) $ Nft.startNft startParams
 
 -- | Runs simulator for NFT
 runSimulator :: Nft.StartParams -> Sim () -> IO ()

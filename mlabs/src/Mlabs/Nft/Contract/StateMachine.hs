@@ -20,26 +20,27 @@ module Mlabs.Nft.Contract.StateMachine(
   , runInitialiseWith
 ) where
 
-import Control.Monad.State.Strict (runStateT)
-import Data.Functor (void)
-import Data.String
+import           PlutusTx.Prelude                hiding (Applicative (..), check, Semigroup(..), Monoid(..))
+import qualified Prelude                         as Hask ( String )
 
-import           Plutus.Contract
-import qualified Plutus.Contract.StateMachine as SM
-import           Ledger                       hiding (singleton)
+import           Control.Monad.State.Strict      (runStateT)
+import           Data.Functor                    (void)
+import           Data.String                     (fromString)
+import           Ledger                          (Address, MintingPolicy, scriptHashAddress, ValidatorHash)
 import qualified Ledger.Typed.Scripts.Validators as Validators
-import           Ledger.Constraints
-import qualified PlutusTx                     as PlutusTx
-import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-import qualified PlutusTx.Prelude             as Plutus
-import           Plutus.V1.Ledger.Value
+import           Ledger.Constraints              (mustBeSignedBy, ScriptLookups, TxConstraints)
+import           Plutus.Contract                 (Contract)
+import qualified Plutus.Contract.StateMachine    as SM
+import           Plutus.V1.Ledger.Value          (AssetClass(..), assetClassValue, CurrencySymbol, Value)
+import qualified PlutusTx
+import qualified PlutusTx.Prelude                as Plutus
 
-import           Mlabs.Emulator.Blockchain
-import           Mlabs.Emulator.Types
-import           Mlabs.Nft.Logic.React
-import           Mlabs.Nft.Logic.Types
-import qualified Mlabs.Nft.Contract.Forge as Forge
-import qualified Plutus.Contract.StateMachine as SM
+import Mlabs.Emulator.Blockchain                 (toConstraints, updateRespValue)
+import Mlabs.Emulator.Types                      (UserId(..))
+import Mlabs.Nft.Logic.React                     (react)
+import Mlabs.Nft.Logic.Types                     (Act(UserAct), Nft(nft'id), NftId)
+import qualified Mlabs.Nft.Contract.Forge        as Forge
+import qualified Plutus.Contract.StateMachine    as SM
 
 
 type NftMachine = SM.StateMachine Nft Act
@@ -48,7 +49,7 @@ type NftMachineClient = SM.StateMachineClient Nft Act
 -- | NFT errors
 type NftError = SM.SMContractError
 
-toNftError :: String -> NftError
+toNftError :: Hask.String -> NftError
 toNftError = SM.SMCContractError . fromString
 
 {-# INLINABLE machine #-}

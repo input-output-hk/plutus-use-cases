@@ -4,38 +4,32 @@ module Main where
 import Prelude
 
 import Control.Monad (when)
-
-import Control.Monad.IO.Class
-import Data.Functor
+import Control.Monad.IO.Class (MonadIO(liftIO))
+import Data.Functor (void)
 import Data.Monoid (Last(..))
 
+import Ledger.Constraints (mustPayToPubKey)
+import Playground.Contract (TokenName, Wallet(..))
+import Plutus.Contract hiding (when)
+import Plutus.Contracts.Currency qualified as Currency
+import Plutus.PAB.Simulator qualified as Simulator
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
-import Playground.Contract
-import Plutus.V1.Ledger.Value (CurrencySymbol)
-import qualified Plutus.V1.Ledger.Value as Value
-import Plutus.PAB.Simulator qualified as Simulator
+import Plutus.V1.Ledger.Tx (txId)
+import Plutus.V1.Ledger.Value qualified as Value
 import Wallet.Emulator.Wallet qualified as Wallet
 
-import Ledger.Constraints
-import Plutus.V1.Ledger.Tx
-import Plutus.Contract hiding (when)
-
-import Mlabs.Plutus.PAB
-import qualified Mlabs.Data.Ray as R
-import Mlabs.System.Console.PrettyLogger
-
+import Mlabs.Data.Ray qualified as R
+import Mlabs.Plutus.PAB ( call, printBalance, waitForLast )
+import Mlabs.Lending.Contract qualified as Contract
+import Mlabs.Lending.Contract.Simulator.Handler qualified as Handler
 import Mlabs.Lending.Logic.Types hiding (Wallet(..), User(..))
-import Mlabs.Lending.Contract
-
-import qualified Plutus.Contracts.Currency as Currency
-
-import Mlabs.Lending.Contract.Simulator.Handler
-import Mlabs.System.Console.Utils
+import Mlabs.System.Console.PrettyLogger ( logNewLine )
+import Mlabs.System.Console.Utils ( logAction, logMlabs )
 
 -- | Console demo for Lendex with simulator
 main :: IO ()
-main = runSimulator lendexId initContract $ do
+main = Handler.runSimulator lendexId initContract $ do
   cur    <- activateInit wAdmin
   Simulator.waitNSlots 10
   admin  <- activateAdmin wAdmin
@@ -54,26 +48,26 @@ main = runSimulator lendexId initContract $ do
   test (unlines [ "Users deposit funds (100 coins in each currrency)."
                 , "They receive equal amount of aTokens."]
        ) $ do
-    call user1 $ Deposit 100 coin1
-    call user2 $ Deposit 100 coin2
-    call user3 $ Deposit 100 coin3
+    call user1 $ Contract.Deposit 100 coin1
+    call user2 $ Contract.Deposit 100 coin2
+    call user3 $ Contract.Deposit 100 coin3
 
   test "User 1 borrows 60 Euros" $ do
-    call user1 $ SetUserReserveAsCollateral
+    call user1 $ Contract.SetUserReserveAsCollateral
                   { setCollateral'asset           = coin1
                   , setCollateral'useAsCollateral = True
                   , setCollateral'portion         = 1 R.% 1
                   }
-    call user1 $ Borrow 60 coin2 (toInterestRateFlag StableRate)
+    call user1 $ Contract.Borrow 60 coin2 (Contract.toInterestRateFlag StableRate)
 
   test "User 3 withdraws 25 Liras" $ do
-    call user3 $ Withdraw 25 coin3
+    call user3 $ Contract.Withdraw 25 coin3
 
   test (unlines [ "Rate of Euros becomes high and User1's collateral is not enough."
                 , "User2 liquidates part of the borrow"]
        ) $ do
-    call oracle $ SetAssetPrice coin2 (R.fromInteger 2)
-    call user2 $ LiquidationCall
+    call oracle $ Contract.SetAssetPrice coin2 (R.fromInteger 2)
+    call user2 $ Contract.LiquidationCall
                   { liquidationCall'collateral     = coin1
                   , liquidationCall'debtUser       = (toPubKeyHash w1)
                   , liquidationCall'debtAsset      = coin2
@@ -82,7 +76,7 @@ main = runSimulator lendexId initContract $ do
                   }
 
   test "User 1 repays 20 coins of the loan" $ do
-    call user1 $ Repay 20 coin1 (toInterestRateFlag StableRate)
+    call user1 $ Contract.Repay 20 coin1 (Contract.toInterestRateFlag StableRate)
 
   liftIO $ putStrLn "Fin (Press enter to Exit)"
   where
@@ -99,12 +93,12 @@ main = runSimulator lendexId initContract $ do
       where
         wals = [1,2,3]
 
-initContract :: InitContract
+initContract :: Handler.InitContract
 initContract = do
   ownPK <- pubKeyHash <$> ownPubKey
   logInfo @String "Start forge"
   cur   <-
-      mapError (toLendexError . show @Currency.CurrencyError)
+      mapError (Contract.toLendexError . show @Currency.CurrencyError)
       (Currency.mintContract ownPK (fmap (, amount) [token1, token2, token3]))
   let cs = Currency.currencySymbol cur
   tell $ Last (Just cs)
@@ -128,21 +122,21 @@ initContract = do
 -----------------------------------------------------------------------
 -- activate handlers
 
-activateInit :: Wallet -> Sim CurrencySymbol
+activateInit :: Wallet -> Handler.Sim Value.CurrencySymbol
 activateInit wal = do
-  wid <- Simulator.activateContract wal Init
+  wid <- Simulator.activateContract wal Handler.Init
   cur <- waitForLast wid
   void $ Simulator.waitUntilFinished wid
   pure cur
 
-activateAdmin :: Wallet -> Sim ContractInstanceId
-activateAdmin wal = Simulator.activateContract wal Admin
+activateAdmin :: Wallet -> Handler.Sim ContractInstanceId
+activateAdmin wal = Simulator.activateContract wal Handler.Admin
 
-activateUser :: Wallet -> Sim ContractInstanceId
-activateUser wal = Simulator.activateContract wal User
+activateUser :: Wallet -> Handler.Sim ContractInstanceId
+activateUser wal = Simulator.activateContract wal Handler.User
 
-activateOracle :: Wallet -> Sim ContractInstanceId
-activateOracle wal = Simulator.activateContract wal Oracle
+activateOracle :: Wallet -> Handler.Sim ContractInstanceId
+activateOracle wal = Simulator.activateContract wal Handler.Oracle
 
 -----------------------------------------------------------------------
 -- constants
@@ -173,8 +167,8 @@ aToken2 = Value.tokenName "aEuro"
 aToken3 = Value.tokenName "aLira"
 aAda    = Value.tokenName "aAda"
 
-startParams :: CurrencySymbol -> StartParams
-startParams cur = StartParams
+startParams :: Value.CurrencySymbol -> Contract.StartParams
+startParams cur = Contract.StartParams
   { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
                                         { coinCfg'coin = coin
                                         , coinCfg'rate = R.fromInteger 1
@@ -189,7 +183,7 @@ startParams cur = StartParams
   }
   where
 
-toCoin :: CurrencySymbol -> TokenName -> Coin
+toCoin :: Value.CurrencySymbol -> TokenName -> Coin
 toCoin cur tn = Value.AssetClass (cur, tn)
 
 --------------------------------------------------------------------
