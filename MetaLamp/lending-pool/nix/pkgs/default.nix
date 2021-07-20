@@ -23,12 +23,20 @@ let
 
   spago = plutus.plutus.spago;
 
+  purty = plutus.plutus.purty;
+
+  fix-purty = plutus.plutus.fixPurty;
+
+  fix-stylish-haskell = plutus.plutus.fixStylishHaskell;
+
   stylish-haskell = plutus.plutus.stylish-haskell;
 
   haskell-language-server = plutus.plutus.haskell-language-server;
 
   cardano-repo-tool = plutus.plutus.cardano-repo-tool;
 in
-{
-  inherit haskell hlint cabal-install nodejs purs spago stylish-haskell haskell-language-server cardano-repo-tool;
+{ 
+  inherit nodejs purs spago purty fix-purty; 
+  inherit haskell hlint cabal-install stylish-haskell fix-stylish-haskell haskell-language-server; 
+  inherit cardano-repo-tool;
 }

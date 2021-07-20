@@ -13,8 +13,11 @@ in
       nodejs
       purs
       spago
+      purty
+      fix-purty
       haskell-language-server
       stylish-haskell
+      fix-stylish-haskell
       pkgs.niv
       cardano-repo-tool
     ];
