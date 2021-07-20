@@ -42,6 +42,7 @@ module Mlabs.Lending.Logic.Types(
   , initLendingPool
   , Act(..)
   , UserAct(..)
+  , StartParams(..)
   , HealthReport
   , BadBorrow(..)
   , PriceAct(..)
@@ -57,7 +58,8 @@ import PlutusTx.Prelude hiding ((%))
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics ( Generic )
 import Playground.Contract (ToSchema)
-import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
+import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..), Value)
+import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import qualified PlutusTx
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
@@ -98,6 +100,15 @@ data Reserve = Reserve
   }
   deriving (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
+
+data StartParams = StartParams
+  { sp'coins     :: [CoinCfg]       -- ^ supported coins with ratios to ADA
+  , sp'initValue :: Value           -- ^ init value deposited to the lending app
+  , sp'admins    :: [PubKeyHash]    -- ^ admins
+  , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
+  }
+  deriving stock (Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 type HealthReport = Map BadBorrow Ray
 
@@ -315,6 +326,7 @@ data UserAct
 -- | Acts that can be done by admin users.
 data GovernAct
   = AddReserveAct CoinCfg  -- ^ Adds new reserve
+  | QueryAllLendexesAct StartParams
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -355,6 +367,7 @@ PlutusTx.unstableMakeIsData ''GovernAct
 PlutusTx.unstableMakeIsData ''User
 PlutusTx.unstableMakeIsData ''Wallet
 PlutusTx.unstableMakeIsData ''Reserve
+PlutusTx.unstableMakeIsData ''StartParams
 PlutusTx.unstableMakeIsData ''BadBorrow
 PlutusTx.unstableMakeIsData ''LendingPool
 PlutusTx.unstableMakeIsData ''Act

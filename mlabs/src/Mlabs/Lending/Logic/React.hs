@@ -278,6 +278,7 @@ react input = do
       State.isAdmin uid
       case act of
         Types.AddReserveAct cfg -> addReserve cfg
+        Types.QueryAllLendexesAct spar -> queryAllLendexes spar 
 
     ---------------------------------------------------
     -- Adds new reserve (new coin/asset)
@@ -291,7 +292,12 @@ react input = do
               newCoinMap  = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
           put $ st { lp'reserves = newReserves, lp'coinMap = newCoinMap }
           return []
+          
+    ---------------------------------------------------
+    -- Queries for all Lendexes that have been started with StartParams
 
+    queryAllLendexes spm = return [] -- dummy
+    
     ---------------------------------------------------
     -- health checks
 
@@ -378,12 +384,16 @@ checkInput = \case
 
     checkGovernAct = \case
       Types.AddReserveAct cfg -> checkCoinCfg cfg
+      Types.QueryAllLendexesAct spm -> checkStartParams spm
 
     checkCoinCfg Types.CoinCfg{..} = do
       isPositiveRay "coin price config" coinCfg'rate
       checkInterestModel coinCfg'interestModel
       isUnitRangeRay "liquidation bonus config" coinCfg'liquidationBonus
 
+    checkStartParams Types.StartParams{..} = do
+       sequence_  (checkCoinCfg <$> sp'coins) -- are those all checks that need to be done here?
+       
     checkInterestModel Types.InterestModel{..} = do
       isUnitRangeRay "optimal utilisation" im'optimalUtilisation
       isPositiveRay "slope 1" im'slope1

@@ -72,6 +72,7 @@ adminEndpoints lid = do
   getEndpoint @Api.StartParams >>= (startLendex lid)
   forever $ selects
     [ act $ getEndpoint @Api.AddReserve
+    , act $ getEndpoint @Api.QueryAllLendexes
     ]
   where
     act :: Api.IsGovernAct a => AdminContract a -> AdminContract ()

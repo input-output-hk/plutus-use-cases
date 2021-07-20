@@ -24,7 +24,8 @@ module Mlabs.Lending.Contract.Api(
   , fromInterestRateFlag
   -- ** Admin actions
   , AddReserve(..)
-  , StartParams(..)
+  , Types.StartParams(..)
+  , QueryAllLendexes(..)
   -- ** Price oracle actions
   , SetAssetPrice(..)
   -- ** Action conversions
@@ -44,7 +45,7 @@ import GHC.Generics (Generic)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import Plutus.Contract ( type (.\/), BlockchainActions )
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import Plutus.V1.Ledger.Value (Value)
+-- import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
 import Mlabs.Data.Ray (Ray)
@@ -131,14 +132,8 @@ data AddReserve = AddReserve Types.CoinCfg
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
-data StartParams = StartParams
-  { sp'coins     :: [Types.CoinCfg] -- ^ supported coins with ratios to ADA
-  , sp'initValue :: Value           -- ^ init value deposited to the lending app
-  , sp'admins    :: [PubKeyHash]    -- ^ admins
-  , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
-  }
-  deriving stock (Show, Generic)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
+newtype QueryAllLendexes = QueryAllLendexes Types.StartParams
+  deriving newtype (Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
 
 -- price oracle actions
 
@@ -171,7 +166,8 @@ type OracleSchema =
 type AdminSchema =
   BlockchainActions
     .\/ Call AddReserve
-    .\/ Call StartParams
+    .\/ Call Types.StartParams
+    .\/ Call QueryAllLendexes
 
 ----------------------------------------------------------
 -- proxy types for ToSchema instance
@@ -223,6 +219,8 @@ instance IsPriceAct SetAssetPrice             where { toPriceAct (SetAssetPrice 
 
 instance IsGovernAct AddReserve               where { toGovernAct (AddReserve cfg) = Types.AddReserveAct cfg }
 
+instance IsGovernAct QueryAllLendexes         where { toGovernAct (QueryAllLendexes spm) = Types.QueryAllLendexesAct spm }
+
 -- endpoint names
 
 instance IsEndpoint Deposit where
@@ -252,6 +250,8 @@ instance IsEndpoint SetAssetPrice where
 instance IsEndpoint AddReserve where
   type EndpointSymbol AddReserve = "add-reserve"
 
-instance IsEndpoint StartParams where
-  type EndpointSymbol StartParams = "start-lendex"
+instance IsEndpoint Types.StartParams where
+  type EndpointSymbol Types.StartParams = "start-lendex"
 
+instance IsEndpoint QueryAllLendexes where
+  type EndpointSymbol QueryAllLendexes = "query-all-lendexes"

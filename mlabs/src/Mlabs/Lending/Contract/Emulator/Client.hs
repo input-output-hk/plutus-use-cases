@@ -49,7 +49,8 @@ callGovernAct :: Types.LendexId -> Emulator.Wallet -> Types.GovernAct -> Emulato
 callGovernAct lid wal act = do
   hdl <- activateContractWallet wal (adminEndpoints lid)
   void $ case act of
-    Types.AddReserveAct cfg  -> callEndpoint @"add-reserve" hdl $ Api.AddReserve cfg
+    Types.AddReserveAct cfg       -> callEndpoint @"add-reserve" hdl $ Api.AddReserve cfg
+    Types.QueryAllLendexesAct spm -> callEndpoint @"query-all-lendexes" hdl $ Api.QueryAllLendexes spm
 
 -- | Calls initialisation of state for Lending pool
 callStartLendex :: Types.LendexId -> Emulator.Wallet -> Api.StartParams -> EmulatorTrace ()
