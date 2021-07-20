@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE TupleSections #-}
@@ -22,6 +23,7 @@ import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import Data.Maybe (fromMaybe)
+import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Semigroup (First(..))
 import Data.Text (Text)
@@ -176,7 +178,7 @@ swapDashboard wid = Workflow $ do
               Just (fstOpt:sndOpt:_) -> do
                 divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
                   divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
-                  divClass "card-body" $ divClass "form container" $ divClass "form-group" $ do
+                  divClass "card-body" $ divClass "form container" $ divClass "form-group" $ mdo
                     -- Select first token and amount
                     (selectionA, amountA) <- divClass "input-group row" $ do
                       coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
@@ -202,11 +204,16 @@ swapDashboard wid = Workflow $ do
                         & inputElementConfig_initialValue
                           .~ ("0" :: Text)
                       return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
-                    -- TODO: add loading modal
+                    btnEnabled <- toggle True $ leftmost [swap, () <$ observableStateEv]
                     swap <- divClass "input-group row mt-3" $ do
-                      (e,_) <- elClass' "button" "btn btn-lg btn-block btn-outline-primary" $ text "Swap"
+                      (e,_) <- elDynAttr' "button" (toggleBtnUsability <$> btnEnabled) $ do
+                        elDynAttr "span" (toggleSpinner <$> btnEnabled) blank
+                        widgetHold_ (text "Swap") $ ffor (updated btnEnabled) $ \case
+                          True -> text "Swap"
+                          False -> text "Loading..."
                       return $ domEvent Click e
-                    let pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
+                    let ffor4 a b c d f = liftA3 f a b c <*> d
+                        pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
                         toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
                         requestLoad = ((\w c1 c2 a1 a2 -> Api_Swap w c1 c2 a1 a2)
                           <$> (constDyn $ ContractInstanceId wid)
@@ -216,9 +223,9 @@ swapDashboard wid = Workflow $ do
                           <*> (toAmount <$> amountB))
                     -- This response returns transaction fee information, it does not return the swap response
                     _responseVal <- requesting $ tagPromptlyDyn requestLoad swap
-                    fmap (switch . current) $ prerender (return never) $ do
+                    observableStateEv <- fmap (switch . current) $ prerender (return never) $ do
                       ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-                      let ffor4 a b c d f = liftA3 f a b c <*> d
+                      let
                           observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                             -> case mIncomingWebSocketData of
                               Nothing -> False
@@ -232,7 +239,7 @@ swapDashboard wid = Workflow $ do
                               Just incomingWebSocketData -> do
                                 let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
                                     failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
-                                newObservableStateTag == ["NewObservableState"] && failureMessageTag /= [""]
+                                newObservableStateTag == ["NewObservableState"] && failureMessageTag /= []
                       -- this event will cause the success message to disappear when it occurs
                       vanishEvent <- delay 7 observableStateSuccessEvent
                       -- show success message based on new observable state
@@ -246,7 +253,8 @@ swapDashboard wid = Workflow $ do
                           Just incomingWebSocketData -> do
                             let errMsg = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                             elClass "p" "text-danger" $ text $ T.concat errMsg
-                      return $ updated $ fmap Just $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> ((selA, amtA), (selB, amtB))
+                      return $ leftmost [observableStateFailureEvent, observableStateSuccessEvent]
+                    return $ updated $ fmap Just $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> ((selA, amtA), (selB, amtB))
               _ -> do
                 elClass "p" "text-warning" $ text "There are no tokens available to swap."
                 return never
@@ -297,7 +305,6 @@ portfolioDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedC
   => Text
   -> Workflow t m ()
 portfolioDashboard wid = Workflow $ do
-  -- TODO: Consider refactoring workflow code a bit to avoid redrawing navbar whenever a new tab is seleted
   navEvent <- navBar $ Just wid
   let swapEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Swap
       poolEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Pool
@@ -419,7 +426,7 @@ poolDashboard wid = Workflow $ do
                   case twoOptions of
                     Just (fstOpt:sndOpt:_) -> do
                       (selA, selB, amt) <- divClass "form container" $ do
-                        divClass "form-group" $ do
+                        divClass "form-group" $ mdo
                           -- Select first token
                           selectionA <- divClass "input-group row" $ do
                             coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
@@ -443,9 +450,14 @@ poolDashboard wid = Workflow $ do
                               & inputElementConfig_initialValue
                                 .~ ("0" :: Text)
                             return $ _inputElement_value coinBAmountInput
-                          -- TODO: add loading modal
+                          -- toggle-able dynamic bool for use with disabling buttons after clicking
+                          btnEnabled <- toggle True $ leftmost [redeem, () <$ observableStateEv]
                           redeem <- divClass "input-group row mt-3" $ do
-                            (e,_) <- elClass' "button" "btn btn-lg btn-block btn-outline-primary" $ text "Redeem"
+                            (e,_) <- elDynAttr' "button" (toggleBtnUsability <$> btnEnabled) $ do
+                              elDynAttr "span" (toggleSpinner <$> btnEnabled) blank
+                              widgetHold_ (text "Redeem") $ ffor (updated btnEnabled) $ \case
+                                True -> text "Redeem"
+                                False -> text "Loading..."
                             return $ domEvent Click e
                           let pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
                               toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
@@ -456,7 +468,7 @@ poolDashboard wid = Workflow $ do
                                 <*> (toAmount <$> amount))
                           -- This response doesn't return anything useful, so it is thrown away
                           _ <- requesting $ tagPromptlyDyn requestLoad redeem
-                          _ <- fmap (switch . current) $ prerender (return never) $ do
+                          observableStateEv <- fmap (switch . current) $ prerender (return never) $ do
                             ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
                             let observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                                   -> case mIncomingWebSocketData of
@@ -471,7 +483,7 @@ poolDashboard wid = Workflow $ do
                                     Just incomingWebSocketData -> do
                                       let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
                                           failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
-                                      newObservableStateTag == ["NewObservableState"] && failureMessageTag /= [""]
+                                      newObservableStateTag == ["NewObservableState"] && failureMessageTag /= []
                             -- this event will cause the success message to disappear when it occurs
                             vanishEvent <- delay 7 observableStateSuccessEvent
                             -- show success message based on new observable state
@@ -485,7 +497,7 @@ poolDashboard wid = Workflow $ do
                                 Just incomingWebSocketData -> do
                                   let errMsg = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                                   elClass "p" "text-danger" $ text $ T.concat errMsg
-                            return never
+                            return $ leftmost [observableStateSuccessEvent, observableStateFailureEvent]
                           return (selectionA, selectionB, amount)
                       return $ fmap Just $ updated $ ffor3 selA selB amt $ \a b c -> (a, b, c)
                     _ -> do
@@ -545,7 +557,7 @@ poolDashboard wid = Workflow $ do
                   case twoOptions of
                     Just (fstOpt:sndOpt:_) -> do
                       divClass "form container" $ do
-                        divClass "form-group" $ do
+                        divClass "form-group" $ mdo
                           -- Select first token and amount
                           (selectionA, amountA) <- divClass "input-group row" $ do
                             coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
@@ -571,9 +583,13 @@ poolDashboard wid = Workflow $ do
                               & inputElementConfig_initialValue
                                 .~ ("0" :: Text)
                             return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
-                          -- TODO: add loading modal
+                          btnEnabled <- toggle True $ leftmost [stake, () <$ observableStateEv]
                           stake <- divClass "input-group row mt-3" $ do
-                            (e,_) <- elClass' "button" "btn btn-lg btn-block btn-outline-primary" $ text "Stake"
+                            (e,_) <- elDynAttr' "button" (toggleBtnUsability <$> btnEnabled) $ do
+                              elDynAttr "span" (toggleSpinner <$> btnEnabled) blank
+                              widgetHold_ (text "Stake") $ ffor (updated btnEnabled) $ \case
+                                True -> text "Stake"
+                                False -> text "Loading..."
                             return $ domEvent Click e
                           let pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
                               toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
@@ -583,9 +599,11 @@ poolDashboard wid = Workflow $ do
                                 <*> (pooledTokenToCoin <$> selectionB)
                                 <*> (toAmount <$> amountA)
                                 <*> (toAmount <$> amountB))
+                              ffor4 a b c d f = liftA3 f a b c <*> d
+                              poolSelectionAmounts = ffor4 selectionA amountA selectionB amountB $ \a b c d -> ((a,b),(c,d))
                           -- This response doesn't return anything useful, so it is thrown away
                           _ <- requesting $ tagPromptlyDyn requestLoad stake
-                          fmap (switch . current) $ prerender (return never) $ do
+                          observableStateEv <- fmap (switch . current) $ prerender (return never) $ do
                             ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
                             let observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                                   -> case mIncomingWebSocketData of
@@ -600,7 +618,7 @@ poolDashboard wid = Workflow $ do
                                     Just incomingWebSocketData -> do
                                       let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
                                           failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
-                                      newObservableStateTag == ["NewObservableState"] && failureMessageTag /= [""]
+                                      newObservableStateTag == ["NewObservableState"] && failureMessageTag /= []
                             -- this event will cause the success message to disappear when it occurs
                             vanishEvent <- delay 7 observableStateSuccessEvent
                             -- show success message based on new observable state
@@ -614,9 +632,8 @@ poolDashboard wid = Workflow $ do
                                 Just incomingWebSocketData -> do
                                   let errMsg = incomingWebSocketData ^.. key "contents" . key "Left" . _String
                                   elClass "p" "text-danger" $ text $ T.concat errMsg
-                            let ffor4 a b c d f = liftA3 f a b c <*> d
-                                poolSelectionAmounts = ffor4 selectionA amountA selectionB amountB $ \a b c d -> ((a,b),(c,d))
-                            return $ fmap Just $ updated poolSelectionAmounts
+                            return $ leftmost [observableStateFailureEvent, observableStateSuccessEvent]
+                          return $ fmap Just $ updated poolSelectionAmounts
                     _ -> do
                       elClass "p" "text-warning" $ text "There are no tokens available to stake."
                       return never
@@ -660,3 +677,11 @@ viewContracts = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 
 
 viewPooledTokens :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe [PooledToken])))
 viewPooledTokens = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
+
+toggleBtnUsability :: Bool -> Map Text Text
+toggleBtnUsability True = ("class" =: "btn btn-lg btn-block btn-outline-primary")
+toggleBtnUsability False = ("class" =: "btn btn-lg btn-block btn-secondary" <> "disabled" =: "true")
+
+toggleSpinner :: Bool -> Map Text Text
+toggleSpinner True = ("class" =: "d-none")
+toggleSpinner False = ("class" =: "spinner-border spinner-border-sm" <> "role" =: "status" <> "aria-hidden" =: "true")

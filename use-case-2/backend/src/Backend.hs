@@ -332,7 +332,7 @@ estimateTransactionFee pool action = case action of
       processingTimes <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_estProcessingTime txData
       let preds :: U.Vector Double = U.fromList processingTimes
           predictors = fmap (\_ -> preds) ([0] :: [Integer])
-      if (predictors == [] || responder == U.empty)
+      if (predictors == [] || responder == U.empty || length(predictors) < 2)
          then return (Nothing, predictors, responder)
          else return $ (Just $ olsRegress predictors responder, predictors, responder)
     case regressionResults of
