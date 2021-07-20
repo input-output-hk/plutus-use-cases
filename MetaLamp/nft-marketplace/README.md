@@ -11,11 +11,9 @@ Marketplace model:
 . Nobody can modify "data NFT"
 . Nobody can mint another NFT with same nftId
 . Nobody can burn NFT (?)
+. To put item on sale user reveals "data NFT"s IpfsCid field
+  (only user with NFT inside wallet could change this field)
 TODO do we store NFT metadata from Cardano in IPFS also?
-
-TODO wrap "data NFT" into (isOnSale, "data NFT")
-to give access to view "data NFT" which are on sale for other users
-(only user with NFT inside wallet could change isOnSale)
 
 ## Setting up
 
