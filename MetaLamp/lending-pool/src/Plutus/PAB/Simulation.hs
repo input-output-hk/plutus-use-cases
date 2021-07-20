@@ -85,7 +85,7 @@ toAsset tokenName =
 distributeFunds ::
     [Wallet] ->
     [AssetClass] ->
-    Contract () BlockchainActions Text ()
+    Contract () EmptySchema Text ()
 distributeFunds wallets assets = do
     ownPK <- pubKeyHash <$> ownPubKey
     let testCurrenciesValue = mconcat $ fmap (`assetClassValue` 1000) assets
@@ -104,7 +104,7 @@ distributeFunds wallets assets = do
 
 createOracles ::
     [AssetClass] ->
-    Contract (Monoid.Last [Oracle.Oracle]) BlockchainActions Text ()
+    Contract (Monoid.Last [Oracle.Oracle]) EmptySchema Text ()
 createOracles assets = do
     oracles <- forM assets $ \asset -> do
         let oracleParams = Oracle.OracleParams
@@ -273,11 +273,11 @@ handleAaveContract ::
     ~> Eff effs
 handleAaveContract = Builtin.handleBuiltin getSchema getContract where
   getSchema = \case
-    AaveUser _ -> Builtin.endpointsToSchemas @(Aave.AaveUserSchema .\\ BlockchainActions)
-    AaveInfo _ -> Builtin.endpointsToSchemas @(Aave.AaveInfoSchema .\\ BlockchainActions)
-    AaveStart  -> Builtin.endpointsToSchemas @(Aave.AaveOwnerSchema .\\ BlockchainActions)
-    DistributeFunds _ _         -> Builtin.endpointsToSchemas @Empty
-    CreateOracles _ -> Builtin.endpointsToSchemas @Empty
+    AaveUser _          -> Builtin.endpointsToSchemas @Aave.AaveUserSchema
+    AaveInfo _          -> Builtin.endpointsToSchemas @Aave.AaveInfoSchema
+    AaveStart           -> Builtin.endpointsToSchemas @Aave.AaveOwnerSchema
+    DistributeFunds _ _ -> Builtin.endpointsToSchemas @Empty
+    CreateOracles _     -> Builtin.endpointsToSchemas @Empty
   getContract = \case
     AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints aave
     AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints aave

@@ -50,8 +50,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 
-deriving anyclass instance ToSchema Rational
-
 data Reserve = Reserve
     { rCurrency                :: AssetClass, -- reserve id
       rAToken                  :: AssetClass,

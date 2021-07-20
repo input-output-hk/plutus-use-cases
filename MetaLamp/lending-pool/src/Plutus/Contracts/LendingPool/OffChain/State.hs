@@ -55,36 +55,36 @@ import           Prelude                                   (Semigroup (..),
                                                             fmap)
 import qualified Prelude
 
-findOutputsBy :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text [OutputValue a]
+findOutputsBy :: Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text [OutputValue a]
 findOutputsBy aave = State.findOutputsBy (Core.aaveAddress aave)
 
-findOutputBy :: HasBlockchainActions s => Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text (OutputValue a)
+findOutputBy :: Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text (OutputValue a)
 findOutputBy aave = State.findOutputBy (Core.aaveAddress aave)
 
-findAaveOwnerToken :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue PubKeyHash)
+findAaveOwnerToken :: Aave -> Contract w s Text (OutputValue PubKeyHash)
 findAaveOwnerToken aave@Aave{..} = findOutputBy aave aaveProtocolInst (^? Core._LendingPoolDatum)
 
 reserveStateToken, userStateToken :: Aave -> AssetClass
 reserveStateToken aave = State.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveReserve"
 userStateToken aave = State.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveUser"
 
-findAaveReserves :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue (AssocMap.Map AssetClass Reserve))
+findAaveReserves :: Aave -> Contract w s Text (OutputValue (AssocMap.Map AssetClass Reserve))
 findAaveReserves aave = findOutputBy aave (reserveStateToken aave) (^? Core._ReservesDatum . _2)
 
-findAaveReserve :: HasBlockchainActions s => Aave -> AssetClass -> Contract w s Text Reserve
+findAaveReserve :: Aave -> AssetClass -> Contract w s Text Reserve
 findAaveReserve aave reserveId = do
     reserves <- ovValue <$> findAaveReserves aave
     maybe (throwError "Reserve not found") pure $ AssocMap.lookup reserveId reserves
 
-findAaveUserConfigs :: HasBlockchainActions s => Aave -> Contract w s Text (OutputValue (AssocMap.Map UserConfigId UserConfig))
+findAaveUserConfigs :: Aave -> Contract w s Text (OutputValue (AssocMap.Map UserConfigId UserConfig))
 findAaveUserConfigs aave = findOutputBy aave (userStateToken aave) (^? Core._UserConfigsDatum . _2)
 
-findAaveUserConfig :: HasBlockchainActions s => Aave -> UserConfigId -> Contract w s Text UserConfig
+findAaveUserConfig :: Aave -> UserConfigId -> Contract w s Text UserConfig
 findAaveUserConfig aave userConfigId = do
     configs <- ovValue <$> findAaveUserConfigs aave
     maybe (throwError "UserConfig not found") pure $ AssocMap.lookup userConfigId configs
 
-putState :: (HasBlockchainActions s) => Aave -> StateHandle AaveScript a -> a -> Contract w s Text (TxUtils.TxPair AaveScript)
+putState :: Aave -> StateHandle AaveScript a -> a -> Contract w s Text (TxUtils.TxPair AaveScript)
 putState aave stateHandle newState = do
     ownerTokenOutput <- fmap Core.LendingPoolDatum <$> findAaveOwnerToken aave
     State.putState
@@ -92,7 +92,7 @@ putState aave stateHandle newState = do
         stateHandle
         newState
 
-updateState :: (HasBlockchainActions s) => Aave ->  StateHandle AaveScript a -> OutputValue a -> Contract w s Text (TxUtils.TxPair AaveScript, a)
+updateState :: Aave ->  StateHandle AaveScript a -> OutputValue a -> Contract w s Text (TxUtils.TxPair AaveScript, a)
 updateState aave = State.updateState (Core.aaveInstance aave)
 
 makeReserveHandle :: Aave -> (AssocMap.Map AssetClass Reserve -> AaveRedeemer) -> StateHandle AaveScript (AssocMap.Map AssetClass Reserve)
@@ -104,20 +104,20 @@ makeReserveHandle aave toRedeemer =
         toRedeemer = toRedeemer
     }
 
-putReserves :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> AssocMap.Map AssetClass Reserve -> Contract w s Text (TxUtils.TxPair AaveScript)
+putReserves :: Aave -> AaveRedeemer -> AssocMap.Map AssetClass Reserve -> Contract w s Text (TxUtils.TxPair AaveScript)
 putReserves aave redeemer = putState aave $ makeReserveHandle aave (const redeemer)
 
-updateReserves :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> OutputValue (AssocMap.Map AssetClass Reserve) -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map AssetClass Reserve)
+updateReserves :: Aave -> AaveRedeemer -> OutputValue (AssocMap.Map AssetClass Reserve) -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map AssetClass Reserve)
 updateReserves aave redeemer = updateState aave $ makeReserveHandle aave (const redeemer)
 
-updateReserve :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> AssetClass -> Reserve -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map AssetClass Reserve)
+updateReserve :: Aave -> AaveRedeemer -> AssetClass -> Reserve -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map AssetClass Reserve)
 updateReserve aave redeemer reserveId reserve = do
     reservesOutput <- findAaveReserves aave
     _ <- maybe (throwError "Update failed: reserve not found") pure $
         AssocMap.lookup reserveId (ovValue reservesOutput)
     updateReserves aave redeemer $ Prelude.fmap (AssocMap.insert reserveId reserve) reservesOutput
 
-roundtripReserves :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> Contract w s Text (TxUtils.TxPair AaveScript)
+roundtripReserves :: Aave -> AaveRedeemer -> Contract w s Text (TxUtils.TxPair AaveScript)
 roundtripReserves aave redeemer = do
     reservesOutput <- findAaveReserves aave
     fst <$> updateReserves aave redeemer reservesOutput
@@ -131,20 +131,20 @@ makeUserHandle aave toRedeemer =
         toRedeemer = toRedeemer
     }
 
-putUserConfigs :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> AssocMap.Map UserConfigId UserConfig -> Contract w s Text (TxUtils.TxPair AaveScript)
+putUserConfigs :: Aave -> AaveRedeemer -> AssocMap.Map UserConfigId UserConfig -> Contract w s Text (TxUtils.TxPair AaveScript)
 putUserConfigs aave redeemer = putState aave $ makeUserHandle aave (const redeemer)
 
-updateUserConfigs :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> OutputValue (AssocMap.Map UserConfigId UserConfig) -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map UserConfigId UserConfig)
+updateUserConfigs :: Aave -> AaveRedeemer -> OutputValue (AssocMap.Map UserConfigId UserConfig) -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map UserConfigId UserConfig)
 updateUserConfigs aave redeemer = updateState aave $ makeUserHandle aave (const redeemer)
 
-addUserConfig :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> UserConfigId -> UserConfig -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map UserConfigId UserConfig)
+addUserConfig :: Aave -> AaveRedeemer -> UserConfigId -> UserConfig -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map UserConfigId UserConfig)
 addUserConfig aave redeemer userConfigId userConfig = do
     configsOutput <- findAaveUserConfigs aave
     _ <- maybe (pure ()) (const $ throwError "Add user config failed: config exists") $
         AssocMap.lookup userConfigId (ovValue configsOutput)
     updateUserConfigs aave redeemer $ Prelude.fmap (AssocMap.insert userConfigId userConfig) configsOutput
 
-updateUserConfig :: (HasBlockchainActions s) => Aave -> AaveRedeemer -> UserConfigId -> UserConfig -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map UserConfigId UserConfig)
+updateUserConfig :: Aave -> AaveRedeemer -> UserConfigId -> UserConfig -> Contract w s Text (TxUtils.TxPair AaveScript, AssocMap.Map UserConfigId UserConfig)
 updateUserConfig aave redeemer userConfigId userConfig = do
     configsOutput <- findAaveUserConfigs aave
     _ <- maybe (throwError "Update failed: user config not found") pure $

@@ -70,7 +70,7 @@ startTrace = do
     _ <- Trace.waitNSlots 5
     pure ()
 
-startOracles ::  Contract () BlockchainActions Text ()
+startOracles ::  Contract () EmptySchema Text ()
 startOracles = forM_ oracles
     (\oracle -> do
         _ <- forgeSymbol Oracle.oracleTokenName

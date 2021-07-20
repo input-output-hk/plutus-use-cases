@@ -45,7 +45,7 @@ import qualified PlutusTx.Semigroup                          as Semigroup
 import           Prelude                                     (Semigroup (..))
 import qualified Prelude
 
-forgeATokensFrom :: forall w s. (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
+forgeATokensFrom :: forall w s. Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
 forgeATokensFrom aave reserve pkh amount = do
     let policy = makeLiquidityPolicy (Core.aaveHash aave) (rCurrency reserve)
         aTokenAmount = amount -- / rLiquidityIndex reserve -- TODO: how should we divide?
@@ -56,7 +56,7 @@ forgeATokensFrom aave reserve pkh amount = do
         <> (Prelude.mempty, mustPayToPubKey pkh forgeValue)
         <> TxUtils.mustPayToScript (Core.aaveInstance aave) pkh Core.ReserveFundsDatum payment
 
-burnATokensFrom :: (HasBlockchainActions s) => Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
+burnATokensFrom :: Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
 burnATokensFrom aave reserve pkh amount = do
     let asset = rCurrency reserve
     let userConfigId = (asset, pkh)
