@@ -19,7 +19,7 @@ import Plutus.V1.Ledger.Tx (txId)
 import Plutus.V1.Ledger.Value qualified as Value
 import Wallet.Emulator.Wallet qualified as Wallet
 
-import Mlabs.Data.Ray qualified as R
+import PlutusTx.Ratio qualified as R
 import Mlabs.Plutus.PAB ( call, printBalance, waitForLast )
 import Mlabs.Lending.Contract qualified as Contract
 import Mlabs.Lending.Contract.Simulator.Handler qualified as Handler

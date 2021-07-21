@@ -30,7 +30,7 @@ import Plutus.V1.Ledger.TxId ( TxId(TxId) )
 
 import Mlabs.Emulator.App (runApp, App(..))
 import Mlabs.Emulator.Blockchain (defaultBchWallet, BchState(BchState), BchWallet(..))
-import qualified Mlabs.Data.Ray as R
+import qualified PlutusTx.Ratio as R
 import qualified Mlabs.Emulator.Script as S
 import Mlabs.Emulator.Types (adaCoin, UserId(..))
 import Mlabs.Nft.Logic.React (react)
@@ -54,7 +54,7 @@ runNftApp cfg acts = runApp react (initApp cfg) acts
 -- | Initialise NFT application.
 initApp :: AppCfg -> NftApp
 initApp AppCfg{..} = App
-  { app'st      = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (R.fromRational $ 1 % 10) Nothing
+  { app'st      = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (1 R.% 10) Nothing
   , app'log     = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appCfg'users
   }

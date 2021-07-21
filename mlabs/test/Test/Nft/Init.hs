@@ -33,7 +33,7 @@ import Plutus.V1.Ledger.Value (Value, singleton)
 import PlutusTx.Prelude (ByteString)
 import Test.Utils (next)
 
-import qualified Mlabs.Data.Ray as R
+import qualified PlutusTx.Ratio as R
 import qualified Mlabs.Nft.Contract as N
 import qualified Mlabs.Nft.Contract.Emulator.Client as N
 import Mlabs.Emulator.Types (adaCoin, UserId(..))

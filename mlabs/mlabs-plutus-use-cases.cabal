@@ -56,7 +56,6 @@ library
         Mlabs.Control.Check
         Mlabs.Control.Monad.State
         Mlabs.Data.List
-        Mlabs.Data.Ray
         Mlabs.Data.Ord
         Mlabs.Demo.Contract.Burn
         Mlabs.Demo.Contract.Mint

@@ -14,7 +14,7 @@ import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase)
 
-import qualified Mlabs.Data.Ray as R
+import qualified PlutusTx.Ratio as R
 import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
 import Mlabs.Emulator.Blockchain (BchWallet(..))
 import Mlabs.Lending.Logic.App (Script, AppConfig(AppConfig), LendingApp, runLendingApp, toCoin, userAct, priceAct) 
