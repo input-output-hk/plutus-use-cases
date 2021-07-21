@@ -36,7 +36,7 @@ import           Ledger.Constraints               as Constraints
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Contract
-import qualified Plutus.Contracts.Currency        as Currency
+import qualified NodeFactory.Plutus.Contracts.Currency        as Currency
 import           NodeFactory.Plutus.Contracts.StableCoin.OnChain (mkStableCoinValidator, validateStableCoinForging)
 import           NodeFactory.Plutus.Contracts.StableCoin.Types
 import qualified PlutusTx
@@ -98,9 +98,9 @@ stablecoin cs = StableCoin {sCoin = scoin cs, scStablecoinTokenName = scName}
         scoin :: CurrencySymbol -> Coin SC
         scoin cs = mkCoin cs scTokenName
 
-stableCoinPolicy :: StableCoin -> MonetaryPolicy
-stableCoinPolicy sc = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \u t -> Scripts.wrapMonetaryPolicy (validateStableCoinForging u t) ||])
+stableCoinPolicy :: StableCoin -> MintingPolicy
+stableCoinPolicy sc = mkMintingPolicyScript $
+    $$(PlutusTx.compile [|| \u t -> Scripts.wrapMintingPolicy (validateStableCoinForging u t) ||])
         `PlutusTx.applyCode` PlutusTx.liftCode sc
         `PlutusTx.applyCode` PlutusTx.liftCode vaultStateTokenName
 
@@ -128,10 +128,10 @@ data CloseParams = CloseParams
 
 start :: forall w s. Contract w s Text StableCoin
 start = do
-    pkh <- pubKeyHash <$> Plutus.Contract.ownPubKey
+    pkh <- pubKeyHash <$> ownPubKey
     cs  <- fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(scTokenName, 1)]
+           Currency.mintContract pkh [(scTokenName, 1)]
     let c    = mkCoin cs scTokenName
         sc   = stablecoin cs
         inst = scInstance sc
@@ -145,7 +145,7 @@ start = do
 -- | Creates stable coin vault
 create :: forall w s. StableCoin -> CreateParams -> Contract w s Text ()
 create sc CreateParams{..} = do
-    Plutus.Contract.when (crAmount <= 0) $ throwError "Amount of stable coin must be positive"
+    when (crAmount <= 0) $ throwError "Amount of stable coin must be positive"
     (oref, o, vs) <- findStableCoinFactory sc
     let v        = StableCoinVault {owner = crOwner, amount = crAmount}
     let scInst   = scInstance sc
@@ -159,12 +159,12 @@ create sc CreateParams{..} = do
 
         lookups  = Constraints.typedValidatorLookups scInst        <>
                    Constraints.otherScript scScript                <>
-                   Constraints.monetaryPolicy (stableCoinPolicy sc) <>
+                   Constraints.mintingPolicy (stableCoinPolicy sc) <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
         tx       = Constraints.mustPayToTheScript scDat1 scVal                                     <>
                    Constraints.mustPayToTheScript scDat2 vVal                                     <>
-                   -- Constraints.mustForgeValue (unitValue vsC <> valueOf lC liquidity)              <> TODO
+                   Constraints.mustMintValue (unitValue vsC <> valueOf lC)              <>
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create v)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
@@ -175,11 +175,13 @@ create sc CreateParams{..} = do
 -- | Closes a stable coin vault
 close :: forall w s. StableCoin -> CloseParams -> Contract w s Text ()
 close sc CloseParams{..} = do
-    pkh                                            <- pubKeyHash <$> ownPubKey
+    vs          <- findStableCoinFactory sc
+    v           <- findStableCoinVault
+    pkh         <- pubKeyHash <$> ownPubKey
     let scInst   = scInstance sc
         scScript = scScript sc
         usDat    = Factory $ filter (/= v) vs
-        usC      = usCoin sc
+        usC      = sCoin sc
         vsC      = vaultStateCoin sc
         lC       = mkCoin (stableCoinCurrency sc) $ lpTicker v
         scVal    = unitValue usC
@@ -189,12 +191,12 @@ close sc CloseParams{..} = do
 
         lookups  = Constraints.typedValidatorLookups scInst        <>
                    Constraints.otherScript scScript                <>
-                   Constraints.monetaryPolicy (stableCoinPolicy sc) <>
+                   Constraints.mintingPolicy (stableCoinPolicy sc) <>
                    Constraints.ownPubKeyHash pkh                   
 
         tx       = Constraints.mustPayToTheScript usDat scVal          <>
-                   Constraints.mustForgeValue (negate $ psVal <> lVal) <>
-                   Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Vault v liquidity)
+                   Constraints.mustMintValue (negate $ psVal <> lVal) <>
+                   Constraints.mustIncludeDatum (Datum $ PlutusTx.toData $ Vault v)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
@@ -234,9 +236,15 @@ findStableCoinInstance sc c f = do
                 return (oref, o, a)
 
 findStableCoinFactory :: forall w s. StableCoin -> Contract w s Text (TxOutRef, TxOutTx, [StableCoinVault])
-findStableCoinFactory sc@StableCoin{..} = findStableCoinInstance sc usCoin $ \case
+findStableCoinFactory sc@StableCoin{..} = findStableCoinInstance sc sCoin $ \case
     Factory vs -> Just vs
     Vault _    -> Nothing
+
+findStableCoinVault :: forall w s. StableCoin -> StableCoinVault -> Contract w s Text (TxOutRef, TxOutTx, StableCoinVault)
+findStableCoinVault sc v = findStableCoinInstance sc (vaultStateCoin sc) $ \case
+    Vault v'
+        | v' == v -> Just v
+    _             -> Nothing
 
 ownerEndpoint :: Contract (Last (Either Text StableCoin)) Plutus.Contract.Empty ContractError ()
 ownerEndpoint = do

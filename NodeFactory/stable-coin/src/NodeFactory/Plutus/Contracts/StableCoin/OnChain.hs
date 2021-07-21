@@ -86,9 +86,6 @@ validateCreate StableCoin{..} c vs v@StableCoinVault{..} ctx =
     stableCoin' :: Coin USDc
     stableCoin' = let AssetClass (cs, _) = unCoin c in mkCoin cs $ scStablecoinTokenName
 
-    requiredAmountOfAda :: Integer -> Integer
-    requiredAmountOfAda a = a * 1 -- TODO use value from oracle
-
     -- oracleInput :: TxOut
     -- oracleInput =
     --   let
@@ -152,8 +149,8 @@ mkStableCoinValidator _  _ _            _           _   = False                 
 -- TODO case: liquidate vault
 
 {-# INLINABLE validateStableCoinForging #-}
-validateStableCoinForging :: StableCoin -> TokenName -> ScriptContext -> Bool
-validateStableCoinForging StableCoin{..} tn ctx
+validateStableCoinForging :: StableCoin -> TokenName -> () -> ScriptContext -> Bool
+validateStableCoinForging StableCoin{..} tn _ ctx
   = case [ i
          | i <- txInfoInputs $ scriptContextTxInfo ctx
          , let v = valueWithin i

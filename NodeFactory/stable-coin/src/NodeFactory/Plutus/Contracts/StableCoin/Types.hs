@@ -27,6 +27,7 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude             as Haskell
 import           Text.Printf         (PrintfArg)
+import           Ledger.Ada           as Ada
 
 -- | SC-state coin token
 data SC = SC
@@ -63,6 +64,10 @@ PlutusTx.makeLift ''Amount
 valueOf :: Coin a -> Amount a -> Value
 valueOf c a = assetClassValue (unCoin c) (unAmount a)
 
+{-# INLINABLE valueFrom #-}
+valueFrom :: Coin a -> Value
+valueFrom c = assetClassValue (unCoin c) 0
+
 {-# INLINABLE unitValue #-}
 unitValue :: Coin a -> Value
 unitValue c = valueOf c 1
@@ -98,7 +103,7 @@ instance Eq StableCoin where
 
 data StableCoinVault = StableCoinVault
     { owner  :: !PubKeyHash      -- owner of the of the vault
-    , amount :: !Integer         -- amount of ADA locked in vault
+    , amount :: !Integer         -- amount of Stable locked in vault
     } deriving (Haskell.Show, Generic, ToJSON, FromJSON, ToSchema)
 PlutusTx.makeIsDataIndexed ''StableCoinVault [('StableCoinVault, 0)]
 PlutusTx.makeLift ''StableCoinVault
