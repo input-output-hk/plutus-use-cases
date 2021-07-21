@@ -53,8 +53,8 @@ callGovernAct lid wal act = do
     Types.QueryAllLendexesAct spm -> callEndpoint @"query-all-lendexes" hdl $ Api.QueryAllLendexes spm
 
 -- | Calls initialisation of state for Lending pool
-callStartLendex :: Types.LendexId -> Emulator.Wallet -> Api.StartParams -> EmulatorTrace ()
-callStartLendex lid wal sp = do
+callStartLendex :: Types.LendexId -> Emulator.Wallet -> Api.StartLendex -> EmulatorTrace ()
+callStartLendex lid wal sl = do
   hdl <- activateContractWallet wal (adminEndpoints lid)
-  void $ callEndpoint @"start-lendex" hdl sp
+  void $ callEndpoint @"start-lendex" hdl sl
 

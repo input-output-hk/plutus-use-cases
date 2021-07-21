@@ -24,7 +24,7 @@ module Mlabs.Lending.Contract.Api(
   , fromInterestRateFlag
   -- ** Admin actions
   , AddReserve(..)
-  , Types.StartParams(..)
+  , StartLendex(..)
   , QueryAllLendexes(..)
   -- ** Price oracle actions
   , SetAssetPrice(..)
@@ -45,7 +45,6 @@ import GHC.Generics (Generic)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import Plutus.Contract ( type (.\/), BlockchainActions )
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
--- import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
 import Mlabs.Data.Ray (Ray)
@@ -132,6 +131,9 @@ data AddReserve = AddReserve Types.CoinCfg
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
+newtype StartLendex = StartLendex Types.StartParams 
+  deriving newtype (Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
+
 newtype QueryAllLendexes = QueryAllLendexes Types.StartParams
   deriving newtype (Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
 
@@ -166,7 +168,7 @@ type OracleSchema =
 type AdminSchema =
   BlockchainActions
     .\/ Call AddReserve
-    .\/ Call Types.StartParams
+    .\/ Call StartLendex
     .\/ Call QueryAllLendexes
 
 ----------------------------------------------------------
@@ -250,8 +252,8 @@ instance IsEndpoint SetAssetPrice where
 instance IsEndpoint AddReserve where
   type EndpointSymbol AddReserve = "add-reserve"
 
-instance IsEndpoint Types.StartParams where
-  type EndpointSymbol Types.StartParams = "start-lendex"
+instance IsEndpoint StartLendex where
+  type EndpointSymbol StartLendex = "start-lendex"
 
 instance IsEndpoint QueryAllLendexes where
   type EndpointSymbol QueryAllLendexes = "query-all-lendexes"

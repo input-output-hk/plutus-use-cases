@@ -69,7 +69,7 @@ oracleEndpoints lid = forever $ selects
 -- | Endpoints for admin
 adminEndpoints :: Types.LendexId -> AdminContract ()
 adminEndpoints lid = do
-  getEndpoint @Api.StartParams >>= (startLendex lid)
+  getEndpoint @Api.StartLendex >>= (startLendex lid)
   forever $ selects
     [ act $ getEndpoint @Api.AddReserve
     , act $ getEndpoint @Api.QueryAllLendexes
@@ -96,8 +96,8 @@ priceOracleAction lid input = StateMachine.runStep lid =<< getPriceAct input
 adminAction :: Api.IsGovernAct a => Types.LendexId -> a -> AdminContract ()
 adminAction lid input = StateMachine.runStep lid =<< getGovernAct input
 
-startLendex :: Types.LendexId -> Api.StartParams -> AdminContract ()
-startLendex lid Api.StartParams{..} =
+startLendex :: Types.LendexId -> Api.StartLendex -> AdminContract ()
+startLendex lid (Api.StartLendex Types.StartParams{..}) =
   StateMachine.runInitialise lid  (Types.initLendingPool (currencySymbol lid) sp'coins (fmap Types.UserId sp'admins) (fmap Types.UserId sp'oracles)) sp'initValue
 
 ----------------------------------------------------------
