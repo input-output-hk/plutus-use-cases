@@ -3,3 +3,4 @@ module Plutus.Contracts.NftMarketplace.Endpoints
   ) where
 
 import           Plutus.Contracts.NftMarketplace.OffChain.Owner as Export
+import           Plutus.Contracts.NftMarketplace.OffChain.User  as Export

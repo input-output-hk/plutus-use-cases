@@ -23,7 +23,7 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Plutus.Contracts.NftMarketplace.OnChain.Core Plutus.Abstract.ContractResponse Plutus.Abstract.OutputValue Plutus.Abstract.TxUtils Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation Plutus.Contracts.NftMarketplace.OnChain.NFT
+      Plutus.Contracts.NftMarketplace.OnChain.Core Ext.Plutus.Ledger.Contexts Ext.Plutus.Ledger.Value Plutus.Contracts.NftMarketplace.OffChain.User Plutus.Abstract.ContractResponse Plutus.Abstract.OutputValue Plutus.Abstract.TxUtils Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation Plutus.Contracts.NftMarketplace.OnChain.NFT
     build-depends:
       base >= 4.9 && < 5,
       aeson,

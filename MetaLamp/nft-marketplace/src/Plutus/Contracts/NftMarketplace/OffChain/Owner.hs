@@ -8,7 +8,9 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.Owner where
 
+import           Control.Monad                                hiding (fmap)
 import qualified Data.Aeson                                   as J
+import           Data.Proxy                                   (Proxy (..))
 import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
 import qualified GHC.Generics                                 as Haskell
@@ -19,6 +21,7 @@ import           Plutus.Abstract.ContractResponse             (ContractResponse,
                                                                withContractResponse)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
+import           Plutus.Contracts.Currency                    as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                            as AssocMap
@@ -26,9 +29,6 @@ import           PlutusTx.Prelude                             hiding
                                                               (Semigroup (..))
 import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
-import           Control.Monad                                hiding (fmap)
-import           Data.Proxy                                   (Proxy (..))
-import           Plutus.Contracts.Currency                    as Currency
 import           Text.Printf                                  (printf)
 
 -- | Starts the NFT Marketplace protocol: minting protocol NFT, creating empty nft storage

@@ -52,7 +52,7 @@ PlutusTx.makeLift ''NFT
 
 data MarketplaceRedeemer
   = StartRedeemer
-  | AddNftRedeemer IpfsCidHash NFT
+  | CreateNftRedeemer IpfsCidHash NFT
   deriving  (Haskell.Show)
 
 PlutusTx.unstableMakeIsData ''MarketplaceRedeemer
