@@ -18,8 +18,9 @@ import qualified Mlabs.Data.Ray as R
 import Mlabs.Emulator.Scene (appAddress, appOwns, checkScene, owns, Scene)
 import qualified Mlabs.Lending.Contract as L
 import qualified Mlabs.Lending.Contract.Emulator.Client as L
+import Mlabs.Lending.Contract.Api ( StartLendex(..) )
 import Mlabs.Lending.Logic.Types ( UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel
-                                 , PriceAct(..), BadBorrow(..))
+                                 , PriceAct(..), BadBorrow(..), StartParams(..))
 
 test :: TestTree
 test = testGroup "Contract"
@@ -51,7 +52,7 @@ test = testGroup "Contract"
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
 depositScript :: Trace.EmulatorTrace ()
 depositScript = do
-  L.callStartLendex lendexId wAdmin $ L.StartParams
+  L.callStartLendex lendexId wAdmin . StartLendex $ StartParams
     { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
                                           { coinCfg'coin = coin
                                           , coinCfg'rate = R.fromInteger 1
