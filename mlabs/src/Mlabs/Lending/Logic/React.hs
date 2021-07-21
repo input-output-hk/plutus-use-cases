@@ -20,7 +20,7 @@ import PlutusTx.These (these)
 
 import Mlabs.Control.Check (isPositive, isPositiveRay, isNonNegative, isUnitRangeRay)
 import qualified Mlabs.Data.List as L
-import qualified Mlabs.Data.Ray as R
+import qualified PlutusTx.Ratio as R
 import Mlabs.Emulator.Blockchain ( moveFromTo, Resp(Burn, Mint) )
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import qualified Mlabs.Lending.Logic.State as State

@@ -47,7 +47,6 @@ import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask (Show, Eq)
 
-import Mlabs.Data.Ray (Ray)
 import Mlabs.Lending.Logic.Types qualified as Types
 import Mlabs.Plutus.Contract ( Call, IsEndpoint(..) )
 
@@ -94,7 +93,7 @@ data SwapBorrowRateModel = SwapBorrowRateModel
 data SetUserReserveAsCollateral = SetUserReserveAsCollateral
   { setCollateral'asset           :: Types.Coin       -- ^ which asset to use as collateral or not
   , setCollateral'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
-  , setCollateral'portion         :: Ray        -- ^ portion of deposit/collateral to change status (0, 1)
+  , setCollateral'portion         :: Rational   -- ^ portion of deposit/collateral to change status (0, 1)
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
@@ -143,7 +142,7 @@ data StartParams = StartParams
 -- price oracle actions
 
 -- | Updates for the prices of the currencies on the markets
-data SetAssetPrice = SetAssetPrice Types.Coin Ray
+data SetAssetPrice = SetAssetPrice Types.Coin Rational
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 

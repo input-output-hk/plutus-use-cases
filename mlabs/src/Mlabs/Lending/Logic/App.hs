@@ -32,7 +32,7 @@ import qualified Data.Map.Strict           as M
 import qualified Plutus.V1.Ledger.Value    as Value
 import qualified PlutusTx.AssocMap         as AM
 
-import qualified Mlabs.Data.Ray            as Ray
+import qualified PlutusTx.Ratio            as R
 import           Mlabs.Emulator.App        (runApp, App(..))
 import           Mlabs.Emulator.Blockchain (defaultBchWallet, BchState(BchState), BchWallet(..))
 import qualified Mlabs.Emulator.Script     as Script
@@ -94,10 +94,10 @@ defaultAppConfig = AppConfig reserves users curSym admins oracles
     reserves = fmap (\name ->
         Types.CoinCfg
           { coinCfg'coin = toCoin name
-          , coinCfg'rate =  Ray.fromInteger 1
+          , coinCfg'rate =  R.fromInteger 1
           , coinCfg'aToken = toAToken name
           , coinCfg'interestModel = Types.defaultInterestModel
-          , coinCfg'liquidationBonus = 5 Ray.% 100
+          , coinCfg'liquidationBonus = 5 R.% 100
           }) coinNames
 
     users = zipWith (\coinName userName -> (Types.UserId (PubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames

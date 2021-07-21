@@ -38,13 +38,12 @@ import qualified PlutusTx
 import qualified Prelude as Hask ( Show, Eq )
 
 import           Mlabs.Emulator.Types (UserId(..))
-import           Mlabs.Data.Ray (Ray)
 
 -- | Data for NFTs
 data Nft = Nft
   { nft'id     :: NftId           -- ^ token name, unique identifier for NFT
   , nft'data   :: ByteString      -- ^ data (media, audio, photo, etc)
-  , nft'share  :: Ray             -- ^ share for the author on each sell
+  , nft'share  :: Rational        -- ^ share for the author on each sell
   , nft'author :: UserId          -- ^ author
   , nft'owner  :: UserId          -- ^ current owner
   , nft'price  :: Maybe Integer   -- ^ price in ada, if it's nothing then nobody can buy
@@ -71,7 +70,7 @@ instance Eq NftId where
 
 {-# INLINABLE initNft #-}
 -- | Initialise NFT
-initNft :: TxOutRef -> UserId -> ByteString -> Ray -> Maybe Integer -> Nft
+initNft :: TxOutRef -> UserId -> ByteString -> Rational -> Maybe Integer -> Nft
 initNft nftInRef author content share mPrice = Nft
   { nft'id     = toNftId nftInRef content
   , nft'data   = content
