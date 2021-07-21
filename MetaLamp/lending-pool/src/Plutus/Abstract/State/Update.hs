@@ -86,7 +86,7 @@ data StateHandle scriptType a = StateHandle {
 }
 
 putState ::
-    (HasBlockchainActions s, IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
+    (IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
     PutStateHandle scriptType ->
     StateHandle scriptType a ->
     a ->
@@ -105,7 +105,7 @@ putState PutStateHandle {..} StateHandle{..} newState = do
             (assetClassValue ownerToken 1)
 
 updateState ::
-    (HasBlockchainActions s, IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
+    (IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
     Scripts.TypedValidator scriptType ->
     StateHandle scriptType a ->
     OutputValue a ->
