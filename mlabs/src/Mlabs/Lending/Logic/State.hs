@@ -59,6 +59,7 @@ module Mlabs.Lending.Logic.State(
 ) where
 
 import PlutusTx.Prelude
+import qualified Prelude as Hask ( Show, String, uncurry )
 
 import Control.Monad.Except (MonadError(throwError))
 import Control.Monad.State.Strict (gets, MonadState(put, get), modify')
@@ -86,7 +87,7 @@ import Mlabs.Lending.Logic.Types
       ReserveInterest(ri'normalisedIncome) )
 
 -- | Type for errors
-type Error = String
+type Error = Hask.String
 
 -- | State update of lending pool
 type St = PlutusState LendingPool
@@ -121,7 +122,7 @@ isAdmin :: Types.UserId -> St ()
 isAdmin = checkRole "Is not admin" lp'admins
 
 {-# INLINABLE checkRole #-}
-checkRole :: String -> (LendingPool -> [Types.UserId]) -> Types.UserId -> St ()
+checkRole :: Hask.String -> (LendingPool -> [Types.UserId]) -> Types.UserId -> St ()
 checkRole msg extract uid = do
   users <- gets extract
   guardError msg $ elem uid users
@@ -189,7 +190,7 @@ data Convert = Convert
   { convert'from :: Types.Coin   -- ^ convert from
   , convert'to   :: Types.Coin   -- ^ convert to
   }
-  deriving (Show)
+  deriving (Hask.Show)
 
 {-# INLINABLE reverseConvert #-}
 reverseConvert :: Convert -> Convert
@@ -207,7 +208,7 @@ convertCoin Convert{..} amount =
 {-# INLINABLE weightedTotal #-}
 -- | Weigted total of currencies in base currency
 weightedTotal :: [(Types.Coin, Integer)] -> St Integer
-weightedTotal = fmap sum . mapM (uncurry toAda)
+weightedTotal = fmap sum . mapM (Hask.uncurry toAda)
 
 {-# INLINABLE walletTotal #-}
 -- | Collects cumulative value for given wallet field

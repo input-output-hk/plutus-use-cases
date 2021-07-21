@@ -14,6 +14,7 @@ import qualified PlutusTx.Ratio as R
 
 import Mlabs.Data.Ray (Ray)
 import qualified Mlabs.Data.Ray as Ray
+import           Prelude (String)
 
 {-# INLINABLE isNonNegative #-}
 isNonNegative :: (Applicative m, MonadError String m) => String -> Integer -> m ()

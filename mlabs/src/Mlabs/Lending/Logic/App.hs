@@ -25,6 +25,7 @@ module Mlabs.Lending.Logic.App(
 ) where
 
 import           PlutusTx.Prelude          hiding ((%))
+import qualified Prelude                   as Hask ( uncurry )
 
 import           Plutus.V1.Ledger.Crypto   (PubKeyHash(..))
 import qualified Data.Map.Strict           as M
@@ -100,7 +101,7 @@ defaultAppConfig = AppConfig reserves users curSym admins oracles
           }) coinNames
 
     users = zipWith (\coinName userName -> (Types.UserId (PubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames
-    wal cs = BchWallet $ uncurry M.singleton cs
+    wal cs = BchWallet $ Hask.uncurry M.singleton cs
 
     toAToken name = Value.tokenName $ "a" <> name
 

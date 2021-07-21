@@ -12,14 +12,15 @@ import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (ToJSON, FromJSON)
+import Data.Default (Default (def))
 import Data.Functor (void)
 import Data.Monoid (Last)
 import Data.Text (Text, pack)
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import GHC.Generics (Generic)
-import Plutus.Contract (BlockchainActions, Contract, mapError)
+import Plutus.Contract (Contract, mapError)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
-import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\))
+import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..))
 import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
 import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg (..))
 import Plutus.PAB.Simulator (Simulation, SimulatorEffectHandlers)
@@ -53,15 +54,15 @@ handleNftContracts ::
 handleNftContracts sp = Builtin.handleBuiltin getSchema getContract
   where
     getSchema = \case
-      StartNft -> Builtin.endpointsToSchemas @(Nft.AuthorSchema .\\ BlockchainActions)
-      User _   -> Builtin.endpointsToSchemas @(Nft.UserSchema   .\\ BlockchainActions)
+      StartNft -> Builtin.endpointsToSchemas @Nft.AuthorSchema
+      User _   -> Builtin.endpointsToSchemas @Nft.UserSchema
     getContract = \case
       StartNft  -> SomeBuiltin (startNftContract sp)
       User nid  -> SomeBuiltin (Nft.userEndpoints nid)
 
 handlers :: Nft.StartParams -> SimulatorEffectHandlers (Builtin NftContracts)
 handlers sp =
-  Simulator.mkSimulatorHandlers @(Builtin NftContracts) []
+  Simulator.mkSimulatorHandlers @(Builtin NftContracts) def []
     $ interpret (handleNftContracts sp)
 
 startNftContract :: Nft.StartParams -> Contract (Last NftId) Nft.AuthorSchema Text ()

@@ -7,7 +7,7 @@ module Mlabs.Nft.Contract.Forge(
 import PlutusTx.Prelude
 
 import Ledger (CurrencySymbol, Address)
-import Ledger.Typed.Scripts (MonetaryPolicy)
+import Ledger.Typed.Scripts (MintingPolicy)
 import qualified Plutus.V1.Ledger.Value    as Value
 import qualified Plutus.V1.Ledger.Scripts  as Scripts
 import qualified Ledger.Typed.Scripts      as Scripts
@@ -17,7 +17,7 @@ import qualified PlutusTx
 import Mlabs.Nft.Logic.Types ( NftId(NftId) )
 
 {-# INLINABLE validate #-}
--- | Validation of Minting of NFT-token. We guarantee uniqueness of NFT
+-- | Validation of minting of NFT-token. We guarantee uniqueness of NFT
 -- by make the script depend on spending of concrete TxOutRef in the list of inputs.
 -- TxOutRef for the input is specified inside NftId value.
 --
@@ -28,8 +28,8 @@ import Mlabs.Nft.Logic.Types ( NftId(NftId) )
 --
 -- First argument is an address of NFT state machine script. We use it to check
 -- that NFT coin was payed to script after minting.
-validate :: Address -> NftId -> Contexts.ScriptContext -> Bool
-validate stateAddr (NftId token oref) ctx =
+validate :: Address -> NftId -> () -> Contexts.ScriptContext -> Bool
+validate stateAddr (NftId token oref) _ ctx =
      traceIfFalse "UTXO not consumed"     hasUtxo
   && traceIfFalse "wrong amount minted"   checkMintedAmount
   && traceIfFalse "Does not pay to state" paysToState
@@ -50,11 +50,11 @@ validate stateAddr (NftId token oref) ctx =
 
 -------------------------------------------------------------------------------
 
--- | Monetary policy of NFT
+-- | Minting policy of NFT
 -- First argument is an address of NFT state machine script.
-currencyPolicy :: Address -> NftId -> MonetaryPolicy
-currencyPolicy stateAddr nid = Scripts.mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| \x y -> Scripts.wrapMonetaryPolicy (validate x y) ||])
+currencyPolicy :: Address -> NftId -> MintingPolicy
+currencyPolicy stateAddr nid = Scripts.mkMintingPolicyScript $
+  $$(PlutusTx.compile [|| \x y -> Scripts.wrapMintingPolicy (validate x y) ||])
   `PlutusTx.applyCode` (PlutusTx.liftCode stateAddr)
   `PlutusTx.applyCode` (PlutusTx.liftCode nid)
 

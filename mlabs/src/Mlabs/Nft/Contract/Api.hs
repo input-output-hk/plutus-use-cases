@@ -20,9 +20,9 @@ module Mlabs.Nft.Contract.Api(
 
 import GHC.Generics (Generic)
 import Playground.Contract (ToSchema, ToJSON, FromJSON)
-import Plutus.Contract (type (.\/), BlockchainActions)
-import PlutusTx.Prelude ( Show, Integer, Maybe, ByteString )
-import qualified Prelude as Hask
+import Plutus.Contract (type (.\/))
+import PlutusTx.Prelude ( Integer, Maybe, ByteString )
+import qualified Prelude as Hask ( Show, Eq )
 
 import Mlabs.Data.Ray (Ray)
 import Mlabs.Nft.Logic.Types ( UserAct(BuyAct, SetPriceAct) )
@@ -38,14 +38,14 @@ data Buy = Buy
   { buy'price     :: Integer
   , buy'newPrice  :: Maybe Integer
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | User sets new price for NFT
 data SetPrice = SetPrice
   { setPrice'newPrice :: Maybe Integer
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- author endpoints
@@ -56,7 +56,7 @@ data StartParams = StartParams
   , sp'share   :: Ray             -- ^ author share [0, 1] on reselling of the NFT
   , sp'price   :: Maybe Integer   -- ^ current price of NFT, if it's nothing then nobody can buy it.
   }
-  deriving stock (Show, Generic)
+  deriving stock (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 ----------------------------------------------------------------------
@@ -64,14 +64,12 @@ data StartParams = StartParams
 
 -- | User schema. Owner can set the price and the buyer can try to buy.
 type UserSchema =
-  BlockchainActions
-    .\/ Call Buy
-    .\/ Call SetPrice
+  Call Buy
+  .\/ Call SetPrice
 
 -- | Schema for the author of NFT
 type AuthorSchema =
-  BlockchainActions
-    .\/ Call StartParams
+  Call StartParams
 
 ----------------------------------------------------------------------
 -- classes

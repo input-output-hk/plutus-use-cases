@@ -43,7 +43,7 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptContextTxInfo, ScriptContext, TxInfo, txInfoForge, txInfoOutputs, TxOut, txOutAddress, txOutValue)
 import Ledger.Value (CurrencySymbol, TokenName)
 import Ledger.Value qualified as Value
-import Ledger.Scripts (MonetaryPolicy, Datum(Datum), mkMonetaryPolicyScript)
+import Ledger.Scripts (MintingPolicy, Datum(Datum), mkMintingPolicyScript)
 import Ledger.Typed.Scripts qualified as Scripts
 import Plutus.Contract as Contract
 import PlutusTx qualified
@@ -58,8 +58,8 @@ import Mlabs.Demo.Contract.Burn (burnScrAddress, burnValHash)
 {-# INLINABLE mkPolicy #-}
 -- | A monetary policy that mints arbitrary tokens for an equal amount of Ada.
 -- For simplicity, the Ada are sent to a burn address.
-mkPolicy :: Ledger.Address -> ScriptContext -> Bool
-mkPolicy burnAddr ctx =
+mkPolicy :: Ledger.Address -> () -> ScriptContext -> Bool
+mkPolicy burnAddr _ ctx =
   traceIfFalse "Insufficient Ada paid" isPaid
     && traceIfFalse "Forged amount is invalid" isForgeValid
  where
@@ -90,9 +90,9 @@ mkPolicy burnAddr ctx =
     where isValid (_, _, amt) = amt > 0
 
 
-curPolicy :: MonetaryPolicy
-curPolicy = mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . mkPolicy ||])
+curPolicy :: MintingPolicy
+curPolicy = mkMintingPolicyScript $
+  $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . mkPolicy ||])
     `PlutusTx.applyCode` PlutusTx.liftCode burnScrAddress
 
 curSymbol :: CurrencySymbol
@@ -112,8 +112,7 @@ data MintParams = MintParams
   deriving (Generic, ToJSON, FromJSON, ToSchema)
 
 type MintSchema = 
-  BlockchainActions
-    .\/ Endpoint "mint" MintParams
+  Endpoint "mint" MintParams
 
 -- | Generates tokens with the specified name/amount and burns an equal amount of Ada.
 mintContract :: MintParams -> Contract w MintSchema Text ()
@@ -123,13 +122,13 @@ mintContract mp = do
     amt      = mp.mpAmount
     payVal   = Ada.lovelaceValueOf $ amt * tokenToLovelaceXR
     forgeVal = Value.singleton curSymbol tn amt
-    lookups  = Constraints.monetaryPolicy curPolicy
+    lookups  = Constraints.mintingPolicy curPolicy
     tx =
       Constraints.mustPayToOtherScript
           burnValHash
           (Datum $ PlutusTx.toData ())
           payVal
-        <> Constraints.mustForgeValue forgeVal
+        <> Constraints.mustMintValue forgeVal
   ledgerTx <- submitTxConstraintsWith @Void lookups tx
   void $ awaitTxConfirmed $ Ledger.txId ledgerTx
 

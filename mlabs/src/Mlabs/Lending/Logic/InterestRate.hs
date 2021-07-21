@@ -9,6 +9,7 @@ module Mlabs.Lending.Logic.InterestRate(
 )  where
 
 import           PlutusTx.Prelude
+import qualified Prelude as Hask ( String )
 
 import           Mlabs.Data.Ray            (Ray)
 import qualified Mlabs.Data.Ray            as R
@@ -69,7 +70,7 @@ getBorrowRate Types.InterestModel{..} u
     uOptimal = im'optimalUtilisation
 
 {-# INLINABLE addDeposit #-}
-addDeposit :: Ray -> Integer -> Types.Wallet -> Either String Types.Wallet
+addDeposit :: Ray -> Integer -> Types.Wallet -> Either Hask.String Types.Wallet
 addDeposit normalisedIncome amount wal
   | newDeposit >= 0 = Right wal
       { wallet'deposit       = max 0 newDeposit

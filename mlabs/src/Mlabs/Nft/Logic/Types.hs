@@ -35,10 +35,10 @@ import Playground.Contract (TxOutRef, ToSchema)
 import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
 import Plutus.V1.Ledger.TxId (TxId(TxId))
 import qualified PlutusTx
-import qualified Prelude as Hask
+import qualified Prelude as Hask ( Show, Eq )
 
-import Mlabs.Emulator.Types (UserId(..))
-import Mlabs.Data.Ray (Ray)
+import           Mlabs.Emulator.Types (UserId(..))
+import           Mlabs.Data.Ray (Ray)
 
 -- | Data for NFTs
 data Nft = Nft
@@ -49,7 +49,7 @@ data Nft = Nft
   , nft'owner  :: UserId          -- ^ current owner
   , nft'price  :: Maybe Integer   -- ^ price in ada, if it's nothing then nobody can buy
   }
-  deriving stock (Show, Generic)
+  deriving stock (Hask.Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Unique identifier of NFT.
@@ -58,7 +58,7 @@ data NftId = NftId
   , nftId'outRef :: TxOutRef      -- ^ TxOutRef that is used for minting of NFT,
                                   -- with it we can guarantee uniqueness of NFT
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 deriving newtype instance ToSchema TxId
@@ -88,7 +88,7 @@ toNftId oref content = NftId (tokenName $ sha2_256 content) oref
 
 -- | Actions with NFTs with UserId.
 data Act = UserAct UserId UserAct
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Actions with NFTs
@@ -102,7 +102,7 @@ data UserAct
     { act'newPrice :: Maybe Integer -- ^ new price for NFT (Nothing locks NFT)
     }
   -- ^ Set new price for NFT
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 --------------------------------------------------------------------------

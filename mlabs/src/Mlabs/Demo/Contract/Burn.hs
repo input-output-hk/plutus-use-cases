@@ -23,7 +23,7 @@ module Mlabs.Demo.Contract.Burn
   ) where
 
 import Ledger ( ValidatorHash, Address, ScriptContext, Validator, validatorHash )
-import Ledger.Typed.Scripts qualified as Scripts
+import qualified Ledger.Typed.Scripts.Validators as Validators
 import PlutusTx qualified
 import PlutusTx.Prelude ( Bool(False) )
 
@@ -33,22 +33,22 @@ mkValidator :: () -> () -> ScriptContext -> Bool
 mkValidator _ _ _ = False
 
 data Burning
-instance Scripts.ScriptType Burning where
+instance Validators.ValidatorTypes Burning where
   type DatumType Burning = ()
   type RedeemerType Burning = ()
 
-burnInst :: Scripts.ScriptInstance Burning
-burnInst = Scripts.validator @Burning
+burnInst :: Validators.TypedValidator Burning
+burnInst = Validators.mkTypedValidator @Burning
     $$(PlutusTx.compile [|| mkValidator ||])
     $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator @() @()
+    wrap = Validators.wrapValidator @() @()
 
 burnValidator :: Validator
-burnValidator = Scripts.validatorScript burnInst
+burnValidator = Validators.validatorScript burnInst
 
 burnValHash :: Ledger.ValidatorHash
 burnValHash = validatorHash burnValidator
 
 burnScrAddress :: Ledger.Address
-burnScrAddress = Scripts.scriptAddress burnInst
+burnScrAddress = Validators.validatorAddress burnInst

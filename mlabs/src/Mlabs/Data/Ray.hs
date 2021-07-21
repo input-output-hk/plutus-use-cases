@@ -24,7 +24,7 @@ import PlutusTx.Prelude hiding (fromInteger, fromRational, recip, (%), round, pr
 import Data.Aeson ( FromJSON, ToJSON )
 import GHC.Generics ( Generic )
 import Playground.Contract (ToSchema)
-import PlutusCore.Universe (DefaultUni)
+import PlutusCore.Default (DefaultUni)
 import PlutusTx (IsData, Lift)
 import PlutusTx.Ratio qualified as R
 import Prelude qualified as Hask
@@ -41,7 +41,7 @@ squareBase = 1_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_0
 
 -- | We represent fractionals with 27 precision
 newtype Ray = Ray Integer
-  deriving stock (Show, Generic)
+  deriving stock (Hask.Show, Generic)
   deriving newtype ( AdditiveSemigroup, AdditiveMonoid, AdditiveGroup
                    , Eq, Ord
                    , Hask.Eq, Hask.Ord
@@ -93,5 +93,5 @@ round (Ray a) = a `divide` base
 properFraction :: Ray -> (Integer, Ray)
 properFraction (Ray a) = (d, Ray m)
   where
-    (d, m) = divMod a base
+    (d, m) = Hask.divMod a base
 

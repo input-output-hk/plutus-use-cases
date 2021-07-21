@@ -21,6 +21,7 @@ module Mlabs.Nft.Logic.App(
 ) where
 
 import PlutusTx.Prelude
+import qualified Prelude as Hask ( uncurry )
 
 import qualified Data.Map.Strict as M
 import Playground.Contract (TxOutRef(..))
@@ -69,7 +70,7 @@ defaultAppCfg = AppCfg users dummyOutRef "mona-lisa" (fst $ users !! 0)
     userNames = ["1", "2", "3"]
 
     users = fmap (\userName -> (UserId (PubKeyHash userName), wal (adaCoin, 1000))) userNames
-    wal cs = BchWallet $ uncurry M.singleton cs
+    wal cs = BchWallet $ Hask.uncurry M.singleton cs
 
 -------------------------------------------------------
 -- script endpoints

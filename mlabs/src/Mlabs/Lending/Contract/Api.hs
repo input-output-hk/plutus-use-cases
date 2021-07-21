@@ -42,10 +42,10 @@ import PlutusTx.Prelude
 
 import GHC.Generics (Generic)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
-import Plutus.Contract ( type (.\/), BlockchainActions )
+import Plutus.Contract ( type (.\/) )
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (Value)
-import Prelude qualified as Hask
+import Prelude qualified as Hask (Show, Eq)
 
 import Mlabs.Data.Ray (Ray)
 import Mlabs.Lending.Logic.Types qualified as Types
@@ -61,7 +61,7 @@ data Deposit = Deposit
   { deposit'amount         :: Integer
   , deposit'asset          :: Types.Coin
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Borrow funds. We have to allocate collateral to be able to borrow
@@ -70,7 +70,7 @@ data Borrow = Borrow
   , borrow'asset          :: Types.Coin
   , borrow'rate           :: InterestRateFlag
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Repay part of the borrow
@@ -79,7 +79,7 @@ data Repay = Repay
   , repay'asset           :: Types.Coin
   , repay'rate            :: InterestRateFlag
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Swap borrow interest rate strategy (stable to variable)
@@ -87,7 +87,7 @@ data SwapBorrowRateModel = SwapBorrowRateModel
   { swapRate'asset        :: Types.Coin
   , swapRate'rate         :: InterestRateFlag
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Set some portion of deposit as collateral or some portion of collateral as deposit
@@ -96,7 +96,7 @@ data SetUserReserveAsCollateral = SetUserReserveAsCollateral
   , setCollateral'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
   , setCollateral'portion         :: Ray        -- ^ portion of deposit/collateral to change status (0, 1)
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Withdraw funds from deposit
@@ -104,7 +104,7 @@ data Withdraw = Withdraw
   { withdraw'amount         :: Integer
   , withdraw'asset          :: Types.Coin
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Call to liquidate borrows that are unsafe due to health check
@@ -118,7 +118,7 @@ data LiquidationCall = LiquidationCall
                                                   --   of the purchased collateral. If false, the user receives
                                                   --   the underlying asset directly.
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- deriving stock (Show, Generic, Hask.Eq)
@@ -128,7 +128,7 @@ data LiquidationCall = LiquidationCall
 
 -- | Adds new reserve
 data AddReserve = AddReserve Types.CoinCfg
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 data StartParams = StartParams
@@ -137,14 +137,14 @@ data StartParams = StartParams
   , sp'admins    :: [PubKeyHash]    -- ^ admins
   , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
   }
-  deriving stock (Show, Generic)
+  deriving stock (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- price oracle actions
 
 -- | Updates for the prices of the currencies on the markets
 data SetAssetPrice = SetAssetPrice Types.Coin Ray
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 ----------------------------------------------------------
@@ -152,26 +152,23 @@ data SetAssetPrice = SetAssetPrice Types.Coin Ray
 
 -- | User actions
 type UserSchema =
-  BlockchainActions
-    .\/ Call Deposit
-    .\/ Call Borrow
-    .\/ Call Repay
-    .\/ Call SwapBorrowRateModel
-    .\/ Call SetUserReserveAsCollateral
-    .\/ Call Withdraw
-    .\/ Call LiquidationCall
+  Call Deposit
+  .\/ Call Borrow
+  .\/ Call Repay
+  .\/ Call SwapBorrowRateModel
+  .\/ Call SetUserReserveAsCollateral
+  .\/ Call Withdraw
+  .\/ Call LiquidationCall
 
 
 -- | Oracle schema
 type OracleSchema =
-  BlockchainActions
-    .\/ Call SetAssetPrice
+  Call SetAssetPrice
 
 -- | Admin schema
 type AdminSchema =
-  BlockchainActions
-    .\/ Call AddReserve
-    .\/ Call StartParams
+  Call AddReserve
+  .\/ Call StartParams
 
 ----------------------------------------------------------
 -- proxy types for ToSchema instance
@@ -181,7 +178,7 @@ type AdminSchema =
 -- * 0 is stable rate
 -- * everything else is variable rate
 newtype InterestRateFlag = InterestRateFlag Integer
-  deriving newtype (Show, Hask.Eq, FromJSON, ToJSON, ToSchema)
+  deriving newtype (Hask.Show, Hask.Eq, FromJSON, ToJSON, ToSchema)
 
 fromInterestRateFlag :: InterestRateFlag -> Types.InterestRate
 fromInterestRateFlag (InterestRateFlag n)

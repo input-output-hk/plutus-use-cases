@@ -19,7 +19,6 @@ import qualified PlutusTx.AssocMap as M
 import PlutusTx.These (these)
 
 import Mlabs.Control.Check (isPositive, isPositiveRay, isNonNegative, isUnitRangeRay)
-import qualified Mlabs.Data.AssocMap as MlabsM
 import qualified Mlabs.Data.List as L
 import qualified Mlabs.Data.Ray as R
 import Mlabs.Emulator.Blockchain ( moveFromTo, Resp(Burn, Mint) )
@@ -322,7 +321,7 @@ react input = do
       pure (uid, user { user'lastUpdateTime = currentTime
                       , user'health = M.fromList health })
       where
-        userBorrows = M.keys $ MlabsM.filter ((> 0) . wallet'borrow) $ user.user'wallets
+        userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user.user'wallets
 
     reportUserHealth uid (asset, health)
       | health >= R.fromInteger 1 = State.modifyHealthReport $ M.delete (BadBorrow uid asset)
