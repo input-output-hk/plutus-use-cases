@@ -20,9 +20,10 @@ import Data.List.Extra (firstJust)
 import Data.Map (toList)
 import Data.Maybe (mapMaybe)
 import Data.Semigroup (Last(..))
-import Ledger.Constraints (ownPubKeyHash, monetaryPolicy, mustIncludeDatum)
+import Ledger.Constraints (ownPubKeyHash, mintingPolicy, mustIncludeDatum)
 import Plutus.Contract qualified as Contract
-import Plutus.V1.Ledger.Api (Datum(..), getSlot)
+import Plutus.V1.Ledger.Api (Datum(..))
+import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Tx 
 
@@ -98,7 +99,7 @@ userAction lid input = do
   pkh <- pubKeyHash <$> Contract.ownPubKey
   act <- getUserAct input
   inputDatum <- findInputStateDatum lid
-  let lookups = monetaryPolicy (currencyPolicy lid) <>
+  let lookups = mintingPolicy (currencyPolicy lid) <>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
   StateMachine.runStepWith lid act lookups constraints
@@ -157,7 +158,7 @@ getGovernAct act = do
   uid <- ownUserId
   pure $ Types.GovernAct uid $ Api.toGovernAct act
 
-getCurrentTime :: (Contract.HasBlockchainActions s, Contract.AsContractError e) => Contract.Contract w s e Integer
+getCurrentTime :: Contract.AsContractError e => Contract.Contract w s e Integer
 getCurrentTime = getSlot <$> Contract.currentSlot
 
 ----------------------------------------------------------

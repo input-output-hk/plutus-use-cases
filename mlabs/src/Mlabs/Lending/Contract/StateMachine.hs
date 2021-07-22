@@ -9,30 +9,32 @@ module Mlabs.Lending.Contract.StateMachine(
   , runInitialise
 ) where
 
-import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-import qualified PlutusTx.Prelude             as Plutus
+import qualified Prelude                         as Hask ( String )
+import           PlutusTx.Prelude                hiding (Applicative (..), check, Semigroup(..), Monoid(..))
+import qualified PlutusTx.Prelude                as Plutus
+import qualified Ledger.TimeSlot                 as TimeSlot (posixTimeRangeToSlotRange)
 
-import           Control.Monad.State.Strict   (runStateT)
-import           Data.Functor                 (void)
-import           Data.String                  (IsString(fromString))
-import           Ledger.Constraints           (ScriptLookups, TxConstraints, mustBeSignedBy)
+import           Control.Monad.State.Strict      (runStateT)
+import           Data.Default                    (Default (def))
+import           Data.Functor                    (void)
+import           Data.String                     (IsString(fromString))
+import           Ledger.Constraints              (ScriptLookups, TxConstraints, mustBeSignedBy)
 import qualified Ledger
-import qualified Ledger.Typed.Scripts         as Scripts
-import qualified Plutus.Contract              as Contract
-import qualified Plutus.Contract.StateMachine as SM
+import qualified Ledger.Typed.Scripts.Validators as Validators
+import qualified Plutus.Contract                 as Contract
+import qualified Plutus.Contract.StateMachine    as SM
 import qualified PlutusTx
 
-import           Mlabs.Emulator.Blockchain    (toConstraints, updateRespValue)
-import           Mlabs.Lending.Logic.React    (react)
-import qualified Mlabs.Lending.Logic.Types    as Types
-import qualified Mlabs.Plutus.Contract.StateMachine as MlabsSM
+import           Mlabs.Emulator.Blockchain       (toConstraints, updateRespValue)
+import           Mlabs.Lending.Logic.React       (react)
+import qualified Mlabs.Lending.Logic.Types       as Types
 
 type Lendex = SM.StateMachine (Types.LendexId, Types.LendingPool) Types.Act
 
 -- | Error type
 type LendexError = SM.SMContractError
 
-toLendexError :: String -> LendexError
+toLendexError :: Hask.String -> LendexError
 toLendexError = SM.SMCContractError . fromString
 
 {-# INLINABLE machine #-}
@@ -44,7 +46,7 @@ machine lid = (SM.mkStateMachine Nothing (transition lid) isFinal)
 
     checkTimestamp _ input ctx = maybe True check $ getInputTime input
       where
-        check t = Ledger.member (Ledger.Slot t) range
+        check t = Ledger.Slot t `Ledger.member` TimeSlot.posixTimeRangeToSlotRange def range
         range = Ledger.txInfoValidRange $ Ledger.scriptContextTxInfo ctx
 
     getInputTime = \case
@@ -53,26 +55,26 @@ machine lid = (SM.mkStateMachine Nothing (transition lid) isFinal)
       _                 -> Nothing
 
 {-# INLINABLE mkValidator #-}
-mkValidator :: Types.LendexId -> Scripts.ValidatorType Lendex
+mkValidator :: Types.LendexId -> Validators.ValidatorType Lendex
 mkValidator lid = SM.mkValidator (machine lid)
 
 client :: Types.LendexId -> SM.StateMachineClient (Types.LendexId, Types.LendingPool) Types.Act
 client lid = SM.mkStateMachineClient $ SM.StateMachineInstance (machine lid) (scriptInstance lid)
 
 lendexValidatorHash :: Types.LendexId -> Ledger.ValidatorHash
-lendexValidatorHash lid = Scripts.scriptHash (scriptInstance lid)
+lendexValidatorHash lid = Validators.validatorHash (scriptInstance lid)
 
 lendexAddress :: Types.LendexId -> Ledger.Address
 lendexAddress lid = Ledger.scriptHashAddress (lendexValidatorHash lid)
 
-scriptInstance :: Types.LendexId -> Scripts.ScriptInstance Lendex
-scriptInstance lid = Scripts.validator @Lendex
+scriptInstance :: Types.LendexId -> Validators.TypedValidator Lendex
+scriptInstance lid = Validators.mkTypedValidator @Lendex
   ($$(PlutusTx.compile [|| mkValidator ||])
       `PlutusTx.applyCode` (PlutusTx.liftCode lid)
   )
   $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator
+    wrap = Validators.wrapValidator
 
 {-# INLINABLE transition #-}
 transition ::
@@ -101,33 +103,22 @@ transition lid SM.State{stateData=oldData, stateValue=oldValue} input
 -- specific versions of SM-functions
 
 runStep :: forall w e schema .
-  ( SM.AsSMContractError e
-  , Contract.HasUtxoAt schema
-  , Contract.HasWriteTx schema
-  , Contract.HasOwnPubKey schema
-  , Contract.HasTxConfirmation schema
-  ) => Types.LendexId -> Types.Act -> Contract.Contract w schema e ()
+  SM.AsSMContractError e
+  => Types.LendexId -> Types.Act -> Contract.Contract w schema e ()
 runStep lid act = void $ SM.runStep (client lid) act
 
 runStepWith :: forall w e schema .
-  ( SM.AsSMContractError e
-  , Contract.HasUtxoAt schema
-  , Contract.HasWriteTx schema
-  , Contract.HasOwnPubKey schema
-  , Contract.HasTxConfirmation schema
-  )
+  SM.AsSMContractError e
   => Types.LendexId
   -> Types.Act
   -> ScriptLookups Lendex
-  -> TxConstraints (Scripts.RedeemerType Lendex) (Scripts.DatumType Lendex)
+  -> TxConstraints (Validators.RedeemerType Lendex) (Validators.DatumType Lendex)
   -> Contract.Contract w schema e ()
-runStepWith lid act lookups constraints = void $ MlabsSM.runStepWith (client lid) act lookups constraints
+runStepWith lid act lookups constraints = void $ SM.runStepWith lookups constraints (client lid) act 
 
 runInitialise :: forall w e schema .
-  ( Contract.HasTxConfirmation schema
-  , Contract.HasWriteTx schema
-  , SM.AsSMContractError e
-  ) => Types.LendexId -> Types.LendingPool -> Ledger.Value -> Contract.Contract w schema e ()
+  SM.AsSMContractError e
+  => Types.LendexId -> Types.LendingPool -> Ledger.Value -> Contract.Contract w schema e ()
 runInitialise lid lendingPool val = void $ SM.runInitialise (client lid) (lid, lendingPool) val
 
 

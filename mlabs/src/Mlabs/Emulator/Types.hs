@@ -18,7 +18,7 @@ import PlutusTx.Prelude
 import Data.Aeson (FromJSON, ToJSON)
 import Prelude qualified as Hask
 import GHC.Generics ( Generic )
-import Plutus.Contract (HasBlockchainActions, AsContractError, Contract, ownPubKey)
+import Plutus.Contract (AsContractError, Contract, ownPubKey)
 import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
@@ -30,7 +30,7 @@ import Playground.Contract (ToSchema)
 data UserId
   = UserId PubKeyHash  -- user address
   | Self               -- addres of the lending platform
-  deriving stock (Show, Generic, Hask.Eq, Hask.Ord)
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON)
 
 
@@ -47,10 +47,8 @@ adaCoin = AssetClass (Ada.adaSymbol, Ada.adaToken)
 -- | Custom currency
 type Coin = AssetClass
 
-deriving newtype instance ToSchema AssetClass
-
 PlutusTx.unstableMakeIsData ''UserId
 
 -- | Get user id of the wallet owner.
-ownUserId :: (AsContractError e, HasBlockchainActions s) => Contract w s e UserId
+ownUserId :: AsContractError e => Contract w s e UserId
 ownUserId = fmap (UserId . pubKeyHash) ownPubKey

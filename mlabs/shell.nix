@@ -1,23 +1,35 @@
-with import ./nix { };
-(plutus.plutus.haskell.project.shellFor (pab.env_variables // {
-
+{ sourcesFile ? ./nix/sources.json
+, system ? builtins.currentSystem
+, sources ? import ./nix/sources.nix { inherit system sourcesFile; }
+, plutus-latest ? import sources.plutus-latest { }
+, plutus ? import sources.plutus { }
+, pab ? (import ./nix/default.nix { inherit sourcesFile system; }).pab
+}:
+let
+  project = (import ./nix/haskell.nix {
+    inherit sourcesFile sources plutus;
+    deferPluginErrors = true;
+  });
+  inherit (plutus) pkgs;
+in (project.shellFor ( pab.env_variables // {
+  
   # Select packages who's dependencies should be added to the shell env
   packages = ps: [ ];
-
+  
   # Select packages which should be added to the shell env, with their dependencies
   # Should try and get the extra cardano dependencies in here...
   additional = ps:
     with ps; [
-      pab.plutus_ledger_with_docs
-      playground-common
-      plutus-contract
-      plutus-core
-      plutus-ledger-api
       plutus-pab
       plutus-tx
       plutus-tx-plugin
-      plutus-use-cases
+      plutus-contract
+      plutus-ledger-api
+      pab.plutus_ledger_with_docs
+      plutus-core
+      playground-common
       prettyprinter-configurable
+      plutus-use-cases
     ];
 
   withHoogle = true;
@@ -27,26 +39,50 @@ with import ./nix { };
   propagatedBuildInputs = with pkgs;
     [
       # Haskell Tools
-      ghc
+      cabal-install
       ghcid
-      git
+      haskellPackages.cabal-fmt
       haskellPackages.fourmolu
-      haskellPackages.record-dot-preprocessor
-      haskellPackages.record-hasfield
       nixfmt
-      plutus.plutus.haskell-language-server
       plutus.plutus.hlint
-      stack
 
-      # Pab
+      # Using plutus-latest, we get access to hls with ghc 8.10.4.20210212
+      plutus-latest.plutus.haskell-language-server
+
+      # hls doesn't support preprocessors yet so this has to exist in PATH
+      haskellPackages.record-dot-preprocessor
+
+      # Make building with --pure shell possible
+      cacert
+      gcc
+      git
+      gnumake
+
+      # Graphviz Diagrams for documentation
+      graphviz
+
+      ### Pab
       pab.plutus_pab_client
 
-      # Example contracts
+      ### Example contracts
       plutus.plutus-atomic-swap
       plutus.plutus-currency
 
     ] ++ (builtins.attrValues pab.plutus_pab_exes);
 
-  buildInputs = [ plutus.pkgs.zlib ];
-
+  nativeBuildInputs = (with plutus.pkgs;[
+    # Native Build Dependencies
+    cacert
+    cacert
+    git
+    libsodium
+    pkg-config
+    z3
+    zlib
+  ] ++ (lib.optionals (!stdenv.isDarwin) [
+    # macOS Optional Deps
+    R
+    rPackages.plotly
+  ]));
+  
 }))

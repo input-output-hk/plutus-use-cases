@@ -15,7 +15,7 @@ import Test.Lending.Init (aAda, aCoin1, aCoin2, aCoin3, adaCoin, aToken1, aToken
 import Test.Tasty (testGroup, TestTree)
 import Test.Utils (next, wait)
 
-import qualified Mlabs.Data.Ray as R
+import qualified PlutusTx.Ratio as R
 import Mlabs.Emulator.Scene (appAddress, appOwns, checkScene, owns, Scene)
 import qualified Mlabs.Lending.Contract as L
 import qualified Mlabs.Lending.Contract.Emulator.Client as L

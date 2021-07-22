@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NumericUnderscores #-}
 -- | Init blockchain state for tests
 module Test.Nft.Init(
     Script
@@ -32,7 +33,7 @@ import Plutus.V1.Ledger.Value (Value, singleton)
 import PlutusTx.Prelude (ByteString)
 import Test.Utils (next)
 
-import qualified Mlabs.Data.Ray as R
+import qualified PlutusTx.Ratio as R
 import qualified Mlabs.Nft.Contract as N
 import qualified Mlabs.Nft.Contract.Emulator.Client as N
 import Mlabs.Emulator.Types (adaCoin, UserId(..))
@@ -80,9 +81,9 @@ nftContent = "Mona Lisa"
 -- We have 3 users. All of them get 1000 lovelace at the start.
 initialDistribution :: M.Map Wallet Value
 initialDistribution = M.fromList
-  [ (w1, val 1000)
-  , (w2, val 1000)
-  , (w3, val 1000)
+  [ (w1, val 1000_000_000)
+  , (w2, val 1000_000_000)
+  , (w3, val 1000_000_000)
   ]
   where
     val x = singleton adaSymbol adaToken x

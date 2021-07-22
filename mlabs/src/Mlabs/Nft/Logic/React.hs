@@ -13,7 +13,6 @@ import Control.Monad.State.Strict (modify', gets)
 import PlutusTx.Prelude
 
 import Mlabs.Control.Check (isPositive)
-import qualified Mlabs.Data.Maybe as Maybe
 import Mlabs.Emulator.Blockchain (Resp(Move))
 import Mlabs.Lending.Logic.Types (adaCoin)
 import Mlabs.Nft.Logic.State (getAuthorShare, isOwner, isRightPrice, St)
@@ -67,7 +66,7 @@ checkInputs :: Act -> St ()
 checkInputs (UserAct _uid act) = case act of
   BuyAct price newPrice -> do
     isPositive "Buy price" price
-    Maybe.mapM_ (isPositive "New price") newPrice
+    mapM_ (isPositive "New price") newPrice
 
-  SetPriceAct price -> Maybe.mapM_ (isPositive "Set price") price
+  SetPriceAct price -> mapM_ (isPositive "Set price") price
 
