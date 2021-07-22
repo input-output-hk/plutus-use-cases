@@ -13,31 +13,33 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.User where
 
-import qualified Control.Lens                                 as Lens
-import           Control.Monad                                hiding (fmap)
-import qualified Data.Aeson                                   as J
-import           Data.Proxy                                   (Proxy (..))
-import           Data.Text                                    (Text)
-import qualified Data.Text                                    as T
-import           Ext.Plutus.Ledger.Value                      (utxoValue)
-import qualified GHC.Generics                                 as Haskell
+import qualified Control.Lens                                  as Lens
+import           Control.Monad                                 hiding (fmap)
+import qualified Data.Aeson                                    as J
+import           Data.Proxy                                    (Proxy (..))
+import           Data.Text                                     (Text)
+import qualified Data.Text                                     as T
+import           Ext.Plutus.Ledger.Value                       (utxoValue)
+import qualified GHC.Generics                                  as Haskell
 import           Ledger
-import qualified Ledger.Typed.Scripts                         as Scripts
+import qualified Ledger.Typed.Scripts                          as Scripts
 import           Ledger.Typed.Tx
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse             (ContractResponse,
-                                                               withContractResponse)
+import           Plutus.Abstract.ContractResponse              (ContractResponse,
+                                                                withContractResponse)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                    as Currency
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
+import           Plutus.Contracts.Currency                     as Currency
+import           Plutus.Contracts.NftMarketplace.OffChain.Info (fundsAt,
+                                                                mapError')
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core  as Core
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                            as AssocMap
-import           PlutusTx.Prelude                             hiding
-                                                              (Semigroup (..))
-import           Prelude                                      (Semigroup (..))
-import qualified Prelude                                      as Haskell
-import           Text.Printf                                  (printf)
+import qualified PlutusTx.AssocMap                             as AssocMap
+import           PlutusTx.Prelude                              hiding
+                                                               (Semigroup (..))
+import           Prelude                                       (Semigroup (..))
+import qualified Prelude                                       as Haskell
+import           Text.Printf                                   (printf)
 
 data CreateNftParams =
   CreateNftParams {
@@ -52,7 +54,8 @@ data CreateNftParams =
 PlutusTx.unstableMakeIsData ''CreateNftParams
 PlutusTx.makeLift ''CreateNftParams
 
--- | The user puts N amount of his asset into a corresponding reserve, in exchange he gets N equivalent aTokens
+-- | The user specifizes which NFT to mint and add to marketplace store,
+--   he gets it into his wallet and the corresponding store entry is created
 createNft :: Core.Marketplace -> CreateNftParams -> Contract w s Text ()
 createNft marketplace CreateNftParams {..} = do
     pkh <- getOwnPubKey
@@ -62,7 +65,6 @@ createNft marketplace CreateNftParams {..} = do
            Currency.forgeContract pkh [(tokenName, 1)]
 
     let client = Core.marketplaceClient marketplace
-    nftStore <- mapError' (getOnChainState client) >>= getStateDatum
     let ipfsCidHash = sha2_256 cnpIpfsCid
     let nftEntry = Core.NFT
             { nftId          = Currency.currencySymbol nft
@@ -76,10 +78,6 @@ createNft marketplace CreateNftParams {..} = do
     logInfo @Haskell.String $ printf "Created NFT %s with store entry %s" (Haskell.show nft) (Haskell.show nftEntry)
     pure ()
 
--- | Gets all UTxOs belonging to a user and concats them into one Value
-fundsAt :: PubKeyHash -> Contract w s Text Value
-fundsAt pkh = utxoValue <$> utxoAt (pubKeyHashAddress pkh)
-
 balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
 balanceAt pkh asset = flip assetClassValueOf asset <$> fundsAt pkh
 
@@ -88,13 +86,6 @@ getOwnPubKey = pubKeyHash <$> ownPubKey
 
 ownPubKeyBalance :: Contract w s Text Value
 ownPubKeyBalance = getOwnPubKey >>= fundsAt
-
-mapError' :: Contract w s SMContractError a -> Contract w s Text a
-mapError' = mapError $ T.pack . Haskell.show
-
-getStateDatum ::
-    Maybe (OnChainState Core.MarketplaceDatum i, UtxoMap) -> Contract w s Text (AssocMap.Map Core.IpfsCidHash Core.NFT)
-getStateDatum = maybe (throwError "Marketplace output not found") (pure . Core.getMarketplaceDatum . tyTxOutData . fst . fst)
 
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
