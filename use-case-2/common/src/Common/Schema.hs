@@ -42,6 +42,7 @@ data TxFeeDataSetT f = TxFeeDataSet
   , _txFeeDataSet_txFee :: Columnar f Int32
   , _txFeeDataSet_smartContractAction :: Columnar f Text
   , _txFeeDataSet_estProcessingTime :: Columnar f Int32
+  , _txFeeDataSet_scriptSize :: Columnar f Int32
   }
   deriving (Generic)
 

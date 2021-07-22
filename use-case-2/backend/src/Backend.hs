@@ -40,6 +40,7 @@ import Rhyolite.Backend.App
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.Serializable
 import Rhyolite.Backend.Listen
+import Safe (lastMay)
 import Statistics.Regression
 
 import Backend.Notification
@@ -207,7 +208,7 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
   eitherObState <- fetchObservableStateFees httpManager contractId
   case eitherObState of
     Left err -> return $ Left err
-    Right txFeeDetails -> case txFeeDetails of
+    Right (txFeeDetails, Aeson.Number scrSize) -> case txFeeDetails of
       Aeson.Array xs -> case V.toList xs of
         _:(Aeson.Number txFee):_ -> do
           let contractAction = "Swap"
@@ -216,12 +217,14 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
           -- persist transaction fee and details to postgres for use in regression when estimating transaction fees later
           runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
             runInsert $
-              insertOnConflict (_db_txFeeDataSet db) (insertExpressions [TxFeeDataSet default_ (val_ txFee') (val_ contractAction) (val_ processingTime)])
+              insertOnConflict (_db_txFeeDataSet db) (insertExpressions
+                [TxFeeDataSet default_ (val_ txFee') (val_ contractAction) (val_ processingTime) (val_ $ fromIntegral $ coefficient scrSize)])
               (conflictingFields _txFeeDataSet_id)
               onConflictDoNothing
           return $ Right txFeeDetails
         _ -> return $ Left "Error unexpected data type in txFeeDetails"
       _ -> return $ Left "Error parsing txFeeDetails as a JSON Array"
+    Right (_txFeeDetails, _) -> return $ Left "Unexpected script size data type"
 
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"apAmountA":4500,"apAmountB":9000,"apCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"apCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/3b0bafe2-14f4-4d34-a4d8-633afb8e52eb/endpoint/add
@@ -246,7 +249,7 @@ executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
   print $ ("executeStake: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
   print $ ("executeStake: request sent." :: String)
-  fetchObservableStateFees httpManager contractId
+  (either (\a -> return $ Left a) (\a -> return $ Right $ fst a)) =<< fetchObservableStateFees httpManager contractId
 
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"rpDiff":2461,"rpCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"rpCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/9079d01a-342b-4d4d-88b5-7525ff1118d6/endpoint/remove
@@ -270,10 +273,10 @@ executeRemove httpManager contractId coinA coinB amount = do
   print $ ("executeRemove: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
   print $ ("executeRemove: request sent." :: String)
-  fetchObservableStateFees httpManager contractId
+  (either (\a -> return $ Left a) (\a -> return $ Right $ fst a)) =<< fetchObservableStateFees httpManager contractId
 
 -- Grabs transaction fees from `observaleState` field from the contract instance status endpoint.
-fetchObservableStateFees :: Manager -> String -> IO (Either String Aeson.Value)
+fetchObservableStateFees :: Manager -> String -> IO (Either String (Aeson.Value, Aeson.Value)) -- (TransactionFees, ScriptSize)
 fetchObservableStateFees httpManager contractId = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/status"
   initReq <- parseRequest requestUrl
@@ -285,9 +288,12 @@ fetchObservableStateFees httpManager contractId = do
     Right obj -> do
       -- Note: If there is a need to filter the observable state by tag. "tag" can be found in the result of "contents" lens
       let txFeeDetails = obj ^. key "cicCurrentState" . key "observableState" . key "Right"
-            . key "contents" . key "txFee" . key "getValue" . nth 0 . nth 1 . nth 0 . _Array
+            . key "contents" . nth 0 . key "txFee" . key "getValue" . nth 0 . nth 1 . nth 0 . _Array
+          aesArr = obj ^. key "cicCurrentState" . key "observableState" . key "Right"
+            . key "contents" . _Array
+          scrSize = fromMaybe (Aeson.Number 0) $ lastMay $ V.toList aesArr
       print $ "fetchObservableStateFees: the value of txFeeDetails is: " ++ (show txFeeDetails)
-      return $ Right $ Aeson.Array txFeeDetails
+      return $ Right $ (Aeson.Array txFeeDetails, scrSize)
 
 -- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
 callFunds :: Manager -> ContractInstanceId Text -> IO ()
@@ -329,8 +335,8 @@ estimateTransactionFee pool action = case action of
         $ all_ (_db_txFeeDataSet db)
       txFees :: [Double] <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_txFee txData
       let responder = U.fromList txFees
-      processingTimes <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_estProcessingTime txData
-      let preds :: U.Vector Double = U.fromList processingTimes
+      scriptSizes <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_scriptSize txData
+      let preds :: U.Vector Double = U.fromList scriptSizes
           predictors = fmap (\_ -> preds) ([0] :: [Integer])
       if (predictors == [] || responder == U.empty || length(predictors) < 2)
          then return (Nothing, predictors, responder)
