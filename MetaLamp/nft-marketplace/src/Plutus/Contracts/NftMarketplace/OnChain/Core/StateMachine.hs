@@ -4,6 +4,7 @@
 {-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
@@ -14,6 +15,7 @@ import qualified Data.Aeson                   as J
 import qualified Data.Text                    as T
 import qualified GHC.Generics                 as Haskell
 import           Ledger
+import qualified Ledger.Constraints           as Constraints
 import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Value
 import           Plutus.Contract
@@ -51,8 +53,7 @@ PlutusTx.unstableMakeIsData ''NFT
 PlutusTx.makeLift ''NFT
 
 data MarketplaceRedeemer
-  = StartRedeemer
-  | CreateNftRedeemer IpfsCidHash NFT
+  = CreateNftRedeemer IpfsCidHash NFT
   deriving  (Haskell.Show)
 
 PlutusTx.unstableMakeIsData ''MarketplaceRedeemer
@@ -71,17 +72,32 @@ PlutusTx.makeLift ''MarketplaceDatum
 
 {-# INLINABLE transition #-}
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
-transition marketplace s r = Nothing
+transition marketplace state redeemer = case redeemer of
+    CreateNftRedeemer ipfsCidHash nftEntry
+        -> Just ( mustBeSignedByIssuer nftEntry
+                , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash nftEntry nftStore) mempty
+                )
+    _                                        -> Nothing
   where
-    token :: Value
-    token = assetClassValue (marketplaceProtocolToken marketplace) 1
+    nftStore :: AssocMap.Map IpfsCidHash NFT
+    nftStore = getMarketplaceDatum $ stateData state
+
+    mustBeSignedByIssuer entry = case nftIssuer entry of
+      Just pkh -> Constraints.mustBeSignedBy pkh
+      Nothing  -> mempty
+
+{-# INLINABLE stateTransitionCheck #-}
+stateTransitionCheck :: MarketplaceDatum -> MarketplaceRedeemer -> ScriptContext -> Bool
+stateTransitionCheck (MarketplaceDatum nftStore) (CreateNftRedeemer ipfsCidHash nftEntry) ctx =
+  traceIfFalse "Nft entry already exists" $
+    isNothing $ AssocMap.lookup ipfsCidHash nftStore
 
 {-# INLINABLE marketplaceStateMachine #-}
 marketplaceStateMachine :: Marketplace -> StateMachine MarketplaceDatum MarketplaceRedeemer
 marketplaceStateMachine marketplace = StateMachine
     { smTransition  = transition marketplace
     , smFinal       = const False
-    , smCheck       = \d r ctx -> True
+    , smCheck       = stateTransitionCheck
     , smThreadToken = Just $ marketplaceProtocolToken marketplace
     }
 
