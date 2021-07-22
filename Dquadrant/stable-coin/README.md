@@ -56,14 +56,14 @@ The PAB server is started on port 8080.
 
 4. Get oracle contract instance with response from below command in which inside json structue tag named as "OracleContract"
 ```
-curl -s http://localhost/api/new/contract/instances | jq
+curl -s http://localhost:8080/api/new/contract/instances | jq
 ```
 You can find contract instance id inside "cicContract":{
   "unContractInstanceId":\<Contract Instance Id\> 
 }
 5. Export oracle instance id as
 ``` 
-export ORACLE_ID = <Contract Id from above step>
+export ORACLE_ID =<Contract Id from above step>
 ```
 6. Set initial exchange rate for 1 usd to ada in lovelaces from
 ```
@@ -74,7 +74,7 @@ curl -H "Content-Type: application/json" \
 ```
 7. Like as step 4 export Contract instance id for another wallet having tag StableContract
 ```
-export INSTANCE_ID = <Contract Id for StableContract>
+export INSTANCE_ID =<Contract Id for StableContract>
 ```
 8. Mint reserve token with
 ```
@@ -82,7 +82,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '
   {
-    "tokenAmount": <Type your token amount to mint in number>         
+    "tokenAmount":<Type your token amount to mint in number>         
   }' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/mintReserveCoin
 ```
@@ -92,7 +92,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '
   {
-    "tokenAmount": <Type your token amount to mint in number>         
+    "tokenAmount":<Type your token amount to mint in number>         
   }' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/mintStableCoin
 ```
@@ -102,7 +102,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '
   {
-    "tokenAmount": <Type your token amount to redeem in number>         
+    "tokenAmount":<Type your token amount to redeem in number>         
   }' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/redeemStableCoin
 ```
@@ -112,7 +112,7 @@ curl -H "Content-Type: application/json" \
   --request POST \
   --data '
   {
-    "tokenAmount": <Type your token amount to redeem in number>         
+    "tokenAmount":<Type your token amount to redeem in number>         
   }' \
   http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/redeemStableCoin
 ```
