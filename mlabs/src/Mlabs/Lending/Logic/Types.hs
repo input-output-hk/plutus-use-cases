@@ -51,6 +51,7 @@ module Mlabs.Lending.Logic.Types(
   , toLendingToken
   , fromLendingToken
   , fromAToken
+  , QueryRes(..)
 ) where
 
 import PlutusTx.Prelude hiding ((%))
@@ -60,6 +61,7 @@ import GHC.Generics ( Generic )
 import Playground.Contract (ToSchema)
 import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..), Value)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
+import Plutus.V1.Ledger.Tx (Address)
 import qualified PlutusTx
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
@@ -326,7 +328,6 @@ data UserAct
 -- | Acts that can be done by admin users.
 data GovernAct
   = AddReserveAct CoinCfg  -- ^ Adds new reserve
-  | QueryAllLendexesAct StartParams
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -351,6 +352,11 @@ fromLendingToken lp (AssetClass (_ ,tn)) = fromAToken lp tn
 
 data InterestRate = StableRate | VariableRate
   deriving stock (Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
+-- If another query is added, extend this data type 
+data QueryRes = QueryResAllLendexes [(Address, StartParams)]
+  deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 ---------------------------------------------------------------

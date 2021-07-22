@@ -36,6 +36,7 @@ module Mlabs.Lending.Contract.Api(
   , UserSchema
   , OracleSchema
   , AdminSchema
+  , QuerySchema
 ) where
 
 
@@ -134,6 +135,8 @@ data AddReserve = AddReserve Types.CoinCfg
 newtype StartLendex = StartLendex Types.StartParams 
   deriving newtype (Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
 
+-- query actions
+
 newtype QueryAllLendexes = QueryAllLendexes Types.StartParams
   deriving newtype (Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
 
@@ -169,6 +172,10 @@ type AdminSchema =
   BlockchainActions
     .\/ Call AddReserve
     .\/ Call StartLendex
+
+-- | Query schema
+type QuerySchema =
+  BlockchainActions
     .\/ Call QueryAllLendexes
 
 ----------------------------------------------------------
@@ -220,8 +227,6 @@ instance IsPriceAct SetAssetPrice             where { toPriceAct (SetAssetPrice 
 -- govern acts
 
 instance IsGovernAct AddReserve               where { toGovernAct (AddReserve cfg) = Types.AddReserveAct cfg }
-
-instance IsGovernAct QueryAllLendexes         where { toGovernAct (QueryAllLendexes spm) = Types.QueryAllLendexesAct spm }
 
 -- endpoint names
 
