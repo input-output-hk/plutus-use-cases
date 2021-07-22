@@ -355,7 +355,7 @@ data InterestRate = StableRate | VariableRate
   deriving anyclass (FromJSON, ToJSON)
 
 -- If another query is added, extend this data type 
-data QueryRes = QueryResAllLendexes [(Address, StartParams)]
+data QueryRes = QueryResAllLendexes [(Address, LendingPool)]
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 

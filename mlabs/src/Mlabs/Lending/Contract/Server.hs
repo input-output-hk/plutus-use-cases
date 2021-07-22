@@ -119,21 +119,21 @@ queryAllLendexes lid (Api.QueryAllLendexes spm) = do
   Contract.tell . Just . Last . Types.QueryResAllLendexes . mapMaybe f . map snd $ toList utxos
   pure ()
   where
-    startedWith :: Types.LendingPool -> Types.StartParams -> Maybe Types.StartParams
-    startedWith Types.LendingPool{..} Types.StartParams{..} = do
+    startedWith :: Types.LendingPool -> Types.StartParams -> Maybe Types.LendingPool
+    startedWith lp@Types.LendingPool{..} Types.StartParams{..} = do
       guard (map UserId sp'admins == lp'admins)
       guard (map UserId sp'oracles == lp'trustedOracles)
       -- unsure if we can check that the tokens in StartParams are still being dealt in
       -- there is no 100% certainty since AddReserve can add new Coin types
       -- todo: we could check that the Coins is SartParams are a subset of the ones being dealt in now?
-      pure $ spm -- todo: construct the starting params out of the lending pool (is it even possible?)
+      pure $ lp
 
-    f :: TxOutTx -> Maybe (Address, Types.StartParams)
+    f :: TxOutTx -> Maybe (Address, Types.LendingPool)
     f o = do
       let add   =  txOutAddress   $ txOutTxOut o
       (dat::(Types.LendexId, Types.LendingPool)) <- readDatum o 
-      sp <- startedWith (snd dat) spm
-      pure (add, sp)
+      lp <- startedWith (snd dat) spm
+      pure (add, lp)
       
 ----------------------------------------------------------
 -- to act conversion
