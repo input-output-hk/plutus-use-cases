@@ -31,7 +31,8 @@ import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                     as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.Info (fundsAt,
-                                                                mapError')
+                                                                mapError',
+                                                                marketplaceStore)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core  as Core
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                             as AssocMap
@@ -59,6 +60,10 @@ PlutusTx.makeLift ''CreateNftParams
 --   he gets it into his wallet and the corresponding store entry is created
 createNft :: Core.Marketplace -> CreateNftParams -> Contract w s Text ()
 createNft marketplace CreateNftParams {..} = do
+    let ipfsCidHash = sha2_256 cnpIpfsCid
+    nftStore <- marketplaceStore marketplace
+    when (isJust $ AssocMap.lookup ipfsCidHash nftStore) $ throwError "Nft entry already exists"
+
     pkh <- getOwnPubKey
     let tokenName = TokenName cnpIpfsCid
     nft <-
@@ -66,7 +71,6 @@ createNft marketplace CreateNftParams {..} = do
            Currency.forgeContract pkh [(tokenName, 1)]
 
     let client = Core.marketplaceClient marketplace
-    let ipfsCidHash = sha2_256 cnpIpfsCid
     let nftEntry = Core.NFT
             { nftId          = Currency.currencySymbol nft
             , nftName        = cnpNftName
