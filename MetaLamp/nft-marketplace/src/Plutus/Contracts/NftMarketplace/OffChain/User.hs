@@ -39,6 +39,7 @@ import           PlutusTx.Prelude                              hiding
                                                                (Semigroup (..))
 import           Prelude                                       (Semigroup (..))
 import qualified Prelude                                       as Haskell
+import qualified Schema
 import           Text.Printf                                   (printf)
 
 data CreateNftParams =
@@ -49,7 +50,7 @@ data CreateNftParams =
     cnpRevealIssuer   :: Bool
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
-    deriving anyclass (J.ToJSON, J.FromJSON)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
 PlutusTx.unstableMakeIsData ''CreateNftParams
 PlutusTx.makeLift ''CreateNftParams

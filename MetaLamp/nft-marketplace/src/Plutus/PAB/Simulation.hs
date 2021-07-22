@@ -82,14 +82,14 @@ activateContracts = do
         _                                                  -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace instance created: " ++ show mp
 
-    -- cidInfo <- Simulator.activateContract ownerWallet $ MarketplaceInfo mp
+    cidInfo <- Simulator.activateContract ownerWallet $ MarketplaceInfo mp
 
-    -- cidUser <- fmap Map.fromList $ forM userWallets $ \w -> do
-    --     cid <- Simulator.activateContract w $ MarketplaceUser mp
-    --     Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace user contract started for " ++ show w
-    --     return (w, cid)
+    users <- fmap Map.fromList $ forM userWallets $ \w -> do
+        cid <- Simulator.activateContract w $ MarketplaceUser mp
+        Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace user contract started for " ++ show w
+        return (w, cid)
 
-    pure $ ContractIDs Map.empty cidStart
+    pure $ ContractIDs users cidInfo
 
 runNftMarketplace :: IO ()
 runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
@@ -99,13 +99,44 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
     let userCid = cidUser Map.! Wallet 2
         sender = pubKeyHash . walletPubKey $ Wallet 2
 
+    _  <-
+        Simulator.callEndpointOnInstance userCid "createNft" $
+            Marketplace.CreateNftParams {
+                        cnpIpfsCid        = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16",
+                        cnpNftName        = "Cat token",
+                        cnpNftDescription = "A picture of a cat on a pogo stick",
+                        cnpRevealIssuer   = False
+                    }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
+        Success (ContractSuccess Marketplace.NftCreated) -> Just ()
+        _                                                -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful createNft"
+
+    _ <- Simulator.callEndpointOnInstance cidInfo "fundsAt" sender
+    v <- flip Simulator.waitForState cidInfo $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.InfoContractState)) of
+            Success (ContractSuccess (Marketplace.FundsAt v)) -> Just v
+            _                                                 -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Final user funds: " <> show v
+
+    _ <- Simulator.callEndpointOnInstance cidInfo "marketplaceStore" ()
+    marketplaceStore <- flip Simulator.waitForState cidInfo $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.InfoContractState)) of
+            Success (ContractSuccess (Marketplace.MarketplaceStore marketplaceStore)) -> Just marketplaceStore
+            _                                                  -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Final marketplaceStore: " <> show marketplaceStore
+
+    _ <- Simulator.callEndpointOnInstance cidInfo "marketplaceFunds" ()
+    v <- flip Simulator.waitForState cidInfo $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.InfoContractState)) of
+            Success (ContractSuccess (Marketplace.MarketplaceFunds v)) -> Just v
+            _                                            -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Final marketplace funds: " <> show v
+
     _ <- liftIO getLine
     shutdown
 
 data MarketplaceContracts =
     MarketplaceStart
-    -- | MarketplaceInfo Marketplace.Marketplace
-    -- | MarketplaceUser Marketplace.Marketplace
+    | MarketplaceInfo Marketplace.Marketplace
+    | MarketplaceUser Marketplace.Marketplace
     deriving (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
@@ -120,17 +151,13 @@ handleMarketplaceContract ::
     ~> Eff effs
 handleMarketplaceContract = Builtin.handleBuiltin getSchema getContract where
   getSchema = \case
-    -- MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
-    -- MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
+    MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
+    MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
     MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
-    -- DistributeFunds _ _ -> Builtin.endpointsToSchemas @Empty
-    -- CreateOracles _     -> Builtin.endpointsToSchemas @Empty
   getContract = \case
-    -- MarketplaceInfo marketplace       -> SomeBuiltin $ Marketplace.infoEndpoints marketplace
-    -- MarketplaceUser marketplace       -> SomeBuiltin $ Marketplace.userEndpoints marketplace
+    MarketplaceInfo marketplace       -> SomeBuiltin $ Marketplace.infoEndpoints marketplace
+    MarketplaceUser marketplace       -> SomeBuiltin $ Marketplace.userEndpoints marketplace
     MarketplaceStart           -> SomeBuiltin Marketplace.ownerEndpoints
-    -- DistributeFunds wallets assets -> SomeBuiltin $ distributeFunds wallets assets
-    -- CreateOracles assets -> SomeBuiltin $ createOracles assets
 
 handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
 handlers =
