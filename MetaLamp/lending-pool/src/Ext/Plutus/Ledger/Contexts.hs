@@ -4,19 +4,27 @@
 
 module Ext.Plutus.Ledger.Contexts where
 
-import           Ledger                      (Address (Address),
-                                              Datum (getDatum), DatumHash,
-                                              PubKeyHash,
+import           Ledger                      (Address (Address), Datum (..),
+                                              DatumHash, PubKeyHash,
+                                              ScriptContext,
                                               TxInInfo (txInInfoResolved),
                                               TxInfo (txInfoInputs),
                                               TxOut (TxOut, txOutAddress, txOutDatumHash, txOutValue),
-                                              ValidatorHash, Value, findDatum)
+                                              ValidatorHash, Value, findDatum,
+                                              findDatumHash, ownHashes,
+                                              scriptContextTxInfo,
+                                              scriptOutputsAt)
+import           Plutus.V1.Ledger.Contexts   (ScriptContext)
 import           Plutus.V1.Ledger.Credential (Credential (PubKeyCredential, ScriptCredential))
 import qualified PlutusTx
 import           PlutusTx.Prelude            (Eq ((==)), Maybe (..), filter,
                                               find, fst, mapMaybe, mconcat,
                                               otherwise, snd, ($), (.), (<$>),
                                               (>>=))
+
+{-# INLINABLE findOnlyOneDatumByValue #-}
+findOnlyOneDatumByValue :: PlutusTx.IsData a => ScriptContext -> Value -> Maybe a
+findOnlyOneDatumByValue ctx value = findOnlyOneDatumHashByValue value (getScriptOutputs ctx) >>= parseDatum (scriptContextTxInfo ctx)
 
 {-# INLINABLE findOnlyOneDatumHashByValue #-}
 -- | Find the hash of a datum, if it is part of the script's outputs.
@@ -27,6 +35,20 @@ findOnlyOneDatumHashByValue val outs = fst <$> case filter f outs of
   _     -> Nothing
   where
     f (_, val') = val' == val
+
+{-# INLINABLE getScriptOutputs #-}
+getScriptOutputs :: ScriptContext -> [(DatumHash, Value)]
+getScriptOutputs ctx = scriptOutputsAt scriptsHash (scriptContextTxInfo ctx)
+  where
+    (scriptsHash, _) = ownHashes ctx
+
+{-# INLINABLE findValueByDatum #-}
+findValueByDatum :: PlutusTx.IsData a => ScriptContext -> a -> Maybe Value
+findValueByDatum ctx datum = (`findValueByDatumHash` scriptOutputs) <$> findDatumHash (Datum $ PlutusTx.toData datum) txInfo
+  where
+    txInfo = scriptContextTxInfo ctx
+    (scriptsHash, _) = ownHashes ctx
+    scriptOutputs = scriptOutputsAt scriptsHash txInfo
 
 {-# INLINABLE findValueByDatumHash #-}
 -- | Concat value of the script's outputs that have the specified hash of a datum

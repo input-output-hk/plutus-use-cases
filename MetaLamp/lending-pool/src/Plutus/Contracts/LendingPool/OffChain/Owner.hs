@@ -83,7 +83,8 @@ createReserve aave CreateParams {..} =
           rAmount = 0,
           rAToken = AToken.makeAToken (Core.aaveHash aave) cpAsset,
           rLiquidityIndex = 1,
-          rCurrentStableBorrowRate = 11 % 10, -- TODO configure borrow rate when lending core will be ready
+          rCurrentStableBorrowRate = 101 % 100,
+          rCurrentStableAccrualRate = 101 % 100,
           rTrustedOracle = Oracle.toTuple cpOracle
            }
 
