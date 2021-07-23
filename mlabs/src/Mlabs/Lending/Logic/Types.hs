@@ -285,15 +285,19 @@ data UserAct
       , act'rate            :: InterestRate
       }
   -- ^ swap borrow interest rate strategy (stable to variable)
-  | SetUserReserveAsCollateralAct
-      { act'asset           :: Coin       -- ^ which asset to use as collateral or not
-      , act'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
-      , act'portion         :: Rational   -- ^ poriton of deposit/collateral to change status (0, 1)
+  | AddCollateralAct
+      { add'asset           :: Coin
+      , add'portion         :: Rational
       }
-  -- ^ set some portion of deposit as collateral or some portion of collateral as deposit
+  -- ^ transfers potrion of asset from the user's wallet to the contract, locked as the user's Collateral
+  | RemoveCollateralAct
+      { remove'asset        :: Coin
+      , remove'portion      :: Rational
+      }
+  -- ^ transfer potrion of asset from locked user's Collateral to user's wallet
   | WithdrawAct
-      { act'amount         :: Integer
-      , act'asset          :: Coin
+      { act'amount          :: Integer
+      , act'asset           :: Coin
       }
   -- ^ withdraw funds from deposit
   | FlashLoanAct  -- TODO

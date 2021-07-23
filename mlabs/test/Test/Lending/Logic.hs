@@ -26,10 +26,7 @@ import Mlabs.Lending.Logic.Types
       InterestRate(StableRate),
       Coin,
       PriceAct(SetAssetPriceAct),
-      UserAct(LiquidationCallAct, DepositAct,
-              SetUserReserveAsCollateralAct, BorrowAct, WithdrawAct, RepayAct,
-              act'useAsCollateral, act'portion, act'asset, act'amount, act'rate,
-              act'collateral, act'debt, act'debtToCover, act'receiveAToken),
+      UserAct(..),
       UserId(..),
       defaultInterestModel )
 
@@ -114,10 +111,9 @@ depositScript = do
 borrowScript :: Script
 borrowScript = do
   depositScript
-  userAct user1 $ SetUserReserveAsCollateralAct
-        { act'asset           = coin1
-        , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1 }
+  userAct user1 $ AddCollateralAct
+        { add'asset           = coin1
+        , add'portion         = R.fromInteger 1 }
   userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 30
@@ -137,10 +133,9 @@ borrowNoCollateralScript = do
 borrowNotEnoughCollateralScript :: Script
 borrowNotEnoughCollateralScript = do
   depositScript
-  userAct user1 $ SetUserReserveAsCollateralAct
-        { act'asset           = coin1
-        , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1 }
+  userAct user1 $ AddCollateralAct
+        { add'asset           = coin1
+        , add'portion         = R.fromInteger 1 }
   userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 60

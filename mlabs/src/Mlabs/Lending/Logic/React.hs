@@ -36,9 +36,10 @@ import Mlabs.Lending.Logic.Types
       Reserve(reserve'wallet, reserve'rate),
       Wallet(wallet'deposit, wallet'collateral, wallet'borrow),
       BadBorrow(BadBorrow, badBorrow'userId),
-      UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
-              act'amount, act'receiveAToken, act'debtToCover, act'debt,
-              act'collateral),
+      UserAct(..),
+      -- UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
+      --         act'amount, act'receiveAToken, act'debtToCover, act'debt,
+      --         act'collateral),
       UserId(Self) )
 
 {-# INLINABLE react #-}
@@ -59,7 +60,9 @@ react input = do
       Types.BorrowAct{..}                     -> borrowAct time uid act'asset act'amount act'rate
       Types.RepayAct{..}                      -> repayAct time uid act'asset act'amount act'rate
       Types.SwapBorrowRateModelAct{..}        -> swapBorrowRateModelAct uid act'asset act'rate
-      Types.SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion (R.fromInteger 1))
+      -- Types.SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion (R.fromInteger 1))
+      Types.AddCollateralAct{..}              -> addCollateral uid add'asset (min add'portion (R.fromInteger 1))
+      Types.RemoveCollateralAct{..}           -> removeCollateral uid remove'asset (min remove'portion (R.fromInteger 1))
       Types.WithdrawAct{..}                   -> withdrawAct time uid act'amount act'asset
       Types.FlashLoanAct                      -> flashLoanAct uid
       Types.LiquidationCallAct{..}            -> liquidationCallAct time uid act'collateral act'debt act'debtToCover act'receiveAToken
@@ -137,13 +140,10 @@ react input = do
     swapBorrowRateModelAct _ _ _ = todo
 
     ---------------------------------------------------
+    -- todo docs
     -- set user reserve as collateral
 
-    setUserReserveAsCollateralAct uid asset useAsCollateral portion
-      | useAsCollateral = setAsCollateral uid asset portion
-      | otherwise       = setAsDeposit    uid asset portion
-
-    setAsCollateral uid asset portion
+    addCollateral uid asset portion
       | portion <= R.fromInteger 0 || portion > R.fromInteger 1 = pure []
       | otherwise                  = do
           ni <- State.getNormalisedIncome asset
@@ -154,11 +154,11 @@ react input = do
           aCoin <- State.aToken asset
           pure $ moveFromTo uid Self aCoin amount
 
-    setAsDeposit uid asset portion
+    removeCollateral uid asset portion
       | portion <= R.fromInteger 0 = pure []
       | otherwise                  = do
-          amount <- getAmountBy wallet'collateral uid asset portion
           ni <- State.getNormalisedIncome asset
+          amount <- getAmountBy wallet'collateral uid asset portion
           State.modifyWalletAndReserve' uid asset $ \w -> do
             w1 <- addDeposit ni amount w
             pure $ w1 { wallet'collateral = wallet'collateral w - amount }
@@ -356,7 +356,10 @@ checkInput = \case
         isPositive "repay" amount
         State.isAsset asset
       Types.SwapBorrowRateModelAct asset _rate -> State.isAsset asset
-      Types.SetUserReserveAsCollateralAct asset _useAsCollateral portion -> do
+      Types.AddCollateralAct asset portion -> do
+        State.isAsset asset
+        isUnitRangeRay "deposit portion" portion
+      Types.RemoveCollateralAct asset portion -> do
         State.isAsset asset
         isUnitRangeRay "deposit portion" portion
       Types.WithdrawAct amount asset -> do

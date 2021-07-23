@@ -49,7 +49,8 @@ userEndpoints lid = forever $ selects
   , act $ getEndpoint @Api.Borrow
   , act $ getEndpoint @Api.Repay
   , act $ getEndpoint @Api.SwapBorrowRateModel
-  , act $ getEndpoint @Api.SetUserReserveAsCollateral
+  , act $ getEndpoint @Api.AddCollateral
+  , act $ getEndpoint @Api.RemoveCollateral
   , act $ getEndpoint @Api.Withdraw
   , act $ getEndpoint @Api.LiquidationCall
   ]
