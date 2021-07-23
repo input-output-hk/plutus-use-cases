@@ -5,6 +5,7 @@ module Test.Lending.Contract(
 
 import Prelude
 
+import Data.Functor (void)
 import Plutus.Contract.Test (checkPredicateOptions, Wallet)
 import qualified Plutus.Trace.Emulator as Trace
 import Plutus.V1.Ledger.Value (assetClassValue)
@@ -18,8 +19,9 @@ import qualified PlutusTx.Ratio as R
 import Mlabs.Emulator.Scene (appAddress, appOwns, checkScene, owns, Scene)
 import qualified Mlabs.Lending.Contract as L
 import qualified Mlabs.Lending.Contract.Emulator.Client as L
+import Mlabs.Lending.Contract.Api ( StartLendex(..) )
 import Mlabs.Lending.Logic.Types ( UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel
-                                 , PriceAct(..), BadBorrow(..))
+                                 , PriceAct(..), BadBorrow(..), StartParams(..))
 
 test :: TestTree
 test = testGroup "Contract"
@@ -30,6 +32,7 @@ test = testGroup "Contract"
   , testWithdraw
   , testRepay
   , testLiquidationCall
+  , testQueryAllLendexes
   ]
   where
     check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
@@ -44,14 +47,15 @@ test = testGroup "Contract"
       [ check "Liquidation call aToken"        (liquidationCallScene True) (liquidationCallScript True)
       , check "Liquidation call real currency" (liquidationCallScene False) (liquidationCallScript False)
       ]
+    testQueryAllLendexes = check "QueryAllLendexes works" queryAllLendexesScene queryAllLendexesScript
 
 --------------------------------------------------------------------------------
 -- deposit test
-
+  
 -- | 3 users deposit 50 coins to lending app. Each of them uses different coin.
 depositScript :: Trace.EmulatorTrace ()
 depositScript = do
-  L.callStartLendex lendexId wAdmin $ L.StartParams
+  L.callStartLendex lendexId wAdmin . StartLendex $ StartParams
     { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
                                           { coinCfg'coin = coin
                                           , coinCfg'rate = R.fromInteger 1
@@ -223,6 +227,31 @@ liquidationCallScene receiveAToken = borrowScene <> liquidationCallChange
     receiveCoin
       | receiveAToken = aCoin1
       | otherwise     = coin1
+
+--------------------------------------------------------------------------------
+-- queryAllLendexes test
+
+queryAllLendexesScript :: Trace.EmulatorTrace ()
+queryAllLendexesScript = do
+  depositScript
+  void $ L.queryAllLendexes lendexId w1 (L.QueryAllLendexes sp) 
+  where
+    sp = StartParams
+     { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
+                                           { coinCfg'coin = coin
+                                           , coinCfg'rate = R.fromInteger 1
+                                           , coinCfg'aToken = aCoin
+                                           , coinCfg'interestModel = defaultInterestModel
+                                           , coinCfg'liquidationBonus = 5 R.% 100
+                                           })
+           [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
+     , sp'initValue = assetClassValue adaCoin 1000
+     , sp'admins    = [toPubKeyHash wAdmin]
+     , sp'oracles   = [toPubKeyHash wAdmin]
+     }
+  
+queryAllLendexesScene :: Scene
+queryAllLendexesScene = depositScene 
 
 --------------------------------------------------
 -- names as in script test

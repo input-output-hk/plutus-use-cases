@@ -42,6 +42,7 @@ module Mlabs.Lending.Logic.Types(
   , initLendingPool
   , Act(..)
   , UserAct(..)
+  , StartParams(..)
   , HealthReport
   , BadBorrow(..)
   , PriceAct(..)
@@ -50,6 +51,7 @@ module Mlabs.Lending.Logic.Types(
   , toLendingToken
   , fromLendingToken
   , fromAToken
+  , QueryRes(..)
 ) where
 
 import PlutusTx.Prelude hiding ((%))
@@ -57,7 +59,9 @@ import PlutusTx.Prelude hiding ((%))
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics ( Generic )
 import Playground.Contract (ToSchema)
-import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
+import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..), Value)
+import Plutus.V1.Ledger.Crypto (PubKeyHash)
+import Plutus.V1.Ledger.Tx (Address)
 import qualified PlutusTx
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
@@ -97,6 +101,15 @@ data Reserve = Reserve
   }
   deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
+
+data StartParams = StartParams
+  { sp'coins     :: [CoinCfg]       -- ^ supported coins with ratios to ADA
+  , sp'initValue :: Value           -- ^ init value deposited to the lending app
+  , sp'admins    :: [PubKeyHash]    -- ^ admins
+  , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
+  }
+  deriving stock (Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 type HealthReport = Map BadBorrow Rational
 
@@ -340,6 +353,11 @@ data InterestRate = StableRate | VariableRate
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
+-- If another query is added, extend this data type 
+data QueryRes = QueryResAllLendexes [(Address, LendingPool)]
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
 ---------------------------------------------------------------
 -- boilerplate instances
 
@@ -354,6 +372,7 @@ PlutusTx.unstableMakeIsData ''GovernAct
 PlutusTx.unstableMakeIsData ''User
 PlutusTx.unstableMakeIsData ''Wallet
 PlutusTx.unstableMakeIsData ''Reserve
+PlutusTx.unstableMakeIsData ''StartParams
 PlutusTx.unstableMakeIsData ''BadBorrow
 PlutusTx.unstableMakeIsData ''LendingPool
 PlutusTx.unstableMakeIsData ''Act

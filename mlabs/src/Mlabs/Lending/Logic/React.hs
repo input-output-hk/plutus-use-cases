@@ -290,7 +290,7 @@ react input = do
               newCoinMap  = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
           put $ st { lp'reserves = newReserves, lp'coinMap = newCoinMap }
           return []
-
+              
     ---------------------------------------------------
     -- health checks
 
@@ -382,7 +382,7 @@ checkInput = \case
       isPositiveRay "coin price config" coinCfg'rate
       checkInterestModel coinCfg'interestModel
       isUnitRangeRay "liquidation bonus config" coinCfg'liquidationBonus
-
+       
     checkInterestModel Types.InterestModel{..} = do
       isUnitRangeRay "optimal utilisation" im'optimalUtilisation
       isPositiveRay "slope 1" im'slope1

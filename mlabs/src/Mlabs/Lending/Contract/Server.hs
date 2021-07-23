@@ -8,22 +8,26 @@ module Mlabs.Lending.Contract.Server(
   , userEndpoints
   , oracleEndpoints
   , adminEndpoints
+  , queryEndpoints
   -- * Errors
   , StateMachine.LendexError
 ) where
 
 import Prelude
 
-import Control.Monad (forever)
+import Control.Monad (forever, guard)
 import Data.List.Extra (firstJust)
 import Data.Map (toList)
+import Data.Maybe (mapMaybe)
+import Data.Semigroup (Last(..))
 import Ledger.Constraints (ownPubKeyHash, mintingPolicy, mustIncludeDatum)
 import Plutus.Contract qualified as Contract
-import Plutus.V1.Ledger.Api (Datum)
+import Plutus.V1.Ledger.Api (Datum(..))
 import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
+import Plutus.V1.Ledger.Tx 
 
-import Mlabs.Emulator.Types (ownUserId)
+import Mlabs.Emulator.Types (ownUserId, UserId(..))
 import Mlabs.Lending.Contract.Api qualified as Api
 import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
 import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
@@ -38,6 +42,11 @@ type OracleContract a = Contract.Contract () Api.OracleSchema StateMachine.Lende
 
 -- | Admin contract monad
 type AdminContract a = Contract.Contract () Api.AdminSchema StateMachine.LendexError a
+
+-- | Query contract monad
+type QueryContract a = Contract.Contract QueryResult Api.QuerySchema StateMachine.LendexError a 
+
+type QueryResult = Maybe (Last Types.QueryRes)
 
 ----------------------------------------------------------
 -- endpoints
@@ -70,13 +79,18 @@ oracleEndpoints lid = forever $ selects
 -- | Endpoints for admin
 adminEndpoints :: Types.LendexId -> AdminContract ()
 adminEndpoints lid = do
-  getEndpoint @Api.StartParams >>= (startLendex lid)
+  getEndpoint @Api.StartLendex >>= (startLendex lid)
   forever $ selects
     [ act $ getEndpoint @Api.AddReserve
     ]
   where
     act :: Api.IsGovernAct a => AdminContract a -> AdminContract ()
     act readInput = readInput >>= adminAction lid
+
+queryEndpoints :: Types.LendexId -> QueryContract ()
+queryEndpoints lid = forever $ selects
+    [ getEndpoint @Api.QueryAllLendexes >>= (queryAllLendexes lid)
+    ]
 
 -- actions
 
@@ -96,10 +110,32 @@ priceOracleAction lid input = StateMachine.runStep lid =<< getPriceAct input
 adminAction :: Api.IsGovernAct a => Types.LendexId -> a -> AdminContract ()
 adminAction lid input = StateMachine.runStep lid =<< getGovernAct input
 
-startLendex :: Types.LendexId -> Api.StartParams -> AdminContract ()
-startLendex lid Api.StartParams{..} =
+startLendex :: Types.LendexId -> Api.StartLendex -> AdminContract ()
+startLendex lid (Api.StartLendex Types.StartParams{..}) =
   StateMachine.runInitialise lid  (Types.initLendingPool (currencySymbol lid) sp'coins (fmap Types.UserId sp'admins) (fmap Types.UserId sp'oracles)) sp'initValue
 
+queryAllLendexes :: Types.LendexId -> Api.QueryAllLendexes -> QueryContract ()
+queryAllLendexes lid (Api.QueryAllLendexes spm) = do
+  utxos <- Contract.utxoAt $ StateMachine.lendexAddress lid
+  Contract.tell . Just . Last . Types.QueryResAllLendexes . mapMaybe f . map snd $ toList utxos
+  pure ()
+  where
+    startedWith :: Types.LendingPool -> Types.StartParams -> Maybe Types.LendingPool
+    startedWith lp@Types.LendingPool{..} Types.StartParams{..} = do
+      guard (map UserId sp'admins == lp'admins)
+      guard (map UserId sp'oracles == lp'trustedOracles)
+      -- unsure if we can check that the tokens in StartParams are still being dealt in
+      -- there is no 100% certainty since AddReserve can add new Coin types
+      -- todo: we could check that the Coins is SartParams are a subset of the ones being dealt in now?
+      pure $ lp
+
+    f :: TxOutTx -> Maybe (Address, Types.LendingPool)
+    f o = do
+      let add   =  txOutAddress   $ txOutTxOut o
+      (dat::(Types.LendexId, Types.LendingPool)) <- readDatum o 
+      lp <- startedWith (snd dat) spm
+      pure (add, lp)
+      
 ----------------------------------------------------------
 -- to act conversion
 
