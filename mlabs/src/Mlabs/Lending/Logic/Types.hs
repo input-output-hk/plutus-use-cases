@@ -287,17 +287,17 @@ data UserAct
   -- ^ swap borrow interest rate strategy (stable to variable)
   | AddCollateralAct
       { add'asset           :: Coin
-      , add'portion         :: Rational
+      , add'amount         :: Integer
       }
-  -- ^ transfers potrion of asset from the user's wallet to the contract, locked as the user's Collateral
+  -- ^ transfer amount of Asset from the user's Wallet to the Contract, locked as the user's Collateral
   | RemoveCollateralAct
       { remove'asset        :: Coin
-      , remove'portion      :: Rational
+      , remove'amount      :: Integer
       }
-  -- ^ transfer potrion of asset from locked user's Collateral to user's wallet
+  -- ^ transfer amount of Asset from user's Collateral locked in Contract to user's Wallet
   | WithdrawAct
-      { act'amount          :: Integer
-      , act'asset           :: Coin
+      { act'asset           :: Coin
+      , act'amount          :: Integer
       }
   -- ^ withdraw funds from deposit
   | FlashLoanAct  -- TODO

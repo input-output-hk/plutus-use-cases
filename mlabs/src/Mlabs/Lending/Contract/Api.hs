@@ -90,18 +90,18 @@ data SwapBorrowRateModel = SwapBorrowRateModel
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
--- | Transfer potrion of asset from the user's wallet to the contract, locked as the user's Collateral
+-- | Transfer portion of asset from the user's wallet to the contract, locked as the user's Collateral
 data AddCollateral = AddCollateral
-  { addCollateral'asset           :: Types.Coin  -- ^ which asset to use as collateral or not
-  , addCollateral'portion         :: Rational    -- ^ portion of deposit/collateral to change status (0, 1)
+  { addCollateral'asset           :: Types.Coin  -- ^ which Asset to use as collateral
+  , addCollateral'amount         :: Integer      -- ^ amount of Asset to take from Wallet and use as Collateral
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
--- | Transfer potrion of asset from locked user's Collateral to user's wallet
+-- | Transfer portion of asset from locked user's Collateral to user's wallet
 data RemoveCollateral = RemoveCollateral
-  { removeCollateral'asset           :: Types.Coin  -- ^ which asset to use as collateral or not
-  , removeCollateral'portion         :: Rational    -- ^ portion of deposit/collateral to change status (0, 1)
+  { removeCollateral'asset           :: Types.Coin  -- ^ which Asset to use as collateral or not
+  , removeCollateral'amount         :: Integer      -- ^ amount of Asset to remove from Collateral and put back to Wallet
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
@@ -217,9 +217,9 @@ instance IsUserAct Deposit                    where { toUserAct Deposit{..} = Ty
 instance IsUserAct Borrow                     where { toUserAct Borrow{..} = Types.BorrowAct borrow'amount borrow'asset (fromInterestRateFlag borrow'rate) }
 instance IsUserAct Repay                      where { toUserAct Repay{..} = Types.RepayAct repay'amount repay'asset (fromInterestRateFlag repay'rate) }
 instance IsUserAct SwapBorrowRateModel        where { toUserAct SwapBorrowRateModel{..} = Types.SwapBorrowRateModelAct swapRate'asset (fromInterestRateFlag swapRate'rate) }
-instance IsUserAct AddCollateral              where { toUserAct AddCollateral{..} = Types.AddCollateralAct addCollateral'asset addCollateral'portion }
-instance IsUserAct RemoveCollateral           where { toUserAct RemoveCollateral{..} = Types.RemoveCollateralAct removeCollateral'asset removeCollateral'portion }
-instance IsUserAct Withdraw                   where { toUserAct Withdraw{..} = Types.WithdrawAct withdraw'amount withdraw'asset }
+instance IsUserAct AddCollateral              where { toUserAct AddCollateral{..} = Types.AddCollateralAct addCollateral'asset addCollateral'amount }
+instance IsUserAct RemoveCollateral           where { toUserAct RemoveCollateral{..} = Types.RemoveCollateralAct removeCollateral'asset removeCollateral'amount }
+instance IsUserAct Withdraw                   where { toUserAct Withdraw{..} = Types.WithdrawAct withdraw'asset withdraw'amount }
 instance IsUserAct LiquidationCall            where { toUserAct LiquidationCall{..} = Types.LiquidationCallAct liquidationCall'collateral (Types.BadBorrow (Types.UserId liquidationCall'debtUser) liquidationCall'debtAsset) liquidationCall'debtToCover liquidationCall'receiveAToken }
 
 -- price acts

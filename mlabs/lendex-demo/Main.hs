@@ -54,8 +54,8 @@ main = Handler.runSimulator lendexId initContract $ do
 
   test "User 1 borrows 60 Euros" $ do
     call user1 $ Contract.AddCollateral
-                  { addCollateral'asset           = coin1
-                  , addCollateral'portion         = 1 R.% 1
+                  { addCollateral'asset          = coin1
+                  , addCollateral'amount         = 100
                   }
     call user1 $ Contract.Borrow 60 coin2 (Contract.toInterestRateFlag StableRate)
 

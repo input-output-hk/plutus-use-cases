@@ -93,7 +93,7 @@ borrowScript = do
   depositScript
   userAct1 AddCollateralAct
         { add'asset           = coin1
-        , add'portion         = R.fromInteger 1
+        , add'amount          = 50
         }
   next
   userAct1 $ BorrowAct
@@ -142,7 +142,7 @@ borrowNotEnoughCollateralScript = do
   depositScript
   userAct1 AddCollateralAct
         { add'asset           = coin1
-        , add'portion         = R.fromInteger 1
+        , add'amount          = 50
         }
   next
   userAct1 BorrowAct
