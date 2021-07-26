@@ -2,7 +2,7 @@
 
 This will provide some simple governance functions as example behavior to be used across projects and as a simple demonstration of best-practices
 
-After the initial scaffold, we may adjust the governance contract to perform initiation and update features for contract configuration.
+After the initial scaffold, we may adjust the governance contract to perform initiation and update features for contract configuration, perhaps of some custom data, or perhaps using the existing `stablecoin` example from the plutus monorepo.
 
 We may also move some of the implementations into an open-source library, where possible
 
