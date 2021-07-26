@@ -18,7 +18,7 @@ import qualified PlutusTx.Numeric as N
 import qualified PlutusTx.AssocMap as M
 import PlutusTx.These (these)
 
-import Mlabs.Control.Check (isPositive, isPositiveRay, isNonNegative, isUnitRangeRay)
+import Mlabs.Control.Check (isPositive, isPositiveRational, isNonNegative, isUnitRange)
 import qualified Mlabs.Data.List as L
 import qualified PlutusTx.Ratio as R
 import Mlabs.Emulator.Blockchain ( moveFromTo, Resp(Burn, Mint) )
@@ -36,9 +36,10 @@ import Mlabs.Lending.Logic.Types
       Reserve(reserve'wallet, reserve'rate),
       Wallet(wallet'deposit, wallet'collateral, wallet'borrow),
       BadBorrow(BadBorrow, badBorrow'userId),
-      UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
-              act'amount, act'receiveAToken, act'debtToCover, act'debt,
-              act'collateral),
+      UserAct(..),
+      -- UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
+      --         act'amount, act'receiveAToken, act'debtToCover, act'debt,
+      --         act'collateral),
       UserId(Self) )
 
 {-# INLINABLE react #-}
@@ -59,7 +60,8 @@ react input = do
       Types.BorrowAct{..}                     -> borrowAct time uid act'asset act'amount act'rate
       Types.RepayAct{..}                      -> repayAct time uid act'asset act'amount act'rate
       Types.SwapBorrowRateModelAct{..}        -> swapBorrowRateModelAct uid act'asset act'rate
-      Types.SetUserReserveAsCollateralAct{..} -> setUserReserveAsCollateralAct uid act'asset act'useAsCollateral (min act'portion (R.fromInteger 1))
+      Types.AddCollateralAct{..}              -> addCollateral uid add'asset add'amount
+      Types.RemoveCollateralAct{..}           -> removeCollateral uid remove'asset remove'amount
       Types.WithdrawAct{..}                   -> withdrawAct time uid act'amount act'asset
       Types.FlashLoanAct                      -> flashLoanAct uid
       Types.LiquidationCallAct{..}            -> liquidationCallAct time uid act'collateral act'debt act'debtToCover act'receiveAToken
@@ -137,37 +139,38 @@ react input = do
     swapBorrowRateModelAct _ _ _ = todo
 
     ---------------------------------------------------
+    -- todo docs
     -- set user reserve as collateral
 
-    setUserReserveAsCollateralAct uid asset useAsCollateral portion
-      | useAsCollateral = setAsCollateral uid asset portion
-      | otherwise       = setAsDeposit    uid asset portion
-
-    setAsCollateral uid asset portion
-      | portion <= R.fromInteger 0 || portion > R.fromInteger 1 = pure []
-      | otherwise                  = do
+    addCollateral uid asset desiredAmount
+      | desiredAmount <= 0
+      = pure []
+      | otherwise
+      = do
           ni <- State.getNormalisedIncome asset
-          amount <- getAmountBy wallet'deposit uid asset portion
+          amount <- calcAmountFor wallet'deposit uid asset desiredAmount
           State.modifyWallet' uid asset $ \w -> do
             w1 <- addDeposit ni (negate amount) w
             pure $ w1 { wallet'collateral = wallet'collateral w + amount }
           aCoin <- State.aToken asset
           pure $ moveFromTo uid Self aCoin amount
 
-    setAsDeposit uid asset portion
-      | portion <= R.fromInteger 0 = pure []
-      | otherwise                  = do
-          amount <- getAmountBy wallet'collateral uid asset portion
+    removeCollateral uid asset desiredAmount
+      | desiredAmount <= 0
+      = pure []
+      | otherwise
+      = do
           ni <- State.getNormalisedIncome asset
+          amount <- calcAmountFor wallet'collateral uid asset desiredAmount
           State.modifyWalletAndReserve' uid asset $ \w -> do
             w1 <- addDeposit ni amount w
             pure $ w1 { wallet'collateral = wallet'collateral w - amount }
           aCoin <- State.aToken asset
           pure $ moveFromTo Self uid aCoin amount
 
-    getAmountBy extract uid asset portion = do
-      val <- State.getsWallet uid asset extract
-      pure $ R.round $ portion N.* R.fromInteger val
+    calcAmountFor extract uid asset desiredAmount = do
+      availableAmount <- State.getsWallet uid asset extract
+      pure $ min availableAmount desiredAmount
 
     ---------------------------------------------------
     -- withdraw
@@ -356,10 +359,13 @@ checkInput = \case
         isPositive "repay" amount
         State.isAsset asset
       Types.SwapBorrowRateModelAct asset _rate -> State.isAsset asset
-      Types.SetUserReserveAsCollateralAct asset _useAsCollateral portion -> do
+      Types.AddCollateralAct asset amount -> do
         State.isAsset asset
-        isUnitRangeRay "deposit portion" portion
-      Types.WithdrawAct amount asset -> do
+        isPositive "add collateral" amount
+      Types.RemoveCollateralAct asset amount -> do
+        State.isAsset asset
+        isPositive "remove collateral" amount
+      Types.WithdrawAct asset amount -> do
         isPositive "withdraw" amount
         State.isAsset asset
       Types.FlashLoanAct -> pure ()
@@ -372,21 +378,21 @@ checkInput = \case
       case act of
         Types.SetAssetPriceAct asset price -> do
           checkCoinRateTimeProgress time asset
-          isPositiveRay "price" price
+          isPositiveRational "price" price
           State.isAsset asset
 
     checkGovernAct = \case
       Types.AddReserveAct cfg -> checkCoinCfg cfg
 
     checkCoinCfg Types.CoinCfg{..} = do
-      isPositiveRay "coin price config" coinCfg'rate
+      isPositiveRational "coin price config" coinCfg'rate
       checkInterestModel coinCfg'interestModel
-      isUnitRangeRay "liquidation bonus config" coinCfg'liquidationBonus
-       
+      isUnitRange "liquidation bonus config" coinCfg'liquidationBonus
+
     checkInterestModel Types.InterestModel{..} = do
-      isUnitRangeRay "optimal utilisation" im'optimalUtilisation
-      isPositiveRay "slope 1" im'slope1
-      isPositiveRay "slope 2" im'slope2
+      isUnitRange "optimal utilisation" im'optimalUtilisation
+      isPositiveRational "slope 1" im'slope1
+      isPositiveRational "slope 2" im'slope2
 
     checkCoinRateTimeProgress time asset = do
       lastUpdateTime <- coinRate'lastUpdateTime . reserve'rate <$> State.getReserve asset

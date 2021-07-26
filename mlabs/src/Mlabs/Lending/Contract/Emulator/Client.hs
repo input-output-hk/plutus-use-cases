@@ -32,7 +32,8 @@ callUserAct lid wal act = do
     Types.BorrowAct{..}                     -> callEndpoint' hdl $ Api.Borrow  act'amount act'asset (Api.toInterestRateFlag act'rate)
     Types.RepayAct{..}                      -> callEndpoint' hdl $ Api.Repay   act'amount act'asset (Api.toInterestRateFlag act'rate)
     Types.SwapBorrowRateModelAct{..}        -> callEndpoint' hdl $ Api.SwapBorrowRateModel act'asset (Api.toInterestRateFlag act'rate)
-    Types.SetUserReserveAsCollateralAct{..} -> callEndpoint' hdl $ Api.SetUserReserveAsCollateral act'asset act'useAsCollateral act'portion
+    Types.AddCollateralAct{..}              -> callEndpoint' hdl $ Api.AddCollateral add'asset add'amount
+    Types.RemoveCollateralAct{..}           -> callEndpoint' hdl $ Api.RemoveCollateral remove'asset remove'amount
     Types.WithdrawAct{..}                   -> callEndpoint' hdl $ Api.Withdraw act'amount act'asset
     Types.FlashLoanAct                      -> pure ()
     Types.LiquidationCallAct{..}            ->

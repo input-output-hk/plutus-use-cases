@@ -95,10 +95,9 @@ depositScene = mconcat
 borrowScript :: Trace.EmulatorTrace ()
 borrowScript = do
   depositScript
-  userAct1 SetUserReserveAsCollateralAct
-        { act'asset           = coin1
-        , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1
+  userAct1 AddCollateralAct
+        { add'asset           = coin1
+        , add'amount          = 50
         }
   next
   userAct1 $ BorrowAct
@@ -145,10 +144,9 @@ borrowWithoutCollateralScene = depositScene
 borrowNotEnoughCollateralScript :: Trace.EmulatorTrace ()
 borrowNotEnoughCollateralScript = do
   depositScript
-  userAct1 SetUserReserveAsCollateralAct
-        { act'asset           = coin1
-        , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1
+  userAct1 AddCollateralAct
+        { add'asset           = coin1
+        , add'amount          = 50
         }
   next
   userAct1 BorrowAct

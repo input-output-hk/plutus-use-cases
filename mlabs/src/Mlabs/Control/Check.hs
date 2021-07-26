@@ -4,8 +4,6 @@ module Mlabs.Control.Check(
   , isPositive
   , isPositiveRational
   , isUnitRange
-  , isPositiveRay
-  , isUnitRangeRay
 ) where
 
 import PlutusTx.Prelude
@@ -37,16 +35,3 @@ isUnitRange :: (Applicative m, MonadError String m) => String -> Rational -> m (
 isUnitRange msg val
   | val >= R.fromInteger 0 && val <= R.fromInteger 1 = pure ()
   | otherwise                                        = throwError $ msg <> " should have unit range [0, 1]"
-
-{-# INLINABLE isPositiveRay #-}
-isPositiveRay :: (Applicative m, MonadError String m) => String -> Rational -> m ()
-isPositiveRay msg val
-  | val > R.fromInteger 0 = pure ()
-  | otherwise               = throwError $ msg <> " should be positive"
-
-{-# INLINABLE isUnitRangeRay #-}
-isUnitRangeRay :: (Applicative m, MonadError String m) => String -> Rational -> m ()
-isUnitRangeRay msg val
-  | val >= R.fromInteger 0 && val <= R.fromInteger 1 = pure ()
-  | otherwise                                            = throwError $ msg <> " should have unit range [0, 1]"
-

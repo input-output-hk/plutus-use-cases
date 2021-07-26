@@ -108,7 +108,7 @@ data StartParams = StartParams
   , sp'admins    :: [PubKeyHash]    -- ^ admins
   , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 type HealthReport = Map BadBorrow Rational
@@ -298,15 +298,19 @@ data UserAct
       , act'rate            :: InterestRate
       }
   -- ^ swap borrow interest rate strategy (stable to variable)
-  | SetUserReserveAsCollateralAct
-      { act'asset           :: Coin       -- ^ which asset to use as collateral or not
-      , act'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
-      , act'portion         :: Rational   -- ^ poriton of deposit/collateral to change status (0, 1)
+  | AddCollateralAct
+      { add'asset           :: Coin
+      , add'amount         :: Integer
       }
-  -- ^ set some portion of deposit as collateral or some portion of collateral as deposit
+  -- ^ transfer amount of Asset from the user's Wallet to the Contract, locked as the user's Collateral
+  | RemoveCollateralAct
+      { remove'asset        :: Coin
+      , remove'amount      :: Integer
+      }
+  -- ^ transfer amount of Asset from user's Collateral locked in Contract to user's Wallet
   | WithdrawAct
-      { act'amount         :: Integer
-      , act'asset          :: Coin
+      { act'asset           :: Coin
+      , act'amount          :: Integer
       }
   -- ^ withdraw funds from deposit
   | FlashLoanAct  -- TODO
@@ -355,7 +359,7 @@ data InterestRate = StableRate | VariableRate
 
 -- If another query is added, extend this data type 
 data QueryRes = QueryResAllLendexes [(Address, LendingPool)]
-  deriving stock (Show, Generic)
+  deriving stock (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 ---------------------------------------------------------------
