@@ -150,7 +150,6 @@ let `contractTokens` equal amount of `asset` currently locked as collateral for 
 if useAsCollateral is True, then move (`userTokens` of `asset` * `portion`) from User wallet to contract and lock as collateral
 if useAsCollateral is false, then move (`contractTokens` of `asset` * `portion`) from contract to user wallet rounding down to ensure that the user does not go below minimum collateral ratios for this Lendex/User contract
 
-@anton - why is the `useAsCollateral` flag necessary? the Api for this endpoint feels a bit strange
 
 `asset` must refer to a supported token for this Lendex
 
@@ -257,12 +256,14 @@ returns the current effective interest rate for both Stable and Variable interes
 returns the user's funds currently locked in the current lendex, including both underlying tokens and aTokens of multiple kinds. also returns the user's current borrow amount and advances interest.
 
 ### SwapBorrowRateModel
+this is to be deprecated
 
 ### QueryInsolventAccounts
 
 Return a list of `MLabs.Lending.Contract.Api.LiquidationCall` data that are eligible for liquidation, along with the lendex's liquidation bonus rate.
 
 to be eligible for liquidation, the total value of a loan must be greater than 80% of the total value of all of the user's collateral.
+
 ### LiquidationCall
 
 prerequisite: 

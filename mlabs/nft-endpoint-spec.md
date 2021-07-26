@@ -4,7 +4,7 @@ This project adapts the Ethereum-style approach to NFTs as a digital certificate
 
 ownership can only be transferred through the contract, so when the asset is re-sold, a royalty to the artist can be enforced
 
-## Author Contact
+## Author Contract
 
 ### StartParams
 
@@ -57,3 +57,7 @@ the asking price is set to the Buy.newprice
 ### QueryCurrentOwner
 
 Returns the address of the current owner
+
+### QueryCurrentPrice
+
+Returns the current `price` parameter so that a potential buyer can purchase the item.
