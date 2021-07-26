@@ -139,6 +139,15 @@ executable pab-simulation
     base >= 4.9 && < 5,
     plutus-starter
 
+executable pab-app
+  main-is: Main.hs
+  hs-source-dirs: pab-app
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter
+
 executable generate-purs
   main-is: Main.hs
   hs-source-dirs: generate-purs

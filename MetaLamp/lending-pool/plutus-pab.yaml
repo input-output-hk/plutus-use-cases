@@ -18,18 +18,15 @@ nodeServerConfig:
   mscSlotConfig:
     scZeroSlotTime: "2020-07-29T21:44:51Z" #Wednesday, July 29, 2020 21:44:51 - shelley launch time
     scSlotLength: 1
-  mscRandomTxInterval: 20
+  # mscRandomTxInterval: 20
+  mscBlockReaper:
+    brcInterval: 600
+    brcBlocksToKeep: 100
   mscInitialTxWallets:
     - getWallet: 1
     - getWallet: 2
-    - getWallet: 3
     - getWallet: 4
     - getWallet: 5
-    - getWallet: 6
-    - getWallet: 7
-    - getWallet: 8
-    - getWallet: 9
-    - getWallet: 10
 
 chainIndexConfig:
   ciBaseUrl: http://localhost:9083
@@ -38,20 +35,12 @@ chainIndexConfig:
 requestProcessingConfig:
   requestProcessingInterval: 1
 
-signingProcessConfig:
-  spBaseUrl: http://localhost:9084
-  spWallet:
-    getWallet: 1
-
 metadataServerConfig:
   mdBaseUrl: http://localhost:9085
 
-# Optional timeout (in seconds) for calls to endpoints that are not currently
-# available. If this is not set, calls to unavailable endpoints fail 
-# immediately. 
 endpointTimeout: 5
 
 # Optional EKG Server Config
 # ----
-# monitoringConfig:
-#   monitoringPort: 9090
+monitoringConfig:
+  monitoringPort: 9090
