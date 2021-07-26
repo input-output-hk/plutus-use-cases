@@ -29,7 +29,7 @@ in (project.shellFor ( pab.env_variables // {
       plutus-core
       playground-common
       prettyprinter-configurable
-      plutus-use-cases
+      Win32-network
     ];
 
   withHoogle = true;

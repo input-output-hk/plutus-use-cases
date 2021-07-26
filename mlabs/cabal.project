@@ -7,14 +7,10 @@ packages: ./.
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus.git
+  tag: daf9d475398bd08b088baf35efea4bf5abea1569
   subdir: doc
           fake-pab
           freer-extras
-          marlowe
-          marlowe-actus
-          marlowe-playground-server
-          marlowe-dashboard-server
-          marlowe-symbolic
           playground-common
           plutus-benchmark
           plutus-chain-index
@@ -33,7 +29,14 @@ source-repository-package
           quickcheck-dynamic
           web-ghc
           word-array
-  tag: daf9d475398bd08b088baf35efea4bf5abea1569
+          playground-common
+          marlowe
+          marlowe-actus
+          marlowe-playground-server
+          marlowe-dashboard-server
+          marlowe-symbolic
+
+
 
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
@@ -44,9 +47,6 @@ source-repository-package
 
 ---------- *replace here* ----------------------------------------------------------------------
 
--- This is also needed so evenful-sql-common will build with a
--- newer version of persistent. See stack.yaml for the mirrored
--- configuration.
 -- We never, ever, want this.
 write-ghc-environment-files: never
 
