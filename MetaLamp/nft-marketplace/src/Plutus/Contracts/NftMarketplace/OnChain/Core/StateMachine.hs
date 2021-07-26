@@ -74,6 +74,7 @@ PlutusTx.makeLift ''MarketplaceDatum
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
 transition marketplace state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
+    -- TODO check that ipfsCidHash is a hash (?)
         -> Just ( mustBeSignedByIssuer nftEntry
                 , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash nftEntry nftStore) mempty
                 )

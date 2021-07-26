@@ -56,7 +56,7 @@ data CreateNftParams =
 PlutusTx.unstableMakeIsData ''CreateNftParams
 PlutusTx.makeLift ''CreateNftParams
 
--- | The user specifizes which NFT to mint and add to marketplace store,
+-- | The user specifies which NFT to mint and add to marketplace store,
 --   he gets it into his wallet and the corresponding store entry is created
 createNft :: Core.Marketplace -> CreateNftParams -> Contract w s Text ()
 createNft marketplace CreateNftParams {..} = do
@@ -76,7 +76,7 @@ createNft marketplace CreateNftParams {..} = do
             , nftName        = cnpNftName
             , nftDescription = cnpNftDescription
             , nftIssuer      = if cnpRevealIssuer then Just pkh else Nothing
-            , nftIpfsCid     = Nothing
+            , nftIpfsCid     = Nothing -- TODO validate that it's Nothing (?)
             }
     void $ mapError' $ runStep client $ Core.CreateNftRedeemer ipfsCidHash nftEntry
 
