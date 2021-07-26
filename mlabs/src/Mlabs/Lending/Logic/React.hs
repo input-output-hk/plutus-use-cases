@@ -293,7 +293,7 @@ react input = do
               newCoinMap  = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
           put $ st { lp'reserves = newReserves, lp'coinMap = newCoinMap }
           return []
-
+              
     ---------------------------------------------------
     -- health checks
 

@@ -23,6 +23,7 @@ import PlutusTx.Ratio qualified as R
 import Mlabs.Plutus.PAB ( call, printBalance, waitForLast )
 import Mlabs.Lending.Contract qualified as Contract
 import Mlabs.Lending.Contract.Simulator.Handler qualified as Handler
+import Mlabs.Lending.Contract.Api (StartLendex(..))
 import Mlabs.Lending.Logic.Types hiding (Wallet(..), User(..))
 import Mlabs.System.Console.PrettyLogger ( logNewLine )
 import Mlabs.System.Console.Utils ( logAction, logMlabs )
@@ -39,7 +40,7 @@ main = Handler.runSimulator lendexId initContract $ do
   let [user1, user2, user3] = users
       [coin1, coin2, coin3] = fmap (toCoin cur) [token1, token2, token3]
 
-  call admin $ startParams cur
+  call admin . StartLendex $ startParams cur
   next
 
   logMlabs
@@ -166,8 +167,8 @@ aToken2 = Value.tokenName "aEuro"
 aToken3 = Value.tokenName "aLira"
 aAda    = Value.tokenName "aAda"
 
-startParams :: Value.CurrencySymbol -> Contract.StartParams
-startParams cur = Contract.StartParams
+startParams :: Value.CurrencySymbol -> StartParams
+startParams cur = StartParams
   { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
                                         { coinCfg'coin = coin
                                         , coinCfg'rate = R.fromInteger 1

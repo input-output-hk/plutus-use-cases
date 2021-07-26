@@ -25,7 +25,8 @@ module Mlabs.Lending.Contract.Api(
   , fromInterestRateFlag
   -- ** Admin actions
   , AddReserve(..)
-  , StartParams(..)
+  , StartLendex(..)
+  , QueryAllLendexes(..)
   -- ** Price oracle actions
   , SetAssetPrice(..)
   -- ** Action conversions
@@ -36,6 +37,7 @@ module Mlabs.Lending.Contract.Api(
   , UserSchema
   , OracleSchema
   , AdminSchema
+  , QuerySchema
 ) where
 
 
@@ -138,14 +140,13 @@ data AddReserve = AddReserve Types.CoinCfg
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
-data StartParams = StartParams
-  { sp'coins     :: [Types.CoinCfg] -- ^ supported coins with ratios to ADA
-  , sp'initValue :: Value           -- ^ init value deposited to the lending app
-  , sp'admins    :: [PubKeyHash]    -- ^ admins
-  , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
-  }
-  deriving stock (Hask.Show, Generic)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
+newtype StartLendex = StartLendex Types.StartParams 
+  deriving newtype (Hask.Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
+
+-- query actions
+
+newtype QueryAllLendexes = QueryAllLendexes Types.StartParams
+  deriving newtype (Hask.Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
 
 -- price oracle actions
 
@@ -177,7 +178,11 @@ type OracleSchema =
 -- | Admin schema
 type AdminSchema =
   Call AddReserve
-  .\/ Call StartParams
+  .\/ Call StartLendex
+
+-- | Query schema
+type QuerySchema =
+  Call QueryAllLendexes
 
 ----------------------------------------------------------
 -- proxy types for ToSchema instance
@@ -262,6 +267,8 @@ instance IsEndpoint SetAssetPrice where
 instance IsEndpoint AddReserve where
   type EndpointSymbol AddReserve = "add-reserve"
 
-instance IsEndpoint StartParams where
-  type EndpointSymbol StartParams = "start-lendex"
+instance IsEndpoint StartLendex where
+  type EndpointSymbol StartLendex = "start-lendex"
 
+instance IsEndpoint QueryAllLendexes where
+  type EndpointSymbol QueryAllLendexes = "query-all-lendexes"
