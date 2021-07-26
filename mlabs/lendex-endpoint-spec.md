@@ -59,9 +59,9 @@ behaviour:
 
 ### QueryAllLendexes
 
-returns a list of all lendexes that have been started with `StartParams`
+returns a list of `LendingPool` data associated with each available lendes
 
-it should provide the lendex address/instanceid, as well as the startParams it is currently using as config.
+it should provide the lendex address/instanceid, as well as the `LendingPool` it is currently using as config.
 
 if no lendexes, it should succeed with an empty list.
 
