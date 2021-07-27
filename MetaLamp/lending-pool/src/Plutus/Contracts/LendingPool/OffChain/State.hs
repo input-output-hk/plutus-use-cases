@@ -26,6 +26,7 @@ import           Ledger.Constraints.TxConstraints          as Constraints
 import qualified Ledger.Scripts                            as Scripts
 import qualified Ledger.Typed.Scripts                      as Scripts
 import           Playground.Contract
+import           Plutus.Abstract.IncentivizedAmount        (accrue)
 import           Plutus.Abstract.OutputValue               (OutputValue (..),
                                                             _ovValue)
 import qualified Plutus.Abstract.State                     as State
@@ -40,7 +41,10 @@ import           Plutus.Contracts.LendingPool.OnChain.Core (Aave (..),
                                                             AaveScript,
                                                             Reserve (..),
                                                             UserConfig (..),
-                                                            UserConfigId, getAaveState, reserveStateToken, userStateToken)
+                                                            UserConfigId,
+                                                            getAaveState,
+                                                            reserveStateToken,
+                                                            userStateToken)
 import qualified Plutus.Contracts.LendingPool.OnChain.Core as Core
 import qualified Plutus.Contracts.Service.FungibleToken    as FungibleToken
 import           Plutus.V1.Ledger.Ada                      (adaValueOf,
@@ -54,7 +58,6 @@ import           PlutusTx.Prelude                          hiding (Functor (..),
 import           Prelude                                   (Semigroup (..),
                                                             fmap)
 import qualified Prelude
-import Plutus.Abstract.IncentivizedAmount (accrue)
 
 findOutputsBy :: Aave -> AssetClass -> (AaveDatum -> Maybe a) -> Contract w s Text [OutputValue a]
 findOutputsBy aave = State.findOutputsBy (Core.aaveAddress aave)

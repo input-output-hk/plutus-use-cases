@@ -95,7 +95,7 @@ toBoolPrefixed prefix = toBool . Bifunctor.first (Builtins.appendString prefix)
 
 assertValidCurrentSlot :: ScriptContext -> Slot -> Either Builtins.String ()
 assertValidCurrentSlot ctx slot = fromBool "Invalid current slot value" $
-  Interval.member slot (posixTimeRangeToSlotRange . txInfoValidRange . scriptContextTxInfo $ ctx)
+  Interval.LowerBound (Interval.Finite slot) True == Interval.ivFrom (posixTimeRangeToSlotRange . txInfoValidRange . scriptContextTxInfo $ ctx)
 
 findUserConfigs :: ScriptContext -> AaveState -> Either Builtins.String (AssocMap.Map UserConfigId UserConfig)
 findUserConfigs ctx state@AaveState{..} = do

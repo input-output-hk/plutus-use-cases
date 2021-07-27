@@ -94,12 +94,13 @@ aaveInstance aave = Scripts.mkTypedValidator @AaveScript
 -- Main validator
 -- Each state field must have one or more associated actions(Redeemer types),
 -- produced on state update, which are then validated here
+-- TODO: combine state(datums) in order to ensure that there is only one redeemer for all inputs
 makeAaveValidator :: Aave
                    -> AaveDatum
                    -> AaveRedeemer
                    -> ScriptContext
                    -> Bool
-makeAaveValidator aave datum StartRedeemer ctx    = trace "StartRedeemer" $ validateStart aave datum ctx
+makeAaveValidator aave datum StartRedeemer ctx = trace "StartRedeemer" $ validateStart aave datum ctx
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
 makeAaveValidator aave datum (BorrowRedeemer userConfigId oracles slot) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId oracles slot
@@ -132,7 +133,7 @@ validateDeposit aave (UserConfigsDatum state@AaveState{..} userConfigs) ctx user
     unless
       (maybe ((iaAmount . ucCollateralizedInvestment) newState == (fromInteger 0)) ((ucCollateralizedInvestment newState ==) . ucCollateralizedInvestment) oldState &&
       (iaAmount . ucDebt $ newState) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucDebt) oldState)
-      (throwError "")
+      (throwError "Change is not valid")
 
 validateDeposit aave (ReservesDatum state reserves) ctx userConfigId =
   traceIfFalse "validateDeposit: Reserves Datum change is not valid" $ checkPositiveReservesTransformation state reserves ctx userConfigId
@@ -178,7 +179,7 @@ validateBorrow aave (UserConfigsDatum state@AaveState{..} userConfigs) ctx userC
     unless
       (debtAmount == disbursementAmount && debtAmount > fromInteger 0 && disbursementAmount > fromInteger 0 &&
           (iaAmount . ucCollateralizedInvestment $ newState) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucCollateralizedInvestment) oldState)
-      (throwError "")
+      (throwError "Change is not valid")
 
 validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId oracles _ =
   traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId && areOraclesTrusted oracles reserves
@@ -208,7 +209,7 @@ validateRepay aave (UserConfigsDatum state@AaveState{..} userConfigs) ctx userCo
     unless
       (debtChange == reimbursementAmount && debtChange > fromInteger 0 && reimbursementAmount > fromInteger 0 && newDebt >= (fromInteger 0) &&
           ucCollateralizedInvestment newState == ucCollateralizedInvestment accState)
-      (throwError "")
+      (throwError "Change is not valid")
 
 validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId _ =
   traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
@@ -234,7 +235,7 @@ validateProvideCollateral aave (UserConfigsDatum state@AaveState{..} userConfigs
     unless
       (user == actor && investmentAmount == disbursementAmount && investmentAmount > fromInteger 0 && disbursementAmount > fromInteger 0 &&
           (iaAmount . ucDebt $ newState) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucDebt) oldState)
-      (throwError "")
+      (throwError "Change is not valid")
 
 validateProvideCollateral _ _ _ _ = trace "Lending Pool Datum management is not allowed" False
 
@@ -263,7 +264,7 @@ validateRevokeCollateral aave (UserConfigsDatum state@AaveState{..} userConfigs)
     unless
       (investmentShrinkedBy == disbursementAmount && investmentShrinkedBy > fromInteger 0 &&
       disbursementAmount > fromInteger 0 && ucDebt newState == IncentivizedAmount slot (rCurrentStableBorrowRate reserve) (iaAmount . ucDebt $ accState))
-      (throwError "")
+      (throwError "Change is not valid")
 
 validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) revokedAsset oracles _ =
   traceIfFalse "validateRevokeCollateral: UserCollateralFundsDatum change is not valid" $
