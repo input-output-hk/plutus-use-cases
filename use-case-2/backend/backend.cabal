@@ -41,6 +41,7 @@ library
                , unordered-containers
                , vector
                , vessel
+               , websockets
   exposed-modules:
     Backend
     Backend.Notification
