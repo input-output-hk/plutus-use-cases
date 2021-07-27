@@ -48,60 +48,32 @@ in pkgs.haskell-nix.cabalProject rec {
   sha256map = {
     # Enforce we are using the same hash as niv has
     # i.e. this will now fail to nix-build if you bump it but don't bump the `cabal.project`.
-
-
-    # input-output-hk/plutus
     "https://github.com/input-output-hk/plutus.git"."${sources.plutus.rev}"
     = sources.plutus.sha256;
-
     "https://github.com/input-output-hk/hedgehog-extras"."${sources.hedgehog-extras.rev}"
     = sources.hedgehog-extras.sha256;
-      
-    # Quid2/flat
     "https://github.com/Quid2/flat.git"."${sources.flat.rev}"
     = sources.flat.sha256;
-
-    # shmish111/purescript-bridge
     "https://github.com/shmish111/purescript-bridge.git"."${sources.purescript-bridge.rev}"
     = sources.purescript-bridge.sha256;
-
-    # shmish111/servant-purescript
     "https://github.com/shmish111/servant-purescript.git"."${sources.servant-purescript.rev}"
     = sources.servant-purescript.sha256;
-
-    # input-output-hk/cardano-base
     "https://github.com/input-output-hk/cardano-base"."${sources.cardano-base.rev}"
     = sources.cardano-base.sha256;
-
-    # input-output-hk/cardano-crypto
     "https://github.com/input-output-hk/cardano-crypto.git"."${sources.cardano-crypto.rev}"
     = sources.cardano-crypto.sha256;
-
-    # input-output-hk/cardano-ledger-specs
     "https://github.com/input-output-hk/cardano-ledger-specs"."${sources.cardano-ledger-specs.rev}"
     = sources.cardano-ledger-specs.sha256;
-
-    # input-output-hk/cardano-node
     "https://github.com/input-output-hk/cardano-node.git"."${sources.cardano-node.rev}"
     = sources.cardano-node.sha256;
-    
-    # input-output-hk/cardano-prelude
     "https://github.com/input-output-hk/cardano-prelude"."${sources.cardano-prelude.rev}"
     = sources.cardano-prelude.sha256;
-
-    # input-output-hk/goblins
     "https://github.com/input-output-hk/goblins"."${sources.goblins.rev}"
     = sources.goblins.sha256;
-
-    # input-output-hk/iohk-monitoring-framework
     "https://github.com/input-output-hk/iohk-monitoring-framework"."${sources.iohk-monitoring-framework.rev}"
     = sources.iohk-monitoring-framework.sha256;
-
-    # input-output-hk/ouroboros-network
     "https://github.com/input-output-hk/ouroboros-network"."${sources.ouroboros-network.rev}"
     = sources.ouroboros-network.sha256;
-
-    # input-output-hk/Win32-network
     "https://github.com/input-output-hk/Win32-network"."${sources.Win32-network.rev}"
     = sources.Win32-network.sha256;
   };

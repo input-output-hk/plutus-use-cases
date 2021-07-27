@@ -22,7 +22,8 @@ import Ledger.Typed.Scripts as Scripts (MintingPolicy, wrapMintingPolicy)
 import Plutus.V1.Ledger.Contexts qualified as Contexts
 import Plutus.V1.Ledger.Scripts as Scripts (Datum(getDatum), mkMintingPolicyScript)
 import Plutus.V1.Ledger.Value qualified as Value
-import PlutusTx (IsData(fromData), liftCode, applyCode, compile)
+import PlutusTx (fromData, liftCode, applyCode)
+import PlutusTx.TH (compile)
 
 import Mlabs.Lending.Logic.State ( getsWallet )
 

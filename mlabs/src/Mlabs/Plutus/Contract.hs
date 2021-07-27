@@ -28,7 +28,7 @@ import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator (callEndpointOnInstance, Simulation, waitNSlots)
 import Plutus.Trace.Effects.RunContract (callEndpoint, RunContract)
 import Plutus.Trace.Emulator.Types (ContractConstraints, ContractHandle)
-import PlutusTx ( IsData(fromData) )
+import PlutusTx.IsData (IsData(..), fromData)
 
 instance Semigroup (Contract.Contract w s e a) where
   (<>) = Contract.select
@@ -42,7 +42,7 @@ readDatum :: IsData a => TxOutTx -> Maybe a
 readDatum txOut = do
   h <- txOutDatumHash $ txOutTxOut txOut
   Datum e <- lookupDatum (txOutTxTx txOut) h
-  PlutusTx.fromData e
+  fromData e
 
 type Call a = Contract.Endpoint (EndpointSymbol a) a
 

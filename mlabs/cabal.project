@@ -11,6 +11,12 @@ source-repository-package
   subdir: doc
           fake-pab
           freer-extras
+          marlowe
+          marlowe-actus
+          marlowe-dashboard-server
+          marlowe-playground-server
+          marlowe-symbolic
+          playground-common
           playground-common
           plutus-benchmark
           plutus-chain-index
@@ -29,14 +35,6 @@ source-repository-package
           quickcheck-dynamic
           web-ghc
           word-array
-          playground-common
-          marlowe
-          marlowe-actus
-          marlowe-playground-server
-          marlowe-dashboard-server
-          marlowe-symbolic
-
-
 
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
