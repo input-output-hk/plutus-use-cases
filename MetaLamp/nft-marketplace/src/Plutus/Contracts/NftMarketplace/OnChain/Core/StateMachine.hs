@@ -60,7 +60,7 @@ PlutusTx.unstableMakeIsData ''MarketplaceRedeemer
 
 PlutusTx.makeLift ''MarketplaceRedeemer
 
-data MarketplaceDatum =
+newtype MarketplaceDatum =
   MarketplaceDatum
     { getMarketplaceDatum :: AssocMap.Map IpfsCidHash NFT
     }
