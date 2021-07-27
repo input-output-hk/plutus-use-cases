@@ -23,7 +23,7 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Plutus.Abstract.State Plutus.Abstract.State.Select Plutus.Abstract.State.Update Plutus.Abstract.ContractResponse Plutus.Abstract.OutputValue Plutus.Abstract.TxUtils Plutus.Contracts.Service.FungibleToken Plutus.Contracts.Service.Oracle Plutus.Contracts.LendingPool.OnChain.Core Plutus.Contracts.LendingPool.OnChain.Core.Script Plutus.Contracts.LendingPool.OnChain.Core.Validator Plutus.Contracts.LendingPool.OnChain.Core.Logic Plutus.Contracts.LendingPool.OnChain.AToken Plutus.Contracts.LendingPool.OffChain.AToken Plutus.Contracts.LendingPool.OffChain.Info Plutus.Contracts.LendingPool.OffChain.Owner Plutus.Contracts.LendingPool.OffChain.State Plutus.Contracts.LendingPool.OffChain.User Plutus.PAB.Simulation Ext.Plutus.Ledger.Value Ext.Plutus.Ledger.Contexts
+      Plutus.Abstract.State Plutus.Abstract.State.Select Plutus.Abstract.State.Update Plutus.Abstract.ContractResponse Plutus.Abstract.OutputValue Plutus.Abstract.TxUtils Plutus.Abstract.IncentivizedAmount Plutus.Contracts.Service.FungibleToken Plutus.Contracts.Service.Oracle Plutus.Contracts.LendingPool.Shared Plutus.Contracts.LendingPool.OnChain.Core Plutus.Contracts.LendingPool.OnChain.Core.Script Plutus.Contracts.LendingPool.OnChain.Core.Validator Plutus.Contracts.LendingPool.OnChain.Core.Logic Plutus.Contracts.LendingPool.OnChain.AToken Plutus.Contracts.LendingPool.OffChain.AToken Plutus.Contracts.LendingPool.OffChain.Info Plutus.Contracts.LendingPool.OffChain.Owner Plutus.Contracts.LendingPool.OffChain.State Plutus.Contracts.LendingPool.OffChain.User Plutus.PAB.Simulation Ext.Plutus.Ledger.Value Ext.Plutus.Ledger.Contexts
     build-depends:
       base >= 4.9 && < 5,
       aeson,

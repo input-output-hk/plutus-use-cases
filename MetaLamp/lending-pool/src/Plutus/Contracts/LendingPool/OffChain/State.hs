@@ -26,6 +26,7 @@ import           Ledger.Constraints.TxConstraints          as Constraints
 import qualified Ledger.Scripts                            as Scripts
 import qualified Ledger.Typed.Scripts                      as Scripts
 import           Playground.Contract
+import           Plutus.Abstract.IncentivizedAmount        (accrue)
 import           Plutus.Abstract.OutputValue               (OutputValue (..),
                                                             _ovValue)
 import qualified Plutus.Abstract.State                     as State
@@ -40,7 +41,10 @@ import           Plutus.Contracts.LendingPool.OnChain.Core (Aave (..),
                                                             AaveScript,
                                                             Reserve (..),
                                                             UserConfig (..),
-                                                            UserConfigId)
+                                                            UserConfigId,
+                                                            getAaveState,
+                                                            reserveStateToken,
+                                                            userStateToken)
 import qualified Plutus.Contracts.LendingPool.OnChain.Core as Core
 import qualified Plutus.Contracts.Service.FungibleToken    as FungibleToken
 import           Plutus.V1.Ledger.Ada                      (adaValueOf,
@@ -63,10 +67,6 @@ findOutputBy aave = State.findOutputBy (Core.aaveAddress aave)
 
 findAaveOwnerToken :: Aave -> Contract w s Text (OutputValue PubKeyHash)
 findAaveOwnerToken aave@Aave{..} = findOutputBy aave aaveProtocolInst (^? Core._LendingPoolDatum)
-
-reserveStateToken, userStateToken :: Aave -> AssetClass
-reserveStateToken aave = State.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveReserve"
-userStateToken aave = State.makeStateToken (Core.aaveHash aave) (aaveProtocolInst aave) "aaveUser"
 
 findAaveReserves :: Aave -> Contract w s Text (OutputValue (AssocMap.Map AssetClass Reserve))
 findAaveReserves aave = findOutputBy aave (reserveStateToken aave) (^? Core._ReservesDatum . _2)
@@ -97,10 +97,9 @@ updateState aave = State.updateState (Core.aaveInstance aave)
 
 makeReserveHandle :: Aave -> (AssocMap.Map AssetClass Reserve -> AaveRedeemer) -> StateHandle AaveScript (AssocMap.Map AssetClass Reserve)
 makeReserveHandle aave toRedeemer =
-    let stateToken = reserveStateToken aave in
     StateHandle {
-        stateToken = stateToken,
-        toDatum = Core.ReservesDatum stateToken,
+        stateToken = reserveStateToken aave,
+        toDatum = Core.ReservesDatum (getAaveState aave),
         toRedeemer = toRedeemer
     }
 
@@ -124,10 +123,9 @@ roundtripReserves aave redeemer = do
 
 makeUserHandle :: Aave -> (AssocMap.Map UserConfigId UserConfig -> AaveRedeemer) -> StateHandle AaveScript (AssocMap.Map UserConfigId UserConfig)
 makeUserHandle aave toRedeemer =
-    let stateToken = userStateToken aave in
     StateHandle {
-        stateToken = stateToken,
-        toDatum = Core.UserConfigsDatum stateToken,
+        stateToken = userStateToken aave,
+        toDatum = Core.UserConfigsDatum (getAaveState aave),
         toRedeemer = toRedeemer
     }
 

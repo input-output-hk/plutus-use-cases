@@ -83,7 +83,8 @@ createReserve aave CreateParams {..} =
           rAmount = 0,
           rAToken = AToken.makeAToken (Core.aaveHash aave) cpAsset,
           rLiquidityIndex = 1,
-          rCurrentStableBorrowRate = 11 % 10, -- TODO configure borrow rate when lending core will be ready
+          rCurrentStableBorrowRate = 101 % 100,
+          rCurrentStableAccrualRate = 101 % 100,
           rTrustedOracle = Oracle.toTuple cpOracle
            }
 
@@ -102,7 +103,6 @@ start' getAaveToken params = do
     let aave = Core.aave aaveToken
         payment = assetClassValue (Core.aaveProtocolInst aave) 1
     let aaveTokenTx = TxUtils.mustPayToScript (Core.aaveInstance aave) pkh (Core.LendingPoolDatum pkh) payment
-    -- TODO how to ensure that newly minted owner token is paid to the script before someone else spends it?
     ledgerTx <- TxUtils.submitTxPair aaveTokenTx
     void $ awaitTxConfirmed $ txId ledgerTx
 

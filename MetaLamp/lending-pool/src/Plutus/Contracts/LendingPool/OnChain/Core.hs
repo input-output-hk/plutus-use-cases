@@ -37,11 +37,13 @@ import           Ledger.Constraints.TxConstraints                    as Constrai
 import qualified Ledger.Scripts                                      as UntypedScripts
 import qualified Ledger.Typed.Scripts                                as Scripts
 import           Playground.Contract
+import qualified Plutus.Abstract.State                               as State
 import           Plutus.Contract                                     hiding
                                                                      (when)
 import           Plutus.Contracts.LendingPool.OnChain.Core.Script    (AaveDatum,
                                                                       AaveRedeemer,
-                                                                      AaveScript)
+                                                                      AaveScript,
+                                                                      AaveState (..))
 import           Plutus.Contracts.LendingPool.OnChain.Core.Script    as Export
 import           Plutus.Contracts.LendingPool.OnChain.Core.Validator (Aave (..),
                                                                       aaveInstance)
@@ -69,3 +71,13 @@ aaveAddress = Ledger.scriptAddress . aaveValidator
 
 aave :: CurrencySymbol -> Aave
 aave protocol = Aave (assetClass protocol aaveProtocolName)
+
+reserveStateToken, userStateToken :: Aave -> AssetClass
+reserveStateToken aave = State.makeStateToken (aaveHash aave) (aaveProtocolInst aave) "aaveReserve"
+userStateToken aave = State.makeStateToken (aaveHash aave) (aaveProtocolInst aave) "aaveUser"
+
+getAaveState :: Aave -> AaveState
+getAaveState aave = AaveState {
+  asReserves = reserveStateToken aave,
+  asUserConfigs = userStateToken aave
+}

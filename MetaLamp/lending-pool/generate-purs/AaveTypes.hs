@@ -31,6 +31,7 @@ import           Language.PureScript.Bridge.Builder          (BridgeData)
 import           Language.PureScript.Bridge.TypeParameters   (A, E)
 import qualified PSGenerator.Common
 import           Plutus.Abstract.ContractResponse            (ContractResponse)
+import           Plutus.Abstract.IncentivizedAmount          (IncentivizedAmount)
 import qualified Plutus.Contracts.LendingPool.OffChain.Info  as Aave
 import qualified Plutus.Contracts.LendingPool.OffChain.Owner as Aave
 import qualified Plutus.Contracts.LendingPool.OffChain.User  as Aave
@@ -52,6 +53,7 @@ psRatio = expand <$> psTypeParameters
 
 aaveTypes :: [SumType 'Haskell]
 aaveTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @AaveContracts)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @IncentivizedAmount)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.Aave)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Oracle.Oracle)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
