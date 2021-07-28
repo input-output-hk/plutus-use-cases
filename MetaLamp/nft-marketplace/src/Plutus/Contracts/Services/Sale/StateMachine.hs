@@ -64,9 +64,9 @@ PlutusTx.makeLift ''SaleDatum
 {-# INLINABLE transition #-}
 transition :: Sale -> State SaleDatum -> SaleRedeemer -> Maybe (TxConstraints Void Void, State SaleDatum)
 transition Sale{..} state redeemer = case (stateData state, redeemer) of
-    (LotInfo saler, Redeem) | saleValue == val
+    (LotInfo saler, Redeem)
         -> Just ( Constraints.mustBeSignedBy saler <>
-                  Constraints.mustPayToPubKey saler (stateToken <> saleValue)
+                  Constraints.mustPayToPubKey saler (stateToken <> val)
                 , State SaleClosed mempty
                 )
     (LotInfo saler, Buy buyer) | saleValue == val
@@ -112,3 +112,12 @@ saleInst sale = Scripts.mkTypedValidator @SaleScript
 
 saleClient :: Sale -> StateMachineClient SaleDatum SaleRedeemer
 saleClient sale = mkStateMachineClient $ StateMachineInstance (saleStateMachine sale) (saleInst sale)
+
+saleProtocolName :: TokenName
+saleProtocolName = "Sale"
+
+saleValidator :: Sale -> Validator
+saleValidator = Scripts.validatorScript . saleInst
+
+saleAddress :: Sale -> Ledger.Address
+saleAddress = scriptAddress . saleValidator
