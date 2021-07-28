@@ -208,9 +208,8 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
   -- MVar that will hold response to swap request sent
   eitherObState <- newEmptyMVar
   -- Use websocket connection to fetch observable state response
-  endTime <- WS.runClient "127.0.0.1" 8080 ("/ws/" ++ contractId) $ \conn -> do
+  (eitherObState', endTime) <- WS.runClient "127.0.0.1" 8080 ("/ws/" ++ contractId) $ \conn -> do
     -- Allow enough time to pass for observable state to be updated (10 secs)
-    threadDelay 10000000
     let processData = do
           incomingData :: ByteString <- WS.receiveData conn
           let val :: Either String Aeson.Value = Aeson.eitherDecode' $ BS.fromStrict incomingData
@@ -225,11 +224,12 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
                   scrSize = fromMaybe (Aeson.Number 0) $ lastMay $ V.toList aesArr
               if swapTag == "Swapped" then putMVar eitherObState $ Right $ (Aeson.Array txFeeDetails, scrSize) else processData
     fid <- forkIO processData
-    _ <- killThread fid
-    WS.sendClose conn ("executeSwap: closing backend websocket connection..." :: Text)
-    return =<< getCurrentTime
-  -- retreive observable state response from result of forked thread
-  eitherObState' <- takeMVar eitherObState
+    flip onException (killThread fid) $ do
+      -- retreive observable state response from result of forked thread
+      eitherObState' <- takeMVar eitherObState
+      WS.sendClose conn ("executeSwap: closing backend websocket connection..." :: Text)
+      endTime <- getCurrentTime
+      return (eitherObState', endTime)
   case eitherObState' of
     Left err -> return $ Left err
     Right (txFeeDetails, Aeson.Number scrSize) -> case txFeeDetails of
