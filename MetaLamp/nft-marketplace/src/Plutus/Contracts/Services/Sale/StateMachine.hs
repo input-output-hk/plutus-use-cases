@@ -26,6 +26,7 @@ import qualified PlutusTx
 import qualified PlutusTx.AssocMap            as AssocMap
 import           PlutusTx.Prelude             hiding (Semigroup (..))
 import           Prelude                      (Semigroup (..))
+import qualified Schema
 import qualified Prelude                      as Haskell
 
 type Saler = PubKeyHash
@@ -39,7 +40,7 @@ data Sale =
       saleValue         :: Value
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
+  deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
 PlutusTx.makeLift ''Sale
 
@@ -66,10 +67,10 @@ transition :: Sale -> State SaleDatum -> SaleRedeemer -> Maybe (TxConstraints Vo
 transition Sale{..} state redeemer = case (stateData state, redeemer) of
     (LotInfo saler, Redeem)
         -> Just ( Constraints.mustBeSignedBy saler <>
-                  Constraints.mustPayToPubKey saler (stateToken <> val)
+                  Constraints.mustPayToPubKey saler val
                 , State SaleClosed mempty
                 )
-    (LotInfo saler, Buy buyer) | saleValue == val
+    (LotInfo saler, Buy buyer) | saleValue == (val - stateToken)
         -> Just ( Constraints.mustBeSignedBy buyer <>
                   Constraints.mustPayToPubKey saler (stateToken <> Ada.lovelaceValueOf salePrice) <>
                   Constraints.mustPayToPubKey buyer saleValue
