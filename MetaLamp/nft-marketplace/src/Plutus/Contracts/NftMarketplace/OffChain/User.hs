@@ -13,6 +13,7 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.User where
 
+import           Control.Lens                                  ((^.))
 import qualified Control.Lens                                  as Lens
 import           Control.Monad                                 hiding (fmap)
 import qualified Data.Aeson                                    as J
@@ -122,6 +123,60 @@ openSale marketplace OpenSaleParams {..} = do
     logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show lot)
     pure ()
 
+data BuyNftParams =
+  BuyNftParams {
+    bnpIpfsCid   :: ByteString
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+PlutusTx.unstableMakeIsData ''BuyNftParams
+PlutusTx.makeLift ''BuyNftParams
+
+-- | The user
+buyNft :: Core.Marketplace -> BuyNftParams -> Contract w s Text ()
+buyNft marketplace BuyNftParams {..} = do
+    let ipfsCidHash = sha2_256 bnpIpfsCid
+    nftStore <- marketplaceStore marketplace
+    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
+    nftLot <- maybe (throwError "NFT has not been put on sale") pure $ nftEntry ^. Core._nftSale
+    let tokenName = V.TokenName bnpIpfsCid
+
+    _ <- Sale.buyLot $ Sale.fromTuple $ nftLot ^. Core._lotSale
+
+    let client = Core.marketplaceClient marketplace
+    void $ mapError' $ runStep client $ Core.BuyNftRedeemer ipfsCidHash
+
+    logInfo @Haskell.String $ printf "Bought NFT lot %s" (Haskell.show nftLot)
+    pure ()
+
+data CloseSaleParams =
+  CloseSaleParams {
+    cspIpfsCid   :: ByteString
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+PlutusTx.unstableMakeIsData ''CloseSaleParams
+PlutusTx.makeLift ''CloseSaleParams
+
+-- | The user
+closeSale :: Core.Marketplace -> CloseSaleParams -> Contract w s Text ()
+closeSale marketplace CloseSaleParams {..} = do
+    let ipfsCidHash = sha2_256 cspIpfsCid
+    nftStore <- marketplaceStore marketplace
+    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
+    nftLot <- maybe (throwError "NFT has not been put on sale") pure $ nftEntry ^. Core._nftSale
+    let tokenName = V.TokenName cspIpfsCid
+
+    _ <- Sale.redeemLot $ Sale.fromTuple $ nftLot ^. Core._lotSale
+
+    let client = Core.marketplaceClient marketplace
+    void $ mapError' $ runStep client $ Core.CloseSaleRedeemer ipfsCidHash
+
+    logInfo @Haskell.String $ printf "Closed NFT lot sale %s" (Haskell.show nftLot)
+    pure ()
+
 balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
 balanceAt pkh asset = flip V.assetClassValueOf asset <$> fundsAt pkh
 
@@ -131,16 +186,16 @@ ownPubKeyBalance = getOwnPubKey >>= fundsAt
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
     .\/ Endpoint "openSale" OpenSaleParams
-    .\/ Endpoint "buyLot" Sale.Sale
-    .\/ Endpoint "redeemLot" Sale.Sale
+    .\/ Endpoint "buyNft" BuyNftParams
+    .\/ Endpoint "closeSale" CloseSaleParams
     .\/ Endpoint "ownPubKey" ()
     .\/ Endpoint "ownPubKeyBalance" ()
 
 data UserContractState =
     NftCreated
     | OpenedSale
-    | Bought
-    | Redeemed
+    | NftBought
+    | ClosedSale
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -152,7 +207,7 @@ userEndpoints :: Core.Marketplace -> Contract (ContractResponse Text UserContrac
 userEndpoints marketplace = forever $
     withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
     `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
-    `select` withContractResponse (Proxy @"buyLot") (const Bought) Sale.buyLot
-    `select` withContractResponse (Proxy @"redeemLot") (const Redeemed) Sale.redeemLot
+    `select` withContractResponse (Proxy @"buyNft") (const NftBought) (buyNft marketplace)
+    `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
     `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)
