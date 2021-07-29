@@ -5,7 +5,7 @@ module Mlabs.Nft.Contract.Simulator.Handler(
   , runSimulator
 ) where
 
-import Prelude
+import PlutusTx.Prelude
 
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)

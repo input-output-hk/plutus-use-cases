@@ -8,7 +8,7 @@ module Mlabs.Nft.Contract.Server(
   , startNft
 ) where
 
-import Prelude
+import PlutusTx.Prelude
 
 import Control.Monad (forever)
 import Data.List.Extra (firstJust)

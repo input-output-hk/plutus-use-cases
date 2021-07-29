@@ -4,7 +4,7 @@ module Mlabs.Plutus.PAB(
   , printBalance
 ) where
 
-import Prelude
+import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, Result(..), fromJSON)
 import Data.Functor (void)

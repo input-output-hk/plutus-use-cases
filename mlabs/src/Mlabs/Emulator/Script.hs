@@ -16,10 +16,10 @@ module Mlabs.Emulator.Script(
   , putAct
 ) where
 
-import Prelude (Semigroup(..), Monoid(..), Applicative(..))
+import PlutusTx.Prelude
 
 import Control.Monad.State.Strict qualified as Strict
-import Data.Foldable ( Foldable(toList) )
+--import Data.Foldable ( Foldable(toList) )
 import Data.Monoid (Sum(..))
 import Data.Sequence as Seq ( Seq, empty, singleton )
 import PlutusTx.Prelude ( Integer, (.), ($) )

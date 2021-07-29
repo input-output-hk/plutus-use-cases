@@ -10,7 +10,8 @@
 
 module Mlabs.System.Console.PrettyLogger where
 
-import Prelude
+import PlutusTx.Prelude
+import Prelude (String, Int, Char)
 
 import Control.Monad.IO.Class (MonadIO(..))
 import System.Console.ANSI (

@@ -46,8 +46,9 @@ import Ledger.Value qualified as Value
 import Ledger.Scripts (MintingPolicy, Datum(Datum), mkMintingPolicyScript)
 import Ledger.Typed.Scripts qualified as Scripts
 import Plutus.Contract as Contract
-import PlutusTx qualified
-import Prelude (Semigroup(..))
+import qualified PlutusTx
+import PlutusTx (toBuiltinData)
+import PlutusTx.Prelude (Semigroup(..))
 import Schema (ToSchema)
 import Data.Void (Void)
 import Mlabs.Demo.Contract.Burn (burnScrAddress, burnValHash)
@@ -126,7 +127,7 @@ mintContract mp = do
     tx =
       Constraints.mustPayToOtherScript
           burnValHash
-          (Datum $ PlutusTx.toData ())
+          (Datum $ PlutusTx.toBuiltinData ())
           payVal
         <> Constraints.mustMintValue forgeVal
   ledgerTx <- submitTxConstraintsWith @Void lookups tx

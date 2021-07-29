@@ -2,7 +2,11 @@ module Test.Nft.Contract(
   test
 ) where
 
-import Prelude
+import PlutusTx.Prelude -- hiding ((<>), mconcat, Semigroup(..), Monoid(..))
+
+--import Prelude (mconcat)
+--import Data.Semigroup ((<>))
+--import Data.Monoid
 
 import Plutus.Contract.Test (checkPredicateOptions, Wallet(..))
 import Test.Tasty (TestTree, testGroup)

@@ -1,5 +1,7 @@
 module Main where
 
+import PlutusTx.Prelude
+
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
 

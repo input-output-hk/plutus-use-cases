@@ -18,7 +18,9 @@ module Mlabs.Emulator.Scene(
   , coinDiff
 ) where
 
-import Prelude
+import PlutusTx.Prelude
+
+import Prelude (uncurry)
 
 import Control.Applicative (Alternative(..))
 

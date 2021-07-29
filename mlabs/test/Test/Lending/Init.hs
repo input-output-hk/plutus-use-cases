@@ -14,7 +14,8 @@ module Test.Lending.Init(
   , fromToken
 ) where
 
-import Prelude
+import PlutusTx.Prelude
+import Prelude (uncurry)
 
 import Control.Lens ((&), (.~))
 import qualified Data.Map as M

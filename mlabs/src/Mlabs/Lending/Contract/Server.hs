@@ -13,7 +13,7 @@ module Mlabs.Lending.Contract.Server(
   , StateMachine.LendexError
 ) where
 
-import Prelude
+import PlutusTx.Prelude
 
 import Control.Monad (forever, guard)
 import Data.List.Extra (firstJust)
