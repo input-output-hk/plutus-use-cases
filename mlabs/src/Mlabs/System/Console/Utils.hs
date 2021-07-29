@@ -5,7 +5,7 @@ module Mlabs.System.Console.Utils(
   , logMlabs
 ) where
 
-import PlutusTx.Prelude
+import Prelude
 
 import Control.Monad.IO.Class ( MonadIO )
 import qualified Plutus.V1.Ledger.Value as Value

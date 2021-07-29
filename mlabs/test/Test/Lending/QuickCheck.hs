@@ -10,29 +10,6 @@
 
 module Test.Lending.QuickCheck where
 
-import PlutusTx.Prelude ( Bool
-                        , Integer
-                        , (.)
-                        , fmap
-                        , (&&)
-                        , (++)
-                        , map
-                        , ($)
-                        , (+)
-                        , negate
-                        , all
-                        , Maybe(..)
-                        , (==)
-                        , null
-                        , not
-                        , mapM_
-                        , (<*>)
-                        , (*)
-                        , (<>)
-                        , (<$>)
-                        )
-import Prelude (Show(..), zip3, abs, drop, uncurry, Int, length)
-
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import qualified Plutus.V1.Ledger.Value as Value

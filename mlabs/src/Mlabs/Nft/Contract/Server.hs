@@ -8,10 +8,7 @@ module Mlabs.Nft.Contract.Server(
   , startNft
 ) where
 
-import PlutusTx.Prelude hiding (Semigroup)
-import Prelude (String)
-
-import Data.Semigroup hiding (Last(..), (<>))
+import Prelude
 
 import Control.Monad (forever)
 import Data.List.Extra (firstJust)

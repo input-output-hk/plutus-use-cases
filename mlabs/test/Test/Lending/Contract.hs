@@ -3,10 +3,7 @@ module Test.Lending.Contract(
   test
 ) where
 
-import PlutusTx.Prelude hiding ((<>), mconcat)
-
-import Prelude (mconcat)
-import Data.Semigroup ((<>))
+import Prelude
 
 import Data.Functor (void)
 import Plutus.Contract.Test (checkPredicateOptions, Wallet)

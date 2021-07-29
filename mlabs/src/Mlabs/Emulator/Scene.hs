@@ -18,14 +18,12 @@ module Mlabs.Emulator.Scene(
   , coinDiff
 ) where
 
-import PlutusTx.Prelude (Wallet(..))
-
-import Prelude (uncurry)
+import Prelude
 
 import Control.Applicative (Alternative(..))
 
-import qualified PlutusTx.AssocMap  as M
-import qualified Data.List  as L
+import Data.Map qualified as M
+import Data.List qualified as L
 import Plutus.Contract.Test hiding (tx)
 import Plutus.V1.Ledger.Address (Address)
 import Plutus.V1.Ledger.Value (Value)

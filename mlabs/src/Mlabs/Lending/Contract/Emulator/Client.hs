@@ -7,7 +7,7 @@ module Mlabs.Lending.Contract.Emulator.Client(
   , queryAllLendexes
 ) where
 
-import PlutusTx.Prelude
+import Prelude
 
 import Data.Functor (void)
 import Data.Semigroup (Last(..))

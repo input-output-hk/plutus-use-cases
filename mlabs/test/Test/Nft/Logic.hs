@@ -3,8 +3,6 @@ module Test.Nft.Logic(
     test
 ) where
 
-import PlutusTx.Prelude
-
 import qualified Data.Map.Strict as M
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Test.Tasty (TestTree, testGroup)

@@ -6,7 +6,7 @@ module Mlabs.Lending.Contract.Simulator.Handler(
   , runSimulator
 ) where
 
-import PlutusTx.Prelude
+import Prelude
 
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)

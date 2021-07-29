@@ -13,9 +13,7 @@ module Test.Nft.Init(
   , nftContent
 ) where
 
-import PlutusTx.Prelude
-
-import Prelude (String)
+import Prelude
 
 import Control.Lens ((&), (.~))
 import Control.Monad.Freer (Eff)

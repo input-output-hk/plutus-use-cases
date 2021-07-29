@@ -5,31 +5,6 @@ module Test.Utils(
   , concatPredicates
 ) where
 
-import Prelude ( String
-               , Integer
-               , fromInteger
-               )
-import PlutusTx.Prelude ( Bool
-                        , ($)
-                        , (&&)
-                        , (*)
-                        , (+)
-                        , (++)
-                        , (.)
-                        , (<$>)
-                        , (<*>)
-                        , (<>)
-                        , (==)
-                        , Maybe(..)
-                        , all
-                        , fmap
-                        , map
-                        , mapM_
-                        , negate
-                        , not
-                        , null
-                        )
-
 import Data.Functor (void)
 import Data.List (foldl1')
 import Plutus.Contract.Test ( TracePredicate, (.&&.) )

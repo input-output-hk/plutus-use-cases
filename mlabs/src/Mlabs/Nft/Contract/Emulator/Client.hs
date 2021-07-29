@@ -4,7 +4,7 @@ module Mlabs.Nft.Contract.Emulator.Client(
   , callStartNft
 ) where
 
-import PlutusTx.Prelude
+import Prelude
 
 import Data.Functor (void)
 import Data.Monoid (Last(..))
