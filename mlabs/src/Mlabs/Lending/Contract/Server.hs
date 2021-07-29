@@ -13,13 +13,16 @@ module Mlabs.Lending.Contract.Server(
   , StateMachine.LendexError
 ) where
 
+import Prelude (String)
 import PlutusTx.Prelude
+
+import Data.Monoid (Last(..))
 
 import Control.Monad (forever, guard)
 import Data.List.Extra (firstJust)
-import Data.Map (toList)
-import Data.Maybe (mapMaybe)
-import Data.Semigroup (Last(..))
+--import Data.Map (toList)
+--import Data.Maybe (mapMaybe)
+--import Data.Semigroup (Last(..))
 import Ledger.Constraints (ownPubKeyHash, mintingPolicy, mustIncludeDatum)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (Datum(..))

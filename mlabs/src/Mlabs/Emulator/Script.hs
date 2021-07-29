@@ -16,13 +16,13 @@ module Mlabs.Emulator.Script(
   , putAct
 ) where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude hiding (Applicative)
+import Prelude (sum)
 
+import Control.Applicative hiding (empty)
+import Data.Monoid (Sum(..), getSum)
 import Control.Monad.State.Strict qualified as Strict
---import Data.Foldable ( Foldable(toList) )
-import Data.Monoid (Sum(..))
 import Data.Sequence as Seq ( Seq, empty, singleton )
-import PlutusTx.Prelude ( Integer, (.), ($) )
 
 -- | Collects user actions and allocates timestamps
 type Script act = ScriptM act ()

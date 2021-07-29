@@ -12,6 +12,7 @@ module Mlabs.Plutus.Contract(
 ) where
 
 import PlutusTx.Prelude
+import Prelude (String, foldl1)
 
 import Control.Monad.Freer (Eff)
 import Data.Aeson (FromJSON, ToJSON)
