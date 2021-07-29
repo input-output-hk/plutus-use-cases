@@ -98,32 +98,35 @@ transition marketplace state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
     -- TODO check that ipfsCidHash is a hash (?)
         -> Just ( mustBeSignedByIssuer nftEntry
-                , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash nftEntry nftStore) val
+                , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash nftEntry nftStore) currStateValue
                 )
     OpenSaleRedeemer ipfsCidHash lot
         -> let newEntry = maybe (traceError "NFT has not been created.") (_nftSale ?~ lot) $
                             AssocMap.lookup ipfsCidHash nftStore
            in  Just ( mempty
-                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) val
+                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) currStateValue
                     )
     BuyNftRedeemer ipfsCidHash
         -> let newEntry = maybe (traceError "NFT has not been created.") (_nftSale .~ Nothing) $
                             AssocMap.lookup ipfsCidHash nftStore
            in  Just ( mempty
-                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) val
+                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) currStateValue
                     )
     CloseSaleRedeemer ipfsCidHash
         -> let newEntry = maybe (traceError "NFT has not been created.") (_nftSale .~ Nothing) $
                             AssocMap.lookup ipfsCidHash nftStore
            in  Just ( mempty
-                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) val
+                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) currStateValue
                     )
     _                                        -> Nothing
   where
+    stateToken :: Value
+    stateToken = V.assetClassValue (marketplaceProtocolToken marketplace) 1
+
     nftStore :: AssocMap.Map IpfsCidHash NFT
     nftStore = getMarketplaceDatum $ stateData state
 
-    val = stateValue state
+    currStateValue = stateValue state - stateToken
 
     mustBeSignedByIssuer entry = case nftIssuer entry of
       Just pkh -> Constraints.mustBeSignedBy pkh

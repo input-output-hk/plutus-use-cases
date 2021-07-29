@@ -47,6 +47,7 @@ import           Plutus.Contract                              hiding (when)
 import           Plutus.Contracts.Currency                    as Currency
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
+import qualified Plutus.Contracts.Services.Sale               as Sale
 import           Plutus.PAB.Effects.Contract                  (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin          (Builtin,
                                                                SomeBuiltin (..),
@@ -98,11 +99,12 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
     ContractIDs {..} <- activateContracts
     let userCid = cidUser Map.! Wallet 2
         sender = pubKeyHash . walletPubKey $ Wallet 2
+    let catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
 
     _  <-
         Simulator.callEndpointOnInstance userCid "createNft" $
             Marketplace.CreateNftParams {
-                        cnpIpfsCid        = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16",
+                        cnpIpfsCid        = catTokenIpfsCid,
                         cnpNftName        = "Cat token",
                         cnpNftDescription = "A picture of a cat on a pogo stick",
                         cnpRevealIssuer   = False
@@ -112,11 +114,34 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
         _                                                -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful createNft"
 
-    _ <- Simulator.callEndpointOnInstance cidInfo "fundsAt" sender
+    _  <-
+        Simulator.callEndpointOnInstance userCid "openSale" $
+            Marketplace.OpenSaleParams {
+                    ospIpfsCid   = catTokenIpfsCid,
+                    ospSalePrice = 44*oneAdaInLovelace
+                }
+    sale <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
+        Success (ContractSuccess Marketplace.OpenedSale) -> Just ()
+        _                                                -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful openSale"
+
+    let buyerCid = cidUser Map.! Wallet 3
+        buyer = pubKeyHash . walletPubKey $ Wallet 3
+
+    _  <-
+        Simulator.callEndpointOnInstance buyerCid "buyNft" Marketplace.BuyNftParams {
+                                                                bnpIpfsCid   = catTokenIpfsCid
+                                                            }
+    _ <- flip Simulator.waitForState buyerCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
+        Success (ContractSuccess Marketplace.NftBought) -> Just ()
+        _                                               -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful buyNft"
+
+    _ <- Simulator.callEndpointOnInstance cidInfo "fundsAt" buyer
     v <- flip Simulator.waitForState cidInfo $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.InfoContractState)) of
             Success (ContractSuccess (Marketplace.FundsAt v)) -> Just v
             _                                                 -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "Final user funds: " <> show v
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Final buyer funds: " <> show v
 
     _ <- Simulator.callEndpointOnInstance cidInfo "marketplaceStore" ()
     marketplaceStore <- flip Simulator.waitForState cidInfo $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.InfoContractState)) of
@@ -129,6 +154,12 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
             Success (ContractSuccess (Marketplace.MarketplaceFunds v)) -> Just v
             _                                            -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Final marketplace funds: " <> show v
+
+    _ <- Simulator.callEndpointOnInstance cidInfo "fundsAt" sender
+    v <- flip Simulator.waitForState cidInfo $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.InfoContractState)) of
+            Success (ContractSuccess (Marketplace.FundsAt v)) -> Just v
+            _                                                 -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Final user funds: " <> show v
 
     _ <- liftIO getLine
     shutdown
