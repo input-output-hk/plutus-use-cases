@@ -12,6 +12,7 @@
 
 module Plutus.Contracts.Services.Sale.StateMachine where
 
+import qualified Control.Lens                 as Lens
 import qualified Data.Aeson                   as J
 import qualified Data.Text                    as T
 import qualified GHC.Generics                 as Haskell
@@ -26,8 +27,8 @@ import qualified PlutusTx
 import qualified PlutusTx.AssocMap            as AssocMap
 import           PlutusTx.Prelude             hiding (Semigroup (..))
 import           Prelude                      (Semigroup (..))
-import qualified Schema
 import qualified Prelude                      as Haskell
+import qualified Schema
 
 type Saler = PubKeyHash
 type Buyer = PubKeyHash
@@ -42,7 +43,19 @@ data Sale =
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
+PlutusTx.unstableMakeIsData ''Sale
+
 PlutusTx.makeLift ''Sale
+
+Lens.makeClassy_ ''Sale
+
+{-# INLINABLE toTuple #-}
+toTuple :: Sale -> (AssetClass, LovelacePrice, Value)
+toTuple Sale{..} = (saleProtocolToken, salePrice, saleValue)
+
+{-# INLINABLE fromTuple #-}
+fromTuple :: (AssetClass, LovelacePrice, Value) -> Sale
+fromTuple (saleProtocolToken, salePrice, saleValue) = Sale{..}
 
 data SaleRedeemer
   = Buy Buyer
