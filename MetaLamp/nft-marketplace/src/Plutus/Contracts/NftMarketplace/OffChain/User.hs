@@ -99,7 +99,7 @@ data OpenSaleParams =
 PlutusTx.unstableMakeIsData ''OpenSaleParams
 PlutusTx.makeLift ''OpenSaleParams
 
--- | The user
+-- | The user opens sale for his NFT
 openSale :: Core.Marketplace -> OpenSaleParams -> Contract w s Text ()
 openSale marketplace OpenSaleParams {..} = do
     let ipfsCidHash = sha2_256 ospIpfsCid
@@ -133,14 +133,13 @@ data BuyNftParams =
 PlutusTx.unstableMakeIsData ''BuyNftParams
 PlutusTx.makeLift ''BuyNftParams
 
--- | The user
+-- | The user buys specified NFT lot
 buyNft :: Core.Marketplace -> BuyNftParams -> Contract w s Text ()
 buyNft marketplace BuyNftParams {..} = do
     let ipfsCidHash = sha2_256 bnpIpfsCid
     nftStore <- marketplaceStore marketplace
     nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
     nftLot <- maybe (throwError "NFT has not been put on sale") pure $ nftEntry ^. Core._nftSale
-    let tokenName = V.TokenName bnpIpfsCid
 
     _ <- Sale.buyLot $ Sale.fromTuple $ nftLot ^. Core._lotSale
 
@@ -160,14 +159,13 @@ data CloseSaleParams =
 PlutusTx.unstableMakeIsData ''CloseSaleParams
 PlutusTx.makeLift ''CloseSaleParams
 
--- | The user
+-- | The user closes NFT sale and receives his token back
 closeSale :: Core.Marketplace -> CloseSaleParams -> Contract w s Text ()
 closeSale marketplace CloseSaleParams {..} = do
     let ipfsCidHash = sha2_256 cspIpfsCid
     nftStore <- marketplaceStore marketplace
     nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
     nftLot <- maybe (throwError "NFT has not been put on sale") pure $ nftEntry ^. Core._nftSale
-    let tokenName = V.TokenName cspIpfsCid
 
     _ <- Sale.redeemLot $ Sale.fromTuple $ nftLot ^. Core._lotSale
 
