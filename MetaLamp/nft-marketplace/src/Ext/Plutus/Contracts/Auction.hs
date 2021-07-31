@@ -64,6 +64,10 @@ fromTuple (_, apOwner, apAsset, apEndTime) = AuctionParams {..}
 toTuple :: AssetClass -> AuctionParams -> (AssetClass, PubKeyHash, Value, Slot)
 toTuple threadToken AuctionParams {..} = (threadToken, apOwner, apAsset, apEndTime)
 
+{-# INLINABLE getStateToken #-}
+getStateToken :: (AssetClass, PubKeyHash, Value, Slot) -> AssetClass
+getStateToken (token, _, _, _) = token
+
 data HighestBid =
     HighestBid
         { highestBid    :: Ada
@@ -243,100 +247,22 @@ payoutAuction threadToken params = do
         SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
 
 -- | Get the current state of the contract and log it.
-currentState :: StateMachineClient AuctionState AuctionInput -> Contract AuctionOutput BuyerSchema AuctionError (Maybe HighestBid)
-currentState client = mapError StateMachineContractError (SM.getOnChainState client) >>= \case
-    Just ((TypedScriptTxOut{tyTxOutData=Ongoing s}, _), _) -> do
-        tell $ auctionStateOut $ Ongoing s
+currentState :: AssetClass -> AuctionParams -> Contract w s AuctionError (Maybe AuctionState)
+currentState threadToken params = mapError StateMachineContractError (SM.getOnChainState client) >>= \case
+    Just ((TypedScriptTxOut{tyTxOutData = s}, _), _) -> do
         pure (Just s)
     _ -> do
         logWarn CurrentStateNotFound
         pure Nothing
+    where
+      inst         = typedValidator threadToken params
+      client       = machineClient inst threadToken params
 
-{- Note [Buyer client]
-
-In the buyer client we want to keep track of the on-chain state of the auction
-to give our user a chance to react if they are outbid by somebody else.
-
-At the same time we want to have the "bid" endpoint active for any bids of our
-own, and we want to stop the client when the auction is over.
-
-To achieve this, we have a loop where we wait for one of several events to
-happen and then deal with the event. The waiting is implemented in
-@waitForChange@ and the event handling is in @handleEvent@.
-
-Updates to the user are provided via 'tell'.
-
--}
-
-data BuyerEvent =
-        AuctionIsOver HighestBid -- ^ The auction has ended with the highest bid
-        | SubmitOwnBid Ada -- ^ We want to submit a new bid
-        | OtherBid HighestBid -- ^ Another buyer submitted a higher bid
-        | NoChange HighestBid -- ^ Nothing has changed
-
-waitForChange :: AuctionParams -> StateMachineClient AuctionState AuctionInput -> HighestBid -> Contract AuctionOutput BuyerSchema AuctionError BuyerEvent
-waitForChange AuctionParams{apEndTime} client lastHighestBid = do
-    s <- currentSlot
-    let
-        auctionOver = awaitSlot apEndTime >> pure (AuctionIsOver lastHighestBid)
-        submitOwnBid = SubmitOwnBid <$> endpoint @"bid"
-        otherBid = do
-            let address = Scripts.validatorAddress (SM.typedValidator (SM.scInstance client))
-                targetSlot = Haskell.succ (Haskell.succ s) -- FIXME (jm): There is some off-by-one thing going on that requires us to
-                                           -- use succ.succ instead of just a single succ if we want 'addressChangeRequest'
-                                           -- to wait for the next slot to begin.
-                                           -- I don't have the time to look into that atm though :(
-            AddressChangeResponse{acrTxns} <- addressChangeRequest
-                AddressChangeRequest
-                { acreqSlotRangeFrom = targetSlot
-                , acreqSlotRangeTo = targetSlot
-                , acreqAddress = address
-                }
-            case acrTxns of
-                [] -> pure (NoChange lastHighestBid)
-                _  -> currentState client >>= pure . maybe (AuctionIsOver lastHighestBid) OtherBid
-
-    -- see note [Buyer client]
-    auctionOver `select` submitOwnBid `select` otherBid
-
-handleEvent :: StateMachineClient AuctionState AuctionInput -> HighestBid -> BuyerEvent -> Contract AuctionOutput BuyerSchema AuctionError (Either HighestBid ())
-handleEvent client lastHighestBid change =
-    let continue = pure . Left
-        stop     = pure (Right ())
-    -- see note [Buyer client]
-    in case change of
-        AuctionIsOver s -> tell (auctionStateOut $ Finished s) >> stop
-        SubmitOwnBid ada -> do
-            logInfo @Haskell.String "Submitting bid"
-            self <- Ledger.pubKeyHash <$> ownPubKey
-            logInfo @Haskell.String "received pubkey"
-            r <- SM.runStep client Bid{newBid = ada, newBidder = self}
-            logInfo @Haskell.String "SM: runStep done"
-            case r of
-                SM.TransitionFailure i -> logError (TransitionFailed i) >> continue lastHighestBid
-                SM.TransitionSuccess (Ongoing newHighestBid) -> logInfo (BidSubmitted newHighestBid) >> continue newHighestBid
-
-                -- the last case shouldn't happen because the "Bid" transition always results in the "Ongoing"
-                -- but you never know :-)
-                SM.TransitionSuccess (Finished newHighestBid) -> logError (AuctionEnded newHighestBid) >> stop
-        OtherBid s -> do
-            tell (auctionStateOut $ Ongoing s)
-            continue s
-        NoChange s -> continue s
-
-auctionBuyer :: AssetClass -> AuctionParams -> Contract AuctionOutput BuyerSchema AuctionError ()
-auctionBuyer currency params = do
-    let inst         = typedValidator currency params
-        client       = machineClient inst currency params
-
-        -- the actual loop, see note [Buyer client]
-        loop         = loopM (\h -> waitForChange params client h >>= handleEvent client h)
-    tell $ threadTokenOut currency
-    initial <- currentState client
-    case initial of
-        Just s -> loop s
-
-        -- If the state can't be found we wait for it to appear.
-        Nothing -> SM.waitForUpdateUntil client (apEndTime params) >>= \case
-            WaitingResult (Ongoing s) -> loop s
-            _                         -> logWarn CurrentStateNotFound
+submitBid :: AssetClass -> AuctionParams -> Ada -> Contract w s AuctionError ()
+submitBid threadToken params ada = do
+    let inst         = typedValidator threadToken params
+        client       = machineClient inst threadToken params
+    self <- Ledger.pubKeyHash <$> ownPubKey
+    let bid = Bid{newBid = ada, newBidder = self}
+    _ <- SM.runStep client bid
+    logInfo @Haskell.String $ "Bid submitted" <> Haskell.show bid

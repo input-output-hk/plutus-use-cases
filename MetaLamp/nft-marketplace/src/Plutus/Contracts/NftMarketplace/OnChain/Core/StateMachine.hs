@@ -39,6 +39,7 @@ newtype Marketplace =
 
 PlutusTx.makeLift ''Marketplace
 
+type IpfsCid = ByteString
 type IpfsCidHash = ByteString
 type Sale = (AssetClass, Sale.LovelacePrice, Value)
 type Auction = (AssetClass, PubKeyHash, Value, Slot)

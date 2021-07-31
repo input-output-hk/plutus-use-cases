@@ -13,8 +13,8 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.User where
 
-import           Control.Lens                                  (_Left, (^.),
-                                                                (^?))
+import           Control.Lens                                  (_Left, _Right,
+                                                                (^.), (^?))
 import qualified Control.Lens                                  as Lens
 import           Control.Monad                                 hiding (fmap)
 import qualified Data.Aeson                                    as J
@@ -217,6 +217,33 @@ holdAnAuction marketplace HoldAnAuctionParams {..} = do
     logInfo @Haskell.String $ printf "Conducted an auction for NFT lot %s" (Haskell.show lot)
     pure ()
 
+data BidOnAuctionParams =
+  BidOnAuctionParams {
+    japIpfsCid :: ByteString,
+    japBid     :: Ada
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+PlutusTx.unstableMakeIsData ''BidOnAuctionParams
+PlutusTx.makeLift ''BidOnAuctionParams
+
+-- | The user
+bidOnAuction :: Core.Marketplace -> BidOnAuctionParams -> Contract w s Text ()
+bidOnAuction marketplace BidOnAuctionParams {..} = do
+    let ipfsCidHash = sha2_256 japIpfsCid
+    nftStore <- marketplaceStore marketplace
+    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
+    nftAuction <- maybe (throwError "NFT has not been put on auction") pure $
+                  nftEntry ^. Core._nftLot ^? traverse . Core._lotLink . _Right
+
+    let auctionToken = Auction.getStateToken nftAuction
+    let auctionParams = Auction.fromTuple nftAuction
+    _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auctionToken auctionParams japBid
+
+    logInfo @Haskell.String $ printf "Submitted bid for NFT auction %s" (Haskell.show nftAuction)
+    pure ()
+
 balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
 balanceAt pkh asset = flip V.assetClassValueOf asset <$> fundsAt pkh
 
@@ -229,6 +256,7 @@ type MarketplaceUserSchema =
     .\/ Endpoint "buyNft" BuyNftParams
     .\/ Endpoint "closeSale" CloseSaleParams
     .\/ Endpoint "holdAnAuction" HoldAnAuctionParams
+    .\/ Endpoint "bidOnAuction" BidOnAuctionParams
     .\/ Endpoint "ownPubKey" ()
     .\/ Endpoint "ownPubKeyBalance" ()
 
@@ -238,6 +266,7 @@ data UserContractState =
     | NftBought
     | ClosedSale
     | AuctionComplete
+    | BidSubmitted
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -252,5 +281,6 @@ userEndpoints marketplace = forever $
     `select` withContractResponse (Proxy @"buyNft") (const NftBought) (buyNft marketplace)
     `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
     `select` withContractResponse (Proxy @"holdAnAuction") (const AuctionComplete) (holdAnAuction marketplace)
+    `select` withContractResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
     `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)
