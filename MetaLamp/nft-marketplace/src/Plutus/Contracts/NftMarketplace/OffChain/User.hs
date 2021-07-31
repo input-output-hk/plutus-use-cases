@@ -13,13 +13,15 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.User where
 
-import           Control.Lens                                  ((^.))
+import           Control.Lens                                  (_Left, (^.),
+                                                                (^?))
 import qualified Control.Lens                                  as Lens
 import           Control.Monad                                 hiding (fmap)
 import qualified Data.Aeson                                    as J
 import           Data.Proxy                                    (Proxy (..))
 import           Data.Text                                     (Text)
 import qualified Data.Text                                     as T
+import qualified Ext.Plutus.Contracts.Auction                  as Auction
 import           Ext.Plutus.Ledger.Value                       (utxoValue)
 import qualified GHC.Generics                                  as Haskell
 import           Ledger
@@ -81,7 +83,7 @@ createNft marketplace CreateNftParams {..} = do
             , nftName        = cnpNftName
             , nftDescription = cnpNftDescription
             , nftIssuer      = if cnpRevealIssuer then Just pkh else Nothing
-            , nftSale     = Nothing -- TODO validate that it's Nothing
+            , nftLot     = Nothing -- TODO validate that it's Nothing
             }
     void $ mapError' $ runStep client $ Core.CreateNftRedeemer ipfsCidHash nftEntry
 
@@ -115,10 +117,10 @@ openSale marketplace OpenSaleParams {..} = do
 
     let client = Core.marketplaceClient marketplace
     let lot = Core.Lot
-                { lotSale          = Sale.toTuple sale
+                { lotLink          = Left $ Sale.toTuple sale
                 , lotIpfsCid     = ospIpfsCid
                 }
-    void $ mapError' $ runStep client $ Core.OpenSaleRedeemer ipfsCidHash lot
+    void $ mapError' $ runStep client $ Core.PutLotRedeemer ipfsCidHash lot
 
     logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show lot)
     pure ()
@@ -139,14 +141,15 @@ buyNft marketplace BuyNftParams {..} = do
     let ipfsCidHash = sha2_256 bnpIpfsCid
     nftStore <- marketplaceStore marketplace
     nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
-    nftLot <- maybe (throwError "NFT has not been put on sale") pure $ nftEntry ^. Core._nftSale
+    nftSale <- maybe (throwError "NFT has not been put on sale") pure $
+                  nftEntry ^. Core._nftLot ^? traverse . Core._lotLink . _Left
 
-    _ <- Sale.buyLot $ Sale.fromTuple $ nftLot ^. Core._lotSale
+    _ <- Sale.buyLot $ Sale.fromTuple nftSale
 
     let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.BuyNftRedeemer ipfsCidHash
+    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer ipfsCidHash
 
-    logInfo @Haskell.String $ printf "Bought NFT lot %s" (Haskell.show nftLot)
+    logInfo @Haskell.String $ printf "Bought NFT from sale %s" (Haskell.show nftSale)
     pure ()
 
 data CloseSaleParams =
@@ -165,14 +168,53 @@ closeSale marketplace CloseSaleParams {..} = do
     let ipfsCidHash = sha2_256 cspIpfsCid
     nftStore <- marketplaceStore marketplace
     nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
-    nftLot <- maybe (throwError "NFT has not been put on sale") pure $ nftEntry ^. Core._nftSale
+    nftSale <- maybe (throwError "NFT has not been put on sale") pure $
+                  nftEntry ^. Core._nftLot ^? traverse . Core._lotLink . _Left
 
-    _ <- Sale.redeemLot $ Sale.fromTuple $ nftLot ^. Core._lotSale
+    _ <- Sale.redeemLot $ Sale.fromTuple nftSale
 
     let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.CloseSaleRedeemer ipfsCidHash
+    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer ipfsCidHash
 
-    logInfo @Haskell.String $ printf "Closed NFT lot sale %s" (Haskell.show nftLot)
+    logInfo @Haskell.String $ printf "Closed NFT sale %s" (Haskell.show nftSale)
+    pure ()
+
+data HoldAnAuctionParams =
+  HoldAnAuctionParams {
+    haapIpfsCid  :: ByteString,
+    haapDuration :: Slot
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+PlutusTx.unstableMakeIsData ''HoldAnAuctionParams
+PlutusTx.makeLift ''HoldAnAuctionParams
+
+-- | The user
+holdAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
+holdAnAuction marketplace HoldAnAuctionParams {..} = do
+    let ipfsCidHash = sha2_256 haapIpfsCid
+    nftStore <- marketplaceStore marketplace
+    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
+    let tokenName = V.TokenName haapIpfsCid
+    let nftValue = V.singleton (Core.nftId nftEntry) tokenName 1
+
+    currSlot <- currentSlot
+    let endTime = currSlot + haapDuration
+    (auctionToken, auctionParams) <- mapError (T.pack . Haskell.show) $ Auction.startAuction nftValue endTime
+
+    let client = Core.marketplaceClient marketplace
+    let lot = Core.Lot
+                { lotLink          = Right $ Auction.toTuple auctionToken auctionParams
+                , lotIpfsCid     = haapIpfsCid
+                }
+    void $ mapError' $ runStep client $ Core.PutLotRedeemer ipfsCidHash lot
+
+    _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auctionToken auctionParams
+
+    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer ipfsCidHash
+
+    logInfo @Haskell.String $ printf "Conducted an auction for NFT lot %s" (Haskell.show lot)
     pure ()
 
 balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
@@ -186,6 +228,7 @@ type MarketplaceUserSchema =
     .\/ Endpoint "openSale" OpenSaleParams
     .\/ Endpoint "buyNft" BuyNftParams
     .\/ Endpoint "closeSale" CloseSaleParams
+    .\/ Endpoint "holdAnAuction" HoldAnAuctionParams
     .\/ Endpoint "ownPubKey" ()
     .\/ Endpoint "ownPubKeyBalance" ()
 
@@ -194,6 +237,7 @@ data UserContractState =
     | OpenedSale
     | NftBought
     | ClosedSale
+    | AuctionComplete
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -207,5 +251,6 @@ userEndpoints marketplace = forever $
     `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
     `select` withContractResponse (Proxy @"buyNft") (const NftBought) (buyNft marketplace)
     `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
+    `select` withContractResponse (Proxy @"holdAnAuction") (const AuctionComplete) (holdAnAuction marketplace)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
     `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)

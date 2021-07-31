@@ -1,18 +1,19 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE GADTs              #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE NoImplicitPrelude  #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TypeApplications   #-}
-{-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE DerivingVia           #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeOperators         #-}
 
 module Ext.Plutus.Contracts.Auction where
 
@@ -31,7 +32,9 @@ import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Typed.Tx                  (TypedScriptTxOut (..))
 import           Ledger.Value                     (AssetClass)
 import           Plutus.Contract
-import           Plutus.Contract.StateMachine     (State (..), StateMachine (..), StateMachineClient, Void,
+import           Plutus.Contract.StateMachine     (State (..),
+                                                   StateMachine (..),
+                                                   StateMachineClient, Void,
                                                    WaitingResult (..))
 import qualified Plutus.Contract.StateMachine     as SM
 import           Plutus.Contract.Util             (loopM)
@@ -51,7 +54,15 @@ data AuctionParams
         deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.makeLift ''AuctionParams
+PlutusTx.unstableMakeIsData ''AuctionParams
 
+{-# INLINABLE fromTuple #-}
+fromTuple :: (AssetClass, PubKeyHash, Value, Slot) -> AuctionParams
+fromTuple (_, apOwner, apAsset, apEndTime) = AuctionParams {..}
+
+{-# INLINABLE toTuple #-}
+toTuple :: AssetClass -> AuctionParams -> (AssetClass, PubKeyHash, Value, Slot)
+toTuple threadToken AuctionParams {..} = (threadToken, apOwner, apAsset, apEndTime)
 
 data HighestBid =
     HighestBid
@@ -201,11 +212,10 @@ instance SM.AsSMContractError AuctionError where
 
 
 -- | Client code for the seller
-startAuction :: Value -> Slot -> Contract AuctionOutput SellerSchema AuctionError (AssetClass, AuctionParams)
+startAuction :: Value -> Slot -> Contract w s AuctionError (AssetClass, AuctionParams)
 startAuction value slot = do
     threadToken <- mapError ThreadTokenError Currency.createThreadToken
     logInfo $ "Obtained thread token: " <> Haskell.show threadToken
-    tell $ threadTokenOut threadToken
     self <- Ledger.pubKeyHash <$> ownPubKey
     let params       = AuctionParams{apOwner = self, apAsset = value, apEndTime = slot }
         inst         = typedValidator threadToken params
@@ -219,7 +229,7 @@ startAuction value slot = do
     pure (threadToken, params)
 
 -- | Client code for the seller
-payoutAuction :: AssetClass -> AuctionParams -> Contract AuctionOutput SellerSchema AuctionError ()
+payoutAuction :: AssetClass -> AuctionParams -> Contract w s AuctionError ()
 payoutAuction threadToken params = do
     let inst         = typedValidator threadToken params
         client       = machineClient inst threadToken params
