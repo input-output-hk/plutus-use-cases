@@ -11,24 +11,27 @@
 
 module Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine where
 
-import           Control.Lens                   ((&), (.~), (?~), (^.))
-import qualified Control.Lens                   as Lens
-import qualified Data.Aeson                     as J
-import qualified Data.Text                      as T
-import qualified Ext.Plutus.Contracts.Auction   as Auction
-import qualified GHC.Generics                   as Haskell
+import           Control.Lens                                     ((&), (.~),
+                                                                   (?~), (^.))
+import qualified Control.Lens                                     as Lens
+import qualified Data.Aeson                                       as J
+import qualified Data.Text                                        as T
+import qualified Ext.Plutus.Contracts.Auction                     as Auction
+import qualified GHC.Generics                                     as Haskell
 import           Ledger
-import qualified Ledger.Constraints             as Constraints
-import qualified Ledger.Typed.Scripts           as Scripts
-import qualified Ledger.Value                   as V
+import qualified Ledger.Constraints                               as Constraints
+import qualified Ledger.Typed.Scripts                             as Scripts
+import qualified Ledger.Value                                     as V
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import qualified Plutus.Contracts.Services.Sale as Sale
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
+import qualified Plutus.Contracts.Services.Sale                   as Sale
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap              as AssocMap
-import           PlutusTx.Prelude               hiding (Semigroup (..))
-import           Prelude                        (Semigroup (..))
-import qualified Prelude                        as Haskell
+import qualified PlutusTx.AssocMap                                as AssocMap
+import           PlutusTx.Prelude                                 hiding
+                                                                  (Semigroup (..))
+import           Prelude                                          (Semigroup (..))
+import qualified Prelude                                          as Haskell
 
 newtype Marketplace =
   Marketplace
@@ -38,41 +41,6 @@ newtype Marketplace =
   deriving anyclass (J.ToJSON, J.FromJSON)
 
 PlutusTx.makeLift ''Marketplace
-
-type IpfsCid = ByteString
-type IpfsCidHash = ByteString
-type Sale = (AssetClass, Sale.LovelacePrice, Value)
-type Auction = (AssetClass, PubKeyHash, Value, Slot)
-
-data Lot = Lot
-                { lotLink    :: Either Sale Auction
-                , lotIpfsCid :: ByteString
-                }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''Lot
-
-PlutusTx.makeLift ''Lot
-
-Lens.makeClassy_ ''Lot
-
-data NFT =
-  NFT
-    { nftId          :: CurrencySymbol
-    , nftName        :: ByteString
-    , nftDescription :: ByteString
-    , nftIssuer      :: Maybe PubKeyHash
-    , nftLot         :: Maybe Lot
-    }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''NFT
-
-PlutusTx.makeLift ''NFT
-
-Lens.makeClassy_ ''NFT
 
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NFT
