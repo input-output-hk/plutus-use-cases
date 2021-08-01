@@ -108,6 +108,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
                         cnpIpfsCid        = catTokenIpfsCid,
                         cnpNftName        = "Cat token",
                         cnpNftDescription = "A picture of a cat on a pogo stick",
+                        cnpNftCategory = ["GIFs"],
                         cnpRevealIssuer   = False
                     }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
@@ -144,6 +145,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
                         cnpIpfsCid        = photoTokenIpfsCid,
                         cnpNftName        = "Photo token",
                         cnpNftDescription = "A picture of a sunset",
+                        cnpNftCategory = ["Photos"],
                         cnpRevealIssuer   = True
                     }
     flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of

@@ -38,6 +38,7 @@ import qualified Prelude                        as Haskell
 type IpfsCid = ByteString
 type IpfsCidHash = ByteString
 type Auction = (AssetClass, PubKeyHash, Value, Slot)
+type Category = [ByteString]
 
 data Lot = Lot
                 { lotLink    :: !(Either Sale.Sale Auction)
@@ -52,11 +53,13 @@ PlutusTx.makeLift ''Lot
 
 Lens.makeClassy_ ''Lot
 
+-- TODO (?) add NFT tags
 data NFT =
   NFT
     { nftId          :: !CurrencySymbol
     , nftName        :: !ByteString
     , nftDescription :: !ByteString
+    , nftCategory    :: !Category
     , nftIssuer      :: !(Maybe PubKeyHash)
     , nftLot         :: !(Maybe Lot)
     }

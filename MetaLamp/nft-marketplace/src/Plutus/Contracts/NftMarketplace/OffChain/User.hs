@@ -54,6 +54,7 @@ data CreateNftParams =
     cnpIpfsCid        :: ByteString,
     cnpNftName        :: ByteString,
     cnpNftDescription :: ByteString,
+    cnpNftCategory    :: Core.Category,
     cnpRevealIssuer   :: Bool
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -81,6 +82,7 @@ createNft marketplace CreateNftParams {..} = do
             { nftId          = Currency.currencySymbol nft
             , nftName        = cnpNftName
             , nftDescription = cnpNftDescription
+            , nftCategory = cnpNftCategory
             , nftIssuer      = if cnpRevealIssuer then Just pkh else Nothing
             , nftLot     = Nothing -- TODO validate that it's Nothing
             }
