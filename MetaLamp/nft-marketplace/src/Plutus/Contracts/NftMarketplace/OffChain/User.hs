@@ -189,7 +189,7 @@ data HoldAnAuctionParams =
 PlutusTx.unstableMakeIsData ''HoldAnAuctionParams
 PlutusTx.makeLift ''HoldAnAuctionParams
 
--- | The user
+-- | The user starts an auction for specified NFT
 startAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
 startAnAuction marketplace HoldAnAuctionParams {..} = do
     let ipfsCidHash = sha2_256 haapIpfsCid
@@ -212,7 +212,7 @@ startAnAuction marketplace HoldAnAuctionParams {..} = do
     logInfo @Haskell.String $ printf "Started an auction for NFT lot %s" (Haskell.show lot)
     pure ()
 
--- | The user
+-- | The user completes the auction for specified NFT
 completeAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
 completeAnAuction marketplace HoldAnAuctionParams {..} = do
     let ipfsCidHash = sha2_256 haapIpfsCid
@@ -242,7 +242,7 @@ data BidOnAuctionParams =
 PlutusTx.unstableMakeIsData ''BidOnAuctionParams
 PlutusTx.makeLift ''BidOnAuctionParams
 
--- | The user
+-- | The user submits a bid on the auction for specified NFT
 bidOnAuction :: Core.Marketplace -> BidOnAuctionParams -> Contract w s Text ()
 bidOnAuction marketplace BidOnAuctionParams {..} = do
     let ipfsCidHash = sha2_256 japIpfsCid

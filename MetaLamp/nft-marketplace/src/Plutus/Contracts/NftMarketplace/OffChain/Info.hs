@@ -60,7 +60,7 @@ fundsAt pkh = utxoValue <$> utxoAt (pubKeyHashAddress pkh)
 marketplaceFunds :: Core.Marketplace -> Contract w s Text Value
 marketplaceFunds marketplace =  utxoValue <$> utxoAt (Core.marketplaceAddress marketplace)
 
--- | Gets
+-- | Gets current auction state for specified NFT
 getAuctionState :: Core.Marketplace -> Core.IpfsCid -> Contract w s Text Auction.AuctionState
 getAuctionState marketplace ipfsCid = do
     let ipfsCidHash = sha2_256 ipfsCid
