@@ -116,7 +116,7 @@ openSale marketplace OpenSaleParams {..} = do
 
     let client = Core.marketplaceClient marketplace
     let lot = Core.Lot
-                { lotLink          = Left $ Sale.toTuple sale
+                { lotLink          = Left sale
                 , lotIpfsCid     = ospIpfsCid
                 }
     void $ mapError' $ runStep client $ Core.PutLotRedeemer ipfsCidHash lot
@@ -143,7 +143,7 @@ buyNft marketplace BuyNftParams {..} = do
     nftSale <- maybe (throwError "NFT has not been put on sale") pure $
                   nftEntry ^. Core._nftLot ^? traverse . Core._lotLink . _Left
 
-    _ <- Sale.buyLot $ Sale.fromTuple nftSale
+    _ <- Sale.buyLot nftSale
 
     let client = Core.marketplaceClient marketplace
     void $ mapError' $ runStep client $ Core.RemoveLotRedeemer ipfsCidHash
@@ -170,7 +170,7 @@ closeSale marketplace CloseSaleParams {..} = do
     nftSale <- maybe (throwError "NFT has not been put on sale") pure $
                   nftEntry ^. Core._nftLot ^? traverse . Core._lotLink . _Left
 
-    _ <- Sale.redeemLot $ Sale.fromTuple nftSale
+    _ <- Sale.redeemLot nftSale
 
     let client = Core.marketplaceClient marketplace
     void $ mapError' $ runStep client $ Core.RemoveLotRedeemer ipfsCidHash

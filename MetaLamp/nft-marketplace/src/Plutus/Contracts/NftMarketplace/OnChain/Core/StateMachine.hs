@@ -106,7 +106,7 @@ stateTransitionCheck (MarketplaceDatum nftStore) (PutLotRedeemer ipfsCidHash lot
   traceIfFalse "PutLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash nftStore
       nftIpfsCid = lotIpfsCid lot
-      lotValue = either (Sale.saleValue . Sale.fromTuple) (Auction.apAsset . Auction.fromTuple) $ lotLink lot
+      lotValue = either (Sale.saleValue) (Auction.apAsset . Auction.fromTuple) $ lotLink lot
       nftValue = V.singleton (nftId nftEntry) (V.TokenName nftIpfsCid) 1
       hasBeenPutOnSale = lotValue == nftValue
       isValidHash = sha2_256 nftIpfsCid == ipfsCidHash

@@ -37,11 +37,10 @@ import qualified Prelude                        as Haskell
 
 type IpfsCid = ByteString
 type IpfsCidHash = ByteString
-type Sale = (AssetClass, Sale.LovelacePrice, Value)
 type Auction = (AssetClass, PubKeyHash, Value, Slot)
 
 data Lot = Lot
-                { lotLink    :: !(Either Sale Auction)
+                { lotLink    :: !(Either Sale.Sale Auction)
                 , lotIpfsCid :: !ByteString
                 }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
