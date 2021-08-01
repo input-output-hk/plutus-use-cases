@@ -28,8 +28,7 @@ import           Ledger
 import qualified Ledger.Typed.Scripts                          as Scripts
 import           Ledger.Typed.Tx
 import qualified Ledger.Value                                  as V
-import           Plutus.Abstract.ContractResponse              (ContractResponse,
-                                                                withContractResponse)
+import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                     as Currency
@@ -191,8 +190,8 @@ PlutusTx.unstableMakeIsData ''HoldAnAuctionParams
 PlutusTx.makeLift ''HoldAnAuctionParams
 
 -- | The user
-holdAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
-holdAnAuction marketplace HoldAnAuctionParams {..} = do
+startAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
+startAnAuction marketplace HoldAnAuctionParams {..} = do
     let ipfsCidHash = sha2_256 haapIpfsCid
     nftStore <- marketplaceStore marketplace
     nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
@@ -210,11 +209,26 @@ holdAnAuction marketplace HoldAnAuctionParams {..} = do
                 }
     void $ mapError' $ runStep client $ Core.PutLotRedeemer ipfsCidHash lot
 
+    logInfo @Haskell.String $ printf "Started an auction for NFT lot %s" (Haskell.show lot)
+    pure ()
+
+-- | The user
+completeAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
+completeAnAuction marketplace HoldAnAuctionParams {..} = do
+    let ipfsCidHash = sha2_256 haapIpfsCid
+    nftStore <- marketplaceStore marketplace
+    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
+    nftAuction <- maybe (throwError "NFT has not been put on auction") pure $
+                  nftEntry ^. Core._nftLot ^? traverse . Core._lotLink . _Right
+
+    let auctionToken = Auction.getStateToken nftAuction
+    let auctionParams = Auction.fromTuple nftAuction
     _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auctionToken auctionParams
 
+    let client = Core.marketplaceClient marketplace
     void $ mapError' $ runStep client $ Core.RemoveLotRedeemer ipfsCidHash
 
-    logInfo @Haskell.String $ printf "Conducted an auction for NFT lot %s" (Haskell.show lot)
+    logInfo @Haskell.String $ printf "Completed an auction %s" (Haskell.show nftAuction)
     pure ()
 
 data BidOnAuctionParams =
@@ -255,7 +269,8 @@ type MarketplaceUserSchema =
     .\/ Endpoint "openSale" OpenSaleParams
     .\/ Endpoint "buyNft" BuyNftParams
     .\/ Endpoint "closeSale" CloseSaleParams
-    .\/ Endpoint "holdAnAuction" HoldAnAuctionParams
+    .\/ Endpoint "startAnAuction" HoldAnAuctionParams
+    .\/ Endpoint "completeAnAuction" HoldAnAuctionParams
     .\/ Endpoint "bidOnAuction" BidOnAuctionParams
     .\/ Endpoint "ownPubKey" ()
     .\/ Endpoint "ownPubKeyBalance" ()
@@ -265,6 +280,7 @@ data UserContractState =
     | OpenedSale
     | NftBought
     | ClosedSale
+    | AuctionStarted
     | AuctionComplete
     | BidSubmitted
     | GetPubKey PubKeyHash
@@ -280,7 +296,8 @@ userEndpoints marketplace = forever $
     `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
     `select` withContractResponse (Proxy @"buyNft") (const NftBought) (buyNft marketplace)
     `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
-    `select` withContractResponse (Proxy @"holdAnAuction") (const AuctionComplete) (holdAnAuction marketplace)
+    `select` withContractResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
+    `select` withContractResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
     `select` withContractResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
     `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)
