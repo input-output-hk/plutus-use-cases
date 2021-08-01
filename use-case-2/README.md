@@ -12,6 +12,30 @@ By the end of this README you will be able to run the POKE-DEX on your machine l
 
 1. [Install Obelisk](https://github.com/obsidiansystems/obelisk#installing-obelisk).
 
+## Adding IOHK nix caches
+
+Set up nix caches for IOHK dependencies
+1. If you are running NixOS, add this to `/etc/nixos/configuration.nix`: (TODO : add the appropriate information)
+1. If you are using another operating system or Linux distribution, ensure that these lines are present in your Nix configuration file (`/etc/nix/nix.conf` on most systems; [see full list](https://nixos.org/nix/manual/#sec-conf-file)):
+```nix
+binary-caches = https://cache.nixos.org https://nixcache.reflex-frp.org https://hydra.iohk.io
+binary-cache-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= ryantrinkle.com-1:JJiAKaRv9mWgpVAz8dwewnZe0AzzEAzPkagE9SP5NWI= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo=
+binary-caches-parallel-connections = 40
+```
+* If you're on a Linux distribution other than NixOS, enable sandboxing (see these [issue 172](https://github.com/obsidiansystems/obelisk/issues/172#issuecomment-411507818) or [issue 6](https://github.com/obsidiansystems/obelisk/issues/6) if you run into build problems) by adding the following:
+```nix
+sandbox = true
+```
+* If you're on MacOS, disable sandboxing (there are still some impure dependencies for now) by adding the following:
+```nix
+sandbox = false
+```
+then restart the nix daemon
+```bash
+sudo launchctl stop org.nixos.nix-daemon
+sudo launchctl start org.nixos.nix-daemon
+```
+
 ##  Running Plutus Application Backend (PAB)
 
 1. [Run PAB] After installing Obelisk, use `./scripts/run-pab.sh` to launch the PAB and have it listen on port 8080
