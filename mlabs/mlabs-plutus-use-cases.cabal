@@ -89,6 +89,10 @@ library
         Mlabs.Nft.Contract.Forge
         Mlabs.Nft.Contract.Server
         Mlabs.Nft.Contract.StateMachine
+        Mlabs.Governance.Contract
+        Mlabs.Governance.Contract.Api
+        Mlabs.Governance.Contract.Server
+        Mlabs.Governance.Contract.Validation
         Mlabs.Plutus.Contract
         Mlabs.Plutus.Contract.StateMachine
         Mlabs.Plutus.PAB
