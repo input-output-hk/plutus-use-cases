@@ -13,6 +13,7 @@ import Data.Semigroup (Last(..))
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Tx (txId)
+import Plutus.V1.Ledger.Value (CurrencySymbol)
 import Ledger.Constraints qualified as Constraints
 
 import Mlabs.Governance.Contract.Api qualified as Api
@@ -22,28 +23,28 @@ import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
 -- do we want another error type? 
 type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.GovernanceSchema Text a
 
-governanceEndpoints :: GovernanceContract ()
-governanceEndpoints = forever $ selects
-  [ getEndpoint @Api.Deposit >>= deposit
-  , getEndpoint @Api.Withdraw >>= withdraw
-  , getEndpoint @Api.ProvideRewards >>= provideRewards
-  , getEndpoint @Api.QueryBalance >>= queryBalance
+governanceEndpoints :: CurrencySymbol -> GovernanceContract ()
+governanceEndpoints csym = forever $ selects
+  [ getEndpoint @Api.Deposit >>= deposit csym
+  , getEndpoint @Api.Withdraw >>= withdraw csym 
+  , getEndpoint @Api.ProvideRewards >>= provideRewards csym
+  , getEndpoint @Api.QueryBalance >>= queryBalance csym
   ]
 
 --- actions
 
-deposit :: Api.Deposit -> GovernanceContract ()
-deposit (Api.Deposit amnt) = do
-  let tx = Constraints.mustPayToTheScript () $ Validation.govValueOf amnt -- here () is the datum type, for now
-  ledgerTx <- Contract.submitTxConstraints Validation.inst tx
+deposit :: CurrencySymbol -> Api.Deposit -> GovernanceContract ()
+deposit csym (Api.Deposit amnt) = do
+  let tx = Constraints.mustPayToTheScript () $ Validation.govValueOf csym amnt -- here () is the datum type, for now
+  ledgerTx <- Contract.submitTxConstraints (Validation.inst csym) tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "deposited %s GOV tokens" (show amnt)
 
-withdraw :: Api.Withdraw -> GovernanceContract ()
+withdraw :: CurrencySymbol -> Api.Withdraw -> GovernanceContract ()
 withdraw = undefined
 
-provideRewards :: Api.ProvideRewards -> GovernanceContract ()
+provideRewards :: CurrencySymbol -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards = undefined
 
-queryBalance :: Api.QueryBalance -> GovernanceContract ()
+queryBalance :: CurrencySymbol -> Api.QueryBalance -> GovernanceContract ()
 queryBalance = undefined
