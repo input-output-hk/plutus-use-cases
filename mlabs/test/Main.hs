@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Test.Tasty
+import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
 
 import qualified Test.Demo.Contract.Mint as Demo.Contract.Mint

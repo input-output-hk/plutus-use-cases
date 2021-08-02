@@ -8,20 +8,27 @@ module Test.Lending.Logic(
   , coin1, coin2, coin3
 ) where
 
-import Test.Tasty
-import Test.Tasty.HUnit
-
-import Plutus.V1.Ledger.Value
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
-
-import Mlabs.Emulator.App
-import Mlabs.Emulator.Blockchain
-import Mlabs.Lending.Logic.App
-import Mlabs.Lending.Logic.Types
-
-
 import qualified Data.Map.Strict as M
-import qualified Mlabs.Data.Ray as R
+import Plutus.V1.Ledger.Value (TokenName, AssetClass(AssetClass), CurrencySymbol, currencySymbol, tokenName)
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit (Assertion, testCase)
+
+import qualified PlutusTx.Ratio as R
+import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
+import Mlabs.Emulator.Blockchain (BchWallet(..))
+import Mlabs.Lending.Logic.App (Script, AppConfig(AppConfig), LendingApp, runLendingApp, toCoin, userAct, priceAct) 
+import Mlabs.Lending.Logic.Types
+    ( adaCoin,
+      CoinCfg(CoinCfg, coinCfg'coin, coinCfg'rate, coinCfg'aToken,
+              coinCfg'interestModel, coinCfg'liquidationBonus),
+      BadBorrow(BadBorrow),
+      InterestRate(StableRate),
+      Coin,
+      PriceAct(SetAssetPriceAct),
+      UserAct(..),
+      UserId(..),
+      defaultInterestModel )
 
 -- | Test suite for a logic of lending application
 test :: TestTree
@@ -84,7 +91,7 @@ test = testGroup "Logic"
 testScript :: Script -> LendingApp
 testScript script = runLendingApp testAppConfig script
 
--- | Check that we have those wallets after script was run.
+-- | Checks that we have those wallets after script was run.
 testWallets :: [(UserId, BchWallet)] -> Script -> Assertion
 testWallets wals script = do
   noErrors app
@@ -104,14 +111,15 @@ depositScript = do
 borrowScript :: Script
 borrowScript = do
   depositScript
-  userAct user1 $ SetUserReserveAsCollateralAct
-        { act'asset           = coin1
-        , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1 }
+  userAct user1 $ AddCollateralAct
+        { add'asset           = coin1
+        , add'amount         = 50 
+        }
   userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 30
-        , act'rate            = StableRate }
+        , act'rate            = StableRate 
+        }
 
 -- | Try to borrow without setting up deposit as collateral.
 borrowNoCollateralScript :: Script
@@ -127,14 +135,15 @@ borrowNoCollateralScript = do
 borrowNotEnoughCollateralScript :: Script
 borrowNotEnoughCollateralScript = do
   depositScript
-  userAct user1 $ SetUserReserveAsCollateralAct
-        { act'asset           = coin1
-        , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1 }
+  userAct user1 $ AddCollateralAct
+        { add'asset           = coin1
+        , add'amount         = 50 
+        }
   userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 60
-        , act'rate            = StableRate }
+        , act'rate            = StableRate 
+        }
 
 -- | User1 deposits 50 out of 100 and gets back 25.
 -- So we check that user has 75 coins and 25 aCoins
@@ -226,8 +235,8 @@ aCoin2 = fromToken aToken2
 -- aCoin3 = fromToken aToken3
 
 -- | Default application.
--- It allocates three users nad three reserves for Dollars, Euros and Liras.
--- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros amd user 3 has liras.
+-- It allocates three users and three reserves for Dollars, Euros and Liras.
+-- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros and user 3 has liras.
 testAppConfig :: AppConfig
 testAppConfig = AppConfig reserves users lendingPoolCurrency admins oracles
   where

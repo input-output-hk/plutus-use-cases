@@ -8,26 +8,25 @@ module Main(
   ) where
 
 import Prelude
-import Control.Monad.IO.Class
-import Data.Functor
+
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import Data.Functor ( void )
+import Playground.Contract ( Wallet(Wallet) )
+import Plutus.Contract ( ContractInstanceId )
+import Plutus.PAB.Simulator qualified as Simulator
 import PlutusTx.Prelude (ByteString)
 
-import Plutus.PAB.Simulator qualified as Simulator
-import Playground.Contract
-import Plutus.Contract
-
-import Mlabs.Nft.Logic.Types
-import Mlabs.Nft.Contract.Simulator.Handler
-import qualified Mlabs.Nft.Contract as Nft
-import qualified Mlabs.Data.Ray as R
-
-import Mlabs.Plutus.PAB
-import Mlabs.System.Console.PrettyLogger
-import Mlabs.System.Console.Utils
+import Mlabs.Nft.Logic.Types ( NftId )
+import Mlabs.Nft.Contract qualified as Nft
+import Mlabs.Nft.Contract.Simulator.Handler qualified as Handler
+import PlutusTx.Ratio qualified as R
+import Mlabs.Plutus.PAB ( call, printBalance, waitForLast )
+import Mlabs.System.Console.PrettyLogger ( logNewLine )
+import Mlabs.System.Console.Utils ( logAction, logMlabs )
 
 -- | Main function to run simulator
 main :: IO ()
-main = runSimulator startParams $ do
+main = Handler.runSimulator startParams $ do
   let users = [1, 2, 3]
   logMlabs
   test "Init users" users (pure ())
@@ -62,27 +61,27 @@ main = runSimulator startParams $ do
 -- handlers
 
 -- | Instanciates start NFT endpoint in the simulator to the given wallet
-activateStartNft :: Wallet -> Sim NftId
+activateStartNft :: Wallet -> Handler.Sim NftId
 activateStartNft wal = do
-  wid <- Simulator.activateContract wal StartNft
+  wid <- Simulator.activateContract wal Handler.StartNft
   nftId <- waitForLast wid
   void $ Simulator.waitUntilFinished wid
   pure nftId
 
 -- | Instanciates user actions endpoint in the simulator to the given wallet
-activateUser :: NftId -> Wallet -> Sim ContractInstanceId
+activateUser :: NftId -> Wallet -> Handler.Sim ContractInstanceId
 activateUser nid wal = do
-  Simulator.activateContract wal $ User nid
+  Simulator.activateContract wal $ Handler.User nid
 
 -------------------------------------------------------------
 -- Script helpers
 
 -- | Call buy NFT endpoint
-buy :: ContractInstanceId -> Integer -> Maybe Integer -> Sim ()
+buy :: ContractInstanceId -> Integer -> Maybe Integer -> Handler.Sim ()
 buy cid price newPrice = call cid (Nft.Buy price newPrice)
 
 -- | Call set price for NFT endpoint
-setPrice :: ContractInstanceId -> Maybe Integer -> Sim ()
+setPrice :: ContractInstanceId -> Maybe Integer -> Handler.Sim ()
 setPrice cid newPrice = call cid (Nft.SetPrice newPrice)
 
 -------------------------------------------------------------

@@ -1,23 +1,27 @@
 with import ./nix { };
 (plutus.plutus.haskell.project.shellFor (pab.env_variables // {
 
-  # Select packages who's dependencies should be added to the shell env
-  packages = ps: [ ];
+  # Select packages which should be added to the shell env
+  packages = ps:
+    [
+      # criterion 
+      # tasty-quickcheck
+    ];
 
   # Select packages which should be added to the shell env, with their dependencies
   # Should try and get the extra cardano dependencies in here...
   additional = ps:
     with ps; [
+      pab.plutus_ledger_with_docs
+      playground-common
+      plutus-contract
+      plutus-core
+      plutus-ledger-api
       plutus-pab
       plutus-tx
       plutus-tx-plugin
-      plutus-contract
-      plutus-ledger-api
-      pab.plutus_ledger_with_docs
-      plutus-core
-      playground-common
-      prettyprinter-configurable
       plutus-use-cases
+      prettyprinter-configurable
     ];
 
   withHoogle = true;
@@ -27,23 +31,38 @@ with import ./nix { };
   propagatedBuildInputs = with pkgs;
     [
       # Haskell Tools
-      stack
-      plutus.plutus.hlint
-      haskellPackages.fourmolu
-      git
+      cabal-install
+      entr
       ghc
+      ghcid
+      git
+      haskellPackages.fourmolu
       nixfmt
       plutus.plutus.haskell-language-server
+      plutus.plutus.hlint
+      stack
 
-      # Pab
+      # Makefile
+      gnumake
+      
+      # hls doesn't support preprocessors yet so this has to exist in PATH
+      haskellPackages.record-dot-preprocessor
+
+      # Graphviz Diagrams for documentation
+      graphviz
+
+      ### Pab
       pab.plutus_pab_client
 
-      # Example contracts
-      plutus.plutus-currency
+      ### Example contracts
       plutus.plutus-atomic-swap
+      plutus.plutus-currency
 
     ] ++ (builtins.attrValues pab.plutus_pab_exes);
 
-  buildInputs = [ plutus.pkgs.zlib ];
-
+  buildInputs = (with plutus.pkgs;
+    [ zlib pkg-config libsodium systemd ]
+    # Dependencies for MacOs
+    ++ (lib.optionals (!stdenv.isDarwin) [ R ]));
+  
 }))

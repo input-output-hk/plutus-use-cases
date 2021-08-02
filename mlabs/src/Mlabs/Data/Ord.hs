@@ -3,7 +3,7 @@ module Mlabs.Data.Ord(
   comparing
 ) where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude ( Ordering, Ord(compare) )
 
 {-# INLINABLE comparing #-}
 -- |

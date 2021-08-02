@@ -1,21 +1,28 @@
-{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE NumericUnderscores    #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Test.Lending.QuickCheck where
 
-import Mlabs.Emulator.Types (UserId(..), Coin, adaCoin)
-import Mlabs.Lending.Logic.Types (UserAct(..))
-import Mlabs.Lending.Logic.App (AppConfig(..), Script, runLendingApp, userAct)
-import Mlabs.Emulator.Blockchain (BchWallet(..))
-import Mlabs.Emulator.App (App(..), lookupAppWallet)
-import Test.Lending.Logic (fromToken, testAppConfig, coin1, coin2, coin3, user1, user2, user3)
-import qualified Plutus.V1.Ledger.Value as Value
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
-
+import qualified Plutus.V1.Ledger.Value as Value
+import Test.Lending.Logic (fromToken, testAppConfig, coin1, coin2, coin3, user1, user2, user3)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 import qualified Test.QuickCheck as QC
 
+import Mlabs.Emulator.App (App(..), lookupAppWallet)
+import Mlabs.Emulator.Blockchain (BchWallet(..))
+import Mlabs.Emulator.Types (UserId(..), Coin, adaCoin)
+import Mlabs.Lending.Logic.App (AppConfig(..), Script, runLendingApp, userAct)
+import Mlabs.Lending.Logic.Types (UserAct(..))
 
 allUsers :: [UserId]
 allUsers = [Self, user1, user2, user3]
@@ -73,10 +80,10 @@ createDepositScript (DepositTestInput ds) =
   mapM_ (\(user, coin, amt) -> userAct user $ DepositAct amt coin) ds
 
 noErrorsProp :: App st act -> Bool
-noErrorsProp app = null (app'log app)
+noErrorsProp app = null (app.app'log)
 
 someErrorsProp :: App st act -> Bool
-someErrorsProp app = not (null (app'log app))
+someErrorsProp app = not (null (app.app'log))
 
 hasWallet :: App st act -> UserId -> BchWallet -> Bool
 hasWallet app uid wal = lookupAppWallet uid app == Just wal
@@ -84,7 +91,7 @@ hasWallet app uid wal = lookupAppWallet uid app == Just wal
 checkWalletsProp :: (Show act, Show st) => [(UserId, BchWallet)] -> App st act -> Bool
 checkWalletsProp wals app = all (uncurry $ hasWallet app) wals
 
--- Map maniplation helper functions
+-- Map manipulation helper functions
 walletListToNestedMap :: [(UserId, BchWallet)] -> Map UserId (Map Coin Integer)
 walletListToNestedMap wals =
   addNestedMaps $ map (\(user, BchWallet wal) -> Map.singleton user wal) wals

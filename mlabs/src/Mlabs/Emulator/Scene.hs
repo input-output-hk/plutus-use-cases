@@ -1,3 +1,13 @@
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 -- | Set of balances for tests
 module Mlabs.Emulator.Scene(
     Scene(..)
@@ -12,24 +22,24 @@ import Prelude
 
 import Control.Applicative (Alternative(..))
 
-import Data.Map (Map)
+import Data.Map qualified as M
+import Data.List qualified as L
+import Plutus.Contract.Test hiding (tx)
 import Plutus.V1.Ledger.Address (Address)
 import Plutus.V1.Ledger.Value (Value)
-import Plutus.Contract.Test hiding (tx)
+import Plutus.V1.Ledger.Value qualified as Value
+
 import Mlabs.Lending.Logic.Types (Coin)
-import qualified Plutus.V1.Ledger.Value as Value
-import qualified Data.Map as M
-import qualified Data.List as L
 
 -- | Scene is users with balances and value that is owned by application script.
 -- It can be built with Monoid instance from parts with handy functions:
 --
--- owns, apOwns, appAddress
+-- 'owns', 'apOwns', 'appAddress'
 --
 -- With monoid instance we can specify only differences between test stages
 -- and then add them app with @<>@ to the initial state of the scene.
 data Scene = Scene
-  { scene'users      :: Map Wallet Value   -- ^ user balances
+  { scene'users      :: M.Map Wallet Value   -- ^ user balances
   , scene'appValue   :: Value              -- ^ application script balance
   , scene'appAddress :: Maybe Address      -- ^ address of the app
   }
@@ -53,7 +63,7 @@ appOwns v = Scene { scene'users = mempty, scene'appValue = coinDiff v, scene'app
 appAddress :: Address -> Scene
 appAddress addr = Scene { scene'users = mempty, scene'appValue = mempty, scene'appAddress = Just addr }
 
--- | Truns scene to plutus checks. Every user ownership turns into walletFundsChange check.
+-- | Turns scene to plutus checks. Every user ownership turns into 'walletFundsChange' check.
 checkScene :: Scene -> TracePredicate
 checkScene Scene{..} = withAddressCheck $
   (concatPredicates $ fmap (uncurry walletFundsChange) $ M.toList scene'users)

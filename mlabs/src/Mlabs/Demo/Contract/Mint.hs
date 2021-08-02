@@ -2,7 +2,10 @@
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MonoLocalBinds        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
@@ -14,6 +17,8 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 
@@ -28,26 +33,24 @@ module Mlabs.Demo.Contract.Mint
       
 import PlutusTx.Prelude hiding (Monoid(..), Semigroup(..), null)
 
-import Plutus.Contract as Contract
-import qualified Ledger as Ledger
-import qualified Ledger.Ada as Ada
-import qualified Ledger.Constraints as Constraints
-import Ledger.Contexts
-import Ledger.Scripts
-import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (CurrencySymbol, TokenName)
-import qualified Ledger.Value as Value
-import qualified PlutusTx as PlutusTx
-
-import Control.Monad
+import Control.Monad (void)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Text hiding (all, filter, foldr)
-import Data.Void
+import Data.Text (Text)
 import GHC.Generics (Generic)
+import Ledger qualified
+import Ledger.Ada qualified as Ada
+import Ledger.Constraints qualified as Constraints
+import Ledger.Contexts (scriptContextTxInfo, ScriptContext, TxInfo, txInfoForge, txInfoOutputs, TxOut, txOutAddress, txOutValue)
+import Ledger.Value (CurrencySymbol, TokenName)
+import Ledger.Value qualified as Value
+import Ledger.Scripts (MintingPolicy, Datum(Datum), mkMintingPolicyScript)
+import Ledger.Typed.Scripts qualified as Scripts
+import Plutus.Contract as Contract
+import PlutusTx qualified
 import Prelude (Semigroup(..))
 import Schema (ToSchema)
-
-import Mlabs.Demo.Contract.Burn
+import Data.Void (Void)
+import Mlabs.Demo.Contract.Burn (burnScrAddress, burnValHash)
 
 ------------------------------------------------------------------------------
 -- On-chain code.
@@ -55,8 +58,8 @@ import Mlabs.Demo.Contract.Burn
 {-# INLINABLE mkPolicy #-}
 -- | A monetary policy that mints arbitrary tokens for an equal amount of Ada.
 -- For simplicity, the Ada are sent to a burn address.
-mkPolicy :: Ledger.Address -> ScriptContext -> Bool
-mkPolicy burnAddr ctx =
+mkPolicy :: Ledger.Address -> () -> ScriptContext -> Bool
+mkPolicy burnAddr _ ctx =
   traceIfFalse "Insufficient Ada paid" isPaid
     && traceIfFalse "Forged amount is invalid" isForgeValid
  where
@@ -87,9 +90,9 @@ mkPolicy burnAddr ctx =
     where isValid (_, _, amt) = amt > 0
 
 
-curPolicy :: MonetaryPolicy
-curPolicy = mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . mkPolicy ||])
+curPolicy :: MintingPolicy
+curPolicy = mkMintingPolicyScript $
+  $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . mkPolicy ||])
     `PlutusTx.applyCode` PlutusTx.liftCode burnScrAddress
 
 curSymbol :: CurrencySymbol
@@ -109,24 +112,23 @@ data MintParams = MintParams
   deriving (Generic, ToJSON, FromJSON, ToSchema)
 
 type MintSchema = 
-  BlockchainActions
-    .\/ Endpoint "mint" MintParams
+  Endpoint "mint" MintParams
 
 -- | Generates tokens with the specified name/amount and burns an equal amount of Ada.
 mintContract :: MintParams -> Contract w MintSchema Text ()
 mintContract mp = do
   let
-    tn       = mpTokenName mp
-    amt      = mpAmount mp
+    tn       = mp.mpTokenName
+    amt      = mp.mpAmount
     payVal   = Ada.lovelaceValueOf $ amt * tokenToLovelaceXR
     forgeVal = Value.singleton curSymbol tn amt
-    lookups  = Constraints.monetaryPolicy curPolicy
+    lookups  = Constraints.mintingPolicy curPolicy
     tx =
       Constraints.mustPayToOtherScript
           burnValHash
           (Datum $ PlutusTx.toData ())
           payVal
-        <> Constraints.mustForgeValue forgeVal
+        <> Constraints.mustMintValue forgeVal
   ledgerTx <- submitTxConstraintsWith @Void lookups tx
   void $ awaitTxConfirmed $ Ledger.txId ledgerTx
 

@@ -1,3 +1,13 @@
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 -- | Helper for testing logic of lending pool
 module Mlabs.Emulator.Script(
     Script
@@ -8,21 +18,18 @@ module Mlabs.Emulator.Script(
 
 import Prelude (Semigroup(..), Monoid(..), Applicative(..))
 
-import Control.Monad.State.Strict
-
-import Data.Foldable
-import Data.Sequence (Seq)
+import Control.Monad.State.Strict qualified as Strict
+import Data.Foldable ( Foldable(toList) )
 import Data.Monoid (Sum(..))
-import PlutusTx.Prelude hiding (Monoid(..), Semigroup(..), Functor, Applicative, toList)
-
-import qualified Data.Sequence as Seq
+import Data.Sequence as Seq ( Seq, empty, singleton )
+import PlutusTx.Prelude ( Integer, (.), ($) )
 
 -- | Collects user actions and allocates timestamps
 type Script act = ScriptM act ()
 
 -- | Auto-allocation of timestamps, monadic interface for collection of actions
-newtype ScriptM act a = Script (State (St act) a)
-  deriving newtype (Functor, Applicative, Monad, MonadState (St act))
+newtype ScriptM act a = Script (Strict.State (St act) a)
+  deriving newtype (Strict.Functor, Applicative, Strict.Monad, Strict.MonadState (St act))
 
 -- | Script accumulator state.
 data St act = St
@@ -39,12 +46,12 @@ instance Monoid (St a) where
 -- | Extract list of acts from the script
 runScript :: Script act-> [act]
 runScript (Script actions) =
-  toList $ st'acts $ execState actions (St Seq.empty 0)
+  toList $ st'acts $ Strict.execState actions (St empty 0)
 
 getCurrentTime :: ScriptM act Integer
-getCurrentTime = gets (getSum . st'time)
+getCurrentTime = Strict.gets (getSum . st'time)
 
 putAct :: act -> Script act
 putAct act =
-  modify' (<> St (Seq.singleton act) (Sum 1))
+  Strict.modify' (<> St (singleton act) (Sum 1))
 

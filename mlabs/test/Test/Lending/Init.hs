@@ -1,3 +1,4 @@
+{-# LANGUAGE NumericUnderscores #-}
 -- | Init blockchain state for tests
 module Test.Lending.Init(
     checkOptions
@@ -15,25 +16,24 @@ module Test.Lending.Init(
 
 import Prelude
 
-import Control.Lens
-
+import Control.Lens ((&), (.~))
+import qualified Data.Map as M
+import Plutus.Contract.Test (CheckOptions, defaultCheckOptions, emulatorConfig, walletPubKey, Wallet(..))
+import Plutus.Trace.Emulator (EmulatorTrace, initialChainState)
 import Plutus.V1.Ledger.Value (Value, TokenName)
 import qualified Plutus.V1.Ledger.Ada as Ada
-import qualified Plutus.V1.Ledger.Value as Value
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Plutus.V1.Ledger.Contexts (pubKeyHash)
-import qualified Data.Map as M
+import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import qualified Plutus.V1.Ledger.Value as Value
 
-import Plutus.Contract.Test hiding (tx)
-import qualified Plutus.Trace.Emulator as Trace
-
-import Mlabs.Lending.Logic.Types (LendexId(..), Coin, UserAct(..), UserId(..))
-import qualified Mlabs.Lending.Logic.App as L
 import qualified Mlabs.Lending.Contract.Emulator.Client as L
-import qualified Mlabs.Lending.Contract.Forge as Forge
+import qualified Mlabs.Lending.Logic.App as L
+import Mlabs.Lending.Contract.Forge (currencySymbol)
+import Mlabs.Lending.Logic.Types (LendexId(..), Coin, UserAct(..), UserId(..))
+
 
 checkOptions :: CheckOptions
-checkOptions = defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution
+checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
 
 -- | Wallets that are used for testing.
 wAdmin, w1, w2, w3 :: Wallet
@@ -53,7 +53,7 @@ lendexId :: LendexId
 lendexId = LendexId "MLabs lending platform"
 
 -- | Showrtcuts for user actions
-userAct1, userAct2, userAct3 :: UserAct -> Trace.EmulatorTrace ()
+userAct1, userAct2, userAct3 :: UserAct -> EmulatorTrace ()
 userAct1 = L.callUserAct lendexId w1
 userAct2 = L.callUserAct lendexId w2
 userAct3 = L.callUserAct lendexId w3
@@ -76,7 +76,7 @@ adaCoin = Value.AssetClass (Ada.adaSymbol, Ada.adaToken)
 
 -- | Convert aToken to aCoin
 fromToken :: TokenName -> Coin
-fromToken aToken = Value.AssetClass (Forge.currencySymbol lendexId, aToken)
+fromToken aToken = Value.AssetClass (currencySymbol lendexId, aToken)
 
 -- | aCoins that correspond to real coins
 aCoin1, aCoin2, aCoin3 :: Coin
@@ -87,10 +87,10 @@ aCoin3 = fromToken aToken3
 -- | Initial distribution of wallets for testing
 initialDistribution :: M.Map Wallet Value
 initialDistribution = M.fromList
-  [ (wAdmin, val 2000)
-  , (w1, val 1000 <> v1 100)
-  , (w2, val 1000 <> v2 100)
-  , (w3, val 1000 <> v3 100)
+  [ (wAdmin, val 2000_000_000)
+  , (w1, val 1000_000_000 <> v1 100)
+  , (w2, val 1000_000_000 <> v2 100)
+  , (w3, val 1000_000_000 <> v3 100)
   ]
   where
     val x = Value.singleton Ada.adaSymbol Ada.adaToken x

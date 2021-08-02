@@ -6,6 +6,17 @@
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 -- | Types for lending app
 --
 -- inspired by aave spec. See
@@ -31,6 +42,7 @@ module Mlabs.Lending.Logic.Types(
   , initLendingPool
   , Act(..)
   , UserAct(..)
+  , StartParams(..)
   , HealthReport
   , BadBorrow(..)
   , PriceAct(..)
@@ -39,26 +51,28 @@ module Mlabs.Lending.Logic.Types(
   , toLendingToken
   , fromLendingToken
   , fromAToken
+  , QueryRes(..)
 ) where
 
-import Data.Aeson (FromJSON, ToJSON)
-
-import qualified Prelude as Hask
-import qualified PlutusTx as PlutusTx
 import PlutusTx.Prelude hiding ((%))
-import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..))
+
+import Data.Aeson (FromJSON, ToJSON)
+import GHC.Generics ( Generic )
+import Playground.Contract (ToSchema)
+import Plutus.V1.Ledger.Value (AssetClass(..), TokenName(..), CurrencySymbol(..), Value)
+import Plutus.V1.Ledger.Crypto (PubKeyHash)
+import Plutus.V1.Ledger.Tx (Address)
+import qualified PlutusTx
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as M
-import Playground.Contract (ToSchema)
-import GHC.Generics
+import qualified Prelude as Hask ( Show, Eq )
 
-import Mlabs.Emulator.Types
-import Mlabs.Data.Ray (Ray, (%))
-import qualified Mlabs.Data.Ray as R
+import Mlabs.Emulator.Types ( adaCoin, Coin, UserId(..) )
+import qualified PlutusTx.Ratio as R
 
 -- | Unique identifier of the lending pool state.
 newtype LendexId = LendexId ByteString
-  deriving stock (Show, Generic)
+  deriving stock (Hask.Show, Generic)
   deriving newtype (Eq)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -72,7 +86,7 @@ data LendingPool = LendingPool
   , lp'admins         :: ![UserId]               -- ^ we accept govern acts only for those users
   , lp'trustedOracles :: ![UserId]               -- ^ we accept price changes only for those users
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Reserve of give coin in the pool.
@@ -80,15 +94,24 @@ data LendingPool = LendingPool
 data Reserve = Reserve
   { reserve'wallet               :: !Wallet     -- ^ total amounts of coins deposited to reserve
   , reserve'rate                 :: !CoinRate   -- ^ ratio of reserve's coin to base currency
-  , reserve'liquidationThreshold :: !Ray        -- ^ ratio at which liquidation of collaterals can happen for this coin
-  , reserve'liquidationBonus     :: !Ray        -- ^ ratio of bonus for liquidation of the borrow in collateral of this asset
+  , reserve'liquidationThreshold :: !Rational   -- ^ ratio at which liquidation of collaterals can happen for this coin
+  , reserve'liquidationBonus     :: !Rational   -- ^ ratio of bonus for liquidation of the borrow in collateral of this asset
   , reserve'aToken               :: !TokenName  -- ^ aToken corresponding to the coin of the reserve
   , reserve'interest             :: !ReserveInterest -- ^ reserve liquidity params
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
-type HealthReport = Map BadBorrow Ray
+data StartParams = StartParams
+  { sp'coins     :: [CoinCfg]       -- ^ supported coins with ratios to ADA
+  , sp'initValue :: Value           -- ^ init value deposited to the lending app
+  , sp'admins    :: [PubKeyHash]    -- ^ admins
+  , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+
+type HealthReport = Map BadBorrow Rational
 
 -- | Borrow that don't has enough collateral.
 -- It has health check ration below one.
@@ -96,7 +119,7 @@ data BadBorrow = BadBorrow
   { badBorrow'userId :: !UserId   -- ^ user identifier
   , badBorrow'asset  :: !Coin     -- ^ asset of the borrow
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
 instance Eq BadBorrow where
@@ -105,49 +128,49 @@ instance Eq BadBorrow where
 
 -- | Price of the given currency to Ada.
 data CoinRate = CoinRate
-  { coinRate'value          :: !Ray      -- ^ ratio to ada
+  { coinRate'value          :: !Rational -- ^ ratio to ada
   , coinRate'lastUpdateTime :: !Integer  -- ^ last time price was updated
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Parameters for calculation of interest rates.
 data ReserveInterest = ReserveInterest
   { ri'interestModel      :: !InterestModel
-  , ri'liquidityRate      :: !Ray
-  , ri'liquidityIndex     :: !Ray
-  , ri'normalisedIncome   :: !Ray
+  , ri'liquidityRate      :: !Rational
+  , ri'liquidityIndex     :: !Rational
+  , ri'normalisedIncome   :: !Rational
   , ri'lastUpdateTime     :: !Integer
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 data InterestModel = InterestModel
-  { im'optimalUtilisation  :: !Ray
-  , im'slope1              :: !Ray
-  , im'slope2              :: !Ray
-  , im'base                :: !Ray
+  { im'optimalUtilisation  :: !Rational
+  , im'slope1              :: !Rational
+  , im'slope2              :: !Rational
+  , im'base                :: !Rational
   }
-  deriving (Show, Generic, Hask.Eq)
+  deriving (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 defaultInterestModel :: InterestModel
 defaultInterestModel = InterestModel
   { im'base   = R.fromInteger 0
-  , im'slope1 = 1 % 5
+  , im'slope1 = 1 R.% 5
   , im'slope2 = R.fromInteger 4
-  , im'optimalUtilisation = 8 % 10
+  , im'optimalUtilisation = 8 R.% 10
   }
 
 -- | Coin configuration
 data CoinCfg = CoinCfg
   { coinCfg'coin             :: Coin
-  , coinCfg'rate             :: Ray
+  , coinCfg'rate             :: Rational
   , coinCfg'aToken           :: TokenName
   , coinCfg'interestModel    :: InterestModel
-  , coinCfg'liquidationBonus :: Ray
+  , coinCfg'liquidationBonus :: Rational
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 {-# INLINABLE initLendingPool #-}
@@ -163,7 +186,7 @@ initLendingPool curSym coinCfgs admins oracles =
     , lp'trustedOracles = oracles
     }
   where
-    reserves = M.fromList $ fmap (\cfg -> (coinCfg'coin cfg, initReserve cfg)) coinCfgs
+    reserves = M.fromList $ fmap (\cfg -> (cfg.coinCfg'coin, initReserve cfg)) coinCfgs
     coinMap  = M.fromList $ fmap (\(CoinCfg coin _ aToken _ _) -> (aToken, coin)) coinCfgs
 
 {-# INLINABLE initReserve #-}
@@ -180,7 +203,7 @@ initReserve CoinCfg{..} = Reserve
                                     { coinRate'value          = coinCfg'rate
                                     , coinRate'lastUpdateTime = 0
                                     }
-  , reserve'liquidationThreshold = 8 % 10
+  , reserve'liquidationThreshold = 8 R.% 10
   , reserve'liquidationBonus     = coinCfg'liquidationBonus
   , reserve'aToken               = coinCfg'aToken
   , reserve'interest             = initInterest coinCfg'interestModel
@@ -200,11 +223,11 @@ data User = User
   , user'lastUpdateTime  :: !Integer
   , user'health          :: !Health
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Health ratio for user per borrow
-type Health = Map Coin Ray
+type Health = Map Coin Rational
 
 {-# INLINABLE defaultUser #-}
 -- | Default user with no wallets.
@@ -222,9 +245,9 @@ data Wallet = Wallet
   { wallet'deposit       :: !Integer   -- ^ amount of deposit
   , wallet'collateral    :: !Integer   -- ^ amount of collateral
   , wallet'borrow        :: !Integer   -- ^ amount of borrow
-  , wallet'scaledBalance :: !Ray       -- ^ scaled balance
+  , wallet'scaledBalance :: !Rational  -- ^ scaled balance
   }
-  deriving (Show, Generic)
+  deriving (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 
@@ -248,7 +271,7 @@ data Act
       { governAct'userd     :: UserId
       , goverAct'act        :: GovernAct
       }                              -- ^ app admin's actions
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Lending pool action
@@ -275,15 +298,19 @@ data UserAct
       , act'rate            :: InterestRate
       }
   -- ^ swap borrow interest rate strategy (stable to variable)
-  | SetUserReserveAsCollateralAct
-      { act'asset           :: Coin       -- ^ which asset to use as collateral or not
-      , act'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
-      , act'portion         :: Ray        -- ^ poriton of deposit/collateral to change status (0, 1)
+  | AddCollateralAct
+      { add'asset           :: Coin
+      , add'amount         :: Integer
       }
-  -- ^ set some portion of deposit as collateral or some portion of collateral as deposit
+  -- ^ transfer amount of Asset from the user's Wallet to the Contract, locked as the user's Collateral
+  | RemoveCollateralAct
+      { remove'asset        :: Coin
+      , remove'amount      :: Integer
+      }
+  -- ^ transfer amount of Asset from user's Collateral locked in Contract to user's Wallet
   | WithdrawAct
-      { act'amount         :: Integer
-      , act'asset          :: Coin
+      { act'asset           :: Coin
+      , act'amount          :: Integer
       }
   -- ^ withdraw funds from deposit
   | FlashLoanAct  -- TODO
@@ -298,19 +325,19 @@ data UserAct
       }
   -- ^ call to liquidate borrows that are unsafe due to health check
   -- (see <https://docs.aave.com/faq/liquidations> for description)
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Acts that can be done by admin users.
 data GovernAct
   = AddReserveAct CoinCfg  -- ^ Adds new reserve
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Updates for the prices of the currencies on the markets
 data PriceAct
-  = SetAssetPriceAct Coin Ray        -- ^ Set asset price
-  deriving stock (Show, Generic, Hask.Eq)
+  = SetAssetPriceAct Coin Rational   -- ^ Set asset price
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 {-# INLINABLE toLendingToken #-}
@@ -327,7 +354,12 @@ fromLendingToken :: LendingPool -> Coin -> Maybe Coin
 fromLendingToken lp (AssetClass (_ ,tn)) = fromAToken lp tn
 
 data InterestRate = StableRate | VariableRate
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
+-- If another query is added, extend this data type 
+data QueryRes = QueryResAllLendexes [(Address, LendingPool)]
+  deriving stock (Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 ---------------------------------------------------------------
@@ -344,6 +376,7 @@ PlutusTx.unstableMakeIsData ''GovernAct
 PlutusTx.unstableMakeIsData ''User
 PlutusTx.unstableMakeIsData ''Wallet
 PlutusTx.unstableMakeIsData ''Reserve
+PlutusTx.unstableMakeIsData ''StartParams
 PlutusTx.unstableMakeIsData ''BadBorrow
 PlutusTx.unstableMakeIsData ''LendingPool
 PlutusTx.unstableMakeIsData ''Act
