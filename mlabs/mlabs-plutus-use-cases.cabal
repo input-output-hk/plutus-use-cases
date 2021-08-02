@@ -93,6 +93,7 @@ library
         Mlabs.Governance.Contract.Api
         Mlabs.Governance.Contract.Server
         Mlabs.Governance.Contract.Validation
+        Mlabs.Governance.Contract.Emulator.Client
         Mlabs.Plutus.Contract
         Mlabs.Plutus.Contract.StateMachine
         Mlabs.Plutus.PAB
