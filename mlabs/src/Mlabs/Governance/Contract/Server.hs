@@ -50,7 +50,18 @@ deposit csym (Api.Deposit amnt) = do
   Contract.logInfo @String $ printf "deposited %s GOV tokens" (show amnt)
 
 withdraw :: CurrencySymbol -> Api.Withdraw -> GovernanceContract ()
-withdraw = undefined
+withdraw csym (Api.Withdraw amnt) = do
+  pkh   <- pubKeyHash <$> Contract.ownPubKey
+  let tx = sconcat [
+          Constraints.mustPayToTheScript () $ Validation.xgovValueOf csym amnt -- here () is the datum type, for now
+        , Constraints.mustPayToPubKey pkh   $ Validation.govValueOf csym amnt
+        ]
+      lookups = sconcat [
+              Constraints.otherScript    (Validation.scrValidator csym)
+            ]
+  ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
+  void $ Contract.awaitTxConfirmed $ txId ledgerTx
+  Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show amnt)
 
 provideRewards :: CurrencySymbol -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards = undefined
