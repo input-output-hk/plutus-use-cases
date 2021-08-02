@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedLists #-}
+
 -- | Server for governance application
 module Mlabs.Governance.Contract.Server (
     GovernanceContract
@@ -9,7 +11,7 @@ import PlutusTx.Prelude
 import Data.Text (Text)
 import Text.Printf (printf)
 import Control.Monad (forever, guard, void)
-import Data.Semigroup (Last(..))
+import Data.Semigroup (Last(..), sconcat)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Tx (txId)
@@ -35,8 +37,15 @@ governanceEndpoints csym = forever $ selects
 
 deposit :: CurrencySymbol -> Api.Deposit -> GovernanceContract ()
 deposit csym (Api.Deposit amnt) = do
-  let tx = Constraints.mustPayToTheScript () $ Validation.govValueOf csym amnt -- here () is the datum type, for now
-  ledgerTx <- Contract.submitTxConstraints (Validation.inst csym) tx
+  let tx = sconcat [
+          Constraints.mustForgeValue        $ Validation.xgovValueOf csym amnt
+        , Constraints.mustPayToTheScript () $ Validation.govValueOf csym amnt -- here () is the datum type, for now
+        ]
+      lookups = sconcat [
+              Constraints.monetaryPolicy (Validation.xGovMintingPolicy csym)
+            , Constraints.otherScript    (Validation.scrValidator csym)
+            ]
+  ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "deposited %s GOV tokens" (show amnt)
 
