@@ -2,6 +2,14 @@
 
 --------------------------------------------------------------------------------
 
+## Status of Main
+
+[![Build](https://github.com/mlabs-haskell/plutus-use-cases/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/mlabs-haskell/plutus-use-cases/actions/workflows/build.yml)
+
+[![Lint](https://github.com/mlabs-haskell/plutus-use-cases/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/mlabs-haskell/plutus-use-cases/actions/workflows/lint.yml)
+
+[![Formatting](https://github.com/mlabs-haskell/plutus-use-cases/actions/workflows/formatting.yml/badge.svg?branch=main)](https://github.com/mlabs-haskell/plutus-use-cases/actions/workflows/formatting.yml)
+
 ## Contents
 
 - [MLabs: Plutus Use Cases](#mlabs-plutus-use-cases)
