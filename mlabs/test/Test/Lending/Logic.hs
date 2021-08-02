@@ -14,7 +14,7 @@ import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase)
 
-import qualified PlutusTx.Ratio as R
+import qualified Mlabs.Data.Ray as R
 import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
 import Mlabs.Emulator.Blockchain (BchWallet(..))
 import Mlabs.Lending.Logic.App (Script, AppConfig(AppConfig), LendingApp, runLendingApp, toCoin, userAct, priceAct) 
@@ -26,7 +26,10 @@ import Mlabs.Lending.Logic.Types
       InterestRate(StableRate),
       Coin,
       PriceAct(SetAssetPriceAct),
-      UserAct(..),
+      UserAct(LiquidationCallAct, DepositAct,
+              SetUserReserveAsCollateralAct, BorrowAct, WithdrawAct, RepayAct,
+              act'useAsCollateral, act'portion, act'asset, act'amount, act'rate,
+              act'collateral, act'debt, act'debtToCover, act'receiveAToken),
       UserId(..),
       defaultInterestModel )
 
@@ -111,15 +114,14 @@ depositScript = do
 borrowScript :: Script
 borrowScript = do
   depositScript
-  userAct user1 $ AddCollateralAct
-        { add'asset           = coin1
-        , add'amount         = 50 
-        }
+  userAct user1 $ SetUserReserveAsCollateralAct
+        { act'asset           = coin1
+        , act'useAsCollateral = True
+        , act'portion         = R.fromInteger 1 }
   userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 30
-        , act'rate            = StableRate 
-        }
+        , act'rate            = StableRate }
 
 -- | Try to borrow without setting up deposit as collateral.
 borrowNoCollateralScript :: Script
@@ -135,15 +137,14 @@ borrowNoCollateralScript = do
 borrowNotEnoughCollateralScript :: Script
 borrowNotEnoughCollateralScript = do
   depositScript
-  userAct user1 $ AddCollateralAct
-        { add'asset           = coin1
-        , add'amount         = 50 
-        }
+  userAct user1 $ SetUserReserveAsCollateralAct
+        { act'asset           = coin1
+        , act'useAsCollateral = True
+        , act'portion         = R.fromInteger 1 }
   userAct user1 $ BorrowAct
         { act'asset           = coin2
         , act'amount          = 60
-        , act'rate            = StableRate 
-        }
+        , act'rate            = StableRate }
 
 -- | User1 deposits 50 out of 100 and gets back 25.
 -- So we check that user has 75 coins and 25 aCoins

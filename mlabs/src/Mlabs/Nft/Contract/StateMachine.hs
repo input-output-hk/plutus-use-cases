@@ -20,27 +20,26 @@ module Mlabs.Nft.Contract.StateMachine(
   , runInitialiseWith
 ) where
 
-import           PlutusTx.Prelude                hiding (Applicative (..), check, Semigroup(..), Monoid(..))
-import qualified Prelude                         as Hask ( String )
+import           PlutusTx.Prelude             hiding (Applicative (..), check, Semigroup(..), Monoid(..))
 
-import           Control.Monad.State.Strict      (runStateT)
-import           Data.Functor                    (void)
-import           Data.String                     (fromString)
-import           Ledger                          (Address, MintingPolicy, scriptHashAddress, ValidatorHash)
-import qualified Ledger.Typed.Scripts.Validators as Validators
-import           Ledger.Constraints              (mustBeSignedBy, ScriptLookups, TxConstraints)
-import           Plutus.Contract                 (Contract)
-import qualified Plutus.Contract.StateMachine    as SM
-import           Plutus.V1.Ledger.Value          (AssetClass(..), assetClassValue, CurrencySymbol, Value)
+import           Control.Monad.State.Strict   (runStateT)
+import           Data.Functor                 (void)
+import           Data.String                  (fromString)
+import           Ledger                       (Address, MonetaryPolicy, scriptHashAddress, ValidatorHash)
+import qualified Ledger.Typed.Scripts         as Scripts
+import           Ledger.Constraints           (mustBeSignedBy, ScriptLookups, TxConstraints)
+import           Plutus.Contract              (Contract, HasUtxoAt, HasOwnPubKey, HasTxConfirmation, HasWriteTx)
+import qualified Plutus.Contract.StateMachine as SM
+import           Plutus.V1.Ledger.Value       (AssetClass(..), assetClassValue, CurrencySymbol, Value)
 import qualified PlutusTx
-import qualified PlutusTx.Prelude                as Plutus
+import qualified PlutusTx.Prelude             as Plutus
 
-import Mlabs.Emulator.Blockchain                 (toConstraints, updateRespValue)
-import Mlabs.Emulator.Types                      (UserId(..))
-import Mlabs.Nft.Logic.React                     (react)
-import Mlabs.Nft.Logic.Types                     (Act(UserAct), Nft(nft'id), NftId)
-import qualified Mlabs.Nft.Contract.Forge        as Forge
-import qualified Plutus.Contract.StateMachine    as SM
+import Mlabs.Emulator.Blockchain                    (toConstraints, updateRespValue)
+import Mlabs.Emulator.Types                         (UserId(..))
+import Mlabs.Nft.Logic.React                        (react)
+import Mlabs.Nft.Logic.Types                        (Act(UserAct), Nft(nft'id), NftId)
+import qualified Mlabs.Nft.Contract.Forge           as Forge
+import qualified Mlabs.Plutus.Contract.StateMachine as SM
 
 
 type NftMachine = SM.StateMachine Nft Act
@@ -49,7 +48,7 @@ type NftMachineClient = SM.StateMachineClient Nft Act
 -- | NFT errors
 type NftError = SM.SMContractError
 
-toNftError :: Hask.String -> NftError
+toNftError :: String -> NftError
 toNftError = SM.SMCContractError . fromString
 
 {-# INLINABLE machine #-}
@@ -61,7 +60,7 @@ machine nftId = (SM.mkStateMachine Nothing (transition nftId) isFinal)
 
 {-# INLINABLE mkValidator #-}
 -- | State machine validator
-mkValidator :: NftId -> Validators.ValidatorType NftMachine
+mkValidator :: NftId -> Scripts.ValidatorType NftMachine
 mkValidator nftId = SM.mkValidator (machine nftId)
 
 -- | State machine client
@@ -70,21 +69,21 @@ client nftId = SM.mkStateMachineClient $ SM.StateMachineInstance (machine nftId)
 
 -- | NFT validator hash
 nftValidatorHash :: NftId -> ValidatorHash
-nftValidatorHash nftId = Validators.validatorHash (scriptInstance nftId)
+nftValidatorHash nftId = Scripts.scriptHash (scriptInstance nftId)
 
 -- | NFT script address
 nftAddress :: NftId -> Address
 nftAddress nftId = scriptHashAddress (nftValidatorHash nftId)
 
 -- | NFT script instance
-scriptInstance :: NftId -> Validators.TypedValidator NftMachine
-scriptInstance nftId = Validators.mkTypedValidator @NftMachine
+scriptInstance :: NftId -> Scripts.ScriptInstance NftMachine
+scriptInstance nftId = Scripts.validator @NftMachine
   ($$(PlutusTx.compile [|| mkValidator ||])
     `PlutusTx.applyCode` (PlutusTx.liftCode nftId)
   )
   $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Validators.wrapValidator
+    wrap = Scripts.wrapValidator
 
 {-# INLINABLE transition #-}
 -- | State transitions for NFT
@@ -115,7 +114,7 @@ transition nftId SM.State{stateData=oldData, stateValue=oldValue} input
 -- NFT forge policy
 
 -- | NFT monetary policy
-nftPolicy :: NftId -> MintingPolicy
+nftPolicy :: NftId -> MonetaryPolicy
 nftPolicy nid = Forge.currencyPolicy (nftAddress nid)  nid
 
 -- | NFT currency symbol
@@ -133,20 +132,30 @@ nftValue nid = assetClassValue (nftCoin nid) 1
 ------------------------------------------------------------------------
 
 runStepWith :: forall w e schema .
-  SM.AsSMContractError e
+  ( SM.AsSMContractError e
+  , HasUtxoAt schema
+  , HasWriteTx schema
+  , HasOwnPubKey schema
+  , HasTxConfirmation schema
+  )
   => NftId
   -> Act
   -> ScriptLookups NftMachine
-  -> TxConstraints (Validators.RedeemerType NftMachine) (Validators.DatumType NftMachine)
+  -> TxConstraints (Scripts.RedeemerType NftMachine) (Scripts.DatumType NftMachine)
   -> Contract w schema e ()
-runStepWith nid act lookups constraints = void $ SM.runStepWith lookups constraints (client nid) act
+runStepWith nid act lookups constraints = void $ SM.runStepWith (client nid) act lookups constraints
 
 runInitialiseWith ::
-  SM.AsSMContractError e
+  ( SM.AsSMContractError e
+  , HasUtxoAt schema
+  , HasWriteTx schema
+  , HasOwnPubKey schema
+  , HasTxConfirmation schema
+  )
   => NftId
   -> Nft
   -> Value
   -> ScriptLookups NftMachine
-  -> TxConstraints (Validators.RedeemerType NftMachine) (Validators.DatumType NftMachine)
+  -> TxConstraints (Scripts.RedeemerType NftMachine) (Scripts.DatumType NftMachine)
   -> Contract w schema e ()
-runInitialiseWith nftId nft val lookups tx = void $ SM.runInitialiseWith lookups tx (client nftId) nft val
+runInitialiseWith nftId nft val lookups tx = void $ SM.runInitialiseWith (client nftId) nft val lookups tx

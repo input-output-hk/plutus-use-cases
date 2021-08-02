@@ -62,8 +62,7 @@ import Wallet.Emulator.Wallet qualified as Wallet
 
 import qualified Mlabs.Lending.Contract.Lendex as Lendex
 import qualified Mlabs.Lending.Logic.Types as Lendex
-import Mlabs.Lending.Logic.Types (Coin, UserAct(..), UserId(..), StartParams(..))
-
+import Mlabs.Lending.Logic.Types (Coin, UserAct(..), UserId(..))
 --------------------------------------------------------------------------------
 
 
@@ -121,8 +120,8 @@ handlers =
   Simulator.mkSimulatorHandlers @(Builtin AaveContracts) [] $
     interpret handleLendexContract
 
-startParams :: StartParams
-startParams = StartParams
+startParams :: Lendex.StartParams
+startParams = Lendex.StartParams
   { sp'coins     = [initCoinCfg]
   , sp'initValue =  initValue    -- ^ init value deposited to the lending app
   }

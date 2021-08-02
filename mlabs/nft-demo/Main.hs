@@ -13,7 +13,7 @@ import PlutusTx.Prelude (ByteString)
 import Mlabs.Nft.Logic.Types ( NftId )
 import Mlabs.Nft.Contract qualified as Nft
 import Mlabs.Nft.Contract.Simulator.Handler qualified as Handler
-import PlutusTx.Ratio qualified as R
+import Mlabs.Data.Ray qualified as R
 import Mlabs.Plutus.PAB ( call, printBalance, waitForLast )
 import Mlabs.System.Console.PrettyLogger ( logNewLine )
 import Mlabs.System.Console.Utils ( logAction, logMlabs )

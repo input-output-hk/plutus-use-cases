@@ -17,7 +17,7 @@ module Mlabs.Nft.Logic.State(
 import PlutusTx.Prelude
 
 import Mlabs.Control.Monad.State ( guardError, gets, PlutusState )
-import qualified PlutusTx.Ratio as R
+import qualified Mlabs.Data.Ray as R
 import Mlabs.Lending.Logic.Types (UserId)
 import Mlabs.Nft.Logic.Types (Nft(nft'owner, nft'price, nft'share))
 

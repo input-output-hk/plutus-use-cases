@@ -10,7 +10,6 @@ module Mlabs.Control.Monad.State(
 ) where
 
 import PlutusTx.Prelude
-import Prelude (String)
 
 import Control.Monad.Except ( MonadError(..) )
 import Control.Monad.State.Strict ( StateT(..), gets, MonadState(..) )
