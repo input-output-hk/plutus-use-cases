@@ -6,7 +6,6 @@ module Mlabs.Data.List(
   , mapM_
 ) where
 
-import qualified Prelude as Hask (Monad, seq)
 import PlutusTx.Prelude hiding (take, mapM_)
 
 import Mlabs.Data.Ord (comparing)
@@ -51,7 +50,7 @@ take n
 -- [(1,"Hello"),(2,"world"),(4,"!")]
 sortOn :: Ord b => (a -> b) -> [a] -> [a]
 sortOn f =
-  map snd . sortBy (comparing fst) . map (\x -> let y = f x in y `Hask.seq` (y, x))
+  map snd . sortBy (comparing fst) . map (\x -> let y = f x in y `seq` (y, x))
 
 {-# INLINABLE sortBy #-}
 -- | The 'sortBy' function is the non-overloaded version of 'sort'.
@@ -93,7 +92,7 @@ sortBy cmp = mergeAll . sequences
 
 
 {-# INLINABLE mapM_ #-}
-mapM_ :: Hask.Monad f => (a -> f ()) -> [a] -> f ()
+mapM_ :: Monad f => (a -> f ()) -> [a] -> f ()
 mapM_ f = \case
   []   -> return ()
   a:as -> do

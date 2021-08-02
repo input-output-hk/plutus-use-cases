@@ -59,7 +59,6 @@ module Mlabs.Lending.Logic.State(
 ) where
 
 import PlutusTx.Prelude
-import qualified Prelude as Hask ( Show, String, uncurry )
 
 import Control.Monad.Except (MonadError(throwError))
 import Control.Monad.State.Strict (gets, MonadState(put, get), modify')
@@ -68,7 +67,8 @@ import qualified PlutusTx.AssocMap as M
 import qualified PlutusTx.Numeric as N
 
 import Mlabs.Control.Monad.State (guardError, PlutusState)
-import qualified PlutusTx.Ratio as R
+import Mlabs.Data.Ray (Ray)
+import qualified Mlabs.Data.Ray as R
 import qualified Mlabs.Lending.Logic.InterestRate as IR
 import qualified Mlabs.Lending.Logic.Types as Types
 import Mlabs.Lending.Logic.Types
@@ -86,7 +86,7 @@ import Mlabs.Lending.Logic.Types
       ReserveInterest(ri'normalisedIncome) )
 
 -- | Type for errors
-type Error = Hask.String
+type Error = String
 
 -- | State update of lending pool
 type St = PlutusState LendingPool
@@ -121,7 +121,7 @@ isAdmin :: Types.UserId -> St ()
 isAdmin = checkRole "Is not admin" lp'admins
 
 {-# INLINABLE checkRole #-}
-checkRole :: Hask.String -> (LendingPool -> [Types.UserId]) -> Types.UserId -> St ()
+checkRole :: String -> (LendingPool -> [Types.UserId]) -> Types.UserId -> St ()
 checkRole msg extract uid = do
   users <- gets extract
   guardError msg $ elem uid users
@@ -189,7 +189,7 @@ data Convert = Convert
   { convert'from :: Types.Coin   -- ^ convert from
   , convert'to   :: Types.Coin   -- ^ convert to
   }
-  deriving (Hask.Show)
+  deriving (Show)
 
 {-# INLINABLE reverseConvert #-}
 reverseConvert :: Convert -> Convert
@@ -207,7 +207,7 @@ convertCoin Convert{..} amount =
 {-# INLINABLE weightedTotal #-}
 -- | Weigted total of currencies in base currency
 weightedTotal :: [(Types.Coin, Integer)] -> St Integer
-weightedTotal = fmap sum . mapM (Hask.uncurry toAda)
+weightedTotal = fmap sum . mapM (uncurry toAda)
 
 {-# INLINABLE walletTotal #-}
 -- | Collects cumulative value for given wallet field
@@ -237,7 +237,7 @@ getHealthCheck addToBorrow coin user =
 
 {-# INLINABLE getHealth #-}
 -- | Check borrowing health for the user by given currency
-getHealth :: Integer -> Types.Coin -> User -> St Rational
+getHealth :: Integer -> Types.Coin -> User -> St Ray
 getHealth addToBorrow coin user = do
   col <- getTotalCollateral user
   bor <- fmap (+ addToBorrow) $ getTotalBorrow user
@@ -246,13 +246,13 @@ getHealth addToBorrow coin user = do
 
 {-# INLINABLE getLiquidationThreshold #-}
 -- | Reads liquidation threshold for a give asset.
-getLiquidationThreshold :: Types.Coin -> St Rational
+getLiquidationThreshold :: Types.Coin -> St Ray
 getLiquidationThreshold coin =
   gets (maybe (R.fromInteger 0) reserve'liquidationThreshold . M.lookup coin . lp'reserves)
 
 {-# INLINABLE getLiquidationBonus #-}
 -- | Reads liquidation bonus for a give asset.
-getLiquidationBonus :: Types.Coin -> St Rational
+getLiquidationBonus :: Types.Coin -> St Ray
 getLiquidationBonus coin =
   gets (maybe (R.fromInteger 0) reserve'liquidationBonus . M.lookup coin . lp'reserves)
 
@@ -329,12 +329,12 @@ modifyWallet' uid coin f = modifyUser' uid $ \(User ws time health) -> do
   pure $ User (M.insert coin wal ws) time health
 
 {-# INLINABLE getNormalisedIncome #-}
-getNormalisedIncome :: Types.Coin -> St Rational
+getNormalisedIncome :: Types.Coin -> St Ray
 getNormalisedIncome asset =
   getsReserve asset (ri'normalisedIncome . reserve'interest)
 
 {-# INLINABLE getCumulativeBalance #-}
-getCumulativeBalance :: Types.UserId -> Types.Coin -> St Rational
+getCumulativeBalance :: Types.UserId -> Types.Coin -> St Ray
 getCumulativeBalance uid asset = do
   ni <- getNormalisedIncome asset
   getsWallet uid asset (IR.getCumulativeBalance ni)

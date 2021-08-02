@@ -14,7 +14,7 @@ import Control.Monad (forever)
 import Data.List.Extra (firstJust)
 import qualified Data.Map as M
 import Data.Monoid (Last(..))
-import Ledger.Constraints (mintingPolicy, mustMintValue, mustSpendPubKeyOutput, mustIncludeDatum, ownPubKeyHash)
+import Ledger.Constraints (monetaryPolicy, mustForgeValue, mustIncludeDatum, ownPubKeyHash)
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Address (pubKeyAddress)
 import Plutus.V1.Ledger.Api (Datum)
@@ -56,7 +56,7 @@ userAction nid input = do
   pkh <- pubKeyHash <$> ownPubKey
   act <- getUserAct input
   inputDatum <- findInputStateDatum nid
-  let lookups = mintingPolicy (SM.nftPolicy nid) <>
+  let lookups = monetaryPolicy (SM.nftPolicy nid) <>
                 ownPubKeyHash  pkh
       constraints = mustIncludeDatum inputDatum
   SM.runStepWith nid act lookups constraints
@@ -71,9 +71,8 @@ startNft StartParams{..} = do
     oref : _ -> do
       let nftId   = toNftId oref sp'content
           val     = SM.nftValue nftId
-          lookups = mintingPolicy $ SM.nftPolicy nftId
-          tx      = mustMintValue val 
-                    <> mustSpendPubKeyOutput oref
+          lookups = monetaryPolicy $ SM.nftPolicy nftId
+          tx      = mustForgeValue val
       authorId <- ownUserId
       SM.runInitialiseWith nftId (initNft oref authorId sp'content sp'share sp'price) val lookups tx
       tell $ Last $ Just nftId

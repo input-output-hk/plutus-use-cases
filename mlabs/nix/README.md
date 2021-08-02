@@ -11,16 +11,6 @@ Use nixfmt (provided by the shell) to format the nix sources.
 
 Use `niv` to update / modify nix dependencies.
 
-- to update any of the pinned dependencies: 
-
-```shell 
-niv update
-<dependency_name> -a rev=<dependency_tag> 
-``` 
-
-This will update both the revision, and the sha256 of the said dependency, that
-will then get pulled by haskell-nix.
-
 # Updating plutus
 
 In order to update the plutus revision, a few steps must be taken:
@@ -36,4 +26,3 @@ In order to update the plutus revision, a few steps must be taken:
   `cabal.project` contents after the `*replace here*` separator
 
 Now everything should be updated, good luck fixing compile errors!
-

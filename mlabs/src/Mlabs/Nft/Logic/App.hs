@@ -21,7 +21,6 @@ module Mlabs.Nft.Logic.App(
 ) where
 
 import PlutusTx.Prelude
-import qualified Prelude as Hask ( uncurry )
 
 import qualified Data.Map.Strict as M
 import Playground.Contract (TxOutRef(..))
@@ -30,7 +29,7 @@ import Plutus.V1.Ledger.TxId ( TxId(TxId) )
 
 import Mlabs.Emulator.App (runApp, App(..))
 import Mlabs.Emulator.Blockchain (defaultBchWallet, BchState(BchState), BchWallet(..))
-import qualified PlutusTx.Ratio as R
+import qualified Mlabs.Data.Ray as R
 import qualified Mlabs.Emulator.Script as S
 import Mlabs.Emulator.Types (adaCoin, UserId(..))
 import Mlabs.Nft.Logic.React (react)
@@ -54,7 +53,7 @@ runNftApp cfg acts = runApp react (initApp cfg) acts
 -- | Initialise NFT application.
 initApp :: AppCfg -> NftApp
 initApp AppCfg{..} = App
-  { app'st      = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (1 R.% 10) Nothing
+  { app'st      = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (R.fromRational $ 1 % 10) Nothing
   , app'log     = []
   , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appCfg'users
   }
@@ -70,7 +69,7 @@ defaultAppCfg = AppCfg users dummyOutRef "mona-lisa" (fst $ users !! 0)
     userNames = ["1", "2", "3"]
 
     users = fmap (\userName -> (UserId (PubKeyHash userName), wal (adaCoin, 1000))) userNames
-    wal cs = BchWallet $ Hask.uncurry M.singleton cs
+    wal cs = BchWallet $ uncurry M.singleton cs
 
 -------------------------------------------------------
 -- script endpoints

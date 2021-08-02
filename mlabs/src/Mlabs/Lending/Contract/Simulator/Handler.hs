@@ -13,15 +13,14 @@ import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.IO.Class(MonadIO(liftIO))
 import Data.Aeson (ToJSON, FromJSON)
-import Data.Default (Default (def))
 import Data.Functor (void)
 import Data.Monoid (Last)
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import GHC.Generics (Generic)
-import Plutus.Contract (Contract, EmptySchema)
+import Plutus.Contract (BlockchainActions, Contract, Empty)
 import Plutus.V1.Ledger.Value (CurrencySymbol)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
-import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..))
+import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\))
 import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
 import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg (..))
 import Plutus.PAB.Simulator (Simulation, SimulatorEffectHandlers)
@@ -48,7 +47,7 @@ data LendexContracts
 instance Pretty LendexContracts where
   pretty = viaShow
 
-type InitContract = Contract (Last CurrencySymbol) EmptySchema Server.LendexError ()
+type InitContract = Contract (Last CurrencySymbol) BlockchainActions Server.LendexError ()
 
 handleLendexContracts ::
   ( Member (Error PABError) effs
@@ -60,10 +59,10 @@ handleLendexContracts ::
 handleLendexContracts lendexId initHandler = Builtin.handleBuiltin getSchema getContract
   where
     getSchema = \case
-      Init      -> Builtin.endpointsToSchemas @EmptySchema
-      User      -> Builtin.endpointsToSchemas @Api.UserSchema
-      Oracle    -> Builtin.endpointsToSchemas @Api.OracleSchema
-      Admin     -> Builtin.endpointsToSchemas @Api.AdminSchema
+      Init      -> Builtin.endpointsToSchemas @Empty
+      User      -> Builtin.endpointsToSchemas @(Api.UserSchema   .\\ BlockchainActions)
+      Oracle    -> Builtin.endpointsToSchemas @(Api.OracleSchema .\\ BlockchainActions)
+      Admin     -> Builtin.endpointsToSchemas @(Api.AdminSchema  .\\ BlockchainActions)
     getContract = \case
       Init      -> SomeBuiltin initHandler
       User      -> SomeBuiltin $ Server.userEndpoints lendexId
@@ -72,7 +71,7 @@ handleLendexContracts lendexId initHandler = Builtin.handleBuiltin getSchema get
 
 handlers :: LendexId -> InitContract -> SimulatorEffectHandlers (Builtin LendexContracts)
 handlers lid initContract =
-  Simulator.mkSimulatorHandlers @(Builtin LendexContracts) def []
+  Simulator.mkSimulatorHandlers @(Builtin LendexContracts) []
     $ interpret (handleLendexContracts lid initContract)
 
 -- | Runs simulator for Lendex

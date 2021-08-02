@@ -16,8 +16,7 @@ module Mlabs.Lending.Contract.Api(
   , Borrow(..)
   , Repay(..)
   , SwapBorrowRateModel(..)
-  , AddCollateral(..)
-  , RemoveCollateral(..)
+  , SetUserReserveAsCollateral(..)
   , Withdraw(..)
   , LiquidationCall(..)
   , InterestRateFlag(..)
@@ -25,8 +24,7 @@ module Mlabs.Lending.Contract.Api(
   , fromInterestRateFlag
   -- ** Admin actions
   , AddReserve(..)
-  , StartLendex(..)
-  , QueryAllLendexes(..)
+  , StartParams(..)
   -- ** Price oracle actions
   , SetAssetPrice(..)
   -- ** Action conversions
@@ -37,7 +35,6 @@ module Mlabs.Lending.Contract.Api(
   , UserSchema
   , OracleSchema
   , AdminSchema
-  , QuerySchema
 ) where
 
 
@@ -45,11 +42,12 @@ import PlutusTx.Prelude
 
 import GHC.Generics (Generic)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
-import Plutus.Contract ( type (.\/) )
+import Plutus.Contract ( type (.\/), BlockchainActions )
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (Value)
-import Prelude qualified as Hask (Show, Eq)
+import Prelude qualified as Hask
 
+import Mlabs.Data.Ray (Ray)
 import Mlabs.Lending.Logic.Types qualified as Types
 import Mlabs.Plutus.Contract ( Call, IsEndpoint(..) )
 
@@ -63,7 +61,7 @@ data Deposit = Deposit
   { deposit'amount         :: Integer
   , deposit'asset          :: Types.Coin
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Borrow funds. We have to allocate collateral to be able to borrow
@@ -72,7 +70,7 @@ data Borrow = Borrow
   , borrow'asset          :: Types.Coin
   , borrow'rate           :: InterestRateFlag
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Repay part of the borrow
@@ -81,7 +79,7 @@ data Repay = Repay
   , repay'asset           :: Types.Coin
   , repay'rate            :: InterestRateFlag
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Swap borrow interest rate strategy (stable to variable)
@@ -89,23 +87,16 @@ data SwapBorrowRateModel = SwapBorrowRateModel
   { swapRate'asset        :: Types.Coin
   , swapRate'rate         :: InterestRateFlag
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
--- | Transfer portion of asset from the user's wallet to the contract, locked as the user's Collateral
-data AddCollateral = AddCollateral
-  { addCollateral'asset           :: Types.Coin  -- ^ which Asset to use as collateral
-  , addCollateral'amount         :: Integer      -- ^ amount of Asset to take from Wallet and use as Collateral
+-- | Set some portion of deposit as collateral or some portion of collateral as deposit
+data SetUserReserveAsCollateral = SetUserReserveAsCollateral
+  { setCollateral'asset           :: Types.Coin       -- ^ which asset to use as collateral or not
+  , setCollateral'useAsCollateral :: Bool       -- ^ should we use as collateral (True) or use as deposit (False)
+  , setCollateral'portion         :: Ray        -- ^ portion of deposit/collateral to change status (0, 1)
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
-
--- | Transfer portion of asset from locked user's Collateral to user's wallet
-data RemoveCollateral = RemoveCollateral
-  { removeCollateral'asset           :: Types.Coin  -- ^ which Asset to use as collateral or not
-  , removeCollateral'amount         :: Integer      -- ^ amount of Asset to remove from Collateral and put back to Wallet
-  }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Withdraw funds from deposit
@@ -113,7 +104,7 @@ data Withdraw = Withdraw
   { withdraw'amount         :: Integer
   , withdraw'asset          :: Types.Coin
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | Call to liquidate borrows that are unsafe due to health check
@@ -127,7 +118,7 @@ data LiquidationCall = LiquidationCall
                                                   --   of the purchased collateral. If false, the user receives
                                                   --   the underlying asset directly.
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- deriving stock (Show, Generic, Hask.Eq)
@@ -137,22 +128,23 @@ data LiquidationCall = LiquidationCall
 
 -- | Adds new reserve
 data AddReserve = AddReserve Types.CoinCfg
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
-newtype StartLendex = StartLendex Types.StartParams 
-  deriving newtype (Hask.Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
-
--- query actions
-
-newtype QueryAllLendexes = QueryAllLendexes Types.StartParams
-  deriving newtype (Hask.Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
+data StartParams = StartParams
+  { sp'coins     :: [Types.CoinCfg] -- ^ supported coins with ratios to ADA
+  , sp'initValue :: Value           -- ^ init value deposited to the lending app
+  , sp'admins    :: [PubKeyHash]    -- ^ admins
+  , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- price oracle actions
 
 -- | Updates for the prices of the currencies on the markets
-data SetAssetPrice = SetAssetPrice Types.Coin Rational
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+data SetAssetPrice = SetAssetPrice Types.Coin Ray
+  deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 ----------------------------------------------------------
@@ -160,29 +152,26 @@ data SetAssetPrice = SetAssetPrice Types.Coin Rational
 
 -- | User actions
 type UserSchema =
-  Call Deposit
-  .\/ Call Borrow
-  .\/ Call Repay
-  .\/ Call SwapBorrowRateModel
-  -- .\/ Call SetUserReserveAsCollateral
-  .\/ Call AddCollateral
-  .\/ Call RemoveCollateral
-  .\/ Call Withdraw
-  .\/ Call LiquidationCall
+  BlockchainActions
+    .\/ Call Deposit
+    .\/ Call Borrow
+    .\/ Call Repay
+    .\/ Call SwapBorrowRateModel
+    .\/ Call SetUserReserveAsCollateral
+    .\/ Call Withdraw
+    .\/ Call LiquidationCall
 
 
 -- | Oracle schema
 type OracleSchema =
-  Call SetAssetPrice
+  BlockchainActions
+    .\/ Call SetAssetPrice
 
 -- | Admin schema
 type AdminSchema =
-  Call AddReserve
-  .\/ Call StartLendex
-
--- | Query schema
-type QuerySchema =
-  Call QueryAllLendexes
+  BlockchainActions
+    .\/ Call AddReserve
+    .\/ Call StartParams
 
 ----------------------------------------------------------
 -- proxy types for ToSchema instance
@@ -192,7 +181,7 @@ type QuerySchema =
 -- * 0 is stable rate
 -- * everything else is variable rate
 newtype InterestRateFlag = InterestRateFlag Integer
-  deriving newtype (Hask.Show, Hask.Eq, FromJSON, ToJSON, ToSchema)
+  deriving newtype (Show, Hask.Eq, FromJSON, ToJSON, ToSchema)
 
 fromInterestRateFlag :: InterestRateFlag -> Types.InterestRate
 fromInterestRateFlag (InterestRateFlag n)
@@ -222,9 +211,8 @@ instance IsUserAct Deposit                    where { toUserAct Deposit{..} = Ty
 instance IsUserAct Borrow                     where { toUserAct Borrow{..} = Types.BorrowAct borrow'amount borrow'asset (fromInterestRateFlag borrow'rate) }
 instance IsUserAct Repay                      where { toUserAct Repay{..} = Types.RepayAct repay'amount repay'asset (fromInterestRateFlag repay'rate) }
 instance IsUserAct SwapBorrowRateModel        where { toUserAct SwapBorrowRateModel{..} = Types.SwapBorrowRateModelAct swapRate'asset (fromInterestRateFlag swapRate'rate) }
-instance IsUserAct AddCollateral              where { toUserAct AddCollateral{..} = Types.AddCollateralAct addCollateral'asset addCollateral'amount }
-instance IsUserAct RemoveCollateral           where { toUserAct RemoveCollateral{..} = Types.RemoveCollateralAct removeCollateral'asset removeCollateral'amount }
-instance IsUserAct Withdraw                   where { toUserAct Withdraw{..} = Types.WithdrawAct withdraw'asset withdraw'amount }
+instance IsUserAct SetUserReserveAsCollateral where { toUserAct SetUserReserveAsCollateral{..} = Types.SetUserReserveAsCollateralAct setCollateral'asset setCollateral'useAsCollateral setCollateral'portion }
+instance IsUserAct Withdraw                   where { toUserAct Withdraw{..} = Types.WithdrawAct withdraw'amount withdraw'asset }
 instance IsUserAct LiquidationCall            where { toUserAct LiquidationCall{..} = Types.LiquidationCallAct liquidationCall'collateral (Types.BadBorrow (Types.UserId liquidationCall'debtUser) liquidationCall'debtAsset) liquidationCall'debtToCover liquidationCall'receiveAToken }
 
 -- price acts
@@ -249,11 +237,8 @@ instance IsEndpoint Repay where
 instance IsEndpoint SwapBorrowRateModel where
   type EndpointSymbol SwapBorrowRateModel = "swap-borrow-rate-model"
 
-instance IsEndpoint AddCollateral where
-  type EndpointSymbol AddCollateral = "add-collateral"
-
-instance IsEndpoint RemoveCollateral where
-  type EndpointSymbol RemoveCollateral = "remove-collateral"
+instance IsEndpoint SetUserReserveAsCollateral where
+  type EndpointSymbol SetUserReserveAsCollateral = "set-user-reserve-as-collateral"
 
 instance IsEndpoint Withdraw where
   type EndpointSymbol Withdraw = "withdraw"
@@ -267,8 +252,6 @@ instance IsEndpoint SetAssetPrice where
 instance IsEndpoint AddReserve where
   type EndpointSymbol AddReserve = "add-reserve"
 
-instance IsEndpoint StartLendex where
-  type EndpointSymbol StartLendex = "start-lendex"
+instance IsEndpoint StartParams where
+  type EndpointSymbol StartParams = "start-lendex"
 
-instance IsEndpoint QueryAllLendexes where
-  type EndpointSymbol QueryAllLendexes = "query-all-lendexes"

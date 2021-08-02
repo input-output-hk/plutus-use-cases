@@ -19,11 +19,10 @@ import Plutus.V1.Ledger.Tx (txId)
 import Plutus.V1.Ledger.Value qualified as Value
 import Wallet.Emulator.Wallet qualified as Wallet
 
-import PlutusTx.Ratio qualified as R
+import Mlabs.Data.Ray qualified as R
 import Mlabs.Plutus.PAB ( call, printBalance, waitForLast )
 import Mlabs.Lending.Contract qualified as Contract
 import Mlabs.Lending.Contract.Simulator.Handler qualified as Handler
-import Mlabs.Lending.Contract.Api (StartLendex(..))
 import Mlabs.Lending.Logic.Types hiding (Wallet(..), User(..))
 import Mlabs.System.Console.PrettyLogger ( logNewLine )
 import Mlabs.System.Console.Utils ( logAction, logMlabs )
@@ -40,7 +39,7 @@ main = Handler.runSimulator lendexId initContract $ do
   let [user1, user2, user3] = users
       [coin1, coin2, coin3] = fmap (toCoin cur) [token1, token2, token3]
 
-  call admin . StartLendex $ startParams cur
+  call admin $ startParams cur
   next
 
   logMlabs
@@ -54,9 +53,10 @@ main = Handler.runSimulator lendexId initContract $ do
     call user3 $ Contract.Deposit 100 coin3
 
   test "User 1 borrows 60 Euros" $ do
-    call user1 $ Contract.AddCollateral
-                  { addCollateral'asset          = coin1
-                  , addCollateral'amount         = 100
+    call user1 $ Contract.SetUserReserveAsCollateral
+                  { setCollateral'asset           = coin1
+                  , setCollateral'useAsCollateral = True
+                  , setCollateral'portion         = 1 R.% 1
                   }
     call user1 $ Contract.Borrow 60 coin2 (Contract.toInterestRateFlag StableRate)
 
@@ -99,7 +99,7 @@ initContract = do
   logInfo @String "Start forge"
   cur   <-
       mapError (Contract.toLendexError . show @Currency.CurrencyError)
-      (Currency.mintContract ownPK (fmap (, amount) [token1, token2, token3]))
+      (Currency.forgeContract ownPK (fmap (, amount) [token1, token2, token3]))
   let cs = Currency.currencySymbol cur
   tell $ Last (Just cs)
   logInfo @String "Forged coins"
@@ -167,8 +167,8 @@ aToken2 = Value.tokenName "aEuro"
 aToken3 = Value.tokenName "aLira"
 aAda    = Value.tokenName "aAda"
 
-startParams :: Value.CurrencySymbol -> StartParams
-startParams cur = StartParams
+startParams :: Value.CurrencySymbol -> Contract.StartParams
+startParams cur = Contract.StartParams
   { sp'coins = fmap (\(coin, aCoin) -> CoinCfg
                                         { coinCfg'coin = coin
                                         , coinCfg'rate = R.fromInteger 1

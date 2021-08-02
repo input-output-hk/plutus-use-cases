@@ -1,4 +1,3 @@
-{-# LANGUAGE NumericUnderscores #-}
 -- | Init blockchain state for tests
 module Test.Lending.Init(
     checkOptions
@@ -87,10 +86,10 @@ aCoin3 = fromToken aToken3
 -- | Initial distribution of wallets for testing
 initialDistribution :: M.Map Wallet Value
 initialDistribution = M.fromList
-  [ (wAdmin, val 2000_000_000)
-  , (w1, val 1000_000_000 <> v1 100)
-  , (w2, val 1000_000_000 <> v2 100)
-  , (w3, val 1000_000_000 <> v3 100)
+  [ (wAdmin, val 2000)
+  , (w1, val 1000 <> v1 100)
+  , (w2, val 1000 <> v2 100)
+  , (w3, val 1000 <> v3 100)
   ]
   where
     val x = Value.singleton Ada.adaSymbol Ada.adaToken x
