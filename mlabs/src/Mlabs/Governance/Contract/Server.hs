@@ -43,8 +43,8 @@ governanceEndpoints csym = forever $ selects
 deposit :: CurrencySymbol -> Api.Deposit -> GovernanceContract ()
 deposit csym (Api.Deposit amnt) = do
   pkh   <- pubKeyHash <$> Contract.ownPubKey
-  utxos <- Contract.utxoAt (Validation.scrAddress csym)
-  datum <- maybe (Contract.throwError "No UTxO found") pure $ firstJust (readDatum . snd) $ Map.toList utxos
+  datum <- findDatum csym
+
   let datum' = case AssocMap.lookup pkh datum of
         Nothing -> AssocMap.insert pkh amnt datum
         Just n  -> AssocMap.insert pkh (n+amnt) datum
@@ -57,6 +57,7 @@ deposit csym (Api.Deposit amnt) = do
             , Constraints.otherScript           (Validation.scrValidator csym)
             , Constraints.scriptInstanceLookups (Validation.scrInstance csym)
             ]
+                
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "deposited %s GOV tokens" (show amnt)
@@ -68,10 +69,9 @@ withdraw csym (Api.Withdraw val) = do
     Contract.throwError "Attempt to withdraw with non xGOV tokens"
   else
     pure ()
-  
+
   pkh    <- pubKeyHash <$> Contract.ownPubKey
-  utxos  <- Contract.utxoAt (Validation.scrAddress csym) 
-  datum  <- maybe (Contract.throwError "No UTxO found") pure $ firstJust (readDatum . snd) $ Map.toList utxos
+  datum  <- findDatum csym
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
             . AssocMap.lookup (Validation.xGovCurrencySymbol csym) $ getValue val
   let maybedatum' :: Maybe (AssocMap.Map PubKeyHash Integer)
@@ -105,4 +105,13 @@ provideRewards :: CurrencySymbol -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards = undefined
 
 queryBalance :: CurrencySymbol -> Api.QueryBalance -> GovernanceContract ()
-queryBalance = undefined
+queryBalance csym (Api.QueryBalance pkh) = do
+  datum <- findDatum csym
+  Contract.tell . fmap Last $ AssocMap.lookup pkh datum
+  
+--- util
+
+findDatum :: CurrencySymbol -> GovernanceContract (AssocMap.Map PubKeyHash Integer)
+findDatum csym = do
+  utxos  <- Contract.utxoAt (Validation.scrAddress csym) 
+  maybe (Contract.throwError "No UTxO found") pure $ firstJust (readDatum . snd) $ Map.toList utxos
