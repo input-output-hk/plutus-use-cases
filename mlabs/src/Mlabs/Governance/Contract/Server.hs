@@ -6,17 +6,21 @@ module Mlabs.Governance.Contract.Server (
   , governanceEndpoints
   ) where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude hiding (toList)
 
 import Data.Text (Text)
+import Data.Map qualified as Map
+import Data.List.Extra (firstJust)
+import Data.Coerce (coerce)
+import PlutusTx.AssocMap qualified as AssocMap
 import Text.Printf (printf)
-import Control.Monad (forever, guard, void)
+import Control.Monad (forever, void, foldM)
 import Data.Semigroup (Last(..), sconcat)
 import Plutus.Contract qualified as Contract
-import Plutus.V1.Ledger.Crypto (pubKeyHash)
+import Plutus.V1.Ledger.Crypto (pubKeyHash, PubKeyHash(..))
 import Ledger.Contexts (scriptCurrencySymbol)
 import Plutus.V1.Ledger.Tx (txId)
-import Plutus.V1.Ledger.Value (CurrencySymbol)
+import Plutus.V1.Ledger.Value (CurrencySymbol, Value(..), TokenName(..))
 import Ledger.Constraints qualified as Constraints
 
 import Mlabs.Governance.Contract.Api qualified as Api
@@ -38,10 +42,15 @@ governanceEndpoints csym = forever $ selects
 
 deposit :: CurrencySymbol -> Api.Deposit -> GovernanceContract ()
 deposit csym (Api.Deposit amnt) = do
-  let mintingPolicy = Validation.xGovMintingPolicy csym
+  pkh   <- pubKeyHash <$> Contract.ownPubKey
+  utxos <- Contract.utxoAt (Validation.scrAddress csym)
+  datum <- maybe (Contract.throwError "No UTxO found") pure $ firstJust (readDatum . snd) $ Map.toList utxos
+  let datum' = case AssocMap.lookup pkh datum of
+        Nothing -> AssocMap.insert pkh amnt datum
+        Just n  -> AssocMap.insert pkh (n+amnt) datum
       tx = sconcat [
-          Constraints.mustForgeValue        $ Validation.xgovValueOf (scriptCurrencySymbol mintingPolicy) amnt
-        , Constraints.mustPayToTheScript () $ Validation.govValueOf csym amnt -- here () is the datum type, for now
+          Constraints.mustForgeValue $ Validation.xgovValueOf (scriptCurrencySymbol $ Validation.xGovMintingPolicy csym) (coerce pkh) amnt
+        , Constraints.mustPayToTheScript datum' $ Validation.govValueOf csym amnt
         ]
       lookups = sconcat [
               Constraints.monetaryPolicy        (Validation.xGovMintingPolicy csym)
@@ -53,19 +62,44 @@ deposit csym (Api.Deposit amnt) = do
   Contract.logInfo @String $ printf "deposited %s GOV tokens" (show amnt)
 
 withdraw :: CurrencySymbol -> Api.Withdraw -> GovernanceContract ()
-withdraw csym (Api.Withdraw amnt) = do
-  pkh   <- pubKeyHash <$> Contract.ownPubKey
-  let tx = sconcat [
-          Constraints.mustPayToTheScript () $ Validation.xgovValueOf csym amnt -- here () is the datum type, for now
-        , Constraints.mustPayToPubKey pkh   $ Validation.govValueOf csym amnt
+withdraw csym (Api.Withdraw val) = do
+  -- 'guard' doesn't work here
+  if [(Validation.xGovCurrencySymbol csym)] == (AssocMap.keys $ getValue val) then
+    Contract.throwError "Attempt to withdraw with non xGOV tokens"
+  else
+    pure ()
+  
+  pkh    <- pubKeyHash <$> Contract.ownPubKey
+  utxos  <- Contract.utxoAt (Validation.scrAddress csym) 
+  datum  <- maybe (Contract.throwError "No UTxO found") pure $ firstJust (readDatum . snd) $ Map.toList utxos
+  tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
+            . AssocMap.lookup (Validation.xGovCurrencySymbol csym) $ getValue val
+  let maybedatum' :: Maybe (AssocMap.Map PubKeyHash Integer)
+      maybedatum' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) datum tokens
+
+      -- AssocMap has no "insertWith", so we have to use lookup and insert, all under foldM
+      withdrawFromCorrect tn amm mp =
+        case AssocMap.lookup pkh mp of
+          Just n | n > amm  -> Just (AssocMap.insert depositor (n-amm) mp)
+          Just n | n == amm -> Just (AssocMap.delete depositor mp)
+          _                 -> Nothing
+          where depositor = coerce tn
+          
+  datum' <- maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybedatum'
+  
+  let totalGov = sum $ map snd tokens
+      tx = sconcat [
+          Constraints.mustPayToTheScript datum' val
+        , Constraints.mustPayToPubKey pkh $ Validation.govValueOf csym totalGov
         ]
       lookups = sconcat [
-              Constraints.otherScript    (Validation.scrValidator csym)
-            , Constraints.scriptInstanceLookups (Validation.scrInstance csym)
+              Constraints.scriptInstanceLookups (Validation.scrInstance csym)
+            , Constraints.otherScript (Validation.scrValidator csym)
             ]
+                
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
-  Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show amnt)
+  Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show totalGov)
 
 provideRewards :: CurrencySymbol -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards = undefined

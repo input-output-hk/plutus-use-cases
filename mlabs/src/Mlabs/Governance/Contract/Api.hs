@@ -35,7 +35,7 @@ newtype Deposit = Deposit Integer
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
-newtype Withdraw = Withdraw Integer
+newtype Withdraw = Withdraw Value
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
