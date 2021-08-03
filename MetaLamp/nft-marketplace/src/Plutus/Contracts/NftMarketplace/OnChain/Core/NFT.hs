@@ -35,33 +35,17 @@ import           PlutusTx.Prelude               hiding (Semigroup (..))
 import           Prelude                        (Semigroup (..))
 import qualified Prelude                        as Haskell
 
+-- TODO (?) add tags
 type IpfsCid = ByteString
 type IpfsCidHash = ByteString
 type Auction = (AssetClass, PubKeyHash, Value, Slot)
 type Category = [ByteString]
+type LotLink = Either Sale.Sale Auction
 
-data Lot = Lot
-                { lotLink    :: !(Either Sale.Sale Auction)
-                , lotIpfsCid :: !ByteString
-                }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''Lot
-
-PlutusTx.makeLift ''Lot
-
-Lens.makeClassy_ ''Lot
-
--- TODO (?) add NFT tags
 data NFT =
   NFT
-    { nftId          :: !CurrencySymbol
-    , nftName        :: !ByteString
-    , nftDescription :: !ByteString
-    , nftCategory    :: !Category
-    , nftIssuer      :: !(Maybe PubKeyHash)
-    , nftLot         :: !(Maybe Lot)
+    { nftInfo :: !NftInfo
+    , nftLot  :: !(Maybe (IpfsCid, LotLink))
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
@@ -71,3 +55,53 @@ PlutusTx.unstableMakeIsData ''NFT
 PlutusTx.makeLift ''NFT
 
 Lens.makeClassy_ ''NFT
+
+data NftInfo =
+  NftInfo
+    { niId          :: !CurrencySymbol
+    , niName        :: !ByteString
+    , niDescription :: !ByteString
+    , niCategory    :: !Category
+    , niIssuer      :: !(Maybe PubKeyHash)
+    }
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''NftInfo
+
+PlutusTx.makeLift ''NftInfo
+
+Lens.makeClassy_ ''NftInfo
+
+data NftBundle =
+  NftBundle
+    { nbName        :: !ByteString
+    , nbDescription :: !ByteString
+    , nbCategory    :: !Category
+    , nbTokens      :: !Bundle
+    }
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''NftBundle
+
+PlutusTx.makeLift ''NftBundle
+
+Lens.makeClassy_ ''NftBundle
+
+data Bundle
+  = NoLot  !(AssocMap.Map IpfsCidHash NftInfo)
+  | HasLot !(AssocMap.Map IpfsCidHash (IpfsCid, NftInfo)) !LotLink
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''Bundle
+
+PlutusTx.makeLift ''Bundle
+
+Lens.makeClassyPrisms ''Bundle
+
+-- ????
+type ValueHash = ByteString
+type BundleId = [IpfsCidHash]
+-- does Crypto.Hash.hashUpdates depend on order?
