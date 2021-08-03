@@ -102,7 +102,20 @@ withdraw csym (Api.Withdraw val) = do
   Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show totalGov)
 
 provideRewards :: CurrencySymbol -> Api.ProvideRewards -> GovernanceContract ()
-provideRewards = undefined
+provideRewards csym (Api.ProvideRewards val) = do
+  datum <- findDatum csym
+  let (total, props) = foldr (\(pkh, amm) (t, p) -> (amm+t, (pkh, amm%total):p)) (total, []) $ AssocMap.toList datum
+      dispatch = map (\(pkh, prop) -> (pkh,Value $ fmap (round.(prop *).(%1)) <$> getValue val)) props
+
+  let tx = foldMap (uncurry Constraints.mustPayToPubKey) dispatch
+      lookups = sconcat [
+              Constraints.otherScript (Validation.scrValidator csym)
+            ]
+
+  ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
+  void $ Contract.awaitTxConfirmed $ txId ledgerTx
+  Contract.logInfo @String $ printf "Provided rewards to all xGOV holders"
+  
 
 queryBalance :: CurrencySymbol -> Api.QueryBalance -> GovernanceContract ()
 queryBalance csym (Api.QueryBalance pkh) = do

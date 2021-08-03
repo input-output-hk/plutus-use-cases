@@ -23,3 +23,15 @@ callWithdraw :: CurrencySymbol -> Emulator.Wallet -> Api.Withdraw -> EmulatorTra
 callWithdraw csym wal withd = do
   hdl <- activateContractWallet wal (Server.governanceEndpoints csym)
   void $ callEndpoint' @Api.Withdraw hdl withd
+
+-- | Distributes the given Value amongst the xGOV holders
+callProvideRewards :: CurrencySymbol -> Emulator.Wallet -> Api.ProvideRewards -> EmulatorTrace ()
+callProvideRewards csym wal withd = do
+  hdl <- activateContractWallet wal (Server.governanceEndpoints csym)
+  void $ callEndpoint' @Api.ProvideRewards hdl withd
+
+-- | Queries the balance of a given PubKeyHash
+queryBalance :: CurrencySymbol -> Emulator.Wallet -> Api.QueryBalance -> EmulatorTrace ()
+queryBalance csym wal qb = do
+  hdl <- activateContractWallet wal (Server.governanceEndpoints csym)
+  void $ callEndpoint' @Api.QueryBalance hdl qb
