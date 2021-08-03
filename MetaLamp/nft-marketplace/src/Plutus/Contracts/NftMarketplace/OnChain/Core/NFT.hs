@@ -42,23 +42,9 @@ type Auction = (AssetClass, PubKeyHash, Value, Slot)
 type Category = [ByteString]
 type LotLink = Either Sale.Sale Auction
 
-data NFT =
-  NFT
-    { nftInfo :: !NftInfo
-    , nftLot  :: !(Maybe (IpfsCid, LotLink))
-    }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''NFT
-
-PlutusTx.makeLift ''NFT
-
-Lens.makeClassy_ ''NFT
-
 data NftInfo =
   NftInfo
-    { niId          :: !CurrencySymbol
+    { niCurrency    :: !CurrencySymbol
     , niName        :: !ByteString
     , niDescription :: !ByteString
     , niCategory    :: !Category
@@ -72,6 +58,32 @@ PlutusTx.unstableMakeIsData ''NftInfo
 PlutusTx.makeLift ''NftInfo
 
 Lens.makeClassy_ ''NftInfo
+
+data NFT =
+  NFT
+    { nftRecord :: !NftInfo
+    , nftLot    :: !(Maybe (IpfsCid, LotLink))
+    }
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''NFT
+
+PlutusTx.makeLift ''NFT
+
+Lens.makeClassy_ ''NFT
+
+data Bundle
+  = NoLot  !(AssocMap.Map IpfsCidHash NftInfo)
+  | HasLot !(AssocMap.Map IpfsCidHash (IpfsCid, NftInfo)) !LotLink
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''Bundle
+
+PlutusTx.makeLift ''Bundle
+
+Lens.makeClassyPrisms ''Bundle
 
 data NftBundle =
   NftBundle
@@ -88,18 +100,6 @@ PlutusTx.unstableMakeIsData ''NftBundle
 PlutusTx.makeLift ''NftBundle
 
 Lens.makeClassy_ ''NftBundle
-
-data Bundle
-  = NoLot  !(AssocMap.Map IpfsCidHash NftInfo)
-  | HasLot !(AssocMap.Map IpfsCidHash (IpfsCid, NftInfo)) !LotLink
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''Bundle
-
-PlutusTx.makeLift ''Bundle
-
-Lens.makeClassyPrisms ''Bundle
 
 -- ????
 type ValueHash = ByteString
