@@ -321,6 +321,8 @@ Test-suite mlabs-plutus-use-cases-tests
   hs-source-dirs:      test
   Main-is:             Main.hs
   Other-modules:
+                       Test.Governance.Contract
+                       Test.Governance.Init
                        Test.Demo.Contract.Mint
                        Test.Lending.Contract
                        Test.Lending.Init
