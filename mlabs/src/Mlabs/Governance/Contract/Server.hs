@@ -10,7 +10,6 @@ import PlutusTx.Prelude hiding (toList)
 
 import Data.Text (Text)
 import Data.Map qualified as Map
-import Data.List.Extra (firstJust)
 import Data.Coerce (coerce)
 import PlutusTx.AssocMap qualified as AssocMap
 import Text.Printf (printf)
@@ -19,13 +18,14 @@ import Data.Semigroup (Last(..), sconcat)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Crypto (pubKeyHash, PubKeyHash(..))
 import Ledger.Contexts (scriptCurrencySymbol)
-import Plutus.V1.Ledger.Tx (txId)
+import Plutus.V1.Ledger.Api (fromData, toData, Datum(..), Redeemer(..))
+import Plutus.V1.Ledger.Tx (txId, TxOutRef, TxOutTx(..), Tx(..), TxOut(..))
 import Plutus.V1.Ledger.Value (CurrencySymbol, Value(..), TokenName(..))
 import Ledger.Constraints qualified as Constraints
 
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation qualified as Validation
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
+import Mlabs.Plutus.Contract (getEndpoint, selects)
 
 -- do we want another error type? 
 type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.GovernanceSchema Text a
@@ -42,8 +42,8 @@ governanceEndpoints csym = forever $ selects
 
 deposit :: CurrencySymbol -> Api.Deposit -> GovernanceContract ()
 deposit csym (Api.Deposit amnt) = do
-  pkh   <- pubKeyHash <$> Contract.ownPubKey
-  datum <- findDatum csym
+  pkh <- pubKeyHash <$> Contract.ownPubKey
+  (datum, _, oref) <- findGovernance csym
 
   let datum' = case AssocMap.lookup pkh datum of
         Nothing -> AssocMap.insert pkh amnt datum
@@ -51,6 +51,7 @@ deposit csym (Api.Deposit amnt) = do
       tx = sconcat [
           Constraints.mustForgeValue $ Validation.xgovValueOf (scriptCurrencySymbol $ Validation.xGovMintingPolicy csym) (coerce pkh) amnt
         , Constraints.mustPayToTheScript datum' $ Validation.govValueOf csym amnt
+        , Constraints.mustSpendScriptOutput oref (Redeemer $ toData ())
         ]
       lookups = sconcat [
               Constraints.monetaryPolicy        (Validation.xGovMintingPolicy csym)
@@ -70,8 +71,8 @@ withdraw csym (Api.Withdraw val) = do
   else
     pure ()
 
-  pkh    <- pubKeyHash <$> Contract.ownPubKey
-  datum  <- findDatum csym
+  pkh <- pubKeyHash <$> Contract.ownPubKey
+  (datum, _, oref) <- findGovernance csym
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
             . AssocMap.lookup (Validation.xGovCurrencySymbol csym) $ getValue val
   let maybedatum' :: Maybe (AssocMap.Map PubKeyHash Integer)
@@ -91,6 +92,7 @@ withdraw csym (Api.Withdraw val) = do
       tx = sconcat [
           Constraints.mustPayToTheScript datum' val
         , Constraints.mustPayToPubKey pkh $ Validation.govValueOf csym totalGov
+        , Constraints.mustSpendScriptOutput oref (Redeemer $ toData ())
         ]
       lookups = sconcat [
               Constraints.scriptInstanceLookups (Validation.scrInstance csym)
@@ -103,7 +105,7 @@ withdraw csym (Api.Withdraw val) = do
 
 provideRewards :: CurrencySymbol -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards csym (Api.ProvideRewards val) = do
-  datum <- findDatum csym
+  (datum, _, _) <- findGovernance csym
   let (total, props) = foldr (\(pkh, amm) (t, p) -> (amm+t, (pkh, amm%total):p)) (total, []) $ AssocMap.toList datum
       dispatch = map (\(pkh, prop) -> (pkh,Value $ fmap (round.(prop *).(%1)) <$> getValue val)) props
 
@@ -119,12 +121,21 @@ provideRewards csym (Api.ProvideRewards val) = do
 
 queryBalance :: CurrencySymbol -> Api.QueryBalance -> GovernanceContract ()
 queryBalance csym (Api.QueryBalance pkh) = do
-  datum <- findDatum csym
+  (datum,_,_) <- findGovernance csym
   Contract.tell . fmap Last $ AssocMap.lookup pkh datum
   
 --- util
 
-findDatum :: CurrencySymbol -> GovernanceContract (AssocMap.Map PubKeyHash Integer)
-findDatum csym = do
-  utxos  <- Contract.utxoAt (Validation.scrAddress csym) 
-  maybe (Contract.throwError "No UTxO found") pure $ firstJust (readDatum . snd) $ Map.toList utxos
+-- assumes a unique Governance. TODO: NFT 
+findGovernance :: CurrencySymbol -> GovernanceContract (AssocMap.Map PubKeyHash Integer, TxOutTx, TxOutRef)
+findGovernance csym = do
+  utxos <- Contract.utxoAt (Validation.scrAddress csym) 
+  case Map.toList utxos of
+    [(oref, o)] -> case txOutDatumHash $ txOutTxOut o of
+      Nothing -> Contract.throwError "unexpected out type"
+      Just h  -> case Map.lookup h $ txData $ txOutTxTx o of
+        Nothing        -> Contract.throwError "datum not found"
+        Just (Datum e) -> case fromData e of
+          Nothing -> Contract.throwError "datum has wrong type"
+          Just d  -> return (d, o, oref)
+    _ -> Contract.throwError "No UTxO found"

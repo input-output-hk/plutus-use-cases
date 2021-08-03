@@ -9,9 +9,9 @@ module Mlabs.Governance.Contract.Validation (
   , xGovCurrencySymbol
   , Governance
   , govToken
-  , xgovToken
   ) where
 
+import Data.Coerce (coerce)
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx qualified
 import PlutusTx.Prelude hiding (Semigroup(..), unless)
@@ -23,15 +23,16 @@ import Plutus.V1.Ledger.Contexts qualified as Contexts
 govToken :: TokenName
 govToken = "GOV"
 
+-- TODO: parametrize it by an NFT
 -- Validator of the governance contract
 {-# INLINABLE mkValidator #-}
 mkValidator :: CurrencySymbol -> AssocMap.Map PubKeyHash Integer -> () -> ScriptContext -> Bool
-mkValidator cs _ _ _ = True -- todo
+mkValidator cs _ _ _ = True -- todo: can't do it w/o validator type, do that one first
 
 data Governance
 instance Scripts.ScriptType Governance where
     type instance DatumType Governance = AssocMap.Map PubKeyHash Integer
-    type instance RedeemerType Governance = ()
+    type instance RedeemerType Governance = () -- todo: needs to restructure so that Api types have a representation here
     
 scrInstance :: CurrencySymbol -> Scripts.ScriptInstance Governance
 scrInstance csym = Scripts.validator @Governance
@@ -56,24 +57,26 @@ xgovValueOf csym tok = Value.singleton csym tok
 {-# INLINABLE mkPolicy #-}
 mkPolicy :: CurrencySymbol -> ScriptContext -> Bool
 mkPolicy csym ctx =
---  traceIfFalse "imbalance of GOV to xGOV" checkGovxGov &&
-  traceIfFalse "GOV not paid to the script" (fst checkGovToScr)
+  traceIfFalse "More than one signature" checkOneSignature  &&
+  traceIfFalse "Incorrect tokens minted" checkxGov &&
+  traceIfFalse "GOV not paid to the script" checkGovToScr
   where
     info = scriptContextTxInfo ctx
 
-    checkGovxGov = case Value.flattenValue (Contexts.txInfoForge info) of
-      [(cur, tn, amm)] -> cur == Contexts.ownCurrencySymbol ctx && amm == (snd checkGovToScr) -- && tn == xgovToken -- check that the TokenName==PubKeyHash
+    checkOneSignature = length (txInfoSignatories info) == 1 
+
+    checkxGov = case Value.flattenValue (Contexts.txInfoForge info) of
+      [(cur, tn, amm)] -> cur == Contexts.ownCurrencySymbol ctx && amm == govPaidAmm && [coerce tn] == txInfoSignatories info -- to be tested
       _ -> False
 
-    -- checks that the GOV was paid to the governance script and returns the value of it
-    checkGovToScr :: (Bool, Integer)
-    -- won't work because const ByteString :V
-    checkGovToScr = (True, 0) {- case fmap txOutValue . find (\txout -> scrAddress csym == txOutAddress txout) $ txInfoOutputs info of
+    -- checks that the GOV was paid to the governance script, returns the value of it
+    -- TODO: either fix the ByteString problems OR wait until they get patched (preferrably)
+    (checkGovToScr, govPaidAmm) = case fmap txOutValue . find (\txout -> {- scrAddress csym == txOutAddress txout -} True) $ txInfoOutputs info of
       Nothing  -> (False,0) 
       Just val -> case Value.flattenValue val of
-        [(cur, tn, amm)] -> (cur == csym  && tn == xgovToken, amm)
-        _ -> (False,0) -}        
-
+        [(cur, tn, amm)] -> (cur == csym {- && tn == govToken -}, amm)
+        _ -> (False,0)
+        
 xGovMintingPolicy :: CurrencySymbol -> Scripts.MonetaryPolicy
 xGovMintingPolicy csym = mkMonetaryPolicyScript $
   $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . mkPolicy ||]) `PlutusTx.applyCode` PlutusTx.liftCode csym 
