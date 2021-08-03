@@ -7,6 +7,8 @@ module Mlabs.Governance.Contract.Validation (
   , xgovValueOf
   , xGovMintingPolicy
   , Governance
+  , govToken
+  , xgovToken
   ) where
 
 import PlutusTx qualified

@@ -14,6 +14,7 @@ import Control.Monad (forever, guard, void)
 import Data.Semigroup (Last(..), sconcat)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
+import Ledger.Contexts (scriptCurrencySymbol)
 import Plutus.V1.Ledger.Tx (txId)
 import Plutus.V1.Ledger.Value (CurrencySymbol)
 import Ledger.Constraints qualified as Constraints
@@ -37,13 +38,15 @@ governanceEndpoints csym = forever $ selects
 
 deposit :: CurrencySymbol -> Api.Deposit -> GovernanceContract ()
 deposit csym (Api.Deposit amnt) = do
-  let tx = sconcat [
-          Constraints.mustForgeValue        $ Validation.xgovValueOf csym amnt
+  let mintingPolicy = Validation.xGovMintingPolicy csym
+      tx = sconcat [
+          Constraints.mustForgeValue        $ Validation.xgovValueOf (scriptCurrencySymbol mintingPolicy) amnt
         , Constraints.mustPayToTheScript () $ Validation.govValueOf csym amnt -- here () is the datum type, for now
         ]
       lookups = sconcat [
-              Constraints.monetaryPolicy (Validation.xGovMintingPolicy csym)
-            , Constraints.otherScript    (Validation.scrValidator csym)
+              Constraints.monetaryPolicy        (Validation.xGovMintingPolicy csym)
+            , Constraints.otherScript           (Validation.scrValidator csym)
+            , Constraints.scriptInstanceLookups (Validation.scrInstance csym)
             ]
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
@@ -58,6 +61,7 @@ withdraw csym (Api.Withdraw amnt) = do
         ]
       lookups = sconcat [
               Constraints.otherScript    (Validation.scrValidator csym)
+            , Constraints.scriptInstanceLookups (Validation.scrInstance csym)
             ]
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
