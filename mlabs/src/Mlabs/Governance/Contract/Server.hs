@@ -17,7 +17,7 @@ import Control.Monad (forever, void, foldM)
 import Data.Semigroup (Last(..), sconcat)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Crypto (pubKeyHash, PubKeyHash(..))
-import Ledger.Contexts (scriptCurrencySymbol)
+import Plutus.V1.Ledger.Contexts (scriptCurrencySymbol)
 import Plutus.V1.Ledger.Api (fromData, toData, Datum(..), Redeemer(..))
 import Plutus.V1.Ledger.Tx (txId, TxOutRef, TxOutTx(..), Tx(..), TxOut(..))
 import Plutus.V1.Ledger.Value (CurrencySymbol, Value(..), TokenName(..))
@@ -106,7 +106,8 @@ withdraw csym (Api.Withdraw val) = do
 provideRewards :: CurrencySymbol -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards csym (Api.ProvideRewards val) = do
   (datum, _, _) <- findGovernance csym
-  let (total, props) = foldr (\(pkh, amm) (t, p) -> (amm+t, (pkh, amm%total):p)) (total, []) $ AssocMap.toList datum
+  let -- annotates each depositor with the total percentage of GOV deposited to the contract 
+      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm+t, (pkh, amm%total):p)) (0, []) $ AssocMap.toList datum
       dispatch = map (\(pkh, prop) -> (pkh,Value $ fmap (round.(prop *).(%1)) <$> getValue val)) props
 
   let tx = foldMap (uncurry Constraints.mustPayToPubKey) dispatch
@@ -116,8 +117,7 @@ provideRewards csym (Api.ProvideRewards val) = do
 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
-  Contract.logInfo @String $ printf "Provided rewards to all xGOV holders"
-  
+  Contract.logInfo @String $ printf "Provided rewards to all xGOV holders"  
 
 queryBalance :: CurrencySymbol -> Api.QueryBalance -> GovernanceContract ()
 queryBalance csym (Api.QueryBalance pkh) = do
