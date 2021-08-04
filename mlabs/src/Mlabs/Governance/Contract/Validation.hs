@@ -1,4 +1,11 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-
+{-# OPTIONS_GHC -fno-specialise #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+-}
 
 -- | Validation, on-chain code for governance application 
 module Mlabs.Governance.Contract.Validation (
@@ -27,23 +34,7 @@ import Plutus.V1.Ledger.Value    qualified as Value
 import Plutus.V1.Ledger.Contexts qualified as Contexts
 import Prelude qualified as Hask 
 
--- we can't have those two be one type with type param due to
--- Data type erasure. I hate it.
-data AssetClassNft = AssetClassNft {
-    acNftCurrencySymbol :: !CurrencySymbol
-  , acNftTokenName :: !TokenName
-  } deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
-
-PlutusTx.unstableMakeIsData ''AssetClassNft
-PlutusTx.makeLift ''AssetClassNft
-
-data AssetClassGov = AssetClassGov {
-    acGovCurrencySymbol :: !CurrencySymbol
-  , acGovTokenName :: !TokenName
-  } deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
-
-PlutusTx.unstableMakeIsData ''AssetClassGov
-PlutusTx.makeLift ''AssetClassGov
+import Mlabs.Governance.Contract.Api (AssetClassNft(..), AssetClassGov(..), Deposit(..), Withdraw(..))
 
 -- there's a discussion to be had about whether we want the AssetClasses to parametrize
 -- the contract or just sit in the datum. 
@@ -56,14 +47,19 @@ data GovernanceDatum = GovernanceDatum {
 PlutusTx.unstableMakeIsData ''GovernanceDatum
 PlutusTx.makeLift ''GovernanceDatum
 
+data GovernanceValidator = GVDeposit !Deposit | GVWithdraw !Withdraw
+  deriving (Hask.Show, Generic)
+
+PlutusTx.unstableMakeIsData ''GovernanceValidator
+
 data Governance
 instance Scripts.ScriptType Governance where
     type instance DatumType Governance = GovernanceDatum
-    type instance RedeemerType Governance = () -- todo: needs to restructure so that Api types have a representation here
+    type instance RedeemerType Governance = GovernanceValidator
 
 -- Validator of the governance contract
 {-# INLINABLE mkValidator #-}
-mkValidator :: GovernanceDatum -> () -> ScriptContext -> Bool
+mkValidator :: GovernanceDatum -> GovernanceValidator -> ScriptContext -> Bool
 mkValidator _ _ _ = True -- todo: can't do it w/o validator type, do that one first
     
 scrInstance :: Scripts.ScriptInstance Governance
@@ -88,7 +84,7 @@ xgovValueOf csym tok = Value.singleton csym tok
 -- xGOV minting policy
 {-# INLINABLE mkPolicy #-}
 mkPolicy :: AssetClassGov -> ScriptContext -> Bool
-mkPolicy gov ctx =
+mkPolicy AssetClassGov{..} ctx =
   traceIfFalse "More than one signature" checkOneSignature  &&
   traceIfFalse "Incorrect tokens minted" checkxGov &&
   traceIfFalse "GOV not paid to the script" checkGovToScr
@@ -102,11 +98,11 @@ mkPolicy gov ctx =
       _ -> False
 
     -- checks that the GOV was paid to the governance script, returns the value of it
-    -- TODO: either fix the ByteString problems OR wait until they get patched (preferrably)
-    (checkGovToScr, govPaidAmm) = case fmap txOutValue . find (\txout -> {- scrAddress csym == txOutAddress txout -} True) $ txInfoOutputs info of
+    -- TODO: uncomment after plutus upgrade (with the ByteString eq pr)
+    (checkGovToScr, govPaidAmm) = case fmap txOutValue . find (\txout -> {- scrAddress == txOutAddress txout -} True) $ txInfoOutputs info of
       Nothing  -> (False,0) 
       Just val -> case Value.flattenValue val of
-        [(cur, tn, amm)] -> (True {- cur == csym  && tn == govToken -}, amm)
+        [(cur, tn, amm)] -> (cur == acGovCurrencySymbol && tn == acGovTokenName, amm)
         _ -> (False,0)
         
 xGovMintingPolicy :: AssetClassGov -> Scripts.MonetaryPolicy

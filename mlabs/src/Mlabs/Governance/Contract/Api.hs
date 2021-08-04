@@ -7,6 +7,11 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# OPTIONS_GHC -fno-specialise #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 
 -- | Contract API for the Governance application
 module Mlabs.Governance.Contract.Api (
@@ -16,20 +21,40 @@ module Mlabs.Governance.Contract.Api (
   , ProvideRewards(..)
   , QueryBalance(..)
   , GovernanceSchema
+  , AssetClassNft(..)
+  , AssetClassGov(..)
   ) where
 
 import PlutusTx.Prelude
+import PlutusTx qualified
 
 import GHC.Generics (Generic)
 -- import Numeric.Natural (Natural)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import Plutus.Contract ( type (.\/), BlockchainActions )
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import Plutus.V1.Ledger.Value (Value)
+import Plutus.V1.Ledger.Value (Value, CurrencySymbol, TokenName)
 import Prelude qualified as Hask
 
 import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
-import Mlabs.Governance.Contract.Validation (AssetClassNft, AssetClassGov)
+
+-- TODO: Once AssetClass has a ToSchema instance, change this to a newtype.
+--       or not. this is fine really. 
+data AssetClassNft = AssetClassNft {
+    acNftCurrencySymbol :: !CurrencySymbol
+  , acNftTokenName :: !TokenName
+  } deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''AssetClassNft
+PlutusTx.makeLift ''AssetClassNft
+
+data AssetClassGov = AssetClassGov {
+    acGovCurrencySymbol :: !CurrencySymbol
+  , acGovTokenName :: !TokenName
+  } deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''AssetClassGov
+PlutusTx.makeLift ''AssetClassGov
 
 data StartGovernance = StartGovernance {
     sgNft :: !AssetClassNft
@@ -43,9 +68,13 @@ newtype Deposit = Deposit Integer
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
+PlutusTx.unstableMakeIsData ''Deposit
+
 newtype Withdraw = Withdraw Value
   deriving stock (Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''Withdraw
 
 newtype ProvideRewards = ProvideRewards Value
   deriving stock (Show, Generic, Hask.Eq)
@@ -82,3 +111,4 @@ instance IsEndpoint ProvideRewards where
 
 instance IsEndpoint QueryBalance where
   type EndpointSymbol QueryBalance = "query-balance"
+

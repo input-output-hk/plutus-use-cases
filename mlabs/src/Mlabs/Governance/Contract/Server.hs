@@ -24,8 +24,9 @@ import Plutus.V1.Ledger.Value (Value(..), TokenName(..), valueOf, singleton)
 import Ledger.Constraints qualified as Constraints
 
 import Mlabs.Governance.Contract.Api qualified as Api
+import Mlabs.Governance.Contract.Api (AssetClassNft(..), AssetClassGov(..))
 import Mlabs.Governance.Contract.Validation qualified as Validation
-import Mlabs.Governance.Contract.Validation (GovernanceDatum(..), AssetClassNft(..), AssetClassGov(..))
+import Mlabs.Governance.Contract.Validation (GovernanceDatum(..))
 import Mlabs.Plutus.Contract (getEndpoint, selects)
 
 -- do we want another error type? 
