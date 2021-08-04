@@ -20,36 +20,39 @@ import Plutus.V1.Ledger.Crypto (pubKeyHash, PubKeyHash(..))
 import Plutus.V1.Ledger.Contexts (scriptCurrencySymbol)
 import Plutus.V1.Ledger.Api (fromData, toData, Datum(..), Redeemer(..))
 import Plutus.V1.Ledger.Tx (txId, TxOutRef, TxOutTx(..), Tx(..), TxOut(..))
-import Plutus.V1.Ledger.Value (CurrencySymbol, Value(..), TokenName(..))
+import Plutus.V1.Ledger.Value (CurrencySymbol, Value(..), TokenName(..), valueOf)
 import Ledger.Constraints qualified as Constraints
 
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation qualified as Validation
+import Mlabs.Governance.Contract.Validation (GovernanceDatum(..))
 import Mlabs.Plutus.Contract (getEndpoint, selects)
 
 -- do we want another error type? 
 type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.GovernanceSchema Text a
 
-governanceEndpoints :: CurrencySymbol -> GovernanceContract ()
-governanceEndpoints csym = forever $ selects
-  [ getEndpoint @Api.Deposit >>= deposit csym
-  , getEndpoint @Api.Withdraw >>= withdraw csym 
-  , getEndpoint @Api.ProvideRewards >>= provideRewards csym
-  , getEndpoint @Api.QueryBalance >>= queryBalance csym
+governanceEndpoints :: CurrencySymbol -> TokenName -> GovernanceContract ()
+governanceEndpoints csym tn = forever $ selects
+  [ getEndpoint @Api.Deposit >>= deposit csym tn
+  , getEndpoint @Api.Withdraw >>= withdraw csym tn
+  , getEndpoint @Api.ProvideRewards >>= provideRewards csym tn
+  , getEndpoint @Api.QueryBalance >>= queryBalance csym tn
   ]
 
 --- actions
 
-deposit :: CurrencySymbol -> Api.Deposit -> GovernanceContract ()
-deposit csym (Api.Deposit amnt) = do
+deposit :: CurrencySymbol -> TokenName -> Api.Deposit -> GovernanceContract ()
+deposit csym tn (Api.Deposit amnt) = do
   pkh <- pubKeyHash <$> Contract.ownPubKey
-  (datum, _, oref) <- findGovernance csym
+  (datum, _, oref) <- findGovernance csym tn
 
-  let datum' = case AssocMap.lookup pkh datum of
-        Nothing -> AssocMap.insert pkh amnt datum
-        Just n  -> AssocMap.insert pkh (n+amnt) datum
+  let datum' = GovernanceDatum (gdCurrencySymbol datum) (gdTokenName datum) $
+        case AssocMap.lookup pkh (gdDepositMap datum) of
+          Nothing -> AssocMap.insert pkh amnt (gdDepositMap datum)
+          Just n  -> AssocMap.insert pkh (n+amnt) (gdDepositMap datum)
       tx = sconcat [
-          Constraints.mustForgeValue $ Validation.xgovValueOf (scriptCurrencySymbol $ Validation.xGovMintingPolicy csym) (coerce pkh) amnt
+          Constraints.mustForgeValue $ Validation.xgovValueOf (scriptCurrencySymbol
+            $ Validation.xGovMintingPolicy csym) (coerce pkh) amnt
         , Constraints.mustPayToTheScript datum' $ Validation.govValueOf csym amnt
         , Constraints.mustSpendScriptOutput oref (Redeemer $ toData ())
         ]
@@ -63,8 +66,8 @@ deposit csym (Api.Deposit amnt) = do
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "deposited %s GOV tokens" (show amnt)
 
-withdraw :: CurrencySymbol -> Api.Withdraw -> GovernanceContract ()
-withdraw csym (Api.Withdraw val) = do
+withdraw :: CurrencySymbol -> TokenName -> Api.Withdraw -> GovernanceContract ()
+withdraw csym tn (Api.Withdraw val) = do
   -- 'guard' doesn't work here
   if [(Validation.xGovCurrencySymbol csym)] == (AssocMap.keys $ getValue val) then
     Contract.throwError "Attempt to withdraw with non xGOV tokens"
@@ -72,11 +75,11 @@ withdraw csym (Api.Withdraw val) = do
     pure ()
 
   pkh <- pubKeyHash <$> Contract.ownPubKey
-  (datum, _, oref) <- findGovernance csym
+  (datum, _, oref) <- findGovernance csym tn
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
             . AssocMap.lookup (Validation.xGovCurrencySymbol csym) $ getValue val
   let maybedatum' :: Maybe (AssocMap.Map PubKeyHash Integer)
-      maybedatum' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) datum tokens
+      maybedatum' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
 
       -- AssocMap has no "insertWith", so we have to use lookup and insert, all under foldM
       withdrawFromCorrect tn amm mp =
@@ -86,7 +89,8 @@ withdraw csym (Api.Withdraw val) = do
           _                 -> Nothing
           where depositor = coerce tn
           
-  datum' <- maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybedatum'
+  datum' <- GovernanceDatum (gdCurrencySymbol datum) (gdTokenName datum)
+              <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybedatum'
   
   let totalGov = sum $ map snd tokens
       tx = sconcat [
@@ -103,11 +107,11 @@ withdraw csym (Api.Withdraw val) = do
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show totalGov)
 
-provideRewards :: CurrencySymbol -> Api.ProvideRewards -> GovernanceContract ()
-provideRewards csym (Api.ProvideRewards val) = do
-  (datum, _, _) <- findGovernance csym
+provideRewards :: CurrencySymbol -> TokenName -> Api.ProvideRewards -> GovernanceContract ()
+provideRewards csym tn (Api.ProvideRewards val) = do
+  (datum, _, _) <- findGovernance csym tn
   let -- annotates each depositor with the total percentage of GOV deposited to the contract 
-      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm+t, (pkh, amm%total):p)) (0, []) $ AssocMap.toList datum
+      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm+t, (pkh, amm%total):p)) (0, []) $ AssocMap.toList (gdDepositMap datum)
       dispatch = map (\(pkh, prop) -> (pkh,Value $ fmap (round.(prop *).(%1)) <$> getValue val)) props
 
   let tx = foldMap (uncurry Constraints.mustPayToPubKey) dispatch
@@ -119,23 +123,29 @@ provideRewards csym (Api.ProvideRewards val) = do
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "Provided rewards to all xGOV holders"  
 
-queryBalance :: CurrencySymbol -> Api.QueryBalance -> GovernanceContract ()
-queryBalance csym (Api.QueryBalance pkh) = do
-  (datum,_,_) <- findGovernance csym
-  Contract.tell . fmap Last $ AssocMap.lookup pkh datum
+queryBalance :: CurrencySymbol -> TokenName -> Api.QueryBalance -> GovernanceContract ()
+queryBalance csym tn (Api.QueryBalance pkh) = do
+  (datum,_,_) <- findGovernance csym tn
+  Contract.tell . fmap Last $ AssocMap.lookup pkh (gdDepositMap datum)
   
 --- util
 
--- assumes a unique Governance. TODO: NFT 
-findGovernance :: CurrencySymbol -> GovernanceContract (AssocMap.Map PubKeyHash Integer, TxOutTx, TxOutRef)
-findGovernance csym = do
-  utxos <- Contract.utxoAt (Validation.scrAddress csym) 
-  case Map.toList utxos of
+-- assumes the Governance is parametrised by an NFT.
+findGovernance :: CurrencySymbol -> TokenName -> GovernanceContract (Validation.GovernanceDatum, TxOutTx, TxOutRef)
+findGovernance csym tn = do
+  utxos <- Contract.utxoAt (Validation.scrAddress csym)
+  let xs = [ (oref, o)
+           | (oref, o) <- Map.toList utxos
+           , valueOf (txOutValue $ txOutTxOut o) csym tn == 1
+           ]
+  case xs of
     [(oref, o)] -> case txOutDatumHash $ txOutTxOut o of
       Nothing -> Contract.throwError "unexpected out type"
       Just h  -> case Map.lookup h $ txData $ txOutTxTx o of
         Nothing        -> Contract.throwError "datum not found"
         Just (Datum e) -> case fromData e of
           Nothing -> Contract.throwError "datum has wrong type"
-          Just d  -> return (d, o, oref)
+          Just gd@GovernanceDatum{..}
+            | gdCurrencySymbol == csym && gdTokenName == tn -> return (gd, o, oref)
+            | otherwise                                     -> Contract.throwError "Governance token mismatch"
     _ -> Contract.throwError "No UTxO found"

@@ -13,25 +13,25 @@ import Mlabs.Governance.Contract.Server qualified as Server
 
 -- imo it would be nicer if we were to take the type to be applied to callEndpoint' from the type sig itself
 -- | Deposits the specified amount of GOV into the governance contract
-callDeposit :: CurrencySymbol -> Emulator.Wallet -> Api.Deposit -> EmulatorTrace ()
-callDeposit csym wal depo = do
-  hdl <- activateContractWallet wal (Server.governanceEndpoints csym)
+callDeposit :: CurrencySymbol -> TokenName -> Emulator.Wallet -> Api.Deposit -> EmulatorTrace ()
+callDeposit csym tn wal depo = do
+  hdl <- activateContractWallet wal (Server.governanceEndpoints csym tn)
   void $ callEndpoint' @Api.Deposit hdl depo
 
 -- | Withdraws the specified amount of GOV from the governance contract
-callWithdraw :: CurrencySymbol -> Emulator.Wallet -> Api.Withdraw -> EmulatorTrace ()
-callWithdraw csym wal withd = do
-  hdl <- activateContractWallet wal (Server.governanceEndpoints csym)
+callWithdraw :: CurrencySymbol -> TokenName -> Emulator.Wallet -> Api.Withdraw -> EmulatorTrace ()
+callWithdraw csym tn wal withd = do
+  hdl <- activateContractWallet wal (Server.governanceEndpoints csym tn)
   void $ callEndpoint' @Api.Withdraw hdl withd
 
 -- | Distributes the given Value amongst the xGOV holders
-callProvideRewards :: CurrencySymbol -> Emulator.Wallet -> Api.ProvideRewards -> EmulatorTrace ()
-callProvideRewards csym wal withd = do
-  hdl <- activateContractWallet wal (Server.governanceEndpoints csym)
+callProvideRewards :: CurrencySymbol -> TokenName -> Emulator.Wallet -> Api.ProvideRewards -> EmulatorTrace ()
+callProvideRewards csym tn wal withd = do
+  hdl <- activateContractWallet wal (Server.governanceEndpoints csym tn)
   void $ callEndpoint' @Api.ProvideRewards hdl withd
 
 -- | Queries the balance of a given PubKeyHash
-queryBalance :: CurrencySymbol -> Emulator.Wallet -> Api.QueryBalance -> EmulatorTrace ()
-queryBalance csym wal qb = do
-  hdl <- activateContractWallet wal (Server.governanceEndpoints csym)
+queryBalance :: CurrencySymbol -> TokenName -> Emulator.Wallet -> Api.QueryBalance -> EmulatorTrace ()
+queryBalance csym tn wal qb = do
+  hdl <- activateContractWallet wal (Server.governanceEndpoints csym tn)
   void $ callEndpoint' @Api.QueryBalance hdl qb

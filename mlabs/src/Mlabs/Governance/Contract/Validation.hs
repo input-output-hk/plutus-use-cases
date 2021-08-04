@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-} 
+
 -- | Validation, on-chain code for governance application 
 module Mlabs.Governance.Contract.Validation (
     scrAddress
@@ -8,10 +10,13 @@ module Mlabs.Governance.Contract.Validation (
   , xGovMintingPolicy
   , xGovCurrencySymbol
   , Governance
+  , GovernanceDatum(..)
   , govToken
   ) where
 
 import Data.Coerce (coerce)
+import GHC.Generics (Generic)
+import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx qualified
 import PlutusTx.Prelude hiding (Semigroup(..), unless)
@@ -19,24 +24,35 @@ import Ledger hiding (singleton)
 import Ledger.Typed.Scripts      qualified as Scripts
 import Plutus.V1.Ledger.Value    qualified as Value
 import Plutus.V1.Ledger.Contexts qualified as Contexts
+import Prelude qualified as Hask 
 
 govToken :: TokenName
 govToken = "GOV"
 
--- TODO: parametrize it by an NFT
--- Validator of the governance contract
-{-# INLINABLE mkValidator #-}
-mkValidator :: CurrencySymbol -> AssocMap.Map PubKeyHash Integer -> () -> ScriptContext -> Bool
-mkValidator cs _ _ _ = True -- todo: can't do it w/o validator type, do that one first
+-- CurrencySymbol and TokenName assumed to be an NFT
+-- (WARNING: THIS ISN'T GOV OR XGOV) - further proof that we need to newtype GOV and xGOV
+data GovernanceDatum = GovernanceDatum {
+    gdCurrencySymbol :: CurrencySymbol 
+  , gdTokenName :: TokenName
+  , gdDepositMap :: AssocMap.Map PubKeyHash Integer
+  } deriving (Hask.Show, Generic, ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''GovernanceDatum
+PlutusTx.makeLift ''GovernanceDatum
 
 data Governance
 instance Scripts.ScriptType Governance where
-    type instance DatumType Governance = AssocMap.Map PubKeyHash Integer
+    type instance DatumType Governance = GovernanceDatum
     type instance RedeemerType Governance = () -- todo: needs to restructure so that Api types have a representation here
+
+-- Validator of the governance contract
+{-# INLINABLE mkValidator #-}
+mkValidator :: GovernanceDatum -> () -> ScriptContext -> Bool
+mkValidator _ _ _ = True -- todo: can't do it w/o validator type, do that one first
     
 scrInstance :: CurrencySymbol -> Scripts.ScriptInstance Governance
 scrInstance csym = Scripts.validator @Governance
-  ($$(PlutusTx.compile [|| mkValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode csym)
+  $$(PlutusTx.compile [|| mkValidator ||])
   $$(PlutusTx.compile [|| wrap ||])
   where
     wrap = Scripts.wrapValidator @(Scripts.DatumType Governance) @(Scripts.RedeemerType Governance)
