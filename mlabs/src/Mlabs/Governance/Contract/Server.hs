@@ -91,7 +91,7 @@ withdraw nft gov (Api.Withdraw val) = do
   pkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, _, oref) <- findGovernance nft gov
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
-            . AssocMap.lookup (acGovCurrencySymbol gov) $ getValue val
+            . AssocMap.lookup (Validation.xGovCurrencySymbol gov) $ getValue val
   let maybedatum' :: Maybe (AssocMap.Map PubKeyHash Integer)
       maybedatum' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
 

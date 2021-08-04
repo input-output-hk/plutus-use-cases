@@ -1,11 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-
-{-# OPTIONS_GHC -fno-specialise #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fobject-code #-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
--}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | Validation, on-chain code for governance application 
 module Mlabs.Governance.Contract.Validation (
@@ -23,6 +17,7 @@ module Mlabs.Governance.Contract.Validation (
   ) where
 
 import Data.Coerce (coerce)
+import Data.List (sortOn)
 import GHC.Generics (Generic)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import PlutusTx.AssocMap qualified as AssocMap
@@ -32,9 +27,11 @@ import Ledger hiding (singleton)
 import Ledger.Typed.Scripts      qualified as Scripts
 import Plutus.V1.Ledger.Value    qualified as Value
 import Plutus.V1.Ledger.Contexts qualified as Contexts
+import Plutus.V1.Ledger.Address  qualified as Address
+import Plutus.V1.Ledger.Credential (Credential(..))
 import Prelude qualified as Hask 
 
-import Mlabs.Governance.Contract.Api (AssetClassNft(..), AssetClassGov(..), Deposit(..), Withdraw(..))
+import Mlabs.Governance.Contract.Api (AssetClassNft(..), AssetClassGov(..))
 
 -- there's a discussion to be had about whether we want the AssetClasses to parametrize
 -- the contract or just sit in the datum. 
@@ -47,21 +44,82 @@ data GovernanceDatum = GovernanceDatum {
 PlutusTx.unstableMakeIsData ''GovernanceDatum
 PlutusTx.makeLift ''GovernanceDatum
 
-data GovernanceValidator = GVDeposit !Deposit | GVWithdraw !Withdraw
+data GovernanceRedeemer = GRDeposit !PubKeyHash | GRWithdraw !PubKeyHash
   deriving (Hask.Show, Generic)
 
-PlutusTx.unstableMakeIsData ''GovernanceValidator
+PlutusTx.unstableMakeIsData ''GovernanceRedeemer
 
 data Governance
 instance Scripts.ScriptType Governance where
     type instance DatumType Governance = GovernanceDatum
-    type instance RedeemerType Governance = GovernanceValidator
+    type instance RedeemerType Governance = GovernanceRedeemer
 
 -- Validator of the governance contract
 {-# INLINABLE mkValidator #-}
-mkValidator :: GovernanceDatum -> GovernanceValidator -> ScriptContext -> Bool
-mkValidator _ _ _ = True -- todo: can't do it w/o validator type, do that one first
+mkValidator :: GovernanceDatum -> GovernanceRedeemer -> ScriptContext -> Bool
+mkValidator govDatum redeemer ctx = checkCorrectOutputs
+  where
+    info :: Contexts.TxInfo
+    info = scriptContextTxInfo ctx
+
+    gov :: AssetClassGov
+    gov = gdGov govDatum
+
+    -- honestly we could tweak this a bit. TBD.
+    userInput :: PubKeyHash -> Value
+    userInput pkh =
+      let isByPkh x = case Address.addressCredential . txOutAddress $ txInInfoResolved x of
+            PubKeyCredential key | key == pkh -> True
+            _                                 -> False
+      in case filter isByPkh $ txInfoInputs info of
+        [o] -> txOutValue $ txInInfoResolved o
+        _   -> traceError "expected exactly one payment from the pkh"
     
+    ownOutput :: Contexts.TxOut
+    outputDatum :: GovernanceDatum
+    (ownOutput, outputDatum) = case Contexts.getContinuingOutputs ctx of
+      [o] -> case txOutDatumHash o of
+        Nothing -> traceError "wrong output type"
+        Just h  -> case findDatum h info of
+          Nothing        -> traceError "datum not found"
+          Just (Datum d) -> case PlutusTx.fromData d of
+            Just gd -> (o, gd)
+            Nothing -> traceError "error decoding data"
+      _ -> traceError "expected one continuing output"
+
+    checkCorrectOutputs = gdNft govDatum == gdNft outputDatum && gdGov govDatum == gdGov outputDatum
+      && case redeemer of
+        GRDeposit pkh ->
+          let prev = maybe 0 id $ AssocMap.lookup pkh (gdDepositMap govDatum)
+              paidGov = case Value.flattenValue (userInput pkh) of
+                [(csym, tn, amm)] | (AssetClassGov csym tn) == gov -> amm 
+                _ -> traceError "incorrect payment type or unnescesary tokens in input"                                                             
+          in case AssocMap.lookup pkh (gdDepositMap outputDatum) of
+            Just after | after == prev + paidGov -> True 
+            Nothing                              -> traceError "no record of user's deposit in datum"
+            _                                    -> traceError "incorrect update of user's deposited amount"
+        GRWithdraw pkh ->          
+          let paidxGov = case Value.flattenValue (userInput pkh) of
+                [] -> traceError "no payments made"
+                xs | all isxGovCorrect xs -> sum $ map (\(_,_,amm) -> amm) xs
+                   where
+                     isxGovCorrect (csym, tn, amm) =
+                       xGovCurrencySymbol (gdGov govDatum) == csym &&
+                       case AssocMap.lookup (coerce tn) (gdDepositMap govDatum) of
+                         Nothing -> traceError "detected unregistered xGOV tokens"
+                         Just before  -> case AssocMap.lookup (coerce tn) (gdDepositMap outputDatum) of
+                           Nothing | amm == before            -> True
+                           Just after | before == after + amm -> True
+                           Nothing | amm > before             -> traceError "detected unregistered xGOV tokens"
+                           Nothing                            -> traceError "premature erasure of deposit record"
+                           Just after | before > after + amm  -> traceError "loss of tokens in datum"
+                           Just _                             -> traceError "withdrawal of too many tokens in datum"
+          in case Value.flattenValue (valuePaidTo info pkh) of
+            [(csym, tn, amm)] | amm == paidxGov -> traceIfFalse "non-GOV payment by script on withdrawal"
+                                                     $ AssetClassGov csym tn == gdGov govDatum
+            [_]                                 -> traceError "imbalanced ammount of xGOV to GOV"
+            _                                   -> traceError "more than one assetclass paid by script"
+
 scrInstance :: Scripts.ScriptInstance Governance
 scrInstance = Scripts.validator @Governance
   $$(PlutusTx.compile [|| mkValidator ||])
@@ -98,8 +156,7 @@ mkPolicy AssetClassGov{..} ctx =
       _ -> False
 
     -- checks that the GOV was paid to the governance script, returns the value of it
-    -- TODO: uncomment after plutus upgrade (with the ByteString eq pr)
-    (checkGovToScr, govPaidAmm) = case fmap txOutValue . find (\txout -> {- scrAddress == txOutAddress txout -} True) $ txInfoOutputs info of
+    (checkGovToScr, govPaidAmm) = case fmap txOutValue . find (\txout -> scrAddress == txOutAddress txout) $ txInfoOutputs info of
       Nothing  -> (False,0) 
       Just val -> case Value.flattenValue val of
         [(cur, tn, amm)] -> (cur == acGovCurrencySymbol && tn == acGovTokenName, amm)

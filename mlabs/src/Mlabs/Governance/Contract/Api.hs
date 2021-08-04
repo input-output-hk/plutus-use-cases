@@ -43,7 +43,12 @@ import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
 data AssetClassNft = AssetClassNft {
     acNftCurrencySymbol :: !CurrencySymbol
   , acNftTokenName :: !TokenName
-  } deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
+  } deriving (Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
+
+instance Eq AssetClassNft where
+  {-# INLINABLE (==) #-}
+  n1 == n2 = acNftCurrencySymbol n1 == acNftCurrencySymbol n2
+    && acNftTokenName n1 == acNftTokenName n2
 
 PlutusTx.unstableMakeIsData ''AssetClassNft
 PlutusTx.makeLift ''AssetClassNft
@@ -51,7 +56,12 @@ PlutusTx.makeLift ''AssetClassNft
 data AssetClassGov = AssetClassGov {
     acGovCurrencySymbol :: !CurrencySymbol
   , acGovTokenName :: !TokenName
-  } deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
+  } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+
+instance Eq AssetClassGov where
+  {-# INLINABLE (==) #-}
+  n1 == n2 = acGovCurrencySymbol n1 == acGovCurrencySymbol n2
+    && acGovTokenName n1 == acGovTokenName n2
 
 PlutusTx.unstableMakeIsData ''AssetClassGov
 PlutusTx.makeLift ''AssetClassGov
@@ -59,7 +69,7 @@ PlutusTx.makeLift ''AssetClassGov
 data StartGovernance = StartGovernance {
     sgNft :: !AssetClassNft
   , sgGov :: !AssetClassGov
-  } deriving stock (Show, Generic, Hask.Eq)
+  } deriving stock (Show, Generic)
     deriving anyclass (FromJSON, ToJSON, ToSchema)  
 
 -- since we have split of withdraw/deposit we might want to ensure that
