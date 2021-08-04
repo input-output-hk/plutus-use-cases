@@ -55,7 +55,7 @@ Prerequisite: none
 
 behaviour: 
 
--- @anton:  what does this endpoint do?
+initiate the user's reserve for the currencies specified in the input.
 
 ### QueryAllLendexes
 
@@ -90,8 +90,9 @@ Mlabs.Lending.Contract.Api.Deposit (amount, asset)
 Prerequisite: wallet holds underlying currency for Market
 
 Expected outcome: 
-Wallet balance of underlying token reduces by (x * e) (plus fees).
-Wallet balance of aToken increases by x, these should be newly minted aTokens.
+Wallet balance of underlying token reduces by amount of asset (plus fees).
+these funds are added to the user's reserve
+Wallet balance of aToken increases by x / e, these should be newly minted aTokens.
 where
   x = amount of atokens specified in request body, rounded down such that the wallet has enough underlying token (if necessary)
   e = exchange rate aToken: underlying
@@ -111,7 +112,7 @@ Prerequisite: The user must hold aTokens for the market in question, making the 
 
 Expected outcome:
 Wallet Balance of aToken is reduced by x.
-
+these funds are added to the user's reserve
 Wallet balance of underlying is increased by (x * e) (less fees)
 atokens are burned AND any global state tracking total aTokens in circulation is adjusted.
 
