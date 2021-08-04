@@ -26,6 +26,8 @@ import Plutus.V1.Ledger.Api (Datum(..))
 import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Tx 
+import PlutusTx (IsData, fromData)
+import qualified PlutusTx.AssocMap as M
 
 import Mlabs.Emulator.Types (ownUserId, UserId(..))
 import Mlabs.Lending.Contract.Api qualified as Api
@@ -86,10 +88,13 @@ adminEndpoints lid = do
   where
     act :: Api.IsGovernAct a => AdminContract a -> AdminContract ()
     act readInput = readInput >>= adminAction lid
-
+-- | Endpoints for querrying Lendex state:
+--   * `QueryAllLendexes` - returns a list of `LendingPool` data associated with each available lendes
+--   * `QuerySupportedCurrencies` - returns the list of supported currencies (see `SupportedCurrency`) for current `LendingPool`
 queryEndpoints :: Types.LendexId -> QueryContract ()
 queryEndpoints lid = forever $ selects
     [ getEndpoint @Api.QueryAllLendexes >>= (queryAllLendexes lid)
+    , getEndpoint @Api.QuerySupportedCurrencies >> (querySupportedCurrencies lid)
     ]
 
 -- actions
@@ -135,6 +140,18 @@ queryAllLendexes lid (Api.QueryAllLendexes spm) = do
       (dat::(Types.LendexId, Types.LendingPool)) <- readDatum o 
       lp <- startedWith (snd dat) spm
       pure (add, lp)
+
+querySupportedCurrencies :: Types.LendexId -> QueryContract ()
+querySupportedCurrencies lid = do
+  (_, pool)  <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
+  tellResult . getSupportedCurrencies $ pool
+  where
+    getSupportedCurrencies :: Types.LendingPool -> [Types.SupportedCurrency]
+    getSupportedCurrencies lp = 
+      fmap
+      (\(coin, rsrv) -> Types.SupportedCurrency coin rsrv.reserve'aToken rsrv.reserve'rate)
+      (M.toList lp.lp'reserves)
+    tellResult = Contract.tell . Just . Last . Types.QueryResSupportedCurrencies
       
 ----------------------------------------------------------
 -- to act conversion
@@ -164,10 +181,12 @@ getCurrentTime = getSlot <$> Contract.currentSlot
 ----------------------------------------------------------
 
 findInputStateDatum :: Types.LendexId -> UserContract Datum
-findInputStateDatum lid = do
+findInputStateDatum = findInputStateData
+
+findInputStateData :: IsData d => Types.LendexId ->  Contract.Contract w s StateMachine.LendexError d
+findInputStateData lid = do
   utxos <- Contract.utxoAt (StateMachine.lendexAddress lid)
   maybe err pure $ firstJust (readDatum . snd) $ toList utxos
   where
     err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
-
-
+    

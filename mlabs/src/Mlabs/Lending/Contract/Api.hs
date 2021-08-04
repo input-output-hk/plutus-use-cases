@@ -25,7 +25,9 @@ module Mlabs.Lending.Contract.Api(
   -- ** Admin actions
   , AddReserve(..)
   , StartLendex(..)
+  -- ** Query actions
   , QueryAllLendexes(..)
+  , QuerySupportedCurrencies(..)
   -- ** Price oracle actions
   , SetAssetPrice(..)
   -- ** Action conversions
@@ -133,12 +135,16 @@ data AddReserve = AddReserve Types.CoinCfg
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 newtype StartLendex = StartLendex Types.StartParams 
-  deriving newtype (Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
+  deriving newtype (Hask.Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
 
 -- query actions
 
 newtype QueryAllLendexes = QueryAllLendexes Types.StartParams
-  deriving newtype (Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
+  deriving newtype (Hask.Show, Generic, Hask.Eq, FromJSON, ToJSON, ToSchema)
+
+newtype QuerySupportedCurrencies = QuerySupportedCurrencies ()
+  deriving stock (Hask.Show, Generic)
+  deriving newtype (FromJSON, ToJSON, ToSchema)
 
 -- price oracle actions
 
@@ -173,6 +179,7 @@ type AdminSchema =
 -- | Query schema
 type QuerySchema =
   Call QueryAllLendexes
+  .\/ Call QuerySupportedCurrencies
 
 ----------------------------------------------------------
 -- proxy types for ToSchema instance
@@ -258,3 +265,6 @@ instance IsEndpoint StartLendex where
 
 instance IsEndpoint QueryAllLendexes where
   type EndpointSymbol QueryAllLendexes = "query-all-lendexes"
+
+instance IsEndpoint QuerySupportedCurrencies where
+  type EndpointSymbol QuerySupportedCurrencies = "query-supported-currencies"

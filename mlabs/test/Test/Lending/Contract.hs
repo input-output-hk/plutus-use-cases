@@ -1,13 +1,19 @@
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DataKinds #-}
+
 -- | Tests for lending application contracts.
 module Test.Lending.Contract(
   test
 ) where
 
 import Prelude
-
 import Data.Functor (void)
-import Plutus.Contract.Test (checkPredicateOptions, Wallet)
+import Data.Semigroup (Last(..))
+
+import qualified PlutusTx.Ratio as R
+import Plutus.Contract.Test (checkPredicateOptions, Wallet, assertAccumState)
 import qualified Plutus.Trace.Emulator as Trace
+import Plutus.Trace.Emulator.Types ()
 import Plutus.V1.Ledger.Value (assetClassValue)
 import Test.Lending.Init (aAda, aCoin1, aCoin2, aCoin3, adaCoin, aToken1, aToken2, aToken3,
                           checkOptions, coin1, coin2, coin3, lendexId, toPubKeyHash, toUserId,
@@ -15,13 +21,16 @@ import Test.Lending.Init (aAda, aCoin1, aCoin2, aCoin3, adaCoin, aToken1, aToken
 import Test.Tasty (testGroup, TestTree)
 import Test.Utils (next, wait)
 
-import qualified PlutusTx.Ratio as R
 import Mlabs.Emulator.Scene (appAddress, appOwns, checkScene, owns, Scene)
+import Mlabs.Plutus.Contract (callEndpoint')
 import qualified Mlabs.Lending.Contract as L
 import qualified Mlabs.Lending.Contract.Emulator.Client as L
 import Mlabs.Lending.Contract.Api ( StartLendex(..) )
 import Mlabs.Lending.Logic.Types ( UserAct(..), InterestRate(..), CoinCfg(..), defaultInterestModel
-                                 , PriceAct(..), BadBorrow(..), StartParams(..))
+                                 , PriceAct(..), BadBorrow(..), StartParams(..), SupportedCurrency(..)
+                                 , CoinRate(..), QueryRes(QueryResSupportedCurrencies))
+import qualified Mlabs.Lending.Contract.Server  as Server
+import qualified Mlabs.Lending.Contract.Api     as Api
 
 test :: TestTree
 test = testGroup "Contract"
@@ -33,6 +42,7 @@ test = testGroup "Contract"
   , testRepay
   , testLiquidationCall
   , testQueryAllLendexes
+  , testQuerrySupportedCurrencies
   ]
   where
     check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
@@ -253,9 +263,44 @@ queryAllLendexesScript = do
 queryAllLendexesScene :: Scene
 queryAllLendexesScene = depositScene 
 
+--------------------------------------------------------------------------------
+-- querry supported currencies test
+testQuerrySupportedCurrencies :: TestTree
+testQuerrySupportedCurrencies = 
+  checkPredicateOptions checkOptions "QuerrySupportedCurrencies"
+    (assertAccumState contract tag (== expectedQueryResult) 
+      "contract state after QuerrySupportedCurrencies call doesn't match expected"
+    )
+    $ do
+      initLendex lendexId
+      next
+      hdl <- Trace.activateContractWallet w1 contract
+      void $ callEndpoint' @Api.QuerySupportedCurrencies hdl (Api.QuerySupportedCurrencies ())
+      next
+      where
+        initLendex lid = L.callStartLendex lid wAdmin . StartLendex $ sp
+        contract = Server.queryEndpoints lendexId
+        tag = Trace.walletInstanceTag w1
+        coins = [(adaCoin, aAda, 1 R.% 1), (coin1, aToken1, 1 R.% 2)]
+        expectedQueryResult = 
+          Just . Last . QueryResSupportedCurrencies $
+          (\(coin, aCoin, rate) -> SupportedCurrency coin aCoin (CoinRate rate 0)) <$> coins
+        sp = StartParams
+          { sp'coins = fmap (\(coin, aCoin, rate) -> CoinCfg
+                                                { coinCfg'coin = coin
+                                                , coinCfg'rate = rate
+                                                , coinCfg'aToken = aCoin
+                                                , coinCfg'interestModel = defaultInterestModel
+                                                , coinCfg'liquidationBonus = 5 R.% 100
+                                                })
+                coins
+          , sp'initValue = assetClassValue adaCoin 1000
+          , sp'admins    = [toPubKeyHash wAdmin]
+          , sp'oracles   = [toPubKeyHash wAdmin]
+          }
+           
 --------------------------------------------------
 -- names as in script test
 
 priceAct :: Wallet -> PriceAct -> Trace.EmulatorTrace ()
 priceAct wal act = L.callPriceAct lendexId wal act
-

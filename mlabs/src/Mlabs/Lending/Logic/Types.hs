@@ -52,6 +52,7 @@ module Mlabs.Lending.Logic.Types(
   , fromLendingToken
   , fromAToken
   , QueryRes(..)
+  , SupportedCurrency(..)
 ) where
 
 import PlutusTx.Prelude hiding ((%))
@@ -86,7 +87,7 @@ data LendingPool = LendingPool
   , lp'admins         :: ![UserId]               -- ^ we accept govern acts only for those users
   , lp'trustedOracles :: ![UserId]               -- ^ we accept price changes only for those users
   }
-  deriving (Hask.Show, Generic)
+  deriving (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Reserve of give coin in the pool.
@@ -99,7 +100,7 @@ data Reserve = Reserve
   , reserve'aToken               :: !TokenName  -- ^ aToken corresponding to the coin of the reserve
   , reserve'interest             :: !ReserveInterest -- ^ reserve liquidity params
   }
-  deriving (Hask.Show, Generic)
+  deriving (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 data StartParams = StartParams
@@ -108,7 +109,7 @@ data StartParams = StartParams
   , sp'admins    :: [PubKeyHash]    -- ^ admins
   , sp'oracles   :: [PubKeyHash]    -- ^ trusted oracles
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 type HealthReport = Map BadBorrow Rational
@@ -131,7 +132,7 @@ data CoinRate = CoinRate
   { coinRate'value          :: !Rational -- ^ ratio to ada
   , coinRate'lastUpdateTime :: !Integer  -- ^ last time price was updated
   }
-  deriving (Hask.Show, Generic)
+  deriving (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Parameters for calculation of interest rates.
@@ -142,7 +143,7 @@ data ReserveInterest = ReserveInterest
   , ri'normalisedIncome   :: !Rational
   , ri'lastUpdateTime     :: !Integer
   }
-  deriving (Hask.Show, Generic)
+  deriving (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 data InterestModel = InterestModel
@@ -223,7 +224,7 @@ data User = User
   , user'lastUpdateTime  :: !Integer
   , user'health          :: !Health
   }
-  deriving (Hask.Show, Generic)
+  deriving (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Health ratio for user per borrow
@@ -247,7 +248,7 @@ data Wallet = Wallet
   , wallet'borrow        :: !Integer   -- ^ amount of borrow
   , wallet'scaledBalance :: !Rational  -- ^ scaled balance
   }
-  deriving (Hask.Show, Generic)
+  deriving (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 
@@ -353,9 +354,21 @@ data InterestRate = StableRate | VariableRate
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
--- If another query is added, extend this data type 
-data QueryRes = QueryResAllLendexes [(Address, LendingPool)]
-  deriving stock (Show, Generic)
+-- | Supported currency of `Reserve` in `LendingPool`
+data SupportedCurrency = SupportedCurrency
+  { sc'underlying   :: !Coin       -- ^ underlying
+  , sc'aToken       :: !TokenName  -- ^ aToken
+  , sc'exchangeRate :: !CoinRate   -- ^ exchange rate
+  } 
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
+-- If another query is added, extend this data type
+-- | Results of query endpoints calls on `QueryContract`
+data QueryRes 
+  = QueryResAllLendexes [(Address, LendingPool)]
+  | QueryResSupportedCurrencies { getSupported :: [SupportedCurrency] }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 ---------------------------------------------------------------
