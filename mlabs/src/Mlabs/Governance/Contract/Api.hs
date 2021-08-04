@@ -10,7 +10,8 @@
 
 -- | Contract API for the Governance application
 module Mlabs.Governance.Contract.Api (
-    Deposit(..)
+    StartGovernance(..)
+  , Deposit(..)
   , Withdraw(..)
   , ProvideRewards(..)
   , QueryBalance(..)
@@ -28,6 +29,13 @@ import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
 import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
+import Mlabs.Governance.Contract.Validation (AssetClassNft, AssetClassGov)
+
+data StartGovernance = StartGovernance {
+    sgNft :: !AssetClassNft
+  , sgGov :: !AssetClassGov
+  } deriving stock (Show, Generic, Hask.Eq)
+    deriving anyclass (FromJSON, ToJSON, ToSchema)  
 
 -- since we have split of withdraw/deposit we might want to ensure that
 -- the amounts have to be positive by construction, tbd (for now Natural has no ToSchema instance)
@@ -52,12 +60,16 @@ newtype QueryBalance = QueryBalance PubKeyHash
 -- no need to split schemas
 type GovernanceSchema =
   BlockchainActions
+    .\/ Call StartGovernance
     .\/ Call Deposit
     .\/ Call Withdraw
     .\/ Call ProvideRewards
     .\/ Call QueryBalance
 
 --- endpoint names
+
+instance IsEndpoint StartGovernance where
+  type EndpointSymbol StartGovernance = "start-governance"
 
 instance IsEndpoint Deposit where
   type EndpointSymbol Deposit = "deposit"
