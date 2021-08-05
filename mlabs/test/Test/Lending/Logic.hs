@@ -8,6 +8,9 @@ module Test.Lending.Logic(
   , coin1, coin2, coin3
 ) where
 
+import PlutusTx.Prelude
+import Prelude (uncurry)
+
 import qualified Data.Map.Strict as M
 import Plutus.V1.Ledger.Value (TokenName, AssetClass(AssetClass), CurrencySymbol, currencySymbol, tokenName)
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))

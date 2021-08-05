@@ -11,7 +11,8 @@ module Mlabs.Plutus.Contract(
   , callEndpoint'
 ) where
 
-import Prelude
+import PlutusTx.Prelude
+import Prelude (String, foldl1)
 
 import Control.Monad.Freer (Eff)
 import Data.Aeson (FromJSON, ToJSON)
@@ -28,7 +29,7 @@ import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator (callEndpointOnInstance, Simulation, waitNSlots)
 import Plutus.Trace.Effects.RunContract (callEndpoint, RunContract)
 import Plutus.Trace.Emulator.Types (ContractConstraints, ContractHandle)
-import PlutusTx ( IsData(fromData) )
+import PlutusTx (IsData, fromBuiltinData)
 
 instance Semigroup (Contract.Contract w s e a) where
   (<>) = Contract.select
@@ -42,7 +43,7 @@ readDatum :: IsData a => TxOutTx -> Maybe a
 readDatum txOut = do
   h <- txOutDatumHash $ txOutTxOut txOut
   Datum e <- lookupDatum (txOutTxTx txOut) h
-  PlutusTx.fromData e
+  PlutusTx.fromBuiltinData e
 
 type Call a = Contract.Endpoint (EndpointSymbol a) a
 

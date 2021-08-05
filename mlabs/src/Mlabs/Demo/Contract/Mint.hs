@@ -31,7 +31,8 @@ module Mlabs.Demo.Contract.Mint
   , MintSchema
   ) where
       
-import PlutusTx.Prelude hiding (Monoid(..), Semigroup(..), null)
+import PlutusTx.Prelude hiding (Semigroup(..))
+import Prelude (Semigroup(..))
 
 import Control.Monad (void)
 import Data.Aeson (FromJSON, ToJSON)
@@ -47,7 +48,6 @@ import Ledger.Scripts (MintingPolicy, Datum(Datum), mkMintingPolicyScript)
 import Ledger.Typed.Scripts qualified as Scripts
 import Plutus.Contract as Contract
 import PlutusTx qualified
-import Prelude (Semigroup(..))
 import Schema (ToSchema)
 import Data.Void (Void)
 import Mlabs.Demo.Contract.Burn (burnScrAddress, burnValHash)
@@ -126,7 +126,7 @@ mintContract mp = do
     tx =
       Constraints.mustPayToOtherScript
           burnValHash
-          (Datum $ PlutusTx.toData ())
+          (Datum $ PlutusTx.toBuiltinData ())
           payVal
         <> Constraints.mustMintValue forgeVal
   ledgerTx <- submitTxConstraintsWith @Void lookups tx

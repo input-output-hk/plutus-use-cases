@@ -5,6 +5,9 @@ module Test.Utils(
   , concatPredicates
 ) where
 
+import PlutusTx.Prelude hiding (fromInteger)
+import Prelude (String, fromInteger)
+
 import Data.Functor (void)
 import Data.List (foldl1')
 import Plutus.Contract.Test ( TracePredicate, (.&&.) )

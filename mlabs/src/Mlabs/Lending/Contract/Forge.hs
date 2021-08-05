@@ -22,7 +22,7 @@ import Ledger.Typed.Scripts as Scripts (MintingPolicy, wrapMintingPolicy)
 import Plutus.V1.Ledger.Contexts qualified as Contexts
 import Plutus.V1.Ledger.Scripts as Scripts (Datum(getDatum), mkMintingPolicyScript)
 import Plutus.V1.Ledger.Value qualified as Value
-import PlutusTx (IsData(fromData), liftCode, applyCode, compile)
+import PlutusTx (fromBuiltinData, liftCode, applyCode, compile)
 
 import Mlabs.Lending.Logic.State ( getsWallet )
 
@@ -80,7 +80,7 @@ validate lendexId _ ctx = case (getInState, getOutState) of
     stateForTxOut out = do
       dHash <- Contexts.txOutDatumHash out
       dat   <- Scripts.getDatum <$> Contexts.findDatum dHash info
-      (lid, st) <- PlutusTx.fromData dat
+      (lid, st) <- PlutusTx.fromBuiltinData dat
       pure $ Input lid st (Contexts.txOutValue out)
 
     isValidForge :: Input -> Input -> (Value.CurrencySymbol, Value.TokenName, Integer) -> Bool

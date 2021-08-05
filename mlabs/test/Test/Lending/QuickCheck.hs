@@ -10,6 +10,20 @@
 
 module Test.Lending.QuickCheck where
 
+import PlutusTx.Prelude hiding (length, fmap, (<$>), (<*>))
+import Prelude (
+    Int
+  , uncurry
+  , Show
+  , zip3
+  , abs
+  , drop
+  , length
+  , fmap
+  , (<$>)
+  , (<*>)
+  )
+
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import qualified Plutus.V1.Ledger.Value as Value
