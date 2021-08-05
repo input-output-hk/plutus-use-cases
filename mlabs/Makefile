@@ -1,6 +1,8 @@
-PROJ := mlabs-plutus-use-cases # Project Name 
-COMP := ${PROJ}.components     # Components
-
+PROJ = "mlabs-plutus-use-cases"   # Project Name 
+COMP = "$(PROJ).components"       # Libraries
+EXES = "$(PROJ).components.exes"  # Executables 
+TEST = "$(PROJ).components.tests" # Tests
+ 
 .PHONY: build-nix hoogle build nix-build-library nix-build-executables \
         nix-build-test nix-repl requires_nix_shell
 
@@ -16,15 +18,15 @@ hoogle: requires_nix_shell
 
 # Build the library with nix.
 nix-build-library:
-	@ nix-build -A ${COMP}
+	@ nix-build -A $(COMP)
 
 # Build the executables with nix.
 nix-build-executables:
-	@ nix-build -A ${COMP}.exes
+	@ nix-build -A $(EXES)
 
 # Build the tests with nix.
 nix-build-test:
-	@ nix-build -A ${COMP}.tests
+	@ nix-build -A $(TEST)
 
 # Starts a ghci repl inside the nix environment.
 nix-repl: 

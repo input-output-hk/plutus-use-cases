@@ -27,7 +27,7 @@ import qualified PlutusTx
 
 import           Mlabs.Emulator.Blockchain       (toConstraints, updateRespValue)
 import           Mlabs.Lending.Logic.React       (react)
-import qualified Mlabs.Lending.Logic.Types       as Types
+import qualified Mlabs.Lending.Logic.Types        as Types
 
 type Lendex = SM.StateMachine (Types.LendexId, Types.LendingPool) Types.Act
 

@@ -1,5 +1,11 @@
 -- | Simulator demo for NFTs
-module Main where
+module Main(
+      main
+    , activateStartNft
+    , activateUser
+    , nftContent
+    , startParams
+  ) where
 
 import Prelude
 

@@ -2,6 +2,8 @@
 
 --------------------------------------------------------------------------------
 
+[![CI](https://github.com/mlabs-haskell/plutus-use-cases/actions/workflows/integrate.yml/badge.svg)](https://github.com/mlabs-haskell/plutus-use-cases/actions/workflows/integrate.yml)
+
 ## Contents
 
 - [MLabs: Plutus Use Cases](#mlabs-plutus-use-cases)
