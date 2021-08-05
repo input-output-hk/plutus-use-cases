@@ -53,8 +53,8 @@ data NFTCurrency = NFTCurrency
 PlutusTx.makeLift ''NFTCurrency
 
 {-# INLINABLE validateNFTForging #-}
-validateNFTForging :: NFTCurrency -> ScriptContext -> Bool
-validateNFTForging c@(NFTCurrency marketId) ctx@Validation.ScriptContext{Validation.scriptContextTxInfo=txinfo}
+validateNFTForging :: NFTCurrency -> () -> ScriptContext -> Bool
+validateNFTForging c@(NFTCurrency marketId) _ ctx@Validation.ScriptContext{Validation.scriptContextTxInfo=txinfo}
     =
     traceIfFalse "Should forge two tokens for the same symbol (nft and metadata)" (forgedSymbolsCount == 1)
     where
@@ -69,9 +69,9 @@ validateNFTForging c@(NFTCurrency marketId) ctx@Validation.ScriptContext{Validat
             [_] -> True
             _      -> traceError "nft forging without market input"
 
-nftMonetrayPolicy :: NFTCurrency -> MonetaryPolicy
-nftMonetrayPolicy cur = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validateNFTForging ||])
+nftMonetrayPolicy :: NFTCurrency -> MintingPolicy
+nftMonetrayPolicy cur = mkMintingPolicyScript $
+    $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . validateNFTForging ||])
         `PlutusTx.applyCode` PlutusTx.liftCode cur
 
 -- | The 'Value' forged by the 'NFTCurrency' contract

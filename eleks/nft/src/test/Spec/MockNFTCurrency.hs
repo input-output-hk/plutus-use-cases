@@ -60,8 +60,8 @@ data MockNFTCurrency = MockNFTCurrency
 
 PlutusTx.makeLift ''MockNFTCurrency
 
-validate :: MockNFTCurrency -> V.ScriptContext -> Bool
-validate c@(MockNFTCurrency testTokenName) ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
+validate :: MockNFTCurrency -> () -> V.ScriptContext -> Bool
+validate c@(MockNFTCurrency testTokenName) _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
     let
         -- see note [Obtaining the currency symbol]
         ownSymbol = V.ownCurrencySymbol ctx
@@ -80,9 +80,9 @@ validate c@(MockNFTCurrency testTokenName) ctx@V.ScriptContext{V.scriptContextTx
           in traceIfFalse "Forged value should be 1" isNft
     in forgeOK && forgeNFT
 
-testNftCurPolicy :: MockNFTCurrency -> MonetaryPolicy
-testNftCurPolicy nftCur = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . validate ||])
+testNftCurPolicy :: MockNFTCurrency -> MintingPolicy
+testNftCurPolicy nftCur = mkMintingPolicyScript $
+    $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . validate ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode nftCur
 
@@ -102,13 +102,13 @@ forgeContract
 forgeContract _ tokenName = do
     let theNftCurrency = MockNFTCurrency{ testCurTokenName = tokenName }
         curVali = testNftCurPolicy theNftCurrency
-        lookups = Constraints.monetaryPolicy curVali
-    let forgeTx = Constraints.mustForgeValue (forgedValue theNftCurrency)
+        lookups = Constraints.mintingPolicy curVali
+    let forgeTx = Constraints.mustMintValue (forgedValue theNftCurrency)
     tx <- submitTxConstraintsWith @Scripts.Any lookups forgeTx
     _ <- awaitTxConfirmed (txId tx)
     pure theNftCurrency
 
--- | Monetary policy for a currency that has a fixed amount of tokens issued
+-- | Miniting policy for a currency that has a fixed amount of tokens issued
 --   in one transaction
 data ForgeNftParams =
     ForgeNftParams
