@@ -52,9 +52,10 @@ data MintParams = MintParams
 
 data SellParams =SellParams
     {
+        spShare::[(PubKeyHash,Integer)],
         spItems::[ValueInfo],
         spSaleType :: SellType, -- Primary | Secondary
-        spCost::ValueInfo
+        spTotalCost  ::ValueInfo
     } deriving(GHC.Generics.Generic,ToJSON ,FromJSON,ToSchema,Show)
 
 -- Singleton of a Value
@@ -64,11 +65,6 @@ data ValueInfo=ValueInfo{
     value:: Integer
 } deriving(Generic,FromJSON,Prelude.Show,ToSchema,Prelude.Eq )
 
-defaultSellparam= SellParams{
-    spItems=[ValueInfo "abcd" "defg" 32],
-    spSaleType= Primary,
-    spCost= ValueInfo "degf" "abde" 23
-}
 instance ToJSON ValueInfo
   where
     toJSON (ValueInfo c t v) = object [  "currency" .= doConvert c, "token" .= doConvert t,"value".=toJSON v]
@@ -152,9 +148,9 @@ assetIdOf (AssetClass (CurrencySymbol c, TokenName t))=AssetId{
   }
 
 sellParamToDirectSale :: PubKeyHash -> SellParams->DirectSale
-sellParamToDirectSale  pkh (SellParams items stype cost) = DirectSale {
-                      dsSeller= pkh,
-                      dsCost = valueInfoToPrice cost,
+sellParamToDirectSale  pkh (SellParams parties items stype (ValueInfo c t v)) = DirectSale {
+                      dsParties = parties,
+                      dsAsset  = AssetClass (CurrencySymbol c, TokenName t),
                       dsType=stype
                       }
 
@@ -171,7 +167,7 @@ aParamToAuction ownerPkh ap  =Auction {
 
 
 directSaleToResponse:: Market -> ParsedUtxo DirectSale  -> NftsOnSaleResponse
-directSaleToResponse market (txOutRef,txOutTx,DirectSale{dsCost,dsSeller,dsType}) =
+directSaleToResponse market (txOutRef,txOutTx,DirectSale{dsAsset ,dsParties,dsType}) =
         NftsOnSaleResponse{
             cost=priceToValueInfo dsCost ,
             saleType= dsType,

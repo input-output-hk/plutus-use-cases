@@ -66,6 +66,7 @@ test-suite tokens-test
     Test.Wallet.AuctionEndpointTest
     Test.Wallet.DirectSaleEndpointTest
     Test.Validator.MarketValidatorTest
+    Test.Wallet.UtilEndpointTest
     Test.ValidatorTestFramework
     Test.TestHelper
   default-language: Haskell2010

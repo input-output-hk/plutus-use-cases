@@ -49,17 +49,6 @@ ownInputs ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}}=
     where
     resolved=map (\x->txInInfoResolved x) txInfoInputs
 
-
-allowSingleScript':: ScriptContext  -> Bool
-allowSingleScript' ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}} =
-    all checkScript txInfoInputs
-  where
-    checkScript (TxInInfo _ (TxOut address _ _))=
-      case addressCredential  address of
-        ScriptCredential vhash ->  traceIfFalse  "Reeming other Script utxo is Not allowed" (thisScriptHash == vhash)
-        _ -> True
-    thisScriptHash= ownHash ctx
-
 -- get List of valid parsed datums to the script in this transaction
 {-# INLINABLE ownInputDatums #-}
 ownInputDatums :: IsData a => ScriptContext  -> [a]

@@ -88,9 +88,12 @@ buyDirectSaleUtxos m fUtxos= submitTxConstraintsWith @MarketScriptType lookups t
 
         consumedOutputs=Map.fromList $ map (\(a,b,c) ->(a,b)) fUtxos
 
-        toConstraint (utxoRef, _, ds) = mustSpendScriptOutput utxoRef (Redeemer ( toData Buy))
-                        <> mustPayToPubKey  (dsSeller ds) (dsSellerShareValue m ds)
-                        <> mustPayToPubKey (mOperator m) (dsMarketShareValue m ds)
+        toConstraint (utxoRef, _, ds) = 
+            mustSpendScriptOutput utxoRef (Redeemer ( toData Buy))
+          <> dsSellerPayments ds
+          <> mustPayToPubKey (mOperator m) (assetClassValue (dsAsset ds) $  dsMarketShare m ds)
+
+        dsSellerPayments (DirectSale parties ac _)=foldMap (\(pkh,v)-> mustPayToPubKey pkh  (assetClassValue ac v)) parties
 
 
 submitAuction :: AsContractError e => Market -> [Auction] -> Contract w s e Tx
@@ -104,6 +107,7 @@ bidAuctionUtxo market (ref,tx@TxOutTx{txOutTxOut=utxo},ac) bidAmount = do
   slot <-currentSlot
   let newAuction  = Auction{
               aOwner        = aOwner ac,
+              aParties      = aParties ac,
               aBidder       = ownPkh,
               aAssetClass   = aAssetClass ac,
               aMinBid       = aMinBid  ac,
@@ -184,7 +188,7 @@ auctionsOfPkh market pkh = auctionsInMarket market <&> filter (\(_,_,a)-> aOwner
 
 directSalesOfPkh ::(AsContractError e) =>
              Market  ->PubKeyHash-> Contract w s e [ParsedUtxo DirectSale]
-directSalesOfPkh market pkh = directSalesInMarket market <&> filter (\(_,_,ds)-> dsSeller ds==pkh)
+directSalesOfPkh market pkh = directSalesInMarket market <&> filter (\(_,_,ds)->   pkh `Prelude.elem` (map fst $ dsParties ds))
 
 findMarketUtxos:: (AsContractError e,IsData st) => Market -> [TxOutRef] -> Contract w s e [ParsedUtxo st]
 findMarketUtxos market txouts =do

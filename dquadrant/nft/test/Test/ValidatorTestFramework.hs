@@ -54,8 +54,8 @@ builderPayTo w v= TestContextBuilder{
 builderPayLovelaceTo :: Wallet -> Integer -> TestContextBuilder
 builderPayLovelaceTo w v=builderPayTo w (lovelaceValueOf v)
 
-builderLockInThisScript:: IsData a=> a->Value->TestContextBuilder
-builderLockInThisScript d v=TestContextBuilder{
+builderLockInThisScript:: IsData a=>Value -> a->TestContextBuilder
+builderLockInThisScript v d =TestContextBuilder{
     ctxInputs=[],
     ctxOutputs=[ThisScripCtxOut ( v, toData d)],
     ctxSignatures=[]
@@ -88,6 +88,13 @@ builderRedeemAnotherScript v =TestContextBuilder{
     ctxInputs=[ThisScripCtxIn (v,toData (),toData ())],
     ctxOutputs=[],
     ctxSignatures=[]
+}
+
+builderSign:: Wallet -> TestContextBuilder
+builderSign w=TestContextBuilder{
+  ctxInputs=[],
+  ctxOutputs=[],
+  ctxSignatures=[pubKeyHash $ walletPubKey w]
 }
 
 
@@ -127,7 +134,7 @@ executeContext f (TestContextBuilder cInputs cOutputs signatures) timeRange forg
       _ ->Nothing
 
     indexedInputs=zip cInputs [1..]
-
+    
     ctx purpose=ScriptContext{
       scriptContextTxInfo =TxInfo{
         txInfoInputs        =map (\(v,i)->TxInInfo (TxOutRef testSourceTxHash i) (toInput v) ) indexedInputs

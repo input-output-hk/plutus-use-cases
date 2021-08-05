@@ -26,7 +26,7 @@ import Prelude (Show)
 -- Map from PubKeyHash to Value.
 --
 
-newtype Payment = Payment ( AssocMap.Map PubKeyHash Value ) deriving(Generic,ToJSON,FromJSON,Show)
+newtype Payment = Payment ( AssocMap.Map PubKeyHash Value ) deriving(Generic,ToJSON,FromJSON)
 
 instance Semigroup Payment where
     {-# INLINABLE (<>) #-}
@@ -49,6 +49,3 @@ paymentValue (Payment p) pkh=case AssocMap.lookup pkh p of
 {-# INLINABLE paymentPkhs #-}
 paymentPkhs :: Payment -> [PubKeyHash]
 paymentPkhs (Payment x) =  AssocMap.keys x
-
-makeLift ''Payment
-PlutusTx.unstableMakeIsData ''Payment
