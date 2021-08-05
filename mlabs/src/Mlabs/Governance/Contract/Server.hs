@@ -22,7 +22,6 @@ import Plutus.V1.Ledger.Api (fromData, toData, Datum(..), Redeemer(..))
 import Plutus.V1.Ledger.Tx (txId, TxOutRef, TxOutTx(..), Tx(..), TxOut(..))
 import Plutus.V1.Ledger.Value (Value(..), TokenName(..), valueOf, singleton)
 import Ledger.Constraints qualified as Constraints
-
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation qualified as Validation
 import Mlabs.Governance.Contract.Validation (AssetClassNft(..), AssetClassGov(..), GovernanceDatum(..), GovernanceRedeemer(..))

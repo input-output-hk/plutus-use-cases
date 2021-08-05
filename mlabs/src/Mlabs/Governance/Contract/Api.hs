@@ -7,11 +7,6 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
-{-# OPTIONS_GHC -fno-specialise #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fobject-code #-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 
 -- | Contract API for the Governance application
 module Mlabs.Governance.Contract.Api (
@@ -21,8 +16,6 @@ module Mlabs.Governance.Contract.Api (
   , ProvideRewards(..)
   , QueryBalance(..)
   , GovernanceSchema
-  , AssetClassNft(..)
-  , AssetClassGov(..)
   ) where
 
 import PlutusTx.Prelude
@@ -33,7 +26,7 @@ import GHC.Generics (Generic)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import Plutus.Contract ( type (.\/), BlockchainActions )
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import Plutus.V1.Ledger.Value (Value, CurrencySymbol, TokenName)
+import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
 import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
