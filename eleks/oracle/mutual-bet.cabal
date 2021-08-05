@@ -1,0 +1,107 @@
+cabal-version:      2.4
+name:               mutual-bet
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+license: Apache-2.0
+license-files: LICENSE
+author:             Your name
+maintainer:         Your email
+
+-- A copyright notice.
+-- copyright:
+-- category:
+-- extra-source-files: CHANGELOG.md
+
+library
+    exposed-modules:
+      Contracts.MutualBet
+      Contracts.MutualBet.OffChain
+    build-depends:
+      aeson,
+      base >= 4.9 && < 5,
+      bytestring,
+      base64-bytestring,
+      data-default -any,
+      text -any,
+      lens -any,
+      containers -any,
+      semigroups -any,
+      playground-common,
+      plutus-contract,
+      plutus-tx-plugin,
+      plutus-tx,
+      plutus-ledger,
+      plutus-ledger-api,
+      plutus-use-cases,
+    hs-source-dirs: src src/Contracts/MutualBet
+    default-language: Haskell2010
+    ghc-options:
+            -- See Plutus Tx readme
+            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+
+test-suite plutus-example-projects-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs: src/test
+  other-modules:
+    Spec.MutualBet
+  default-language: Haskell2010
+  ghc-options: -Wall -Wnoncanonical-monad-instances
+              -Wincomplete-uni-patterns -Wincomplete-record-updates
+              -Wredundant-constraints -Widentities -rtsopts
+              -- See Plutus Tx readme
+              -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+  build-depends:
+    mutual-bet -any,
+    playground-common,
+    plutus-tx -any,
+    plutus-tx-plugin,
+    plutus-contract -any,
+    plutus-ledger -any,
+    plutus-use-cases -any
+  build-depends:
+    aeson -any,
+    base >=4.9 && <5,
+    base64-bytestring,
+    bytestring,
+    data-default,
+    freer-extras,
+    freer-simple -any,
+    lens -any,
+    streaming -any,
+    text -any,
+    tasty -any,
+    tasty-hunit -any,
+    tasty-hedgehog >=0.2.0.0
+
+executable bet-pab
+  main-is: Main.hs
+  hs-source-dirs: pab
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    bytestring,
+    base64-bytestring,
+    data-default -any,
+    text -any,
+    containers -any,
+    lens -any,
+    plutus-contract -any,
+    plutus-pab -any,
+    mutual-bet -any,
+    aeson -any,
+    freer-simple -any,
+    prettyprinter -any,
+    freer-extras -any,
+    plutus-ledger -any,
+    stm -any,
