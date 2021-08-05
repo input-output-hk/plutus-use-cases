@@ -24,9 +24,8 @@ import Plutus.V1.Ledger.Value (Value(..), TokenName(..), valueOf, singleton)
 import Ledger.Constraints qualified as Constraints
 
 import Mlabs.Governance.Contract.Api qualified as Api
-import Mlabs.Governance.Contract.Api (AssetClassNft(..), AssetClassGov(..))
 import Mlabs.Governance.Contract.Validation qualified as Validation
-import Mlabs.Governance.Contract.Validation (GovernanceDatum(..))
+import Mlabs.Governance.Contract.Validation (AssetClassNft(..), AssetClassGov(..), GovernanceDatum(..), GovernanceRedeemer(..))
 import Mlabs.Plutus.Contract (getEndpoint, selects)
 
 -- do we want another error type? 
@@ -48,10 +47,10 @@ governanceEndpoints nft gov = do
 
 startGovernance :: Api.StartGovernance -> GovernanceContract ()
 startGovernance (Api.StartGovernance nft gov) = do
-  let d = GovernanceDatum nft gov AssocMap.empty
+  let d = GovernanceDatum AssocMap.empty
       v = singleton (acNftCurrencySymbol nft) (acNftTokenName nft) 1
       tx = Constraints.mustPayToTheScript d v
-  ledgerTx <- Contract.submitTxConstraints Validation.scrInstance tx
+  ledgerTx <- Contract.submitTxConstraints (Validation.scrInstance nft gov) tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "Started governance for nft token %s, gov token %s" (show nft) (show gov)
 
@@ -60,20 +59,20 @@ deposit nft gov (Api.Deposit amnt) = do
   pkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, _, oref) <- findGovernance nft gov
 
-  let datum' = GovernanceDatum (gdNft datum) (gdGov datum) $
+  let datum' = GovernanceDatum $
         case AssocMap.lookup pkh (gdDepositMap datum) of
           Nothing -> AssocMap.insert pkh amnt (gdDepositMap datum)
           Just n  -> AssocMap.insert pkh (n+amnt) (gdDepositMap datum)
       tx = sconcat [
           Constraints.mustForgeValue $ Validation.xgovValueOf (scriptCurrencySymbol
-            $ Validation.xGovMintingPolicy gov) (coerce pkh) amnt
+            $ Validation.xGovMintingPolicy nft gov) (coerce pkh) amnt
         , Constraints.mustPayToTheScript datum' $ Validation.govValueOf gov amnt
-        , Constraints.mustSpendScriptOutput oref (Redeemer $ toData ())
+        , Constraints.mustSpendScriptOutput oref (Redeemer . toData $ GRDeposit pkh)
         ]
       lookups = sconcat [
-              Constraints.monetaryPolicy        (Validation.xGovMintingPolicy gov)
-            , Constraints.otherScript           Validation.scrValidator
-            , Constraints.scriptInstanceLookups Validation.scrInstance
+              Constraints.monetaryPolicy        $ Validation.xGovMintingPolicy nft gov
+            , Constraints.otherScript           $ Validation.scrValidator nft gov
+            , Constraints.scriptInstanceLookups $ Validation.scrInstance nft gov
             ]
                 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
@@ -91,7 +90,7 @@ withdraw nft gov (Api.Withdraw val) = do
   pkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, _, oref) <- findGovernance nft gov
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
-            . AssocMap.lookup (Validation.xGovCurrencySymbol gov) $ getValue val
+            . AssocMap.lookup (Validation.xGovCurrencySymbol nft gov) $ getValue val
   let maybedatum' :: Maybe (AssocMap.Map PubKeyHash Integer)
       maybedatum' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
 
@@ -103,18 +102,18 @@ withdraw nft gov (Api.Withdraw val) = do
           _                 -> Nothing
           where depositor = coerce tn
           
-  datum' <- GovernanceDatum (gdNft datum) (gdGov datum)
-              <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybedatum'
+  datum' <- GovernanceDatum
+    <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybedatum'
   
   let totalGov = sum $ map snd tokens
       tx = sconcat [
           Constraints.mustPayToTheScript datum' val
         , Constraints.mustPayToPubKey pkh $ Validation.govValueOf gov totalGov
-        , Constraints.mustSpendScriptOutput oref (Redeemer $ toData ())
+        , Constraints.mustSpendScriptOutput oref (Redeemer . toData $ GRWithdraw pkh)
         ]
       lookups = sconcat [
-              Constraints.scriptInstanceLookups Validation.scrInstance
-            , Constraints.otherScript Validation.scrValidator
+              Constraints.scriptInstanceLookups $ Validation.scrInstance nft gov
+            , Constraints.otherScript $ Validation.scrValidator nft gov
             ]
                 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
@@ -130,7 +129,7 @@ provideRewards nft gov (Api.ProvideRewards val) = do
 
   let tx = foldMap (uncurry Constraints.mustPayToPubKey) dispatch
       lookups = sconcat [
-              Constraints.otherScript Validation.scrValidator
+              Constraints.otherScript $ Validation.scrValidator nft gov
             ]
 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
@@ -147,7 +146,7 @@ queryBalance nft gov (Api.QueryBalance pkh) = do
 -- assumes the Governance is parametrised by an NFT.
 findGovernance :: AssetClassNft -> AssetClassGov -> GovernanceContract (Validation.GovernanceDatum, TxOutTx, TxOutRef)
 findGovernance nft gov = do
-  utxos <- Contract.utxoAt Validation.scrAddress
+  utxos <- Contract.utxoAt $ Validation.scrAddress nft gov
   let xs = [ (oref, o)
            | (oref, o) <- Map.toList utxos
            , valueOf (txOutValue $ txOutTxOut o) (acNftCurrencySymbol nft) (acNftTokenName nft) == 1
@@ -159,10 +158,5 @@ findGovernance nft gov = do
         Nothing        -> Contract.throwError "datum not found"
         Just (Datum e) -> case fromData e of
           Nothing -> Contract.throwError "datum has wrong type"
-          Just gd@GovernanceDatum{..}
-            | acNftCurrencySymbol gdNft == acNftCurrencySymbol nft &&
-              acNftTokenName gdNft == acNftTokenName nft &&
-              acGovCurrencySymbol gdGov == acGovCurrencySymbol gov &&
-              acGovTokenName gdGov == acGovTokenName gov -> return (gd, o, oref)
-            | otherwise                                  -> Contract.throwError "Governance tokens mismatch"
+          Just gd -> return (gd, o, oref)
     _ -> Contract.throwError "No UTxO found"

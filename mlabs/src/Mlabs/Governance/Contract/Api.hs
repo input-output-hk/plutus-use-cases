@@ -37,34 +37,7 @@ import Plutus.V1.Ledger.Value (Value, CurrencySymbol, TokenName)
 import Prelude qualified as Hask
 
 import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
-
--- TODO: Once AssetClass has a ToSchema instance, change this to a newtype.
---       or not. this is fine really. 
-data AssetClassNft = AssetClassNft {
-    acNftCurrencySymbol :: !CurrencySymbol
-  , acNftTokenName :: !TokenName
-  } deriving (Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
-
-instance Eq AssetClassNft where
-  {-# INLINABLE (==) #-}
-  n1 == n2 = acNftCurrencySymbol n1 == acNftCurrencySymbol n2
-    && acNftTokenName n1 == acNftTokenName n2
-
-PlutusTx.unstableMakeIsData ''AssetClassNft
-PlutusTx.makeLift ''AssetClassNft
-
-data AssetClassGov = AssetClassGov {
-    acGovCurrencySymbol :: !CurrencySymbol
-  , acGovTokenName :: !TokenName
-  } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
-
-instance Eq AssetClassGov where
-  {-# INLINABLE (==) #-}
-  n1 == n2 = acGovCurrencySymbol n1 == acGovCurrencySymbol n2
-    && acGovTokenName n1 == acGovTokenName n2
-
-PlutusTx.unstableMakeIsData ''AssetClassGov
-PlutusTx.makeLift ''AssetClassGov
+import Mlabs.Governance.Contract.Validation (AssetClassNft, AssetClassGov)
 
 data StartGovernance = StartGovernance {
     sgNft :: !AssetClassNft
