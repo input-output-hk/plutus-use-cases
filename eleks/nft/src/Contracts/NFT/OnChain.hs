@@ -60,8 +60,8 @@ findOwnInput' ctx = fromMaybe (error ()) (findOwnInput ctx)
 {-# INLINABLE findMarketDatum #-}
 findMarketDatum :: TxInfo -> DatumHash -> NFTMetadata
 findMarketDatum info h = case findDatum h info of
-    Just (Datum d) -> case PlutusTx.fromData d of
-        Just (NFTMeta nft) -> nft
+    Just (Datum d) -> case PlutusTx.unsafeFromBuiltinData d of
+        (NFTMeta nft) -> nft
         _                -> traceError "error decoding data"
     _              -> traceError "market input datum not found"
 

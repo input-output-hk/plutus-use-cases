@@ -138,7 +138,7 @@ forgeMarketToken::
     -> Contract w s Text CurrencySymbol
 forgeMarketToken tokenName pk = fmap Currency.currencySymbol $
     mapError (pack . show @Currency.CurrencyError) $
-    Currency.forgeContract pk [(tokenName, 1)]
+    Currency.mintContract pk [(tokenName, 1)]
 
 -- | Creates a Marketplace "factory". This factory will keep track of the existing nft tokens
 start ::
@@ -200,15 +200,15 @@ create market CreateParams{..} = do
         lookups  = Constraints.typedValidatorLookups marketInst 
                    <> Constraints.otherScript mrScript
                    <> Constraints.unspentOutputs (Map.singleton oref o)
-                   <> Constraints.monetaryPolicy nftTokenPolicy
-                   <> Constraints.monetaryPolicy nftTokenMetaPolicy
+                   <> Constraints.mintingPolicy nftTokenPolicy
+                   <> Constraints.mintingPolicy nftTokenMetaPolicy
 
         tx       = Constraints.mustPayToTheScript marketFactoryData marketVal
                    <> Constraints.mustPayToTheScript nftMetadataData nftTokenMetaForgedValue
-                   <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData $ Create nftMetadata)
+                   <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ Create nftMetadata)
                    <> Constraints.mustPayToPubKey ownPK nftTokenForgedValue
-                   <> Constraints.mustForgeValue nftTokenForgedValue
-                   <> Constraints.mustForgeValue nftTokenMetaForgedValue
+                   <> Constraints.mustMintValue nftTokenForgedValue
+                   <> Constraints.mustMintValue nftTokenMetaForgedValue
 
 
     ledgerTx <- submitTxConstraintsWith lookups tx
@@ -223,7 +223,7 @@ sell ::
     -> SellParams 
     -> Contract w s Text NFTMetadataDto
 sell market SellParams{..} = do
-    pkh                     <- pubKeyHash <$> ownPubKey
+    pkh <- pubKeyHash <$> ownPubKey
     let tokenName = fromString spTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (spSellPrice <= 0) $ throwError "sell price should be greater than zero"
@@ -231,7 +231,7 @@ sell market SellParams{..} = do
         nftMetadata' = nftMetadata { nftSeller = Just pkh, nftSellPrice = spSellPrice }
         nftMetadataDatum = NFTMeta nftMetadata'
         mrScript = marketScript market
-        redeemer = Redeemer $ PlutusTx.toData Sell
+        redeemer = Redeemer $ PlutusTx.toBuiltinData Sell
         values  = Value.singleton (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata) 1
                   <> Value.singleton (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata) 1
         lookups = Constraints.typedValidatorLookups marketInst
@@ -263,7 +263,7 @@ cancelSell market CancelSellParams{..} = do
         nftSeller' = fromMaybe "" $ nftSeller nftMetadata
         nftMetadataDatum = NFTMeta nftMetadata'
     let mrScript = marketScript market
-        redeemer = Redeemer $ PlutusTx.toData CancelSell
+        redeemer = Redeemer $ PlutusTx.toBuiltinData CancelSell
         nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
         nftMetadataValue = getNftValue (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata)
  
@@ -296,7 +296,7 @@ buy market BuyParams{..} = do
         nftSeller' = fromMaybe "" $ nftSeller nftMetadata
         nftMetadataDatum = NFTMeta nftMetadata'
     let mrScript = marketScript market
-        redeemer = Redeemer $ PlutusTx.toData $ Buy pkh
+        redeemer = Redeemer $ PlutusTx.toBuiltinData $ Buy pkh
         nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
         nftMetadataValue = getNftValue (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata)
         nftSellPriceValue = Ada.lovelaceValueOf $ nftSellPrice nftMetadata
@@ -345,7 +345,7 @@ getNFTMarketDatum o = case txOutDatumHash $ txOutTxOut o of
         Nothing -> throwError "datumHash not found"
         Just h -> case Map.lookup h $ txData $ txOutTxTx o of
             Nothing -> throwError "datum not found"
-            Just (Datum e) -> case PlutusTx.fromData e of
+            Just (Datum e) -> case PlutusTx.fromBuiltinData e of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
