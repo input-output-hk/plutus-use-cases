@@ -17,7 +17,6 @@ import Control.Monad (forever, void, foldM)
 import Data.Semigroup (Last(..), sconcat)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Crypto (pubKeyHash, PubKeyHash(..))
-import Plutus.V1.Ledger.Contexts (scriptCurrencySymbol)
 import Plutus.V1.Ledger.Api (fromData, toData, Datum(..), Redeemer(..))
 import Plutus.V1.Ledger.Tx (txId, TxOutRef, TxOutTx(..), Tx(..), TxOut(..))
 import Plutus.V1.Ledger.Value (Value(..), TokenName(..), valueOf, singleton)
@@ -46,7 +45,7 @@ governanceEndpoints nft gov = do
 
 startGovernance :: Api.StartGovernance -> GovernanceContract ()
 startGovernance (Api.StartGovernance nft gov) = do
-  let d = GovernanceDatum AssocMap.empty
+  let d = GovernanceDatum (Validation.GRWithdraw "") AssocMap.empty
       v = singleton (acNftCurrencySymbol nft) (acNftTokenName nft) 1
       tx = Constraints.mustPayToTheScript d v
   ledgerTx <- Contract.submitTxConstraints (Validation.scrInstance nft gov) tx
@@ -58,18 +57,18 @@ deposit nft gov (Api.Deposit amnt) = do
   pkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, _, oref) <- findGovernance nft gov
 
-  let datum' = GovernanceDatum $
+  let datum' = GovernanceDatum (Validation.GRDeposit pkh amnt) $
         case AssocMap.lookup pkh (gdDepositMap datum) of
           Nothing -> AssocMap.insert pkh amnt (gdDepositMap datum)
           Just n  -> AssocMap.insert pkh (n+amnt) (gdDepositMap datum)
       tx = sconcat [
-          Constraints.mustForgeValue $ Validation.xgovValueOf (scriptCurrencySymbol
-            $ Validation.xGovMintingPolicy nft gov) (coerce pkh) amnt
+          Constraints.mustForgeValue $
+            Validation.xgovValueOf (Validation.xGovCurrencySymbol nft) (coerce pkh) amnt
         , Constraints.mustPayToTheScript datum' $ Validation.govValueOf gov amnt
-        , Constraints.mustSpendScriptOutput oref (Redeemer . toData $ GRDeposit pkh)
+        , Constraints.mustSpendScriptOutput oref (Redeemer . toData $ GRDeposit pkh amnt)
         ]
       lookups = sconcat [
-              Constraints.monetaryPolicy        $ Validation.xGovMintingPolicy nft gov
+              Constraints.monetaryPolicy        $ Validation.xGovMintingPolicy nft
             , Constraints.otherScript           $ Validation.scrValidator nft gov
             , Constraints.scriptInstanceLookups $ Validation.scrInstance nft gov
             ]
@@ -89,9 +88,9 @@ withdraw nft gov (Api.Withdraw val) = do
   pkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, _, oref) <- findGovernance nft gov
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
-            . AssocMap.lookup (Validation.xGovCurrencySymbol nft gov) $ getValue val
-  let maybedatum' :: Maybe (AssocMap.Map PubKeyHash Integer)
-      maybedatum' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
+            . AssocMap.lookup (Validation.xGovCurrencySymbol nft) $ getValue val
+  let maybemap' :: Maybe (AssocMap.Map PubKeyHash Integer)
+      maybemap' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
 
       -- AssocMap has no "insertWith", so we have to use lookup and insert, all under foldM
       withdrawFromCorrect tn amm mp =
@@ -101,8 +100,8 @@ withdraw nft gov (Api.Withdraw val) = do
           _                 -> Nothing
           where depositor = coerce tn
           
-  datum' <- GovernanceDatum
-    <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybedatum'
+  datum' <- GovernanceDatum (Validation.GRWithdraw pkh)
+    <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybemap'
   
   let totalGov = sum $ map snd tokens
       tx = sconcat [

@@ -86,8 +86,8 @@ instance Scripts.ScriptType Governance where
 
 -- Validator of the governance contract
 {-# INLINABLE mkValidator #-}
-mkValidator :: AssetClassNft -> AssetClassGov -> GovernanceDatum -> GovernanceRedeemer -> ScriptContext -> Bool
-mkValidator nft gov govDatum redeemer ctx =
+mkValidator :: AssetClassNft -> AssetClassGov -> CurrencySymbol -> GovernanceDatum -> GovernanceRedeemer -> ScriptContext -> Bool
+mkValidator nft gov xgovCS govDatum redeemer ctx =
   checkOutputHasNft &&
   checkCorrectLastRedeemer &&
   checkCorrectDepositMap &&
@@ -141,8 +141,7 @@ mkValidator nft gov govDatum redeemer ctx =
         let paidxGov = case Value.flattenValue (userInput pkh) of
               xs@(_:_) | all isxGovCorrect xs -> sum $ map (\(_,_,amm) -> amm) xs
                  where
-                   -- Big issue: we need to have access to xGOV CurrencySymbol here. 
-                   isxGovCorrect (csym, tn, amm) = 
+                   isxGovCorrect (csym, tn, amm) | csym == xgovCS = 
                      case AssocMap.lookup (coerce tn) (gdDepositMap govDatum) of
                        Nothing -> traceError "detected unregistered xGOV tokens"
                        Just before  -> case AssocMap.lookup (coerce tn) (gdDepositMap outputDatum) of
@@ -152,16 +151,20 @@ mkValidator nft gov govDatum redeemer ctx =
                          Nothing                            -> traceError "premature erasure of deposit record"
                          Just after | before > after + amm  -> traceError "loss of tokens in datum"
                          Just _                             -> traceError "withdrawal of too many tokens in datum"
+                   isxGovCorrect _ = traceError "non-xGOV tokens paid by pkh" 
               _ -> traceError "no payments made" 
         in case Value.flattenValue (valuePaidTo info pkh) of
           [(csym, tn, amm)] | amm == paidxGov -> traceIfFalse "non-GOV payment by script on withdrawal"
-                                                   $ True -- AssetClassGov csym tn == gov
+                                                   $ AssetClassGov csym tn == gov
           [_]                                 -> traceError "imbalanced ammount of xGOV to GOV"
           _                                   -> traceError "more than one assetclass paid by script"
 
 scrInstance :: AssetClassNft -> AssetClassGov -> Scripts.ScriptInstance Governance
 scrInstance nft gov = Scripts.validator @Governance
-  ($$(PlutusTx.compile [|| mkValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode nft `PlutusTx.applyCode` PlutusTx.liftCode gov)
+  ($$(PlutusTx.compile [|| mkValidator ||])
+   `PlutusTx.applyCode` PlutusTx.liftCode nft
+   `PlutusTx.applyCode` PlutusTx.liftCode gov
+   `PlutusTx.applyCode` PlutusTx.liftCode (xGovCurrencySymbol nft))
   $$(PlutusTx.compile [|| wrap ||])
   where
     wrap = Scripts.wrapValidator @(Scripts.DatumType Governance) @(Scripts.RedeemerType Governance)
@@ -179,24 +182,23 @@ govValueOf AssetClassGov{..} = Value.singleton acGovCurrencySymbol acGovTokenNam
 xgovValueOf :: CurrencySymbol -> TokenName -> Integer -> Value
 xgovValueOf csym tok = Value.singleton csym tok
 
--- xGOV minting policy
+-- xGOV minting policy, the parameter is the NFT HELD BY THE GOVERNANCE SCRIPT
 {-# INLINABLE mkPolicy #-}
-mkPolicy :: AssetClassNft -> ValidatorHash -> ScriptContext -> Bool
-mkPolicy nft scrVh ctx =
+mkPolicy :: AssetClassNft -> ScriptContext -> Bool
+mkPolicy nft ctx =
   traceIfFalse "governance script not in transaction" checkScrInTransaction &&
   traceIfFalse "endpoint called on governance does not permit minting of xGOV" checkIsMintingEndpoint
   where 
     info = scriptContextTxInfo ctx
 
     hasNft utxo = Value.valueOf (txOutValue utxo) (acNftCurrencySymbol nft) (acNftTokenName nft) == 1
-    isScr utxo = ScriptCredential scrVh == (addressCredential . txOutAddress) utxo && hasNft utxo
 
     -- may be an unnescesary check
     checkScrInTransaction :: Bool
-    checkScrInTransaction = any isScr . map txInInfoResolved $ txInfoInputs info
+    checkScrInTransaction = any hasNft . map txInInfoResolved $ txInfoInputs info
 
     checkIsMintingEndpoint :: Bool
-    checkIsMintingEndpoint = case find isScr $ txInfoOutputs info of
+    checkIsMintingEndpoint = case find hasNft $ txInfoOutputs info of
       Nothing -> False
       Just o  -> case txOutDatumHash o of
         Nothing -> False
@@ -218,12 +220,11 @@ mkPolicy nft scrVh ctx =
             traceIfFalse "wrong TokenName minted" (tn == (coerce pkh))
           _ -> traceError "expected exactly one token minted under xGOV CurrencySymbol"
           
-xGovMintingPolicy :: AssetClassNft -> AssetClassGov -> Scripts.MonetaryPolicy
-xGovMintingPolicy nft gov = mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| (Scripts.wrapMonetaryPolicy .). mkPolicy ||])
+xGovMintingPolicy :: AssetClassNft -> Scripts.MonetaryPolicy
+xGovMintingPolicy nft = mkMonetaryPolicyScript $
+  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . mkPolicy ||])
   `PlutusTx.applyCode` PlutusTx.liftCode nft
-  `PlutusTx.applyCode` PlutusTx.liftCode (validatorHash $ scrValidator nft gov)
 
 -- | takes in the GOV CurrencySymbol, returns the xGOV CurrencySymbol
-xGovCurrencySymbol :: AssetClassNft -> AssetClassGov -> CurrencySymbol
-xGovCurrencySymbol nft = scriptCurrencySymbol . xGovMintingPolicy nft
+xGovCurrencySymbol :: AssetClassNft -> CurrencySymbol
+xGovCurrencySymbol = scriptCurrencySymbol . xGovMintingPolicy
