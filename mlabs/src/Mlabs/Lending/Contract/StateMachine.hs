@@ -70,7 +70,7 @@ lendexAddress lid = Ledger.scriptHashAddress (lendexValidatorHash lid)
 scriptInstance :: Types.LendexId -> Validators.TypedValidator Lendex
 scriptInstance lid = Validators.mkTypedValidator @Lendex
   ($$(PlutusTx.compile [|| mkValidator ||])
-      `PlutusTx.applyCode` (PlutusTx.liftCode lid)
+      `PlutusTx.applyCode` PlutusTx.liftCode lid
   )
   $$(PlutusTx.compile [|| wrap ||])
   where

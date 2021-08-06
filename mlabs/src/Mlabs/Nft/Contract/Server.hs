@@ -65,7 +65,7 @@ userAction nid input = do
 -- We save NftId to the contract writer.
 startNft :: StartParams -> AuthorContract ()
 startNft StartParams{..} = do
-  orefs <- M.keys <$> (utxoAt =<< pubKeyAddress <$> ownPubKey)
+  orefs <- M.keys <$> (utxoAt . pubKeyAddress =<< ownPubKey)
   case orefs of
     []        -> logError @String "No UTXO found"
     oref : _ -> do

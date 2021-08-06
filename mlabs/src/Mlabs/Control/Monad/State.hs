@@ -20,7 +20,9 @@ type PlutusState st = StateT st (Either String)
 
 instance Functor (PlutusState st) where
   {-# INLINABLE fmap #-}
-  fmap f (StateT a) = StateT $ fmap (\(v, st) -> (f v, st)) . a
+  fmap f (StateT a) = StateT $ fmap g . a
+    where
+      g (v, st) = (f v, st)
 
 instance Applicative (PlutusState st) where
   {-# INLINABLE pure #-}
@@ -29,7 +31,10 @@ instance Applicative (PlutusState st) where
   {-# INLINABLE (<*>) #-}
   (StateT f) <*> (StateT a) = StateT $ \st -> case f st of
     Left err -> Left err
-    Right (f1, st1) -> fmap (\(a1, st2) -> (f1 a1, st2)) $ a st1
+    Right (f1, st1) -> do
+      (a1, st2) <- a st1
+      return (f1 a1, st2)
+       
 
 ------------------------------------------------
 

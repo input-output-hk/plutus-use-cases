@@ -4,8 +4,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | Inits logic test suite app emulator
@@ -42,7 +40,7 @@ import qualified Mlabs.Lending.Logic.Types as Types
 type LendingApp = App Types.LendingPool Types.Act
 
 runLendingApp :: AppConfig -> Script -> LendingApp
-runLendingApp cfg acts = runApp react (initApp cfg) acts
+runLendingApp cfg = runApp react (initApp cfg)
 
 -- Configuration parameters for app.
 data AppConfig = AppConfig
@@ -64,7 +62,7 @@ data AppConfig = AppConfig
 initApp :: AppConfig -> LendingApp
 initApp AppConfig{..} = App
   { app'st = Types.LendingPool
-      { lp'reserves       = (AM.fromList (fmap (\x -> (x.coinCfg'coin, Types.initReserve x)) appConfig'reserves))
+      { lp'reserves       = AM.fromList (fmap (\x -> (x.coinCfg'coin, Types.initReserve x)) appConfig'reserves)
       , lp'users          = AM.empty
       , lp'currency       = appConfig'currencySymbol
       , lp'coinMap        = coinMap
@@ -76,7 +74,10 @@ initApp AppConfig{..} = App
   , app'wallets = BchState $ M.fromList $ (Types.Self, defaultBchWallet) : appConfig'users
   }
   where
-    coinMap = AM.fromList $ fmap (\Types.CoinCfg{..} -> (coinCfg'aToken, coinCfg'coin)) $ appConfig'reserves
+    coinMap = 
+      AM.fromList . fmap 
+        (\Types.CoinCfg{..} -> (coinCfg'aToken, coinCfg'coin)) 
+        $ appConfig'reserves
 
 -- | Default application.
 -- It allocates three users and three reserves for Dollars, Euros and Liras.

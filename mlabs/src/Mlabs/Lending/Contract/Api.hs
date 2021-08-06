@@ -4,8 +4,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | Contract API for Lendex application
@@ -49,7 +47,6 @@ import GHC.Generics (Generic)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import Plutus.Contract ( type (.\/) )
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask (Show, Eq)
 
 import Mlabs.Lending.Logic.Types qualified as Types
@@ -138,7 +135,7 @@ data LiquidationCall = LiquidationCall
 -- admin actions
 
 -- | Adds new reserve
-data AddReserve = AddReserve Types.CoinCfg
+newtype AddReserve = AddReserve Types.CoinCfg
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 

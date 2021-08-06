@@ -12,8 +12,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | State transitions for Lending app
@@ -129,7 +127,7 @@ checkRole msg extract uid = do
 {-# INLINABLE aToken #-}
 aToken :: Types.Coin -> St Types.Coin
 aToken coin = do
-  mCoin <- gets (\st -> toLendingToken st coin)
+  mCoin <- gets (`toLendingToken` coin)
   maybe err pure mCoin
   where
     err = throwError "Coin not supported"
@@ -242,7 +240,7 @@ getHealth addToBorrow coin user = do
   col <- getTotalCollateral user
   bor <- fmap (+ addToBorrow) $ getTotalBorrow user
   liq <- getLiquidationThreshold coin
-  pure $ R.fromInteger col N.* liq N.* (R.recip $ R.fromInteger bor)
+  pure $ R.fromInteger col N.* liq N.* R.recip (R.fromInteger bor)
 
 {-# INLINABLE getLiquidationThreshold #-}
 -- | Reads liquidation threshold for a give asset.
@@ -272,7 +270,7 @@ modifyReserve' asset f = do
   st <- get
   case M.lookup asset $ st.lp'reserves of
     Just reserve -> either throwError (\x -> put $ st { lp'reserves = M.insert asset x $ st.lp'reserves}) (f reserve)
-    Nothing      -> throwError $ "Asset is not supported"
+    Nothing      -> throwError "Asset is not supported"
 
 {-# INLINABLE modifyUser #-}
 -- | Modify user info by id.

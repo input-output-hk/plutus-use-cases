@@ -4,8 +4,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | Application for testing NFT logic.
@@ -49,7 +47,7 @@ data AppCfg = AppCfg
 
 -- | Run test emulator for NFT app.
 runNftApp :: AppCfg -> Script -> NftApp
-runNftApp cfg acts = runApp react (initApp cfg) acts
+runNftApp cfg = runApp react (initApp cfg)
 
 -- | Initialise NFT application.
 initApp :: AppCfg -> NftApp

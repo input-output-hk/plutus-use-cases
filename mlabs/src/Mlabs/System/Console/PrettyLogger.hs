@@ -4,8 +4,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Mlabs.System.Console.PrettyLogger where
@@ -62,7 +60,7 @@ logPrettyStyled style string = liftIO $ do
     Standard x -> [SetColor Background Dull x]
     _          -> []
   getConsoleIntensityList isBold =
-    if isBold then [SetConsoleIntensity BoldIntensity] else []
+    [SetConsoleIntensity BoldIntensity | isBold]
 
 -- Convenience functions ------------------------------------------------------
 

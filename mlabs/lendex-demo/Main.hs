@@ -76,7 +76,7 @@ main = Handler.runSimulator lendexId initContract $ do
     call oracle $ Contract.SetAssetPrice coin2 (R.fromInteger 2)
     call user2 $ Contract.LiquidationCall
                   { liquidationCall'collateral     = coin1
-                  , liquidationCall'debtUser       = (toPubKeyHash w1)
+                  , liquidationCall'debtUser       = toPubKeyHash w1
                   , liquidationCall'debtAsset      = coin2
                   , liquidationCall'debtToCover    = 10
                   , liquidationCall'receiveAToken  = True
@@ -92,7 +92,7 @@ main = Handler.runSimulator lendexId initContract $ do
       void $ Simulator.waitNSlots 10
 
     test msg act = do
-      void $ act
+      void act
       void $ Simulator.waitNSlots 1
       logAction msg
       mapM_ printBalance wals
@@ -188,7 +188,6 @@ startParams cur = StartParams
   , sp'admins    = [toPubKeyHash wAdmin]
   , sp'oracles   = [toPubKeyHash wAdmin]
   }
-  where
 
 toCoin :: Value.CurrencySymbol -> TokenName -> Coin
 toCoin cur tn = Value.AssetClass (cur, tn)

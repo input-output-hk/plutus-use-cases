@@ -17,7 +17,7 @@ import Prelude
 
 import Control.Monad (forever, guard)
 import Data.List.Extra (firstJust)
-import Data.Map (toList)
+import qualified Data.Map as Map (elems)
 import Data.Maybe (mapMaybe)
 import Data.Semigroup (Last(..))
 import Ledger.Constraints (ownPubKeyHash, mintingPolicy, mustIncludeDatum)
@@ -26,7 +26,7 @@ import Plutus.V1.Ledger.Api (Datum(..))
 import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Tx 
-import PlutusTx (IsData, fromData)
+import PlutusTx (IsData)
 import qualified PlutusTx.AssocMap as M
 
 import Mlabs.Emulator.Types (ownUserId, UserId(..))
@@ -82,7 +82,7 @@ oracleEndpoints lid = forever $ selects
 -- | Endpoints for admin
 adminEndpoints :: Types.LendexId -> AdminContract ()
 adminEndpoints lid = do
-  getEndpoint @Api.StartLendex >>= (startLendex lid)
+  getEndpoint @Api.StartLendex >>= startLendex lid
   forever $ selects
     [ act $ getEndpoint @Api.AddReserve
     ]
@@ -94,8 +94,8 @@ adminEndpoints lid = do
 --   * `QuerySupportedCurrencies` - returns the list of supported currencies (see `SupportedCurrency`) for current `LendingPool`
 queryEndpoints :: Types.LendexId -> QueryContract ()
 queryEndpoints lid = forever $ selects
-    [ getEndpoint @Api.QueryAllLendexes >>= (queryAllLendexes lid)
-    , getEndpoint @Api.QuerySupportedCurrencies >> (querySupportedCurrencies lid)
+    [ getEndpoint @Api.QueryAllLendexes >>= queryAllLendexes lid
+    , getEndpoint @Api.QuerySupportedCurrencies >> querySupportedCurrencies lid
     ]
 
 -- actions
@@ -123,7 +123,7 @@ startLendex lid (Api.StartLendex Types.StartParams{..}) =
 queryAllLendexes :: Types.LendexId -> Api.QueryAllLendexes -> QueryContract ()
 queryAllLendexes lid (Api.QueryAllLendexes spm) = do
   utxos <- Contract.utxoAt $ StateMachine.lendexAddress lid
-  Contract.tell . Just . Last . Types.QueryResAllLendexes . mapMaybe f . map snd $ toList utxos
+  Contract.tell . Just . Last . Types.QueryResAllLendexes . mapMaybe f . Map.elems $ utxos
   pure ()
   where
     startedWith :: Types.LendingPool -> Types.StartParams -> Maybe Types.LendingPool
@@ -133,7 +133,7 @@ queryAllLendexes lid (Api.QueryAllLendexes spm) = do
       -- unsure if we can check that the tokens in StartParams are still being dealt in
       -- there is no 100% certainty since AddReserve can add new Coin types
       -- todo: we could check that the Coins is SartParams are a subset of the ones being dealt in now?
-      pure $ lp
+      pure lp
 
     f :: TxOutTx -> Maybe (Address, Types.LendingPool)
     f o = do
@@ -186,8 +186,8 @@ findInputStateDatum = findInputStateData
 
 findInputStateData :: IsData d => Types.LendexId ->  Contract.Contract w s StateMachine.LendexError d
 findInputStateData lid = do
-  utxos <- Contract.utxoAt (StateMachine.lendexAddress lid)
-  maybe err pure $ firstJust (readDatum . snd) $ toList utxos
+  txOuts <- Map.elems <$> Contract.utxoAt (StateMachine.lendexAddress lid)
+  maybe err pure $ firstJust readDatum txOuts
   where
     err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
     

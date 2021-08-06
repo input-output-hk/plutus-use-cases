@@ -24,7 +24,6 @@ import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
 import Plutus.V1.Ledger.Value (AssetClass(..))
 import PlutusTx ( unstableMakeIsData ) 
-import Playground.Contract (ToSchema)
 
 -- | Address of the wallet that can hold values of assets
 data UserId

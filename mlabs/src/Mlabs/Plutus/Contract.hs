@@ -54,7 +54,7 @@ callEndpoint' ::
   forall ep w s e effs.
   (IsEndpoint ep, ContractConstraints s, Contract.HasEndpoint (EndpointSymbol ep) ep s, Member RunContract effs)
     => ContractHandle w s e -> ep -> Eff effs ()
-callEndpoint' hdl act = callEndpoint @(EndpointSymbol ep) hdl act
+callEndpoint' = callEndpoint @(EndpointSymbol ep)
 
 getEndpoint :: forall a w (s :: Row Type) e . (Contract.HasEndpoint (EndpointSymbol a) a s, Contract.AsContractError e, IsEndpoint a) => Contract w s e a
 getEndpoint = Contract.endpoint @(EndpointSymbol a)

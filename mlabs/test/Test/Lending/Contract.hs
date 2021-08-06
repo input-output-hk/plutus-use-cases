@@ -301,4 +301,4 @@ testQuerrySupportedCurrencies =
 -- names as in script test
 
 priceAct :: Wallet -> PriceAct -> Trace.EmulatorTrace ()
-priceAct wal act = L.callPriceAct lendexId wal act
+priceAct = L.callPriceAct lendexId

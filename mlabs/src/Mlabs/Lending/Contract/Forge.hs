@@ -5,7 +5,6 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Mlabs.Lending.Contract.Forge(
@@ -16,6 +15,8 @@ module Mlabs.Lending.Contract.Forge(
 import PlutusTx.Prelude
 
 import Control.Monad.State.Strict (evalStateT)
+import Data.Either (fromRight)
+
 import Ledger (CurrencySymbol)
 import Ledger.Constraints (checkScriptContext, mustPayToPubKey, TxConstraints)
 import Ledger.Typed.Scripts as Scripts (MintingPolicy, wrapMintingPolicy)
@@ -59,7 +60,7 @@ data Input = Input
 validate :: Types.LendexId -> () -> Contexts.ScriptContext -> Bool
 validate lendexId _ ctx = case (getInState, getOutState) of
   (Just st1, Just st2) ->
-        if (hasLendexId  st1 && hasLendexId st2)
+        if hasLendexId  st1 && hasLendexId st2
           then all (isValidForge st1 st2) $ Value.flattenValue $ Contexts.txInfoForge info
           else traceIfFalse "Bad Lendex identifier" False
   (Just _  , Nothing)  -> traceIfFalse "Failed to find LendingPool state in outputs" False
@@ -69,7 +70,7 @@ validate lendexId _ ctx = case (getInState, getOutState) of
     hasLendexId x = input'lendexId x == lendexId
 
     -- find datum of lending app state in the inputs
-    getInState = getStateForOuts $ fmap Contexts.txInInfoResolved $ Contexts.txInfoInputs info
+    getInState = getStateForOuts (Contexts.txInInfoResolved <$> Contexts.txInfoInputs info)
 
     -- find datum of lending app state in the outputs
     getOutState = getStateForOuts $ Contexts.txInfoOutputs info
@@ -139,7 +140,7 @@ validate lendexId _ ctx = case (getInState, getOutState) of
           checkScriptContext (mustPayToPubKey uid $ Value.assetClassValue coin amount :: TxConstraints () ()) ctx
 
     -- check change of the user deposit for state prior to transition (st1) and after transition (st2)
-    checkUserDepositDiffBy cond st1 st2 coin uid = either (const False) id $ do
+    checkUserDepositDiffBy cond st1 st2 coin uid = fromRight False $ do
       dep1 <- getDeposit uid coin st1
       dep2 <- getDeposit uid coin st2
       pure $ cond dep1 dep2
@@ -154,7 +155,7 @@ validate lendexId _ ctx = case (getInState, getOutState) of
 currencyPolicy :: Types.LendexId -> MintingPolicy
 currencyPolicy lid = Scripts.mkMintingPolicyScript $
   $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . validate ||])
-  `PlutusTx.applyCode` (PlutusTx.liftCode lid)
+  `PlutusTx.applyCode` PlutusTx.liftCode lid
 
 currencySymbol :: Types.LendexId -> CurrencySymbol
 currencySymbol lid = Contexts.scriptCurrencySymbol (currencyPolicy lid)

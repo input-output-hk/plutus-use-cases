@@ -14,7 +14,6 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | Types for lending app
@@ -330,7 +329,7 @@ data UserAct
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Acts that can be done by admin users.
-data GovernAct
+newtype GovernAct
   = AddReserveAct CoinCfg  -- ^ Adds new reserve
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)

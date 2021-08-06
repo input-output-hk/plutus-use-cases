@@ -77,13 +77,13 @@ handlers lid initContract =
 
 -- | Runs simulator for Lendex
 runSimulator :: LendexId -> InitContract -> Sim () -> IO ()
-runSimulator lid initContract act = withSimulator (handlers lid initContract) act
+runSimulator lid initContract = withSimulator (handlers lid initContract)
 
 withSimulator :: Simulator.SimulatorEffectHandlers (Builtin LendexContracts) -> Simulation (Builtin LendexContracts) () -> IO ()
 withSimulator hs act = void $ Simulator.runSimulationWith hs $ do
   Simulator.logString @(Builtin LendexContracts) "Starting PAB webserver. Press enter to exit."
   shutdown <- PAB.Server.startServerDebug
-  void $ act
+  void act
   void $ liftIO getLine
   shutdown
 

@@ -5,7 +5,6 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Mlabs.Nft.Contract.StateMachine(
@@ -40,7 +39,6 @@ import Mlabs.Emulator.Types                      (UserId(..))
 import Mlabs.Nft.Logic.React                     (react)
 import Mlabs.Nft.Logic.Types                     (Act(UserAct), Nft(nft'id), NftId)
 import qualified Mlabs.Nft.Contract.Forge        as Forge
-import qualified Plutus.Contract.StateMachine    as SM
 
 
 type NftMachine = SM.StateMachine Nft Act
@@ -55,7 +53,7 @@ toNftError = SM.SMCContractError . fromString
 {-# INLINABLE machine #-}
 -- | State machine definition
 machine :: NftId -> NftMachine
-machine nftId = (SM.mkStateMachine Nothing (transition nftId) isFinal)
+machine nftId = SM.mkStateMachine Nothing (transition nftId) isFinal
   where
     isFinal = const False
 
@@ -80,7 +78,7 @@ nftAddress nftId = scriptHashAddress (nftValidatorHash nftId)
 scriptInstance :: NftId -> Validators.TypedValidator NftMachine
 scriptInstance nftId = Validators.mkTypedValidator @NftMachine
   ($$(PlutusTx.compile [|| mkValidator ||])
-    `PlutusTx.applyCode` (PlutusTx.liftCode nftId)
+    `PlutusTx.applyCode` PlutusTx.liftCode nftId
   )
   $$(PlutusTx.compile [|| wrap ||])
   where

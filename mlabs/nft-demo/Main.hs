@@ -48,7 +48,7 @@ main = Handler.runSimulator startParams $ do
   liftIO $ putStrLn "Fin (Press enter to Exit)"
   where
     test msg wals act = do
-      void $ act
+      void act
       logAction msg
       mapM_ printBalance wals
       next

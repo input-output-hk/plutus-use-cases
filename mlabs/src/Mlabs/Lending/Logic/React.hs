@@ -14,7 +14,6 @@ import PlutusTx.Prelude
 import Control.Monad.Except (MonadError(throwError))
 import Control.Monad.State.Strict (MonadState(put, get), gets)
 import qualified Prelude as Hask
-import qualified PlutusTx.Numeric as N
 import qualified PlutusTx.AssocMap as M
 import PlutusTx.These (these)
 
@@ -320,7 +319,7 @@ react input = do
 
     updateUserHealth currentTime (uid, user) = do
       health <- mapM (\asset -> (asset, ) <$> State.getHealth 0 asset user) userBorrows
-      L.mapM_ (reportUserHealth uid) $ health
+      L.mapM_ (reportUserHealth uid) health
       pure (uid, user { user'lastUpdateTime = currentTime
                       , user'health = M.fromList health })
       where

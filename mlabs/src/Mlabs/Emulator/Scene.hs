@@ -4,8 +4,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | Set of balances for tests
@@ -66,7 +64,8 @@ appAddress addr = Scene { scene'users = mempty, scene'appValue = mempty, scene'a
 -- | Turns scene to plutus checks. Every user ownership turns into 'walletFundsChange' check.
 checkScene :: Scene -> TracePredicate
 checkScene Scene{..} = withAddressCheck $
-  (concatPredicates $ fmap (uncurry walletFundsChange) $ M.toList scene'users)
+  concatPredicates 
+    (uncurry walletFundsChange <$> M.toList scene'users)
   .&&. assertNoFailedTransactions
   where
     withAddressCheck = maybe id (\addr -> (valueAtAddress addr (== scene'appValue) .&&. )) scene'appAddress

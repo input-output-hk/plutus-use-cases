@@ -4,8 +4,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | Contract API for Lendex application
@@ -41,7 +39,7 @@ data Buy = Buy
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- | User sets new price for NFT
-data SetPrice = SetPrice
+newtype SetPrice = SetPrice
   { setPrice'newPrice :: Maybe Integer
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)

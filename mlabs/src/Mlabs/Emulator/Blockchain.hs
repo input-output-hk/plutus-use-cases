@@ -10,8 +10,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | Simple emulation ob blockchain state
@@ -93,7 +91,7 @@ applyResp resp (BchState wallets) = fmap BchState $ case resp of
 
     upd amt x
       | res >= 0  = Right $ Just res
-      | otherwise = Left  $ "Negative balance"
+      | otherwise = Left  "Negative balance"
       where
         res = fromMaybe 0 x + amt
 

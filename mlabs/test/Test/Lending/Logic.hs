@@ -92,7 +92,7 @@ test = testGroup "Logic"
 
 -- | Checks that script runs without errors
 testScript :: Script -> LendingApp
-testScript script = runLendingApp testAppConfig script
+testScript = runLendingApp testAppConfig
 
 -- | Checks that we have those wallets after script was run.
 testWallets :: [(UserId, BchWallet)] -> Script -> Assertion

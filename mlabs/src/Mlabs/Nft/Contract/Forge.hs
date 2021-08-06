@@ -55,8 +55,8 @@ validate stateAddr (NftId token oref) _ ctx =
 currencyPolicy :: Address -> NftId -> MintingPolicy
 currencyPolicy stateAddr nid = Scripts.mkMintingPolicyScript $
   $$(PlutusTx.compile [|| \x y -> Scripts.wrapMintingPolicy (validate x y) ||])
-  `PlutusTx.applyCode` (PlutusTx.liftCode stateAddr)
-  `PlutusTx.applyCode` (PlutusTx.liftCode nid)
+  `PlutusTx.applyCode` PlutusTx.liftCode stateAddr
+  `PlutusTx.applyCode` PlutusTx.liftCode nid
 
 -- | Currency symbol of NFT
 -- First argument is an address of NFT state machine script.

@@ -5,7 +5,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Test.Lending.QuickCheck where
@@ -84,7 +83,7 @@ nonPositiveInteger :: QC.Gen Integer
 nonPositiveInteger = QC.frequency [(1, nonPositiveSmallInteger), (1, nonPositiveBigInteger)]
 
 -- | Contains parameters that deposit test cases can be generalized over
-data DepositTestInput = DepositTestInput
+newtype DepositTestInput = DepositTestInput
   { deposits :: [(UserId, Coin, Integer)] }
   deriving Show
 
@@ -123,7 +122,7 @@ expectedWalletsDeposit appCfg (DepositTestInput ds) =
       depositedCoins = map (\(user, coin, amt) -> Map.singleton user (Map.singleton coin (negate amt))) ds
       aCoins = map (\(user, coin, amt) -> Map.singleton user (Map.singleton (aCoin coin) amt)) ds
       appCoins = Map.singleton Self $ Map.unionsWith (+) (map (\(_, coin, amt) -> Map.singleton coin amt) ds)
-      appAcoins = Map.singleton Self $ Map.fromList $ map (\(_, coin, _) -> (aCoin (coin), 0)) ds
+      appAcoins = Map.singleton Self $ Map.fromList $ map (\(_, coin, _) -> (aCoin coin, 0)) ds
       allWallets = addNestedMaps ([startingBalances] ++ depositedCoins ++ aCoins ++ [appCoins] ++ [appAcoins])
   in Map.toAscList (Map.map BchWallet allWallets)
 
@@ -144,7 +143,7 @@ depositInputGen integerGen =
   where n = length users
 
 testDepositLogic :: QC.Property
-testDepositLogic = QC.forAll (depositInputGen (QC.choose (1, 100))) (testWalletsProp')
+testDepositLogic = QC.forAll (depositInputGen (QC.choose (1, 100))) testWalletsProp'
 
 test :: TestTree
 test = testGroup "QuickCheck" [testGroup "Logic" [testProperty "deposit" testDepositLogic]]
