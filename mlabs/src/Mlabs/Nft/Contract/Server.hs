@@ -1,29 +1,30 @@
-module Mlabs.Nft.Contract.Server(
+module Mlabs.Nft.Contract.Server (
   -- * Contracts
-    UserContract
-  , AuthorContract
+  UserContract,
+  AuthorContract,
+
   -- * Endpoints
-  , userEndpoints
-  , authorEndpoints
-  , startNft
+  userEndpoints,
+  authorEndpoints,
+  startNft,
 ) where
 
 import Prelude
 
 import Control.Monad (forever)
 import Data.List.Extra (firstJust)
-import qualified Data.Map as M
-import Data.Monoid (Last(..))
-import Ledger.Constraints (mintingPolicy, mustMintValue, mustSpendPubKeyOutput, mustIncludeDatum, ownPubKeyHash)
-import Plutus.V1.Ledger.Crypto (pubKeyHash)
+import Data.Map qualified as M
+import Data.Monoid (Last (..))
+import Ledger.Constraints (mintingPolicy, mustIncludeDatum, mustMintValue, mustSpendPubKeyOutput, ownPubKeyHash)
+import Plutus.Contract (Contract, logError, ownPubKey, tell, throwError, utxoAt)
 import Plutus.V1.Ledger.Address (pubKeyAddress)
 import Plutus.V1.Ledger.Api (Datum)
-import Plutus.Contract (Contract, logError, ownPubKey, tell, throwError, utxoAt)
+import Plutus.V1.Ledger.Crypto (pubKeyHash)
 
 import Mlabs.Emulator.Types (ownUserId)
-import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, toUserAct, StartParams(..), UserSchema)
-import qualified Mlabs.Nft.Contract.StateMachine as SM
-import Mlabs.Nft.Logic.Types (Act(UserAct), initNft, NftId, toNftId)
+import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, StartParams (..), UserSchema, toUserAct)
+import Mlabs.Nft.Contract.StateMachine qualified as SM
+import Mlabs.Nft.Logic.Types (Act (UserAct), NftId, initNft, toNftId)
 import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
 
 -- | NFT contract for the user
@@ -37,10 +38,12 @@ type AuthorContract a = Contract (Last NftId) AuthorSchema SM.NftError a
 
 -- | Endpoints for user
 userEndpoints :: NftId -> UserContract ()
-userEndpoints nid = forever $ selects
-  [ act $ getEndpoint @Buy
-  , act $ getEndpoint @SetPrice
-  ]
+userEndpoints nid =
+  forever $
+    selects
+      [ act $ getEndpoint @Buy
+      , act $ getEndpoint @SetPrice
+      ]
   where
     act :: IsUserAct a => UserContract a -> UserContract ()
     act readInput = readInput >>= userAction nid
@@ -49,35 +52,37 @@ userEndpoints nid = forever $ selects
 authorEndpoints :: AuthorContract ()
 authorEndpoints = forever startNft'
   where
-    startNft'  = getEndpoint @StartParams >>= startNft
+    startNft' = getEndpoint @StartParams >>= startNft
 
 userAction :: IsUserAct a => NftId -> a -> UserContract ()
 userAction nid input = do
   pkh <- pubKeyHash <$> ownPubKey
   act <- getUserAct input
   inputDatum <- findInputStateDatum nid
-  let lookups = mintingPolicy (SM.nftPolicy nid) <>
-                ownPubKeyHash  pkh
+  let lookups =
+        mintingPolicy (SM.nftPolicy nid)
+          <> ownPubKeyHash pkh
       constraints = mustIncludeDatum inputDatum
   SM.runStepWith nid act lookups constraints
 
--- | Initialise NFt endpoint.
--- We save NftId to the contract writer.
+{- | Initialise NFt endpoint.
+ We save NftId to the contract writer.
+-}
 startNft :: StartParams -> AuthorContract ()
-startNft StartParams{..} = do
+startNft StartParams {..} = do
   orefs <- M.keys <$> (utxoAt . pubKeyAddress =<< ownPubKey)
   case orefs of
-    []        -> logError @String "No UTXO found"
+    [] -> logError @String "No UTXO found"
     oref : _ -> do
-      let nftId   = toNftId oref sp'content
-          val     = SM.nftValue nftId
+      let nftId = toNftId oref sp'content
+          val = SM.nftValue nftId
           lookups = mintingPolicy $ SM.nftPolicy nftId
-          tx      = mustMintValue val 
-                    <> mustSpendPubKeyOutput oref
+          tx =
+            mustMintValue val
+              <> mustSpendPubKeyOutput oref
       authorId <- ownUserId
       SM.runInitialiseWith nftId (initNft oref authorId sp'content sp'share sp'price) val lookups tx
       tell $ Last $ Just nftId
-
 
 ----------------------------------------------------------------
 

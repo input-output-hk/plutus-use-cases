@@ -1,19 +1,19 @@
-module Mlabs.System.Console.Utils(
-    logAsciiLogo
-  , logAction
-  , logBalance
-  , logMlabs
+module Mlabs.System.Console.Utils (
+  logAsciiLogo,
+  logAction,
+  logBalance,
+  logMlabs,
 ) where
 
 import Prelude
 
-import Control.Monad.IO.Class ( MonadIO )
-import qualified Plutus.V1.Ledger.Value as Value
-import qualified Data.ByteString.Char8 as Char8
-import System.Console.ANSI (Color(Cyan, Red, Green, Black))
+import Control.Monad.IO.Class (MonadIO)
+import Data.ByteString.Char8 qualified as Char8
+import Plutus.V1.Ledger.Value qualified as Value
+import System.Console.ANSI (Color (Black, Cyan, Green, Red))
 
-import Mlabs.System.Console.PrettyLogger (LogColor(Vibrant, Standard))
-import qualified Mlabs.System.Console.PrettyLogger as Pretty
+import Mlabs.System.Console.PrettyLogger (LogColor (Standard, Vibrant))
+import Mlabs.System.Console.PrettyLogger qualified as Pretty
 
 logMlabs :: MonadIO m => m ()
 logMlabs = logAsciiLogo (Vibrant Red) mlabs
@@ -47,11 +47,11 @@ logBalance wallet val = do
 
 formatValue :: Value.Value -> String
 formatValue v =
-  unlines $ fmap formatTokenValue $
-    filter ((/= 0) . (\(_,_,n) -> n)) $ Value.flattenValue v
+  unlines $
+    fmap formatTokenValue $
+      filter ((/= 0) . (\(_, _, n) -> n)) $ Value.flattenValue v
   where
     formatTokenValue (_, name, value) =
       case name of
-        ""                  -> Pretty.padRight ' ' 7 "Ada" ++ " " ++ show value
+        "" -> Pretty.padRight ' ' 7 "Ada" ++ " " ++ show value
         (Value.TokenName n) -> Pretty.padRight ' ' 7 $ Char8.unpack n ++ " " ++ show value
-

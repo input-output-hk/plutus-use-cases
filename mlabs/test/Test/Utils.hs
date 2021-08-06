@@ -1,8 +1,8 @@
-module Test.Utils(
-    throwError
-  , next
-  , wait
-  , concatPredicates
+module Test.Utils (
+  throwError,
+  next,
+  wait,
+  concatPredicates,
 ) where
 
 import PlutusTx.Prelude hiding (fromInteger)
@@ -10,8 +10,8 @@ import Prelude (String, fromInteger)
 
 import Data.Functor (void)
 import Data.List (foldl1')
-import Plutus.Contract.Test ( TracePredicate, (.&&.) )
-import qualified Plutus.Trace.Emulator as Trace
+import Plutus.Contract.Test (TracePredicate, (.&&.))
+import Plutus.Trace.Emulator qualified as Trace
 
 -- | Throws error to emulator trace.
 throwError :: String -> Trace.EmulatorTrace a
@@ -27,4 +27,3 @@ wait = void . Trace.waitNSlots . fromInteger
 
 concatPredicates :: [TracePredicate] -> TracePredicate
 concatPredicates = foldl1' (.&&.)
-

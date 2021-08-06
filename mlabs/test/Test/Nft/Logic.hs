@@ -1,35 +1,37 @@
 -- | Tests for logic of state transitions for aave prototype
-module Test.Nft.Logic(
-    test
+module Test.Nft.Logic (
+  test,
 ) where
 
 import PlutusTx.Prelude
 
-import qualified Data.Map.Strict as M
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import Data.Map.Strict qualified as M
+import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 
-import Mlabs.Emulator.App (checkWallets, noErrors, someErrors )
-import Mlabs.Emulator.Blockchain (BchWallet(..) )
-import Mlabs.Emulator.Types (adaCoin, UserId(UserId) )
-import Mlabs.Nft.Logic.App (buy, defaultAppCfg, runNftApp, setPrice, Script )
+import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
+import Mlabs.Emulator.Blockchain (BchWallet (..))
+import Mlabs.Emulator.Types (UserId (UserId), adaCoin)
+import Mlabs.Nft.Logic.App (Script, buy, defaultAppCfg, runNftApp, setPrice)
 
 -- | Test suite for a logic of lending application
 test :: TestTree
-test = testGroup "Logic"
-  [ testCase "Buy"                           testBuy
-  , testCase "Buy twice"                     testBuyTwice
-  , testCase "Sets price without ownership"  testFailToSetPrice
-  , testCase "Buy locked NFT"                testBuyLocked
-  , testCase "Buy not enough price"          testBuyNotEnoughPrice
-  ]
+test =
+  testGroup
+    "Logic"
+    [ testCase "Buy" testBuy
+    , testCase "Buy twice" testBuyTwice
+    , testCase "Sets price without ownership" testFailToSetPrice
+    , testCase "Buy locked NFT" testBuyLocked
+    , testCase "Buy not enough price" testBuyNotEnoughPrice
+    ]
   where
-    testBuy               = testWallets     buyWallets      buyScript
-    testFailToSetPrice    = testWalletsFail buyWallets      failToSetPriceScript
-    testBuyLocked         = testWalletsFail initWallets     failToBuyLocked
-    testBuyNotEnoughPrice = testWalletsFail initWallets     failToBuyNotEnoughPrice
-    testBuyTwice          = testWallets     buyTwiceWallets buyTwiceScript
+    testBuy = testWallets buyWallets buyScript
+    testFailToSetPrice = testWalletsFail buyWallets failToSetPriceScript
+    testBuyLocked = testWalletsFail initWallets failToBuyLocked
+    testBuyNotEnoughPrice = testWalletsFail initWallets failToBuyNotEnoughPrice
+    testBuyTwice = testWallets buyTwiceWallets buyTwiceScript
 
     testWallets wals script = do
       noErrors app
@@ -61,7 +63,9 @@ buyScript = do
   setPrice user2 (Just 500)
 
 -- * User 1 sets the price to 100
+
 -- * User 2 buys for 100 and becomes owner
+
 -- * User 1 receives 110 (100 + 10% as author)
 buyWallets :: [(UserId, BchWallet)]
 buyWallets = [(user1, w1), (user2, w2)]
@@ -71,9 +75,10 @@ buyWallets = [(user1, w1), (user2, w2)]
 
 -- buy twice
 
--- |
--- * User 2 buys from user 1
--- * User 3 buys from user 2
+{- |
+ * User 2 buys from user 1
+ * User 3 buys from user 2
+-}
 buyTwiceScript :: Script
 buyTwiceScript = do
   buyScript
@@ -84,12 +89,13 @@ buyTwiceWallets = [(user1, w1), (user2, w2), (user3, w3)]
   where
     w1 = BchWallet $ M.fromList [(adaCoin, 1160)] -- 1000 + 100 + 10 + 50
     w2 = BchWallet $ M.fromList [(adaCoin, 1390)] -- 1000 - 100 - 10 + 500
-    w3 = BchWallet $ M.fromList [(adaCoin, 450)]  -- 1000 - 500 - 50
+    w3 = BchWallet $ M.fromList [(adaCoin, 450)] -- 1000 - 500 - 50
 
 -- fail to set price
 
--- | User 1 tries to set price after user 2 owned the NFT.
--- It should fail.
+{- | User 1 tries to set price after user 2 owned the NFT.
+ It should fail.
+-}
 failToSetPriceScript :: Script
 failToSetPriceScript = do
   buyScript
@@ -110,7 +116,6 @@ failToBuyNotEnoughPrice = do
   setPrice user1 (Just 100)
   buy user2 10 Nothing
 
-
 ----------------------------------------------------------------------
 -- constants
 
@@ -119,4 +124,3 @@ user1, user2, user3 :: UserId
 user1 = UserId $ PubKeyHash "1"
 user2 = UserId $ PubKeyHash "2"
 user3 = UserId $ PubKeyHash "3"
-

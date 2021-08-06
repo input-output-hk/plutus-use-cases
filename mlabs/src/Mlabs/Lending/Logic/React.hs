@@ -1,69 +1,71 @@
-{-# OPTIONS_GHC -fno-specialize #-}
-{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fobject-code #-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+
 -- | State transitions for Aave-like application
-module Mlabs.Lending.Logic.React(
-    react
+module Mlabs.Lending.Logic.React (
+  react,
 ) where
+
 import PlutusTx.Prelude
 
-import Control.Monad.Except (MonadError(throwError))
-import Control.Monad.State.Strict (MonadState(put, get), gets)
-import qualified Prelude as Hask
-import qualified PlutusTx.AssocMap as M
+import Control.Monad.Except (MonadError (throwError))
+import Control.Monad.State.Strict (MonadState (get, put), gets)
+import PlutusTx.AssocMap qualified as M
 import PlutusTx.These (these)
+import Prelude qualified as Hask
 
-import Mlabs.Control.Check (isPositive, isPositiveRational, isNonNegative, isUnitRange)
-import qualified Mlabs.Data.List as L
-import qualified PlutusTx.Ratio as R
-import Mlabs.Emulator.Blockchain ( moveFromTo, Resp(Burn, Mint) )
+import Mlabs.Control.Check (isNonNegative, isPositive, isPositiveRational, isUnitRange)
+import Mlabs.Data.List qualified as L
+import Mlabs.Emulator.Blockchain (Resp (Burn, Mint), moveFromTo)
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
-import qualified Mlabs.Lending.Logic.State as State
-import qualified Mlabs.Lending.Logic.Types as Types
-import Mlabs.Lending.Logic.Types
-    ( initReserve,
-      adaCoin,
-      InterestModel(im'slope2, im'slope1, im'optimalUtilisation),
-      CoinCfg(coinCfg'liquidationBonus, coinCfg'interestModel, coinCfg'aToken, coinCfg'rate, coinCfg'coin),
-      CoinRate(CoinRate, coinRate'lastUpdateTime),
-      LendingPool(lp'healthReport, lp'reserves, lp'coinMap, lp'users),
-      User(user'wallets, user'lastUpdateTime, user'health),
-      Reserve(reserve'wallet, reserve'rate),
-      Wallet(wallet'deposit, wallet'collateral, wallet'borrow),
-      BadBorrow(BadBorrow, badBorrow'userId),
-      UserAct(..),
-      -- UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
-      --         act'amount, act'receiveAToken, act'debtToCover, act'debt,
-      --         act'collateral),
-      UserId(Self) )
+import Mlabs.Lending.Logic.State qualified as State
+import Mlabs.Lending.Logic.Types (
+  BadBorrow (BadBorrow, badBorrow'userId),
+  CoinCfg (coinCfg'aToken, coinCfg'coin, coinCfg'interestModel, coinCfg'liquidationBonus, coinCfg'rate),
+  CoinRate (CoinRate, coinRate'lastUpdateTime),
+  InterestModel (im'optimalUtilisation, im'slope1, im'slope2),
+  LendingPool (lp'coinMap, lp'healthReport, lp'reserves, lp'users),
+  Reserve (reserve'rate, reserve'wallet),
+  User (user'health, user'lastUpdateTime, user'wallets),
+  UserAct (..),
+  -- UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
+  --         act'amount, act'receiveAToken, act'debtToCover, act'debt,
+  --         act'collateral),
+  UserId (Self),
+  Wallet (wallet'borrow, wallet'collateral, wallet'deposit),
+  adaCoin,
+  initReserve,
+ )
+import Mlabs.Lending.Logic.Types qualified as Types
+import PlutusTx.Ratio qualified as R
 
-{-# INLINABLE react #-}
--- | State transitions for lending pool.
--- For a given action we update internal state of Lending pool and produce
--- list of responses to simulate change of the balances on blockchain.
+{-# INLINEABLE react #-}
+
+{- | State transitions for lending pool.
+ For a given action we update internal state of Lending pool and produce
+ list of responses to simulate change of the balances on blockchain.
+-}
 react :: Types.Act -> State.St [Resp]
 react input = do
   checkInput input
   case input of
-    Types.UserAct  t uid act -> withHealthCheck t $ userAct t uid act
+    Types.UserAct t uid act -> withHealthCheck t $ userAct t uid act
     Types.PriceAct t uid act -> withHealthCheck t $ priceAct t uid act
-    Types.GovernAct  uid act -> governAct uid act
+    Types.GovernAct uid act -> governAct uid act
   where
-    -- | User acts
     userAct time uid = \case
-      Types.DepositAct{..}                    -> depositAct time uid act'amount act'asset
-      Types.BorrowAct{..}                     -> borrowAct time uid act'asset act'amount act'rate
-      Types.RepayAct{..}                      -> repayAct time uid act'asset act'amount act'rate
-      Types.SwapBorrowRateModelAct{..}        -> swapBorrowRateModelAct uid act'asset act'rate
-      Types.AddCollateralAct{..}              -> addCollateral uid add'asset add'amount
-      Types.RemoveCollateralAct{..}           -> removeCollateral uid remove'asset remove'amount
-      Types.WithdrawAct{..}                   -> withdrawAct time uid act'amount act'asset
-      Types.FlashLoanAct                      -> flashLoanAct uid
-      Types.LiquidationCallAct{..}            -> liquidationCallAct time uid act'collateral act'debt act'debtToCover act'receiveAToken
+      Types.DepositAct {..} -> depositAct time uid act'amount act'asset
+      Types.BorrowAct {..} -> borrowAct time uid act'asset act'amount act'rate
+      Types.RepayAct {..} -> repayAct time uid act'asset act'amount act'rate
+      Types.SwapBorrowRateModelAct {..} -> swapBorrowRateModelAct uid act'asset act'rate
+      Types.AddCollateralAct {..} -> addCollateral uid add'asset add'amount
+      Types.RemoveCollateralAct {..} -> removeCollateral uid remove'asset remove'amount
+      Types.WithdrawAct {..} -> withdrawAct time uid act'amount act'asset
+      Types.FlashLoanAct -> flashLoanAct uid
+      Types.LiquidationCallAct {..} -> liquidationCallAct time uid act'collateral act'debt act'debtToCover act'receiveAToken
 
     ---------------------------------------------------
     -- deposit
@@ -73,11 +75,12 @@ react input = do
       State.modifyWalletAndReserve' uid asset (addDeposit ni amount)
       aCoin <- State.aToken asset
       State.updateReserveState currentTime asset
-      pure $ mconcat
-        [ [Mint aCoin amount]
-        , moveFromTo Self uid aCoin amount
-        , moveFromTo uid Self asset          amount
-        ]
+      pure $
+        mconcat
+          [ [Mint aCoin amount]
+          , moveFromTo Self uid aCoin amount
+          , moveFromTo uid Self asset amount
+          ]
 
     ---------------------------------------------------
     -- borrow
@@ -97,7 +100,7 @@ react input = do
       where
         updateOnBorrow = do
           ni <- State.getNormalisedIncome asset
-          State.modifyWallet uid asset $ \w -> w { wallet'borrow  = wallet'borrow w + amount }
+          State.modifyWallet uid asset $ \w -> w {wallet'borrow = wallet'borrow w + amount}
           State.modifyReserveWallet' asset $ addDeposit ni (negate amount)
 
     hasEnoughLiquidityToBorrow asset amount = do
@@ -106,7 +109,8 @@ react input = do
 
     collateralNonBorrow uid asset = do
       col <- State.getsWallet uid asset wallet'collateral
-      State.guardError "Collateral can not be used as borrow for user"
+      State.guardError
+        "Collateral can not be used as borrow for user"
         (col == 0)
 
     hasEnoughCollateral uid asset amount = do
@@ -124,10 +128,10 @@ react input = do
       bor <- State.getsWallet uid asset wallet'borrow
       let newBor = bor - amount
       if newBor >= 0
-        then State.modifyWallet uid asset $ \w -> w { wallet'borrow = newBor }
+        then State.modifyWallet uid asset $ \w -> w {wallet'borrow = newBor}
         else State.modifyWallet' uid asset $ \w -> do
-                w1 <- addDeposit ni (negate newBor) w
-                pure $ w1 { wallet'borrow = 0 }
+          w1 <- addDeposit ni (negate newBor) w
+          pure $ w1 {wallet'borrow = 0}
       State.modifyReserveWallet' asset $ addDeposit ni amount
       State.updateReserveState currentTime asset
       pure $ moveFromTo uid Self asset amount
@@ -142,28 +146,28 @@ react input = do
     -- set user reserve as collateral
 
     addCollateral uid asset desiredAmount
-      | desiredAmount <= 0
-      = pure []
-      | otherwise
-      = do
+      | desiredAmount <= 0 =
+        pure []
+      | otherwise =
+        do
           ni <- State.getNormalisedIncome asset
           amount <- calcAmountFor wallet'deposit uid asset desiredAmount
           State.modifyWallet' uid asset $ \w -> do
             w1 <- addDeposit ni (negate amount) w
-            pure $ w1 { wallet'collateral = wallet'collateral w + amount }
+            pure $ w1 {wallet'collateral = wallet'collateral w + amount}
           aCoin <- State.aToken asset
           pure $ moveFromTo uid Self aCoin amount
 
     removeCollateral uid asset desiredAmount
-      | desiredAmount <= 0
-      = pure []
-      | otherwise
-      = do
+      | desiredAmount <= 0 =
+        pure []
+      | otherwise =
+        do
           ni <- State.getNormalisedIncome asset
           amount <- calcAmountFor wallet'collateral uid asset desiredAmount
           State.modifyWalletAndReserve' uid asset $ \w -> do
             w1 <- addDeposit ni amount w
-            pure $ w1 { wallet'collateral = wallet'collateral w - amount }
+            pure $ w1 {wallet'collateral = wallet'collateral w - amount}
           aCoin <- State.aToken asset
           pure $ moveFromTo Self uid aCoin amount
 
@@ -182,11 +186,12 @@ react input = do
       State.modifyWalletAndReserve' uid asset $ addDeposit ni (negate amount)
       aCoin <- State.aToken asset
       State.updateReserveState currentTime asset
-      pure $ mconcat
-        [ moveFromTo Self uid asset amount
-        , moveFromTo uid Self aCoin amount
-        , Hask.pure $ Burn aCoin amount
-        ]
+      pure $
+        mconcat
+          [ moveFromTo Self uid asset amount
+          , moveFromTo uid Self aCoin amount
+          , Hask.pure $ Burn aCoin amount
+          ]
 
     hasEnoughDepositToWithdraw uid amount asset = do
       dep <- State.getCumulativeBalance uid asset
@@ -203,39 +208,42 @@ react input = do
     liquidationCallAct currentTime uid collateralAsset debt amountCovered receiveATokens = do
       isBadBorrow debt
       wals <- State.getsUser (badBorrow'userId debt) user'wallets
-      bor  <- getDebtValue wals
-      col  <- getCollateralValue wals
+      bor <- getDebtValue wals
+      col <- getCollateralValue wals
       isPositive "liquidation collateral" col
       debtAmountIsLessThanHalf bor amountCovered
       colCovered <- min col <$> getCollateralCovered amountCovered
-      adaBonus   <- getBonus colCovered
+      adaBonus <- getBonus colCovered
       aCollateralAsset <- State.aToken collateralAsset
       updateBorrowUser colCovered
-      pure $ mconcat
-        [ moveFromTo uid Self borrowAsset amountCovered
-        , moveFromTo Self uid (receiveAsset aCollateralAsset) colCovered
-        , moveFromTo Self uid adaCoin adaBonus
-        ]
+      pure $
+        mconcat
+          [ moveFromTo uid Self borrowAsset amountCovered
+          , moveFromTo Self uid (receiveAsset aCollateralAsset) colCovered
+          , moveFromTo Self uid adaCoin adaBonus
+          ]
       where
-        borrowAsset  = debt.badBorrow'asset
+        borrowAsset = debt.badBorrow'asset
         borrowUserId = debt.badBorrow'userId
 
         receiveAsset aCoin
           | receiveATokens = aCoin
-          | otherwise      = collateralAsset
+          | otherwise = collateralAsset
 
         getDebtValue wals = case M.lookup borrowAsset wals of
           Just wal -> pure $ wallet'borrow wal
-          Nothing  -> throwError "Wallet does not have the debt to liquidate"
+          Nothing -> throwError "Wallet does not have the debt to liquidate"
 
         getCollateralValue wals = case M.lookup collateralAsset wals of
           Just wal -> pure $ wallet'collateral wal
-          Nothing  -> throwError "Wallet does not have collateral for liquidation asset"
+          Nothing -> throwError "Wallet does not have collateral for liquidation asset"
 
-        debtToColateral = State.convertCoin State.Convert
-          { convert'from = borrowAsset
-          , convert'to   = collateralAsset
-          }
+        debtToColateral =
+          State.convertCoin
+            State.Convert
+              { convert'from = borrowAsset
+              , convert'to = collateralAsset
+              }
 
         getCollateralCovered amount = debtToColateral amount
 
@@ -245,14 +253,14 @@ react input = do
 
         debtAmountIsLessThanHalf userDebt amount
           | userDebt >= 2 * amount = pure ()
-          | otherwise              = throwError "Can not cover more than half of the borrow"
+          | otherwise = throwError "Can not cover more than half of the borrow"
 
         -- we remove part of the borrow from the user and part of the collateral
         updateBorrowUser colCovered = do
           State.modifyWalletAndReserve borrowUserId collateralAsset $ \w ->
-            w { wallet'collateral = wallet'collateral w - colCovered  }
+            w {wallet'collateral = wallet'collateral w - colCovered}
           State.modifyWalletAndReserve borrowUserId borrowAsset $ \w ->
-            w { wallet'borrow = wallet'borrow w - amountCovered }
+            w {wallet'borrow = wallet'borrow w - amountCovered}
           updateSingleUserHealth currentTime borrowUserId
 
         isBadBorrow bor = do
@@ -269,7 +277,7 @@ react input = do
     -- update on market price change
 
     setAssetPrice currentTime asset rate = do
-      State.modifyReserve asset $ \r -> r { reserve'rate = CoinRate rate currentTime }
+      State.modifyReserve asset $ \r -> r {reserve'rate = CoinRate rate currentTime}
       pure []
 
     ---------------------------------------------------
@@ -283,16 +291,16 @@ react input = do
     ---------------------------------------------------
     -- Adds new reserve (new coin/asset)
 
-    addReserve cfg@Types.CoinCfg{..} = do
+    addReserve cfg@Types.CoinCfg {..} = do
       st <- get
       if M.member coinCfg'coin (st.lp'reserves)
         then throwError "Reserve is already present"
         else do
           let newReserves = M.insert coinCfg'coin (initReserve cfg) $ st.lp'reserves
-              newCoinMap  = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
-          put $ st { lp'reserves = newReserves, lp'coinMap = newCoinMap }
+              newCoinMap = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
+          put $ st {lp'reserves = newReserves, lp'coinMap = newCoinMap}
           return []
-              
+
     ---------------------------------------------------
     -- health checks
 
@@ -318,16 +326,21 @@ react input = do
       State.modifyUser uid $ const newUser
 
     updateUserHealth currentTime (uid, user) = do
-      health <- mapM (\asset -> (asset, ) <$> State.getHealth 0 asset user) userBorrows
+      health <- mapM (\asset -> (asset,) <$> State.getHealth 0 asset user) userBorrows
       L.mapM_ (reportUserHealth uid) health
-      pure (uid, user { user'lastUpdateTime = currentTime
-                      , user'health = M.fromList health })
+      pure
+        ( uid
+        , user
+            { user'lastUpdateTime = currentTime
+            , user'health = M.fromList health
+            }
+        )
       where
         userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user.user'wallets
 
     reportUserHealth uid (asset, health)
       | health >= R.fromInteger 1 = State.modifyHealthReport $ M.delete (BadBorrow uid asset)
-      | otherwise                 = State.modifyHealthReport $ M.insert (BadBorrow uid asset) health
+      | otherwise = State.modifyHealthReport $ M.insert (BadBorrow uid asset) health
 
     -- insert m1 to m2
     batchInsert m1 m2 = fmap (these id id const) $ M.union m1 m2
@@ -337,7 +350,8 @@ react input = do
 
     todo = return []
 
-{-# INLINABLE checkInput #-}
+{-# INLINEABLE checkInput #-}
+
 -- | Check if input is valid
 checkInput :: Types.Act -> State.St ()
 checkInput = \case
@@ -383,12 +397,12 @@ checkInput = \case
     checkGovernAct = \case
       Types.AddReserveAct cfg -> checkCoinCfg cfg
 
-    checkCoinCfg Types.CoinCfg{..} = do
+    checkCoinCfg Types.CoinCfg {..} = do
       isPositiveRational "coin price config" coinCfg'rate
       checkInterestModel coinCfg'interestModel
       isUnitRange "liquidation bonus config" coinCfg'liquidationBonus
 
-    checkInterestModel Types.InterestModel{..} = do
+    checkInterestModel Types.InterestModel {..} = do
       isUnitRange "optimal utilisation" im'optimalUtilisation
       isPositiveRational "slope 1" im'slope1
       isPositiveRational "slope 2" im'slope2
@@ -396,4 +410,3 @@ checkInput = \case
     checkCoinRateTimeProgress time asset = do
       lastUpdateTime <- coinRate'lastUpdateTime . reserve'rate <$> State.getReserve asset
       isNonNegative "Timestamps for price update should grow" (time - lastUpdateTime)
-
