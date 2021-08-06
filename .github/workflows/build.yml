@@ -1,6 +1,4 @@
-# This is a basic workflow to help you get started with Actions
-
-name: CI
+name: Build
 
 on:
   push:
@@ -10,42 +8,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-formatting:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/cache@v2.1.4
-        name: Cache Stack
-        with:
-          path: ~/.stack
-          key: ${{ runner.os }}-stack-formatting
-          restore-keys: ${{ runner.os }}-stack-
-
-      - run: stack install fourmolu
-        name: Setup
-
-      - run: ./.github/format.sh
-        name: "Run fourmolu"
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/cache@v2.1.4
-        name: Cache Stack
-        with:
-          path: ~/.stack
-          key: ${{ runner.os }}-stack-lint
-          restore-keys: ${{ runner.os }}-stack-
-
-      - run: stack install hlint
-        name: Setup
-
-      - run: ~/.local/bin/hlint $(git ls-tree -r HEAD --full-tree --name-only | grep -E '.*\.hs')
-        name: Lint
-
   build:
     runs-on: ubuntu-latest
     steps:
