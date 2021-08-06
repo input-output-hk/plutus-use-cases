@@ -1,5 +1,5 @@
 .PHONY: build-nix hoogle build nix-build-library nix-build-executables \
-        nix-build-test nix-repl requires_nix_shell
+        nix-build-test nix-repl requires_nix_shell ci-build-run
 
 # Generate TOC for README.md
 # It has to be manually inserted into the README.md for now.
@@ -9,6 +9,10 @@ generate_readme_contents:
 # Starts a hoogle Server.
 hoogle: requires_nix_shell
 	@ nix-shell --pure --command "hoogle server --local --port 8008"
+
+# Attempt the CI locally
+ci-build-run:
+	@ nix-build ./nix/ci.nix  
 
 # Build the library with nix.
 nix-build-library:
