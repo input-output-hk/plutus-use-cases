@@ -62,6 +62,7 @@ data MarketplaceDatum =
       mdBundles    :: AssocMap.Map BundleId NftBundle
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
 
 PlutusTx.unstableMakeIsData ''MarketplaceDatum
 

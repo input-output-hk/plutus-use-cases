@@ -13,8 +13,9 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.Info where
 
-import           Control.Lens                                 (_Left, _Right,
-                                                               (^.), (^?))
+import           Control.Lens                                 (_2, _Left,
+                                                               _Right, (^.),
+                                                               (^?))
 import qualified Control.Lens                                 as Lens
 import           Control.Monad                                hiding (fmap)
 import qualified Data.Aeson                                   as J
@@ -43,14 +44,14 @@ import qualified Prelude                                      as Haskell
 import           Text.Printf                                  (printf)
 
 -- | Gets current Marketplace store state
-marketplaceStore :: Core.Marketplace -> Contract w s Text (AssocMap.Map Core.IpfsCidHash Core.NFT)
+marketplaceStore :: Core.Marketplace -> Contract w s Text Core.MarketplaceDatum
 marketplaceStore marketplace = do
   let client = Core.marketplaceClient marketplace
   mapError' (getOnChainState client) >>= getStateDatum
 
 getStateDatum ::
-    Maybe (OnChainState Core.MarketplaceDatum i, UtxoMap) -> Contract w s Text (AssocMap.Map Core.IpfsCidHash Core.NFT)
-getStateDatum = maybe (throwError "Marketplace output not found") (pure . Core.getMarketplaceDatum . tyTxOutData . fst . fst)
+    Maybe (OnChainState Core.MarketplaceDatum i, UtxoMap) -> Contract w s Text Core.MarketplaceDatum
+getStateDatum = maybe (throwError "Marketplace output not found") (pure . tyTxOutData . fst . fst)
 
 -- | Gets all UTxOs belonging to a user and concats them into one Value
 fundsAt :: PubKeyHash -> Contract w s Text Value
@@ -64,10 +65,10 @@ marketplaceFunds marketplace =  utxoValue <$> utxoAt (Core.marketplaceAddress ma
 getAuctionState :: Core.Marketplace -> Core.IpfsCid -> Contract w s Text Auction.AuctionState
 getAuctionState marketplace ipfsCid = do
     let ipfsCidHash = sha2_256 ipfsCid
-    nftStore <- marketplaceStore marketplace
+    nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
     nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
     nftAuction <- maybe (throwError "NFT has not been put on auction") pure $
-                  nftEntry ^. Core._nftLot ^? traverse . Core._lotLink . _Right
+                  nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
 
     let auctionToken = Auction.getStateToken nftAuction
     let auctionParams = Auction.fromTuple nftAuction
@@ -90,7 +91,7 @@ type MarketplaceInfoSchema =
 data InfoContractState =
     FundsAt Value
     | MarketplaceFunds Value
-    | MarketplaceStore (AssocMap.Map Core.IpfsCidHash Core.NFT)
+    | MarketplaceStore Core.MarketplaceDatum
     | AuctionState Auction.AuctionState
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)

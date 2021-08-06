@@ -45,7 +45,7 @@ start' getMarketplaceToken = do
     pkh <- pubKeyHash <$> ownPubKey
     let marketplace = Core.marketplace marketplaceToken
     let client = Core.marketplaceClient marketplace
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty) mempty
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
 
     logInfo @Haskell.String $ printf "started Marketplace %s at address %s" (Haskell.show marketplace) (Haskell.show $ Core.marketplaceAddress marketplace)
     pure marketplace
