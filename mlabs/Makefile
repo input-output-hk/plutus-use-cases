@@ -50,3 +50,11 @@ stack-watch:
 # Watch Test with Stack.
 stack-test-watch: 
 	stack test --file-watch 
+	
+# Add folder locations to the list to be reformatted. 
+fourmolu-format:
+	@ echo "> Formatting all .hs files"
+	fourmolu -i $$(find src/  -iregex ".*.hs")
+	fourmolu -i $$(find test/ -iregex ".*.hs")
+	fourmolu -i $$(find app/  -iregex ".*.hs")
+
