@@ -16,7 +16,7 @@ import PlutusTx.Prelude
 import Prelude (String, foldl1)
 
 import Control.Monad.Freer (Eff)
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (ToJSON)
 import Data.Functor (void)
 import Data.Kind (Type)
 import Data.OpenUnion (Member)
@@ -48,7 +48,7 @@ readDatum txOut = do
 
 type Call a = Contract.Endpoint (EndpointSymbol a) a
 
-class (ToSchema a, ToJSON a, FromJSON a, KnownSymbol (EndpointSymbol a)) => IsEndpoint a where
+class (ToSchema a, ToJSON a, KnownSymbol (EndpointSymbol a)) => IsEndpoint a where
   type EndpointSymbol a :: Symbol
 
 callEndpoint' ::

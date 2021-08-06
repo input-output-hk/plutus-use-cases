@@ -1,0 +1,27 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main, staging ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/cache@v2.1.4
+        name: Cache Stack
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-stack-lint
+          restore-keys: ${{ runner.os }}-stack-
+
+      - run: stack install hlint
+        name: Setup
+
+      - run: ~/.local/bin/hlint $(git ls-tree -r HEAD --full-tree --name-only | grep -E '.*\.hs')
+        name: Lint
