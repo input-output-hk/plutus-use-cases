@@ -18,7 +18,10 @@ module Plutus.Contracts.NftMarketplace.OnChain.Core.NFT where
 
 import           Control.Lens                   ((&), (.~), (?~), (^.))
 import qualified Control.Lens                   as Lens
+import qualified Crypto.Hash                    as Hash
 import qualified Data.Aeson                     as J
+import qualified Data.ByteArray                 as BA
+import qualified Data.List                      as HL
 import qualified Data.Text                      as T
 import qualified Ext.Plutus.Contracts.Auction   as Auction
 import qualified GHC.Generics                   as Haskell
@@ -41,6 +44,7 @@ type IpfsCidHash = ByteString
 type Auction = (AssetClass, PubKeyHash, Value, Slot)
 type Category = [ByteString]
 type LotLink = Either Sale.Sale Auction
+type BundleId = ByteString
 
 data NftInfo =
   NftInfo
@@ -101,7 +105,9 @@ PlutusTx.makeLift ''NftBundle
 
 Lens.makeClassy_ ''NftBundle
 
--- ????
-type ValueHash = ByteString
-type BundleId = [IpfsCidHash]
--- does Crypto.Hash.hashUpdates depend on order?
+-- Calculates a hash of a list of ByteStrings,
+-- the result does not depend on the order of ByteStrings inside a list
+calcBundleIdHash :: [IpfsCid] -> BundleId
+calcBundleIdHash = BA.convert . Hash.hashUpdates alg . HL.sort
+  where
+    alg = Hash.hashInit @Hash.SHA256

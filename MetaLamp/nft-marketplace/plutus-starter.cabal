@@ -35,6 +35,8 @@ library
       prettyprinter,
       lens,
       semigroups,
+      cryptonite,
+      memory,
       -- Plutus:
       playground-common,
       plutus-contract,
