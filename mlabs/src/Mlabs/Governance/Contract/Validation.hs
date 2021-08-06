@@ -59,50 +59,42 @@ instance Eq AssetClassGov where
 PlutusTx.unstableMakeIsData ''AssetClassGov
 PlutusTx.makeLift ''AssetClassGov
 
--- there's a discussion to be had about whether we want the AssetClasses to parametrize
--- the contract or just sit in the datum. 
+data GovernanceRedeemer = GRDeposit !PubKeyHash !Integer | GRWithdraw !PubKeyHash
+  deriving Hask.Show
+
+instance Eq GovernanceRedeemer where
+  {-# INLINABLE (==) #-}
+  (GRDeposit pkh1 n1) == (GRDeposit pkh2 n2) = pkh1 == pkh2 && n1 == n2
+  (GRWithdraw pkh1) == (GRWithdraw pkh2) = pkh1 == pkh2
+  _ == _ = False
+
+PlutusTx.unstableMakeIsData ''GovernanceRedeemer
+PlutusTx.makeLift ''GovernanceRedeemer
+
 data GovernanceDatum = GovernanceDatum {
-    gdDepositMap :: !(AssocMap.Map PubKeyHash Integer)
-  } deriving (Hask.Show, Generic, ToJSON, FromJSON, ToSchema)
+    gdLastRedeemer :: !GovernanceRedeemer
+  , gdDepositMap :: !(AssocMap.Map PubKeyHash Integer)
+  } deriving Hask.Show
 
 PlutusTx.unstableMakeIsData ''GovernanceDatum
 PlutusTx.makeLift ''GovernanceDatum
-
-data GovernanceRedeemer = GRDeposit !PubKeyHash | GRWithdraw !PubKeyHash
-  deriving (Hask.Show, Generic)
-
-PlutusTx.unstableMakeIsData ''GovernanceRedeemer
 
 data Governance
 instance Scripts.ScriptType Governance where
     type instance DatumType Governance = GovernanceDatum
     type instance RedeemerType Governance = GovernanceRedeemer
 
--- TODO: as this doesn't compile, I think that the only option is to
--- have deposit and withdraw be separate validators
--- deposit utxo: holds an nft. validates when GOV is paid to withdraw utxo
--- withdraw utxo: holds (another) nft. validates when xGOV is paid to it.
--- mint utxo: validates when deposit validates
-
 -- Validator of the governance contract
 {-# INLINABLE mkValidator #-}
 mkValidator :: AssetClassNft -> AssetClassGov -> GovernanceDatum -> GovernanceRedeemer -> ScriptContext -> Bool
 mkValidator nft gov govDatum redeemer ctx =
-  checkCorrectOutputs && case redeemer of
-    (GRDeposit _) -> True
-    _             -> checkNoxGovMinted
+  checkOutputHasNft &&
+  checkCorrectLastRedeemer &&
+  checkCorrectDepositMap &&
+  checkCorrectPayment
   where
     info :: Contexts.TxInfo
     info = scriptContextTxInfo ctx
-
-    -- we have to check this on ANY non-minting endpoint as the minting script
-    -- CANNOT check which redeemer type was passed to the governance script
-    -- NOR in this case can we pass the correct redeemer hash as parameter to it as
-    -- as that itself is parametrised by the PubKeyHash
-    -- (that could be changed, but at a flexibility cost to GRDeposit validator logic)
-    checkNoxGovMinted = case AssocMap.lookup (xGovCurrencySymbol nft gov) . Value.getValue $ txInfoForge info of
-      Nothing  -> True
-      (Just _) -> traceError "xGOV minted by non-deposit endpoint"
 
     -- honestly we could tweak this a bit. TBD.
     userInput :: PubKeyHash -> Value
@@ -126,22 +118,31 @@ mkValidator nft gov govDatum redeemer ctx =
             Nothing -> traceError "error decoding data"
       _ -> traceError "expected one continuing output"
 
-    checkCorrectOutputs = case redeemer of
-      GRDeposit pkh ->
+    checkCorrectPayment = traceError "incorrect payment made" $ case redeemer of
+      GRDeposit pkh n -> Value.valueOf (userInput pkh) (acGovCurrencySymbol gov) (acGovTokenName gov) == n
+      GRWithdraw _    -> True -- handled in checkCorrectDepositMap
+
+    checkOutputHasNft = Value.valueOf (txOutValue ownOutput) (acNftCurrencySymbol nft) (acNftTokenName nft) == 1    
+    
+    checkCorrectLastRedeemer = traceIfFalse "wrong last endpoint record in datum"
+      $ redeemer == (gdLastRedeemer outputDatum)
+
+    checkCorrectDepositMap = case redeemer of
+      GRDeposit pkh _ ->
         let prev = maybe 0 id $ AssocMap.lookup pkh (gdDepositMap govDatum)
             paidGov = case Value.flattenValue (userInput pkh) of
               [(csym, tn, amm)] | (AssetClassGov csym tn) == gov -> amm 
               _ -> traceError "incorrect payment type or unnescesary tokens in input"                                                             
         in case AssocMap.lookup pkh (gdDepositMap outputDatum) of
-          Just after | after == prev + paidGov -> True 
+          Just after | after == prev + paidGov -> True
           Nothing                              -> traceError "no record of user's deposit in datum"
           _                                    -> traceError "incorrect update of user's deposited amount"
       GRWithdraw pkh ->  
         let paidxGov = case Value.flattenValue (userInput pkh) of
               xs@(_:_) | all isxGovCorrect xs -> sum $ map (\(_,_,amm) -> amm) xs
                  where
-                   isxGovCorrect (csym, tn, amm) =
-                     -- xGovCurrencySymbol nft gov == csym &&
+                   -- Big issue: we need to have access to xGOV CurrencySymbol here. 
+                   isxGovCorrect (csym, tn, amm) = 
                      case AssocMap.lookup (coerce tn) (gdDepositMap govDatum) of
                        Nothing -> traceError "detected unregistered xGOV tokens"
                        Just before  -> case AssocMap.lookup (coerce tn) (gdDepositMap outputDatum) of
@@ -180,21 +181,47 @@ xgovValueOf csym tok = Value.singleton csym tok
 
 -- xGOV minting policy
 {-# INLINABLE mkPolicy #-}
-mkPolicy :: ValidatorHash -> ScriptContext -> Bool
-mkPolicy scrVh ctx = traceIfFalse "governance script not in transaction" checkScrInTransaction 
+mkPolicy :: AssetClassNft -> ValidatorHash -> ScriptContext -> Bool
+mkPolicy nft scrVh ctx =
+  traceIfFalse "governance script not in transaction" checkScrInTransaction &&
+  traceIfFalse "endpoint called on governance does not permit minting of xGOV" checkIsMintingEndpoint
   where 
     info = scriptContextTxInfo ctx
 
-    checkScrInTransaction :: Bool
-    checkScrInTransaction =
-      any isScr . map (addressCredential . txOutAddress . txInInfoResolved) $ txInfoInputs info
-      where
-        isScr (ScriptCredential vh) = vh == scrVh 
-        isScr _ = False
+    hasNft utxo = Value.valueOf (txOutValue utxo) (acNftCurrencySymbol nft) (acNftTokenName nft) == 1
+    isScr utxo = ScriptCredential scrVh == (addressCredential . txOutAddress) utxo && hasNft utxo
 
+    -- may be an unnescesary check
+    checkScrInTransaction :: Bool
+    checkScrInTransaction = any isScr . map txInInfoResolved $ txInfoInputs info
+
+    checkIsMintingEndpoint :: Bool
+    checkIsMintingEndpoint = case find isScr $ txInfoOutputs info of
+      Nothing -> False
+      Just o  -> case txOutDatumHash o of
+        Nothing -> False
+        Just h  -> case findDatum h info of
+          Nothing        -> False
+          Just (Datum d) -> case PlutusTx.fromData d of
+            Nothing -> False            
+            Just gd -> case gdLastRedeemer gd of
+              (GRWithdraw _)  -> False
+              (GRDeposit pkh n) -> isCorrectTokenName pkh n 
+
+    isCorrectTokenName :: PubKeyHash -> Integer -> Bool
+    isCorrectTokenName pkh n =
+      case AssocMap.lookup (ownCurrencySymbol ctx) . Value.getValue $ txInfoForge info of
+        Nothing   -> traceError "no currency minted"
+        (Just mp) -> case AssocMap.toList mp of
+          [(tn, amm)] ->
+            traceIfFalse "wrong ammount of xGOV minted" (amm == n) &&
+            traceIfFalse "wrong TokenName minted" (tn == (coerce pkh))
+          _ -> traceError "expected exactly one token minted under xGOV CurrencySymbol"
+          
 xGovMintingPolicy :: AssetClassNft -> AssetClassGov -> Scripts.MonetaryPolicy
 xGovMintingPolicy nft gov = mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . mkPolicy ||])
+  $$(PlutusTx.compile [|| (Scripts.wrapMonetaryPolicy .). mkPolicy ||])
+  `PlutusTx.applyCode` PlutusTx.liftCode nft
   `PlutusTx.applyCode` PlutusTx.liftCode (validatorHash $ scrValidator nft gov)
 
 -- | takes in the GOV CurrencySymbol, returns the xGOV CurrencySymbol
