@@ -1,29 +1,40 @@
 module Main (main) where
 
+import PlutusTx.Prelude
+import Prelude (IO)
+
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
 
-import qualified Test.Demo.Contract.Mint as Demo.Contract.Mint
-import qualified Test.Lending.QuickCheck as Lending.QuickCheck
-import qualified Test.Lending.Contract   as Lending.Contract
-import qualified Test.Lending.Logic      as Lending.Logic
-import qualified Test.Nft.Logic          as Nft.Logic
-import qualified Test.Nft.Contract       as Nft.Contract
+import Test.Demo.Contract.Mint qualified as Demo.Contract.Mint
+import Test.Lending.Contract qualified as Lending.Contract
+import Test.Lending.Logic qualified as Lending.Logic
+import Test.Lending.QuickCheck qualified as Lending.QuickCheck
+import Test.Nft.Contract qualified as Nft.Contract
+import Test.Nft.Logic qualified as Nft.Logic
 
 main :: IO ()
-main = defaultMain $ testGroup "tests"
-  [ testGroup "NFT"     [ Nft.Logic.test
-                        , contract Nft.Contract.test ]
-  , testGroup "Lending" [ Lending.Logic.test
-                        , contract Lending.Contract.test
-                        , Lending.QuickCheck.test ]
-                        , contract Lending.Contract.test 
-  , testGroup "Demo"    [ Demo.Contract.Mint.test ]
-  ]
+main =
+  defaultMain $
+    testGroup
+      "tests"
+      [ testGroup
+          "NFT"
+          [ Nft.Logic.test
+          , contract Nft.Contract.test
+          ]
+      , testGroup
+          "Lending"
+          [ Lending.Logic.test
+          , contract Lending.Contract.test
+          , Lending.QuickCheck.test
+          ]
+      , contract Lending.Contract.test
+      , testGroup "Demo" [Demo.Contract.Mint.test]
+      ]
   where
     contract
       | ignoreContract = ignoreTest
-      | otherwise      = id
+      | otherwise = id
 
     ignoreContract = False
-

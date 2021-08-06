@@ -1,67 +1,70 @@
-{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Application for testing NFT logic.
-module Mlabs.Nft.Logic.App(
-    NftApp
-  , runNftApp
-  , AppCfg(..)
-  , defaultAppCfg
+module Mlabs.Nft.Logic.App (
+  NftApp,
+  runNftApp,
+  AppCfg (..),
+  defaultAppCfg,
   --- * Script
-  , Script
-  , buy
-  , setPrice
+  Script,
+  buy,
+  setPrice,
 ) where
 
 import PlutusTx.Prelude
-import qualified Prelude as Hask ( uncurry )
+import Prelude qualified as Hask (uncurry)
 
-import qualified Data.Map.Strict as M
-import Playground.Contract (TxOutRef(..))
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
-import Plutus.V1.Ledger.TxId ( TxId(TxId) )
+import Data.Map.Strict qualified as M
+import Playground.Contract (TxOutRef (..))
+import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
+import Plutus.V1.Ledger.TxId (TxId (TxId))
 
-import Mlabs.Emulator.App (runApp, App(..))
-import Mlabs.Emulator.Blockchain (defaultBchWallet, BchState(BchState), BchWallet(..))
-import qualified PlutusTx.Ratio as R
-import qualified Mlabs.Emulator.Script as S
-import Mlabs.Emulator.Types (adaCoin, UserId(..))
+import Mlabs.Emulator.App (App (..), runApp)
+import Mlabs.Emulator.Blockchain (BchState (BchState), BchWallet (..), defaultBchWallet)
+import Mlabs.Emulator.Script qualified as S
+import Mlabs.Emulator.Types (UserId (..), adaCoin)
 import Mlabs.Nft.Logic.React (react)
-import Mlabs.Nft.Logic.Types (initNft, Act(..), Nft, UserAct(SetPriceAct, BuyAct))
+import Mlabs.Nft.Logic.Types (Act (..), Nft, UserAct (BuyAct, SetPriceAct), initNft)
+import PlutusTx.Ratio qualified as R
 
 -- | NFT test emulator. We use it test the logic.
 type NftApp = App Nft Act
 
 -- | Config for NFT test emulator
 data AppCfg = AppCfg
-  { appCfg'users     :: [(UserId, BchWallet)] -- ^ state of blockchain
-  , appCfg'nftInRef  :: TxOutRef
-  , appCfg'nftData   :: ByteString            -- ^ nft content
-  , appCfg'nftAuthor :: UserId                -- ^ author of nft
+  { -- | state of blockchain
+    appCfg'users :: [(UserId, BchWallet)]
+  , appCfg'nftInRef :: TxOutRef
+  , -- | nft content
+    appCfg'nftData :: ByteString
+  , -- | author of nft
+    appCfg'nftAuthor :: UserId
   }
 
 -- | Run test emulator for NFT app.
 runNftApp :: AppCfg -> Script -> NftApp
-runNftApp cfg acts = runApp react (initApp cfg) acts
+runNftApp cfg = runApp react (initApp cfg)
 
 -- | Initialise NFT application.
 initApp :: AppCfg -> NftApp
-initApp AppCfg{..} = App
-  { app'st      = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (1 R.% 10) Nothing
-  , app'log     = []
-  , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appCfg'users
-  }
+initApp AppCfg {..} =
+  App
+    { app'st = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (1 R.% 10) Nothing
+    , app'log = []
+    , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appCfg'users
+    }
 
--- | Default application.
--- It allocates three users each of them has 1000 ada coins.
--- The first user is author and the owner of NFT. NFT is locked with no price.
+{- | Default application.
+ It allocates three users each of them has 1000 ada coins.
+ The first user is author and the owner of NFT. NFT is locked with no price.
+-}
 defaultAppCfg :: AppCfg
 defaultAppCfg = AppCfg users dummyOutRef "mona-lisa" (fst $ users !! 0)
   where
@@ -84,4 +87,3 @@ buy uid price newPrice = S.putAct $ UserAct uid (BuyAct price newPrice)
 -- | Set price of NFT
 setPrice :: UserId -> Maybe Integer -> Script
 setPrice uid newPrice = S.putAct $ UserAct uid (SetPriceAct newPrice)
-
