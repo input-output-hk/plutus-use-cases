@@ -1,11 +1,5 @@
-PROJ = "mlabs-plutus-use-cases"   # Project Name 
-COMP = "$(PROJ).components"       # Libraries
-EXES = "$(PROJ).components.exes"  # Executables 
-TEST = "$(PROJ).components.tests" # Tests
- 
 .PHONY: build-nix hoogle build nix-build-library nix-build-executables \
         nix-build-test nix-repl requires_nix_shell
-
 
 # Generate TOC for README.md
 # It has to be manually inserted into the README.md for now.
@@ -18,15 +12,15 @@ hoogle: requires_nix_shell
 
 # Build the library with nix.
 nix-build-library:
-	@ nix-build -A $(COMP)
+	@ nix-build -A mlabs-plutus-use-cases.components
 
 # Build the executables with nix.
 nix-build-executables:
-	@ nix-build -A $(EXES)
+	@ nix-build -A mlabs-plutus-use-cases.components.exes
 
 # Build the tests with nix.
 nix-build-test:
-	@ nix-build -A $(TEST)
+	@ nix-build -A mlabs-plutus-use-cases.components.tests
 
 # Starts a ghci repl inside the nix environment.
 nix-repl: 

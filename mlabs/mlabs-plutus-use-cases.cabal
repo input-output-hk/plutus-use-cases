@@ -134,17 +134,20 @@ executable mlabs-plutus-use-cases
   import:  common-language
   import:  common-configs
   main-is: app/Main.hs
+  build-depends: mlabs-plutus-use-cases
 
 executable nft-demo
   import:  common-imports
   import:  common-language
   main-is: nft-demo/Main.hs
+  build-depends: mlabs-plutus-use-cases
 
 executable lendex-demo
   import:  common-imports
   import:  common-language
   import:  common-configs
   main-is: lendex-demo/Main.hs
+  build-depends: mlabs-plutus-use-cases
 
 Test-suite mlabs-plutus-use-cases-tests
   import:          common-imports
