@@ -1,17 +1,17 @@
 -- | Client functions to test contracts in EmulatorTrace monad.
-module Mlabs.Nft.Contract.Emulator.Client(
-    callUserAct
-  , callStartNft
+module Mlabs.Nft.Contract.Emulator.Client (
+  callUserAct,
+  callStartNft,
 ) where
 
 import Prelude
 
 import Data.Functor (void)
-import Data.Monoid (Last(..))
-import Plutus.Trace.Emulator (waitNSlots, throwError, EmulatorTrace, observableState, activateContractWallet, EmulatorRuntimeError(..))
+import Data.Monoid (Last (..))
+import Plutus.Trace.Emulator (EmulatorRuntimeError (..), EmulatorTrace, activateContractWallet, observableState, throwError, waitNSlots)
 import Wallet.Emulator (Wallet)
 
-import Mlabs.Nft.Contract.Api (Buy(..), SetPrice(..), StartParams)
+import Mlabs.Nft.Contract.Api (Buy (..), SetPrice (..), StartParams)
 import Mlabs.Nft.Contract.Server (authorEndpoints, userEndpoints)
 import Mlabs.Nft.Logic.Types qualified as Types
 import Mlabs.Plutus.Contract (callEndpoint')
@@ -24,8 +24,8 @@ callUserAct :: Types.NftId -> Wallet -> Types.UserAct -> EmulatorTrace ()
 callUserAct nid wal act = do
   hdl <- activateContractWallet wal (userEndpoints nid)
   void $ case act of
-    Types.BuyAct{..}      -> callEndpoint' hdl (Buy act'price act'newPrice)
-    Types.SetPriceAct{..} -> callEndpoint' hdl (SetPrice act'newPrice)
+    Types.BuyAct {..} -> callEndpoint' hdl (Buy act'price act'newPrice)
+    Types.SetPriceAct {..} -> callEndpoint' hdl (SetPrice act'newPrice)
 
 -- | Calls initialisation of state for Nft pool
 callStartNft :: Wallet -> StartParams -> EmulatorTrace Types.NftId
@@ -37,5 +37,3 @@ callStartNft wal sp = do
   maybe err pure nid
   where
     err = throwError $ GenericError "No NFT started in emulator"
-
-

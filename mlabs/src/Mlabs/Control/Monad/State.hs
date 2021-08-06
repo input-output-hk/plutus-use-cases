@@ -1,41 +1,49 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Common plutus instances for StateT
-module Mlabs.Control.Monad.State(
-    PlutusState
-  , MonadError(..)
-  , MonadState(..)
-  , runStateT
-  , gets
-  , guardError
+module Mlabs.Control.Monad.State (
+  PlutusState,
+  MonadError (..),
+  MonadState (..),
+  runStateT,
+  gets,
+  guardError,
 ) where
 
 import PlutusTx.Prelude
+import Prelude (String)
 
-import Control.Monad.Except ( MonadError(..) )
-import Control.Monad.State.Strict ( StateT(..), gets, MonadState(..) )
+import Control.Monad.Except (MonadError (..))
+import Control.Monad.State.Strict (MonadState (..), StateT (..), gets)
 
 -- | State update of plutus contracts
 type PlutusState st = StateT st (Either String)
 
 instance Functor (PlutusState st) where
-  {-# INLINABLE fmap #-}
-  fmap f (StateT a) = StateT $ fmap (\(v, st) -> (f v, st)) . a
+  {-# INLINEABLE fmap #-}
+  fmap f (StateT a) = StateT $ fmap g . a
+    where
+      g (v, st) = (f v, st)
 
 instance Applicative (PlutusState st) where
-  {-# INLINABLE pure #-}
+  {-# INLINEABLE pure #-}
   pure a = StateT (\st -> Right (a, st))
 
-  {-# INLINABLE (<*>) #-}
+  {-# INLINEABLE (<*>) #-}
   (StateT f) <*> (StateT a) = StateT $ \st -> case f st of
     Left err -> Left err
-    Right (f1, st1) -> fmap (\(a1, st2) -> (f1 a1, st2)) $ a st1
+    Right (f1, st1) -> do
+      (a1, st2) <- a st1
+      return (f1 a1, st2)
 
 ------------------------------------------------
 
-{-# INLINABLE guardError #-}
--- | Execute further if condition is True or throw error with
--- given error message.
+{-# INLINEABLE guardError #-}
+
+{- | Execute further if condition is True or throw error with
+ given error message.
+-}
 guardError :: (Applicative m, MonadError String m) => String -> Bool -> m ()
 guardError msg isTrue
-  | isTrue    = pure ()
+  | isTrue = pure ()
   | otherwise = throwError msg
