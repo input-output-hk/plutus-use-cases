@@ -254,24 +254,55 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
     logInfo @Haskell.String $ printf "Submitted bid for NFT auction %s" (Haskell.show nftAuction)
     pure ()
 
-data BundleParams =
-  BundleParams {
-    bpIpfsCids :: [ByteString]
+data BundleUpParams =
+  BundleUpParams {
+    bupIpfsCids :: [ByteString],
+    bupName :: ByteString,
+    bupDescription :: ByteString,
+    bupCategory :: Core.Category
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''BundleParams
-PlutusTx.makeLift ''BundleParams
+PlutusTx.unstableMakeIsData ''BundleUpParams
+PlutusTx.makeLift ''BundleUpParams
 
--- | The user
-bundleUp :: Core.Marketplace -> BundleParams -> Contract w s Text ()
-bundleUp marketplace BundleParams {..} = do
+-- | The user creates a bundle from specified NFTs
+bundleUp :: Core.Marketplace -> BundleUpParams -> Contract w s Text ()
+bundleUp marketplace BundleUpParams {..} = do
+    let bundleId = Core.calcBundleIdHash bupIpfsCids
+    let nftIds = sha2_256 <$> bupIpfsCids
+    let bundleInfo = Core.BundleInfo
+          { biName        = bupName
+          , biDescription = bupDescription
+          , biCategory    = bupCategory
+          }
+
+    let client = Core.marketplaceClient marketplace
+    void $ mapError' $ runStep client $ Core.BundleUpRedeemer nftIds bundleId bundleInfo
+
+    logInfo @Haskell.String $ printf "Created a bundle %s" (Haskell.show bundleInfo)
     pure ()
 
--- | The user
-unbundle :: Core.Marketplace -> BundleParams -> Contract w s Text ()
-unbundle marketplace BundleParams {..} = do
+data UnbundleParams =
+  UnbundleParams {
+    upIpfsCids :: [ByteString]
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+PlutusTx.unstableMakeIsData ''UnbundleParams
+PlutusTx.makeLift ''UnbundleParams
+
+-- | The user unbundles specified NFTs
+unbundle :: Core.Marketplace -> UnbundleParams -> Contract w s Text ()
+unbundle marketplace UnbundleParams {..} = do
+    let bundleId = Core.calcBundleIdHash upIpfsCids
+
+    let client = Core.marketplaceClient marketplace
+    void $ mapError' $ runStep client $ Core.UnbundleRedeemer bundleId
+
+    logInfo @Haskell.String $ printf "Removed bundle by id %s" (Haskell.show bundleId)
     pure ()
 
 balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
@@ -288,8 +319,8 @@ type MarketplaceUserSchema =
     .\/ Endpoint "startAnAuction" HoldAnAuctionParams
     .\/ Endpoint "completeAnAuction" HoldAnAuctionParams
     .\/ Endpoint "bidOnAuction" BidOnAuctionParams
-    .\/ Endpoint "bundleUp" BundleParams
-    .\/ Endpoint "unbundle" BundleParams
+    .\/ Endpoint "bundleUp" BundleUpParams
+    .\/ Endpoint "unbundle" UnbundleParams
     .\/ Endpoint "ownPubKey" ()
     .\/ Endpoint "ownPubKeyBalance" ()
 
