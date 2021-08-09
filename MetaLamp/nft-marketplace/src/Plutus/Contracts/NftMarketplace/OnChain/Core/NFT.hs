@@ -89,12 +89,25 @@ PlutusTx.makeLift ''Bundle
 
 Lens.makeClassyPrisms ''Bundle
 
+data BundleInfo =
+  BundleInfo
+    { biName        :: !ByteString
+    , biDescription :: !ByteString
+    , biCategory    :: !Category
+    }
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''BundleInfo
+
+PlutusTx.makeLift ''BundleInfo
+
+Lens.makeClassy_ ''BundleInfo
+
 data NftBundle =
   NftBundle
-    { nbName        :: !ByteString
-    , nbDescription :: !ByteString
-    , nbCategory    :: !Category
-    , nbTokens      :: !Bundle
+    { nbRecord :: !BundleInfo
+    , nbTokens :: !Bundle
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
@@ -111,3 +124,24 @@ calcBundleIdHash :: [IpfsCid] -> BundleId
 calcBundleIdHash = BA.convert . Hash.hashUpdates alg . HL.sort
   where
     alg = Hash.hashInit @Hash.SHA256
+
+{-# INLINABLE makeBundle #-}
+makeBundle :: AssocMap.Map IpfsCidHash NFT -> [IpfsCidHash] -> BundleInfo -> NftBundle
+makeBundle singletons nftIds bundleInfo =
+  NftBundle
+    { nbRecord        = bundleInfo
+    , nbTokens      = NoLot $ foldr insert AssocMap.empty nftIds
+    }
+  where
+    insert nftId = let entry = nftRecord $ fromMaybe (traceError "NFT singleton entry not found") $ AssocMap.lookup nftId singletons
+                    in AssocMap.insert nftId entry
+
+{-# INLINABLE hasLotNft #-}
+hasLotNft :: NFT -> Bool
+hasLotNft = isJust . nftLot
+
+{-# INLINABLE hasLotBundle #-}
+hasLotBundle :: NftBundle -> Bool
+hasLotBundle bundle = case nbTokens bundle of
+  HasLot _ _ -> True
+  _          -> False

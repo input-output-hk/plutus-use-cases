@@ -254,6 +254,26 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
     logInfo @Haskell.String $ printf "Submitted bid for NFT auction %s" (Haskell.show nftAuction)
     pure ()
 
+data BundleParams =
+  BundleParams {
+    bpIpfsCids :: [ByteString]
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+PlutusTx.unstableMakeIsData ''BundleParams
+PlutusTx.makeLift ''BundleParams
+
+-- | The user
+bundleUp :: Core.Marketplace -> BundleParams -> Contract w s Text ()
+bundleUp marketplace BundleParams {..} = do
+    pure ()
+
+-- | The user
+unbundle :: Core.Marketplace -> BundleParams -> Contract w s Text ()
+unbundle marketplace BundleParams {..} = do
+    pure ()
+
 balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
 balanceAt pkh asset = flip V.assetClassValueOf asset <$> fundsAt pkh
 
@@ -268,6 +288,8 @@ type MarketplaceUserSchema =
     .\/ Endpoint "startAnAuction" HoldAnAuctionParams
     .\/ Endpoint "completeAnAuction" HoldAnAuctionParams
     .\/ Endpoint "bidOnAuction" BidOnAuctionParams
+    .\/ Endpoint "bundleUp" BundleParams
+    .\/ Endpoint "unbundle" BundleParams
     .\/ Endpoint "ownPubKey" ()
     .\/ Endpoint "ownPubKeyBalance" ()
 
@@ -279,6 +301,8 @@ data UserContractState =
     | AuctionStarted
     | AuctionComplete
     | BidSubmitted
+    | Bundled
+    | Unbundled
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -295,5 +319,7 @@ userEndpoints marketplace = forever $
     `select` withContractResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
     `select` withContractResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
     `select` withContractResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
+    `select` withContractResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
+    `select` withContractResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
     `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)

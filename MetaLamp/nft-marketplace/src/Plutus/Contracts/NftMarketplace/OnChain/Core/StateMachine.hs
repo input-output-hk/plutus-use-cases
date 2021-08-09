@@ -49,6 +49,8 @@ data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
   | PutLotRedeemer (Either (IpfsCidHash, IpfsCid) (AssocMap.Map IpfsCidHash IpfsCid)) LotLink
   | RemoveLotRedeemer (Either IpfsCidHash BundleId)
+  | BundleUpRedeemer [IpfsCidHash] BundleId BundleInfo
+  | UnbundleRedeemer BundleId
   deriving  (Haskell.Show)
 
 PlutusTx.unstableMakeIsData ''MarketplaceRedeemer
@@ -83,6 +85,27 @@ nftUnion MarketplaceDatum{..} = foldr union mdSingletons $ fmap getNfts $ toList
       NoLot val      -> fmap (\info -> NFT info Nothing) val
       HasLot val lot -> fmap (\(cid, info) -> NFT info (Just (cid, lot))) val
 
+{-# INLINABLE bundleUp #-}
+bundleUp :: [IpfsCidHash] -> BundleId -> BundleInfo -> MarketplaceDatum -> MarketplaceDatum
+bundleUp nftIds bundleId bundleInfo store@MarketplaceDatum{..} =
+    store { mdSingletons = foldr AssocMap.delete mdSingletons nftIds
+          , mdBundles = AssocMap.insert bundleId (makeBundle mdSingletons nftIds bundleInfo) mdBundles
+          }
+
+{-# INLINABLE unbundle #-}
+unbundle :: BundleId -> MarketplaceDatum -> MarketplaceDatum
+unbundle bundleId store@MarketplaceDatum{..} =
+    store { mdSingletons = foldr insert mdSingletons $ AssocMap.toList tokens
+          , mdBundles = AssocMap.delete bundleId mdBundles
+          }
+  where
+    bundle = fromMaybe (traceError "Bundle has not been created.") $
+                            AssocMap.lookup bundleId mdBundles
+    tokens = case nbTokens bundle of
+      NoLot ts   -> ts
+      HasLot _ _ -> traceError "Could not unbundle: bundle has lot."
+    insert (nftId, record) = AssocMap.insert nftId $ NFT record Nothing
+
 {-# INLINABLE transition #-}
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
 transition marketplace state redeemer = case redeemer of
@@ -103,6 +126,14 @@ transition marketplace state redeemer = case redeemer of
            in  Just ( mempty
                     , State (insertNft ipfsCidHash newEntry nftStore) currStateValue
                     )
+    BundleUpRedeemer nftIds bundleId bundleInfo
+        -> Just ( mempty
+                , State (bundleUp nftIds bundleId bundleInfo nftStore) currStateValue
+                )
+    UnbundleRedeemer bundleId
+        -> Just ( mempty
+                , State (unbundle bundleId nftStore) currStateValue
+                )
     _                                        -> trace "Invalid transition" Nothing
   where
     stateToken :: Value
