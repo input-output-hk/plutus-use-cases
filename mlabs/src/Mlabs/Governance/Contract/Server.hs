@@ -33,9 +33,10 @@ governanceEndpoints :: AssetClassNft -> AssetClassGov -> GovernanceContract ()
 governanceEndpoints nft gov = do
   -- some nft gov duplication here, probably have to refactor all
   -- of the Api types to hold nft and gov themselves. TBD (do we want them as params or not?)
-  getEndpoint @Api.StartGovernance >>= startGovernance 
+  -- getEndpoint @Api.StartGovernance >>= startGovernance --FIXME temporary moved to selects to make tests work
   forever $ selects
-    [ getEndpoint @Api.Deposit >>= deposit nft gov
+    [ getEndpoint @Api.StartGovernance >>= startGovernance 
+    , getEndpoint @Api.Deposit >>= deposit nft gov
     , getEndpoint @Api.Withdraw >>= withdraw nft gov
     , getEndpoint @Api.ProvideRewards >>= provideRewards nft gov
     , getEndpoint @Api.QueryBalance >>= queryBalance nft gov
@@ -46,31 +47,34 @@ governanceEndpoints nft gov = do
 startGovernance :: Api.StartGovernance -> GovernanceContract ()
 startGovernance (Api.StartGovernance nft gov) = do
   let d = GovernanceDatum (Validation.GRWithdraw "") AssocMap.empty
-      v = singleton (acNftCurrencySymbol nft) (acNftTokenName nft) 1
-      tx = Constraints.mustPayToTheScript d v
+      traceNFT = singleton (acNftCurrencySymbol nft) (acNftTokenName nft) 1
+      tx = Constraints.mustPayToTheScript d traceNFT
   ledgerTx <- Contract.submitTxConstraints (Validation.scrInstance nft gov) tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "Started governance for nft token %s, gov token %s" (show nft) (show gov)
 
 deposit :: AssetClassNft -> AssetClassGov -> Api.Deposit -> GovernanceContract ()
 deposit nft gov (Api.Deposit amnt) = do
+  validateAmount amnt
   pkh <- pubKeyHash <$> Contract.ownPubKey
-  (datum, _, oref) <- findGovernance nft gov
+  (datum, utxo, oref) <- findGovernance nft gov
 
-  let datum' = GovernanceDatum (Validation.GRDeposit pkh amnt) $
+  let traceNFT = singleton (acNftCurrencySymbol nft) (acNftTokenName nft) 1
+      xGovValue = Validation.xgovValueOf (Validation.xGovCurrencySymbol nft) (coerce pkh) amnt
+      datum' = GovernanceDatum (Validation.GRDeposit pkh amnt) $
         case AssocMap.lookup pkh (gdDepositMap datum) of
           Nothing -> AssocMap.insert pkh amnt (gdDepositMap datum)
           Just n  -> AssocMap.insert pkh (n+amnt) (gdDepositMap datum)
       tx = sconcat [
-          Constraints.mustForgeValue $
-            Validation.xgovValueOf (Validation.xGovCurrencySymbol nft) (coerce pkh) amnt
-        , Constraints.mustPayToTheScript datum' $ Validation.govValueOf gov amnt
-        , Constraints.mustSpendScriptOutput oref (Redeemer . toData $ GRDeposit pkh amnt)
+          Constraints.mustForgeValue              xGovValue
+        , Constraints.mustPayToTheScript datum' $ Validation.govValueOf gov amnt <> traceNFT
+        , Constraints.mustSpendScriptOutput oref  (Redeemer . toData $ GRDeposit pkh amnt)
         ]
       lookups = sconcat [
               Constraints.monetaryPolicy        $ Validation.xGovMintingPolicy nft
             , Constraints.otherScript           $ Validation.scrValidator nft gov
             , Constraints.scriptInstanceLookups $ Validation.scrInstance nft gov
+            , Constraints.unspentOutputs      $ Map.singleton oref utxo
             ]
                 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
@@ -158,3 +162,9 @@ findGovernance nft gov = do
           Nothing -> Contract.throwError "datum has wrong type"
           Just gd -> return (gd, o, oref)
     _ -> Contract.throwError "No UTxO found"
+
+-- todo probably should have something custom with `AsContractError` instance for it
+validateAmount :: Integer -> Contract.Contract w s Text ()
+validateAmount v
+  | v >= 0    = pure ()
+  | otherwise = Contract.throwError "Amount should be positive"
