@@ -13,7 +13,6 @@
   # The plutus build by default misses this
   plutus_pab_conf_dir = with plutus_pab_confs;
     pkgs.linkFarm "plutus_pab_envs" [
-
       {
         inherit (pab_env1) name;
         path = plutus.plutus-pab.mkConf pab_env1;
@@ -23,7 +22,6 @@
         inherit (pab_env2) name;
         path = plutus.plutus-pab.mkConf pab_env2;
       }
-
     ];
 
   plutus_ledger_with_docs =

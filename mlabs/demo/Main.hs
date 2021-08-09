@@ -53,19 +53,18 @@ import Plutus.V1.Ledger.Crypto qualified as Ledger
 import Plutus.V1.Ledger.Slot qualified as Ledger (Slot (..))
 import Plutus.V1.Ledger.Value qualified as Ledger
 import Plutus.V1.Ledger.Value qualified as Value
-import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Prelude ((%))
+import PlutusTx.Prelude qualified as PlutusTx
 import Wallet.Emulator.Types (Wallet (..), walletPubKey)
 import Wallet.Emulator.Wallet qualified as Wallet
 
 --------------------------------------------------------------------------------
 
-import qualified Mlabs.Lending.Contract.Lendex as Lendex
-import qualified Mlabs.Lending.Logic.Types as Lendex
-import Mlabs.Lending.Logic.Types (Coin, UserAct(..), UserId(..), StartParams(..))
+import Mlabs.Lending.Contract.Lendex qualified as Lendex
+import Mlabs.Lending.Logic.Types (Coin, StartParams (..), UserAct (..), UserId (..))
+import Mlabs.Lending.Logic.Types qualified as Lendex
 
 --------------------------------------------------------------------------------
-
 
 main :: IO ()
 main = void $
@@ -80,14 +79,13 @@ main = void $
       Success (Just (Semigroup.Last mkt)) -> Just mkt
       _ -> Nothing
 
-
     shutdown
 
 data AavePAB
 
 data AaveContracts
   = Init
-  | User Lendex.LendingPool 
+  | User Lendex.LendingPool
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -101,7 +99,6 @@ instance PABContract AavePAB where
   serialisableState _ = id
 
 handleLendexContract ::
-
   ( Member (Error PABError) effs
   , Member (LogMsg (PABMultiAgentMsg (Builtin AaveContracts))) effs
   ) =>
@@ -122,27 +119,32 @@ handlers =
     interpret handleLendexContract
 
 startParams :: StartParams
-startParams = StartParams
-  { sp'coins     = [initCoinCfg]
-  , sp'initValue =  initValue    -- ^ init value deposited to the lending app
-  }
+startParams =
+  StartParams
+    { sp'coins = [initCoinCfg]
+    , sp'initValue = initValue -- init value deposited to the lending app
+    }
 
 initValue :: Value.Value
 initValue = Value.singleton Ada.adaSymbol Ada.adaToken 10000
-             -- TODO: figure out how to support multiple currencies
-             -- note: looks like we'll need a minimal minting contract to get currencies working, otherwise we can support Ada collateral, Ada borrow by removing `collateralNonBorrow uid asset` from the contract.
-             -- <> Value.Singleton  () (Value.tokenName "USDc")
 
-initCoinCfg = Lendex.CoinCfg
-  { coinCfg'coin             = Value.AssetClass (Ada.adaSymbol, Ada.adaToken)
-  , coinCfg'rate             = 1 % 1
-  , coinCfg'aToken           = Value.tokenName "aAda"
-  , coinCfg'interestModel    = Lendex.defaultInterestModel
-  , coinCfg'liquidationBonus = 2 % 10
-  }
+-- TODO: figure out how to support multiple currencies
+-- note: looks like we'll need a minimal minting contract to get currencies working, otherwise we can support Ada collateral, Ada borrow by removing `collateralNonBorrow uid asset` from the contract.
+-- <> Value.Singleton  () (Value.tokenName "USDc")
 
-depositAct = DepositAct
-      { act'amount          = 100
-      , act'asset           = Value.AssetClass (Ada.adaSymbol, Ada.adaToken)  
-      }
+initCoinCfg =
+  Lendex.CoinCfg
+    { coinCfg'coin = Value.AssetClass (Ada.adaSymbol, Ada.adaToken)
+    , coinCfg'rate = 1 % 1
+    , coinCfg'aToken = Value.tokenName "aAda"
+    , coinCfg'interestModel = Lendex.defaultInterestModel
+    , coinCfg'liquidationBonus = 2 % 10
+    }
+
+depositAct =
+  DepositAct
+    { act'amount = 100
+    , act'asset = Value.AssetClass (Ada.adaSymbol, Ada.adaToken)
+    }
+
 -- --------------------------------------------------------------------------------

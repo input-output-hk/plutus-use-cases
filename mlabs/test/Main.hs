@@ -1,4 +1,7 @@
-module Main where
+module Main (main) where
+
+import PlutusTx.Prelude
+import Prelude (IO)
 
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
@@ -25,7 +28,6 @@ main = defaultMain $ testGroup "tests"
   where
     contract
       | ignoreContract = ignoreTest
-      | otherwise      = id
+      | otherwise = id
 
     ignoreContract = False
-

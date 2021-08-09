@@ -1,22 +1,28 @@
 -- | Simulator demo for NFTs
-module Main where
+module Main (
+  main,
+  activateStartNft,
+  activateUser,
+  nftContent,
+  startParams,
+) where
 
 import Prelude
 
-import Control.Monad.IO.Class ( MonadIO(liftIO) )
-import Data.Functor ( void )
-import Playground.Contract ( Wallet(Wallet) )
-import Plutus.Contract ( ContractInstanceId )
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.Functor (void)
+import Playground.Contract (Wallet (Wallet))
+import Plutus.Contract (ContractInstanceId)
 import Plutus.PAB.Simulator qualified as Simulator
 import PlutusTx.Prelude (ByteString)
 
-import Mlabs.Nft.Logic.Types ( NftId )
 import Mlabs.Nft.Contract qualified as Nft
 import Mlabs.Nft.Contract.Simulator.Handler qualified as Handler
-import Mlabs.Data.Ray qualified as R
-import Mlabs.Plutus.PAB ( call, printBalance, waitForLast )
-import Mlabs.System.Console.PrettyLogger ( logNewLine )
-import Mlabs.System.Console.Utils ( logAction, logMlabs )
+import Mlabs.Nft.Logic.Types (NftId)
+import Mlabs.Plutus.PAB (call, printBalance, waitForLast)
+import Mlabs.System.Console.PrettyLogger (logNewLine)
+import Mlabs.System.Console.Utils (logAction, logMlabs)
+import PlutusTx.Ratio qualified as R
 
 -- | Main function to run simulator
 main :: IO ()
@@ -42,7 +48,7 @@ main = Handler.runSimulator startParams $ do
   liftIO $ putStrLn "Fin (Press enter to Exit)"
   where
     test msg wals act = do
-      void $ act
+      void act
       logAction msg
       mapM_ printBalance wals
       next
@@ -93,9 +99,9 @@ nftContent = "Mona Lisa"
 
 -- | NFT initial parameters
 startParams :: Nft.StartParams
-startParams = Nft.StartParams
-  { sp'content = nftContent
-  , sp'share   = 1 R.% 10
-  , sp'price   = Nothing
-  }
-
+startParams =
+  Nft.StartParams
+    { sp'content = nftContent
+    , sp'share = 1 R.% 10
+    , sp'price = Nothing
+    }
