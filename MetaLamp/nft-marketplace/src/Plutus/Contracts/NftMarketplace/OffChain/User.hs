@@ -233,8 +233,8 @@ completeAnAuction marketplace HoldAnAuctionParams {..} = do
 
 data BidOnAuctionParams =
   BidOnAuctionParams {
-    japIpfsCid :: ByteString,
-    japBid     :: Ada
+    boapIpfsCid :: ByteString,
+    boapBid     :: Ada
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -245,7 +245,7 @@ PlutusTx.makeLift ''BidOnAuctionParams
 -- | The user submits a bid on the auction for specified NFT
 bidOnAuction :: Core.Marketplace -> BidOnAuctionParams -> Contract w s Text ()
 bidOnAuction marketplace BidOnAuctionParams {..} = do
-    let ipfsCidHash = sha2_256 japIpfsCid
+    let ipfsCidHash = sha2_256 boapIpfsCid
     nftStore <- marketplaceStore marketplace
     nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
     nftAuction <- maybe (throwError "NFT has not been put on auction") pure $
@@ -253,7 +253,7 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
 
     let auctionToken = Auction.getStateToken nftAuction
     let auctionParams = Auction.fromTuple nftAuction
-    _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auctionToken auctionParams japBid
+    _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auctionToken auctionParams boapBid
 
     logInfo @Haskell.String $ printf "Submitted bid for NFT auction %s" (Haskell.show nftAuction)
     pure ()
