@@ -169,6 +169,20 @@ stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (Left ipfsCidHash)
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
       hasBeenPutOnSale = isJust $ nftLot nftEntry
   in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale
+stateTransitionCheck MarketplaceDatum {..} (BundleUpRedeemer nftIds bundleId bundleInfo) ctx =
+  traceIfFalse "BundleUpRedeemer: " $
+  let doesNotExist = isNothing $ AssocMap.lookup bundleId mdBundles
+      notEmty = not $ null nftIds
+      nfts =  fromMaybe (traceError "NFT does not exist or is part of existing bundle") . (`AssocMap.lookup` mdSingletons) <$> nftIds
+      doesNotHaveLots = all (isNothing . nftLot) nfts
+  in  traceIfFalse "Bundle entry already exists" doesNotExist &&
+      traceIfFalse "Bundle is empty" notEmty &&
+      traceIfFalse "One of NFTs has a lot" doesNotHaveLots
+stateTransitionCheck MarketplaceDatum {..} (UnbundleRedeemer bundleId) ctx =
+  traceIfFalse "UnbundleRedeemer: " $
+  let bundle = fromMaybe (traceError "Bundle does not exist") $ AssocMap.lookup bundleId mdBundles
+      doesNotHaveLot = not $ hasLotBundle bundle
+  in  traceIfFalse "Bundle has a lot" doesNotHaveLot
 stateTransitionCheck _ _ _ = traceError "Transition disallowed"
 
 {-# INLINABLE marketplaceStateMachine #-}
