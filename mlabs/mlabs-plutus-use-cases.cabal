@@ -101,6 +101,10 @@ library
     Mlabs.Emulator.Scene
     Mlabs.Emulator.Script
     Mlabs.Emulator.Types
+    Mlabs.Governance.Contract.Api
+    Mlabs.Governance.Contract.Emulator.Client
+    Mlabs.Governance.Contract.Server
+    Mlabs.Governance.Contract.Validation
     Mlabs.Lending.Contract
     Mlabs.Lending.Contract.Api
     Mlabs.Lending.Contract.Forge
@@ -195,6 +199,8 @@ Test-suite mlabs-plutus-use-cases-tests
 
   Other-modules:
     Test.Demo.Contract.Mint
+    Test.Governance.Contract
+    Test.Governance.Init
     Test.Lending.Contract
     Test.Lending.Init
     Test.Lending.Logic

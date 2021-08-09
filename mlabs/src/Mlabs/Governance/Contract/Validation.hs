@@ -17,26 +17,31 @@ module Mlabs.Governance.Contract.Validation (
   , AssetClassGov(..)
   ) where
 
+import           PlutusTx.Prelude hiding (Semigroup(..), unless)
+import qualified Prelude as Hask 
+
 import Data.Coerce (coerce)
 import GHC.Generics (Generic)
-import Playground.Contract (FromJSON, ToJSON, ToSchema)
-import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx qualified
-import PlutusTx.Prelude hiding (Semigroup(..), unless)
-import Ledger hiding (before, after)
-import Ledger.Typed.Scripts      qualified as Scripts
-import Plutus.V1.Ledger.Value    qualified as Value
-import Plutus.V1.Ledger.Contexts qualified as Contexts
-import Plutus.V1.Ledger.Address  qualified as Address
-import Plutus.V1.Ledger.Credential (Credential(..))
-import Prelude qualified as Hask 
+
+import           Playground.Contract (FromJSON, ToJSON, ToSchema)
+import qualified PlutusTx.AssocMap as AssocMap
+import qualified PlutusTx 
+
+import           Ledger hiding (before, after)
+import           Ledger.Typed.Scripts (MintingPolicy, wrapMintingPolicy, wrapValidator, validatorScript)
+import qualified Ledger.Typed.Scripts.Validators as Validators
+import           Plutus.V1.Ledger.Scripts  as Scripts (Datum, Redeemer, Datum (getDatum), mkMintingPolicyScript)
+import qualified Plutus.V1.Ledger.Value    as Value
+import qualified Plutus.V1.Ledger.Contexts as Contexts
+import qualified Plutus.V1.Ledger.Address  as Address
+import           Plutus.V1.Ledger.Credential (Credential(..))
 
 -- TODO: Once AssetClass has a ToSchema instance, change this to a newtype.
 --       or not. this is fine really. 
 data AssetClassNft = AssetClassNft {
     acNftCurrencySymbol :: !CurrencySymbol
   , acNftTokenName :: !TokenName
-  } deriving (Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
+  } deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
 
 instance Eq AssetClassNft where
   {-# INLINABLE (==) #-}
@@ -49,7 +54,7 @@ PlutusTx.makeLift ''AssetClassNft
 data AssetClassGov = AssetClassGov {
     acGovCurrencySymbol :: !CurrencySymbol
   , acGovTokenName :: !TokenName
-  } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+  } deriving (Hask.Show, Generic, ToJSON, FromJSON, ToSchema)
 
 instance Eq AssetClassGov where
   {-# INLINABLE (==) #-}
@@ -80,7 +85,7 @@ PlutusTx.unstableMakeIsData ''GovernanceDatum
 PlutusTx.makeLift ''GovernanceDatum
 
 data Governance
-instance Scripts.ScriptType Governance where
+instance Validators.ValidatorTypes Governance where
     type instance DatumType Governance = GovernanceDatum
     type instance RedeemerType Governance = GovernanceRedeemer
 
@@ -113,7 +118,7 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
         Nothing -> traceError "wrong output type"
         Just h  -> case findDatum h info of
           Nothing        -> traceError "datum not found"
-          Just (Datum d) -> case PlutusTx.fromData d of
+          Just (Datum d) -> case PlutusTx.fromBuiltinData d of
             Just gd -> (o, gd)
             Nothing -> traceError "error decoding data"
       _ -> traceError "expected one continuing output"
@@ -159,19 +164,19 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
           [_]                                 -> traceError "imbalanced ammount of xGOV to GOV"
           _                                   -> traceError "more than one assetclass paid by script"
 
-scrInstance :: AssetClassNft -> AssetClassGov -> Scripts.ScriptInstance Governance
-scrInstance nft gov = Scripts.validator @Governance
+scrInstance :: AssetClassNft -> AssetClassGov -> Validators.TypedValidator Governance
+scrInstance nft gov = Validators.mkTypedValidator @Governance
   ($$(PlutusTx.compile [|| mkValidator ||])
    `PlutusTx.applyCode` PlutusTx.liftCode nft
    `PlutusTx.applyCode` PlutusTx.liftCode gov
    `PlutusTx.applyCode` PlutusTx.liftCode (xGovCurrencySymbol nft))
   $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = Scripts.wrapValidator @(Scripts.DatumType Governance) @(Scripts.RedeemerType Governance)
+    wrap = Validators.wrapValidator @GovernanceDatum @GovernanceRedeemer
 
 {-# INLINABLE scrValidator #-}
 scrValidator :: AssetClassNft -> AssetClassGov -> Validator
-scrValidator nft = Scripts.validatorScript . scrInstance nft
+scrValidator nft = Validators.validatorScript . scrInstance nft
 
 scrAddress :: AssetClassNft -> AssetClassGov -> Ledger.Address
 scrAddress nft = scriptAddress . scrValidator nft
@@ -184,8 +189,8 @@ xgovValueOf csym tok = Value.singleton csym tok
 
 -- xGOV minting policy, the parameter is the NFT HELD BY THE GOVERNANCE SCRIPT
 {-# INLINABLE mkPolicy #-}
-mkPolicy :: AssetClassNft -> ScriptContext -> Bool
-mkPolicy nft ctx =
+mkPolicy :: AssetClassNft -> () -> ScriptContext -> Bool
+mkPolicy nft _ ctx =
   traceIfFalse "governance script not in transaction" checkScrInTransaction &&
   traceIfFalse "endpoint called on governance does not permit minting of xGOV" checkIsMintingEndpoint
   where 
@@ -204,7 +209,7 @@ mkPolicy nft ctx =
         Nothing -> False
         Just h  -> case findDatum h info of
           Nothing        -> False
-          Just (Datum d) -> case PlutusTx.fromData d of
+          Just (Datum d) -> case PlutusTx.fromBuiltinData d of
             Nothing -> False            
             Just gd -> case gdLastRedeemer gd of
               (GRWithdraw _)  -> False
@@ -220,9 +225,9 @@ mkPolicy nft ctx =
             traceIfFalse "wrong TokenName minted" (tn == (coerce pkh))
           _ -> traceError "expected exactly one token minted under xGOV CurrencySymbol"
           
-xGovMintingPolicy :: AssetClassNft -> Scripts.MonetaryPolicy
-xGovMintingPolicy nft = mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| Scripts.wrapMonetaryPolicy . mkPolicy ||])
+xGovMintingPolicy :: AssetClassNft -> MintingPolicy
+xGovMintingPolicy nft = mkMintingPolicyScript $
+  $$(PlutusTx.compile [|| wrapMintingPolicy . mkPolicy ||])
   `PlutusTx.applyCode` PlutusTx.liftCode nft
 
 -- | takes in the GOV CurrencySymbol, returns the xGOV CurrencySymbol

@@ -7,6 +7,7 @@ module Mlabs.Governance.Contract.Server (
   ) where
 
 import PlutusTx.Prelude hiding (toList)
+import Prelude (String, uncurry, show)
 
 import Data.Text (Text)
 import Data.Map qualified as Map
@@ -17,7 +18,7 @@ import Control.Monad (forever, void, foldM)
 import Data.Semigroup (Last(..), sconcat)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Crypto (pubKeyHash, PubKeyHash(..))
-import Plutus.V1.Ledger.Api (fromData, toData, Datum(..), Redeemer(..))
+import Plutus.V1.Ledger.Api (fromBuiltinData, toBuiltinData, Datum(..), Redeemer(..))
 import Plutus.V1.Ledger.Tx (txId, TxOutRef, TxOutTx(..), Tx(..), TxOut(..))
 import Plutus.V1.Ledger.Value (Value(..), TokenName(..), valueOf, singleton)
 import Ledger.Constraints qualified as Constraints
@@ -66,15 +67,15 @@ deposit nft gov (Api.Deposit amnt) = do
           Nothing -> AssocMap.insert pkh amnt (gdDepositMap datum)
           Just n  -> AssocMap.insert pkh (n+amnt) (gdDepositMap datum)
       tx = sconcat [
-          Constraints.mustForgeValue              xGovValue
+          Constraints.mustMintValue               xGovValue
         , Constraints.mustPayToTheScript datum' $ Validation.govValueOf gov amnt <> traceNFT
-        , Constraints.mustSpendScriptOutput oref  (Redeemer . toData $ GRDeposit pkh amnt)
+        , Constraints.mustSpendScriptOutput oref  (Redeemer . toBuiltinData $ GRDeposit pkh amnt)
         ]
       lookups = sconcat [
-              Constraints.monetaryPolicy        $ Validation.xGovMintingPolicy nft
-            , Constraints.otherScript           $ Validation.scrValidator nft gov
-            , Constraints.scriptInstanceLookups $ Validation.scrInstance nft gov
-            , Constraints.unspentOutputs      $ Map.singleton oref utxo
+              Constraints.mintingPolicy          $ Validation.xGovMintingPolicy nft
+            , Constraints.otherScript            $ Validation.scrValidator nft gov
+            , Constraints.typedValidatorLookups  $ Validation.scrInstance nft gov
+            , Constraints.unspentOutputs         $ Map.singleton oref utxo
             ]
                 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
@@ -111,10 +112,10 @@ withdraw nft gov (Api.Withdraw val) = do
       tx = sconcat [
           Constraints.mustPayToTheScript datum' val
         , Constraints.mustPayToPubKey pkh $ Validation.govValueOf gov totalGov
-        , Constraints.mustSpendScriptOutput oref (Redeemer . toData $ GRWithdraw pkh)
+        , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRWithdraw pkh)
         ]
       lookups = sconcat [
-              Constraints.scriptInstanceLookups $ Validation.scrInstance nft gov
+              Constraints.typedValidatorLookups $ Validation.scrInstance nft gov
             , Constraints.otherScript $ Validation.scrValidator nft gov
             ]
                 
@@ -158,7 +159,7 @@ findGovernance nft gov = do
       Nothing -> Contract.throwError "unexpected out type"
       Just h  -> case Map.lookup h $ txData $ txOutTxTx o of
         Nothing        -> Contract.throwError "datum not found"
-        Just (Datum e) -> case fromData e of
+        Just (Datum e) -> case fromBuiltinData e of
           Nothing -> Contract.throwError "datum has wrong type"
           Just gd -> return (gd, o, oref)
     _ -> Contract.throwError "No UTxO found"
