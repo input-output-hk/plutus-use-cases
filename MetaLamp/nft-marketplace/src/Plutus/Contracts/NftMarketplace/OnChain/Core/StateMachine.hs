@@ -15,6 +15,7 @@ import           Control.Lens                   ((&), (.~), (?~), (^.))
 import qualified Control.Lens                   as Lens
 import qualified Data.Aeson                     as J
 import qualified Data.Text                      as T
+import qualified Ext.Plutus.Contracts.Auction   as Auction
 import qualified GHC.Generics                   as Haskell
 import           Ledger
 import qualified Ledger.Constraints             as Constraints
@@ -38,11 +39,13 @@ newtype Marketplace =
 
 PlutusTx.makeLift ''Marketplace
 
+type IpfsCid = ByteString
 type IpfsCidHash = ByteString
 type Sale = (AssetClass, Sale.LovelacePrice, Value)
+type Auction = (AssetClass, PubKeyHash, Value, Slot)
 
 data Lot = Lot
-                { lotSale    ::  Sale
+                { lotLink    :: Either Sale Auction
                 , lotIpfsCid :: ByteString
                 }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -60,7 +63,7 @@ data NFT =
     , nftName        :: ByteString
     , nftDescription :: ByteString
     , nftIssuer      :: Maybe PubKeyHash
-    , nftSale        :: Maybe Lot
+    , nftLot         :: Maybe Lot
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
@@ -73,9 +76,8 @@ Lens.makeClassy_ ''NFT
 
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NFT
-  | OpenSaleRedeemer IpfsCidHash Lot
-  | BuyNftRedeemer IpfsCidHash
-  | CloseSaleRedeemer IpfsCidHash
+  | PutLotRedeemer IpfsCidHash Lot
+  | RemoveLotRedeemer IpfsCidHash
   deriving  (Haskell.Show)
 
 PlutusTx.unstableMakeIsData ''MarketplaceRedeemer
@@ -100,20 +102,14 @@ transition marketplace state redeemer = case redeemer of
         -> Just ( mustBeSignedByIssuer nftEntry
                 , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash nftEntry nftStore) currStateValue
                 )
-    OpenSaleRedeemer ipfsCidHash lot
-        -> let newEntry = maybe (traceError "NFT has not been created.") (_nftSale ?~ lot) $
+    PutLotRedeemer ipfsCidHash lot
+        -> let newEntry = maybe (traceError "NFT has not been created.") (_nftLot ?~ lot) $
                             AssocMap.lookup ipfsCidHash nftStore
            in  Just ( mempty
                     , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) currStateValue
                     )
-    BuyNftRedeemer ipfsCidHash
-        -> let newEntry = maybe (traceError "NFT has not been created.") (_nftSale .~ Nothing) $
-                            AssocMap.lookup ipfsCidHash nftStore
-           in  Just ( mempty
-                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) currStateValue
-                    )
-    CloseSaleRedeemer ipfsCidHash
-        -> let newEntry = maybe (traceError "NFT has not been created.") (_nftSale .~ Nothing) $
+    RemoveLotRedeemer ipfsCidHash
+        -> let newEntry = maybe (traceError "NFT has not been created.") (_nftLot .~ Nothing) $
                             AssocMap.lookup ipfsCidHash nftStore
            in  Just ( mempty
                     , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) currStateValue
@@ -138,26 +134,22 @@ stateTransitionCheck (MarketplaceDatum nftStore) (CreateNftRedeemer ipfsCidHash 
   traceIfFalse "CreateNftRedeemer: " $
   traceIfFalse "NFT entry already exists" $
     isNothing $ AssocMap.lookup ipfsCidHash nftStore
-stateTransitionCheck (MarketplaceDatum nftStore) (OpenSaleRedeemer ipfsCidHash lot) ctx =
-  traceIfFalse "OpenSaleRedeemer: " $
+stateTransitionCheck (MarketplaceDatum nftStore) (PutLotRedeemer ipfsCidHash lot) ctx =
+  traceIfFalse "PutLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash nftStore
       nftIpfsCid = lotIpfsCid lot
-      sale = Sale.fromTuple $ lotSale lot
+      lotValue = either (Sale.saleValue . Sale.fromTuple) (Auction.apAsset . Auction.fromTuple) $ lotLink lot
       nftValue = V.singleton (nftId nftEntry) (V.TokenName nftIpfsCid) 1
-      hasBeenPutOnSale = Sale.saleValue sale == nftValue
+      hasBeenPutOnSale = lotValue == nftValue
       isValidHash = sha2_256 nftIpfsCid == ipfsCidHash
-  in  traceIfFalse "NFT has not been put on sale" hasBeenPutOnSale &&
+-- TODO (?) check that there was no previous lot (isNothing $ nftLot nftEntry)
+  in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale &&
       traceIfFalse "Invalid IPFS Cid Hash" isValidHash
-stateTransitionCheck (MarketplaceDatum nftStore) (BuyNftRedeemer ipfsCidHash) ctx =
-  traceIfFalse "BuyNftRedeemer: " $
+stateTransitionCheck (MarketplaceDatum nftStore) (RemoveLotRedeemer ipfsCidHash) ctx =
+  traceIfFalse "RemoveLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash nftStore
-      hasBeenPutOnSale = isJust $ nftSale nftEntry
-  in  traceIfFalse "NFT has not been put on sale" hasBeenPutOnSale
-stateTransitionCheck (MarketplaceDatum nftStore) (CloseSaleRedeemer ipfsCidHash) ctx =
-  traceIfFalse "CloseSaleRedeemer: " $
-  let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash nftStore
-      hasBeenPutOnSale = isJust $ nftSale nftEntry
-  in  traceIfFalse "NFT has not been put on sale" hasBeenPutOnSale
+      hasBeenPutOnSale = isJust $ nftLot nftEntry
+  in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale
 
 {-# INLINABLE marketplaceStateMachine #-}
 marketplaceStateMachine :: Marketplace -> StateMachine MarketplaceDatum MarketplaceRedeemer

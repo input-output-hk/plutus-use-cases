@@ -70,7 +70,8 @@ withContractResponse _ g c = do
     tell $ case e of
         Left err -> ContractError err
         Right a  -> ContractSuccess $ g a
-        where
-        errorHandler e = do
-            logInfo @Text ("Error submiting the transaction: " <> e)
-            throwError e
+
+errorHandler :: Text -> Contract w s Text b
+errorHandler e = do
+    logInfo @Text ("Error submiting the transaction: " <> e)
+    throwError e
