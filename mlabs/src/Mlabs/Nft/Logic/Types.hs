@@ -1,108 +1,117 @@
-{-# OPTIONS_GHC -fno-specialize #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fno-specialize #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fobject-code #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# OPTIONS_GHC -fobject-code #-}
 
 -- | Datatypes for NFT state machine.
-module Mlabs.Nft.Logic.Types(
-    Nft(..)
-  , NftId(..)
-  , initNft
-  , toNftId
-  , Act(..)
-  , UserAct(..)
+module Mlabs.Nft.Logic.Types (
+  Nft (..),
+  NftId (..),
+  initNft,
+  toNftId,
+  Act (..),
+  UserAct (..),
 ) where
 
 import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
-import Playground.Contract (TxOutRef, ToSchema)
-import Plutus.V1.Ledger.Value (TokenName(..), tokenName)
-import Plutus.V1.Ledger.TxId (TxId(TxId))
-import qualified PlutusTx
-import qualified Prelude as Hask
+import Playground.Contract (ToSchema, TxOutRef)
+import Plutus.V1.Ledger.TxId (TxId (TxId))
+import Plutus.V1.Ledger.Value (TokenName (..), tokenName)
+import PlutusTx qualified
+import Prelude qualified as Hask (Eq, Show)
 
-import Mlabs.Emulator.Types (UserId(..))
-import Mlabs.Data.Ray (Ray)
+import Mlabs.Emulator.Types (UserId (..))
 
 -- | Data for NFTs
 data Nft = Nft
-  { nft'id     :: NftId           -- ^ token name, unique identifier for NFT
-  , nft'data   :: ByteString      -- ^ data (media, audio, photo, etc)
-  , nft'share  :: Ray             -- ^ share for the author on each sell
-  , nft'author :: UserId          -- ^ author
-  , nft'owner  :: UserId          -- ^ current owner
-  , nft'price  :: Maybe Integer   -- ^ price in ada, if it's nothing then nobody can buy
+  { -- | token name, unique identifier for NFT
+    nft'id :: NftId
+  , -- | data (media, audio, photo, etc)
+    nft'data :: ByteString
+  , -- | share for the author on each sell
+    nft'share :: Rational
+  , -- | author
+    nft'author :: UserId
+  , -- | current owner
+    nft'owner :: UserId
+  , -- | price in ada, if it's nothing then nobody can buy
+    nft'price :: Maybe Integer
   }
-  deriving stock (Show, Generic)
+  deriving stock (Hask.Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Unique identifier of NFT.
 data NftId = NftId
-  { nftId'token  :: TokenName     -- ^ token name is identified by content of the NFT (it's hash of it)
-  , nftId'outRef :: TxOutRef      -- ^ TxOutRef that is used for minting of NFT,
-                                  -- with it we can guarantee uniqueness of NFT
+  { -- | token name is identified by content of the NFT (it's hash of it)
+    nftId'token :: TokenName
+  , -- | TxOutRef that is used for minting of NFT,
+    -- with it we can guarantee uniqueness of NFT
+    nftId'outRef :: TxOutRef
   }
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 deriving newtype instance ToSchema TxId
 deriving instance ToSchema TxOutRef
 
 instance Eq NftId where
-  {-# INLINABLE (==) #-}
+  {-# INLINEABLE (==) #-}
   (==) (NftId tok1 oref1) (NftId tok2 oref2) =
     tok1 == tok2 && oref1 == oref2
 
-{-# INLINABLE initNft #-}
--- | Initialise NFT
-initNft :: TxOutRef -> UserId -> ByteString -> Ray -> Maybe Integer -> Nft
-initNft nftInRef author content share mPrice = Nft
-  { nft'id     = toNftId nftInRef content
-  , nft'data   = content
-  , nft'share  = share
-  , nft'author = author
-  , nft'owner  = author
-  , nft'price  = mPrice
-  }
+{-# INLINEABLE initNft #-}
 
-{-# INLINABLE toNftId #-}
+-- | Initialise NFT
+initNft :: TxOutRef -> UserId -> ByteString -> Rational -> Maybe Integer -> Nft
+initNft nftInRef author content share mPrice =
+  Nft
+    { nft'id = toNftId nftInRef content
+    , nft'data = content
+    , nft'share = share
+    , nft'author = author
+    , nft'owner = author
+    , nft'price = mPrice
+    }
+
+{-# INLINEABLE toNftId #-}
+
 -- | Calculate NFT identifier from it's content (data).
 toNftId :: TxOutRef -> ByteString -> NftId
 toNftId oref content = NftId (tokenName $ sha2_256 content) oref
 
 -- | Actions with NFTs with UserId.
 data Act = UserAct UserId UserAct
-  deriving stock (Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Actions with NFTs
 data UserAct
-  = BuyAct
-    { act'price    :: Integer       -- ^ price to buy
-    , act'newPrice :: Maybe Integer -- ^ new price for NFT (Nothing locks NFT)
-    }
-  -- ^ Buy NFT and set new price
-  | SetPriceAct
-    { act'newPrice :: Maybe Integer -- ^ new price for NFT (Nothing locks NFT)
-    }
-  -- ^ Set new price for NFT
-  deriving stock (Show, Generic, Hask.Eq)
+  = -- | Buy NFT and set new price
+    BuyAct
+      { -- | price to buy
+        act'price :: Integer
+      , -- | new price for NFT (Nothing locks NFT)
+        act'newPrice :: Maybe Integer
+      }
+  | -- | Set new price for NFT
+    SetPriceAct
+      { -- | new price for NFT (Nothing locks NFT)
+        act'newPrice :: Maybe Integer
+      }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 --------------------------------------------------------------------------

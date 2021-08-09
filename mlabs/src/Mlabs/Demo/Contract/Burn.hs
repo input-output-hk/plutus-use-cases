@@ -1,54 +1,55 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DerivingStrategies    #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MonoLocalBinds        #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE NumericUnderscores    #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 
-module Mlabs.Demo.Contract.Burn
-  ( burnScrAddress
-  , burnValHash
-  ) where
+module Mlabs.Demo.Contract.Burn (
+  burnScrAddress,
+  burnValHash,
+) where
 
-import Ledger ( ValidatorHash, Address, ScriptContext, Validator, validatorHash )
-import Ledger.Typed.Scripts qualified as Scripts
+import Ledger (Address, ScriptContext, Validator, ValidatorHash, validatorHash)
+import Ledger.Typed.Scripts.Validators qualified as Validators
 import PlutusTx qualified
-import PlutusTx.Prelude ( Bool(False) )
+import PlutusTx.Prelude (Bool (False))
 
-{-# INLINABLE mkValidator #-}
+{-# INLINEABLE mkValidator #-}
+
 -- | A validator script that can be used to burn any tokens sent to it.
 mkValidator :: () -> () -> ScriptContext -> Bool
 mkValidator _ _ _ = False
 
 data Burning
-instance Scripts.ScriptType Burning where
+instance Validators.ValidatorTypes Burning where
   type DatumType Burning = ()
   type RedeemerType Burning = ()
 
-burnInst :: Scripts.ScriptInstance Burning
-burnInst = Scripts.validator @Burning
-    $$(PlutusTx.compile [|| mkValidator ||])
-    $$(PlutusTx.compile [|| wrap ||])
+burnInst :: Validators.TypedValidator Burning
+burnInst =
+  Validators.mkTypedValidator @Burning
+    $$(PlutusTx.compile [||mkValidator||])
+    $$(PlutusTx.compile [||wrap||])
   where
-    wrap = Scripts.wrapValidator @() @()
+    wrap = Validators.wrapValidator @() @()
 
 burnValidator :: Validator
-burnValidator = Scripts.validatorScript burnInst
+burnValidator = Validators.validatorScript burnInst
 
 burnValHash :: Ledger.ValidatorHash
 burnValHash = validatorHash burnValidator
 
 burnScrAddress :: Ledger.Address
-burnScrAddress = Scripts.scriptAddress burnInst
+burnScrAddress = Validators.validatorAddress burnInst

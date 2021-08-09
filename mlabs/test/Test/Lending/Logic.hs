@@ -1,50 +1,63 @@
 -- | Tests for logic of state transitions for aave prototype
-module Test.Lending.Logic(
-    test
-  , testScript
-  , fromToken
-  , testAppConfig
-  , user1, user2, user3
-  , coin1, coin2, coin3
+module Test.Lending.Logic (
+  test,
+  testScript,
+  fromToken,
+  testAppConfig,
+  user1,
+  user2,
+  user3,
+  coin1,
+  coin2,
+  coin3,
 ) where
 
-import qualified Data.Map.Strict as M
-import Plutus.V1.Ledger.Value (TokenName, AssetClass(AssetClass), CurrencySymbol, currencySymbol, tokenName)
-import Plutus.V1.Ledger.Crypto (PubKeyHash(..))
+import PlutusTx.Prelude
+import Prelude (uncurry)
+
+import Data.Map.Strict qualified as M
+import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
+import Plutus.V1.Ledger.Value (AssetClass (AssetClass), CurrencySymbol, TokenName, currencySymbol, tokenName)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase)
 
-import qualified Mlabs.Data.Ray as R
 import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
-import Mlabs.Emulator.Blockchain (BchWallet(..))
-import Mlabs.Lending.Logic.App (Script, AppConfig(AppConfig), LendingApp, runLendingApp, toCoin, userAct, priceAct) 
-import Mlabs.Lending.Logic.Types
-    ( adaCoin,
-      CoinCfg(CoinCfg, coinCfg'coin, coinCfg'rate, coinCfg'aToken,
-              coinCfg'interestModel, coinCfg'liquidationBonus),
-      BadBorrow(BadBorrow),
-      InterestRate(StableRate),
-      Coin,
-      PriceAct(SetAssetPriceAct),
-      UserAct(LiquidationCallAct, DepositAct,
-              SetUserReserveAsCollateralAct, BorrowAct, WithdrawAct, RepayAct,
-              act'useAsCollateral, act'portion, act'asset, act'amount, act'rate,
-              act'collateral, act'debt, act'debtToCover, act'receiveAToken),
-      UserId(..),
-      defaultInterestModel )
+import Mlabs.Emulator.Blockchain (BchWallet (..))
+import Mlabs.Lending.Logic.App (AppConfig (AppConfig), LendingApp, Script, priceAct, runLendingApp, toCoin, userAct)
+import Mlabs.Lending.Logic.Types (
+  BadBorrow (BadBorrow),
+  Coin,
+  CoinCfg (
+    CoinCfg,
+    coinCfg'aToken,
+    coinCfg'coin,
+    coinCfg'interestModel,
+    coinCfg'liquidationBonus,
+    coinCfg'rate
+  ),
+  InterestRate (StableRate),
+  PriceAct (SetAssetPriceAct),
+  UserAct (..),
+  UserId (..),
+  adaCoin,
+  defaultInterestModel,
+ )
+import PlutusTx.Ratio qualified as R
 
 -- | Test suite for a logic of lending application
 test :: TestTree
-test = testGroup "Logic"
-  [ testCase "Deposit" testDeposit
-  , testCase "Borrow"  testBorrow
-  , testCase "Borrow without collateral" testBorrowNoCollateral
-  , testCase "Borrow with not enough collateral" testBorrowNotEnoughCollateral
-  , testCase "Withdraw" testWithdraw
-  , testCase "Repay" testRepay
-  , testGroup "Borrow liquidation" testLiquidationCall
-  , testCase "Wrong user sets the price" testWrongUserPriceSet
-  ]
+test =
+  testGroup
+    "Logic"
+    [ testCase "Deposit" testDeposit
+    , testCase "Borrow" testBorrow
+    , testCase "Borrow without collateral" testBorrowNoCollateral
+    , testCase "Borrow with not enough collateral" testBorrowNotEnoughCollateral
+    , testCase "Withdraw" testWithdraw
+    , testCase "Repay" testRepay
+    , testGroup "Borrow liquidation" testLiquidationCall
+    , testCase "Wrong user sets the price" testWrongUserPriceSet
+    ]
   where
     testBorrow = testWallets [(user1, w1)] borrowScript
       where
@@ -79,20 +92,20 @@ test = testGroup "Logic"
       [ testCase "get aTokens for collateral" $
           testWallets [(user1, w1), (user2, w2a)] $ liquidationCallScript True
       , testCase "get underlying currency for collateral" $
-          testWallets [(user1, w1), (user2, w2)]  $ liquidationCallScript False
+          testWallets [(user1, w1), (user2, w2)] $ liquidationCallScript False
       ]
       where
         w1 = BchWallet $ M.fromList [(coin1, 50), (coin2, 30), (fromToken aToken1, 0)]
         -- receive aTokens
-        w2a = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50) , (aCoin1, 20), (adaCoin, 1)]
+        w2a = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50), (aCoin1, 20), (adaCoin, 1)]
         -- receive underlying currency
-        w2 = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50) , (coin1, 20), (adaCoin, 1)]
+        w2 = BchWallet $ M.fromList [(coin2, 40), (aCoin2, 50), (coin1, 20), (adaCoin, 1)]
 
     testWrongUserPriceSet = someErrors $ testScript wrongUserPriceSetScript
 
 -- | Checks that script runs without errors
 testScript :: Script -> LendingApp
-testScript script = runLendingApp testAppConfig script
+testScript = runLendingApp testAppConfig
 
 -- | Checks that we have those wallets after script was run.
 testWallets :: [(UserId, BchWallet)] -> Script -> Assertion
@@ -109,90 +122,104 @@ depositScript = do
   userAct user2 $ DepositAct 50 coin2
   userAct user3 $ DepositAct 50 coin3
 
--- | 3 users deposit 50 coins to lending app
--- and first user borrows in coin2 that he does not own prior to script run.
+{- | 3 users deposit 50 coins to lending app
+ and first user borrows in coin2 that he does not own prior to script run.
+-}
 borrowScript :: Script
 borrowScript = do
   depositScript
-  userAct user1 $ SetUserReserveAsCollateralAct
-        { act'asset           = coin1
-        , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1 }
-  userAct user1 $ BorrowAct
-        { act'asset           = coin2
-        , act'amount          = 30
-        , act'rate            = StableRate }
+  userAct user1 $
+    AddCollateralAct
+      { add'asset = coin1
+      , add'amount = 50
+      }
+  userAct user1 $
+    BorrowAct
+      { act'asset = coin2
+      , act'amount = 30
+      , act'rate = StableRate
+      }
 
 -- | Try to borrow without setting up deposit as collateral.
 borrowNoCollateralScript :: Script
 borrowNoCollateralScript = do
   depositScript
-  userAct user1 $ BorrowAct
-        { act'asset           = coin2
-        , act'amount          = 30
-        , act'rate            = StableRate
-        }
+  userAct user1 $
+    BorrowAct
+      { act'asset = coin2
+      , act'amount = 30
+      , act'rate = StableRate
+      }
 
 -- | Try to borrow more than collateral permits
 borrowNotEnoughCollateralScript :: Script
 borrowNotEnoughCollateralScript = do
   depositScript
-  userAct user1 $ SetUserReserveAsCollateralAct
-        { act'asset           = coin1
-        , act'useAsCollateral = True
-        , act'portion         = R.fromInteger 1 }
-  userAct user1 $ BorrowAct
-        { act'asset           = coin2
-        , act'amount          = 60
-        , act'rate            = StableRate }
+  userAct user1 $
+    AddCollateralAct
+      { add'asset = coin1
+      , add'amount = 50
+      }
+  userAct user1 $
+    BorrowAct
+      { act'asset = coin2
+      , act'amount = 60
+      , act'rate = StableRate
+      }
 
--- | User1 deposits 50 out of 100 and gets back 25.
--- So we check that user has 75 coins and 25 aCoins
+{- | User1 deposits 50 out of 100 and gets back 25.
+ So we check that user has 75 coins and 25 aCoins
+-}
 withdrawScript :: Script
 withdrawScript = do
   depositScript
-  userAct user1 $ WithdrawAct
+  userAct user1 $
+    WithdrawAct
       { act'amount = 25
-      , act'asset  = coin1
+      , act'asset = coin1
       }
 
--- | We use borrow script to deposit and borrow for user 1
--- and then repay part of the borrow.
+{- | We use borrow script to deposit and borrow for user 1
+ and then repay part of the borrow.
+-}
 repayScript :: Script
 repayScript = do
   borrowScript
-  userAct user1 $ RepayAct
-      { act'asset   = coin2
-      , act'amount  = 20
-      , act'rate    = StableRate
+  userAct user1 $
+    RepayAct
+      { act'asset = coin2
+      , act'amount = 20
+      , act'rate = StableRate
       }
 
--- |
--- * User 1 lends in coin1 and borrows in coin2
--- * price for coin2 grows so that collateral is not enough
--- * health check for user 1 becomes bad
--- * user 2 repays part of the borrow and aquires part of the collateral of the user 1
---
--- So we should get the balances
---
--- * init           | user1 = 100 $       | user2 = 100 €
--- * after deposit  | user1 = 50 $, 50 a$ | user2 = 50 €, 50 a€
--- * after borrow   | user1 = 50 $, 30 €  | user2 = 50 €, 50 a€
--- * after liq call | user1 = 50 $, 30 €  | user2 = 40 €, 50 a€, 20 a$, 1 ada  : if flag is True
--- * after liq call | user1 = 50 $, 30 €  | user2 = 40 €, 50 a€, 20 $,  1 ada  : if flag is False
---
--- user2 pays 10 € for borrow, because at that time Euro to Dollar is 2:1 user2
--- gets 20 aDollars, and 1 ada as bonus (5% of the collateral (20) which is rounded).
--- User gets aDolars because user provides recieveATokens set to True
+{- |
+ * User 1 lends in coin1 and borrows in coin2
+ * price for coin2 grows so that collateral is not enough
+ * health check for user 1 becomes bad
+ * user 2 repays part of the borrow and aquires part of the collateral of the user 1
+
+ So we should get the balances
+
+ * init           | user1 = 100 $       | user2 = 100 €
+ * after deposit  | user1 = 50 $, 50 a$ | user2 = 50 €, 50 a€
+ * after borrow   | user1 = 50 $, 30 €  | user2 = 50 €, 50 a€
+ * after liq call | user1 = 50 $, 30 €  | user2 = 40 €, 50 a€, 20 a$, 1 ada  : if flag is True
+ * after liq call | user1 = 50 $, 30 €  | user2 = 40 €, 50 a€, 20 $,  1 ada  : if flag is False
+
+ user2 pays 10 € for borrow, because at that time Euro to Dollar is 2:1 user2
+ gets 20 aDollars, and 1 ada as bonus (5% of the collateral (20) which is rounded).
+ User gets aDolars because user provides recieveATokens set to True
+-}
 liquidationCallScript :: Bool -> Script
 liquidationCallScript receiveAToken = do
   borrowScript
   priceAct user1 $ SetAssetPriceAct coin2 (R.fromInteger 2)
-  userAct user2 $ LiquidationCallAct
-      { act'collateral     = coin1
-      , act'debt           = BadBorrow user1 coin2
-      , act'debtToCover    = 10
-      , act'receiveAToken  = receiveAToken
+  userAct user2 $
+    LiquidationCallAct
+      { act'collateral = coin1
+      , act'debt = BadBorrow user1 coin2
+      , act'debtToCover = 10
+      , act'receiveAToken = receiveAToken
       }
 
 -- oracles
@@ -233,25 +260,31 @@ aToken3 = tokenName "aLira"
 aCoin1, aCoin2 :: Coin
 aCoin1 = fromToken aToken1
 aCoin2 = fromToken aToken2
+
 -- aCoin3 = fromToken aToken3
 
--- | Default application.
--- It allocates three users and three reserves for Dollars, Euros and Liras.
--- Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros and user 3 has liras.
+{- | Default application.
+ It allocates three users and three reserves for Dollars, Euros and Liras.
+ Each user has 100 units of only one currency. User 1 has dollars, user 2 has euros and user 3 has liras.
+-}
 testAppConfig :: AppConfig
 testAppConfig = AppConfig reserves users lendingPoolCurrency admins oracles
   where
-    admins  = [user1]
+    admins = [user1]
     oracles = [user1]
 
-    reserves = fmap (\(coin, aCoin) -> CoinCfg
-                                        { coinCfg'coin             = coin
-                                        , coinCfg'rate             = R.fromInteger 1
-                                        , coinCfg'aToken           = aCoin
-                                        , coinCfg'interestModel    = defaultInterestModel
-                                        , coinCfg'liquidationBonus = 5 R.% 100
-                                        })
-      [(coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
+    reserves =
+      fmap
+        ( \(coin, aCoin) ->
+            CoinCfg
+              { coinCfg'coin = coin
+              , coinCfg'rate = R.fromInteger 1
+              , coinCfg'aToken = aCoin
+              , coinCfg'interestModel = defaultInterestModel
+              , coinCfg'liquidationBonus = 5 R.% 100
+              }
+        )
+        [(coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
 
     users =
       [ (Self, wal (adaCoin, 1000)) -- script starts with some ada on it
@@ -260,4 +293,3 @@ testAppConfig = AppConfig reserves users lendingPoolCurrency admins oracles
       , (user3, wal (coin3, 100))
       ]
     wal cs = BchWallet $ uncurry M.singleton cs
-
