@@ -115,14 +115,14 @@ withdraw nft gov (Api.Withdraw val) = do
       tx = sconcat [
         -- user doesn't pay to script, but instead burns the xGOV (ensured by validators)
           Constraints.mustPayToTheScript datum' mempty
-        , Constraints.mustForgeValue (negate val)
+        , Constraints.mustMintValue (negate val)
         , Constraints.mustPayToPubKey pkh $ Validation.govValueOf gov totalGov
         , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRWithdraw pkh totalGov)
         ]
       lookups = sconcat [
               Constraints.typedValidatorLookups $ Validation.scrInstance nft gov
             , Constraints.otherScript           $ Validation.scrValidator nft gov
-            , Constraints.monetaryPolicy        $ Validation.xGovMintingPolicy nft
+            , Constraints.mintingPolicy         $ Validation.xGovMintingPolicy nft
             ]
                 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
