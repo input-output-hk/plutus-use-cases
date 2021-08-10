@@ -202,11 +202,32 @@ stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (ipfsCidHash, i
   in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale &&
       traceIfFalse "Invalid IPFS Cid Hash" isValidHash &&
       traceIfFalse "NFT already has a lot" hasNoExistingLot
+stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Right (bundleId, cids)) lot) ctx =
+  traceIfFalse "PutLotRedeemer: " $
+  let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
+      lotValue = either Sale.saleValue (Auction.apAsset . Auction.fromTuple) lot
+      cidHashes = case nbTokens bundle of
+          NoLot tokens    -> AssocMap.keys tokens
+          HasLot tokens _ -> AssocMap.keys tokens
+      allCidsProvided = all (isJust . (`AssocMap.lookup` cids)) cidHashes
+      hasBeenPutOnSale = bundleValue cids bundle == lotValue
+      isValidHash (ipfsCidHash, ipfsCid) = sha2_256 ipfsCid == ipfsCidHash
+      hasValidHashes = all isValidHash $ AssocMap.toList cids
+      hasNoExistingLot = not $ hasLotBundle bundle
+  in  traceIfFalse "Bundle has not been put on sale or auction" hasBeenPutOnSale &&
+      traceIfFalse "Not all IPFS Cids provided" allCidsProvided &&
+      traceIfFalse "Invalid IPFS Cid Hash provided" hasValidHashes &&
+      traceIfFalse "Bundle already has a lot" hasNoExistingLot
 stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (Left ipfsCidHash)) ctx =
   traceIfFalse "RemoveLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
       hasBeenPutOnSale = isJust $ nftLot nftEntry
   in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale
+stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (Right bundleId)) ctx =
+  traceIfFalse "RemoveLotRedeemer: " $
+  let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
+      hasLot = hasLotBundle bundle
+  in  traceIfFalse "Bundle has not been put on sale or auction" hasLot
 stateTransitionCheck MarketplaceDatum {..} (BundleUpRedeemer nftIds bundleId bundleInfo) ctx =
   traceIfFalse "BundleUpRedeemer: " $
   let doesNotExist = isNothing $ AssocMap.lookup bundleId mdBundles

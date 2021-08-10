@@ -137,9 +137,19 @@ makeBundle singletons nftIds bundleInfo =
                                 Just n -> AssocMap.insert nftId (nftRecord n) store
                                 Nothing -> store
 
-{-# INLINABLE hasLotNft #-}
-hasLotNft :: NFT -> Bool
-hasLotNft = isJust . nftLot
+{-# INLINABLE bundleValue #-}
+bundleValue :: AssocMap.Map IpfsCidHash IpfsCid -> NftBundle -> Value
+bundleValue cids bundle = case nbTokens bundle of
+      NoLot tokens    -> foldMap getValueNoLot $ AssocMap.toList tokens
+      HasLot tokens _ -> foldMap getValueHasLot tokens
+    where
+      getValueHasLot :: (IpfsCid, NftInfo) -> Value
+      getValueHasLot (ipfsCid, nft) = V.singleton (niCurrency nft) (V.TokenName ipfsCid) 1
+
+      getValueNoLot :: (IpfsCidHash, NftInfo) -> Value
+      getValueNoLot (ipfsCidHash, nft) = case AssocMap.lookup ipfsCidHash cids of
+                                Just ipfsCid -> V.singleton (niCurrency nft) (V.TokenName ipfsCid) 1
+                                Nothing -> mempty
 
 {-# INLINABLE hasLotBundle #-}
 hasLotBundle :: NftBundle -> Bool
