@@ -47,9 +47,9 @@ governanceEndpoints nft gov = do
 
 startGovernance :: Api.StartGovernance -> GovernanceContract ()
 startGovernance (Api.StartGovernance nft gov) = do
-  let d = GovernanceDatum (Validation.GRWithdraw "") AssocMap.empty
-      traceNFT = singleton (acNftCurrencySymbol nft) (acNftTokenName nft) 1
-      tx = Constraints.mustPayToTheScript d traceNFT
+  let d = GovernanceDatum (Validation.GRWithdraw "" 0) AssocMap.empty
+      v = singleton (acNftCurrencySymbol nft) (acNftTokenName nft) 1
+      tx = Constraints.mustPayToTheScript d v
   ledgerTx <- Contract.submitTxConstraints (Validation.scrInstance nft gov) tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "Started governance for nft token %s, gov token %s" (show nft) (show gov)
@@ -97,6 +97,9 @@ withdraw nft gov (Api.Withdraw val) = do
   let maybemap' :: Maybe (AssocMap.Map PubKeyHash Integer)
       maybemap' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
 
+      totalPaid :: Integer
+      totalPaid = sum . map snd $ tokens
+
       -- AssocMap has no "insertWith", so we have to use lookup and insert, all under foldM
       withdrawFromCorrect tn amm mp =
         case AssocMap.lookup pkh mp of
@@ -105,18 +108,21 @@ withdraw nft gov (Api.Withdraw val) = do
           _                 -> Nothing
           where depositor = coerce tn
           
-  datum' <- GovernanceDatum (Validation.GRWithdraw pkh)
+  datum' <- GovernanceDatum (Validation.GRWithdraw pkh totalPaid)
     <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybemap'
   
   let totalGov = sum $ map snd tokens
       tx = sconcat [
-          Constraints.mustPayToTheScript datum' val
+        -- user doesn't pay to script, but instead burns the xGOV (ensured by validators)
+          Constraints.mustPayToTheScript datum' mempty
+        , Constraints.mustForgeValue (negate val)
         , Constraints.mustPayToPubKey pkh $ Validation.govValueOf gov totalGov
-        , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRWithdraw pkh)
+        , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRWithdraw pkh totalGov)
         ]
       lookups = sconcat [
               Constraints.typedValidatorLookups $ Validation.scrInstance nft gov
-            , Constraints.otherScript $ Validation.scrValidator nft gov
+            , Constraints.otherScript           $ Validation.scrValidator nft gov
+            , Constraints.monetaryPolicy        $ Validation.xGovMintingPolicy nft
             ]
                 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
