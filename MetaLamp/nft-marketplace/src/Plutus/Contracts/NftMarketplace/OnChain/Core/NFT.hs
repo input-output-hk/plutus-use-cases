@@ -133,8 +133,9 @@ makeBundle singletons nftIds bundleInfo =
     , nbTokens      = NoLot $ foldr insert AssocMap.empty nftIds
     }
   where
-    insert nftId = let entry = nftRecord $ fromMaybe (traceError "NFT singleton entry not found") $ AssocMap.lookup nftId singletons
-                    in AssocMap.insert nftId entry
+    insert nftId store = case AssocMap.lookup nftId singletons of
+                                Just n -> AssocMap.insert nftId (nftRecord n) store
+                                Nothing -> store
 
 {-# INLINABLE hasLotNft #-}
 hasLotNft :: NFT -> Bool

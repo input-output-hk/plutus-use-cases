@@ -87,15 +87,15 @@ nftUnion MarketplaceDatum{..} = foldr union mdSingletons $ fmap getNfts $ toList
 
 {-# INLINABLE bundleUp #-}
 bundleUp :: [IpfsCidHash] -> BundleId -> BundleInfo -> MarketplaceDatum -> MarketplaceDatum
-bundleUp nftIds bundleId bundleInfo store@MarketplaceDatum{..} =
-    store { mdSingletons = foldr AssocMap.delete mdSingletons nftIds
+bundleUp nftIds bundleId bundleInfo MarketplaceDatum{..} =
+    MarketplaceDatum { mdSingletons = foldr AssocMap.delete mdSingletons nftIds
           , mdBundles = AssocMap.insert bundleId (makeBundle mdSingletons nftIds bundleInfo) mdBundles
           }
 
 {-# INLINABLE unbundle #-}
 unbundle :: BundleId -> MarketplaceDatum -> MarketplaceDatum
-unbundle bundleId store@MarketplaceDatum{..} =
-    store { mdSingletons = foldr insert mdSingletons $ AssocMap.toList tokens
+unbundle bundleId MarketplaceDatum{..} =
+    MarketplaceDatum { mdSingletons = foldr insert mdSingletons $ AssocMap.toList tokens
           , mdBundles = AssocMap.delete bundleId mdBundles
           }
   where
