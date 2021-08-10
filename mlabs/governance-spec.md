@@ -12,6 +12,8 @@ in reality this GOV token can be any token at all, the primary purpose of the co
 
 For this contract, the primitive Plutus API, and not the state machine API will be used.
 
+The xGOV 'token' currently is a family of tokens. In order to enable features such as futures trading we must hold the information to whom the token belongs in the token itself. This is currently dons simply by setting TokenName = PubKeyHash of the one calling Deposit. 
+
 ## Governance Contract:
 
 ### Deposit
@@ -32,10 +34,9 @@ user cannot provide negative inputs
 ### Withdraw
 
 prerequisites: 
-user has successfully called deposit, 
 user has specified amount of xGOV tokens in their wallet
 
-input: { amount :: Integer }
+input: { amount :: Value }
 
 behavior:
 transfer `amount` of user-provided xGOV tokens to contract and burn them
@@ -43,9 +44,17 @@ transfer `amount` of GOV tokens to the user
 
 if user does not have provided amount of xGOV,  error.
 
-(because of how xGOV tokens and voting work, you must withdraw and redeposit your GOV tokens for your vote weight to change)
-
 user cannot provide negative inputs
+
+### ClaimVote
+Prerequisites: 
+user must have all xGOV tokens in the specified Value
+
+input: { amount :: Value }
+
+behaviour: 
+burn the xGOV given, and mint an equal amount of xGOV that are assigned to the PubKeyHash calling.
+think Withdraw follewed by Deposit, but in one transaction.
 
 ### ProvideRewards
 Prerequisites:
