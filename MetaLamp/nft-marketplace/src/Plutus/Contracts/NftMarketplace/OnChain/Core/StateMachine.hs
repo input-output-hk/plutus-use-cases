@@ -48,7 +48,7 @@ PlutusTx.makeLift ''Marketplace
 -- TODO make sum types for eithers (?)
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
-  | PutLotRedeemer (Either (IpfsCidHash, IpfsCid) (AssocMap.Map IpfsCidHash IpfsCid)) LotLink
+  | PutLotRedeemer (Either (IpfsCidHash, IpfsCid) (BundleId, AssocMap.Map IpfsCidHash IpfsCid)) LotLink
   | RemoveLotRedeemer (Either IpfsCidHash BundleId)
   | BundleUpRedeemer [IpfsCidHash] BundleId BundleInfo
   | UnbundleRedeemer BundleId
@@ -76,6 +76,12 @@ insertNft :: IpfsCidHash
                       -> NFT -> MarketplaceDatum -> MarketplaceDatum
 insertNft ipfsCidHash nftEntry store@MarketplaceDatum{..} =
     store { mdSingletons = AssocMap.insert ipfsCidHash nftEntry mdSingletons }
+
+{-# INLINABLE insertBundle #-}
+insertBundle :: BundleId
+                      -> NftBundle -> MarketplaceDatum -> MarketplaceDatum
+insertBundle bundleId bundle store@MarketplaceDatum{..} =
+    store { mdBundles = AssocMap.insert bundleId bundle mdBundles }
 
 {-# INLINABLE nftUnion #-}
 nftUnion :: MarketplaceDatum -> AssocMap.Map IpfsCidHash NFT
@@ -107,6 +113,23 @@ unbundle bundleId MarketplaceDatum{..} =
       HasLot _ _ -> traceError "Could not unbundle: bundle has lot."
     insert (nftId, record) = AssocMap.insert nftId $ NFT record Nothing
 
+{-# INLINABLE addLotToBundle #-}
+addLotToBundle
+        :: AssocMap.Map IpfsCidHash IpfsCid -> LotLink -> NftBundle -> NftBundle
+addLotToBundle cids lot NftBundle {..} = case nbTokens of
+      NoLot tokens      -> NftBundle nbRecord $ HasLot (AssocMap.fromList $ fmap addCid $ AssocMap.toList tokens) lot
+      HasLot _ _ -> traceError "Could not add lot: bundle has one."
+    where
+      addCid :: (IpfsCidHash, NftInfo) -> (IpfsCidHash, (IpfsCid, NftInfo))
+      addCid (nftId, entry) = (nftId, (fromMaybe (traceError "NFT IPFS Cid not provided") $ AssocMap.lookup nftId cids, entry))
+
+removeLotFromBundle :: NftBundle -> NftBundle
+removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
+  where
+    tokens = case nbTokens of
+      HasLot tokens _ -> tokens
+      NoLot tokens    ->  traceError "Could not remove lot: bundle has none."
+
 {-# INLINABLE transition #-}
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
 transition marketplace state redeemer = case redeemer of
@@ -121,11 +144,23 @@ transition marketplace state redeemer = case redeemer of
            in  Just ( mempty
                     , State (insertNft ipfsCidHash newEntry nftStore) currStateValue
                     )
+    PutLotRedeemer (Right (bundleId, cids)) lot
+        -> let newEntry = maybe (traceError "Bundle has not been created.") (addLotToBundle cids lot) $
+                            AssocMap.lookup bundleId $ mdBundles nftStore
+           in  Just ( mempty
+                    , State (insertBundle bundleId newEntry nftStore) currStateValue
+                    )
     RemoveLotRedeemer (Left ipfsCidHash)
         -> let newEntry = maybe (traceError "NFT has not been created.") (_nftLot .~ Nothing) $
                             AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
            in  Just ( mempty
                     , State (insertNft ipfsCidHash newEntry nftStore) currStateValue
+                    )
+    RemoveLotRedeemer (Right bundleId)
+        -> let newEntry = maybe (traceError "NFT has not been created.") removeLotFromBundle $
+                            AssocMap.lookup bundleId $ mdBundles nftStore
+           in  Just ( mempty
+                    , State (insertBundle bundleId newEntry nftStore) currStateValue
                     )
     BundleUpRedeemer nftIds bundleId bundleInfo
         -> Just ( mempty

@@ -256,10 +256,10 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
 
 data BundleUpParams =
   BundleUpParams {
-    bupIpfsCids :: [ByteString],
-    bupName :: ByteString,
+    bupIpfsCids    :: [ByteString],
+    bupName        :: ByteString,
     bupDescription :: ByteString,
-    bupCategory :: Core.Category
+    bupCategory    :: Core.Category
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
