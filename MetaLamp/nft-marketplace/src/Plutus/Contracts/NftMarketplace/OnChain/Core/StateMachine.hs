@@ -44,6 +44,7 @@ newtype Marketplace =
 
 PlutusTx.makeLift ''Marketplace
 
+-- TODO (?) Prohibit for users which don't have bundled NFTs inside wallet to bundle and unbundle
 -- TODO make sum types for eithers (?)
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo

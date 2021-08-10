@@ -208,6 +208,29 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
         _                                                     -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful holdAnAuction"
 
+    _  <-
+        Simulator.callEndpointOnInstance userCid "bundleUp" $
+            Marketplace.BundleUpParams {
+                        bupIpfsCids        = [photoTokenIpfsCid,catTokenIpfsCid],
+                        bupName        = "Picture gallery",
+                        bupDescription = "Collection of visual media",
+                        bupCategory = ["User","Stan"]
+                    }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
+        Success (ContractSuccess Marketplace.Bundled) -> Just ()
+        _                                                -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful bundleUp"
+
+    _  <-
+        Simulator.callEndpointOnInstance userCid "unbundle" $
+            Marketplace.UnbundleParams {
+                        upIpfsCids        = [photoTokenIpfsCid,catTokenIpfsCid]
+                    }
+    flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
+        Success (ContractSuccess Marketplace.Unbundled) -> Just ()
+        _                                                -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful unbundle"
+
     _ <- Simulator.callEndpointOnInstance cidInfo "fundsAt" buyer
     v <- flip Simulator.waitForState cidInfo $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.InfoContractState)) of
             Success (ContractSuccess (Marketplace.FundsAt v)) -> Just v
