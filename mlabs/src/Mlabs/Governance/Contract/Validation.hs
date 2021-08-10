@@ -18,6 +18,7 @@ module Mlabs.Governance.Contract.Validation (
   ) where
 
 import           PlutusTx.Prelude hiding (Semigroup(..), unless)
+import PlutusTx.Builtins.Internal (BuiltinString(..))
 import qualified Prelude as Hask 
 
 import Data.Coerce (coerce)
@@ -25,7 +26,7 @@ import GHC.Generics (Generic)
 
 import           Playground.Contract (FromJSON, ToJSON, ToSchema)
 import qualified PlutusTx.AssocMap as AssocMap
-import qualified PlutusTx 
+import qualified PlutusTx
 
 import           Ledger hiding (before, after)
 import           Ledger.Typed.Scripts (MintingPolicy, wrapMintingPolicy, wrapValidator, validatorScript)
@@ -112,6 +113,11 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
         [o] -> txOutValue $ txInInfoResolved o
         _   -> traceError "expected exactly one payment from the pkh"
 
+    ownInput :: Contexts.TxOut
+    ownInput = case findOwnInput ctx of
+      Nothing -> traceError "no self in input"
+      Just tx -> txInInfoResolved tx
+    
     ownOutput :: Contexts.TxOut
     outputDatum :: GovernanceDatum
     (ownOutput, outputDatum) = case Contexts.getContinuingOutputs ctx of
@@ -135,9 +141,10 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
       GRDeposit  _ _ -> isMinting  
       GRWithdraw _ _ -> isMinting
 
-    checkCorrectPayment = traceError "incorrect payment made" $ case redeemer of
-      GRDeposit pkh n  -> Value.valueOf (userInput pkh) (acGovCurrencySymbol gov) (acGovTokenName gov) == n
-      GRWithdraw pkh n -> case AssocMap.lookup xgovCS . Value.getValue $ (userInput pkh) of
+    checkCorrectPayment = case redeemer of
+      GRDeposit pkh n  -> traceIfFalse "incorrect value paid to script" $
+        txOutValue ownInput Hask.<> govValueOf gov n == txOutValue ownOutput
+      GRWithdraw pkh n -> case AssocMap.lookup xgovCS . Value.getValue $ (userInput pkh) of -- this may have the same issue that gov had
         Nothing -> traceError "no xGOV paid"
         Just mp -> traceIfFalse "wrong amount told in redeemer" . (== n) . sum . map snd $ AssocMap.toList mp
 

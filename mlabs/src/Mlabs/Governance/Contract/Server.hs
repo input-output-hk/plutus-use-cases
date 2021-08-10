@@ -56,7 +56,6 @@ startGovernance (Api.StartGovernance nft gov) = do
 
 deposit :: AssetClassNft -> AssetClassGov -> Api.Deposit -> GovernanceContract ()
 deposit nft gov (Api.Deposit amnt) = do
-  validateAmount amnt
   pkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, utxo, oref) <- findGovernance nft gov
 
@@ -169,9 +168,3 @@ findGovernance nft gov = do
           Nothing -> Contract.throwError "datum has wrong type"
           Just gd -> return (gd, o, oref)
     _ -> Contract.throwError "No UTxO found"
-
--- todo probably should have something custom with `AsContractError` instance for it
-validateAmount :: Integer -> Contract.Contract w s Text ()
-validateAmount v
-  | v >= 0    = pure ()
-  | otherwise = Contract.throwError "Amount should be positive"
