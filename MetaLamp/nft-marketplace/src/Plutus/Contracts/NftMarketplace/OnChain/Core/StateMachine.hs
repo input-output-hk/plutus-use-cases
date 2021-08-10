@@ -123,12 +123,13 @@ addLotToBundle cids lot NftBundle {..} = case nbTokens of
       addCid :: (IpfsCidHash, NftInfo) -> (IpfsCidHash, (IpfsCid, NftInfo))
       addCid (nftId, entry) = (nftId, (fromMaybe (traceError "NFT IPFS Cid not provided") $ AssocMap.lookup nftId cids, entry))
 
+{-# INLINABLE removeLotFromBundle #-}
 removeLotFromBundle :: NftBundle -> NftBundle
 removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
   where
     tokens = case nbTokens of
       HasLot tokens _ -> tokens
-      NoLot tokens    ->  traceError "Could not remove lot: bundle has none."
+      NoLot _         -> traceError "Could not remove lot: bundle has none."
 
 {-# INLINABLE transition #-}
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
@@ -197,9 +198,10 @@ stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (ipfsCidHash, i
       nftValue = V.singleton (niCurrency $ nftRecord nftEntry) (V.TokenName ipfsCid) 1
       hasBeenPutOnSale = lotValue == nftValue
       isValidHash = sha2_256 ipfsCid == ipfsCidHash
--- TODO (?) check that there was no previous lot (isNothing $ nftLot nftEntry)
+      hasNoExistingLot = isNothing $ nftLot nftEntry
   in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale &&
-      traceIfFalse "Invalid IPFS Cid Hash" isValidHash
+      traceIfFalse "Invalid IPFS Cid Hash" isValidHash &&
+      traceIfFalse "NFT already has a lot" hasNoExistingLot
 stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (Left ipfsCidHash)) ctx =
   traceIfFalse "RemoveLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
