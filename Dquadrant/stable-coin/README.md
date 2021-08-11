@@ -2,7 +2,7 @@
 
 This project aims to develop a simple stable coin use case project using the Plutus Platform.
 
-The stable coin arcitecutre used here is mainly based on age-usd provided by Emurgo.
+The stable coin architecture used here is mainly based on age-usd provided by Emurgo.
 https://github.com/Emurgo/age-usd
 This protocol is based on crypto backed algorithimic stable coin protocol.
 
