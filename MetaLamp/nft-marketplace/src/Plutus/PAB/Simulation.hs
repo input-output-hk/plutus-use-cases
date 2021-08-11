@@ -187,8 +187,8 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance buyerCid "bidOnAuction" Marketplace.BidOnAuctionParams {
-                                                                        japIpfsCid = photoTokenIpfsCid,
-                                                                        japBid     = fromInteger $ 15*oneAdaInLovelace
+                                                                        boapIpfsCid = photoTokenIpfsCid,
+                                                                        boapBid     = fromInteger $ 15*oneAdaInLovelace
                                                                     }
     _ <- flip Simulator.waitForState buyerCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
         Success (ContractSuccess Marketplace.BidSubmitted) -> Just ()
