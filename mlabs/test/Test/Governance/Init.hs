@@ -72,12 +72,12 @@ nft = Value.singleton cs tn
 
 -- | Make `GOV` `Value`
 gov :: Integer -> Value
-gov = Gov.govValueOf acGOV
+gov = Gov.govSingleton acGOV
 
 -- | Make `xGOV` `Value`
 xgov :: Wallet -> Integer -> Value
-xgov wallet value = Gov.xgovValueOf 
-  (Ledger.scriptCurrencySymbol $ Gov.xGovMintingPolicy acNFT)
+xgov wallet value = Gov.xgovSingleton 
+  acNFT
   (mkTokenName wallet)
   value
   where 

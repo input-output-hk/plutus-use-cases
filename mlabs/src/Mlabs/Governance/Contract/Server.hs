@@ -60,14 +60,14 @@ deposit nft gov (Api.Deposit amnt) = do
   (datum, utxo, oref) <- findGovernance nft gov
 
   let traceNFT = singleton (acNftCurrencySymbol nft) (acNftTokenName nft) 1
-      xGovValue = Validation.xgovValueOf (Validation.xGovCurrencySymbol nft) (coerce pkh) amnt
+      xGovValue = Validation.xgovSingleton nft (coerce pkh) amnt
       datum' = GovernanceDatum (Validation.GRDeposit pkh amnt) $
         case AssocMap.lookup pkh (gdDepositMap datum) of
           Nothing -> AssocMap.insert pkh amnt (gdDepositMap datum)
           Just n  -> AssocMap.insert pkh (n+amnt) (gdDepositMap datum)
       tx = sconcat [
           Constraints.mustMintValue               xGovValue
-        , Constraints.mustPayToTheScript datum' $ Validation.govValueOf gov amnt <> traceNFT
+        , Constraints.mustPayToTheScript datum' $ Validation.govSingleton gov amnt <> traceNFT
         , Constraints.mustSpendScriptOutput oref  (Redeemer . toBuiltinData $ GRDeposit pkh amnt)
         ]
       lookups = sconcat [
@@ -115,7 +115,7 @@ withdraw nft gov (Api.Withdraw val) = do
         -- user doesn't pay to script, but instead burns the xGOV (ensured by validators)
           Constraints.mustPayToTheScript datum' mempty
         , Constraints.mustMintValue (negate val)
-        , Constraints.mustPayToPubKey pkh $ Validation.govValueOf gov totalGov
+        , Constraints.mustPayToPubKey pkh $ Validation.govSingleton gov totalGov
         , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRWithdraw pkh totalGov)
         ]
       lookups = sconcat [
