@@ -11,6 +11,7 @@ module Test.Governance.Init (
   , sndWalletWithGOV
   , walletNoGOV
   , adminWallet
+  , params
   , nft
   , gov
   , xgov
@@ -43,13 +44,16 @@ import qualified Plutus.V1.Ledger.Value as Value (singleton)
 
 import Test.Utils (next)
 
+params :: Gov.GovParams
+params = Gov.GovParams acNFT acGOV
+
 acNFT :: Gov.AssetClassNft 
 acNFT = Gov.AssetClassNft "aa" "NFTToken" 
 
 acGOV :: Gov.AssetClassGov 
 acGOV = Gov.AssetClassGov "ff" "GOVToken"
 
-startGovernance = Api.StartGovernance acNFT acGOV
+startGovernance = Api.StartGovernance params
 
 checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
@@ -62,7 +66,7 @@ walletNoGOV      = Wallet 3
 adminWallet      = Wallet 50
 
 scriptAddress :: Address
-scriptAddress = Gov.scrAddress acNFT acGOV
+scriptAddress = Gov.scrAddress params
 
 -- | Make `GOV` `Value`
 nft :: Integer -> Value

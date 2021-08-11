@@ -15,7 +15,7 @@ import Data.Text (Text, pack)
 
 
 import           Mlabs.Governance.Contract.Api (StartGovernance(..))
-import           Mlabs.Governance.Contract.Validation (AssetClassNft(..), AssetClassGov(..))
+import           Mlabs.Governance.Contract.Validation (GovParams(..), AssetClassNft(..), AssetClassGov(..))
 import           Mlabs.Governance.Contract.Simulator.Handler (BootstrapContract)
 import qualified Mlabs.Governance.Contract.Simulator.Handler as Handler
 import           Mlabs.Governance.Contract.Simulator.Handler (GovernanceContracts (..))
@@ -51,7 +51,7 @@ main =
     cidInit        <- Simulator.activateContract admin Bootstrap
     (nftCs, govCs) <- waitForLast cidInit
     void $ Simulator.waitUntilFinished cidInit
-    let governance = Governance 
+    let governance = Governance $ GovParams
                       (AssetClassNft nftCs $ nftTokenName cfg) 
                       (AssetClassGov govCs $ govTokenName cfg)
     forM_ (wallets cfg) $ 

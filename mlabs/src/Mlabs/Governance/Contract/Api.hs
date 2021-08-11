@@ -30,13 +30,11 @@ import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
 import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
-import Mlabs.Governance.Contract.Validation (AssetClassNft, AssetClassGov)
+import Mlabs.Governance.Contract.Validation (GovParams, AssetClassNft, AssetClassGov)
 
-data StartGovernance = StartGovernance {
-    sgNft :: !AssetClassNft
-  , sgGov :: !AssetClassGov
-  } deriving stock (Hask.Show, Generic)
-    deriving anyclass (FromJSON, ToJSON, ToSchema)  
+newtype StartGovernance = StartGovernance GovParams
+    deriving stock (Hask.Show, Generic)
+    deriving newtype (FromJSON, ToJSON, ToSchema)  
 
 -- since we have split of withdraw/deposit we might want to ensure that
 -- the amounts have to be positive by construction, tbd (for now Natural has no ToSchema instance)

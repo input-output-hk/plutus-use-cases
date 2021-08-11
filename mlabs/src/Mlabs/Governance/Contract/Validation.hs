@@ -11,6 +11,7 @@ module Mlabs.Governance.Contract.Validation (
   , xGovMintingPolicy
   , xGovCurrencySymbol
   , Governance
+  , GovParams(..)
   , GovernanceDatum(..)
   , GovernanceRedeemer(..)
   , AssetClassNft(..)
@@ -55,7 +56,7 @@ PlutusTx.makeLift ''AssetClassNft
 data AssetClassGov = AssetClassGov {
     acGovCurrencySymbol :: !CurrencySymbol
   , acGovTokenName :: !TokenName
-  } deriving (Hask.Show, Generic, ToJSON, FromJSON, ToSchema)
+  } deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
 
 instance Eq AssetClassGov where
   {-# INLINABLE (==) #-}
@@ -64,6 +65,16 @@ instance Eq AssetClassGov where
 
 PlutusTx.unstableMakeIsData ''AssetClassGov
 PlutusTx.makeLift ''AssetClassGov
+
+data GovParams = GovParams
+  { nft :: !AssetClassNft
+  , gov :: !AssetClassGov 
+  } 
+  deriving stock (Hask.Show, Hask.Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''GovParams
+PlutusTx.makeLift ''GovParams
 
 data GovernanceRedeemer = GRDeposit !PubKeyHash !Integer | GRWithdraw !PubKeyHash !Integer
   deriving Hask.Show
@@ -92,8 +103,8 @@ instance Validators.ValidatorTypes Governance where
 
 -- Validator of the governance contract
 {-# INLINABLE mkValidator #-}
-mkValidator :: AssetClassNft -> AssetClassGov -> CurrencySymbol -> GovernanceDatum -> GovernanceRedeemer -> ScriptContext -> Bool
-mkValidator nft gov xgovCS govDatum redeemer ctx =
+mkValidator :: GovParams -> CurrencySymbol -> GovernanceDatum -> GovernanceRedeemer -> ScriptContext -> Bool
+mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
   checkOutputHasNft &&
   checkCorrectLastRedeemer &&
   checkCorrectDepositMap &&
@@ -179,22 +190,21 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
           [_]                          -> traceError "imbalanced ammount of xGOV to GOV"
           _                            -> traceError "more than one assetclass paid by script"
 
-scrInstance :: AssetClassNft -> AssetClassGov -> Validators.TypedValidator Governance
-scrInstance nft gov = Validators.mkTypedValidator @Governance
+scrInstance :: GovParams -> Validators.TypedValidator Governance
+scrInstance params = Validators.mkTypedValidator @Governance
   ($$(PlutusTx.compile [|| mkValidator ||])
-   `PlutusTx.applyCode` PlutusTx.liftCode nft
-   `PlutusTx.applyCode` PlutusTx.liftCode gov
-   `PlutusTx.applyCode` PlutusTx.liftCode (xGovCurrencySymbol nft))
+   `PlutusTx.applyCode` PlutusTx.liftCode params
+   `PlutusTx.applyCode` PlutusTx.liftCode (xGovCurrencySymbol $ nft params))
   $$(PlutusTx.compile [|| wrap ||])
   where
     wrap = Validators.wrapValidator @GovernanceDatum @GovernanceRedeemer
 
 {-# INLINABLE scrValidator #-}
-scrValidator :: AssetClassNft -> AssetClassGov -> Validator
-scrValidator nft = Validators.validatorScript . scrInstance nft
+scrValidator :: GovParams -> Validator
+scrValidator = Validators.validatorScript . scrInstance
 
-scrAddress :: AssetClassNft -> AssetClassGov -> Ledger.Address
-scrAddress nft = scriptAddress . scrValidator nft
+scrAddress :: GovParams -> Ledger.Address
+scrAddress = scriptAddress . scrValidator
 
 govValueOf :: AssetClassGov -> Integer -> Value
 govValueOf AssetClassGov{..} = Value.singleton acGovCurrencySymbol acGovTokenName

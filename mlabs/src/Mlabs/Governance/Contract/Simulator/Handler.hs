@@ -17,7 +17,7 @@ import PlutusTx.Prelude
 import Prelude (Show, IO)
 
 import Mlabs.Governance.Contract.Api (GovernanceSchema)
-import Mlabs.Governance.Contract.Validation (AssetClassNft(..), AssetClassGov(..))
+import Mlabs.Governance.Contract.Validation (GovParams(..))
 import Mlabs.Governance.Contract.Server (governanceEndpoints)
 
 import           Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
@@ -46,7 +46,7 @@ import Ledger (CurrencySymbol)
 -- todo Additional Init contract TBD
 data GovernanceContracts 
   = Bootstrap 
-  | Governance AssetClassNft AssetClassGov
+  | Governance GovParams
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -64,11 +64,11 @@ handleGovernanceContracts ::
     ~> Eff effs
 handleGovernanceContracts bootstrapContract = handleBuiltin getSchema getContract where
     getSchema = \case
-        Bootstrap              -> endpointsToSchemas @EmptySchema
-        Governance _     _     -> endpointsToSchemas @GovernanceSchema
+        Bootstrap         -> endpointsToSchemas @EmptySchema
+        Governance _      -> endpointsToSchemas @GovernanceSchema
     getContract = \case
-        Bootstrap           -> SomeBuiltin   bootstrapContract
-        Governance nft gov  -> SomeBuiltin $ governanceEndpoints nft gov
+        Bootstrap         -> SomeBuiltin   bootstrapContract
+        Governance params -> SomeBuiltin $ governanceEndpoints params
 
 -- | 'EffectHandlers' for running the PAB as a simulator
 simulatorHandlers ::

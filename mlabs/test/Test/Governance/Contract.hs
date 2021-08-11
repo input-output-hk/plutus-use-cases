@@ -44,9 +44,7 @@ import qualified Mlabs.Governance.Contract.Api        as Api
 
 
 theContract :: Gov.GovernanceContract ()
-theContract = Gov.governanceEndpoints sgNft sgGov
-  where
-    Api.StartGovernance{..} = Test.startGovernance
+theContract = Gov.governanceEndpoints Test.params
 
 startGovernanceByAdmin :: Gov.GovernanceContract () -> Trace.EmulatorTrace ()
 startGovernanceByAdmin contract = do
