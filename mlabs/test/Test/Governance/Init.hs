@@ -69,7 +69,6 @@ nft :: Integer -> Value
 nft = Value.singleton cs tn
   where (Gov.AssetClassNft cs tn) = acNFT
 
-
 -- | Make `GOV` `Value`
 gov :: Integer -> Value
 gov = Gov.govSingleton acGOV

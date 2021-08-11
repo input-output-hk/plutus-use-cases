@@ -168,7 +168,7 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
                 in  newMapInner
                 )
                 (gdDepositMap govDatum) $
-                case AssocMap.lookup (acGovCurrencySymbol gov) $ Value.getValue (userInput pkh) of
+                case AssocMap.lookup xgovCS $ Value.getValue (userInput pkh) of
                   Nothing -> traceError "no xGOV paid"
                   Just mp -> AssocMap.toList $ mp          
         in traceIfFalse "wrong update of deposit map" (newMap == (gdDepositMap outputDatum)) &&
@@ -201,8 +201,8 @@ govSingleton AssetClassGov{..} = Value.singleton acGovCurrencySymbol acGovTokenN
 xgovSingleton :: AssetClassNft -> TokenName -> Integer -> Value
 xgovSingleton nft tok = Value.singleton (xGovCurrencySymbol nft) tok
 
--- xGOV minting policy, the parameter is the NFT HELD BY THE GOVERNANCE SCRIPT
-{-# INLINABLE mkPolicy #-}
+-- xGOV minting policy
+{-# INLINABLE mkPolicy #-} -- there's something wrong with this 'unit' hack.
 mkPolicy :: AssetClassNft -> () -> ScriptContext -> Bool
 mkPolicy nft _ ctx =
   traceIfFalse "governance script not in transaction" checkScrInTransaction &&

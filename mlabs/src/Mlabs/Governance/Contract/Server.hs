@@ -83,12 +83,6 @@ deposit nft gov (Api.Deposit amnt) = do
 
 withdraw :: AssetClassNft -> AssetClassGov -> Api.Withdraw -> GovernanceContract ()
 withdraw nft gov (Api.Withdraw val) = do
-  -- 'guard' doesn't work here
-  if [acGovCurrencySymbol gov] == (AssocMap.keys $ getValue val) then
-    Contract.throwError "Attempt to withdraw with non xGOV tokens"
-  else
-    pure ()
-
   pkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, _, oref) <- findGovernance nft gov
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
