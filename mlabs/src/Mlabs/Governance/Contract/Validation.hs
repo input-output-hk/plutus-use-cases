@@ -18,6 +18,7 @@ module Mlabs.Governance.Contract.Validation (
   ) where
 
 import           PlutusTx.Prelude hiding (Semigroup(..), unless)
+import PlutusTx.Builtins.Internal (BuiltinString(..))
 import qualified Prelude as Hask 
 
 import Data.Coerce (coerce)
@@ -25,7 +26,7 @@ import GHC.Generics (Generic)
 
 import           Playground.Contract (FromJSON, ToJSON, ToSchema)
 import qualified PlutusTx.AssocMap as AssocMap
-import qualified PlutusTx 
+import qualified PlutusTx
 
 import           Ledger hiding (before, after)
 import           Ledger.Typed.Scripts (MintingPolicy, wrapMintingPolicy, wrapValidator, validatorScript)
@@ -64,13 +65,13 @@ instance Eq AssetClassGov where
 PlutusTx.unstableMakeIsData ''AssetClassGov
 PlutusTx.makeLift ''AssetClassGov
 
-data GovernanceRedeemer = GRDeposit !PubKeyHash !Integer | GRWithdraw !PubKeyHash
+data GovernanceRedeemer = GRDeposit !PubKeyHash !Integer | GRWithdraw !PubKeyHash !Integer
   deriving Hask.Show
 
 instance Eq GovernanceRedeemer where
   {-# INLINABLE (==) #-}
   (GRDeposit pkh1 n1) == (GRDeposit pkh2 n2) = pkh1 == pkh2 && n1 == n2
-  (GRWithdraw pkh1) == (GRWithdraw pkh2) = pkh1 == pkh2
+  (GRWithdraw pkh1 n1) == (GRWithdraw pkh2 n2) = pkh1 == pkh2 && n1 == n2
   _ == _ = False
 
 PlutusTx.unstableMakeIsData ''GovernanceRedeemer
@@ -96,7 +97,8 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
   checkOutputHasNft &&
   checkCorrectLastRedeemer &&
   checkCorrectDepositMap &&
-  checkCorrectPayment
+  checkCorrectPayment &&
+  checkForging
   where
     info :: Contexts.TxInfo
     info = scriptContextTxInfo ctx
@@ -110,6 +112,11 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
       in case filter isByPkh $ txInfoInputs info of
         [o] -> txOutValue $ txInInfoResolved o
         _   -> traceError "expected exactly one payment from the pkh"
+
+    ownInput :: Contexts.TxOut
+    ownInput = case findOwnInput ctx of
+      Nothing -> traceError "no self in input"
+      Just tx -> txInInfoResolved tx
     
     ownOutput :: Contexts.TxOut
     outputDatum :: GovernanceDatum
@@ -123,9 +130,23 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
             Nothing -> traceError "error decoding data"
       _ -> traceError "expected one continuing output"
 
-    checkCorrectPayment = traceError "incorrect payment made" $ case redeemer of
-      GRDeposit pkh n -> Value.valueOf (userInput pkh) (acGovCurrencySymbol gov) (acGovTokenName gov) == n
-      GRWithdraw _    -> True -- handled in checkCorrectDepositMap
+    isMinting :: Bool
+    isMinting = case AssocMap.lookup xgovCS . Value.getValue $ txInfoForge info of
+      Nothing -> False
+      Just _  -> True
+
+    -- on which endpoints the minting script needs to be invoked
+    checkForging :: Bool
+    checkForging = case redeemer of
+      GRDeposit  _ _ -> isMinting  
+      GRWithdraw _ _ -> isMinting
+
+    checkCorrectPayment = case redeemer of
+      GRDeposit pkh n  -> traceIfFalse "incorrect value paid to script" $
+        txOutValue ownInput Hask.<> govValueOf gov n == txOutValue ownOutput
+      GRWithdraw pkh n -> case AssocMap.lookup xgovCS . Value.getValue $ (userInput pkh) of -- this may have the same issue that gov had
+        Nothing -> traceError "no xGOV paid"
+        Just mp -> traceIfFalse "wrong amount told in redeemer" . (== n) . sum . map snd $ AssocMap.toList mp
 
     checkOutputHasNft = Value.valueOf (txOutValue ownOutput) (acNftCurrencySymbol nft) (acNftTokenName nft) == 1    
     
@@ -133,36 +154,30 @@ mkValidator nft gov xgovCS govDatum redeemer ctx =
       $ redeemer == (gdLastRedeemer outputDatum)
 
     checkCorrectDepositMap = case redeemer of
-      GRDeposit pkh _ ->
+      GRDeposit pkh n ->
         let prev = maybe 0 id $ AssocMap.lookup pkh (gdDepositMap govDatum)
-            paidGov = case Value.flattenValue (userInput pkh) of
-              [(csym, tn, amm)] | (AssetClassGov csym tn) == gov -> amm 
-              _ -> traceError "incorrect payment type or unnescesary tokens in input"                                                             
-        in case AssocMap.lookup pkh (gdDepositMap outputDatum) of
-          Just after | after == prev + paidGov -> True
-          Nothing                              -> traceError "no record of user's deposit in datum"
-          _                                    -> traceError "incorrect update of user's deposited amount"
-      GRWithdraw pkh ->  
-        let paidxGov = case Value.flattenValue (userInput pkh) of
-              xs@(_:_) | all isxGovCorrect xs -> sum $ map (\(_,_,amm) -> amm) xs
-                 where
-                   isxGovCorrect (csym, tn, amm) | csym == xgovCS = 
-                     case AssocMap.lookup (coerce tn) (gdDepositMap govDatum) of
-                       Nothing -> traceError "detected unregistered xGOV tokens"
-                       Just before  -> case AssocMap.lookup (coerce tn) (gdDepositMap outputDatum) of
-                         Nothing    | amm == before         -> True
-                         Just after | before == after + amm -> True
-                         Nothing    | amm > before          -> traceError "detected unregistered xGOV tokens"
-                         Nothing                            -> traceError "premature erasure of deposit record"
-                         Just after | before > after + amm  -> traceError "loss of tokens in datum"
-                         Just _                             -> traceError "withdrawal of too many tokens in datum"
-                   isxGovCorrect _ = traceError "non-xGOV tokens paid by pkh" 
-              _ -> traceError "no payments made" 
-        in case Value.flattenValue (valuePaidTo info pkh) of
-          [(csym, tn, amm)] | amm == paidxGov -> traceIfFalse "non-GOV payment by script on withdrawal"
-                                                   $ AssetClassGov csym tn == gov
-          [_]                                 -> traceError "imbalanced ammount of xGOV to GOV"
-          _                                   -> traceError "more than one assetclass paid by script"
+            newMap = AssocMap.insert pkh (n+prev) (gdDepositMap govDatum)
+        in traceIfFalse "wrong update of deposit map" $ newMap == (gdDepositMap outputDatum)
+      GRWithdraw pkh n ->
+        let newMap =
+              foldr (\(tn, amm) mp ->
+                let prev = maybe (traceError "withdraw from non-recorded deposit") id $ AssocMap.lookup (coerce tn) mp
+                    newMapInner = case prev - amm of
+                      p | p > 0  -> AssocMap.insert (coerce tn) p mp
+                      p | p == 0 -> AssocMap.delete (coerce tn) mp
+                      _          -> traceError "withdraw into negative - non-recorded deposit"
+                in  newMapInner
+                )
+                (gdDepositMap govDatum) $
+                case AssocMap.lookup (acGovCurrencySymbol gov) $ Value.getValue (userInput pkh) of
+                  Nothing -> traceError "no xGOV paid"
+                  Just mp -> AssocMap.toList $ mp          
+        in traceIfFalse "wrong update of deposit map" (newMap == (gdDepositMap outputDatum)) &&
+          case Value.flattenValue (valuePaidTo info pkh) of -- possibly need to change this here
+          [(csym, tn, amm)] | amm == n -> traceIfFalse "non-GOV payment by script on withdrawal"
+                                            $ AssetClassGov csym tn == gov
+          [_]                          -> traceError "imbalanced ammount of xGOV to GOV"
+          _                            -> traceError "more than one assetclass paid by script"
 
 scrInstance :: AssetClassNft -> AssetClassGov -> Validators.TypedValidator Governance
 scrInstance nft gov = Validators.mkTypedValidator @Governance
@@ -192,7 +207,7 @@ xgovValueOf csym tok = Value.singleton csym tok
 mkPolicy :: AssetClassNft -> () -> ScriptContext -> Bool
 mkPolicy nft _ ctx =
   traceIfFalse "governance script not in transaction" checkScrInTransaction &&
-  traceIfFalse "endpoint called on governance does not permit minting of xGOV" checkIsMintingEndpoint
+  checkEndpointCorrect
   where 
     info = scriptContextTxInfo ctx
 
@@ -202,8 +217,8 @@ mkPolicy nft _ ctx =
     checkScrInTransaction :: Bool
     checkScrInTransaction = any hasNft . map txInInfoResolved $ txInfoInputs info
 
-    checkIsMintingEndpoint :: Bool
-    checkIsMintingEndpoint = case find hasNft $ txInfoOutputs info of
+    checkEndpointCorrect :: Bool
+    checkEndpointCorrect = case find hasNft $ txInfoOutputs info of
       Nothing -> False
       Just o  -> case txOutDatumHash o of
         Nothing -> False
@@ -212,14 +227,25 @@ mkPolicy nft _ ctx =
           Just (Datum d) -> case PlutusTx.fromBuiltinData d of
             Nothing -> False            
             Just gd -> case gdLastRedeemer gd of
-              (GRWithdraw _)  -> False
-              (GRDeposit pkh n) -> isCorrectTokenName pkh n 
+              (GRWithdraw _ n) ->
+                traceIfFalse "burned xGOV not equal to specified amount"
+                  $ isCorrectBurnAmount n
+              (GRDeposit pkh n)  ->
+                traceIfFalse "endpoint called on governance does not permit minting of xGOV"
+                  $ isCorrectTokenName pkh n 
+
+    -- is that how burning gets signalled? by having negative forge? it must be.
+    isCorrectBurnAmount :: Integer -> Bool
+    isCorrectBurnAmount n =
+      case AssocMap.lookup (ownCurrencySymbol ctx) . Value.getValue $ txInfoForge info of
+        Nothing -> traceError "no currency minted"
+        Just mp -> (== n) . negate . sum . map snd $ AssocMap.toList mp
 
     isCorrectTokenName :: PubKeyHash -> Integer -> Bool
     isCorrectTokenName pkh n =
       case AssocMap.lookup (ownCurrencySymbol ctx) . Value.getValue $ txInfoForge info of
-        Nothing   -> traceError "no currency minted"
-        (Just mp) -> case AssocMap.toList mp of
+        Nothing -> traceError "no currency minted"
+        Just mp -> case AssocMap.toList mp of
           [(tn, amm)] ->
             traceIfFalse "wrong ammount of xGOV minted" (amm == n) &&
             traceIfFalse "wrong TokenName minted" (tn == (coerce pkh))
