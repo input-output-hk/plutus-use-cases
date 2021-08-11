@@ -42,25 +42,29 @@ data StartGovernance = StartGovernance {
 -- the amounts have to be positive by construction, tbd (for now Natural has no ToSchema instance)
 newtype Deposit = Deposit Integer
   deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
+  deriving newtype (FromJSON, ToJSON)
+  deriving anyclass (ToSchema)
 
 PlutusTx.unstableMakeIsData ''Deposit
 
 newtype Withdraw = Withdraw Value
   deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
+  deriving newtype (FromJSON, ToJSON)
+  deriving anyclass (ToSchema)
 
 PlutusTx.unstableMakeIsData ''Withdraw
 
 newtype ProvideRewards = ProvideRewards Value
   deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
+  deriving newtype (FromJSON, ToJSON)
+  deriving anyclass (ToSchema)
 
 -- may be deprecated/decided on the other way of determining vote weight.
 -- see the slack discussion, for take care of this last
 newtype QueryBalance = QueryBalance PubKeyHash
   deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
+  deriving newtype (FromJSON, ToJSON)
+  deriving anyclass (ToSchema)
 
 -- no need to split schemas
 type GovernanceSchema =
