@@ -74,7 +74,9 @@ data GovParams = GovParams
 PlutusTx.unstableMakeIsData ''GovParams
 PlutusTx.makeLift ''GovParams
 
-data GovernanceRedeemer = GRDeposit !PubKeyHash !Integer | GRWithdraw !PubKeyHash !Integer
+data GovernanceRedeemer 
+  = GRDeposit !PubKeyHash !Integer 
+  | GRWithdraw !PubKeyHash !Integer
   deriving Hask.Show
 
 instance Eq GovernanceRedeemer where
@@ -213,14 +215,16 @@ xgovSingleton nft tok = Value.singleton (xGovCurrencySymbol nft) tok
 
 -- xGOV minting policy
 {-# INLINABLE mkPolicy #-} -- there's something wrong with this 'unit' hack.
+                           -- it's probably `Redeemer`, 
+                           -- see `mustMintValueWithRedeemer`, `mustMintCurrencyWithRedeemer`
 mkPolicy :: AssetClassNft -> () -> ScriptContext -> Bool
-mkPolicy nft _ ctx =
+mkPolicy AssetClassNft{..} _ ctx =
   traceIfFalse "governance script not in transaction" checkScrInTransaction &&
   checkEndpointCorrect
   where 
     info = scriptContextTxInfo ctx
 
-    hasNft utxo = Value.valueOf (txOutValue utxo) (acNftCurrencySymbol nft) (acNftTokenName nft) == 1
+    hasNft utxo = Value.valueOf (txOutValue utxo) acNftCurrencySymbol acNftTokenName == 1
 
     -- may be an unnescesary check
     checkScrInTransaction :: Bool

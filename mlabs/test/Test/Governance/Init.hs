@@ -98,7 +98,7 @@ initialDistribution = M.fromList
   [ (fstWalletWithGOV, ada 1000_000_000 <> gov 100)
   , (sndWalletWithGOV, ada 1000_000_000 <> gov 100)
   , (walletNoGOV,      ada 1000_000_000)
-  , (adminWallet,      ada 1000_000_000 <> nft 1)
+  , (adminWallet,      ada 1000_000_000 <> nft 10)
   ]
     
 -- | Assert that contract finished excution with arbitrary error

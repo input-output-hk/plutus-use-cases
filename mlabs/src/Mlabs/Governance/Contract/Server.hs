@@ -24,7 +24,7 @@ import Plutus.V1.Ledger.Value (Value(..), TokenName(..), valueOf, singleton)
 import Ledger.Constraints qualified as Constraints
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation qualified as Validation
-import Mlabs.Governance.Contract.Validation (GovParams(..), AssetClassNft(..), AssetClassGov(..), GovernanceDatum(..), GovernanceRedeemer(..))
+import Mlabs.Governance.Contract.Validation (GovParams(..), GovernanceDatum(..), GovernanceRedeemer(..))
 import Mlabs.Plutus.Contract (getEndpoint, selects)
 
 -- do we want another error type? 
@@ -32,7 +32,8 @@ type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.Governa
 
 governanceEndpoints :: GovParams -> GovernanceContract ()
 governanceEndpoints params = do
-  -- getEndpoint @Api.StartGovernance >>= startGovernance --FIXME temporary moved to selects to make tests work
+  -- FIXME temporary moved to selects to make tests work
+  -- getEndpoint @Api.StartGovernance >>= startGovernance 
   forever $ selects
     [ getEndpoint @Api.StartGovernance >>= startGovernance 
     , getEndpoint @Api.Deposit >>= deposit params
@@ -54,19 +55,17 @@ startGovernance (Api.StartGovernance params) = do
 
 deposit :: GovParams -> Api.Deposit -> GovernanceContract ()
 deposit params (Api.Deposit amnt) = do
-  pkh <- pubKeyHash <$> Contract.ownPubKey
+  ownPkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, utxo, oref) <- findGovernance params
-
   let traceNFT = singleton params.nft.acNftCurrencySymbol params.nft.acNftTokenName 1
-      xGovValue = Validation.xgovSingleton params.nft (coerce pkh) amnt
-      datum' = GovernanceDatum (Validation.GRDeposit pkh amnt) $
-        case AssocMap.lookup pkh (gdDepositMap datum) of
-          Nothing -> AssocMap.insert pkh amnt (gdDepositMap datum)
-          Just n  -> AssocMap.insert pkh (n+amnt) (gdDepositMap datum)
+      xGovValue = Validation.xgovSingleton params.nft (coerce ownPkh) amnt
+      datum' = GovernanceDatum 
+                (Validation.GRDeposit ownPkh amnt)
+                (updateAmount ownPkh amnt datum.gdDepositMap)
       tx = sconcat [
           Constraints.mustMintValue               xGovValue
         , Constraints.mustPayToTheScript datum' $ Validation.govSingleton params.gov amnt <> traceNFT
-        , Constraints.mustSpendScriptOutput oref  (Redeemer . toBuiltinData $ GRDeposit pkh amnt)
+        , Constraints.mustSpendScriptOutput oref  (Redeemer . toBuiltinData $ GRDeposit ownPkh amnt)
         ]
       lookups = sconcat [
               Constraints.mintingPolicy          $ Validation.xGovMintingPolicy params.nft
@@ -78,11 +77,15 @@ deposit params (Api.Deposit amnt) = do
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "deposited %s GOV tokens" (show amnt)
+  where
+    updateAmount pkh amount depositMap = 
+      let amount' = amount + fromMaybe 0 (AssocMap.lookup pkh depositMap) 
+      in AssocMap.insert pkh amount' depositMap
 
 withdraw ::GovParams -> Api.Withdraw -> GovernanceContract ()
 withdraw params (Api.Withdraw val) = do
   pkh <- pubKeyHash <$> Contract.ownPubKey
-  (datum, _, oref) <- findGovernance params
+  (datum, utxo, oref) <- findGovernance params
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
             . AssocMap.lookup (Validation.xGovCurrencySymbol params.nft) $ getValue val
   let maybemap' :: Maybe (AssocMap.Map PubKeyHash Integer)
@@ -114,6 +117,7 @@ withdraw params (Api.Withdraw val) = do
               Constraints.typedValidatorLookups $ Validation.scrInstance params
             , Constraints.otherScript           $ Validation.scrValidator params
             , Constraints.mintingPolicy         $ Validation.xGovMintingPolicy params.nft
+            , Constraints.unspentOutputs        $ Map.singleton oref utxo
             ]
                 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
