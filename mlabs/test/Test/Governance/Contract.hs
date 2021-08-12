@@ -74,7 +74,6 @@ test :: TestTree
 test = testGroup "Contract"
   [ testGroup "Start Governance"
       [ testStartGovernance
-      , testCantStartTwice
       ]
   , testGroup "Deposit" 
       [ testDepositHappyPath
@@ -99,22 +98,6 @@ testStartGovernance =
     )
     $ startGovernanceByAdmin theContract
 
-testCantStartTwice :: TestTree
-testCantStartTwice =
-  let 
-    (wallet, _, _, activateWallet) = setup Test.adminWallet
-  in 
-  checkPredicateOptions Test.checkOptions "Cant start twice"
-    ( assertFailedTransaction (\_ _ _ -> True)
-      .&&. walletFundsChange wallet (Test.nft (negate 1))
-      .&&. valueAtAddress Test.scriptAddress (== Test.nft 1)
-    )
-    $ do
-      hdl <- activateWallet
-      void $ callEndpoint' @StartGovernance hdl Test.startGovernance
-      wait 5
-      void $ callEndpoint' @StartGovernance hdl Test.startGovernance
-      wait 5
 
 -- deposit tests
 testDepositHappyPath :: TestTree
