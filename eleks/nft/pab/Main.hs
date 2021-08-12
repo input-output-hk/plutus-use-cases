@@ -93,7 +93,7 @@ instance Pretty NFTMarketContracts where
 instance HasDefinitions NFTMarketContracts where
     getDefinitions = []
     getSchema = \case
-        NFTStartContract -> Builtin.endpointsToSchemas @NFTMarket.EmptySchema
+        NFTStartContract -> Builtin.endpointsToSchemas @NFTMarket.MarketOwnerSchema
         NFTUserContract _ -> Builtin.endpointsToSchemas @NFTMarket.MarketUserSchema
     getContract = \case
         NFTStartContract -> SomeBuiltin (NFTMarket.ownerEndpoint NFTMarket.forgeMarketToken)
