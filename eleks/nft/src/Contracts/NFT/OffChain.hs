@@ -51,7 +51,7 @@ import           Data.Ord                         (comparing)
 import           Data.Proxy                       (Proxy (..))
 import           Data.Text                        (Text, pack)
 import qualified Data.Text                        as T
-import           Data.Void                        (Void)
+import           Data.Void                        (Void, absurd)
 import           Ledger                           hiding (singleton)
 import qualified Ledger.Ada                       as Ada
 import           Ledger.Constraints               as Constraints
@@ -61,7 +61,7 @@ import           Ledger.Scripts                   (unitRedeemer)
 import           Ledger.Typed.Scripts             (TypedValidator)
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Value                     (AssetClass (..), assetClass, assetClassValue, assetClassValueOf, valueOf,
-                                                    symbols, unCurrencySymbol, unTokenName, CurrencySymbol (..))
+                                                    symbols, unCurrencySymbol, unTokenName, CurrencySymbol (..), toString)
 import qualified Ledger.Value                     as Value
 import qualified Ledger.Contexts                  as Validation
 import           Playground.Contract
@@ -117,20 +117,20 @@ data TransferParams = TransferParams
 
 nftMetadataToDto:: NFTMetadata -> NFTMetadataDto
 nftMetadataToDto nftMeta = NFTMetadataDto 
-    { nftDtoTokenName = read.show $ nftTokenName nftMeta
-    , nftDtoMetaDescription = B.unpack $ nftMetaDescription nftMeta
-    , nftDtoMetaAuthor = B.unpack $ nftMetaAuthor nftMeta
-    , nftDtoMetaFile = B.unpack $ nftMetaFile nftMeta
-    , nftDtoTokenSymbol = byteStrToDto . unCurrencySymbol $ nftTokenSymbol nftMeta
+    { nftDtoTokenName = read.show . nftTokenName $ nftMeta
+    , nftDtoMetaDescription = B.unpack . fromBuiltin . nftMetaDescription $ nftMeta
+    , nftDtoMetaAuthor = B.unpack . fromBuiltin . nftMetaAuthor $ nftMeta
+    , nftDtoMetaFile = B.unpack . fromBuiltin . nftMetaFile $ nftMeta
+    , nftDtoTokenSymbol = byteStrToDto . unCurrencySymbol . nftTokenSymbol $ nftMeta
     , nftDtoSeller = fromMaybe ("" :: String) $ byteStrToDto . getPubKeyHash <$> nftSeller nftMeta
     , nftDtoSellPrice = nftSellPrice nftMeta
     }
 
-byteStrToDto :: ByteString -> String
-byteStrToDto = B.unpack . B64.encode
+byteStrToDto :: BuiltinByteString -> String
+byteStrToDto = B.unpack . B64.encode . fromBuiltin
 
-dtoStrToByteStr :: String -> ByteString
-dtoStrToByteStr = B64.decodeLenient . B.pack 
+dtoStrToByteStr :: String -> BuiltinByteString
+dtoStrToByteStr = toBuiltin . B64.decodeLenient . B.pack 
 
 forgeMarketToken:: 
     forall w s. TokenName
@@ -174,7 +174,7 @@ create market CreateParams{..} = do
         nftTokenSymbol = nftCurrencySymbol nftTokenCur
         nftTokenForgedValue = nftForgedValue nftTokenCur tokenName
     
-    let metadataTokenName = TokenName $ B.pack $ read (show tokenName) ++ metadataTokenNamePrefix
+    let metadataTokenName = fromString $ (toString tokenName) ++ metadataTokenNamePrefix
     let nftTokenMetaCur = mkNFTCurrency $ marketId market
         nftTokenMetaPolicy = nftMonetrayPolicy nftTokenMetaCur
         nftTokenMetaSymbol = nftCurrencySymbol nftTokenMetaCur
@@ -182,9 +182,9 @@ create market CreateParams{..} = do
         nftMetadata       = NFTMetadata {
             nftTokenName = tokenName, 
             nftMetaTokenName = metadataTokenName,
-            nftMetaDescription = B.pack cpDescription, 
-            nftMetaAuthor = B.pack cpAuthor,
-            nftMetaFile = B.pack cpFile,
+            nftMetaDescription = toBuiltin . B.pack $ cpDescription, 
+            nftMetaAuthor = toBuiltin . B.pack $ cpAuthor,
+            nftMetaFile = toBuiltin . B.pack $ cpFile,
             nftTokenSymbol = nftTokenSymbol,
             nftMetaTokenSymbol = nftTokenMetaSymbol,
             nftSeller = Nothing,
@@ -337,7 +337,7 @@ marketplace cs tokenCur metaTokenCur =
     marketId = assetClass cs marketplaceTokenName
     , marketTokenSymbol = nftCurrencySymbol tokenCur
     , marketTokenMetaSymbol = nftCurrencySymbol metaTokenCur
-    , marketTokenMetaNameSuffix = B.pack metadataTokenNamePrefix 
+    , marketTokenMetaNameSuffix = toBuiltin . B.pack $ metadataTokenNamePrefix 
     }
 
 getNFTMarketDatum :: TxOutTx -> Contract w s Text NFTMarketDatum
@@ -469,16 +469,11 @@ ownerEndpoint ::
     -> PubKeyHash 
     -> Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Text CurrencySymbol
     )
-    -> Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Void ()
-ownerEndpoint forgeNft = start' forgeNft >> ownerEndpoint forgeNft
-    where 
-        start' forgeNft = do
-            e <- runError $ do 
-                 endpoint @"start"
-                 start forgeNft
-            tell $ Last $ Just $ case e of
-                Left err -> Left err
-                Right market -> Right market
+    -> Contract (Last (Either Text NFTMarket)) MarketOwnerSchema ContractError ()
+ownerEndpoint forgeNft = do
+    e <- mapError absurd $ runError $ start forgeNft
+    void $ waitNSlots 1
+    tell $ Last $ Just e
 
 type MarketOwnerSchema =
         Endpoint "start" ()
@@ -519,36 +514,34 @@ data MarketContractState =
 -- [@userPubKeyHash@]: Get user pubkeyhash.
 userEndpoints ::
     NFTMarket 
-    -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
+    -> Promise (Last (Either Text MarketContractState)) MarketUserSchema Void ()
 userEndpoints market =
     stop
         `select`
-    ((f (Proxy @"create") Created create                                     `select`
+    (void (f (Proxy @"create") Created create                                     `select`
       f (Proxy @"sell") Selling sell                                                    `select`
       f (Proxy @"cancelSell") CancelSelling cancelSell                                  `select`
       f (Proxy @"buy") Buyed buy                                                        `select`
       f (Proxy @"transfer") Transfered transfer                                         `select`
       f (Proxy @"userNftTokens") Tokens (\market' () -> userNftTokens market')          `select`
       f (Proxy @"sellingTokens") SellingTokens (\market' () -> sellingTokens market')   `select`
-      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    >> userEndpoints market)
+      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    
+    <> userEndpoints market)
   where
     f :: forall l a p.
          (HasEndpoint l p MarketUserSchema, FromJSON p)
       => Proxy l
       -> (a -> MarketContractState)
       -> (NFTMarket -> p -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Text a)
-      -> Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
-    f _ g c = do
-        e <- runError $ do
-            p <- endpoint @l
-            c market p
+      -> Promise (Last (Either Text MarketContractState)) MarketUserSchema Void ()
+    f _ g c = handleEndpoint @l $ \p -> do
+        e <- either (pure . Left) (runError . c market) p
         tell $ Last $ Just $ case e of
             Left err -> Left err
             Right a  -> Right $ g a
-
-    stop :: Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
-    stop = do
-        e <- runError $ endpoint @"stop"
+            
+    stop :: Promise (Last (Either Text MarketContractState)) MarketUserSchema Void ()
+    stop = handleEndpoint @"stop" $ \e -> do
         tell $ Last $ Just $ case e of
             Left err -> Left err
             Right () -> Right Stopped

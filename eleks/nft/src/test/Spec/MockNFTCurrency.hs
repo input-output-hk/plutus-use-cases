@@ -66,7 +66,7 @@ validate c@(MockNFTCurrency testTokenName) _ ctx@V.ScriptContext{V.scriptContext
         -- see note [Obtaining the currency symbol]
         ownSymbol = V.ownCurrencySymbol ctx
 
-        forged = V.txInfoForge txinfo
+        forged = V.txInfoMint txinfo
         expected = currencyValue ownSymbol c
 
         -- True if the pending transaction forges the amount of
@@ -122,10 +122,9 @@ type CurrencySchema =
 
 -- | Use 'forgeContract' to create the currency specified by a 'SimpleMPS'
 forgeNftToken
-    :: Contract (Maybe (Last MockNFTCurrency)) CurrencySchema Text ()
-forgeNftToken = do
-    ForgeNftParams{fnpTokenName} <- endpoint @"create"
+    :: Promise (Maybe (Last MockNFTCurrency)) CurrencySchema Text ()
+forgeNftToken = endpoint @"create" $ \ForgeNftParams{fnpTokenName} -> do
     ownPK <- pubKeyHash <$> ownPubKey
     cur <- forgeContract ownPK fnpTokenName
     tell (Just (Last cur))
-    forgeNftToken
+    

@@ -35,7 +35,7 @@ data NFTMarket = NFTMarket
     { marketId :: AssetClass
     , marketTokenSymbol :: CurrencySymbol
     , marketTokenMetaSymbol :: CurrencySymbol
-    , marketTokenMetaNameSuffix:: ByteString
+    , marketTokenMetaNameSuffix:: BuiltinByteString
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema, Prelude.Eq, Prelude.Ord)
 
 PlutusTx.makeLift ''NFTMarket
@@ -44,9 +44,9 @@ data NFTMetadata = NFTMetadata
     { 
       nftTokenName:: TokenName
     , nftMetaTokenName:: TokenName
-    , nftMetaDescription:: ByteString
-    , nftMetaAuthor:: ByteString
-    , nftMetaFile:: ByteString
+    , nftMetaDescription:: BuiltinByteString
+    , nftMetaAuthor:: BuiltinByteString
+    , nftMetaFile:: BuiltinByteString
     , nftTokenSymbol :: CurrencySymbol
     , nftMetaTokenSymbol :: CurrencySymbol
     , nftSeller :: Maybe PubKeyHash

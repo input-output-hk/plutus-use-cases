@@ -49,20 +49,20 @@ t1, t2 :: ContractInstanceTag
 t1 = Trace.walletInstanceTag w1
 t2 = Trace.walletInstanceTag w2
 
-ownerContract :: Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Void ()
+ownerContract :: Contract (Last (Either Text NFTMarket)) MarketOwnerSchema ContractError ()
 ownerContract = NFTMarket.ownerEndpoint forgeMockNftToken
-userContract :: Contract (Last (Either Text MarketContractState)) MarketUserSchema Void ()
+userContract :: Promise (Last (Either Text MarketContractState)) MarketUserSchema Void ()
 userContract = NFTMarket.userEndpoints nftMarketMock
 
 tests :: TestTree
 tests = testGroup "nft"
     [
-        checkPredicate "Owner contract expose 'start' endpoints"
-        (
-            endpointAvailable @"start" ownerContract t1
-        )
-        activeOwnerContractTrace
-        ,
+        -- checkPredicate "Owner contract expose 'start' endpoints"
+        -- (
+        --     endpointAvailable @"start" ownerContract t1
+        -- )
+        -- activeOwnerContractTrace
+        -- ,
         checkPredicate "Should create NFT token"
         ( 
             assertNoFailedTransactions
@@ -79,7 +79,7 @@ tests = testGroup "nft"
         ,
         checkPredicate "Should fail if duplicate token created"
         ( 
-            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists"]) -> True; _ -> False  })
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists", "Pd"] _) -> True; _ -> False  })
         )
         createDuplicateNftTokenFailureTrace
         ,
@@ -151,7 +151,7 @@ tests = testGroup "nft"
         ,
         checkPredicate "Should fail cancel sell if not token owner"
             ( 
-                assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["owner should sign"]) -> True; _ -> False  })
+                assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["owner should sign", "Pd"] _) -> True; _ -> False  })
             )
         cancelSellFailureIfNotOwnerTrace
         ,
@@ -230,7 +230,8 @@ tests = testGroup "nft"
         ( 
             assertNoFailedTransactions
             .&&. assertAccumState userContract t1
-            (\case Last (Just (Right (NFTMarket.UserPubKeyHash keyHash))) -> keyHash Prelude.== (B.unpack . B64.encode $ getPubKeyHash $ pubKeyHash $ walletPubKey w1); 
+            (\case Last (Just (Right (NFTMarket.UserPubKeyHash keyHash))) -> 
+                        keyHash Prelude.== (B.unpack . B64.encode . fromBuiltin . getPubKeyHash . pubKeyHash . walletPubKey $ w1); 
                    _ -> False) 
                 "should get wallet key state"
         )

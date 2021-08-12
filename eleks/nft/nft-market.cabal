@@ -92,6 +92,7 @@ executable nft-market-pab
     base >= 4.9 && < 5,
     bytestring,
     base64-bytestring,
+    data-default -any,
     text -any,
     containers -any,
     lens -any,
@@ -104,3 +105,17 @@ executable nft-market-pab
     freer-extras -any,
     plutus-ledger -any,
     stm -any,
+
+-- executable create-build
+  -- hs-source-dirs: 
+  --   app
+  -- main-is: build.hs
+  -- ghc-options:
+  --   -threaded
+  -- build-depends:  
+  --   base >= 4.9 && < 5,      
+  --   cardano-api,
+  --   cardano-ledger-alonzo,
+  --   nft-market -any,
+  --   plutus-ledger-api,
+  --   bytestring
