@@ -6,13 +6,15 @@ module Spec.Helper
 import           Contracts.NFT          as NFTMarket
 import qualified Data.ByteString.Char8  as B
 import qualified Data.Semigroup         as Semigroup
+import           Data.String            (fromString)
 import           Data.Monoid            (Last (..))
 import           Data.Text              (Text)
 import           Data.Void              (Void)
 import qualified Spec.MockNFTCurrency   as MockCurrency
 import           Ledger                 (PubKeyHash, pubKeyHash)
-import           Ledger.Value           (CurrencySymbol(..), TokenName (..), AssetClass(..))
+import           Ledger.Value           (CurrencySymbol(..), TokenName (..), AssetClass(..), toString)
 import qualified Plutus.Trace.Emulator  as Trace
+import           PlutusTx.Prelude       (toBuiltin)
 import           Wallet.Emulator        (Wallet, walletPubKey)
 
 mockMarketId :: AssetClass
@@ -26,7 +28,7 @@ nftMarketMock = NFTMarket
     { marketId = mockMarketId
     , marketTokenSymbol = nftCurrencySymbol mockNftCurrency
     , marketTokenMetaSymbol = nftCurrencySymbol mockNftCurrency
-    , marketTokenMetaNameSuffix = B.pack metadataTokenNamePrefix
+    , marketTokenMetaNameSuffix = toBuiltin . B.pack $  metadataTokenNamePrefix
     } 
 
 data TestTokenMeta = TestTokenMeta
@@ -58,7 +60,7 @@ createTestToken tokenName = TestTokenMeta
     , testTokenSellPrice = 0
     } 
     where
-        tokenMetaName = TokenName $ B.pack $ read (show tokenName) ++ "Metadata"
+        tokenMetaName = fromString $ (toString tokenName) ++ "Metadata"
 
 makeSellingTestToken:: TestTokenMeta -> Wallet -> Integer -> TestTokenMeta
 makeSellingTestToken testToken wallet price =
@@ -90,9 +92,9 @@ createNftMeta:: TestTokenMeta -> NFTMetadata
 createNftMeta testToken = NFTMetadata
     { nftTokenName = testTokenName testToken
     , nftMetaTokenName = testTokenMetaName testToken
-    , nftMetaDescription = B.pack $ testTokenDesciption testToken
-    , nftMetaAuthor = B.pack $ testTokenAuthor testToken
-    , nftMetaFile = B.pack $ testTokenFile testToken
+    , nftMetaDescription = toBuiltin . B.pack . testTokenDesciption $ testToken
+    , nftMetaAuthor = toBuiltin. B.pack . testTokenAuthor $ testToken
+    , nftMetaFile = toBuiltin . B.pack . testTokenFile $ testToken
     , nftTokenSymbol = testTokenSymbol testToken
     , nftMetaTokenSymbol = testTokenMetaSymbol testToken
     , nftSeller = testTokenSeller testToken

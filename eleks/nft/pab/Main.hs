@@ -18,6 +18,7 @@ import qualified Control.Concurrent.STM              as STM
 import           Control.Monad.Freer.Error           (Error)
 import           Control.Monad.Freer.Extras.Log      (LogMsg)
 import           Control.Monad.IO.Class              (MonadIO (..))
+import           Data.Default                        (Default (def))
 import qualified Data.Monoid                         as Monoid
 import qualified Data.Map.Strict                     as Map
 import           Data.Text                           (Text, pack)
@@ -29,7 +30,7 @@ import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
 import           GHC.Generics                        (Generic)
 import           Plutus.Contract                     (ContractError)
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\))
+import           Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (..), SomeBuiltin (..), HasDefinitions (..), type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import           Plutus.PAB.Simulator                (SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                as Simulator
@@ -78,42 +79,30 @@ main = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin NFTMarketContracts) "Balances at the end of the simulation"
     b <- Simulator.currentBalances
     Simulator.logBalances @(Builtin NFTMarketContracts) b
-
     shutdown
 
 data NFTMarketContracts =
       NFTStartContract 
     | NFTUserContract NFTMarket.NFTMarket
-    deriving (Eq, Ord, Show, Generic)
-
-instance ToJSON NFTMarketContracts where
-  toJSON = genericToJSON defaultOptions {
-             tagSingleConstructors = True }
-instance FromJSON NFTMarketContracts where
-  parseJSON = genericParseJSON defaultOptions {
-             tagSingleConstructors = True }
+    deriving (Eq, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
 
 instance Pretty NFTMarketContracts where
     pretty = viaShow
 
-handleNFTMarketContract ::
-    ( Member (Error PABError) effs
-    , Member (LogMsg (PABMultiAgentMsg (Builtin NFTMarketContracts))) effs
-    )
-    => ContractEffect (Builtin NFTMarketContracts)
-    ~> Eff effs
-handleNFTMarketContract = Builtin.handleBuiltin getSchema getContract where
+instance HasDefinitions NFTMarketContracts where
+    getDefinitions = []
     getSchema = \case
-        NFTStartContract -> Builtin.endpointsToSchemas @(NFTMarket.MarketOwnerSchema)
-        NFTUserContract _ -> Builtin.endpointsToSchemas @(NFTMarket.MarketUserSchema)
+        NFTStartContract -> Builtin.endpointsToSchemas @NFTMarket.EmptySchema
+        NFTUserContract _ -> Builtin.endpointsToSchemas @NFTMarket.MarketUserSchema
     getContract = \case
         NFTStartContract -> SomeBuiltin (NFTMarket.ownerEndpoint NFTMarket.forgeMarketToken)
         NFTUserContract market -> SomeBuiltin (NFTMarket.userEndpoints market)
 
 handlers :: SimulatorEffectHandlers (Builtin NFTMarketContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin NFTMarketContracts)[] --[NFTStartContract, NFTUserContract]
-    $ interpret handleNFTMarketContract
+    Simulator.mkSimulatorHandlers def def
+    $ interpret (contractHandler (Builtin.handleBuiltin @NFTMarketContracts))
 
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 4]]

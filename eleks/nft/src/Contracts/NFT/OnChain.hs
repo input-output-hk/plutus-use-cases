@@ -86,7 +86,7 @@ validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
     Constraints.checkOwnOutputConstraint ctx (OutputConstraint (NFTMeta nftMeta) $ getNftValue nftMetaTokenSymbol nftMetaTokenName)
     where 
         forged :: Value
-        forged = txInfoForge $ scriptContextTxInfo ctx
+        forged = txInfoMint $ scriptContextTxInfo ctx
 
         forgedTokensCount :: Integer
         forgedTokensCount = length $ flattenValue forged
