@@ -6,8 +6,8 @@ module Mlabs.Governance.Contract.Validation (
     scrAddress
   , scrInstance
   , scrValidator
-  , govValueOf
-  , xgovValueOf
+  , govSingleton
+  , xgovSingleton
   , xGovMintingPolicy
   , xGovCurrencySymbol
   , Governance
@@ -19,7 +19,6 @@ module Mlabs.Governance.Contract.Validation (
   ) where
 
 import           PlutusTx.Prelude hiding (Semigroup(..), unless)
-import PlutusTx.Builtins.Internal (BuiltinString(..))
 import qualified Prelude as Hask 
 
 import Data.Coerce (coerce)
@@ -30,9 +29,8 @@ import qualified PlutusTx.AssocMap as AssocMap
 import qualified PlutusTx
 
 import           Ledger hiding (before, after)
-import           Ledger.Typed.Scripts (MintingPolicy, wrapMintingPolicy, wrapValidator, validatorScript)
+import           Ledger.Typed.Scripts (wrapMintingPolicy)
 import qualified Ledger.Typed.Scripts.Validators as Validators
-import           Plutus.V1.Ledger.Scripts  as Scripts (Datum, Redeemer, Datum (getDatum), mkMintingPolicyScript)
 import qualified Plutus.V1.Ledger.Value    as Value
 import qualified Plutus.V1.Ledger.Contexts as Contexts
 import qualified Plutus.V1.Ledger.Address  as Address
@@ -153,8 +151,9 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
       GRWithdraw _ _ -> isMinting
 
     checkCorrectPayment = case redeemer of
-      GRDeposit pkh n  -> traceIfFalse "incorrect value paid to script" $
-        txOutValue ownInput Hask.<> govValueOf gov n == txOutValue ownOutput
+      -- we don't care about from whom the payment came
+      GRDeposit _ n  -> traceIfFalse "incorrect value paid to script" $
+        txOutValue ownInput Hask.<> govSingleton gov n == txOutValue ownOutput
       GRWithdraw pkh n -> case AssocMap.lookup xgovCS . Value.getValue $ (userInput pkh) of -- this may have the same issue that gov had
         Nothing -> traceError "no xGOV paid"
         Just mp -> traceIfFalse "wrong amount told in redeemer" . (== n) . sum . map snd $ AssocMap.toList mp
@@ -180,7 +179,7 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
                 in  newMapInner
                 )
                 (gdDepositMap govDatum) $
-                case AssocMap.lookup (acGovCurrencySymbol gov) $ Value.getValue (userInput pkh) of
+                case AssocMap.lookup xgovCS $ Value.getValue (userInput pkh) of
                   Nothing -> traceError "no xGOV paid"
                   Just mp -> AssocMap.toList $ mp          
         in traceIfFalse "wrong update of deposit map" (newMap == (gdDepositMap outputDatum)) &&
@@ -206,14 +205,14 @@ scrValidator = Validators.validatorScript . scrInstance
 scrAddress :: GovParams -> Ledger.Address
 scrAddress = scriptAddress . scrValidator
 
-govValueOf :: AssetClassGov -> Integer -> Value
-govValueOf AssetClassGov{..} = Value.singleton acGovCurrencySymbol acGovTokenName
+govSingleton :: AssetClassGov -> Integer -> Value
+govSingleton AssetClassGov{..} = Value.singleton acGovCurrencySymbol acGovTokenName
 
-xgovValueOf :: CurrencySymbol -> TokenName -> Integer -> Value
-xgovValueOf csym tok = Value.singleton csym tok
+xgovSingleton :: AssetClassNft -> TokenName -> Integer -> Value
+xgovSingleton nft tok = Value.singleton (xGovCurrencySymbol nft) tok
 
--- xGOV minting policy, the parameter is the NFT HELD BY THE GOVERNANCE SCRIPT
-{-# INLINABLE mkPolicy #-}
+-- xGOV minting policy
+{-# INLINABLE mkPolicy #-} -- there's something wrong with this 'unit' hack.
 mkPolicy :: AssetClassNft -> () -> ScriptContext -> Bool
 mkPolicy nft _ ctx =
   traceIfFalse "governance script not in transaction" checkScrInTransaction &&

@@ -58,14 +58,14 @@ deposit params (Api.Deposit amnt) = do
   (datum, utxo, oref) <- findGovernance params
 
   let traceNFT = singleton params.nft.acNftCurrencySymbol params.nft.acNftTokenName 1
-      xGovValue = Validation.xgovValueOf (Validation.xGovCurrencySymbol params.nft) (coerce pkh) amnt
+      xGovValue = Validation.xgovSingleton params.nft (coerce pkh) amnt
       datum' = GovernanceDatum (Validation.GRDeposit pkh amnt) $
         case AssocMap.lookup pkh (gdDepositMap datum) of
           Nothing -> AssocMap.insert pkh amnt (gdDepositMap datum)
           Just n  -> AssocMap.insert pkh (n+amnt) (gdDepositMap datum)
       tx = sconcat [
           Constraints.mustMintValue               xGovValue
-        , Constraints.mustPayToTheScript datum' $ Validation.govValueOf params.gov amnt <> traceNFT
+        , Constraints.mustPayToTheScript datum' $ Validation.govSingleton params.gov amnt <> traceNFT
         , Constraints.mustSpendScriptOutput oref  (Redeemer . toBuiltinData $ GRDeposit pkh amnt)
         ]
       lookups = sconcat [
@@ -81,12 +81,6 @@ deposit params (Api.Deposit amnt) = do
 
 withdraw ::GovParams -> Api.Withdraw -> GovernanceContract ()
 withdraw params (Api.Withdraw val) = do
-  -- 'guard' doesn't work here
-  if [acGovCurrencySymbol params.gov] == (AssocMap.keys $ getValue val) then
-    Contract.throwError "Attempt to withdraw with non xGOV tokens"
-  else
-    pure ()
-
   pkh <- pubKeyHash <$> Contract.ownPubKey
   (datum, _, oref) <- findGovernance params
   tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
@@ -113,7 +107,7 @@ withdraw params (Api.Withdraw val) = do
         -- user doesn't pay to script, but instead burns the xGOV (ensured by validators)
           Constraints.mustPayToTheScript datum' mempty
         , Constraints.mustMintValue (negate val)
-        , Constraints.mustPayToPubKey pkh $ Validation.govValueOf params.gov totalGov
+        , Constraints.mustPayToPubKey pkh $ Validation.govSingleton params.gov totalGov
         , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRWithdraw pkh totalGov)
         ]
       lookups = sconcat [
