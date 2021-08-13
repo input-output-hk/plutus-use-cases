@@ -76,7 +76,7 @@ validateCreate NFTMarket{..} nftMetas nftMeta@NFTMetadata{..} ctx =
     traceIfFalse "market token symbol should be token symbol" (marketTokenSymbol == nftTokenSymbol) &&
     traceIfFalse "market meta token symbol should be meta token symbol" (marketTokenMetaSymbol == nftMetaTokenSymbol) &&
     traceIfFalse "meta token name should be 'tokenName' + Metadata" 
-        (unTokenName nftMetaTokenName == PlutusTx.Prelude.concatenate (unTokenName nftTokenName) marketTokenMetaNameSuffix) &&
+        (unTokenName nftMetaTokenName == PlutusTx.Prelude.appendByteString (unTokenName nftTokenName) marketTokenMetaNameSuffix) &&
     traceIfFalse "marketplace not present" (isMarketToken (valueWithin $ findOwnInput' ctx) marketId) &&
     traceIfFalse "nft token is arleady exists" (all (/= nftMeta) nftMetas) && 
     traceIfFalse "should forge NFT token" (isNftToken forged nftTokenSymbol nftTokenName) &&   
