@@ -33,9 +33,8 @@ import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                     as Currency
-import           Plutus.Contracts.NftMarketplace.OffChain.Info (fundsAt,
-                                                                mapError',
-                                                                marketplaceStore)
+import           Plutus.Contracts.NftMarketplace.OffChain.ID
+import           Plutus.Contracts.NftMarketplace.OffChain.Info
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core  as Core
 import qualified Plutus.Contracts.Services.Sale                as Sale
 import qualified PlutusTx
@@ -93,7 +92,7 @@ createNft marketplace CreateNftParams {..} = do
 
 data OpenSaleParams =
   OpenSaleParams {
-    ospIpfsCid   :: ByteString,
+    ospItemId    :: UserItemId,
     ospSalePrice :: Sale.LovelacePrice
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -105,81 +104,88 @@ PlutusTx.makeLift ''OpenSaleParams
 -- | The user opens sale for his NFT
 openSale :: Core.Marketplace -> OpenSaleParams -> Contract w s Text ()
 openSale marketplace OpenSaleParams {..} = do
-    let ipfsCidHash = sha2_256 ospIpfsCid
-    nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
-    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
-    let tokenName = V.TokenName ospIpfsCid
+    let internalId = toInternalId ospItemId
+    nftStore <- marketplaceStore marketplace
+    saleValue <- case internalId of
+      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
+        Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
+      Right bundleId@(Core.InternalBundleId bundleHash cids) ->
+        Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     sale <- Sale.openSale
               Sale.OpenSaleParams {
                   ospSalePrice = ospSalePrice,
-                  ospSaleValue = V.singleton (nftEntry ^. Core._nftRecord . Core._niCurrency) tokenName 1
+                  ospSaleValue = saleValue
               }
 
     let client = Core.marketplaceClient marketplace
     let lot = Left sale
-    void $ mapError' $ runStep client $ Core.PutLotRedeemer (Left (ipfsCidHash, ospIpfsCid)) lot
+    void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show sale)
     pure ()
 
-data BuyNftParams =
-  BuyNftParams {
-    bnpIpfsCid   :: ByteString
+data CompleteSaleParams =
+  CompleteSaleParams {
+    cspItemId    :: UserItemId
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''BuyNftParams
-PlutusTx.makeLift ''BuyNftParams
+PlutusTx.unstableMakeIsData ''CompleteSaleParams
+PlutusTx.makeLift ''CompleteSaleParams
 
 -- | The user buys specified NFT lot
-buyNft :: Core.Marketplace -> BuyNftParams -> Contract w s Text ()
-buyNft marketplace BuyNftParams {..} = do
-    let ipfsCidHash = sha2_256 bnpIpfsCid
-    nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
-    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
-    nftSale <- maybe (throwError "NFT has not been put on sale") pure $
-                  nftEntry ^. Core._nftLot ^? traverse . _2 . _Left
+buyNft :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
+buyNft marketplace CompleteSaleParams {..} = do
+    let internalId = toInternalId cspItemId
+    nftStore <- marketplaceStore marketplace
+    sale <- case internalId of
+      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+        nftEntry <- getNftEntry nftStore nftId
+        maybe (throwError "NFT has not been put on sale") pure $
+            nftEntry ^. Core._nftLot ^? traverse . _2 . _Left
+      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+        bundleEntry <- getBundleEntry nftStore bundleId
+        maybe (throwError "Bundle has not been put on sale") pure $
+            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Left
 
-    _ <- Sale.buyLot nftSale
+    _ <- Sale.buyLot sale
 
     let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer (Left ipfsCidHash)
+    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer $
+      Lens.bimap Core.iniIpfsCidHash Core.ibiBundleId internalId
 
-    logInfo @Haskell.String $ printf "Bought NFT from sale %s" (Haskell.show nftSale)
+    logInfo @Haskell.String $ printf "Bought lot from sale %s" (Haskell.show sale)
     pure ()
 
-data CloseSaleParams =
-  CloseSaleParams {
-    cspIpfsCid   :: ByteString
-  }
-    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
-    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
-
-PlutusTx.unstableMakeIsData ''CloseSaleParams
-PlutusTx.makeLift ''CloseSaleParams
-
 -- | The user closes NFT sale and receives his token back
-closeSale :: Core.Marketplace -> CloseSaleParams -> Contract w s Text ()
-closeSale marketplace CloseSaleParams {..} = do
-    let ipfsCidHash = sha2_256 cspIpfsCid
-    nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
-    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
-    nftSale <- maybe (throwError "NFT has not been put on sale") pure $
-                  nftEntry ^. Core._nftLot ^? traverse . _2 . _Left
+closeSale :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
+closeSale marketplace CompleteSaleParams {..} = do
+    let internalId = toInternalId cspItemId
+    nftStore <- marketplaceStore marketplace
+    sale <- case internalId of
+      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+        nftEntry <- getNftEntry nftStore nftId
+        maybe (throwError "NFT has not been put on sale") pure $
+            nftEntry ^. Core._nftLot ^? traverse . _2 . _Left
+      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+        bundleEntry <- getBundleEntry nftStore bundleId
+        maybe (throwError "Bundle has not been put on sale") pure $
+            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Left
 
-    _ <- Sale.redeemLot nftSale
+    _ <- Sale.redeemLot sale
 
     let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer (Left ipfsCidHash)
+    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer $
+      Lens.bimap Core.iniIpfsCidHash Core.ibiBundleId internalId
 
-    logInfo @Haskell.String $ printf "Closed NFT sale %s" (Haskell.show nftSale)
+    logInfo @Haskell.String $ printf "Closed lot sale %s" (Haskell.show sale)
     pure ()
 
 data HoldAnAuctionParams =
   HoldAnAuctionParams {
-    haapIpfsCid  :: ByteString,
+    haapItemId   :: UserItemId,
     haapDuration :: Slot
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -191,19 +197,21 @@ PlutusTx.makeLift ''HoldAnAuctionParams
 -- | The user starts an auction for specified NFT
 startAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
 startAnAuction marketplace HoldAnAuctionParams {..} = do
-    let ipfsCidHash = sha2_256 haapIpfsCid
-    nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
-    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
-    let tokenName = V.TokenName haapIpfsCid
-    let nftValue = V.singleton (nftEntry ^. Core._nftRecord . Core._niCurrency) tokenName 1
+    let internalId = toInternalId haapItemId
+    nftStore <- marketplaceStore marketplace
+    auctionValue <- case internalId of
+      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
+        Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
+      Right bundleId@(Core.InternalBundleId bundleHash cids) ->
+        Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currSlot <- currentSlot
     let endTime = currSlot + haapDuration
-    (auctionToken, auctionParams) <- mapError (T.pack . Haskell.show) $ Auction.startAuction nftValue endTime
+    (auctionToken, auctionParams) <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionValue endTime
 
     let client = Core.marketplaceClient marketplace
     let lot = Right $ Auction.toTuple auctionToken auctionParams
-    void $ mapError' $ runStep client $ Core.PutLotRedeemer (Left (ipfsCidHash, haapIpfsCid)) lot
+    void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auctionParams)
     pure ()
@@ -211,26 +219,33 @@ startAnAuction marketplace HoldAnAuctionParams {..} = do
 -- | The user completes the auction for specified NFT
 completeAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
 completeAnAuction marketplace HoldAnAuctionParams {..} = do
-    let ipfsCidHash = sha2_256 haapIpfsCid
-    nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
-    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
-    nftAuction <- maybe (throwError "NFT has not been put on auction") pure $
-                  nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
+    let internalId = toInternalId haapItemId
+    nftStore <- marketplaceStore marketplace
+    auction <- case internalId of
+      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+        nftEntry <- getNftEntry nftStore nftId
+        maybe (throwError "NFT has not been put on auction") pure $
+            nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
+      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+        bundleEntry <- getBundleEntry nftStore bundleId
+        maybe (throwError "Bundle has not been put on auction") pure $
+            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Auction.getStateToken nftAuction
-    let auctionParams = Auction.fromTuple nftAuction
+    let auctionToken = Auction.getStateToken auction
+    let auctionParams = Auction.fromTuple auction
     _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auctionToken auctionParams
 
     let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer (Left ipfsCidHash)
+    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer $
+      Lens.bimap Core.iniIpfsCidHash Core.ibiBundleId internalId
 
-    logInfo @Haskell.String $ printf "Completed an auction %s" (Haskell.show nftAuction)
+    logInfo @Haskell.String $ printf "Completed an auction %s" (Haskell.show auction)
     pure ()
 
 data BidOnAuctionParams =
   BidOnAuctionParams {
-    boapIpfsCid :: ByteString,
-    boapBid     :: Ada
+    boapItemId :: UserItemId,
+    boapBid    :: Ada
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -241,17 +256,23 @@ PlutusTx.makeLift ''BidOnAuctionParams
 -- | The user submits a bid on the auction for specified NFT
 bidOnAuction :: Core.Marketplace -> BidOnAuctionParams -> Contract w s Text ()
 bidOnAuction marketplace BidOnAuctionParams {..} = do
-    let ipfsCidHash = sha2_256 boapIpfsCid
-    nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
-    nftEntry <- maybe (throwError "NFT has not been created") pure $ AssocMap.lookup ipfsCidHash nftStore
-    nftAuction <- maybe (throwError "NFT has not been put on auction") pure $
-                  nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
+    let internalId = toInternalId boapItemId
+    nftStore <- marketplaceStore marketplace
+    auction <- case internalId of
+      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+        nftEntry <- getNftEntry nftStore nftId
+        maybe (throwError "NFT has not been put on auction") pure $
+            nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
+      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+        bundleEntry <- getBundleEntry nftStore bundleId
+        maybe (throwError "Bundle has not been put on auction") pure $
+            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Auction.getStateToken nftAuction
-    let auctionParams = Auction.fromTuple nftAuction
+    let auctionToken = Auction.getStateToken auction
+    let auctionParams = Auction.fromTuple auction
     _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auctionToken auctionParams boapBid
 
-    logInfo @Haskell.String $ printf "Submitted bid for NFT auction %s" (Haskell.show nftAuction)
+    logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)
     pure ()
 
 data BundleUpParams =
@@ -314,8 +335,8 @@ ownPubKeyBalance = getOwnPubKey >>= fundsAt
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
     .\/ Endpoint "openSale" OpenSaleParams
-    .\/ Endpoint "buyNft" BuyNftParams
-    .\/ Endpoint "closeSale" CloseSaleParams
+    .\/ Endpoint "buyNft" CompleteSaleParams
+    .\/ Endpoint "closeSale" CompleteSaleParams
     .\/ Endpoint "startAnAuction" HoldAnAuctionParams
     .\/ Endpoint "completeAnAuction" HoldAnAuctionParams
     .\/ Endpoint "bidOnAuction" BidOnAuctionParams

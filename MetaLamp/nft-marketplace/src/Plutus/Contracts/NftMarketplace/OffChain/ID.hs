@@ -1,11 +1,13 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
-{-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving  #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
 
 module Plutus.Contracts.NftMarketplace.OffChain.ID where
 
@@ -33,9 +35,16 @@ import qualified Prelude                                      as Haskell
 import qualified Schema
 import           Text.Printf                                  (printf)
 
+-- type UserItemId = Either Core.IpfsCid [Core.IpfsCid]
 data UserItemId = UserNftId Core.IpfsCid | UserBundleId [Core.IpfsCid]
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
+
+instance Schema.ToSchema UserItemId where
+  toSchema = Schema.FormSchemaUnsupported "TODO how to make these instances for sum types?"
+
+PlutusTx.unstableMakeIsData ''UserItemId
+PlutusTx.makeLift ''UserItemId
 
 toInternalId :: UserItemId -> Either Core.InternalNftId Core.InternalBundleId
 toInternalId (UserNftId ipfsCid) = Left

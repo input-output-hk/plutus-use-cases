@@ -48,9 +48,17 @@ data InternalNftId = InternalNftId {
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
+PlutusTx.unstableMakeIsData ''InternalNftId
+
+PlutusTx.makeLift ''InternalNftId
+
 data InternalBundleId = InternalBundleId {
-  ibiIpfsCids :: !(AssocMap.Map IpfsCidHash IpfsCid),
-  ibiBundleId :: !BundleId
+  ibiBundleId :: !BundleId,
+  ibiIpfsCids :: !(AssocMap.Map IpfsCidHash IpfsCid)
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''InternalBundleId
+
+PlutusTx.makeLift ''InternalBundleId

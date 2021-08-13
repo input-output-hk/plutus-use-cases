@@ -156,3 +156,7 @@ hasLotBundle :: NftBundle -> Bool
 hasLotBundle bundle = case nbTokens bundle of
   HasLot _ _ -> True
   _          -> False
+
+{-# INLINABLE nftValue #-}
+nftValue :: IpfsCid -> NFT -> Value
+nftValue ipfsCid nft = V.singleton (niCurrency $ nftRecord nft) (V.TokenName ipfsCid) 1
