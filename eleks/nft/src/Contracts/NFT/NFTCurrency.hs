@@ -59,7 +59,7 @@ validateNFTForging c@(NFTCurrency marketId) _ ctx@Validation.ScriptContext{Valid
     traceIfFalse "Should forge two tokens for the same symbol (nft and metadata)" (forgedSymbolsCount == 1)
     where
         ownSymbol = ownCurrencySymbol ctx
-        forged = txInfoForge txinfo
+        forged = txInfoMint txinfo
         forgedSymbolsCount = length $ symbols forged
         marketInput = case  [ o
                             | o <- getContinuingOutputs ctx
