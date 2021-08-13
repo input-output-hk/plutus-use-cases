@@ -6,6 +6,10 @@ module Mlabs.Governance.Contract.Server (
   , governanceEndpoints
   ) where
 
+
+import Data.Function ((&))
+
+
 import PlutusTx.Prelude hiding (toList)
 import Prelude (String, uncurry, show)
 
@@ -82,36 +86,26 @@ deposit params (Api.Deposit amnt) = do
       let amount' = amount + fromMaybe 0 (AssocMap.lookup pkh depositMap) 
       in AssocMap.insert pkh amount' depositMap
 
+
 withdraw ::GovParams -> Api.Withdraw -> GovernanceContract ()
 withdraw params (Api.Withdraw val) = do
-  pkh <- pubKeyHash <$> Contract.ownPubKey
+  ownPkh              <- pubKeyHash <$> Contract.ownPubKey
   (datum, utxo, oref) <- findGovernance params
-  tokens <- fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
-            . AssocMap.lookup (Validation.xGovCurrencySymbol params.nft) $ getValue val
-  let maybemap' :: Maybe (AssocMap.Map PubKeyHash Integer)
-      maybemap' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
-
-      totalPaid :: Integer
-      totalPaid = sum . map snd $ tokens
-
-      -- AssocMap has no "insertWith", so we have to use lookup and insert, all under foldM
-      withdrawFromCorrect tn amm mp =
-        case AssocMap.lookup pkh mp of
-          Just n | n > amm  -> Just (AssocMap.insert depositor (n-amm) mp)
-          Just n | n == amm -> Just (AssocMap.delete depositor mp)
-          _                 -> Nothing
-          where depositor = coerce tn
-          
-  datum' <- GovernanceDatum (Validation.GRWithdraw pkh totalPaid)
-    <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybemap'
-  
-  let totalGov = sum $ map snd tokens
+  Contract.logInfo @String $ "@@ value at utxo: " ++ show(utxo & txOutTxOut & txOutValue)
+  tokens              <- findTokens val
+  let 
+      scriptBalance  = utxo & txOutTxOut & txOutValue
+      toWalletGovAmt = sum $ map snd tokens
+      toWalletValue  = Validation.govSingleton params.gov toWalletGovAmt
+  datum' <- updateDatumDepositMap ownPkh datum tokens toWalletGovAmt
+  let 
       tx = sconcat [
-        -- user doesn't pay to script, but instead burns the xGOV (ensured by validators)
-          Constraints.mustPayToTheScript datum' mempty
-        , Constraints.mustMintValue (negate val)
-        , Constraints.mustPayToPubKey pkh $ Validation.govSingleton params.gov totalGov
-        , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRWithdraw pkh totalGov)
+          -- pay overall balance minus GOV withdraw amount back to script  
+          Constraints.mustPayToTheScript datum' $ scriptBalance - toWalletValue
+          -- ensures that we won't withdraw negitve amount
+        , Constraints.mustPayToPubKey ownPkh toWalletValue
+        , Constraints.mustMintValue (negate val) -- burn xGOV tokens
+        , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRWithdraw ownPkh toWalletGovAmt)
         ]
       lookups = sconcat [
               Constraints.typedValidatorLookups $ Validation.scrInstance params
@@ -119,10 +113,28 @@ withdraw params (Api.Withdraw val) = do
             , Constraints.mintingPolicy         $ Validation.xGovMintingPolicy params.nft
             , Constraints.unspentOutputs        $ Map.singleton oref utxo
             ]
-                
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
-  Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show totalGov)
+  Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show toWalletGovAmt)
+  where
+    findTokens val = 
+      fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
+      . AssocMap.lookup (Validation.xGovCurrencySymbol params.nft) $ getValue val
+
+    -- TODO try to simplify
+    updateDatumDepositMap pkh datum tokens toWalletGovAmt = 
+      GovernanceDatum (Validation.GRWithdraw pkh toWalletGovAmt)
+        <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybemap'
+      where
+        maybemap' :: Maybe (AssocMap.Map PubKeyHash Integer)
+        maybemap' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
+        -- AssocMap has no "insertWith", so we have to use lookup and insert, all under foldM
+        withdrawFromCorrect tn amm mp =
+          case AssocMap.lookup pkh mp of
+            Just n | n > amm  -> Just (AssocMap.insert depositor (n-amm) mp)
+            Just n | n == amm -> Just (AssocMap.delete depositor mp)
+            _                 -> Nothing
+            where depositor = coerce tn
 
 provideRewards :: GovParams -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards params (Api.ProvideRewards val) = do
@@ -164,3 +176,7 @@ findGovernance params = do
           Nothing -> Contract.throwError "datum has wrong type"
           Just gd -> return (gd, o, oref)
     _ -> Contract.throwError "No UTxO found"
+
+
+withNFT params = 
+  (singleton params.nft.acNftCurrencySymbol params.nft.acNftTokenName (negate 1) <>)
