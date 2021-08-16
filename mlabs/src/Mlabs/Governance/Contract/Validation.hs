@@ -105,26 +105,21 @@ instance Validators.ValidatorTypes Governance where
 {-# INLINABLE mkValidator #-}
 mkValidator :: GovParams -> CurrencySymbol -> GovernanceDatum -> GovernanceRedeemer -> ScriptContext -> Bool
 mkValidator GovParams{..} xgovCS govDatum redeemer ctx = 
-  -- True
   checkOutputHasNft &&
   checkCorrectLastRedeemer &&
-  -- checkCorrectDepositMap && -- TODO something here doesn't validate
-  -- checkCorrectPayment &&    -- TODO something here doesn't validate
+  checkCorrectDepositMap && 
+  checkCorrectValueGovChange &&  
   checkForging
   where
     info :: Contexts.TxInfo
     info = scriptContextTxInfo ctx
 
-    -- honestly we could tweak this a bit. TBD.
     userInput :: PubKeyHash -> Value
     userInput pkh =
       let isByPkh x = case Address.addressCredential . txOutAddress $ txInInfoResolved x of
             PubKeyCredential key -> key == pkh 
             _                    -> False
-      in case filter isByPkh $ txInfoInputs info of
-        [o] -> txOutValue $ txInInfoResolved o
-        _   -> traceError "expected exactly one payment from the pkh" -- TODO something here doesn't validate
-                                                                      --  try to bould unsignet TX and check inputs
+      in mconcat . map (txOutValue . txInInfoResolved) . filter isByPkh $ txInfoInputs info
 
     ownInput :: Contexts.TxOut
     ownInput = case findOwnInput ctx of
@@ -143,24 +138,24 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
             Nothing -> traceError "error decoding data"
       _ -> traceError "expected one continuing output"
 
-    isMinting :: Bool
-    isMinting = case AssocMap.lookup xgovCS . Value.getValue $ txInfoForge info of
+    isMinting :: (AssocMap.Map TokenName Integer -> Bool) -> Bool
+    isMinting f = case AssocMap.lookup xgovCS . Value.getValue $ txInfoForge info of
       Nothing -> False
-      Just _  -> True
+      Just mp -> f mp 
 
     -- on which endpoints the minting script needs to be invoked
     checkForging :: Bool
     checkForging = case redeemer of
-      GRDeposit  _ _ -> isMinting  
-      GRWithdraw _ _ -> isMinting
+      GRDeposit  _ _ -> isMinting (const True)  
+      GRWithdraw _ n -> isMinting ((== n) . sum . map snd . AssocMap.toList)
 
-    checkCorrectPayment = case redeemer of
+    checkCorrectValueGovChange = case redeemer of
       -- we don't care about from whom the payment came
       GRDeposit _ n  -> traceIfFalse "incorrect value paid to script" $
         txOutValue ownInput Hask.<> govSingleton gov n == txOutValue ownOutput
-      GRWithdraw pkh n -> case AssocMap.lookup xgovCS . Value.getValue $ (userInput pkh) of -- this may have the same issue that gov had
-        Nothing -> traceError "no xGOV paid"
-        Just mp -> traceIfFalse "wrong amount told in redeemer" . (== n) . sum . map snd $ AssocMap.toList mp
+      GRWithdraw _ n ->
+        traceIfFalse "Wrong amount of GOV paid by script" $
+          (txOutValue ownInput Hask.<> govSingleton gov (negate n) == txOutValue ownOutput) 
 
     checkOutputHasNft = Value.valueOf (txOutValue ownOutput) (acNftCurrencySymbol nft) (acNftTokenName nft) == 1    
     
@@ -171,9 +166,12 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
       GRDeposit pkh n ->
         let prev = maybe 0 id $ AssocMap.lookup pkh (gdDepositMap govDatum)
             newMap = AssocMap.insert pkh (n+prev) (gdDepositMap govDatum)
-        in traceIfFalse "wrong update of deposit map" $ newMap == (gdDepositMap outputDatum)
+        in
+          traceIfFalse "wrong update of deposit map" $ newMap == (gdDepositMap outputDatum)
+          
       GRWithdraw pkh n ->
-        let newMap =
+        let govValOf v = Value.valueOf v (acGovCurrencySymbol gov) (acGovTokenName gov)   
+            newMap =
               foldr (\(tn, amm) mp ->
                 let prev = maybe (traceError "withdraw from non-recorded deposit") id $ AssocMap.lookup (coerce tn) mp
                     newMapInner = case prev - amm of
@@ -186,13 +184,10 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
                 case AssocMap.lookup xgovCS $ Value.getValue (userInput pkh) of
                   Nothing -> traceError "no xGOV paid"
                   Just mp -> AssocMap.toList $ mp          
-        in traceIfFalse "wrong update of deposit map" (newMap == (gdDepositMap outputDatum)) &&
-          case Value.flattenValue (valuePaidTo info pkh) of -- possibly need to change this here
-          [(csym, tn, amm)] | amm == n -> traceIfFalse "non-GOV payment by script on withdrawal"
-                                            $ AssetClassGov csym tn == gov
-          [_]                          -> traceError "imbalanced ammount of xGOV to GOV"
-          _                            -> traceError "more than one assetclass paid by script"
-
+        in
+          traceIfFalse "wrong update of deposit map" (newMap == (gdDepositMap outputDatum)) &&
+          traceIfFalse "GOV not paid to PKH" ((== n) . govValOf $ valuePaidTo info pkh) -- this test should be somewhere else
+          
 scrInstance :: GovParams -> Validators.TypedValidator Governance
 scrInstance params = Validators.mkTypedValidator @Governance
   ($$(PlutusTx.compile [|| mkValidator ||])

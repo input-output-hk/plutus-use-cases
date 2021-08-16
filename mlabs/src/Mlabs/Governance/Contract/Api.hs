@@ -30,7 +30,7 @@ import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
 import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
-import Mlabs.Governance.Contract.Validation (GovParams, AssetClassNft, AssetClassGov)
+import Mlabs.Governance.Contract.Validation (GovParams)
 
 newtype StartGovernance = StartGovernance GovParams
     deriving stock (Hask.Show, Generic)

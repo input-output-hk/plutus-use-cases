@@ -6,10 +6,6 @@ module Mlabs.Governance.Contract.Server (
   , governanceEndpoints
   ) where
 
-
-import Data.Function ((&))
-
-
 import PlutusTx.Prelude hiding (toList)
 import Prelude (String, uncurry, show)
 
@@ -31,14 +27,10 @@ import Mlabs.Governance.Contract.Validation qualified as Validation
 import Mlabs.Governance.Contract.Validation (GovParams(..), GovernanceDatum(..), GovernanceRedeemer(..))
 import Mlabs.Plutus.Contract (getEndpoint, selects)
 
--- do we want another error type? 
 type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.GovernanceSchema Text a
 
 governanceEndpoints :: GovParams -> GovernanceContract ()
-governanceEndpoints params = do
-  -- FIXME temporary moved to selects to make tests work
-  -- getEndpoint @Api.StartGovernance >>= startGovernance 
-  forever $ selects
+governanceEndpoints params = forever $ selects
     [ getEndpoint @Api.StartGovernance >>= startGovernance 
     , getEndpoint @Api.Deposit >>= deposit params
     , getEndpoint @Api.Withdraw >>= withdraw params
@@ -86,15 +78,14 @@ deposit params (Api.Deposit amnt) = do
       let amount' = amount + fromMaybe 0 (AssocMap.lookup pkh depositMap) 
       in AssocMap.insert pkh amount' depositMap
 
-
 withdraw ::GovParams -> Api.Withdraw -> GovernanceContract ()
 withdraw params (Api.Withdraw val) = do
   ownPkh              <- pubKeyHash <$> Contract.ownPubKey
   (datum, utxo, oref) <- findGovernance params
-  Contract.logInfo @String $ "@@ value at utxo: " ++ show(utxo & txOutTxOut & txOutValue)
+  Contract.logInfo @String $ "@@ value at utxo: " ++ show (txOutValue $ txOutTxOut utxo)
   tokens              <- findTokens val
   let 
-      scriptBalance  = utxo & txOutTxOut & txOutValue
+      scriptBalance  = txOutValue $ txOutTxOut utxo
       toWalletGovAmt = sum $ map snd tokens
       toWalletValue  = Validation.govSingleton params.gov toWalletGovAmt
   datum' <- updateDatumDepositMap ownPkh datum tokens toWalletGovAmt
@@ -117,9 +108,9 @@ withdraw params (Api.Withdraw val) = do
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show toWalletGovAmt)
   where
-    findTokens val = 
+    findTokens v = 
       fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
-      . AssocMap.lookup (Validation.xGovCurrencySymbol params.nft) $ getValue val
+      . AssocMap.lookup (Validation.xGovCurrencySymbol params.nft) $ getValue v
 
     -- TODO try to simplify
     updateDatumDepositMap pkh datum tokens toWalletGovAmt = 
@@ -176,7 +167,3 @@ findGovernance params = do
           Nothing -> Contract.throwError "datum has wrong type"
           Just gd -> return (gd, o, oref)
     _ -> Contract.throwError "No UTxO found"
-
-
-withNFT params = 
-  (singleton params.nft.acNftCurrencySymbol params.nft.acNftTokenName (negate 1) <>)
