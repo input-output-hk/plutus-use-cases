@@ -104,9 +104,11 @@ testDepositHappyPath :: TestTree
 testDepositHappyPath =
   let 
     (wallet, contract, _, activateWallet) = setup Test.fstWalletWithGOV
-    depoAmt = 50
+    depoAmt1 = 10
+    depoAmt2 = 40
+    depoAmt = depoAmt1 + depoAmt2
   in
-  checkPredicateOptions Test.checkOptions "Deopsit"
+  checkPredicateOptions Test.checkOptions "Deposit"
     ( assertNoFailedTransactions
       .&&. walletFundsChange wallet ( Test.gov (negate depoAmt) 
                                       <> Test.xgov wallet depoAmt 
@@ -116,6 +118,8 @@ testDepositHappyPath =
     $ do
       startGovernanceByAdmin contract
       hdl <- activateWallet
+      void $ callEndpoint' @Deposit hdl (Deposit depoAmt1)
+      next
       void $ callEndpoint' @Deposit hdl (Deposit depoAmt)
       next
 
