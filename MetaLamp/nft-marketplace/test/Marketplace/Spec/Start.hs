@@ -28,43 +28,30 @@ tests =
   testGroup
     "start"
     [ checkPredicateOptions
-        options
+        Fixtures.options
         "Should start a new marketplace with empty store"
-        datumsCheck
+        (datumsCheck .&&. valueCheck)
         startTrace
     ]
 
 startTrace :: Trace.EmulatorTrace ()
 startTrace = do
   _ <- Trace.activateContractWallet Fixtures.ownerWallet $ void startContract
-  _ <- Trace.waitNSlots 5
+  -- _ <- Trace.waitNSlots 5
   pure ()
 
 startContract ::
      Contract () Marketplace.MarketplaceOwnerSchema Text Marketplace.Marketplace
-startContract = Marketplace.start' $ pure marketplaceSymbol
+startContract = Marketplace.start' $ pure Fixtures.marketplaceSymbol
 
 datumsCheck :: TracePredicate
 datumsCheck =
   dataAtAddress
-    (Marketplace.marketplaceAddress marketplace)
+    Fixtures.marketplaceAddress
     (== Marketplace.MarketplaceDatum AssocMap.empty AssocMap.empty)
 
-options :: CheckOptions
-options = defaultCheckOptions & emulatorConfig .~ emulatorCfg
-  where
-    emulatorCfg :: Trace.EmulatorConfig
-    emulatorCfg =
-      Trace.EmulatorConfig $ Left $ Map.singleton Fixtures.ownerWallet v
-    v :: Value
-    v =
-      Ada.lovelaceValueOf 1000 _000_000 <>
-      V.singleton marketplaceSymbol Marketplace.marketplaceProtocolName 1
-
-marketplace :: Marketplace.Marketplace
-marketplace =
-  Marketplace.Marketplace $
-  V.assetClass marketplaceSymbol Marketplace.marketplaceProtocolName
-
-marketplaceSymbol :: CurrencySymbol
-marketplaceSymbol = "ff"
+valueCheck :: TracePredicate
+valueCheck =
+  valueAtAddress
+    Fixtures.marketplaceAddress
+    (== V.singleton Fixtures.marketplaceSymbol Marketplace.marketplaceProtocolName 1)
