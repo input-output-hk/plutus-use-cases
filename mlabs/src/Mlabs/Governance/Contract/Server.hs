@@ -26,6 +26,7 @@ import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation qualified as Validation
 import Mlabs.Governance.Contract.Validation (GovParams(..), GovernanceDatum(..), GovernanceRedeemer(..))
 import Mlabs.Plutus.Contract (getEndpoint, selects)
+import Mlabs.Data.List (sortOn)
 
 type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.GovernanceSchema Text a
 
@@ -60,7 +61,7 @@ deposit params (Api.Deposit amnt) = do
                 (updateAmount ownPkh amnt datum.gdDepositMap)
       tx = sconcat [
           Constraints.mustMintValue               xGovValue
-        , Constraints.mustPayToTheScript datum' $ Validation.govSingleton params.gov amnt <> traceNFT
+        , Constraints.mustPayToTheScript datum' $ Validation.govSingleton params.gov amnt <> txOutValue (txOutTxOut utxo)
         , Constraints.mustSpendScriptOutput oref  (Redeemer . toBuiltinData $ GRDeposit ownPkh amnt)
         ]
       lookups = sconcat [
@@ -112,16 +113,18 @@ withdraw params (Api.Withdraw val) = do
       fmap AssocMap.toList . maybe (Contract.throwError "No xGOV tokens found") pure
       . AssocMap.lookup (Validation.xGovCurrencySymbol params.nft) $ getValue v
 
+    sortMap = AssocMap.fromList . sortOn fst . AssocMap.toList
+
     -- TODO try to simplify
     updateDatumDepositMap pkh datum tokens toWalletGovAmt = 
-      GovernanceDatum (Validation.GRWithdraw pkh toWalletGovAmt)
+      GovernanceDatum (Validation.GRWithdraw pkh toWalletGovAmt) . sortMap
         <$> maybe (Contract.throwError "Minting policy unsound OR invalid input") pure maybemap'
       where
         maybemap' :: Maybe (AssocMap.Map PubKeyHash Integer)
         maybemap' = foldM (\mp (tn, amm) -> withdrawFromCorrect tn amm mp) (gdDepositMap datum) tokens
         -- AssocMap has no "insertWith", so we have to use lookup and insert, all under foldM
         withdrawFromCorrect tn amm mp =
-          case AssocMap.lookup pkh mp of
+          case AssocMap.lookup depositor mp of
             Just n | n > amm  -> Just (AssocMap.insert depositor (n-amm) mp)
             Just n | n == amm -> Just (AssocMap.delete depositor mp)
             _                 -> Nothing

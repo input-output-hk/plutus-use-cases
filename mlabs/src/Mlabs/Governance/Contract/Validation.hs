@@ -1,5 +1,10 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -fno-specialise #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+{-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 
 -- | Validation, on-chain code for governance application 
 module Mlabs.Governance.Contract.Validation (
@@ -35,6 +40,8 @@ import qualified Plutus.V1.Ledger.Value    as Value
 import qualified Plutus.V1.Ledger.Contexts as Contexts
 import qualified Plutus.V1.Ledger.Address  as Address
 import           Plutus.V1.Ledger.Credential (Credential(..))
+
+import Mlabs.Data.List (sortOn)
 
 -- TODO: Once AssetClass has a ToSchema instance, change this to a newtype.
 --       or not. this is fine really. 
@@ -141,13 +148,13 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
     isMinting :: (AssocMap.Map TokenName Integer -> Bool) -> Bool
     isMinting f = case AssocMap.lookup xgovCS . Value.getValue $ txInfoForge info of
       Nothing -> False
-      Just mp -> f mp 
+      Just mp -> traceIfFalse "wrong sum of xGOV given to burn" $ f mp 
 
     -- on which endpoints the minting script needs to be invoked
     checkForging :: Bool
     checkForging = case redeemer of
       GRDeposit  _ _ -> isMinting (const True)  
-      GRWithdraw _ n -> isMinting ((== n) . sum . map snd . AssocMap.toList)
+      GRWithdraw _ n -> isMinting ((== n) . negate . sum . map snd . AssocMap.toList)
 
     checkCorrectValueGovChange = case redeemer of
       -- we don't care about from whom the payment came
@@ -170,9 +177,9 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
           traceIfFalse "wrong update of deposit map" $ newMap == (gdDepositMap outputDatum)
           
       GRWithdraw pkh n ->
-        let govValOf v = Value.valueOf v (acGovCurrencySymbol gov) (acGovTokenName gov)   
-            newMap =
-              foldr (\(tn, amm) mp ->
+        let govValOf v = Value.valueOf v (acGovCurrencySymbol gov) (acGovTokenName gov)
+            newMap = 
+              foldr (\(tn, amm) mp -> 
                 let prev = maybe (traceError "withdraw from non-recorded deposit") id $ AssocMap.lookup (coerce tn) mp
                     newMapInner = case prev - amm of
                       p | p > 0  -> AssocMap.insert (coerce tn) p mp
@@ -185,7 +192,8 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
                   Nothing -> traceError "no xGOV paid"
                   Just mp -> AssocMap.toList $ mp          
         in
-          traceIfFalse "wrong update of deposit map" (newMap == (gdDepositMap outputDatum)) &&
+          -- here we assume that they are sorted (spoiler alert: they aren't.) TO BE FIXED by using UniqueMap
+          traceIfFalse "wrong update of deposit map" (newMap == gdDepositMap outputDatum) &&
           traceIfFalse "GOV not paid to PKH" ((== n) . govValOf $ valuePaidTo info pkh) -- this test should be somewhere else
           
 scrInstance :: GovParams -> Validators.TypedValidator Governance
@@ -229,13 +237,13 @@ mkPolicy AssetClassNft{..} _ ctx =
 
     checkEndpointCorrect :: Bool
     checkEndpointCorrect = case find hasNft $ txInfoOutputs info of
-      Nothing -> False
+      Nothing -> traceError "no governance in tx"
       Just o  -> case txOutDatumHash o of
-        Nothing -> False
+        Nothing -> traceError "no datum hash on governance"
         Just h  -> case findDatum h info of
-          Nothing        -> False
+          Nothing        -> traceError "no datum on governance"
           Just (Datum d) -> case PlutusTx.fromBuiltinData d of
-            Nothing -> False            
+            Nothing -> traceError "no datum parse"            
             Just gd -> case gdLastRedeemer gd of
               (GRWithdraw _ n) ->
                 traceIfFalse "burned xGOV not equal to specified amount"
@@ -269,3 +277,4 @@ xGovMintingPolicy nft = mkMintingPolicyScript $
 -- | takes in the GOV CurrencySymbol, returns the xGOV CurrencySymbol
 xGovCurrencySymbol :: AssetClassNft -> CurrencySymbol
 xGovCurrencySymbol = scriptCurrencySymbol . xGovMintingPolicy
+

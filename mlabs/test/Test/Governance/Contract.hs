@@ -120,7 +120,7 @@ testDepositHappyPath =
       hdl <- activateWallet
       void $ callEndpoint' @Deposit hdl (Deposit depoAmt1)
       next
-      void $ callEndpoint' @Deposit hdl (Deposit depoAmt)
+      void $ callEndpoint' @Deposit hdl (Deposit depoAmt2)
       next
 
 
