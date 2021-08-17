@@ -295,7 +295,7 @@ PlutusTx.makeLift ''BundleUpParams
 Lens.makeClassy_ ''BundleUpParams
 
 -- | The user creates a bundle from specified NFTs
-bundleUp :: Core.Marketplace -> BundleUpParams -> Contract w s Text ()
+bundleUp :: forall w s. Core.Marketplace -> BundleUpParams -> Contract w s Text ()
 bundleUp marketplace BundleUpParams {..} = do
     let bundleId = Core.calcBundleIdHash bupIpfsCids
     let nftIds = sha2_256 <$> bupIpfsCids

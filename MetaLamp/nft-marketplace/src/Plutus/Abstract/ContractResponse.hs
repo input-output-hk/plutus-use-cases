@@ -1,14 +1,17 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DerivingStrategies    #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DeriveAnyClass         #-}
+{-# LANGUAGE DeriveGeneric          #-}
+{-# LANGUAGE DerivingStrategies     #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoImplicitPrelude      #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE TypeFamilies           #-}
 
 module Plutus.Abstract.ContractResponse where
 
@@ -45,15 +48,17 @@ import           Prelude                          (Monoid (..), Semigroup (..),
 import qualified Prelude
 import           Text.Printf                      (printf)
 
-data ContractResponse e a = ContractSuccess a | ContractError e | ContractPending
+data ContractResponse e a = CrSuccess a | CrError e | CrPending
     deriving stock    (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
+
+Lens.makeClassyPrisms ''ContractResponse
 
 instance Semigroup (ContractResponse e a) where
     a <> b = b
 
 instance Monoid (ContractResponse e a) where
-    mempty = ContractPending
+    mempty = CrPending
     mappend = (<>)
 
 withContractResponse :: forall l a p r s.
@@ -65,11 +70,11 @@ withContractResponse :: forall l a p r s.
 withContractResponse _ g c = do
     e <- runError $ do
         p <- endpoint @l
-        _ <- tell ContractPending
+        _ <- tell CrPending
         errorHandler `handleError` c p
     tell $ case e of
-        Left err -> ContractError err
-        Right a  -> ContractSuccess $ g a
+        Left err -> CrError err
+        Right a  -> CrSuccess $ g a
 
 errorHandler :: Text -> Contract w s Text b
 errorHandler e = do

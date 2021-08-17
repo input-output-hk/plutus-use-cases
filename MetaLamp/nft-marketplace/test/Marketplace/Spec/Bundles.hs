@@ -44,8 +44,21 @@ tests =
         Fixtures.options
         "Should create a bundle for two NFTs transforming Marketplace store"
         datumsCheck
-        bundleUpTrace
+        bundleUpTrace,
+      checkPredicateOptions
+        Fixtures.options
+        "Should not create a bundle if NFTs are not minted"
+        bundleErrorCheck
+        bundleErrorTrace
     ]
+
+bundleUpParams ::        Marketplace.BundleUpParams
+bundleUpParams =  Marketplace.BundleUpParams {
+          bupIpfsCids    = Fixtures.cids,
+          bupName        =  Fixtures.bundleName,
+          bupDescription =  Fixtures.bundleDescription,
+          bupCategory    = Fixtures.bundleCategory
+        }
 
 bundleUpTrace :: Trace.EmulatorTrace ()
 bundleUpTrace = do
@@ -70,13 +83,17 @@ bundleUpTrace = do
                         Marketplace.cnpRevealIssuer   = False
                     }
   _ <- Trace.waitNSlots 50
-  _ <- Trace.callEndpoint @"bundleUp" h
-        Marketplace.BundleUpParams {
-          bupIpfsCids    = Fixtures.cids,
-          bupName        =  Fixtures.bundleName,
-          bupDescription =  Fixtures.bundleDescription,
-          bupCategory    = Fixtures.bundleCategory
-        }
+  _ <- Trace.callEndpoint @"bundleUp" h bundleUpParams
+
+  _ <- Trace.waitNSlots 50
+  pure ()
+
+bundleErrorTrace :: Trace.EmulatorTrace ()
+bundleErrorTrace = do
+  _ <- Start.startTrace
+  h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
+
+  _ <- Trace.callEndpoint @"bundleUp" h bundleUpParams
 
   _ <- Trace.waitNSlots 50
   pure ()
@@ -95,3 +112,6 @@ datumsCheck =
                        (AssocMap.lookup Fixtures.catTokenIpfsCidHash b) &&
                        maybe False Fixtures.hasPhotoTokenRecord
                        (AssocMap.lookup Fixtures.photoTokenIpfsCidHash b)
+
+bundleErrorCheck :: TracePredicate
+bundleErrorCheck = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)

@@ -95,16 +95,16 @@ nftUnion MarketplaceDatum{..} = foldr union mdSingletons $ fmap getNfts $ toList
       NoLot val      -> fmap (\info -> NFT info Nothing) val
       HasLot val lot -> fmap (\(cid, info) -> NFT info (Just (cid, lot))) val
 
-{-# INLINABLE bundleUp #-}
-bundleUp :: [IpfsCidHash] -> BundleId -> BundleInfo -> MarketplaceDatum -> MarketplaceDatum
-bundleUp nftIds bundleId bundleInfo MarketplaceDatum{..} =
+{-# INLINABLE bundleUpDatum #-}
+bundleUpDatum :: [IpfsCidHash] -> BundleId -> BundleInfo -> MarketplaceDatum -> MarketplaceDatum
+bundleUpDatum nftIds bundleId bundleInfo MarketplaceDatum{..} =
     MarketplaceDatum { mdSingletons = foldr AssocMap.delete mdSingletons nftIds
           , mdBundles = AssocMap.insert bundleId (makeBundle mdSingletons nftIds bundleInfo) mdBundles
           }
 
-{-# INLINABLE unbundle #-}
-unbundle :: BundleId -> MarketplaceDatum -> MarketplaceDatum
-unbundle bundleId MarketplaceDatum{..} =
+{-# INLINABLE unbundleDatum #-}
+unbundleDatum :: BundleId -> MarketplaceDatum -> MarketplaceDatum
+unbundleDatum bundleId MarketplaceDatum{..} =
     MarketplaceDatum { mdSingletons = foldr insert mdSingletons $ AssocMap.toList tokens
           , mdBundles = AssocMap.delete bundleId mdBundles
           }
@@ -168,11 +168,11 @@ transition marketplace state redeemer = case redeemer of
                     )
     BundleUpRedeemer nftIds bundleId bundleInfo
         -> Just ( mempty
-                , State (bundleUp nftIds bundleId bundleInfo nftStore) currStateValue
+                , State (bundleUpDatum nftIds bundleId bundleInfo nftStore) currStateValue
                 )
     UnbundleRedeemer bundleId
         -> Just ( mempty
-                , State (unbundle bundleId nftStore) currStateValue
+                , State (unbundleDatum bundleId nftStore) currStateValue
                 )
     _                                        -> trace "Invalid transition" Nothing
   where
