@@ -72,6 +72,8 @@ PlutusTx.unstableMakeIsData ''MarketplaceDatum
 
 PlutusTx.makeLift ''MarketplaceDatum
 
+Lens.makeClassy_ ''MarketplaceDatum
+
 {-# INLINABLE insertNft #-}
 insertNft :: IpfsCidHash
                       -> NFT -> MarketplaceDatum -> MarketplaceDatum

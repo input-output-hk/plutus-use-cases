@@ -4,10 +4,12 @@
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 
 module Plutus.Contracts.NftMarketplace.OffChain.Owner where
 
+import qualified Control.Lens                                 as Lens
 import           Control.Monad                                hiding (fmap)
 import qualified Data.Aeson                                   as J
 import           Data.Proxy                                   (Proxy (..))
@@ -56,6 +58,8 @@ type MarketplaceOwnerSchema =
 data OwnerContractState = Started Core.Marketplace
     deriving stock (Haskell.Eq, Haskell.Ord, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
+
+Lens.makeClassyPrisms ''OwnerContractState
 
 ownerEndpoints :: Contract (ContractResponse Text OwnerContractState) MarketplaceOwnerSchema Void ()
 ownerEndpoints = forever $ withContractResponse (Proxy @"start") Started start

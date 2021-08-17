@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Marketplace.Spec.Start
-  ( tests
+  ( tests, startTrace
   ) where
 
 import           Control.Lens                                 ((&), (.~))
@@ -37,7 +37,7 @@ tests =
 startTrace :: Trace.EmulatorTrace ()
 startTrace = do
   _ <- Trace.activateContractWallet Fixtures.ownerWallet $ void startContract
-  -- _ <- Trace.waitNSlots 5
+  _ <- Trace.waitNSlots 50
   pure ()
 
 startContract ::
