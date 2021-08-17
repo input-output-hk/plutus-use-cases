@@ -62,6 +62,7 @@ data CreateNftParams =
 
 PlutusTx.unstableMakeIsData ''CreateNftParams
 PlutusTx.makeLift ''CreateNftParams
+Lens.makeClassy_ ''CreateNftParams
 
 -- | The user specifies which NFT to mint and add to marketplace store,
 --   he gets it into his wallet and the corresponding store entry is created
@@ -100,6 +101,7 @@ data OpenSaleParams =
 
 PlutusTx.unstableMakeIsData ''OpenSaleParams
 PlutusTx.makeLift ''OpenSaleParams
+Lens.makeClassy_ ''OpenSaleParams
 
 -- | The user opens sale for his NFT
 openSale :: Core.Marketplace -> OpenSaleParams -> Contract w s Text ()
@@ -134,6 +136,7 @@ data CompleteSaleParams =
 
 PlutusTx.unstableMakeIsData ''CompleteSaleParams
 PlutusTx.makeLift ''CompleteSaleParams
+Lens.makeClassy_ ''CompleteSaleParams
 
 -- | The user buys specified NFT lot
 buyNft :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
@@ -193,6 +196,7 @@ data HoldAnAuctionParams =
 
 PlutusTx.unstableMakeIsData ''HoldAnAuctionParams
 PlutusTx.makeLift ''HoldAnAuctionParams
+Lens.makeClassy_ ''HoldAnAuctionParams
 
 -- | The user starts an auction for specified NFT
 startAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
@@ -252,6 +256,7 @@ data BidOnAuctionParams =
 
 PlutusTx.unstableMakeIsData ''BidOnAuctionParams
 PlutusTx.makeLift ''BidOnAuctionParams
+Lens.makeClassy_ ''BidOnAuctionParams
 
 -- | The user submits a bid on the auction for specified NFT
 bidOnAuction :: Core.Marketplace -> BidOnAuctionParams -> Contract w s Text ()
@@ -287,6 +292,7 @@ data BundleUpParams =
 
 PlutusTx.unstableMakeIsData ''BundleUpParams
 PlutusTx.makeLift ''BundleUpParams
+Lens.makeClassy_ ''BundleUpParams
 
 -- | The user creates a bundle from specified NFTs
 bundleUp :: Core.Marketplace -> BundleUpParams -> Contract w s Text ()
@@ -314,6 +320,7 @@ data UnbundleParams =
 
 PlutusTx.unstableMakeIsData ''UnbundleParams
 PlutusTx.makeLift ''UnbundleParams
+Lens.makeClassy_ ''UnbundleParams
 
 -- | The user unbundles specified NFTs
 unbundle :: Core.Marketplace -> UnbundleParams -> Contract w s Text ()

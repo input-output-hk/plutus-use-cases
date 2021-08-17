@@ -32,29 +32,44 @@ import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet
 
--- TODO add tests on       cnpRevealIssuer
 tests :: TestTree
 tests =
   testGroup
     "createNft"
     [ checkPredicateOptions
         Fixtures.options
-        "Should mint NFT token into the user wallet and create the Marketplace entry"
+        "Should mint NFT token into the user wallet and create the Marketplace entry hiding issuer"
         (datumsCheck .&&. valueCheck)
-        createNftTrace
+        createNftTrace,
+      checkPredicateOptions
+        Fixtures.options
+        "Should mint NFT token into the user wallet and create the Marketplace entry revealing issuer"
+        (datumsCheck' .&&. valueCheck)
+        createNftTrace'
     ]
+
+createNftParams :: Marketplace.CreateNftParams
+createNftParams = Marketplace.CreateNftParams {
+                        Marketplace.cnpIpfsCid        = Fixtures.catTokenIpfsCid,
+                        Marketplace.cnpNftName        = Fixtures.catTokenName,
+                        Marketplace.cnpNftDescription = Fixtures.catTokenDescription,
+                        Marketplace.cnpNftCategory = Fixtures.catTokenCategory,
+                        Marketplace.cnpRevealIssuer   = False
+                    }
 
 createNftTrace :: Trace.EmulatorTrace ()
 createNftTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
-  _ <- Trace.callEndpoint @"createNft" h Marketplace.CreateNftParams {
-                        Marketplace.cnpIpfsCid        = catTokenIpfsCid,
-                        Marketplace.cnpNftName        = "Cat token",
-                        Marketplace.cnpNftDescription = "A picture of a cat on a pogo stick",
-                        Marketplace.cnpNftCategory = ["GIFs"],
-                        Marketplace.cnpRevealIssuer   = False
-                    }
+  _ <- Trace.callEndpoint @"createNft" h createNftParams
+  _ <- Trace.waitNSlots 50
+  pure ()
+
+createNftTrace' :: Trace.EmulatorTrace ()
+createNftTrace' = do
+  _ <- Start.startTrace
+  h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
+  _ <- Trace.callEndpoint @"createNft" h $ createNftParams & Marketplace._cnpRevealIssuer .~ True
   _ <- Trace.waitNSlots 50
   pure ()
 
@@ -64,8 +79,21 @@ datumsCheck =
     Fixtures.marketplaceAddress
     (containsNft . Marketplace.mdSingletons)
     where
-      containsNft = maybe False (\t -> (t ^. Marketplace._nftLot & isNothing) && (t ^. Marketplace._nftRecord & hasCatTokenRecord)) .
-                    (AssocMap.lookup catTokenIpfsCidHash)
+      containsNft = maybe False (\t -> (t ^. Marketplace._nftLot & isNothing) &&
+                                (t ^. Marketplace._nftRecord . Marketplace._niIssuer & isNothing) &&
+                                (t ^. Marketplace._nftRecord & Fixtures.hasCatTokenRecord)) .
+                    (AssocMap.lookup Fixtures.catTokenIpfsCidHash)
+
+datumsCheck' :: TracePredicate
+datumsCheck' =
+  dataAtAddress
+    Fixtures.marketplaceAddress
+    (containsNft . Marketplace.mdSingletons)
+    where
+      containsNft = maybe False (\t -> (t ^. Marketplace._nftLot & isNothing) &&
+                                (t ^. Marketplace._nftRecord . Marketplace._niIssuer == Just (Utils.walletPkh Fixtures.userWallet)) &&
+                                (t ^. Marketplace._nftRecord & Fixtures.hasCatTokenRecord)) .
+                    (AssocMap.lookup Fixtures.catTokenIpfsCidHash)
 
 valueCheck :: TracePredicate
 valueCheck =
@@ -73,21 +101,4 @@ valueCheck =
     (walletAddress Fixtures.userWallet)
     (Utils.one hasNft . V.flattenValue)
     where
-      hasNft v = (v ^. _2 & V.unTokenName) == catTokenIpfsCid
-
-catTokenIpfsCid :: Marketplace.IpfsCid
-catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
-
-catTokenIpfsCidHash :: Marketplace.IpfsCidHash
-catTokenIpfsCidHash = sha2_256 catTokenIpfsCid
-catTokenName :: ByteString
-catTokenName        = "Cat token"
-catTokenDescription :: ByteString
-catTokenDescription = "A picture of a cat on a pogo stick"
-catTokenCategory :: Marketplace.Category
-catTokenCategory = ["GIFs"]
-hasCatTokenRecord  :: Marketplace.NftInfo -> Bool
-hasCatTokenRecord Marketplace.NftInfo {..} = niCategory == catTokenCategory && niName == catTokenName && niDescription == catTokenDescription
-
-photoTokenIpfsCid :: Marketplace.IpfsCid
-photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
+      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCid

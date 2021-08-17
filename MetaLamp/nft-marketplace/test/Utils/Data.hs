@@ -15,3 +15,5 @@ one f = foldr reducer False
     where
         reducer cur acc = if acc then not . f $ cur else f cur
 
+walletPkh :: Wallet -> PubKeyHash
+walletPkh = pubKeyHash . walletPubKey
