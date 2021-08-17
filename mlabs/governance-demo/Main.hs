@@ -16,9 +16,8 @@ import Data.Text (Text, pack)
 
 import           Mlabs.Governance.Contract.Api (StartGovernance(..), Deposit(..), Withdraw(..), QueryBalance(..))
 import           Mlabs.Governance.Contract.Validation (GovParams(..), AssetClassNft(..), AssetClassGov(..))
-import           Mlabs.Governance.Contract.Simulator.Handler (BootstrapContract)
 import qualified Mlabs.Governance.Contract.Simulator.Handler as Handler
-import           Mlabs.Governance.Contract.Simulator.Handler (GovernanceContracts (..))
+import           Mlabs.Governance.Contract.Simulator.Handler (BootstrapContract, GovernanceContracts (..))
 
 import Ledger (CurrencySymbol, TokenName, pubKeyHash, PubKeyHash, txId)
 import Ledger.Constraints (mustPayToPubKey) 
@@ -36,8 +35,7 @@ import           Plutus.Contracts.Currency as Currency
 
 import Mlabs.Plutus.PAB (call, waitForLast)
 import Mlabs.System.Console.PrettyLogger (logNewLine)
-import Mlabs.System.Console.Utils (logAction, logMlabs)
-import Mlabs.System.Console.Utils (logBalance)
+import Mlabs.System.Console.Utils (logAction, logMlabs, logBalance)
 
 
 cfg = BootstrapCfg 
@@ -52,8 +50,8 @@ main :: IO ()
 main = 
   void $ Handler.runSimulation (bootstrapGovernance cfg) $ do
     Simulator.logString @(Builtin GovernanceContracts) "Starting Governance PAB webserver"
-    shutdown       <- PWS.startServerDebug
-    let simWallets = (wallets cfg)
+    shutdown          <- PWS.startServerDebug
+    let simWallets    = wallets cfg
         (wallet1:wallet2:wallet3:_)  = simWallets
     (cids, govParams) <- subscript "Initializing contracts, minting and distributing required tokens" 
                           simWallets (itializeContracts wallet1)
@@ -118,7 +116,7 @@ data BootstrapCfg = BootstrapCfg
 -- and distributes them ower wallets according to `BootstrapCfg`
 bootstrapGovernance :: BootstrapCfg -> BootstrapContract
 bootstrapGovernance BootstrapCfg{..} = do
-    (nftCur, govCur) <- mapError toText $ mintRequredTokens
+    (nftCur, govCur) <- mapError toText mintRequredTokens
     let nftCs = Currency.currencySymbol nftCur
         govCs = Currency.currencySymbol govCur
         govPerWallet = Value.singleton govCs govTokenName govAmount
@@ -146,5 +144,6 @@ bootstrapGovernance BootstrapCfg{..} = do
 
 printBalance :: Wallet -> Simulation (Builtin schema) ()
 printBalance wallet =
-  (Simulator.valueAt $ walletAddress wallet) >>= logBalance ("WALLET " <> show wallet) 
+  Simulator.valueAt $ walletAddress wallet 
+  >>= logBalance ("WALLET " <> show wallet) 
   

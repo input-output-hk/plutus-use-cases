@@ -4,8 +4,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
@@ -28,7 +26,6 @@ import           Data.Text   (Text)
 import Data.Monoid (Last)
 
 import           Control.Monad.Freer                      (interpret, Eff, Member, type (~>))
-import           Data.Default                             ()
 import           Plutus.PAB.Core                          (EffectHandlers)
 import           Plutus.PAB.Effects.Contract.Builtin      (Builtin, SomeBuiltin (..), handleBuiltin, endpointsToSchemas)
 import           Plutus.PAB.Simulator                     (Simulation, SimulatorContractHandler, SimulatorState,
@@ -43,7 +40,6 @@ import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Ledger (CurrencySymbol)
 
 
--- todo Additional Init contract TBD
 data GovernanceContracts 
   = Bootstrap 
   | Governance GovParams

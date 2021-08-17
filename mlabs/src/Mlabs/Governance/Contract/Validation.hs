@@ -156,20 +156,20 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
       -- we don't care about from whom the payment came
       GRDeposit _ n  -> traceIfFalse "incorrect value paid to script" $
         txOutValue ownInput Hask.<> govSingleton gov n == txOutValue ownOutput
-      GRWithdraw pkh n -> case AssocMap.lookup xgovCS . Value.getValue $ (userInput pkh) of -- this may have the same issue that gov had
+      GRWithdraw pkh n -> case AssocMap.lookup xgovCS . Value.getValue $ userInput pkh of -- this may have the same issue that gov had
         Nothing -> traceError "no xGOV paid"
         Just mp -> traceIfFalse "wrong amount told in redeemer" . (== n) . sum . map snd $ AssocMap.toList mp
 
     checkOutputHasNft = Value.valueOf (txOutValue ownOutput) (acNftCurrencySymbol nft) (acNftTokenName nft) == 1    
     
     checkCorrectLastRedeemer = traceIfFalse "wrong last endpoint record in datum"
-      $ redeemer == (gdLastRedeemer outputDatum)
+      $ redeemer == gdLastRedeemer outputDatum
 
     checkCorrectDepositMap = case redeemer of
       GRDeposit pkh n ->
         let prev = maybe 0 id $ AssocMap.lookup pkh (gdDepositMap govDatum)
             newMap = AssocMap.insert pkh (n+prev) (gdDepositMap govDatum)
-        in traceIfFalse "wrong update of deposit map" $ newMap == (gdDepositMap outputDatum)
+        in traceIfFalse "wrong update of deposit map" $ newMap == gdDepositMap outputDatum
       GRWithdraw pkh n ->
         let newMap =
               foldr (\(tn, amm) mp ->
@@ -183,8 +183,8 @@ mkValidator GovParams{..} xgovCS govDatum redeemer ctx =
                 (gdDepositMap govDatum) $
                 case AssocMap.lookup xgovCS $ Value.getValue (userInput pkh) of
                   Nothing -> traceError "no xGOV paid"
-                  Just mp -> AssocMap.toList $ mp          
-        in traceIfFalse "wrong update of deposit map" (newMap == (gdDepositMap outputDatum)) &&
+                  Just mp -> AssocMap.toList mp          
+        in traceIfFalse "wrong update of deposit map" (newMap == gdDepositMap outputDatum) &&
           case Value.flattenValue (valuePaidTo info pkh) of -- possibly need to change this here
           [(csym, tn, amm)] | amm == n -> traceIfFalse "non-GOV payment by script on withdrawal"
                                             $ AssetClassGov csym tn == gov
@@ -211,7 +211,7 @@ govSingleton :: AssetClassGov -> Integer -> Value
 govSingleton AssetClassGov{..} = Value.singleton acGovCurrencySymbol acGovTokenName
 
 xgovSingleton :: AssetClassNft -> TokenName -> Integer -> Value
-xgovSingleton nft tok = Value.singleton (xGovCurrencySymbol nft) tok
+xgovSingleton nft = Value.singleton (xGovCurrencySymbol nft)
 
 -- xGOV minting policy
 {-# INLINABLE mkPolicy #-} -- there's something wrong with this 'unit' hack.
@@ -261,7 +261,7 @@ mkPolicy AssetClassNft{..} _ ctx =
         Just mp -> case AssocMap.toList mp of
           [(tn, amm)] ->
             traceIfFalse "wrong ammount of xGOV minted" (amm == n) &&
-            traceIfFalse "wrong TokenName minted" (tn == (coerce pkh))
+            traceIfFalse "wrong TokenName minted" (tn == coerce pkh)
           _ -> traceError "expected exactly one token minted under xGOV CurrencySymbol"
           
 xGovMintingPolicy :: AssetClassNft -> MintingPolicy

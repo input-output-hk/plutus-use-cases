@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | Init blockchain state for tests
 module Test.Governance.Init (
@@ -79,10 +78,7 @@ gov = Gov.govSingleton acGOV
 
 -- | Make `xGOV` `Value`
 xgov :: Wallet -> Integer -> Value
-xgov wallet value = Gov.xgovSingleton 
-  acNFT
-  (mkTokenName wallet)
-  value
+xgov wallet = Gov.xgovSingleton acNFT (mkTokenName wallet)
   where 
     (Gov.AssetClassGov cs tn) = acGOV
     mkTokenName :: Wallet -> TokenName
@@ -90,7 +86,7 @@ xgov wallet value = Gov.xgovSingleton
 
 -- | Make `Ada` `Value`
 ada :: Integer -> Value
-ada x = Value.singleton adaSymbol adaToken x
+ada = Value.singleton adaSymbol adaToken
 
 -- | wallets for tests
 initialDistribution :: M.Map Wallet Value
@@ -98,12 +94,12 @@ initialDistribution = M.fromList
   [ (fstWalletWithGOV, ada 1000_000_000 <> gov 100)
   , (sndWalletWithGOV, ada 1000_000_000 <> gov 100)
   , (walletNoGOV,      ada 1000_000_000)
-  , (adminWallet,      ada 1000_000_000 <> nft 10)
+  , (adminWallet,      ada 1000_000_000 <> nft 1)
   ]
     
 -- | Assert that contract finished excution with arbitrary error
-assertHasErrorOutcome contract tag message = 
-  assertOutcome contract tag isFailed message
+assertHasErrorOutcome contract tag = 
+  assertOutcome contract tag isFailed
   where
     isFailed e
       | (Failed _) <- e = True
