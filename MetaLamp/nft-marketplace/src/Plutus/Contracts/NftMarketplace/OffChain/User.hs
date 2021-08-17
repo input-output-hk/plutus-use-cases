@@ -298,6 +298,8 @@ Lens.makeClassy_ ''BundleUpParams
 bundleUp :: forall w s. Core.Marketplace -> BundleUpParams -> Contract w s Text ()
 bundleUp marketplace BundleUpParams {..} = do
     let bundleId = Core.calcBundleIdHash bupIpfsCids
+    bundles <- Core.mdBundles <$> marketplaceStore marketplace
+    when (isJust $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry already exists"
     let nftIds = sha2_256 <$> bupIpfsCids
     let bundleInfo = Core.BundleInfo
           { biName        = bupName
@@ -326,6 +328,8 @@ Lens.makeClassy_ ''UnbundleParams
 unbundle :: Core.Marketplace -> UnbundleParams -> Contract w s Text ()
 unbundle marketplace UnbundleParams {..} = do
     let bundleId = Core.calcBundleIdHash upIpfsCids
+    bundles <- Core.mdBundles <$> marketplaceStore marketplace
+    when (isNothing $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry does not exist"
 
     let client = Core.marketplaceClient marketplace
     void $ mapError' $ runStep client $ Core.UnbundleRedeemer bundleId

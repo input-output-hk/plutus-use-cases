@@ -13,14 +13,17 @@ import           Control.Lens                                 (_2, (&), (.~),
                                                                (^.), (^?))
 import qualified Control.Lens                                 as Lens
 import           Control.Monad                                (void)
+import           Data.Function                                (on)
 import qualified Data.Map                                     as Map
 import           Data.Maybe                                   (isNothing)
 import           Data.Text                                    (Text)
+import           Data.Void
 import           Ledger
 import qualified Ledger.Ada                                   as Ada
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
+import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
@@ -33,8 +36,6 @@ import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet
 
--- Should unbunle
--- Should not create if NFT not minted
 tests :: TestTree
 tests =
   testGroup
@@ -43,13 +44,23 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should create a bundle for two NFTs transforming Marketplace store"
-        datumsCheck
-        bundleUpTrace,
+        bundleDatumsCheck
+        (void bundleTrace),
       checkPredicateOptions
         Fixtures.options
         "Should not create a bundle if NFTs are not minted"
-        bundleErrorCheck
-        bundleErrorTrace
+        errorCheck
+        bundleErrorTrace,
+      checkPredicateOptions
+        Fixtures.options
+        "Should unbundle transforming Marketplace store"
+        unbundleDatumsCheck
+        unbundleTrace,
+      checkPredicateOptions
+        Fixtures.options
+        "Should not unbundle if bundle does not exist"
+        errorCheck
+        unbundleErrorTrace
     ]
 
 bundleUpParams ::        Marketplace.BundleUpParams
@@ -60,8 +71,8 @@ bundleUpParams =  Marketplace.BundleUpParams {
           bupCategory    = Fixtures.bundleCategory
         }
 
-bundleUpTrace :: Trace.EmulatorTrace ()
-bundleUpTrace = do
+bundleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+bundleTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
 
@@ -86,7 +97,7 @@ bundleUpTrace = do
   _ <- Trace.callEndpoint @"bundleUp" h bundleUpParams
 
   _ <- Trace.waitNSlots 50
-  pure ()
+  pure h
 
 bundleErrorTrace :: Trace.EmulatorTrace ()
 bundleErrorTrace = do
@@ -98,8 +109,8 @@ bundleErrorTrace = do
   _ <- Trace.waitNSlots 50
   pure ()
 
-datumsCheck :: TracePredicate
-datumsCheck =
+bundleDatumsCheck :: TracePredicate
+bundleDatumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
     (containsBundle . Marketplace.mdBundles)
@@ -113,5 +124,36 @@ datumsCheck =
                        maybe False Fixtures.hasPhotoTokenRecord
                        (AssocMap.lookup Fixtures.photoTokenIpfsCidHash b)
 
-bundleErrorCheck :: TracePredicate
-bundleErrorCheck = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheck :: TracePredicate
+errorCheck = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+
+unbundleTrace :: Trace.EmulatorTrace ()
+unbundleTrace = do
+  h <- bundleTrace
+
+  _ <- Trace.callEndpoint @"unbundle" h $ Marketplace.UnbundleParams Fixtures.cids
+
+  _ <- Trace.waitNSlots 50
+  pure ()
+
+unbundleErrorTrace :: Trace.EmulatorTrace ()
+unbundleErrorTrace = do
+  _ <- Start.startTrace
+  h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
+
+  _ <- Trace.callEndpoint @"unbundle" h $ Marketplace.UnbundleParams Fixtures.cids
+
+  _ <- Trace.waitNSlots 50
+  pure ()
+
+unbundleDatumsCheck :: TracePredicate
+unbundleDatumsCheck =
+  dataAtAddress
+    Fixtures.marketplaceAddress $
+    \mp -> (containsNoBundle . Marketplace.mdBundles $ mp) && (containsNfts . Marketplace.mdSingletons $ mp)
+    where
+      containsNoBundle = isNothing . (AssocMap.lookup Fixtures.bundleId)
+      containsNfts store = maybe False (Fixtures.hasCatTokenRecord . Marketplace.nftRecord)
+                       (AssocMap.lookup Fixtures.catTokenIpfsCidHash store) &&
+                       maybe False (Fixtures.hasPhotoTokenRecord . Marketplace.nftRecord)
+                       (AssocMap.lookup Fixtures.photoTokenIpfsCidHash store)
