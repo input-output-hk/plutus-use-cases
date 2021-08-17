@@ -101,6 +101,11 @@ library
     Mlabs.Emulator.Scene
     Mlabs.Emulator.Script
     Mlabs.Emulator.Types
+    Mlabs.Governance.Contract.Api
+    Mlabs.Governance.Contract.Emulator.Client
+    Mlabs.Governance.Contract.Server
+    Mlabs.Governance.Contract.Simulator.Handler
+    Mlabs.Governance.Contract.Validation
     Mlabs.Lending.Contract
     Mlabs.Lending.Contract.Api
     Mlabs.Lending.Contract.Forge
@@ -141,6 +146,13 @@ executable nft-demo
   import:  common-language
   main-is: nft-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
+
+executable governance-demo
+  import:  common-imports
+  import:  common-language
+  main-is: governance-demo/Main.hs
+  build-depends: 
+      mlabs-plutus-use-cases
 
 executable lendex-demo
   import:  common-imports
@@ -195,6 +207,8 @@ Test-suite mlabs-plutus-use-cases-tests
 
   Other-modules:
     Test.Demo.Contract.Mint
+    Test.Governance.Contract
+    Test.Governance.Init
     Test.Lending.Contract
     Test.Lending.Init
     Test.Lending.Logic
