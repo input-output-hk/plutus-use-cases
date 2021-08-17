@@ -2,6 +2,7 @@ module Main
     ( main
     ) where
 
+import qualified Marketplace.Spec.Bundles   as Bundles
 import qualified Marketplace.Spec.CreateNft as CreateNft
 import qualified Marketplace.Spec.Start     as Start
 import           Test.Tasty
@@ -13,4 +14,5 @@ tests :: TestTree
 tests = testGroup "NFT Marketplace"
     [ Start.tests
     , CreateNft.tests
+    , Bundles.tests
     ]

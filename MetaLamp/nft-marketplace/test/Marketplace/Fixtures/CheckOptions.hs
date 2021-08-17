@@ -24,6 +24,7 @@ import           Test.Tasty
 
 options :: CheckOptions
 options = defaultCheckOptions & emulatorConfig .~ emulatorCfg
+                              & maxSlot .~ 15_000
   where
     emulatorCfg :: Trace.EmulatorConfig
     emulatorCfg =
