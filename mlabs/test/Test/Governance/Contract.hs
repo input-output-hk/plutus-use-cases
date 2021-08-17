@@ -44,8 +44,8 @@ import Data.Semigroup (Last)
 import Test.Utils (next, wait)
 import Test.Governance.Init as Test
 import qualified Mlabs.Governance.Contract.Server as Gov
-import qualified Mlabs.Governance.Contract.Emulator.Client as Gov (callDeposit, startGovernance)
-import           Mlabs.Governance.Contract.Api (StartGovernance, Deposit(..), 
+import qualified Mlabs.Governance.Contract.Emulator.Client as Gov (callDeposit)
+import           Mlabs.Governance.Contract.Api (Deposit(..), 
                                                 Withdraw(..), GovernanceSchema)
 
 import Ledger.Index (ValidationError(..))
@@ -55,13 +55,7 @@ import Plutus.Trace.Effects.RunContract (RunContract)
 
 
 theContract :: Gov.GovernanceContract ()
-theContract = Gov.governanceEndpoints Test.params
-
-startGovernanceByAdmin :: Gov.GovernanceContract () -> Trace.EmulatorTrace ()
-startGovernanceByAdmin contract = do
-    hdl <- Trace.activateContractWallet Test.adminWallet contract
-    void $ callEndpoint' @StartGovernance hdl Test.startGovernance
-    wait 5
+theContract = Gov.governanceEndpoints Test.acGOV
 
 type Handle = ContractHandle (Maybe (Last Integer)) GovernanceSchema Text
 setup :: 
@@ -72,10 +66,7 @@ setup wallet = (wallet, theContract, Trace.walletInstanceTag wallet, Trace.activ
 
 test :: TestTree
 test = testGroup "Contract"
-  [ testGroup "Start Governance"
-      [ testStartGovernance
-      ]
-  , testGroup "Deposit" 
+  [ testGroup "Deposit" 
       [ testDepositHappyPath
       , testInsuficcientGOVFails
       , testCantDepositWithoutGov
@@ -87,17 +78,6 @@ test = testGroup "Contract"
    --  , testCantWithdrawNegativeAmount -- todo fix*
     ]
   ] -- * - they both fail as they should, just with a 'wrong message'
-
--- start tests
-testStartGovernance :: TestTree
-testStartGovernance =
-  checkPredicateOptions Test.checkOptions "Start governance"
-    ( assertNoFailedTransactions
-      .&&. walletFundsChange Test.adminWallet (Test.nft (negate 1))
-      .&&. valueAtAddress Test.scriptAddress (== Test.nft 1)
-    )
-    $ startGovernanceByAdmin theContract
-
 
 -- deposit tests
 testDepositHappyPath :: TestTree
@@ -113,10 +93,9 @@ testDepositHappyPath =
       .&&. walletFundsChange wallet ( Test.gov (negate depoAmt) 
                                       <> Test.xgov wallet depoAmt 
                                     )
-      .&&. valueAtAddress Test.scriptAddress (== Test.nft 1 <> Test.gov depoAmt)
+      .&&. valueAtAddress Test.scriptAddress (== Test.gov depoAmt)
     ) 
     $ do
-      startGovernanceByAdmin contract
       hdl <- activateWallet
       void $ callEndpoint' @Deposit hdl (Deposit depoAmt1)
       next
@@ -134,10 +113,8 @@ testInsuficcientGOVFails =
     ( assertNoFailedTransactions
       .&&. assertContractError contract tag errCheck "Should fail with `InsufficientFunds`"
       .&&. walletFundsChange wallet mempty
-      .&&. valueAtAddress Test.scriptAddress (== Test.nft 1)
     )
     $ do
-        startGovernanceByAdmin contract
         hdl <- activateWallet
         void $ callEndpoint' @Deposit hdl (Deposit 1000) -- TODO get value from wallet
         next
@@ -152,10 +129,8 @@ testCantDepositWithoutGov =
     (assertNoFailedTransactions
       .&&. assertContractError contract tag errCheck "Should fail with `InsufficientFunds`"
       .&&. walletFundsChange wallet mempty
-      .&&. valueAtAddress Test.scriptAddress (== Test.nft 1)
     )
     $ do
-        startGovernanceByAdmin contract
         hdl <- activateWallet
         void $ callEndpoint' @Deposit hdl (Deposit 50)
         next
@@ -168,10 +143,8 @@ testCantDepositNegativeAmount =
   in
   checkPredicateOptions Test.checkOptions "Cant deposit negative GOV amount"
     ( assertFailedTransaction errCheck
-    .&&. valueAtAddress Test.scriptAddress (== Test.nft 1)
     )
     $ do
-        startGovernanceByAdmin contract
         hdl <- activateWallet
         void $ callEndpoint' @Deposit hdl (Deposit (negate 2))
         next
@@ -187,15 +160,13 @@ testFullWithdraw =
   checkPredicateOptions Test.checkOptions "Full withdraw"
   ( assertNoFailedTransactions
     .&&. walletFundsChange wallet mempty
-    .&&. valueAtAddress Test.scriptAddress (== Test.nft 1)
   )
   $ do
-    startGovernanceByAdmin contract
     hdl <- activateWallet
     next
     void $ callEndpoint' @Deposit hdl (Deposit depoAmt)
     next
-    void $ callEndpoint' @Withdraw hdl (Withdraw $ Test.xgov wallet depoAmt)
+    void $ callEndpoint' @Withdraw hdl (Withdraw $ Test.xgovEP wallet depoAmt)
     next
 
 testPartialWithdraw :: TestTree
@@ -209,15 +180,14 @@ testPartialWithdraw =
   checkPredicateOptions Test.checkOptions "Partial withdraw"
   ( assertNoFailedTransactions
     .&&. walletFundsChange wallet (Test.gov (negate diff) <> Test.xgov wallet diff)
-    .&&. valueAtAddress Test.scriptAddress (== Test.gov diff <> Test.nft 1)
+    .&&. valueAtAddress Test.scriptAddress (== Test.gov diff)
   )
   $ do
-    startGovernanceByAdmin contract
     hdl <- activateWallet
     next
     void $ callEndpoint' @Deposit hdl (Deposit depoAmt)
     next
-    void $ callEndpoint' @Withdraw hdl (Withdraw $ Test.xgov wallet withdrawAmt)
+    void $ callEndpoint' @Withdraw hdl (Withdraw $ Test.xgovEP wallet withdrawAmt)
     next
 
 {- What behaviour expected here: 
@@ -240,14 +210,13 @@ testCantWithdrawNegativeAmount =
     ( assertFailedTransaction errCheck
       .&&. walletFundsChange wallet ( Test.gov (negate depoAmt) 
                                       <> Test.xgov wallet depoAmt)
-      .&&. valueAtAddress Test.scriptAddress (== Test.gov depoAmt <> Test.nft 1)
+      .&&. valueAtAddress Test.scriptAddress (== Test.gov depoAmt)
     )
     $ do
-        startGovernanceByAdmin contract
         hdl <- activateWallet
         void $ callEndpoint' @Deposit hdl (Deposit depoAmt)
         next
-        void $ callEndpoint' @Withdraw hdl (Withdraw $ Test.xgov wallet (negate 1))
+        void $ callEndpoint' @Withdraw hdl (Withdraw $ Test.xgovEP wallet (negate 1))
         next
       
 testCanWithdrawOnlyxGov :: TestTree

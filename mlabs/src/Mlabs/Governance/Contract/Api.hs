@@ -10,8 +10,7 @@
 
 -- | Contract API for the Governance application
 module Mlabs.Governance.Contract.Api (
-    StartGovernance(..)
-  , Deposit(..)
+    Deposit(..)
   , Withdraw(..)
   , ProvideRewards(..)
   , QueryBalance(..)
@@ -30,11 +29,8 @@ import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
 import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
-import Mlabs.Governance.Contract.Validation (GovParams)
 
-newtype StartGovernance = StartGovernance GovParams
-    deriving stock (Hask.Show, Generic)
-    deriving newtype (FromJSON, ToJSON, ToSchema)  
+-- TBD mixed withdraw/deposit endpoint
 
 -- since we have split of withdraw/deposit we might want to ensure that
 -- the amounts have to be positive by construction, tbd (for now Natural has no ToSchema instance)
@@ -45,7 +41,7 @@ newtype Deposit = Deposit Integer
 
 PlutusTx.unstableMakeIsData ''Deposit
 
-newtype Withdraw = Withdraw Value
+newtype Withdraw = Withdraw [(PubKeyHash, Integer)]
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving newtype (FromJSON, ToJSON)
   deriving anyclass (ToSchema)
@@ -57,8 +53,6 @@ newtype ProvideRewards = ProvideRewards Value
   deriving newtype (FromJSON, ToJSON)
   deriving anyclass (ToSchema)
 
--- may be deprecated/decided on the other way of determining vote weight.
--- see the slack discussion, for take care of this last
 newtype QueryBalance = QueryBalance PubKeyHash
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving newtype (FromJSON, ToJSON)
@@ -66,16 +60,12 @@ newtype QueryBalance = QueryBalance PubKeyHash
 
 -- no need to split schemas
 type GovernanceSchema =
-    Call StartGovernance
-    .\/ Call Deposit
+        Call Deposit
     .\/ Call Withdraw
     .\/ Call ProvideRewards
     .\/ Call QueryBalance
 
 --- endpoint names
-
-instance IsEndpoint StartGovernance where
-  type EndpointSymbol StartGovernance = "start-governance"
 
 instance IsEndpoint Deposit where
   type EndpointSymbol Deposit = "deposit"

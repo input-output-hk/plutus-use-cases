@@ -17,7 +17,7 @@ import PlutusTx.Prelude
 import Prelude (Show, IO)
 
 import Mlabs.Governance.Contract.Api (GovernanceSchema)
-import Mlabs.Governance.Contract.Validation (GovParams(..))
+import Mlabs.Governance.Contract.Validation (AssetClassGov(..))
 import Mlabs.Governance.Contract.Server (governanceEndpoints)
 
 import           Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
@@ -46,7 +46,7 @@ import Ledger (CurrencySymbol)
 -- todo Additional Init contract TBD
 data GovernanceContracts 
   = Bootstrap 
-  | Governance GovParams
+  | Governance AssetClassGov
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
