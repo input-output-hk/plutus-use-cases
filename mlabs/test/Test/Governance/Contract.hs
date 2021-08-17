@@ -84,14 +84,14 @@ test =
         [ testDepositHappyPath
         , testInsuficcientGOVFails
         , testCantDepositWithoutGov
-        , testCantDepositNegativeAmount
+        -- , testCantDepositNegativeAmount
         ]
-    , testGroup
-        "Withdraw"
-        [ testFullWithdraw
-        , testPartialWithdraw
-        , testCantWithdrawNegativeAmount
-        ]
+        -- , testGroup
+        --     "Withdraw"
+        --     [ testFullWithdraw
+        --     , testPartialWithdraw
+        --     , testCantWithdrawNegativeAmount
+        --     ]
     ]
 
 -- start tests
