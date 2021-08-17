@@ -3,14 +3,14 @@ module Mlabs.Governance.Contract.Emulator.Client where
 
 import Control.Monad (void)
 import Data.Coerce (coerce)
-import PlutusTx.Prelude hiding (Semigroup(..), unless)
 import Plutus.Trace.Emulator (EmulatorTrace, activateContractWallet)
+import PlutusTx.Prelude hiding (Semigroup (..), unless)
 import Wallet.Emulator qualified as Emulator
 
-import Mlabs.Plutus.Contract (callEndpoint')
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Server qualified as Server
-import Mlabs.Governance.Contract.Validation (GovParams(..))
+import Mlabs.Governance.Contract.Validation (GovParams (..))
+import Mlabs.Plutus.Contract (callEndpoint')
 
 startGovernance :: Emulator.Wallet -> Api.StartGovernance -> EmulatorTrace ()
 startGovernance wal startGov = do
@@ -18,6 +18,7 @@ startGovernance wal startGov = do
   void $ callEndpoint' @Api.StartGovernance hdl startGov
 
 -- imo it would be nicer if we were to take the type to be applied to callEndpoint' from the type sig itself
+
 -- | Deposits the specified amount of GOV into the governance contract
 callDeposit :: GovParams -> Emulator.Wallet -> Api.Deposit -> EmulatorTrace ()
 callDeposit params wal depo = do

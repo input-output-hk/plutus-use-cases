@@ -1,39 +1,40 @@
-{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Contract API for the Governance application
 module Mlabs.Governance.Contract.Api (
-    StartGovernance(..)
-  , Deposit(..)
-  , Withdraw(..)
-  , ProvideRewards(..)
-  , QueryBalance(..)
-  , GovernanceSchema
-  ) where
+  StartGovernance (..),
+  Deposit (..),
+  Withdraw (..),
+  ProvideRewards (..),
+  QueryBalance (..),
+  GovernanceSchema,
+) where
 
-import PlutusTx.Prelude
 import PlutusTx qualified
+import PlutusTx.Prelude
 
 import GHC.Generics (Generic)
+
 -- import Numeric.Natural (Natural)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
-import Plutus.Contract ( type (.\/))
+import Plutus.Contract (type (.\/))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
-import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
-import Mlabs.Governance.Contract.Validation (GovParams, AssetClassNft, AssetClassGov)
+import Mlabs.Governance.Contract.Validation (AssetClassGov, AssetClassNft, GovParams)
+import Mlabs.Plutus.Contract (Call, IsEndpoint (..))
 
 newtype StartGovernance = StartGovernance GovParams
-    deriving stock (Hask.Show, Generic)
-    deriving newtype (FromJSON, ToJSON, ToSchema)  
+  deriving stock (Hask.Show, Generic)
+  deriving newtype (FromJSON, ToJSON, ToSchema)
 
 -- since we have split of withdraw/deposit we might want to ensure that
 -- the amounts have to be positive by construction, tbd (for now Natural has no ToSchema instance)
@@ -65,7 +66,7 @@ newtype QueryBalance = QueryBalance PubKeyHash
 
 -- no need to split schemas
 type GovernanceSchema =
-    Call StartGovernance
+  Call StartGovernance
     .\/ Call Deposit
     .\/ Call Withdraw
     .\/ Call ProvideRewards
@@ -87,4 +88,3 @@ instance IsEndpoint ProvideRewards where
 
 instance IsEndpoint QueryBalance where
   type EndpointSymbol QueryBalance = "query-balance"
-
