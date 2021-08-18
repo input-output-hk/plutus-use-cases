@@ -84,7 +84,7 @@ withdraw ::AssetClassGov -> Api.Withdraw -> GovernanceContract ()
 withdraw gov (Api.Withdraw assets) = do
   ownPkh <- pubKeyHash <$> Contract.ownPubKey
   let trav f ~(x NE.:| xs) = (NE.:|) <$> (f x) <*> traverse f xs
-        
+  -- for some reason NonEmpty doesn't have a Traversible instance in scope      
   (tx, lookups) <- fmap sconcat . flip trav (NE.fromList assets) $ \ac -> do
     g <- findGovernance (fst ac) gov
     case g of

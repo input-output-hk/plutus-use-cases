@@ -70,14 +70,14 @@ test = testGroup "Contract"
       [ testDepositHappyPath
       , testInsuficcientGOVFails
       , testCantDepositWithoutGov
-   --   , testCantDepositNegativeAmount -- todo fix*
+      , testCantDepositNegativeAmount1
       ]
   , testGroup "Withdraw"
     [ testFullWithdraw
     , testPartialWithdraw
-   --  , testCantWithdrawNegativeAmount -- todo fix*
+    , testCantWithdrawNegativeAmount
     ]
-  ] -- * - they both fail as they should, just with a 'wrong message'
+  ] 
 
 -- deposit tests
 testDepositHappyPath :: TestTree
@@ -101,7 +101,6 @@ testDepositHappyPath =
       next
       void $ callEndpoint' @Deposit hdl (Deposit depoAmt2)
       next
-
 
 testInsuficcientGOVFails :: TestTree
 testInsuficcientGOVFails = 
@@ -135,21 +134,22 @@ testCantDepositWithoutGov =
         void $ callEndpoint' @Deposit hdl (Deposit 50)
         next
 
-testCantDepositNegativeAmount :: TestTree
-testCantDepositNegativeAmount = 
+testCantDepositNegativeAmount1 :: TestTree
+testCantDepositNegativeAmount1 = 
   let
-    (_, contract, _, activateWallet) = setup Test.fstWalletWithGOV
-    errCheck _ e _ = case e of {NegativeValue _ -> True; _ -> False}
+    (wallet, contract, tag, activateWallet) = setup Test.fstWalletWithGOV
+    errCheck = ("InsufficientFunds" `T.isInfixOf`)
   in
-  checkPredicateOptions Test.checkOptions "Cant deposit negative GOV amount"
-    ( assertFailedTransaction errCheck
+  checkPredicateOptions Test.checkOptions "Cant deposit negative GOV case 1"
+    ( assertNoFailedTransactions
+    .&&. assertContractError contract tag errCheck "Should fail with `InsufficientFunds`"
+    .&&. walletFundsChange wallet mempty
     )
     $ do
         hdl <- activateWallet
         void $ callEndpoint' @Deposit hdl (Deposit (negate 2))
         next
-
-
+        
 -- withdraw tests
 testFullWithdraw :: TestTree
 testFullWithdraw =
