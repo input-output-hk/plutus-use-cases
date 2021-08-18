@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeApplications   #-}
 
 module Marketplace.Spec.Bundles
-  ( tests
+  ( tests, bundleTrace
   ) where
 
 import           Control.Lens                                 (_2, (&), (.~),
