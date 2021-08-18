@@ -1,9 +1,7 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TypeApplications   #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
 
 module Marketplace.Spec.Bundles
   ( tests, bundleTrace
@@ -65,10 +63,10 @@ tests =
 
 bundleUpParams ::        Marketplace.BundleUpParams
 bundleUpParams =  Marketplace.BundleUpParams {
-          bupIpfsCids    = Fixtures.cids,
-          bupName        =  Fixtures.bundleName,
-          bupDescription =  Fixtures.bundleDescription,
-          bupCategory    = Fixtures.bundleCategory
+          Marketplace.bupIpfsCids    = Fixtures.cids,
+          Marketplace.bupName        =  Fixtures.bundleName,
+          Marketplace.bupDescription =  Fixtures.bundleDescription,
+          Marketplace.bupCategory    = Fixtures.bundleCategory
         }
 
 bundleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)

@@ -1,9 +1,7 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TypeApplications   #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
 
 module Marketplace.Spec.Sale
   ( tests
@@ -106,13 +104,13 @@ tests =
 -- \/\/\/ "NFT singletons"
 openSaleParams ::        Marketplace.OpenSaleParams
 openSaleParams =  Marketplace.OpenSaleParams {
-                    ospItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-                    ospSalePrice = 44 * Fixtures.oneAdaInLovelace
+                    Marketplace.ospItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
+                    Marketplace.ospSalePrice = 44 * Fixtures.oneAdaInLovelace
                    }
 
 closeLotParams ::        Marketplace.CloseLotParams
 closeLotParams =  Marketplace.CloseLotParams {
-                      clpItemId    = Marketplace.UserNftId Fixtures.catTokenIpfsCid
+                      Marketplace.clpItemId    = Marketplace.UserNftId Fixtures.catTokenIpfsCid
                     }
 
 openSaleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
@@ -224,13 +222,13 @@ errorCheckBuyer = Utils.assertCrError (Marketplace.userEndpoints Fixtures.market
 -- \/\/\/ "NFT bundles"
 openSaleParamsB ::        Marketplace.OpenSaleParams
 openSaleParamsB =  Marketplace.OpenSaleParams {
-                    ospItemId   = Marketplace.UserBundleId Fixtures.cids,
-                    ospSalePrice = 65 * Fixtures.oneAdaInLovelace
+                    Marketplace.ospItemId   = Marketplace.UserBundleId Fixtures.cids,
+                    Marketplace.ospSalePrice = 65 * Fixtures.oneAdaInLovelace
                    }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
 closeLotParamsB =  Marketplace.CloseLotParams {
-                      clpItemId    = Marketplace.UserBundleId Fixtures.cids
+                      Marketplace.clpItemId    = Marketplace.UserBundleId Fixtures.cids
                     }
 
 openSaleTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)

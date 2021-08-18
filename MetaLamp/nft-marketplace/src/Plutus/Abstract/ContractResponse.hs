@@ -5,7 +5,6 @@
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
@@ -31,8 +30,6 @@ import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Scripts                   as Scripts
 import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
-import           Plutus.Abstract.OutputValue      (OutputValue (..))
-import qualified Plutus.Abstract.TxUtils          as TxUtils
 import           Plutus.Contract                  hiding (when)
 import           Plutus.Contracts.Currency        as Currency
 import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)

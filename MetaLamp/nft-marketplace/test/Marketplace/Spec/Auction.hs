@@ -1,9 +1,7 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TypeApplications   #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
 
 module Marketplace.Spec.Auction
   ( tests
@@ -121,18 +119,18 @@ auctionValue = Auction.apAsset . Auction.fromTuple
 startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
-    saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    saapDuration = 155
+    Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
+    Marketplace.saapDuration = 155
   }
 
 closeLotParams ::        Marketplace.CloseLotParams
 closeLotParams =  Marketplace.CloseLotParams {
-                      clpItemId    = Marketplace.UserNftId Fixtures.catTokenIpfsCid
+                      Marketplace.clpItemId    = Marketplace.UserNftId Fixtures.catTokenIpfsCid
                     }
 bidOnAuctionParams :: Marketplace.BidOnAuctionParams
 bidOnAuctionParams = Marketplace.BidOnAuctionParams {
-            boapItemId = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-            boapBid    = fromInteger $ 25 * Fixtures.oneAdaInLovelace
+            Marketplace.boapItemId = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
+            Marketplace.boapBid    = fromInteger $ 25 * Fixtures.oneAdaInLovelace
           }
 
 startAnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
@@ -254,19 +252,19 @@ errorCheckBuyer = Utils.assertCrError (Marketplace.userEndpoints Fixtures.market
 startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
-    saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    saapDuration = 142
+    Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
+    Marketplace.saapDuration = 142
   }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
 closeLotParamsB =  Marketplace.CloseLotParams {
-                      clpItemId    = Marketplace.UserBundleId Fixtures.cids
+                      Marketplace.clpItemId    = Marketplace.UserBundleId Fixtures.cids
                     }
 
 bidOnAuctionParamsB :: Marketplace.BidOnAuctionParams
 bidOnAuctionParamsB = Marketplace.BidOnAuctionParams {
-            boapItemId = Marketplace.UserBundleId Fixtures.cids,
-            boapBid    = fromInteger $ 35 * Fixtures.oneAdaInLovelace
+            Marketplace.boapItemId = Marketplace.UserBundleId Fixtures.cids,
+            Marketplace.boapBid    = fromInteger $ 35 * Fixtures.oneAdaInLovelace
           }
 
 startAnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)

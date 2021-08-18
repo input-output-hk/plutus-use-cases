@@ -2,7 +2,6 @@
 {-# LANGUAGE MonoLocalBinds    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TypeApplications  #-}
 
 module Utils.Trace where
 
@@ -31,26 +30,6 @@ import           Plutus.Trace.Emulator.Types      (EmulatorRuntimeError (..))
 import           PlutusTx                         (IsData, fromData)
 import qualified Wallet.Emulator.Folds            as Folds
 import           Wallet.Emulator.MultiAgent       (EmulatorEvent)
-
-waitForState ::
-    (Show a
-    , Show e
-    , Trace.ContractConstraints s
-    , JSON.FromJSON e
-    , JSON.FromJSON a
-    , JSON.ToJSON e
-    , JSON.ToJSON a
-    , JSON.FromJSON e'
-    )
-    => (a -> Maybe b) ->
-    Trace.ContractHandle (ContractResponse e a) s e' ->
-    Trace.EmulatorTrace b
-waitForState pick userHandle = do
-    res <- Trace.observableState userHandle
-    case res of
-        CrSuccess s -> maybe (throwError . GenericError $ "Unexpected state: " <> show s) pure (pick s)
-        CrError e -> throwError . GenericError . show $ e
-        CrPending -> Trace.waitNSlots 1 >> waitForState pick userHandle
 
 assertCrError :: forall e r s err a. (Show r, Show e) =>
     C.Contract (ContractResponse e r) s err a
