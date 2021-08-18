@@ -7,32 +7,21 @@ module Marketplace.Spec.Bundles
   ( tests, bundleTrace
   ) where
 
-import           Control.Lens                                 (_2, (&), (.~),
-                                                               (^.), (^?))
-import qualified Control.Lens                                 as Lens
+import           Control.Lens                                 ((^.), (^?))
 import           Control.Monad                                (void)
-import           Data.Function                                (on)
-import qualified Data.Map                                     as Map
 import           Data.Maybe                                   (isNothing)
 import           Data.Text                                    (Text)
-import           Data.Void
-import           Ledger
-import qualified Ledger.Ada                                   as Ada
-import qualified Ledger.Value                                 as V
+import           Data.Void                                    (Void)
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
-import           Plutus.Abstract.ContractResponse
-import           Plutus.Contract
+import           Plutus.Abstract.ContractResponse             (ContractResponse)
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Trace                                 as Trace
 import qualified PlutusTx.AssocMap                            as AssocMap
-import           PlutusTx.Builtins                            (sha2_256)
-import           PlutusTx.Prelude                             (ByteString)
 import           Test.Tasty
 import qualified Utils
-import           Wallet.Emulator.Wallet
 
 tests :: TestTree
 tests =
@@ -114,9 +103,9 @@ bundleDatumsCheck =
     (containsBundle . Marketplace.mdBundles)
     where
       containsBundle = maybe False checkBundle .
-                       (AssocMap.lookup Fixtures.bundleId)
+                       AssocMap.lookup Fixtures.bundleId
       checkBundle b = maybe False containsNfts (b ^? Marketplace._nbTokens . Marketplace._NoLot) &&
-                      (b ^. Marketplace._nbRecord == Fixtures.bundleInfo)
+                      b ^. Marketplace._nbRecord == Fixtures.bundleInfo
       containsNfts b = maybe False Fixtures.hasCatTokenRecord
                        (AssocMap.lookup Fixtures.catTokenIpfsCidHash b) &&
                        maybe False Fixtures.hasPhotoTokenRecord
@@ -150,7 +139,7 @@ unbundleDatumsCheck =
     Fixtures.marketplaceAddress $
     \mp -> (containsNoBundle . Marketplace.mdBundles $ mp) && (containsNfts . Marketplace.mdSingletons $ mp)
     where
-      containsNoBundle = isNothing . (AssocMap.lookup Fixtures.bundleId)
+      containsNoBundle = isNothing . AssocMap.lookup Fixtures.bundleId
       containsNfts store = maybe False (Fixtures.hasCatTokenRecord . Marketplace.nftRecord)
                        (AssocMap.lookup Fixtures.catTokenIpfsCidHash store) &&
                        maybe False (Fixtures.hasPhotoTokenRecord . Marketplace.nftRecord)

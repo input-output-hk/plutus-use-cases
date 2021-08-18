@@ -3,21 +3,10 @@
 
 module Marketplace.Fixtures.Script where
 
-import           Control.Lens                                 ((&), (.~))
-import qualified Control.Lens                                 as Lens
-import           Control.Monad                                (void)
-import qualified Data.Map                                     as Map
-import           Data.Text                                    (Text)
-import           Ledger
-import qualified Ledger.Ada                                   as Ada
+import           Ledger                                       (Address,
+                                                               CurrencySymbol)
 import qualified Ledger.Value                                 as V
-import           Plutus.Contract
-import           Plutus.Contract.Test
-import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
-import qualified Plutus.Trace                                 as Trace
-import qualified PlutusTx.AssocMap                            as AssocMap
-import           Test.Tasty
 
 marketplace :: Marketplace.Marketplace
 marketplace =

@@ -5,27 +5,9 @@
 
 module Marketplace.Fixtures.NFT where
 
-import           Control.Lens                                 (_2, (&), (.~),
-                                                               (^.), (^?))
-import qualified Control.Lens                                 as Lens
-import           Control.Monad                                (void)
-import qualified Data.Map                                     as Map
-import           Data.Maybe                                   (isNothing)
-import           Data.Text                                    (Text)
-import           Ledger
-import qualified Ledger.Ada                                   as Ada
-import qualified Ledger.Value                                 as V
-import           Plutus.Contract
-import           Plutus.Contract.Test
-import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
-import qualified Plutus.Trace                                 as Trace
-import qualified PlutusTx.AssocMap                            as AssocMap
 import           PlutusTx.Builtins                            (sha2_256)
 import           PlutusTx.Prelude                             (ByteString)
-import           Test.Tasty
-import qualified Utils
-import           Wallet.Emulator.Wallet
 
 cids :: [Marketplace.IpfsCid]
 cids = [catTokenIpfsCid, photoTokenIpfsCid]
