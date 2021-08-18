@@ -20,3 +20,23 @@ cabal build bet-pab
 cabal exec -- bet-pab
 ````
 
+2. Run the PAB binary:
+
+```
+cabal exec -- oracle-client
+````
+
+export INSTANCE_ID='66bbf5bc-2493-445a-ab14-dcd857f69246'
+curl -s http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq
+
+curl -s http://localhost:8080/api/contract/instances | jq
+
+curl -s http://localhost:8080/api/new/contract/instances/wallet/1 | jq '.[].cicDefintion | select(.mbpOracle != null)'
+
+curl -s http://localhost:8080/api/new/contract/instances/wallet/1 | jq '.[] | select(.cicDefintion.mbpOracle != null) | .cicContract.unContractInstanceId'
+
+
+curl -s http://localhost:8080/api/new/contract/definitions | jq '.cicCurrentState.cicDefintion'
+
+
+| jq '.cicCurrentState.observableState'

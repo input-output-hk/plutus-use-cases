@@ -60,13 +60,13 @@ import           Plutus.Contract.Util             (loopM)
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                          as Haskell
-
+import           Contracts.Oracle
 
 -- | Definition of an mutual bet
 data MutualBetParams
     = MutualBetParams
         { mbpGame   :: Integer -- ^ Game id
-        , mbpOracle :: PubKeyHash
+        , mbpOracle :: Oracle
         , mbpTeam1 :: Integer
         , mbpTeam2 :: Integer
         }
@@ -285,7 +285,7 @@ mutualBetStart params = do
 -- | Get the current state of the contract and log it.
 currentState :: StateMachineClient MutualBetState MutualBetInput -> Contract MutualBetOutput BettorSchema MutualBetError (Maybe [Bet])
 currentState client = mapError StateMachineContractError (SM.getOnChainState client) >>= \case
-    Just ((TypedScriptTxOut{tyTxOutData=Ongoing bets}, _), _) -> do
+    Just (SM.OnChainState{SM.ocsTxOut=TypedScriptTxOut{tyTxOutData=Ongoing bets}}, _) -> do
         tell $ mutualBetStateOut $ Ongoing bets
         pure (Just bets)
     _ -> do
@@ -390,5 +390,5 @@ mutualBetBettor slotCfg currency params = do
 
         -- If the state can't be found we wait for it to appear.
         Nothing -> SM.waitForUpdate client >>= \case
-            Just (TypedScriptTxOut{tyTxOutData=Ongoing bets}, _) -> loop bets
+            Just SM.OnChainState{SM.ocsTxOut=TypedScriptTxOut{tyTxOutData=Ongoing bets}} -> loop bets
             _                -> logWarn CurrentStateNotFound

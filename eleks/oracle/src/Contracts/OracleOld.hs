@@ -10,9 +10,8 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE NumericUnderscores    #-}
 
-module Contracts.Oracle
+module Week06.Oracle.Core
     ( Oracle (..)
     , OracleRedeemer (..)
     , oracleTokenName
@@ -42,19 +41,29 @@ import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
 import           Plutus.Contracts.Currency as Currency
-import           Plutus.Contract.Types     (Promise (..))
 import           Prelude                   (Semigroup (..), Show (..), String)
-import qualified Prelude                    as Haskell
-import           Schema                    (ToSchema)
+import qualified Prelude
+
+type Game = Integer
 
 data Oracle = Oracle
-    { oSymbol   :: !CurrencySymbol
-    , oOperator :: !PubKeyHash
+    { oOperator :: !PubKeyHash
     , oFee      :: !Integer
-    , oGame     :: !Integer
-    } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
+    , oGame     :: !Game
+    } deriving (Show, Generic, FromJSON, ToJSON, Prelude.Eq, Prelude.Ord)
 
 PlutusTx.makeLift ''Oracle
+
+data OracleValue = OracleValue
+    { 
+      ovGame:: Integer
+    , ovWinner: Integer
+    , ovWinnerSigned: SignedMessage (Observation Integer)
+    }
+deriving (Show, Generic, ToJSON, FromJSON)
+
+PlutusTx.makeIsDataIndexed ''OracleValue [('OracleValue, 0)]
+PlutusTx.makeLift ''OracleValue
 
 data OracleRedeemer = Update | Use
     deriving Show
@@ -70,22 +79,22 @@ oracleAsset :: Oracle -> AssetClass
 oracleAsset oracle = AssetClass (oSymbol oracle, oracleTokenName)
 
 {-# INLINABLE oracleValue #-}
-oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe Integer
+oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe OracleValue
 oracleValue o f = do
     dh      <- txOutDatum o
     Datum d <- f dh
     PlutusTx.fromBuiltinData d
-
+sc@Stablecoin{scOracle,scStablecoinTokenName,scReservecoinTokenName}
 {-# INLINABLE mkOracleValidator #-}
-mkOracleValidator :: Oracle -> Integer -> OracleRedeemer -> ScriptContext -> Bool
-mkOracleValidator oracle x r ctx =
-    traceIfFalse "token missing from input"  inputHasToken  &&
-    traceIfFalse "token missing from output" outputHasToken &&
+mkOracleValidator :: Oracle -> OracleValue -> OracleRedeemer -> ScriptContext -> Bool
+mkOracleValidator oracle@Oracle{oOperator} x r ctx =
+    traceIfFalse "oracle value not signed"  isValueSigned $$ 
     case r of
-        Update -> traceIfFalse "operator signature missing" (txSignedBy info $ oOperator oracle) &&
+        Update -> traceIfFalse "operator signature missing" (txSignedBy info oOperator) &&
                   traceIfFalse "invalid output datum"       validOutputDatum
-        Use    -> traceIfFalse "oracle value changed"       (outputDatum == Just x)              &&
+        Use    -> traceIfFalse "oracle value changed"       (outputDatum == Just x) &&
                   traceIfFalse "fees not paid"              feesPaid
+                  
   where
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -95,18 +104,12 @@ mkOracleValidator oracle x r ctx =
         Nothing -> traceError "oracle input missing"
         Just i  -> txInInfoResolved i
 
-    inputHasToken :: Bool
-    inputHasToken = assetClassValueOf (txOutValue ownInput) (oracleAsset oracle) == 1
-
     ownOutput :: TxOut
     ownOutput = case getContinuingOutputs ctx of
         [o] -> o
         _   -> traceError "expected exactly one oracle output"
 
-    outputHasToken :: Bool
-    outputHasToken = assetClassValueOf (txOutValue ownOutput) (oracleAsset oracle) == 1
-
-    outputDatum :: Maybe Integer
+    outputDatum :: Maybe OracelValue
     outputDatum = oracleValue ownOutput (`findDatum` info)
 
     validOutputDatum :: Bool
@@ -119,6 +122,20 @@ mkOracleValidator oracle x r ctx =
         outVal = txOutValue ownOutput
       in
         outVal `geq` (inVal <> Ada.lovelaceValueOf (oFee oracle))
+
+     verifySigned :: SignedMessage (Observation Integer) -> PubKey -> Integer
+        extractVerifyAt sm pk time =
+            case Oracle.verifySignedMessageOnChain ctx pk sm of
+                Left _ -> traceError "checkSignatureAndDecode failed"
+                Right Observation{obsValuez} -> True
+
+    isValueSigned :: Bool
+    isValueSigned = case outputDatum of
+                Just (OracelValue ov) ->  verifySigned (ovWinnerSigned ov) oOperator
+                _ -> False
+
+    
+
 
 data Oracling
 instance Scripts.ValidatorTypes Oracling where
@@ -139,26 +156,24 @@ oracleAddress :: Oracle -> Ledger.Address
 oracleAddress = scriptAddress . oracleValidator
 
 data OracleParams = OracleParams
-    { opSymbol   :: !CurrencySymbol
-    , opFees   :: !Integer
-    , opGame    :: !Integer
-    } deriving (Haskell.Eq, Haskell.Show, Generic, FromJSON, ToJSON)
+    { opFees   :: !Integer
+      opGame   :: !Game
+    } deriving (Show, Generic, FromJSON, ToJSON)
 
 startOracle :: forall w s. OracleParams -> Contract w s Text Oracle
 startOracle op = do
     pkh <- pubKeyHash <$> Contract.ownPubKey
     let oracle = Oracle
-            { oSymbol   = opSymbol op
-            , oOperator = pkh
+            { oOperator = pkh
             , oFee      = opFees op
-            , oGame     = opGame op
+            , oGame  
             }
     logInfo @String $ "started oracle " ++ show oracle
     return oracle
 
 updateOracle :: forall w s. Oracle -> Integer -> Contract w s Text ()
 updateOracle oracle x = do
-    m <- findOracle oracle
+    m <- findGameOracle oracle
     let c = Constraints.mustPayToTheScript x $ assetClassValue (oracleAsset oracle) 1
     case m of
         Nothing -> do
@@ -174,17 +189,37 @@ updateOracle oracle x = do
             awaitTxConfirmed $ txId ledgerTx
             logInfo @String $ "updated oracle value to " ++ show x
 
-findOracle :: forall w s. Oracle -> Contract w s Text (Maybe (TxOutRef, TxOutTx, Integer))
-findOracle oracle = do
-    utxos <- Map.filter f <$> utxoAt (oracleAddress oracle)
-    return $ case Map.toList utxos of
-        [(oref, o)] -> do
-            x <- oracleValue (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
-            return (oref, o, x)
-        _           -> Nothing
+-- findGameOracle :: forall w s. Oracle -> Contract w s Text (Maybe (TxOutRef, TxOutTx, Integer))
+-- findGameOracle oracle = do
+--     utxos <- Map.filter f <$> utxoAt (oracleAddress oracle)
+--     return $ case Map.toList utxos of
+--         [(oref, o)] -> do
+--             x <- oracleValue (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
+--             return (oref, o, x)
+--         _           -> Nothing
+--   where
+--     f :: TxOutTx -> Bool
+--     f o = assetClassValueOf (txOutValue $ txOutTxOut o) (oracleAsset oracle) == 1
+
+
+findGameOracle :: 
+    forall w s. Oracle
+    -> Game
+    -> Contract w s Text (Maybe (TxOutRef, TxOutTx, OracleValue))
+findGameOracle oracle = do
+    utxos <- utxoAt (oracleAddress oracle)
+    let sellingUserTokens = find (isOracleGame game) $ map getOracleValueFromTxOut (snd <$> Map.toList utxos)
+
   where
-    f :: TxOutTx -> Bool
-    f o = assetClassValueOf (txOutValue $ txOutTxOut o) (oracleAsset oracle) == 1
+    getOracleValueFromTxOut :: TxOutTx -> Maybe OracleValue
+    getOracleValueFromTxOut o = oracleValue (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
+    isOracleGame :: Game -> Maybe OracleValue -> Bool
+    isOracleGame game oracleValue = case oracleValue of
+        (Just OracleValue ov) -> case Oracle.verifySignedMessageOffChain ftPriceOracle sm of
+            Left _                               -> False
+            Right Observation{obsValue, obsTime} -> True
+        _ -> False
+
 
 type OracleSchema = Endpoint "update" Integer
 
@@ -192,8 +227,10 @@ runOracle :: OracleParams -> Contract (Last Oracle) OracleSchema Text ()
 runOracle op = do
     oracle <- startOracle op
     tell $ Last $ Just oracle
-    selectList[(go oracle)]
+    go oracle
   where
-    go :: Oracle -> Promise (Last Oracle) OracleSchema Text ()
-    go oracle = endpoint @"update" $ \x -> do
-            updateOracle oracle x
+    go :: Oracle -> Contract (Last Oracle) OracleSchema Text a
+    go oracle = do
+        x <- endpoint @"update"
+        updateOracle oracle x
+        go oracle
