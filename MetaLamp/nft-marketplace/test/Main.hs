@@ -2,6 +2,7 @@ module Main
     ( main
     ) where
 
+import qualified Marketplace.Spec.Auction   as Auction
 import qualified Marketplace.Spec.Bundles   as Bundles
 import qualified Marketplace.Spec.CreateNft as CreateNft
 import qualified Marketplace.Spec.Sale      as Sale
@@ -17,4 +18,5 @@ tests = testGroup "NFT Marketplace"
     , CreateNft.tests
     , Bundles.tests
     , Sale.tests
+    , Auction.tests
     ]

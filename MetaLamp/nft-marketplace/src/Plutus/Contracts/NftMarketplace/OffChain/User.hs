@@ -127,21 +127,21 @@ openSale marketplace OpenSaleParams {..} = do
     logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show sale)
     pure ()
 
-data CompleteSaleParams =
-  CompleteSaleParams {
-    cspItemId    :: UserItemId
+data CloseLotParams =
+  CloseLotParams {
+    clpItemId    :: UserItemId
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''CompleteSaleParams
-PlutusTx.makeLift ''CompleteSaleParams
-Lens.makeClassy_ ''CompleteSaleParams
+PlutusTx.unstableMakeIsData ''CloseLotParams
+PlutusTx.makeLift ''CloseLotParams
+Lens.makeClassy_ ''CloseLotParams
 
 -- | The user buys specified NFT lot
-buyItem :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
-buyItem marketplace CompleteSaleParams {..} = do
-    let internalId = toInternalId cspItemId
+buyItem :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
+buyItem marketplace CloseLotParams {..} = do
+    let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     sale <- case internalId of
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
@@ -163,9 +163,9 @@ buyItem marketplace CompleteSaleParams {..} = do
     pure ()
 
 -- | The user closes NFT sale and receives his token back
-closeSale :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
-closeSale marketplace CompleteSaleParams {..} = do
-    let internalId = toInternalId cspItemId
+closeSale :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
+closeSale marketplace CloseLotParams {..} = do
+    let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     sale <- case internalId of
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
@@ -186,22 +186,22 @@ closeSale marketplace CompleteSaleParams {..} = do
     logInfo @Haskell.String $ printf "Closed lot sale %s" (Haskell.show sale)
     pure ()
 
-data HoldAnAuctionParams =
-  HoldAnAuctionParams {
-    haapItemId   :: UserItemId,
-    haapDuration :: Slot
+data StartAnAuctionParams =
+  StartAnAuctionParams {
+    saapItemId   :: UserItemId,
+    saapDuration :: Slot
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''HoldAnAuctionParams
-PlutusTx.makeLift ''HoldAnAuctionParams
-Lens.makeClassy_ ''HoldAnAuctionParams
+PlutusTx.unstableMakeIsData ''StartAnAuctionParams
+PlutusTx.makeLift ''StartAnAuctionParams
+Lens.makeClassy_ ''StartAnAuctionParams
 
 -- | The user starts an auction for specified NFT
-startAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
-startAnAuction marketplace HoldAnAuctionParams {..} = do
-    let internalId = toInternalId haapItemId
+startAnAuction :: Core.Marketplace -> StartAnAuctionParams -> Contract w s Text ()
+startAnAuction marketplace StartAnAuctionParams {..} = do
+    let internalId = toInternalId saapItemId
     nftStore <- marketplaceStore marketplace
     auctionValue <- case internalId of
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
@@ -210,7 +210,7 @@ startAnAuction marketplace HoldAnAuctionParams {..} = do
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currSlot <- currentSlot
-    let endTime = currSlot + haapDuration
+    let endTime = currSlot + saapDuration
     (auctionToken, auctionParams) <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionValue endTime
 
     let client = Core.marketplaceClient marketplace
@@ -221,9 +221,9 @@ startAnAuction marketplace HoldAnAuctionParams {..} = do
     pure ()
 
 -- | The user completes the auction for specified NFT
-completeAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
-completeAnAuction marketplace HoldAnAuctionParams {..} = do
-    let internalId = toInternalId haapItemId
+completeAnAuction :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
+completeAnAuction marketplace CloseLotParams {..} = do
+    let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     auction <- case internalId of
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
@@ -346,10 +346,10 @@ ownPubKeyBalance = getOwnPubKey >>= fundsAt
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
     .\/ Endpoint "openSale" OpenSaleParams
-    .\/ Endpoint "buyItem" CompleteSaleParams
-    .\/ Endpoint "closeSale" CompleteSaleParams
-    .\/ Endpoint "startAnAuction" HoldAnAuctionParams
-    .\/ Endpoint "completeAnAuction" HoldAnAuctionParams
+    .\/ Endpoint "buyItem" CloseLotParams
+    .\/ Endpoint "closeSale" CloseLotParams
+    .\/ Endpoint "startAnAuction" StartAnAuctionParams
+    .\/ Endpoint "completeAnAuction" CloseLotParams
     .\/ Endpoint "bidOnAuction" BidOnAuctionParams
     .\/ Endpoint "bundleUp" BundleUpParams
     .\/ Endpoint "unbundle" UnbundleParams

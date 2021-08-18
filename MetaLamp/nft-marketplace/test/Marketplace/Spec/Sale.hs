@@ -110,9 +110,9 @@ openSaleParams =  Marketplace.OpenSaleParams {
                     ospSalePrice = 44 * Fixtures.oneAdaInLovelace
                    }
 
-completeSaleParams ::        Marketplace.CompleteSaleParams
-completeSaleParams =  Marketplace.CompleteSaleParams {
-                      cspItemId    = Marketplace.UserNftId Fixtures.catTokenIpfsCid
+closeLotParams ::        Marketplace.CloseLotParams
+closeLotParams =  Marketplace.CloseLotParams {
+                      clpItemId    = Marketplace.UserNftId Fixtures.catTokenIpfsCid
                     }
 
 openSaleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
@@ -138,7 +138,7 @@ closeSaleTrace :: Trace.EmulatorTrace ()
 closeSaleTrace = do
   h <- openSaleTrace
 
-  _ <- Trace.callEndpoint @"closeSale" h completeSaleParams
+  _ <- Trace.callEndpoint @"closeSale" h closeLotParams
 
   _ <- Trace.waitNSlots 50
   pure ()
@@ -147,7 +147,7 @@ closeSaleTrace' :: Trace.EmulatorTrace ()
 closeSaleTrace' = do
   h <- CreateNft.createNftTrace
 
-  _ <- Trace.callEndpoint @"closeSale" h completeSaleParams
+  _ <- Trace.callEndpoint @"closeSale" h closeLotParams
 
   _ <- Trace.waitNSlots 50
   pure ()
@@ -157,7 +157,7 @@ buyItemTrace = do
   _ <- openSaleTrace
 
   h <- Trace.activateContractWallet Fixtures.buyerWallet $ Marketplace.userEndpoints Fixtures.marketplace
-  _ <- Trace.callEndpoint @"buyItem" h completeSaleParams
+  _ <- Trace.callEndpoint @"buyItem" h closeLotParams
 
   _ <- Trace.waitNSlots 50
   pure ()
@@ -167,7 +167,7 @@ buyItemTrace' = do
   _ <- CreateNft.createNftTrace
 
   h <- Trace.activateContractWallet Fixtures.buyerWallet $ Marketplace.userEndpoints Fixtures.marketplace
-  _ <- Trace.callEndpoint @"buyItem" h completeSaleParams
+  _ <- Trace.callEndpoint @"buyItem" h closeLotParams
 
   _ <- Trace.waitNSlots 50
   pure ()
@@ -228,9 +228,9 @@ openSaleParamsB =  Marketplace.OpenSaleParams {
                     ospSalePrice = 65 * Fixtures.oneAdaInLovelace
                    }
 
-completeSaleParamsB ::        Marketplace.CompleteSaleParams
-completeSaleParamsB =  Marketplace.CompleteSaleParams {
-                      cspItemId    = Marketplace.UserBundleId Fixtures.cids
+closeLotParamsB ::        Marketplace.CloseLotParams
+closeLotParamsB =  Marketplace.CloseLotParams {
+                      clpItemId    = Marketplace.UserBundleId Fixtures.cids
                     }
 
 openSaleTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
@@ -256,7 +256,7 @@ closeSaleTraceB :: Trace.EmulatorTrace ()
 closeSaleTraceB = do
   h <- openSaleTraceB
 
-  _ <- Trace.callEndpoint @"closeSale" h completeSaleParamsB
+  _ <- Trace.callEndpoint @"closeSale" h closeLotParamsB
 
   _ <- Trace.waitNSlots 50
   pure ()
@@ -266,7 +266,7 @@ buyItemTraceB = do
   _ <- openSaleTraceB
 
   h <- Trace.activateContractWallet Fixtures.buyerWallet $ Marketplace.userEndpoints Fixtures.marketplace
-  _ <- Trace.callEndpoint @"buyItem" h completeSaleParamsB
+  _ <- Trace.callEndpoint @"buyItem" h closeLotParamsB
 
   _ <- Trace.waitNSlots 50
   pure ()

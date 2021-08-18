@@ -131,8 +131,8 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
         buyer = pubKeyHash . walletPubKey $ Wallet 3
 
     _  <-
-        Simulator.callEndpointOnInstance buyerCid "buyItem" Marketplace.CompleteSaleParams {
-                                                                cspItemId   = Marketplace.UserNftId catTokenIpfsCid
+        Simulator.callEndpointOnInstance buyerCid "buyItem" Marketplace.CloseLotParams {
+                                                                clpItemId   = Marketplace.UserNftId catTokenIpfsCid
                                                             }
     _ <- flip Simulator.waitForState buyerCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
         Success (CrSuccess Marketplace.NftBought) -> Just ()
@@ -166,17 +166,17 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     _  <-
         Simulator.callEndpointOnInstance userCid "closeSale"
-            Marketplace.CompleteSaleParams {
-                    cspItemId   = Marketplace.UserNftId photoTokenIpfsCid
+            Marketplace.CloseLotParams {
+                    clpItemId   = Marketplace.UserNftId photoTokenIpfsCid
                 }
     sale <- flip Simulator.waitForState userCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
         Success (CrSuccess Marketplace.ClosedSale) -> Just ()
         _                                          -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful closeSale"
 
-    let auction = Marketplace.HoldAnAuctionParams {
-                        haapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        haapDuration = 80
+    let auction = Marketplace.StartAnAuctionParams {
+                        saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
+                        saapDuration = 80
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
@@ -202,7 +202,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MarketplaceContracts) $ "Final auction state: " <> show s
 
     _  <-
-        Simulator.callEndpointOnInstance buyerCid "completeAnAuction" auction
+        Simulator.callEndpointOnInstance buyerCid "completeAnAuction" $ Marketplace.CloseLotParams $ Marketplace.UserNftId photoTokenIpfsCid
     _ <- flip Simulator.waitForState buyerCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
         Success (CrSuccess Marketplace.AuctionComplete) -> Just ()
         _                                               -> Nothing
