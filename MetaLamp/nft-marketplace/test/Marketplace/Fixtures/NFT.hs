@@ -92,3 +92,6 @@ hasPhotoTokenRecord Marketplace.NftInfo {..} =
   niCategory == photoTokenCategory &&
   niName == photoTokenName &&
   niDescription == photoTokenDescription
+
+oneAdaInLovelace :: Integer
+oneAdaInLovelace = 1000000

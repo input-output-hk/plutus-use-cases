@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE TypeApplications   #-}
 module Marketplace.Spec.CreateNft
-  ( tests
+  ( tests, createNftTrace
   ) where
 
 import           Control.Lens                                 (_2, (&), (.~),
@@ -15,11 +15,13 @@ import           Control.Monad                                (void)
 import qualified Data.Map                                     as Map
 import           Data.Maybe                                   (isNothing)
 import           Data.Text                                    (Text)
+import           Data.Void
 import           Ledger
 import qualified Ledger.Ada                                   as Ada
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
+import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
@@ -40,7 +42,7 @@ tests =
         Fixtures.options
         "Should mint NFT token into the user wallet and create the Marketplace entry hiding issuer"
         (datumsCheck .&&. valueCheck)
-        createNftTrace,
+        (void createNftTrace),
       checkPredicateOptions
         Fixtures.options
         "Should mint NFT token into the user wallet and create the Marketplace entry revealing issuer"
@@ -57,13 +59,13 @@ createNftParams = Marketplace.CreateNftParams {
                         Marketplace.cnpRevealIssuer   = False
                     }
 
-createNftTrace :: Trace.EmulatorTrace ()
+createNftTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 createNftTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
   _ <- Trace.callEndpoint @"createNft" h createNftParams
   _ <- Trace.waitNSlots 50
-  pure ()
+  pure h
 
 createNftTrace' :: Trace.EmulatorTrace ()
 createNftTrace' = do

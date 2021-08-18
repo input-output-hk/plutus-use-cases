@@ -131,13 +131,13 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
         buyer = pubKeyHash . walletPubKey $ Wallet 3
 
     _  <-
-        Simulator.callEndpointOnInstance buyerCid "buyNft" Marketplace.CompleteSaleParams {
+        Simulator.callEndpointOnInstance buyerCid "buyItem" Marketplace.CompleteSaleParams {
                                                                 cspItemId   = Marketplace.UserNftId catTokenIpfsCid
                                                             }
     _ <- flip Simulator.waitForState buyerCid $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.UserContractState)) of
         Success (CrSuccess Marketplace.NftBought) -> Just ()
         _                                         -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful buyNft"
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful buyItem"
 
     _  <-
         Simulator.callEndpointOnInstance userCid "createNft" $

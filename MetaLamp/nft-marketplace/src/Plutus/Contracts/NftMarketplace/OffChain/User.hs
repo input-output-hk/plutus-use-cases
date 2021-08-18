@@ -139,8 +139,8 @@ PlutusTx.makeLift ''CompleteSaleParams
 Lens.makeClassy_ ''CompleteSaleParams
 
 -- | The user buys specified NFT lot
-buyNft :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
-buyNft marketplace CompleteSaleParams {..} = do
+buyItem :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
+buyItem marketplace CompleteSaleParams {..} = do
     let internalId = toInternalId cspItemId
     nftStore <- marketplaceStore marketplace
     sale <- case internalId of
@@ -346,7 +346,7 @@ ownPubKeyBalance = getOwnPubKey >>= fundsAt
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
     .\/ Endpoint "openSale" OpenSaleParams
-    .\/ Endpoint "buyNft" CompleteSaleParams
+    .\/ Endpoint "buyItem" CompleteSaleParams
     .\/ Endpoint "closeSale" CompleteSaleParams
     .\/ Endpoint "startAnAuction" HoldAnAuctionParams
     .\/ Endpoint "completeAnAuction" HoldAnAuctionParams
@@ -377,7 +377,7 @@ userEndpoints :: Core.Marketplace -> Contract (ContractResponse Text UserContrac
 userEndpoints marketplace = forever $
     withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
     `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
-    `select` withContractResponse (Proxy @"buyNft") (const NftBought) (buyNft marketplace)
+    `select` withContractResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
     `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
     `select` withContractResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
     `select` withContractResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
