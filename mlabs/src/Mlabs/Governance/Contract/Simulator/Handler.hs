@@ -53,7 +53,7 @@ data GovernanceContracts
 instance Pretty GovernanceContracts where
   pretty = viaShow
 
-type BootstrapContract = Contract (Last (CurrencySymbol, CurrencySymbol)) EmptySchema Text ()
+type BootstrapContract = Contract (Last CurrencySymbol) EmptySchema Text ()
 
 handleGovernanceContracts ::
     ( Member (Error PABError) effs
