@@ -52,9 +52,9 @@ main =
       shutdown <- PWS.startServerDebug
       let simWallets = wallets cfg
           (wallet1 : wallet2 : wallet3 : _) = simWallets
-      (cids, govParams) <-
+      (cids, gov) <-
         subscript
-          "Initializing contracts, minting and distributing required tokens"
+          "Initializing contracts\nWallet 1 mints and distributes initial GOV tokens"
           simWallets
           (itializeContracts wallet1)
       let [wCid1, wCid2, wCid3] = cids
@@ -68,6 +68,31 @@ main =
         "Wallet 2 queries amount of GOV deposited"
         simWallets
         $ getBalance wCid2 wallet2
+
+      subscript_
+        "Wallet 2 deposits 10 more GOV"
+        simWallets
+        $ deposit wCid2 10
+
+      subscript_
+        "Wallet 2 queries amount of GOV deposited"
+        simWallets
+        $ getBalance wCid2 wallet2
+
+      subscript_
+        "Wallet 2 withdraws 60 GOV"
+        simWallets
+        $ withdraw wCid2 wallet2 60
+
+      subscript_
+        "Wallet 2 queries amount of GOV deposited"
+        simWallets
+        $ getBalance wCid2 wallet2
+
+      subscript_
+        "Finally, Wallet 3 queries amount of GOV deposited"
+        simWallets
+        $ getBalance wCid3 wallet3
 
       Simulator.logString @(Builtin GovernanceContracts) "Scripted part is over\nPress Enter to stop and exit"
       void $ liftIO getLine
@@ -99,10 +124,13 @@ itializeContracts admin = do
 -- shortcits fo endpoint calls
 deposit cid amount = call cid $ Deposit amount
 
+withdraw cid wallet amount = (call cid $ Withdraw [(walletPKH wallet, amount)])
+
 getBalance cid wallet = do
-  call cid $ QueryBalance (pubKeyHash $ walletPubKey wallet)
+  call cid $ QueryBalance $ walletPKH wallet
   govBalance :: Integer <- waitForLast cid
   logAction $ "Balance is " ++ show govBalance
+
 
 data BootstrapCfg = BootstrapCfg
   { wallets :: [Wallet]
@@ -130,7 +158,7 @@ bootstrapGovernance BootstrapCfg {..} = do
     distributeGov govPerWallet = do
       ownPK <- pubKeyHash <$> ownPubKey
       forM_ wallets $ \w -> do
-        let pkh = pubKeyHash $ walletPubKey w
+        let pkh = walletPKH w
         when (pkh /= ownPK) $ do
           tx <- submitTx $ mustPayToPubKey pkh govPerWallet
           awaitTxConfirmed $ txId tx
@@ -141,3 +169,5 @@ printBalance :: Wallet -> Simulation (Builtin schema) ()
 printBalance wallet = do
   v <- Simulator.valueAt $ walletAddress wallet
   logBalance ("WALLET " <> show wallet) v
+
+walletPKH = pubKeyHash . walletPubKey
