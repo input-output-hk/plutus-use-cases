@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "plutus-starter",
-  "branch": "is/poke-dex-modifications",
+  "branch": "is-rename-tokens",
   "private": false,
-  "rev": "6d49c6285218cfc776f4e3cdb2e62a499d02c6c2",
-  "sha256": "1zkpzfcpw1za99i6894i8i61wf8h307x5bkjwzcgxyglhv6l3msv"
+  "rev": "addb5a8148ee893ad1195460edc423e9da4b66e5",
+  "sha256": "1hj33sc4czdb984j7cpazyn3x1dsyr3wijh98sp30m6pclnzk14j"
 }

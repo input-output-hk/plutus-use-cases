@@ -4,9 +4,10 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module Backend where
 
-import Control.Concurrent (threadDelay)
+import Control.Concurrent
 import Control.Exception
 import Control.Monad.Identity
 import Control.Monad.IO.Class
@@ -14,13 +15,19 @@ import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson.Lens
 import qualified Data.Aeson as Aeson
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as BS
+import Data.Int (Int32)
 import Data.Maybe
 import Data.Pool
 import Data.Proxy
+import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
+import Data.Time.Clock
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as U
 import Data.Vessel
 import Database.Beam (MonadBeam)
 import Database.Beam.Backend.SQL.BeamExtensions
@@ -35,6 +42,8 @@ import Rhyolite.Backend.App
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.Serializable
 import Rhyolite.Backend.Listen
+import Safe (lastMay)
+import Statistics.Regression
 
 import Backend.Notification
 import Backend.Schema
@@ -44,6 +53,7 @@ import Common.Schema
 import Common.Plutus.Contracts.Uniswap.Types
 
 import Network.HTTP.Client hiding (Proxy)
+import qualified Network.WebSockets as WS
 import Control.Lens
 
 backend :: Backend BackendRoute FrontendRoute
@@ -54,10 +64,9 @@ backend = Backend
         withResource pool runMigrations
         getWallets httpManager pool
         getPooledTokens httpManager pool
-        withResource pool $ \conn -> runBeamPostgres conn ensureCounterExists
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
-          (requestHandler httpManager)
+          (requestHandler httpManager pool)
           (\(nm :: DbNotification Notification) q -> fmap (fromMaybe emptyV) $ mapDecomposedV (notifyHandler nm) q)
           (QueryHandler $ \q -> fmap (fromMaybe emptyV) $ mapDecomposedV (queryHandler pool) q)
           vesselFromWire
@@ -68,16 +77,17 @@ backend = Backend
   , _backend_routeEncoder = fullRouteEncoder
   }
 
-requestHandler :: Manager -> RequestHandler Api IO
-requestHandler httpManager = RequestHandler $ \case
+requestHandler :: Manager -> Pool Pg.Connection -> RequestHandler Api IO
+requestHandler httpManager pool = RequestHandler $ \case
   Api_Swap contractId coinA coinB amountA amountB ->
-    executeSwap httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
+    executeSwap httpManager pool (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
   Api_Stake contractId coinA coinB amountA amountB ->
     executeStake httpManager (T.unpack $ unContractInstanceId contractId) (coinA, amountA) (coinB, amountB)
   Api_RedeemLiquidity contractId coinA coinB amount ->
     executeRemove httpManager (T.unpack $ unContractInstanceId contractId) coinA coinB amount
   Api_CallFunds cid -> callFunds httpManager cid
   Api_CallPools cid -> callPools httpManager cid
+  Api_EstimateTransactionFee action -> estimateTransactionFee pool action
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler _ _ = return mempty
@@ -125,7 +135,7 @@ getPooledTokens httpManager pool = do
       print ("getPooledTokens: Admin user wallet not found" :: Text)
       return ()
     Just wid -> do
-      -- In order to retreive list of pooled tokens, a request must be made to the pools endpoint first and then the response 
+      -- In order to retreive list of pooled tokens, a request must be made to the pools endpoint first and then the response
       -- can be found be found in instances within the observable state key
       let prString = "http://localhost:8080/api/new/contract/instance/" ++ (T.unpack $ _contract_id wid) ++ "/endpoint/pools"
       print $ "prString: " ++ prString -- DEBUG
@@ -169,8 +179,13 @@ getPooledTokens httpManager pool = do
   {-
   curl -H "Content-Type: application/json"      --request POST   --data '{"spAmountA":112,"spAmountB":0,"spCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"spCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/36951109-aacc-4504-89cc-6002cde36e04/endpoint/swap
   -}
-executeSwap :: Manager -> String -> (Coin AssetClass , Amount Integer) -> (Coin AssetClass, Amount Integer) -> IO (Either String [Text])
-executeSwap httpManager contractId (coinA, amountA) (coinB, amountB) = do
+executeSwap :: Manager
+  -> Pool Pg.Connection
+  -> String
+  -> (Coin AssetClass , Amount Integer)
+  -> (Coin AssetClass, Amount Integer)
+  -> IO (Either String Aeson.Value)
+executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/swap"
       reqBody = SwapParams {
           spCoinA = coinA
@@ -187,14 +202,58 @@ executeSwap httpManager contractId (coinA, amountA) (coinB, amountB) = do
   -- The response to this request does not return anything but an empty list.
   -- A useful response must be fetched from "observableState"
   print ("executeSwap: sending request to pab..." :: String)
+  startTime <- getCurrentTime
   _ <- httpLbs req httpManager
   print ("executeSwap: request sent." :: String)
-  fetchObservableState httpManager contractId
+  -- MVar that will hold response to swap request sent
+  eitherObState <- newEmptyMVar
+  -- Use websocket connection to fetch observable state response
+  (eitherObState', endTime) <- WS.runClient "127.0.0.1" 8080 ("/ws/" ++ contractId) $ \conn -> do
+    -- Allow enough time to pass for observable state to be updated (10 secs)
+    let processData = do
+          incomingData :: ByteString <- WS.receiveData conn
+          let val :: Either String Aeson.Value = Aeson.eitherDecode' $ BS.fromStrict incomingData
+          case val of
+            Left err -> putMVar eitherObState $ Left err
+            Right obj -> do
+              let swapTag = obj ^. key "contents" . key "Right" . key "tag" . _String
+                  txFeeDetails = obj ^. key "contents" . key "Right"
+                    . key "contents" . nth 0 . key "txFee" . key "getValue" . nth 0 . nth 1 . nth 0 . _Array
+                  aesArr = obj ^. key "contents" . key "Right"
+                    . key "contents" . _Array
+                  scrSize = fromMaybe (Aeson.Number 0) $ lastMay $ V.toList aesArr
+              if swapTag == "Swapped" then putMVar eitherObState $ Right $ (Aeson.Array txFeeDetails, scrSize) else processData
+    fid <- forkIO processData
+    flip onException (killThread fid) $ do
+      -- retreive observable state response from result of forked thread
+      eitherObState' <- takeMVar eitherObState
+      WS.sendClose conn ("executeSwap: closing backend websocket connection..." :: Text)
+      endTime <- getCurrentTime
+      return (eitherObState', endTime)
+  case eitherObState' of
+    Left err -> return $ Left err
+    Right (txFeeDetails, Aeson.Number scrSize) -> case txFeeDetails of
+      Aeson.Array xs -> case V.toList xs of
+        _:(Aeson.Number txFee):_ -> do
+          let contractAction = "Swap"
+              processingTime :: Int32 = fromIntegral $ fromEnum $ diffUTCTime endTime startTime
+              txFee' :: Int32 = (fromIntegral $ coefficient txFee)
+          -- persist transaction fee and details to postgres for use in regression when estimating transaction fees later
+          runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+            runInsert $
+              insertOnConflict (_db_txFeeDataSet db) (insertExpressions
+                [TxFeeDataSet default_ (val_ txFee') (val_ contractAction) (val_ processingTime) (val_ $ fromIntegral $ coefficient scrSize)])
+              (conflictingFields _txFeeDataSet_id)
+              onConflictDoNothing
+          return $ Right txFeeDetails
+        _ -> return $ Left "Error unexpected data type in txFeeDetails"
+      _ -> return $ Left "Error parsing txFeeDetails as a JSON Array"
+    Right (_txFeeDetails, _) -> return $ Left "Unexpected script size data type"
 
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"apAmountA":4500,"apAmountB":9000,"apCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"apCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/3b0bafe2-14f4-4d34-a4d8-633afb8e52eb/endpoint/add
 -}
-executeStake :: Manager -> String -> (Coin AssetClass , Amount Integer) -> (Coin AssetClass, Amount Integer) -> IO (Either String [Text])
+executeStake :: Manager -> String -> (Coin AssetClass , Amount Integer) -> (Coin AssetClass, Amount Integer) -> IO (Either String Aeson.Value)
 executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/add"
       reqBody = AddParams {
@@ -214,12 +273,12 @@ executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
   print $ ("executeStake: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
   print $ ("executeStake: request sent." :: String)
-  fetchObservableState httpManager contractId
+  (either (\a -> return $ Left a) (\a -> return $ Right $ fst a)) =<< fetchObservableStateFees httpManager contractId
 
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"rpDiff":2461,"rpCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"rpCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/9079d01a-342b-4d4d-88b5-7525ff1118d6/endpoint/remove
 -}
-executeRemove :: Manager -> String -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> IO (Either String [Text])
+executeRemove :: Manager -> String -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> IO (Either String Aeson.Value)
 executeRemove httpManager contractId coinA coinB amount = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/remove"
       reqBody = RemoveParams {
@@ -238,11 +297,11 @@ executeRemove httpManager contractId coinA coinB amount = do
   print $ ("executeRemove: sending request to pab..." :: String)
   _ <- httpLbs req httpManager
   print $ ("executeRemove: request sent." :: String)
-  fetchObservableState httpManager contractId
+  (either (\a -> return $ Left a) (\a -> return $ Right $ fst a)) =<< fetchObservableStateFees httpManager contractId
 
--- Grabs `observaleState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
-fetchObservableState :: Manager -> String -> IO (Either String [Text])
-fetchObservableState httpManager contractId = do
+-- Grabs transaction fees from `observaleState` field from the contract instance status endpoint.
+fetchObservableStateFees :: Manager -> String -> IO (Either String (Aeson.Value, Aeson.Value)) -- (TransactionFees, ScriptSize)
+fetchObservableStateFees httpManager contractId = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/status"
   initReq <- parseRequest requestUrl
   resp <- httpLbs initReq httpManager
@@ -251,8 +310,14 @@ fetchObservableState httpManager contractId = do
     Left err -> do
       return $ Left err
     Right obj -> do
-      let observableState = obj ^.. values . key "cicCurrentState" . key "observableState" . _String
-      return $ Right observableState
+      -- Note: If there is a need to filter the observable state by tag. "tag" can be found in the result of "contents" lens
+      let txFeeDetails = obj ^. key "cicCurrentState" . key "observableState" . key "Right"
+            . key "contents" . nth 0 . key "txFee" . key "getValue" . nth 0 . nth 1 . nth 0 . _Array
+          aesArr = obj ^. key "cicCurrentState" . key "observableState" . key "Right"
+            . key "contents" . _Array
+          scrSize = fromMaybe (Aeson.Number 0) $ lastMay $ V.toList aesArr
+      print $ "fetchObservableStateFees: the value of txFeeDetails is: " ++ (show txFeeDetails)
+      return $ Right $ (Aeson.Array txFeeDetails, scrSize)
 
 -- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
 callFunds :: Manager -> ContractInstanceId Text -> IO ()
@@ -282,11 +347,29 @@ callPools httpManager contractId = do
   _ <- httpLbs req httpManager
   return ()
 
-ensureCounterExists :: MonadBeam Postgres m => m ()
-ensureCounterExists = do
-  runInsert $ insertOnConflict (_db_counter db) (insertValues [(Counter 0 0)])
-    (conflictingFields _counter_id)
-    onConflictDoNothing
+estimateTransactionFee :: MonadIO m => Pool Pg.Connection -> SmartContractAction -> m Integer
+estimateTransactionFee pool action = case action of
+  SmartContractAction_Swap -> do
+    -- Perform Multiple regression on data set to estimate transaction fee
+    (regressionResults, _preds, _res) <- runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
+      -- Query for all swaps that have occurred in order to construct a data set
+      previousTxDataSet <- runSelectReturningList
+        $ select
+        $ filter_ (\a -> _txFeeDataSet_smartContractAction a ==. (val_ "Swap"))
+        $ all_ (_db_txFeeDataSet db)
+      txFees :: [Double] <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_txFee txData
+      let responder = U.fromList txFees
+      scriptSizes <- forM previousTxDataSet $ \txData -> return $ fromIntegral $ _txFeeDataSet_scriptSize txData
+      let preds :: U.Vector Double = U.fromList scriptSizes
+          predictors = fmap (\_ -> preds) ([0] :: [Integer])
+      if (predictors == [] || responder == U.empty || length(predictors) < 2)
+         then return (Nothing, predictors, responder)
+         else return $ (Just $ olsRegress predictors responder, predictors, responder)
+    case regressionResults of
+      Nothing -> return 10
+      Just (leastSquaresVector, _goodnessOfFit) -> do
+        -- This is the y-intercept, for now it will always come out to the correct answer
+        return $ round $ last $ U.toList leastSquaresVector
 
 -- | Run a 'MonadBeam' action inside a 'Serializable' transaction. This ensures only safe
 -- actions happen inside the 'Serializable'

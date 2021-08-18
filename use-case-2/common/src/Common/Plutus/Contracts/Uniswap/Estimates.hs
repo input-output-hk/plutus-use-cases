@@ -124,7 +124,7 @@ calculateAdditionalLiquidity
   -> Integer -- Amount of Liquidity to be recieved
 calculateAdditionalLiquidity oldA oldB liquidity delA delB =
   case rsqrt ratio of
-    Imaginary       -> (-1) -- TODO: Throw error here
+    Imaginary       -> (-1)
     Exactly x       -> x - liquidity
     Approximately x -> x - liquidity
   where
