@@ -8,22 +8,16 @@ module Test.Governance.Contract (
 import Data.Functor (void)
 import Data.Text (Text)
 import PlutusTx.Prelude hiding (error)
-import Prelude (
-  Bool (..),
-  const,
-  error,
- )
+import Prelude (error)
 
 -- import Data.Monoid ((<>), mempty)
 
-import Plutus.Contract.Test (
+import Plutus.Contract.Test as PT (
   Wallet,
   assertContractError,
-  assertDone,
   assertFailedTransaction,
   assertNoFailedTransactions,
   checkPredicateOptions,
-  not,
   valueAtAddress,
   walletFundsChange,
   (.&&.),
@@ -33,8 +27,8 @@ import Mlabs.Plutus.Contract (callEndpoint')
 import Plutus.Trace.Emulator (ContractInstanceTag)
 import Plutus.Trace.Emulator qualified as Trace
 import Plutus.Trace.Emulator.Types (ContractHandle)
+import Plutus.V1.Ledger.Scripts (ScriptError (EvaluationError))
 
-import Control.Monad (replicateM_)
 import Control.Monad.Freer (Eff, Member)
 import Data.Semigroup (Last)
 import Data.Text as T (isInfixOf)
@@ -45,10 +39,9 @@ import Mlabs.Governance.Contract.Api (
   GovernanceSchema,
   Withdraw (..),
  )
-import Mlabs.Governance.Contract.Emulator.Client qualified as Gov (callDeposit)
 import Mlabs.Governance.Contract.Server qualified as Gov
 import Test.Governance.Init as Test
-import Test.Utils (next, wait)
+import Test.Utils (next)
 
 import Ledger.Index (ValidationError (..))
 
@@ -74,6 +67,7 @@ test =
         , testInsuficcientGOVFails
         , testCantDepositWithoutGov
         , testCantDepositNegativeAmount1
+        , testCantDepositNegativeAmount2
         ]
     , testGroup
         "Withdraw"
@@ -86,7 +80,7 @@ test =
 -- deposit tests
 testDepositHappyPath :: TestTree
 testDepositHappyPath =
-  let (wallet, contract, _, activateWallet) = setup Test.fstWalletWithGOV
+  let (wallet, _, _, activateWallet) = setup Test.fstWalletWithGOV
       depoAmt1 = 10
       depoAmt2 = 40
       depoAmt = depoAmt1 + depoAmt2
@@ -140,6 +134,13 @@ testCantDepositWithoutGov =
           void $ callEndpoint' @Deposit hdl (Deposit 50)
           next
 
+{- A bit special case at the moment:
+   if we try to deposit negative amount without making (positive) deposit beforehand,
+   transaction will have to burn xGOV tokens:
+   (see in `deposit`: `xGovValue = Validation.xgovSingleton params.nft (coerce ownPkh) amnt`)
+   But without prior deposit wallet won't have xGOV tokens to burn,
+   so `Contract` will throw `InsufficientFunds` exception
+-}
 testCantDepositNegativeAmount1 :: TestTree
 testCantDepositNegativeAmount1 =
   let (wallet, contract, tag, activateWallet) = setup Test.fstWalletWithGOV
@@ -156,10 +157,35 @@ testCantDepositNegativeAmount1 =
           void $ callEndpoint' @Deposit hdl (Deposit (negate 2))
           next
 
+testCantDepositNegativeAmount2 :: TestTree
+testCantDepositNegativeAmount2 =
+  let (wallet, _, _, activateWallet) = setup Test.fstWalletWithGOV
+      errCheck _ e _ = case e of
+        ScriptFailure (EvaluationError _) -> True
+        _ -> False
+      depoAmt = 20
+   in checkPredicateOptions
+        Test.checkOptions
+        "Cant deposit negative GOV case 2"
+        ( assertFailedTransaction errCheck
+            .&&. walletFundsChange
+              wallet
+              ( Test.gov (negate depoAmt)
+                  <> Test.xgov wallet depoAmt
+              )
+            .&&. valueAtAddress Test.scriptAddress (== Test.gov depoAmt)
+        )
+        $ do
+          hdl <- activateWallet
+          void $ callEndpoint' @Deposit hdl (Deposit depoAmt)
+          next
+          void $ callEndpoint' @Deposit hdl (Deposit (negate 2))
+          next
+
 -- withdraw tests
 testFullWithdraw :: TestTree
 testFullWithdraw =
-  let (wallet, contract, _, activateWallet) = setup Test.fstWalletWithGOV
+  let (wallet, _, _, activateWallet) = setup Test.fstWalletWithGOV
       depoAmt = 50
    in checkPredicateOptions
         Test.checkOptions
@@ -177,7 +203,7 @@ testFullWithdraw =
 
 testPartialWithdraw :: TestTree
 testPartialWithdraw =
-  let (wallet, contract, _, activateWallet) = setup Test.fstWalletWithGOV
+  let (wallet, _, _, activateWallet) = setup Test.fstWalletWithGOV
       depoAmt = 50
       withdrawAmt = 20
       diff = depoAmt - withdrawAmt
@@ -207,7 +233,7 @@ testCantWithdrawMoreThandeposited = error "TBD"
 
 testCantWithdrawNegativeAmount :: TestTree
 testCantWithdrawNegativeAmount =
-  let (wallet, contract, _, activateWallet) = setup Test.fstWalletWithGOV
+  let (wallet, _, _, activateWallet) = setup Test.fstWalletWithGOV
       errCheck _ e _ = case e of NegativeValue _ -> True; _ -> False
       depoAmt = 50
    in checkPredicateOptions
