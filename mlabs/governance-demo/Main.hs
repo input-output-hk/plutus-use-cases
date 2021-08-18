@@ -13,10 +13,10 @@ import Data.Functor (void)
 import Data.Monoid (Last (..))
 import Data.Text (Text, pack)
 
-import Mlabs.Governance.Contract.Api (Deposit (..), QueryBalance (..), StartGovernance (..), Withdraw (..))
+import Mlabs.Governance.Contract.Api (Deposit (..), QueryBalance (..), Withdraw (..))
 import Mlabs.Governance.Contract.Simulator.Handler (BootstrapContract, GovernanceContracts (..))
 import Mlabs.Governance.Contract.Simulator.Handler qualified as Handler
-import Mlabs.Governance.Contract.Validation (AssetClassGov (..), AssetClassNft (..), GovParams (..))
+import Mlabs.Governance.Contract.Validation (AssetClassGov (..))
 
 import Ledger (CurrencySymbol, PubKeyHash, TokenName, pubKeyHash, txId)
 import Ledger.Constraints (mustPayToPubKey)
@@ -39,7 +39,6 @@ import Mlabs.System.Console.Utils (logAction, logBalance, logMlabs)
 cfg =
   BootstrapCfg
     { wallets = Wallet <$> [1 .. 3] -- wallets participating, wallet #1 is admin
-    , nftTokenName = "NFTToken" -- name of TFT tiken to start Governance
     , govTokenName = "GOVToken" -- name of GOV token to be paid in exchange of xGOV tokens
     , govAmount = 100 -- GOV amount each wallet gets on start
     }
@@ -53,17 +52,12 @@ main =
       shutdown <- PWS.startServerDebug
       let simWallets = wallets cfg
           (wallet1 : wallet2 : wallet3 : _) = simWallets
-      (cids, govParams) <-
+      (cids, gov) <-
         subscript
-          "Initializing contracts, minting and distributing required tokens"
+          "Initializing contracts\nWallet 1 mints and distributes initial GOV tokens"
           simWallets
           (itializeContracts wallet1)
       let [wCid1, wCid2, wCid3] = cids
-
-      subscript_
-        "Admin (Wallet 1) starts the Governance (and sets the NFT)"
-        simWallets
-        (call wCid1 $ StartGovernance govParams)
 
       subscript_
         "Wallet 2 deposits 55 GOV (xGOV tokens being minted as result) "
@@ -71,9 +65,34 @@ main =
         $ deposit wCid2 55
 
       subscript_
-        "Wallet 2 queries amount of GOV deposited by him"
+        "Wallet 2 queries amount of GOV deposited"
         simWallets
         $ getBalance wCid2 wallet2
+
+      subscript_
+        "Wallet 2 deposits 10 more GOV"
+        simWallets
+        $ deposit wCid2 10
+
+      subscript_
+        "Wallet 2 queries amount of GOV deposited"
+        simWallets
+        $ getBalance wCid2 wallet2
+
+      subscript_
+        "Wallet 2 withdraws 60 GOV"
+        simWallets
+        $ withdraw wCid2 wallet2 60
+
+      subscript_
+        "Wallet 2 queries amount of GOV deposited"
+        simWallets
+        $ getBalance wCid2 wallet2
+
+      subscript_
+        "Finally, Wallet 3 queries amount of GOV deposited"
+        simWallets
+        $ getBalance wCid3 wallet3
 
       Simulator.logString @(Builtin GovernanceContracts) "Scripted part is over\nPress Enter to stop and exit"
       void $ liftIO getLine
@@ -96,26 +115,24 @@ main =
 -- shortcut for Governance initialization
 itializeContracts admin = do
   cidInit <- Simulator.activateContract admin Bootstrap
-  (nftCs, govCs) <- waitForLast cidInit
+  govCs <- waitForLast cidInit
   void $ Simulator.waitUntilFinished cidInit
-  let govParams =
-        GovParams
-          (AssetClassNft nftCs $ nftTokenName cfg)
-          (AssetClassGov govCs $ govTokenName cfg)
-  cids <- forM (wallets cfg) $ \w -> Simulator.activateContract w (Governance govParams)
-  return (cids, govParams)
+  let gov = AssetClassGov govCs $ govTokenName cfg
+  cids <- forM (wallets cfg) $ \w -> Simulator.activateContract w (Governance gov)
+  return (cids, gov)
 
--- shortcits fo endpoint calls
+-- shortcits for endpoint calls
 deposit cid amount = call cid $ Deposit amount
 
+withdraw cid wallet amount = call cid $ Withdraw [(walletPKH wallet, amount)]
+
 getBalance cid wallet = do
-  call cid $ QueryBalance (pubKeyHash $ walletPubKey wallet)
+  call cid $ QueryBalance $ walletPKH wallet
   govBalance :: Integer <- waitForLast cid
   logAction $ "Balance is " ++ show govBalance
 
 data BootstrapCfg = BootstrapCfg
   { wallets :: [Wallet]
-  , nftTokenName :: TokenName
   , govTokenName :: TokenName
   , govAmount :: Integer
   }
@@ -124,25 +141,22 @@ data BootstrapCfg = BootstrapCfg
 -- and distributes them ower wallets according to `BootstrapCfg`
 bootstrapGovernance :: BootstrapCfg -> BootstrapContract
 bootstrapGovernance BootstrapCfg {..} = do
-  (nftCur, govCur) <- mapError toText mintRequredTokens
-  let nftCs = Currency.currencySymbol nftCur
-      govCs = Currency.currencySymbol govCur
+  govCur <- mapError toText mintRequredTokens
+  let govCs = Currency.currencySymbol govCur
       govPerWallet = Value.singleton govCs govTokenName govAmount
   distributeGov govPerWallet
-  tell $ Last $ Just (nftCs, govCs)
+  tell $ Last $ Just govCs
   where
     mintRequredTokens ::
-      Contract w EmptySchema Currency.CurrencyError (Currency.OneShotCurrency, Currency.OneShotCurrency)
+      Contract w EmptySchema Currency.CurrencyError Currency.OneShotCurrency
     mintRequredTokens = do
       ownPK <- pubKeyHash <$> ownPubKey
-      nftCurrency <- Currency.mintContract ownPK [(nftTokenName, 1)]
-      govCurrency <- Currency.mintContract ownPK [(govTokenName, govAmount * length wallets)]
-      return (nftCurrency, govCurrency)
+      Currency.mintContract ownPK [(govTokenName, govAmount * length wallets)]
 
     distributeGov govPerWallet = do
       ownPK <- pubKeyHash <$> ownPubKey
       forM_ wallets $ \w -> do
-        let pkh = pubKeyHash $ walletPubKey w
+        let pkh = walletPKH w
         when (pkh /= ownPK) $ do
           tx <- submitTx $ mustPayToPubKey pkh govPerWallet
           awaitTxConfirmed $ txId tx
@@ -153,3 +167,5 @@ printBalance :: Wallet -> Simulation (Builtin schema) ()
 printBalance wallet = do
   v <- Simulator.valueAt $ walletAddress wallet
   logBalance ("WALLET " <> show wallet) v
+
+walletPKH = pubKeyHash . walletPubKey

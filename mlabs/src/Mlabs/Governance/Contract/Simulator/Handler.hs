@@ -15,7 +15,7 @@ import Prelude (IO, Show)
 
 import Mlabs.Governance.Contract.Api (GovernanceSchema)
 import Mlabs.Governance.Contract.Server (governanceEndpoints)
-import Mlabs.Governance.Contract.Validation (GovParams (..))
+import Mlabs.Governance.Contract.Validation (AssetClassGov (..))
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Default (Default (def))
@@ -43,16 +43,17 @@ import Ledger (CurrencySymbol)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg (..))
 
+-- todo Additional Init contract TBD
 data GovernanceContracts
   = Bootstrap
-  | Governance GovParams
+  | Governance AssetClassGov
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 instance Pretty GovernanceContracts where
   pretty = viaShow
 
-type BootstrapContract = Contract (Last (CurrencySymbol, CurrencySymbol)) EmptySchema Text ()
+type BootstrapContract = Contract (Last CurrencySymbol) EmptySchema Text ()
 
 handleGovernanceContracts ::
   ( Member (Error PABError) effs
