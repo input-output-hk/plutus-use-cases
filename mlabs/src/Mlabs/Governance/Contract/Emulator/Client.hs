@@ -2,16 +2,17 @@
 module Mlabs.Governance.Contract.Emulator.Client where
 
 import Control.Monad (void)
-import PlutusTx.Prelude hiding (Semigroup(..), unless)
 import Plutus.Trace.Emulator (EmulatorTrace, activateContractWallet)
+import PlutusTx.Prelude hiding (Semigroup (..), unless)
 import Wallet.Emulator qualified as Emulator
 
-import Mlabs.Plutus.Contract (callEndpoint')
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Server qualified as Server
 import Mlabs.Governance.Contract.Validation (AssetClassGov)
+import Mlabs.Plutus.Contract (callEndpoint')
 
 -- imo it would be nicer if we were to take the type to be applied to callEndpoint' from the type sig itself
+
 -- | Deposits the specified amount of GOV into the governance contract
 callDeposit :: AssetClassGov -> Emulator.Wallet -> Api.Deposit -> EmulatorTrace ()
 callDeposit gov wal depo = do

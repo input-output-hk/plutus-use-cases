@@ -1,34 +1,34 @@
-{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Contract API for the Governance application
 module Mlabs.Governance.Contract.Api (
-    Deposit(..)
-  , Withdraw(..)
-  , ProvideRewards(..)
-  , QueryBalance(..)
-  , GovernanceSchema
-  ) where
+  Deposit (..),
+  Withdraw (..),
+  ProvideRewards (..),
+  QueryBalance (..),
+  GovernanceSchema,
+) where
 
-import PlutusTx.Prelude
 import PlutusTx qualified
+import PlutusTx.Prelude
 
 import GHC.Generics (Generic)
+
 -- import Numeric.Natural (Natural)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
-import Plutus.Contract ( type (.\/))
+import Plutus.Contract (type (.\/))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (Value)
 import Prelude qualified as Hask
 
-import Mlabs.Plutus.Contract (Call, IsEndpoint(..))
+import Mlabs.Plutus.Contract (Call, IsEndpoint (..))
 
 -- TBD mixed withdraw/deposit endpoint
 
@@ -60,7 +60,7 @@ newtype QueryBalance = QueryBalance PubKeyHash
 
 -- no need to split schemas
 type GovernanceSchema =
-        Call Deposit
+  Call Deposit
     .\/ Call Withdraw
     .\/ Call ProvideRewards
     .\/ Call QueryBalance
@@ -78,4 +78,3 @@ instance IsEndpoint ProvideRewards where
 
 instance IsEndpoint QueryBalance where
   type EndpointSymbol QueryBalance = "query-balance"
-

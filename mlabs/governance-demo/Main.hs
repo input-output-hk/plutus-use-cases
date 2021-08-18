@@ -121,16 +121,15 @@ itializeContracts admin = do
   cids <- forM (wallets cfg) $ \w -> Simulator.activateContract w (Governance gov)
   return (cids, gov)
 
--- shortcits fo endpoint calls
+-- shortcits for endpoint calls
 deposit cid amount = call cid $ Deposit amount
 
-withdraw cid wallet amount = (call cid $ Withdraw [(walletPKH wallet, amount)])
+withdraw cid wallet amount = call cid $ Withdraw [(walletPKH wallet, amount)]
 
 getBalance cid wallet = do
   call cid $ QueryBalance $ walletPKH wallet
   govBalance :: Integer <- waitForLast cid
   logAction $ "Balance is " ++ show govBalance
-
 
 data BootstrapCfg = BootstrapCfg
   { wallets :: [Wallet]
@@ -152,8 +151,7 @@ bootstrapGovernance BootstrapCfg {..} = do
       Contract w EmptySchema Currency.CurrencyError Currency.OneShotCurrency
     mintRequredTokens = do
       ownPK <- pubKeyHash <$> ownPubKey
-      govCurrency <- Currency.mintContract ownPK [(govTokenName, govAmount * length wallets)]
-      return govCurrency
+      Currency.mintContract ownPK [(govTokenName, govAmount * length wallets)]
 
     distributeGov govPerWallet = do
       ownPK <- pubKeyHash <$> ownPubKey
