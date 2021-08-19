@@ -92,6 +92,15 @@ activateContracts = do
 
     pure $ ContractIDs users cidInfo
 
+startMpServer :: IO ()
+startMpServer = void $ Simulator.runSimulationWith handlers $ do
+    Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 8080. Press enter to exit."
+    shutdown <- PAB.Server.startServerDebug
+    _ <- activateContracts
+    Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 8080. Initialization complete. Press enter to exit."
+    _ <- liftIO getLine
+    shutdown
+
 runNftMarketplace :: IO ()
 runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 8080. Press enter to exit."

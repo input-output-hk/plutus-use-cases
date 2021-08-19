@@ -52,6 +52,15 @@ library
             -- See Plutus Tx readme
             -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
 
+executable pab
+  main-is: Main.hs
+  hs-source-dirs: pab
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter
+
 executable pab-simulation
   main-is: Main.hs
   hs-source-dirs: pab-simulation
@@ -60,6 +69,36 @@ executable pab-simulation
   build-depends:
     base >= 4.9 && < 5,
     plutus-starter
+
+executable generate-purs
+  main-is: Main.hs
+  hs-source-dirs: generate-purs
+  other-modules: MarketplaceTypes
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    aeson,
+    directory,
+    servant-purescript,
+    filepath,
+    servant-server,
+    bytestring,
+    aeson-pretty,
+    freer-extras,
+    lens,
+    text,
+    mtl,
+    -- Plutus:
+    plutus-ledger-api,
+    purescript-bridge,
+    playground-common,
+    plutus-starter,
+    plutus-pab,
+    plutus-contract,
+    plutus-use-cases,
+    plutus-ledger,
+    plutus-tx
 
 test-suite test
     type: exitcode-stdio-1.0
