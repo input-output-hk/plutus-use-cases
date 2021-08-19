@@ -70,13 +70,13 @@ main = void $ Simulator.runSimulationWith handlers $ do
         let gameId = fixtureId $ fixture game
             team1Id = teamId $ home $ teams game
             team2Id = teamId $ away $ teams game
-      
+        
         cidOracleToken <- Simulator.activateContract oracleWallet $ OracleTokenInit
         currency <- waitForLast cidOracleToken
         let oracleParams = Oracle.OracleParams{ 
             Oracle.opFees = 1_000_000
             , Oracle.opGame = gameId
-            , Oracle.opSymbol = currency
+            , Oracle.opSymbol = Currency.currencySymbol currency
             }
         cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
         oracle <- waitForLast cidOracle

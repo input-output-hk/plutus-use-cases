@@ -27,16 +27,26 @@ cabal exec -- oracle-client
 ````
 
 export INSTANCE_ID='66bbf5bc-2493-445a-ab14-dcd857f69246'
-curl -s http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq
+curl -s http://localhost:9080/api/new/contract/instance/$INSTANCE_ID/status | jq
 
-curl -s http://localhost:8080/api/contract/instances | jq
+curl -s http://localhost:9080/api/contract/instances | jq
 
-curl -s http://localhost:8080/api/new/contract/instances/wallet/1 | jq '.[].cicDefintion | select(.mbpOracle != null)'
+curl -s http://localhost:9080/api/new/contract/instances/wallet/1 | jq '.[].cicDefintion | select(.mbpOracle != null)'
 
-curl -s http://localhost:8080/api/new/contract/instances/wallet/1 | jq '.[] | select(.cicDefintion.mbpOracle != null) | .cicContract.unContractInstanceId'
+curl -s http://localhost:9080/api/new/contract/instances/wallet/1 | jq '.[] | select(.cicDefintion.mbpOracle != null) | .cicContract.unContractInstanceId'
 
 
-curl -s http://localhost:8080/api/new/contract/definitions | jq '.cicCurrentState.cicDefintion'
+
+
+curl -s http://localhost:9080/api/new/contract/instances | jq '.[] | select(.cicDefintion.tag=="OracleContract") | .cicContract.unContractInstanceId'
+
+curl -s http://localhost:9080/api/contract/instances | jq '.[].cicDefinition'
+curl -s http://localhost:9080/api/contract/instances | jq '.[].cicDefinition.tag'
+
+
+
+curl -s http://localhost:9080/api/new/contract/definitions | jq '.cicCurrentState.cicDefintion'
+curl -vk http://localhost:9080/api/new/contract/definitions
 
 
 | jq '.cicCurrentState.observableState'
