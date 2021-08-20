@@ -7,6 +7,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators         #-}
 
 module Plutus.Contracts.NftMarketplace.OffChain.Info where
@@ -110,6 +111,8 @@ data InfoContractState =
     | AuctionState Auction.AuctionState
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
+
+Lens.makeClassyPrisms ''InfoContractState
 
 infoEndpoints :: Core.Marketplace -> Contract (ContractResponse Text InfoContractState) MarketplaceInfoSchema Void ()
 infoEndpoints marketplace = forever $

@@ -33,6 +33,8 @@ import qualified PSGenerator.Common
 import           Plutus.Abstract.ContractResponse            (ContractResponse)
 import qualified Plutus.Contracts.NftMarketplace.Endpoints  as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
+import qualified Ext.Plutus.Contracts.Auction as Auction
+import qualified Plutus.Contracts.Services.Sale as Sale
 import           Plutus.PAB.Simulation                       (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Value                      (AssetClass)
 
@@ -52,15 +54,18 @@ marketplaceTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
           , (order <*> (equal <*> (genericShow <*> mkSumType))) (Proxy @AssetClass)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserItemId)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserContractState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.InfoContractState)
-          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.NftInfo)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.NFT)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Bundle)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.BundleInfo)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.NftBundle)
-          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserItemId)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Auction.AuctionState)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Auction.HighestBid)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Sale.Sale)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.CreateNftParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.OpenSaleParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.CloseLotParams)

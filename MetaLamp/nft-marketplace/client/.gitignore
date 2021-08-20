@@ -1,0 +1,15 @@
+generated
+generated/
+generated-docs/
+node_modules/
+output/
+yarn-error.log
+yarn.lock
+.psci_modules/
+.psc-package/
+.psc-package2nix/
+.spago/
+.spago2nix/
+plutus-pab.yaml
+.psc-ide-port
+plutus-purs/
