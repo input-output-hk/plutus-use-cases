@@ -10,7 +10,7 @@ import Routing.Duplex.Generic.Syntax ((/))
 
 data Route
   = UserPage
-  | Marketplace
+  | MarketPage
 
 derive instance genericRoute :: Generic Route _
 
@@ -26,5 +26,5 @@ routeCodec =
   root
     $ sum
         { "UserPage": noArgs
-        , "Marketplace": "marketplace" / noArgs
+        , "MarketPage": "market" / noArgs
         }
