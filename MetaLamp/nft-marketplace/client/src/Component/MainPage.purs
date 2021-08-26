@@ -35,7 +35,7 @@ import Utils.BEM as BEM
 import View.RemoteDataState (remoteDataState)
 
 type Slots
-  = ( walletSelector :: WalletSelector.ButtonSlot Unit )
+  = ( walletSelector :: WalletSelector.WalletSelectorSlot Unit )
 
 data Action
   = ChooseWallet WalletSelector.Output

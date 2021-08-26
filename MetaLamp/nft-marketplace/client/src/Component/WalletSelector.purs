@@ -10,7 +10,7 @@ import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Symbol (SProxy(..))
 
-type ButtonSlot id
+type WalletSelectorSlot id
   = forall query. H.Slot query Output id
 
 _walletSelector = SProxy :: SProxy "walletSelector"
