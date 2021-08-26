@@ -27,6 +27,8 @@ You can edit this file as you like.
   , "undefinable"
   , "uuid"
   , "web-socket"
+  , "routing"
+  , "routing-duplex"
   ]
 , packages = ./packages.dhall
 , sources =

@@ -19,6 +19,10 @@ import Effect.Console as Console
 import Foreign.Generic (class Decode, decode, encodeJSON)
 import Servant.PureScript.Ajax (AjaxError(..), ErrorDescription(..), ajax)
 import Type.Equality (class TypeEquals, from)
+import Capability.Navigate
+import Data.Route
+import Routing.Hash as Routing
+import Routing.Duplex as Routing
 
 type Env
   = { host :: String, port :: Int }
@@ -88,3 +92,6 @@ instance contractAppM :: Contract AppM where
 instance pollContractAppM :: PollContract AppM where
   pollDelay = liftAff <<< delay <<< Milliseconds $ 1000.0
   tooManyRetries retryCount = pure $ retryCount > 20
+
+instance navigateAppM :: Navigate AppM where
+  navigate = liftEffect <<< Routing.setHash <<< Routing.print routeCodec
