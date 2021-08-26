@@ -1,11 +1,13 @@
 module Component.MainPage where
 
+import Data.Unit
 import Prelude
 import Business.Marketplace as Marketplace
 import Business.MarketplaceInfo as MarketplaceInfo
-import Capability.LogMessages (class LogMessages)
+import Capability.LogMessages (class LogMessages, logInfo)
 import Capability.PollContract (class PollContract)
 import Component.Utils (runRD)
+import Component.WalletSelector as WalletSelector
 import Control.Monad.Except (lift, runExceptT, throwError)
 import Control.Parallel (parTraverse)
 import Data.Array (catMaybes, findMap, groupBy, mapWithIndex, take)
@@ -29,9 +31,14 @@ import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass, Value)
 import PlutusTx.AssocMap as Map
-import View.RemoteDataState (remoteDataState)
 import Utils.BEM as BEM
-import Data.Unit
+import View.RemoteDataState (remoteDataState)
+
+type Slots
+  = ( walletSelector :: WalletSelector.ButtonSlot Unit )
+
+data Action
+  = ChooseWallet WalletSelector.Output
 
 component ::
   forall m query input output.
@@ -40,14 +47,23 @@ component ::
   H.Component HH.HTML query input output m
 component =
   H.mkComponent
-      { initialState
-      , render
-      , eval: H.mkEval $ H.defaultEval { handleAction = handleAction }
-      }
-    where
-    initialState _ = unit
+    { initialState
+    , render
+    , eval: H.mkEval $ H.defaultEval { handleAction = handleAction }
+    }
+  where
+  initialState :: forall i. i -> Unit
+  initialState _ = unit
 
-    render _ =
-      HH.text "HIII!!!!!!!!!!!!!!!!!!!!!!"
+  render :: forall state. state -> H.ComponentHTML Action Slots m
+  render _ =
+    HH.div_
+      [ HH.text "Choose wallet: "
+      , HH.slot WalletSelector._walletSelector unit WalletSelector.component unit (Just <<< ChooseWallet)
+      ]
 
-    handleAction _ = pure unit
+  handleAction :: Action -> H.HalogenM Unit Action Slots output m Unit
+  handleAction = case _ of
+    ChooseWallet (WalletSelector.Submit w) -> do
+      logInfo $ show w
+      pure unit
