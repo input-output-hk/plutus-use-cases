@@ -8,9 +8,15 @@ where
 
 import GHC.Generics (Generic)
 import Data.Aeson (ToJSON (toJSON), FromJSON, object, (.=))
-import Data.ByteString hiding (map)
+import Data.ByteString ( ByteString )
 import Playground.Contract
 import Plutus.Contract.Blockchain.MarketPlace
+    ( dsCost,
+      Auction(..),
+      DirectSale(..),
+      Market(mPrimarySaleFee, mSecondarySaleFee, mAuctionFee),
+      Price(..),
+      SellType(Secondary), marketHundredPercent,Percent,percent)
 import Ledger hiding (value,singleton,fee)
 import Ledger.Value
 import Data.String.Conversions (convertString)
@@ -23,13 +29,13 @@ import Wallet.Emulator.Wallet (walletPubKey)
 
 
 -- The models in this package are the response types used to tell state.
--- These data classes have much flatter structure compared to the default JSON types of 
+-- These data classes have much flatter structure compared to the default JSON types of
 -- the classes.
 -- For example response for Asset class by default is
 -- {
 --   "unAssetClass":[{"unCurrencySymbol": "abcd...",{"unTokenName":"0xabc..."}}]
 -- }
--- but with AssetId, the response is 
+-- but with AssetId, the response is
 --{
 --  "assCurrency":"abcd...",
 --  "assToken": "0xabcd..."
@@ -37,6 +43,11 @@ import Wallet.Emulator.Wallet (walletPubKey)
 -- It's much readable and is easier to understant in  frontend.
 
 
+-- A user involved in a share who's expected to get some  returns.
+data Party=Party{
+  pPubKeyHash::PubKeyHash ,
+  pShare:: Integer
+} deriving (Generic,ToJSON,FromJSON,Prelude.Show,ToSchema)
 
 -- represents an AssetClass
 data AssetId=AssetId
@@ -50,13 +61,14 @@ data MintParams = MintParams
     , mpAmount    :: !Integer
     } deriving (GHC.Generics.Generic , ToJSON, FromJSON, ToSchema)
 
-data SellParams =SellParams
-    {
-        spShare::[(PubKeyHash,Integer)],
+data SellParams =SellParams{
+        spShare::[Party],
         spItems::[ValueInfo],
         spSaleType :: SellType, -- Primary | Secondary
         spTotalCost  ::ValueInfo
-    } deriving(GHC.Generics.Generic,ToJSON ,FromJSON,ToSchema,Show)
+    } deriving(GHC.Generics.Generic,ToJSON ,FromJSON,ToSchema ,Show)
+
+
 
 -- Singleton of a Value
 data ValueInfo=ValueInfo{
@@ -81,6 +93,7 @@ data PurchaseParam =PurchaseParam
   } deriving(GHC.Generics.Generic,ToJSON,FromJSON,ToSchema)
 
 data AuctionParam = AuctionParam{
+    apParties::[Party],
     apValue::[ValueInfo],
     apMinBid:: ValueInfo,
     apMinIncrement:: Integer,
@@ -149,13 +162,18 @@ assetIdOf (AssetClass (CurrencySymbol c, TokenName t))=AssetId{
 
 sellParamToDirectSale :: PubKeyHash -> SellParams->DirectSale
 sellParamToDirectSale  pkh (SellParams parties items stype (ValueInfo c t v)) = DirectSale {
-                      dsParties = parties,
+                        dsSeller=pkh,
+                      dsParties =map toPartyTuple parties,
                       dsAsset  = AssetClass (CurrencySymbol c, TokenName t),
-                      dsType=stype
+                      dsType=stype,
+                      dsCost=v
                       }
+  where
+    toPartyTuple (Party p s)=(p,s)
 
 aParamToAuction :: PubKeyHash -> AuctionParam -> Auction
 aParamToAuction ownerPkh ap  =Auction {
+              aParties      =  map (\x -> (pPubKeyHash x,pShare x)) $ apParties ap,
               aOwner        =  ownerPkh,
               aBidder       = ownerPkh,
               aAssetClass   = valueInfoAssetClass (apMinBid  ap),
@@ -167,12 +185,12 @@ aParamToAuction ownerPkh ap  =Auction {
 
 
 directSaleToResponse:: Market -> ParsedUtxo DirectSale  -> NftsOnSaleResponse
-directSaleToResponse market (txOutRef,txOutTx,DirectSale{dsAsset ,dsParties,dsType}) =
+directSaleToResponse market (txOutRef,txOutTx,ds@DirectSale{dsAsset ,dsParties,dsType}) =
         NftsOnSaleResponse{
-            cost=priceToValueInfo dsCost ,
+            cost=ValueInfo (unCurrencySymbol $ fst $ unAssetClass  dsAsset ) (unTokenName  $ snd $ unAssetClass  dsAsset) (dsCost ds),
             saleType= dsType,
             fee= if dsType == Secondary  then mPrimarySaleFee  market else mSecondarySaleFee market,
-            owner= getPubKeyHash dsSeller,
+            owner= getPubKeyHash $  dsSeller  ds,
             values= toValueInfo (txOutValue (txOutTxOut  txOutTx)),
             reference=txOutRef
         }
@@ -186,7 +204,7 @@ auctionToResponse market  (ref,TxOutTx tx (TxOut addr value _ ), a) = AuctionRes
       arDuration =  (lb (ivFrom   (aDuration a)),ub (ivTo (aDuration a))),
       arBidder = Bidder{
                   bPubKeyHash   = aBidder  a,
-                  bBid          = auctionAssetValueOf a value,
+                  bBid          = assetClassValueOf  value $ aAssetClass a,
                   bBidReference =  ref
               },
       arMarketFee = mAuctionFee market

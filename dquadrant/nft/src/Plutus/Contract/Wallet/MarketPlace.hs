@@ -51,12 +51,11 @@ import qualified Data.Aeson.Types as JsonTypes
 import Data.Aeson (FromJSON,ToJSON, toJSON)
 import  Ledger.Scripts
 import Data.Text (Text, singleton)
-import Prelude (String,Show, show, (<>), Monoid (mconcat), Foldable (elem, length), concat)
+import Prelude (String,Show, show, (<>), Monoid (mconcat), Foldable (elem, length), concat, uncurry)
 import Ledger.AddressMap (UtxoMap)
 import GHC.Generics (Generic)
 import PlutusTx (toData, IsData)
 import  Control.Monad.Error.Lens (throwing, throwing_)
-import Control.Monad
 import Plutus.Contract.Wallet.Utils
 
 -- TODO remove imports below
@@ -66,7 +65,7 @@ import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Ada (lovelaceValueOf)
 import Plutus.Contract.Constraints
 import qualified Data.Set as Set
-import Data.Functor
+import Data.Functor hiding (fmap)
 import Ledger.TimeSlot (posixTimeRangeToSlotRange, slotToPOSIXTime)
 import Control.Lens (review)
 
@@ -88,12 +87,12 @@ buyDirectSaleUtxos m fUtxos= submitTxConstraintsWith @MarketScriptType lookups t
 
         consumedOutputs=Map.fromList $ map (\(a,b,c) ->(a,b)) fUtxos
 
-        toConstraint (utxoRef, _, ds) = 
+        toConstraint (utxoRef, _, ds) =
             mustSpendScriptOutput utxoRef (Redeemer ( toData Buy))
           <> dsSellerPayments ds
-          <> mustPayToPubKey (mOperator m) (assetClassValue (dsAsset ds) $  dsMarketShare m ds)
+          <> mustPayToPubKey (mOperator m) (assetClassValue (dsAsset ds) (dsFee  m ds))
 
-        dsSellerPayments (DirectSale parties ac _)=foldMap (\(pkh,v)-> mustPayToPubKey pkh  (assetClassValue ac v)) parties
+        dsSellerPayments ds=foldMap (\(pkh,v)-> mustPayToPubKey pkh  (assetClassValue (dsAsset  ds) v)) (dsPaymentValueList m ds)
 
 
 submitAuction :: AsContractError e => Market -> [Auction] -> Contract w s e Tx
@@ -127,7 +126,7 @@ bidAuctionUtxo market (ref,tx@TxOutTx{txOutTxOut=utxo},ac) bidAmount = do
   submitTxConstraintsWith @MarketScriptType lookups constraints
   where
       lookups=otherScript (marketValidator market ) Prelude.<>  unspentOutputs (Map.singleton ref tx)
-      lastBidderShare       = auctionAssetValueOf ac  (txOutValue utxo)
+      lastBidderShare       = assetClassValueOf  (txOutValue utxo) (aAssetClass  ac)
       lastBidderShareValue  = auctionAssetValue ac lastBidderShare
       scriptShareValue      = auctionAssetValue ac (-lastBidderShare) <> lastValue <> bidAmount
       lastValue=txOutValue utxo
@@ -135,7 +134,7 @@ bidAuctionUtxo market (ref,tx@TxOutTx{txOutTxOut=utxo},ac) bidAmount = do
 
 
 claimAuctionUtxos ::AsContractError e => Market -> [ParsedUtxo Auction] -> Contract w s e Tx
-claimAuctionUtxos market refs@[(_,_,a)] =  logInfo (show constraint)>> logInfo  a>> submitTxConstraintsWith @MarketScriptType lookups constraint
+claimAuctionUtxos market refs@[(_,_,a)] = submitTxConstraintsWith @MarketScriptType lookups constraint
   where
   lookups=otherScript (marketValidator market ) Prelude.<>  unspentOutputs uTxoLookup
 
@@ -146,9 +145,10 @@ claimAuctionUtxos market refs@[(_,_,a)] =  logInfo (show constraint)>> logInfo  
   utxoToConstraint  (txOutRef,TxOutTx _ (TxOut _ value _), auction)=
     mustSpendScriptOutput txOutRef (Redeemer $ toData ClaimBid )
     <> mustPayToPubKey (aBidder auction) (aValue auction)
-    <> mustPayToPubKey (aOwner auction) (aSellerShareValue  market auction  value )
-    <> mustPayToPubKey  (mOperator market) (aMarketShareValue market auction value)
+    <> foldMap (uncurry mustPayToPubKey) (aPaymentReceiversValue market auction value)
+    <> mustPayToPubKey  (mOperator market) (auctionAssetValue a   (aFee market auction value))
     <> mustValidateIn ( posixTimeRangeToSlotRange $ aClaimInterval auction)
+
 
 
 withdrawUtxos :: (AsContractError e) => Market -> [TxOutRef]  -> Contract w s e Tx

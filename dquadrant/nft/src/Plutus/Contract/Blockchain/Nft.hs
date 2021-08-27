@@ -36,18 +36,18 @@ mkPolicy oref tn ctx@ScriptContext {scriptContextTxInfo=info@TxInfo{}} =
         [(cs, tn', amt)] -> cs  == ownCurrencySymbol ctx && tn' == tn && amt == 1
         _                -> False
 
--- policy :: TxOutRef -> TokenName -> MonetaryPolicy
--- policy oref tn = mkMonetaryPolicyScript $
---     $$(PlutusTx.compile [|| \oref' tn' -> wrapMonetaryPolicy $ mkPolicy oref' tn' ||])
---     `PlutusTx.applyCode`
---     PlutusTx.liftCode oref
---     `PlutusTx.applyCode`
---     PlutusTx.liftCode tn
+policy :: TxOutRef -> TokenName -> MonetaryPolicy
+policy oref tn = mkMonetaryPolicyScript $
+    $$(PlutusTx.compile [|| \oref' tn' -> wrapMonetaryPolicy $ mkPolicy oref' tn' ||])
+    `PlutusTx.applyCode`
+    PlutusTx.liftCode oref
+    `PlutusTx.applyCode`
+    PlutusTx.liftCode tn
 
-policy::TxOutRef -> TokenName -> MonetaryPolicy
-policy oref tn=mkMonetaryPolicyScript   $$(PlutusTx.compile [||a ||])
-  where
-    a _=()
+-- policy::TxOutRef -> TokenName -> MonetaryPolicy
+-- policy oref tn=mkMonetaryPolicyScript   $$(PlutusTx.compile [||a ||])
+--   where
+--     a _=()
 
 
 curSymbol :: TxOutRef -> TokenName -> CurrencySymbol

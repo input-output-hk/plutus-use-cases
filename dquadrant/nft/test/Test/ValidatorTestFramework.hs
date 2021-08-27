@@ -32,10 +32,13 @@ data TestCtxIn  =  PkhCtxIn (Address,Value) | ScriptCtxIn (ByteString,Value,Data
 data TestCtxOut = PkhCtxOut (Address,Value) | ScriptCtxOut (ByteString,Value,Data) |ThisScripCtxOut(Value,Data) deriving (Show)
 
 
+-- Context Builder for test transaction
+-- You will not use this directly, instead use builder functions
+-- to compose this structure.
 data TestContextBuilder=TestContextBuilder{
-    ctxInputs:: [TestCtxIn],
-    ctxOutputs::[TestCtxOut],
-    ctxSignatures ::[PubKeyHash]
+    ctxInputs:: [TestCtxIn], -- inputs in this transaction
+    ctxOutputs::[TestCtxOut], -- outputs in this transaction
+    ctxSignatures ::[PubKeyHash] -- public key signatures in this transaction
   } deriving(Show)
 instance Semigroup TestContextBuilder where
   (<>) ctx1 ctx2=TestContextBuilder{
@@ -44,6 +47,8 @@ instance Semigroup TestContextBuilder where
     ctxSignatures=ctxSignatures ctx1 ++ctxSignatures ctx2
   }
 
+-- In this transaction, pay some value to the wallet.
+-- It will be included in the tx_out of this transaction
 builderPayTo::Wallet ->Value ->TestContextBuilder
 builderPayTo w v= TestContextBuilder{
     ctxInputs=[],
@@ -51,23 +56,33 @@ builderPayTo w v= TestContextBuilder{
     ctxSignatures=[]
   }
 
+-- In this transaction send  x lovelace to an wallet.
+-- It will appear in tx_out
 builderPayLovelaceTo :: Wallet -> Integer -> TestContextBuilder
 builderPayLovelaceTo w v=builderPayTo w (lovelaceValueOf v)
 
-builderLockInThisScript:: IsData a=>Value -> a->TestContextBuilder
-builderLockInThisScript v d =TestContextBuilder{
+-- Lock value and data in the script that is being validated.
+-- This is the validator script we are currently testing
+builderLockInThisScript:: IsData _data=>Value -> _data->TestContextBuilder
+builderLockInThisScript v _data =TestContextBuilder{
     ctxInputs=[],
-    ctxOutputs=[ThisScripCtxOut ( v, toData d)],
+    ctxOutputs=[ThisScripCtxOut ( v, toData _data)],
     ctxSignatures=[]
   }
 
-builderLockInScript:: IsData a=>ByteString -> a -> Value->TestContextBuilder
-builderLockInScript bs d v =TestContextBuilder{
+-- Lock value and data in a script.
+-- It's a script that we depend on. but we are not testing it.
+-- So, the validator of this script will not be executed.
+builderLockInScript:: IsData _data=>ByteString -> _data -> Value->TestContextBuilder
+builderLockInScript bs _data v =TestContextBuilder{
     ctxInputs=[],
-    ctxOutputs=[ScriptCtxOut (bs,v,toData d)],
+    ctxOutputs=[ScriptCtxOut (bs,v,toData _data)],
     ctxSignatures=[]
   }
 
+-- Spend Value from a wallet.
+-- Since spending requires signature, It will also add
+-- signature of that wallet
 builderSpend:: Wallet ->Value ->TestContextBuilder
 builderSpend w v=TestContextBuilder{
     ctxInputs=[PkhCtxIn (pubKeyAddress $ walletPubKey w,v)],
@@ -76,13 +91,16 @@ builderSpend w v=TestContextBuilder{
   }
 
 
-builderRedeem:: (IsData a,IsData b)=>b-> Value->a->TestContextBuilder
-builderRedeem r v d=TestContextBuilder{
-    ctxInputs=[ThisScripCtxIn (v,toData d,toData r)],
+-- Redeem from Script Address.
+builderRedeem:: (IsData _data,IsData redeemer)=>redeemer-> Value->_data->TestContextBuilder
+builderRedeem redeemer value _data=TestContextBuilder{
+    ctxInputs=[ThisScripCtxIn (value,toData _data,toData redeemer)],
     ctxOutputs=[],
     ctxSignatures=[]
   }
 
+-- When we are redeeming from another script, we are not interested in it's data or redeemer
+-- we can just ignore it.
 builderRedeemAnotherScript:: Value ->TestContextBuilder
 builderRedeemAnotherScript v =TestContextBuilder{
     ctxInputs=[ThisScripCtxIn (v,toData (),toData ())],
@@ -90,6 +108,10 @@ builderRedeemAnotherScript v =TestContextBuilder{
     ctxSignatures=[]
 }
 
+-- Add signature of a wallet to this transaction.
+-- Note that when you are spending from wallet, signature is included
+-- by default. But there are cases when you are not spending
+-- from wallet and require signature.
 builderSign:: Wallet -> TestContextBuilder
 builderSign w=TestContextBuilder{
   ctxInputs=[],
@@ -98,7 +120,11 @@ builderSign w=TestContextBuilder{
 }
 
 
-executeSpendContext :: 
+-- Given a validtator function and ContextBuilder object
+-- execute it and give boolean result.
+-- note that it won't throw exceptions or stuffs.
+-- the result can be asserted only based on the return value.
+executeSpendContext ::
   (Data -> Data -> ScriptContext -> Bool)
   -> TestContextBuilder -> POSIXTimeRange -> Bool
 executeSpendContext f ctx range =executeContext f ctx range defaultForge
@@ -134,7 +160,7 @@ executeContext f (TestContextBuilder cInputs cOutputs signatures) timeRange forg
       _ ->Nothing
 
     indexedInputs=zip cInputs [1..]
-    
+
     ctx purpose=ScriptContext{
       scriptContextTxInfo =TxInfo{
         txInfoInputs        =map (\(v,i)->TxInInfo (TxOutRef testSourceTxHash i) (toInput v) ) indexedInputs
@@ -151,10 +177,8 @@ executeContext f (TestContextBuilder cInputs cOutputs signatures) timeRange forg
       scriptContextPurpose =purpose
     }
 
--- cannotBuyWithLesserValue= mkMarket defaultMarket  (toData $ toInteger 32) Buy 
-
 defaultFee :: Value
-defaultFee=Ledger.Value.singleton adaSymbol  adaToken  43
+defaultFee=Ledger.Value.singleton adaSymbol  adaToken  0
 defaultForge :: Value
 defaultForge=Value AssocMap.empty
 

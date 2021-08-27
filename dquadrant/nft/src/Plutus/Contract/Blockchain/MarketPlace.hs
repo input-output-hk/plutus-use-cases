@@ -121,10 +121,15 @@ allScriptInputsCount ctx@(ScriptContext info purpose)=
 ----------------------------------------------------------------------------------------------
 
 {-# INLINABLE marketHundredPercent #-}
-marketHundredPercent :: Integer
+marketHundredPercent :: Percent
 marketHundredPercent=100_000_000
 
+percent:: Integer -> Percent
+percent a = a * 1_000_000
+
+
 newtype Price = Price (CurrencySymbol ,TokenName ,Integer) deriving(Show,Generic,ToJSON,FromJSON)
+type Percent = Integer
 
 {-# INLINABLE valueOfPrice#-}
 valueOfPrice :: Price ->  Value
@@ -143,62 +148,43 @@ data MarketRedeemer =  ClaimBid| Bid | Buy | Withdraw
 
 
 data SellType = Primary | Secondary  deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
+type PartyShare=(PubKeyHash,Percent)
 
 data DirectSale=DirectSale{
-    dsParties::  [(PubKeyHash,Integer)], -- ^ The values that should be paid to the parties in a sale
+    dsSeller:: PubKeyHash, -- The mail seller
+    dsParties::  [(PubKeyHash,Percent)], -- Percentage payment for other parties of sale.
     dsAsset ::  AssetClass, -- ^ the assetclass for cost
+    dsCost:: Integer,  -- ^ total cost of asset
     dsType::  !SellType
 } deriving(Show,Generic,ToJSON,FromJSON)
 
-dsSellerShare:: DirectSale->Integer
-dsSellerShare DirectSale{dsParties} =sum $ map snd dsParties 
+-- total amount received by all the seller parties
+dsCostExcludingFee::Market-> DirectSale->Integer
+dsCostExcludingFee  Market{mPrimarySaleFee,mSecondarySaleFee} DirectSale{dsCost,dsType} =
+    (userShare * dsCost) `divide` marketHundredPercent
+  where
+    userShare=marketHundredPercent - case dsType  of
+                                        Secondary -> mSecondarySaleFee
+                                        Primary   -> mPrimarySaleFee
 
-dsCost :: Market -> DirectSale -> Integer
-dsCost Market{mPrimarySaleFee,mSecondarySaleFee} ds= (dsSellerShare ds * marketHundredPercent)`divide` (marketHundredPercent-fee)
-  where 
-    fee= case dsType ds of 
-      Primary-> mPrimarySaleFee
-      Secondary-> mSecondarySaleFee
-
-{-# INLINABLE dsMarketShare #-}
-dsMarketShare :: Market -> DirectSale -> Integer
-dsMarketShare market ds=dsCost market ds - dsSellerShare ds
-
--- Previou's owner's winning after a auction is complete
-{-# INLINABLE aSellerShareValue #-}
-aSellerShareValue :: Market -> Auction -> Value-> Value
-aSellerShareValue m@Market{mAuctionFee} a@Auction{aAssetClass,aValue} fValue =
-  fValue - aValue-aMarketShareValue m a fValue -aPartiesShareValue m a fValue
-
-aPartiesSharePayment:: Market ->Auction->Value->Payment
-aPartiesSharePayment Market{mAuctionFee} Auction{aAssetClass,aValue,aParties} fValue=foldMap partyPayment aParties
-  where 
-    partyPayment (pkh,share) = payment pkh $ assetClassValue aAssetClass $ (share*totalSellerShare) `divide` marketHundredPercent
-    totalSellerShare= ((marketHundredPercent-mAuctionFee) * finalValue) `divide` marketHundredPercent
-    finalValue = assetClassValueOf fValue aAssetClass
-
-
-aPartiesShareValue:: Market -> Auction -> Value -> Value
-aPartiesShareValue  Market{mAuctionFee} Auction{aAssetClass,aValue,aParties} fValue=assetClassValue aAssetClass v
-  where 
-    v= sum $  map (\(pkh,share)-> (share*totalSellerShare) `divide` marketHundredPercent) aParties
-    totalSellerShare= (marketHundredPercent-mAuctionFee) * finalValue
-    finalValue = assetClassValueOf fValue aAssetClass
-
--- Operator's share for auction,
--- if the split is fractional, market receives the extra.
--- For example if market  fee is 3.22, operator will receive 4 Ada.
-{-# INLINABLE aMarketShareValue #-}
-aMarketShareValue :: Market -> Auction -> Value-> Value
-aMarketShareValue Market{mAuctionFee} Auction{aAssetClass} fValue = assetClassValue aAssetClass v
+-- List of payment values to be payed to all the parties in directsale
+dsPaymentValueList:: Market -> DirectSale -> [(PubKeyHash ,Integer)]
+dsPaymentValueList market ds@DirectSale{dsParties,dsSeller} = partiesValue <> [(dsSeller,sellerValue)]
     where
-      v=finalAssetValue - (((marketHundredPercent - mAuctionFee) * finalAssetValue) `divide` marketHundredPercent )
-      finalAssetValue= assetClassValueOf fValue aAssetClass
+        totalReceived= dsCostExcludingFee market ds
+        partyShare  percent = (totalReceived  * percent ) `divide` marketHundredPercent
 
+        partiesValue  = map (\(pkh,percent)-> (pkh,partyShare percent)) dsParties
+        sellerValue  =totalReceived - (sum $ map snd partiesValue)
+
+-- market fee to be payed when buying directsale
+{-# INLINABLE dsFee #-}
+dsFee :: Market -> DirectSale -> Integer
+dsFee market ds@DirectSale{dsCost}=dsCost - dsCostExcludingFee market ds
 
 data Auction = Auction{
     aOwner  :: !PubKeyHash, -- pkh Who created the auction.
-    aParties:: [(PubKeyHash,Integer)], -- other parties that must be paid. the integer value is Percentage
+    aParties:: [(PubKeyHash,Percent)], -- other parties that must be paid. the integer value is Percentage
     aBidder:: !PubKeyHash, -- Current Bidder
     aAssetClass:: !AssetClass, -- The Bidding currency for auction.
     aMinBid :: !Integer, -- starting Bid
@@ -208,21 +194,58 @@ data Auction = Auction{
 } deriving (Generic, Show,ToJSON,FromJSON,Prelude.Eq)
 PlutusTx.unstableMakeIsData ''Auction
 
+-- Given final bid value
+-- Calculate Value to be payed to all the seller parties of auction
+-- Note that sellerReceiving = totalBid - marketFee - otherPartyPayment - buyer's Payment
+{-# INLINABLE aPaymentReceiversValue #-}
+aPaymentReceiversValue :: Market -> Auction -> Value-> [(PubKeyHash,Value)]
+aPaymentReceiversValue m@Market{mAuctionFee} a@Auction{aOwner,aAssetClass,aValue} closingValue =
+    [aOwnerPart] ++ partiesPart
+  where
+    aOwnerPart=(aOwner,closingValue -aValue- marketFeeValue-assetClassValue aAssetClass (sum $ map snd partiesPayment) )
+    partiesPart = map (\(pkh,v)-> (pkh,assetClassValue aAssetClass v)) partiesPayment
+    partiesPayment=map (\(pkh,v) ->(pkh,(v*totalPayment)`divide` marketHundredPercent)) (aParties a)
+    totalPayment = aPaymentAfterFee m a closingValue
+    marketFeeValue= auctionAssetValue a $ aFee  m a closingValue
+
+-- Given final bid value in an auction,
+--  Create pament map for the auction seller parties
+{-# INLINABLE aPaymentRecivers #-}
+aPaymentRecivers:: Market ->Auction->Value->Payment
+aPaymentRecivers m@Market{mAuctionFee} a@Auction{aAssetClass,aValue,aParties} fValue=
+  foldMap toPayment (aPaymentReceiversValue m a fValue)
+  where
+    toPayment (pkh,v) = payment pkh v
+
+-- Given final bid value in an auction,
+-- Get the amount after deducting market fee. It is to be distributed among seller parties. 
+{-# INLINABLE aPaymentAfterFee #-}
+aPaymentAfterFee :: Market -> Auction -> Value -> Integer
+aPaymentAfterFee Market{mAuctionFee} a v =totalPayment
+  where
+    totalPayment= ((marketHundredPercent-mAuctionFee ) * totalClosingValue) `divide` marketHundredPercent
+    totalClosingValue = assetClassValueOf v (aAssetClass a)
+
+
+-- Given final bid, get Market fee to be paid when claiming auction
+{-# INLINABLE aFee #-}
+aFee :: Market -> Auction -> Value-> Integer
+aFee Market{mAuctionFee} Auction{aAssetClass} fValue = finalAssetValue - sellerValue
+    where
+      sellerValue=(sellerPercent * finalAssetValue) `divide` marketHundredPercent
+      sellerPercent=marketHundredPercent-mAuctionFee
+      finalAssetValue= assetClassValueOf fValue aAssetClass
+
+-- the interval object representime the time by which auction can be claimed
 aClaimInterval :: Auction-> Interval POSIXTime
 aClaimInterval Auction{aDuration}= Interval (toLower $ ivTo aDuration) (UpperBound PosInf False)
   where
     toLower (UpperBound  a _)=LowerBound a True
 
+-- Given a payment get It as value of Auction's asset class
 {-# INLINABLE auctionAssetValue #-}
 auctionAssetValue :: Auction -> Integer -> Value
 auctionAssetValue Auction{aAssetClass=AssetClass (c, t)} = singleton c t
-{-# INLINABLE getAuctionAssetValue #-}
-getAuctionAssetValue:: Auction -> Value->Value
-getAuctionAssetValue a v =auctionAssetValue a $ auctionAssetValueOf a v 
-
-{-# INLINABLE auctionAssetValueOf #-}
-auctionAssetValueOf :: Auction -> Value -> Integer
-auctionAssetValueOf Auction{aAssetClass} value = assetClassValueOf value aAssetClass
 
 
 {-# INLINABLE  validateBid #-}
@@ -232,7 +255,7 @@ validateBid auction ctx@ScriptContext  {scriptContextTxInfo=info}=
     Just nAuction@Auction{} ->
             traceIfFalse "Unacceptible modification to output datum" (validOutputDatum nAuction)
         &&  traceIfFalse "Only one bid per transaction" (allScriptInputsCount  ctx ==1 )
-        &&  traceIfFalse "This auction looks like a scam" validInputDatum
+        &&  traceIfFalse "The asset is not present in the auction utxo" validInputDatum
         &&  traceIfFalse "Insufficient payment to market contract" isMarketScriptPayed
         &&  traceIfFalse "Insufficient payment to previous bidder" isExBidderPaid
         &&  traceIfFalse "Not during the auction period" duringTheValidity
@@ -253,10 +276,10 @@ validateBid auction ctx@ScriptContext  {scriptContextTxInfo=info}=
             if  lastAuctionAssetValue == 0
             then  aMinBid auction
             else  aMinIncrement auction)
-    isExBidderPaid=
-        if lastAuctionAssetValue == 0
-        then True
-        else assetClassValueOf  (valuePaidTo info (aBidder auction))  (aAssetClass auction) >= lastAuctionAssetValue
+    isExBidderPaid= lastAuctionAssetValue == 0
+      ||  (assetClassValueOf  (valuePaidTo info (aBidder auction))  (aAssetClass auction)
+            >= lastAuctionAssetValue
+          )
 
     lastAuctionAssetValue= assetClassValueOf  (ownInputValue ctx ) (aAssetClass auction)
 
@@ -268,6 +291,7 @@ validateBid auction ctx@ScriptContext  {scriptContextTxInfo=info}=
 
 
 {-# INLINABLE  validateWithdraw #-}
+validateWithdraw :: Market -> Data -> ScriptContext -> Bool
 validateWithdraw market datum ctx=
           isDirectSale
       ||  isAuction
@@ -275,11 +299,10 @@ validateWithdraw market datum ctx=
   where
       isAuction = case fromData datum of
           (Just auction)      ->  traceIfFalse "Missing owner signature" (txSignedBy info (aOwner auction)) &&
-                                  traceIfFalse "Cannot withdraw auction with bids" (aBidder auction==aOwner auction) &&
-                                  traceIfFalse "Auction is Still active"  (auctionNotActive auction)
+                                  traceIfFalse "Cannot withdraw auction with bids" (aBidder auction==aOwner auction) 
           _ -> False
       isDirectSale= case fromData  datum of
-          (Just (DirectSale dsParties _ _ ) )   -> traceIfFalse "Missing seller signature" (txSignedBy info $ fst $ head dsParties)
+          (Just (DirectSale dsSeller _ _ _ _ ) )   -> traceIfFalse "Missing seller signature" (txSignedBy info  dsSeller)
           _                   -> False
       info=scriptContextTxInfo ctx
       auctionNotActive auction = not $ aDuration auction `contains` txInfoValidRange info
@@ -309,17 +332,12 @@ validateClaimAuction  market@Market{mAuctionFee,mOperator} ctx@ScriptContext{scr
         totalOperatorFee  = foldMap  operatorFee auctionsWithTxOut
 
         -- payment share for each party in a auction txOut
-        sellerPayment   (txOut,auction) = (payment  (aOwner auction) $ aSellerShareValue market auction $ txOutValue txOut)
-                                          <> aPartiesSharePayment market auction (getAuctionAssetValue auction $ txOutValue txOut)
-        operatorFee     (txOut,auction) = aMarketShareValue market auction $ txOutValue txOut
+        sellerPayment   (txOut,auction) = aPaymentRecivers market auction  (txOutValue txOut)
+        operatorFee     (txOut,auction) = auctionAssetValue auction $ aFee market auction $ txOutValue txOut
         aWinnerPayment  (txOut,auction) = payment (aBidder auction) $ aValue auction
 
         auctionsWithTxOut:: [(TxOut,Auction)]
         auctionsWithTxOut=ownInputsWithDatum  ctx
-        
-
-
-
 
 {-# INLINABLE validateBuy #-}
 validateBuy:: Market -> ScriptContext ->Bool
@@ -333,14 +351,15 @@ validateBuy market@Market{mOperator,mPrimarySaleFee,mSecondarySaleFee} ctx=
         isMarketFeePaid = valuePaidTo info mOperator `geq` totalMarketFee
         areSellersPaid  = validatePayment (\pkh v-> valuePaidTo info pkh `geq` v) totalSellerPayment
 
-        totalSellerPayment  = foldMap  sellerSharePayment salesWithTxOut
+        totalSellerPayment  = foldMap  sellerPartyPayment salesWithTxOut
         totalMarketFee      = foldMap  marketFeeValue salesWithTxOut
 
-        sellerSharePayment (txOut,dsale) = foldMap (\(pkh,v)-> payment pkh $ assetClassValue (dsAsset dsale) v) (dsParties dsale) 
-        marketFeeValue    (txOut,dsale)  = assetClassValue (dsAsset dsale ) $ dsMarketShare market dsale
+        marketFeeValue    (_,dsale)  = assetClassValue (dsAsset dsale ) $ dsFee market dsale
+        sellerPartyPayment (_,dsale) = assetClassPayment (dsAsset dsale ) (dsPaymentValueList market dsale)
 
         salesWithTxOut:: [(TxOut,DirectSale)]
         salesWithTxOut = ownInputsWithDatum ctx
+
 
 {-# INLINABLE mkMarket #-}
 mkMarket :: Market ->  Data -> MarketRedeemer -> ScriptContext  -> Bool
@@ -360,18 +379,18 @@ instance Scripts.ValidatorTypes MarketScriptType where
     type instance DatumType MarketScriptType = PubKeyHash
 
 
--- marketValidator :: Market -> Validator
--- marketValidator market = Ledger.mkValidatorScript $
---     $$(PlutusTx.compile [|| validatorParam ||])
---         `PlutusTx.applyCode`
---             PlutusTx.liftCode market
---     where validatorParam m = Scripts.wrapValidator (mkMarket m)
-
-
 marketValidator :: Market -> Validator
-marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
-    where
-        a _ _ _=()
+marketValidator market = Ledger.mkValidatorScript $
+    $$(PlutusTx.compile [|| validatorParam ||])
+        `PlutusTx.applyCode`
+            PlutusTx.liftCode market
+    where validatorParam m = Scripts.wrapValidator (mkMarket m)
+
+
+-- marketValidator :: Market -> Validator
+-- marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
+--     where
+--         a _ _ _=()
 
 marketAddress :: Market -> Ledger.Address
 marketAddress = scriptAddress . marketValidator

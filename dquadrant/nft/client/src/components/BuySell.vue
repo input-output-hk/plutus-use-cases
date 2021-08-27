@@ -27,12 +27,12 @@
 
             <b-button-toolbar aria-label="Bid">
               <b-button-group size="sm" class="mr-1">
-                <b-button v-b-modal="'a'+token.index" variant="primary" @click="tokenClicked = token;">
+                <b-button v-b-modal="'a'+token.index" variant="primary" @click="onTokenClicked(token)">
                   Start Auction
                 </b-button>
               </b-button-group>
               <b-input-group size="sm" class="mr-1">
-                <b-button v-b-modal="'s'+token.index" variant="success" @click="tokenClicked = token;">
+                <b-button v-b-modal="'s'+token.index" variant="success" @click="onTokenClicked(token)">
                   Sell
                 </b-button>
               </b-input-group>
@@ -49,7 +49,25 @@
                       placeholder="Enter Sell price in Lovelace"
                       required>
         </b-form-input>
-        <b-button class="my-2" type="submit" variant="success">Sell</b-button>
+        <div class="py-1"><strong>Extra Parties</strong></div>
+        <b-form class="my-1" inline :key="i"  v-for="(party,i) in partyList">
+          <label class="sr-only" :for="'saleParty'+i">Beneficiary PubKey Hash</label>
+          <b-form-input
+            :id="'saleParty'+i"
+            class="mb-2 mr-sm-2 mb-sm-0"
+            placeholder="Beneficiary PubKey Hash"
+            v-model="party.pPubKeyHash"
+          ></b-form-input>
+
+          <label class="sr-only" :for="'saleShare'+i">Share</label>
+          <b-input-group append="%" class="mb-2 mr-sm-2 mb-sm-0">
+            <b-form-input v-model="party.pShare" size="4" id="'saleShare'+i" placeholder="Share"></b-form-input>
+          </b-input-group>
+          <b-button  variant="danger" @click="partyList.splice(index,1)" class="mr-3"> <i class="fa fa-minus"></i></b-button>
+        </b-form>
+        <b-button @click="onAddPartyClicked" class="mt-1"> <i class="fa fa-plus"></i></b-button>
+        <hr>
+        <b-button class="my-2 float-right" type="submit" variant="success">Place in Market</b-button>
       </b-form>
     </b-modal>
     <b-modal size="xl" :id="'a'+tokenClicked.index" title="Edit Auction Details" ref="auction_modal" hide-footer>
@@ -96,6 +114,28 @@
             <p>Slot Number: {{endSlotNo}}</p>
           </b-col>
         </b-row>
+        <b-row>
+          <b-col sm="3"> <strong>Extra parties</strong></b-col>
+          <b-col sm="9">
+            <b-form class="my-1" inline :key="i"  v-for="(party,i) in partyList">
+              <label class="sr-only" :for="'saleParty'+i">Beneficiary PubKey Hash</label>
+              <b-form-input
+                :id="'saleParty'+i"
+                class="mb-2 mr-sm-2 mb-sm-0"
+                placeholder="Beneficiary PubKey Hash"
+                v-model="party.pPubKeyHash"
+              ></b-form-input>
+
+              <label class="sr-only" :for="'saleShare'+i">Share</label>
+              <b-input-group append="%" class="mb-2 mr-sm-2 mb-sm-0">
+                <b-form-input v-model="party.pShare" size="4" id="'saleShare'+i" placeholder="Share"></b-form-input>
+              </b-input-group>
+              <b-button  variant="danger" @click="partyList.splice(index,1)" class="mr-3"> <i class="fa fa-minus"></i></b-button>
+            </b-form>
+            <b-button @click="onAddPartyClicked" class="mt-1"> <i class="fa fa-plus"></i></b-button>
+
+          </b-col>
+        </b-row>
         <b-row class="mt-5">
           <b-col></b-col>
           <b-col sm="9" class="text-right">
@@ -130,6 +170,30 @@ export default {
     }
   },
   methods: {
+    partiesListRequest(){
+      return this.partyList.map(x=> {
+        return {
+          pPubKeyHash: {
+            getPubKeyHash: x.pPubKeyHash
+          },
+          pShare: Math.trunc(parseFloat(x.pShare)* 1000000) || 0
+        }
+      })
+    },
+    onTokenClicked(token){
+      this.tokenClicked=token
+      if(token.index!==this.tokenClicked.index){
+        this.partyList=[]
+      }
+    },
+    onAddPartyClicked(){
+      this.partyList.push(
+        {
+          pPubKeyHash:"",
+          pShare: ""
+        }
+      )
+    },
     onSell() {
       const amount = this.toLovelace(this.$refs.input_number.value)
       if (amount === 0 || !amount) {
@@ -140,9 +204,10 @@ export default {
           this.$http.post(
               `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/sell`
               , [{
+                spShare: this.partiesListRequest(),
                 "spItems": [{currency: this.tokenClicked.currency, token: new Buffer(this.tokenClicked.name).toString("hex"), value: 1}],
                 "spSaleType": "Primary",
-                "spCost": {currency: "", token: "", value: amount}
+                "spTotalCost": {currency: "", token: "", value: amount}
               }]
           ).then(() => {
                 this.$task.infoMessage("Transaction Submitted. ")
@@ -164,6 +229,7 @@ export default {
           this.$http.post(
               `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/startAuction`,
               [{
+                apParties:this.partiesListRequest(),
                 apValue: [{
                   currency: this.tokenClicked.currency,
                   token: new buffer.Buffer(this.tokenClicked.name).toString("hex"),
@@ -201,16 +267,12 @@ export default {
   data: () => {
     const startTimeString = moment.utc(Math.floor(1596059091 * 1000)).format().replace('Z', '.000Z')
     const endTimeString = moment.utc(Math.floor(1596059091 * 1000 + 90 * 1000)).format().replace('Z', '.000Z')
-
-    console.log('Get Start Time: ' + startTimeString)
-    console.log('Get End Time: ' + endTimeString)
-
     return {
       amount: "",
       tokenClicked: {
         currency: "",
         name: "",
-        index: 0
+        index: -1,
       },
       selectedIndex: 0,
       auction: {
@@ -222,7 +284,8 @@ export default {
         "apMinIncrement": "2 Ada",
         "apStartTime": startTimeString,
         "apEndTime": endTimeString,
-      }
+      },
+      partyList:[]
     }
   }
 }

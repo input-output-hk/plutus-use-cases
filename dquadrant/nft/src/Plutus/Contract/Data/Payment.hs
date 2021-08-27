@@ -40,6 +40,12 @@ instance Monoid Payment where
 payment :: PubKeyHash -> Value -> Payment
 payment pkHash value=Payment  (AssocMap.singleton pkHash value)
 
+{-# INLINABLE assetClassPayment #-}
+assetClassPayment :: AssetClass  -> [(PubKeyHash,Integer)] -> Payment
+assetClassPayment ac values=Payment (AssocMap.fromList mappedList)
+  where
+    mappedList= map (\(pkh,v)->(pkh,assetClassValue ac v)) values
+
 {-# INLINABLE paymentValue #-}
 paymentValue :: Payment -> PubKeyHash -> Value
 paymentValue (Payment p) pkh=case AssocMap.lookup pkh p of

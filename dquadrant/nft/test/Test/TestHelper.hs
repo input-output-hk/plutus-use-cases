@@ -80,7 +80,8 @@ sellParamLovelace :: Value -> SellType -> Integer -> SellParams
 sellParamLovelace _values sType lovelace=SellParams{
                 spItems=toValueInfo _values,
                 spSaleType = sType ,
-                spCost=ValueInfo{
+                spShare=[],
+                spTotalCost=ValueInfo{
                         currency= unCurrencySymbol adaSymbol,
                         token=  unTokenName adaToken,
                         value = lovelace

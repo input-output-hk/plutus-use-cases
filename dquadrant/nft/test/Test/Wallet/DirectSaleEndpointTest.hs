@@ -45,7 +45,7 @@ import Prelude (show)
 
 
 tests :: TestTree
-tests = testGroup "DirectSale"
+tests = testGroup "DirectSale Endpoint Simulation"
       [ canPlaceForDirectSale
       , canQueryOwnAndOthersAuction
       , canPlaceCombosOnSale
