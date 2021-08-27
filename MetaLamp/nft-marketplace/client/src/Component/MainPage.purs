@@ -64,7 +64,7 @@ _userInstances :: Lens' State (RemoteData String (Array ({ pubKey :: PubKeyHash,
 _userInstances = prop (SProxy :: SProxy "userInstances")
 
 data Query a
-  = Navigate Route a
+  = NavigateTo Route a
 
 type Slots
   = ( walletSelector :: WalletSelector.WalletSelectorSlot Unit
@@ -154,7 +154,7 @@ component =
 
   handleQuery :: forall a. Query a -> H.HalogenM State Action Slots output m (Maybe a)
   handleQuery = case _ of
-    Navigate route a -> do
+    NavigateTo route a -> do
       oldRoute <- H.gets _.route
       when (oldRoute /= Just route)
         $ H.modify_ _ { route = Just route }
@@ -164,7 +164,7 @@ pages :: forall m. State -> H.ComponentHTML Action Slots m
 pages st =
   navbar
     $ case st.route of
-        Nothing -> HH.h1_ [ HH.text "Page wasn't found" ]
+        Nothing -> HH.h1_ [ HH.text "Loading page..." ]
         Just route -> case route of
           UserPage -> HH.slot User._userPage unit User.component unit absurd
           MarketPage -> HH.slot Market._marketPage unit Market.component unit absurd

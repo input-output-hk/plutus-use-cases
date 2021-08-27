@@ -25,7 +25,7 @@ main =
     void $ liftEffect
       $ Routing.matchesWith (Routing.parse routeCodec) \oldRoute newRoute ->
           when (oldRoute /= Just newRoute) do
-            launchAff_ $ halogenIO.query $ H.tell $ App.Navigate newRoute
+            launchAff_ $ halogenIO.query $ H.tell $ App.NavigateTo newRoute
     pure unit
 
 onLoad :: Unit
