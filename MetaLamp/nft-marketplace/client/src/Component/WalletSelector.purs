@@ -50,10 +50,10 @@ data Action
 type State
   = { activeWallet :: UserWallet }
 
-initialState :: forall i. i -> State
-initialState _ = { activeWallet: WalletA }
+initialState :: UserWallet -> State
+initialState w = { activeWallet: w }
 
-component :: forall query m i. H.Component HH.HTML query i Output m
+component :: forall query m. H.Component HH.HTML query UserWallet Output m
 component =
   H.mkComponent
     { initialState: initialState

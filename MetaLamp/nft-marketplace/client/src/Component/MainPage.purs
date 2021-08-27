@@ -3,11 +3,15 @@ module Component.MainPage where
 import Data.Route
 import Data.Unit
 import Prelude
+import Business.Marketplace (getMarketplaceContracts)
 import Business.Marketplace as Marketplace
+import Business.MarketplaceInfo (InfoContractId, getInfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
+import Business.MarketplaceUser (UserContractId, getUserContractId, ownPubKey)
 import Capability.LogMessages (class LogMessages, logInfo)
 import Capability.Navigate (class Navigate, navigate)
 import Capability.PollContract (class PollContract)
+import Clipboard (handleAction)
 import Component.MarketPage as Market
 import Component.UserPage as User
 import Component.Utils (runRD)
@@ -27,7 +31,9 @@ import Data.Tuple (Tuple(..))
 import Effect.Class (class MonadEffect)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (classes)
+import Halogen.HTML.Properties as HP
 import Network.RemoteData (RemoteData(..))
 import Network.RemoteData as RD
 import Network.RemoteData as RemoteData
@@ -42,12 +48,20 @@ import Utils.BEM as BEM
 import View.RemoteDataState (remoteDataState)
 import Web.Event.Event (preventDefault)
 import Web.UIEvent.MouseEvent (MouseEvent, toEvent)
-import Halogen.HTML.Properties as HP
-import Halogen.HTML.Events as HE
 
 type State
   = { route :: Maybe Route
+    , contracts :: RemoteData String (Array (ContractInstanceClientState MarketplaceContracts))
+    , userInstances :: RemoteData String (Array ({ pubKey :: PubKeyHash, contractId :: UserContractId }))
+    , currentInstance :: WalletSelector.UserWallet
+    , infoInstance :: Maybe InfoContractId
     }
+
+_contracts :: Lens' State (RemoteData String (Array (ContractInstanceClientState MarketplaceContracts)))
+_contracts = prop (SProxy :: SProxy "contracts")
+
+_userInstances :: Lens' State (RemoteData String (Array ({ pubKey :: PubKeyHash, contractId :: UserContractId })))
+_userInstances = prop (SProxy :: SProxy "userInstances")
 
 data Query a
   = Navigate Route a
@@ -62,6 +76,8 @@ data Action
   = Initialize
   | GoTo Route MouseEvent
   | ChooseWallet WalletSelector.Output
+  | GetContracts
+  | GetInstances
 
 component ::
   forall m input output.
@@ -84,19 +100,27 @@ component =
     }
   where
   initialState :: input -> State
-  initialState _ = { route: Nothing }
+  initialState _ =
+    { route: Nothing
+    , contracts: NotAsked
+    , userInstances: NotAsked
+    , currentInstance: WalletSelector.WalletA
+    , infoInstance: Nothing
+    }
 
   render :: State -> H.ComponentHTML Action Slots m
   render st =
     HH.div_
       [ HH.text "Choose wallet: "
-      , HH.slot WalletSelector._walletSelector unit WalletSelector.component unit (Just <<< ChooseWallet)
+      , HH.slot WalletSelector._walletSelector unit WalletSelector.component st.currentInstance (Just <<< ChooseWallet)
       , pages st
       ]
 
   handleAction :: Action -> H.HalogenM State Action Slots output m Unit
   handleAction = case _ of
     Initialize -> do
+      handleAction GetContracts
+      handleAction GetInstances
       initialRoute <- hush <<< (Routing.parse routeCodec) <$> H.liftEffect Routing.getHash
       navigate $ fromMaybe UserPage initialRoute
     GoTo route e -> do
@@ -104,8 +128,29 @@ component =
       oldRoute <- H.gets _.route
       when (oldRoute /= Just route) $ navigate route
     ChooseWallet (WalletSelector.Submit w) -> do
-      logInfo $ show w
-      pure unit
+      logInfo $ "Choose new wallet: " <> show w
+      H.modify_ _ { currentInstance = w }
+    GetContracts ->
+      runRD _contracts <<< runExceptT
+        $ lift getMarketplaceContracts
+        >>= either (throwError <<< show) pure
+    GetInstances ->
+      runRD _userInstances <<< runExceptT
+        $ do
+            state <- lift H.get
+            contracts <- RemoteData.maybe (throwError "No contracts found") pure state.contracts
+            case catMaybes (getInfoContractId <$> contracts) of
+              [ cid ] -> do
+                lift $ logInfo $ "Found info instance: " <> show cid
+                lift $ H.modify_ _ { infoInstance = Just cid }
+              _ -> throwError "Info contract not found"
+            parTraverse
+              ( \contractId -> do
+                  lift $ logInfo $ "Found user instance: " <> show contractId
+                  pubKey <- lift (ownPubKey contractId) >>= either (throwError <<< show) pure
+                  pure $ { pubKey, contractId }
+              )
+              (catMaybes <<< map getUserContractId $ contracts)
 
   handleQuery :: forall a. Query a -> H.HalogenM State Action Slots output m (Maybe a)
   handleQuery = case _ of
