@@ -43,6 +43,7 @@ library
       plutus-tx,
       plutus-ledger,
       plutus-ledger-api,
+      plutus-chain-index,
       plutus-use-cases,
     hs-source-dirs: src src/Contracts/MutualBet
     default-language: Haskell2010
