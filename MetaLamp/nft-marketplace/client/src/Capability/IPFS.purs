@@ -2,7 +2,6 @@ module Capability.IPFS where
 
 import Prelude
 import Utils.APIError
-
 import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)

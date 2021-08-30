@@ -15,11 +15,16 @@ import Routing.Duplex as Routing
 import Routing.Hash as Routing
 import Effect.Aff (Aff, launchAff_)
 
+-- TODO add to readme
+-- ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["webui://-", "http://localhost:3000", "http://127.0.0.1:5001", "https://webui.ipfs.io", "https://localhost:8009", "http://localhost:8009"]'
+-- ipfs config --json API.HTTPHeaders.Access-Control-Allow-Methods '["PUT", "POST"]'
 main :: Effect Unit
 main =
   runHalogenAff do
     let
-      rootComponent = H.hoist (runAppM { host: "localhost", port: 8080 }) App.component
+      env = { ipfsServer: { host: "localhost", port: 5001 }, pabServer: { host: "localhost", port: 8080 } }
+    let
+      rootComponent = H.hoist (runAppM env) App.component
     body <- awaitBody
     halogenIO <- runUI rootComponent unit body
     void $ liftEffect

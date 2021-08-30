@@ -8,6 +8,7 @@ import Business.Marketplace as Marketplace
 import Business.MarketplaceInfo (InfoContractId, getInfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
 import Business.MarketplaceUser (UserContractId, getUserContractId, ownPubKey)
+import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages, logInfo)
 import Capability.Navigate (class Navigate, navigate)
 import Capability.PollContract (class PollContract)
@@ -47,6 +48,7 @@ import Routing.Hash as Routing
 import Utils.BEM as BEM
 import View.RemoteDataState (remoteDataState)
 import Web.Event.Event (preventDefault)
+import Web.File.File as File
 import Web.UIEvent.MouseEvent (MouseEvent, toEvent)
 
 type State
@@ -78,6 +80,7 @@ data Action
   | ChooseWallet WalletSelector.Output
   | GetContracts
   | GetInstances
+  | HandleFile File.File
 
 component ::
   forall m input output.
@@ -85,6 +88,7 @@ component ::
   Navigate m =>
   LogMessages m =>
   PollContract m =>
+  IPFS.IPFS m =>
   H.Component HH.HTML Query input output m
 component =
   H.mkComponent
@@ -113,14 +117,21 @@ component =
     HH.div_
       [ HH.text "Choose wallet: "
       , HH.slot WalletSelector._walletSelector unit WalletSelector.component st.currentInstance (Just <<< ChooseWallet)
+      , HH.input [ HP.type_ HP.InputFile, HE.onFileUpload f ]
       , pages st
       ]
+
+  f = case _ of
+    [ file ] -> Just $ HandleFile file
+    _ -> Nothing
 
   handleAction :: Action -> H.HalogenM State Action Slots output m Unit
   handleAction = case _ of
     Initialize -> do
       handleAction GetContracts
       handleAction GetInstances
+      res <- IPFS.catFile "QmPD9JxfSzKBwHEac9m3zbnQiHnRRYRubL9vCnhoC2AdL4"
+      logInfo $ show res
       initialRoute <- hush <<< (Routing.parse routeCodec) <$> H.liftEffect Routing.getHash
       navigate $ fromMaybe UserPage initialRoute
     GoTo route e -> do
@@ -151,6 +162,9 @@ component =
                   pure $ { pubKey, contractId }
               )
               (catMaybes <<< map getUserContractId $ contracts)
+    HandleFile file -> do
+      res <- IPFS.pinFile file
+      logInfo $ "uploaded file : " <> show res
 
   handleQuery :: forall a. Query a -> H.HalogenM State Action Slots output m (Maybe a)
   handleQuery = case _ of
