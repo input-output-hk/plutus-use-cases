@@ -1,7 +1,7 @@
 module Capability.PollContract where
 
 import Prelude
-import Capability.Contract (class Contract, APIError(..), ContractId, Endpoint, callEndpoint, getContractStatus)
+import Capability.Contract (class Contract, ContractId, Endpoint, callEndpoint, getContractStatus)
 import Control.Monad.Except (runExceptT, throwError)
 import Data.Either (Either(..), either)
 import Data.Generic.Rep (class Generic)
@@ -9,6 +9,7 @@ import Data.Generic.Rep.Show (genericShow)
 import Foreign.Generic (class Decode, class Encode)
 import Halogen (HalogenM, lift)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
+import Utils.APIError
 
 class
   Contract m <= PollContract m where

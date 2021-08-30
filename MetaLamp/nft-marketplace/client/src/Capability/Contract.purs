@@ -8,14 +8,7 @@ import Foreign (unsafeToForeign)
 import Foreign.Generic (class Decode, class Encode)
 import Halogen (HalogenM, lift)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
-
-data APIError
-  = AjaxCallError String
-
-derive instance genericAPIError :: Generic APIError _
-
-instance showAPIError :: Show APIError where
-  show = genericShow
+import Utils.APIError
 
 newtype ContractId
   = ContractId String

@@ -1,7 +1,7 @@
 module Business.Marketplace where
 
 import Prelude
-import Capability.Contract (class Contract, APIError, ContractId(..), Endpoint, getContracts)
+import Capability.Contract (class Contract, ContractId(..), Endpoint, getContracts)
 import Capability.PollContract (class PollContract, LeftPoll(..), PollError, PollResponse, pollEndpoint)
 import Control.Monad.Except (runExcept, throwError, withExcept)
 import Data.Either (Either)
@@ -16,6 +16,7 @@ import Plutus.PAB.Simulation (MarketplaceContracts)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState(..))
 import Wallet.Types (ContractInstanceId(..))
 import Data.UUID (toString) as UUID
+import Utils.APIError
 
 getMarketplaceContracts :: forall m. Contract m => m (Either APIError (Array (ContractInstanceClientState MarketplaceContracts)))
 getMarketplaceContracts = getContracts
