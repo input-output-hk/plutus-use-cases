@@ -75,3 +75,7 @@ pollEndpoint getNext endpoint param cid =
 
 toPollError :: APIError -> PollError
 toPollError (AjaxCallError e) = PollAPIError e
+
+toPollError (ForeignParseError e) = PollAPIError e
+
+toPollError (XhrCallError e) = PollAPIError e

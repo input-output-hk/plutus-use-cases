@@ -6,6 +6,8 @@ import Data.Generic.Rep.Show (genericShow)
 
 data APIError
   = AjaxCallError String
+  | XhrCallError String
+  | ForeignParseError String
 
 derive instance genericAPIError :: Generic APIError _
 

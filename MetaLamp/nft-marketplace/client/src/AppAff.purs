@@ -8,16 +8,17 @@ import Affjax (Error, Response, defaultRequest, printError, request)
 import Affjax.RequestBody (RequestBody, formData, string)
 import Affjax.RequestHeader (RequestHeader(..))
 import Affjax.ResponseFormat as ResponseFormat
+import AjaxUtils (renderForeignErrors)
 import Capability.Contract (class Contract, ContractId(..), Endpoint(..))
 import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages)
 import Capability.PollContract (class PollContract)
-import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.Except (ExceptT, runExcept, runExceptT)
 import Control.Monad.Reader.Trans (class MonadAsk, ReaderT, asks, runReaderT)
-import Data.Argonaut.Core (stringify)
-import Data.Bifunctor (bimap)
-import Data.Either (Either(..))
-import Data.HTTP.Method (fromString)
+import Data.Argonaut.Core (Json, stringify)
+import Data.Bifunctor (bimap, lmap)
+import Data.Either (Either(..), note)
+import Data.HTTP.Method (Method(..), fromString)
 import Data.Maybe (Maybe(..))
 import Data.MediaType.Common (multipartFormData)
 import Data.Newtype (wrap)
@@ -26,15 +27,19 @@ import Effect.Aff (Aff, Milliseconds(..), delay, launchAff)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
+import Foreign (renderForeignError)
 import Foreign.Generic (class Decode, Foreign, F, decode, encodeJSON)
+import Foreign.JSON (decodeJSONWith)
 import Foreign.NullOrUndefined (undefined)
 import Routing.Duplex as Routing
 import Routing.Hash as Routing
 import Servant.PureScript.Ajax (AjaxError(..), ErrorDescription(..), ajax)
 import Type.Equality (class TypeEquals, from)
-import Web.File.File as FIle
 import Web.File.File as File
 import Web.XHR.FormData as FormData
+import Web.XHR.ReadyState as XHR
+import Web.XHR.ResponseType as XHR
+import Web.XHR.XMLHttpRequest as XHR
 
 type Env
   = { ipfsServer :: ServerInfo, pabServer :: ServerInfo }
@@ -69,8 +74,8 @@ instance logMessagesAppM :: LogMessages AppM where
   logInfo = Console.log >>> liftEffect
   logError = Console.error >>> liftEffect
 
-errorToString :: AjaxError -> String
-errorToString (AjaxError e) = case e.description of
+ajaxErrorToString :: AjaxError -> String
+ajaxErrorToString (AjaxError e) = case e.description of
   ResponseError s r -> "Response error: " <> r <> ". with status: " <> show s
   ResponseFormatError s -> "Parsing error: " <> s
   DecodingError s -> "Decoding error: " <> s
@@ -83,7 +88,7 @@ getBaseURL { host, port } = "http://" <> host <> ":" <> (show port)
 runAjax :: forall m a. Monad m => ExceptT AjaxError m (Response a) -> m (Either APIError a)
 runAjax = (map toCustom) <<< runExceptT
   where
-  toCustom = bimap (AjaxCallError <<< errorToString) (\r -> r.body)
+  toCustom = bimap (AjaxCallError <<< ajaxErrorToString) (\r -> r.body)
 
 getC :: forall m a. MonadAsk Env m => MonadAff m => Decode a => String -> m (Either APIError a)
 getC path = do
@@ -117,14 +122,42 @@ fileToFormData file = do
   FormData.setBlob (wrap fileName) (File.toBlob file) (Just $ wrap fileName) fd
   pure fd
 
+pollForReadyState :: forall res. XHR.XMLHttpRequest res -> Aff Unit
+pollForReadyState xhr = do
+  st <- liftEffect $ XHR.readyState xhr
+  case st of
+    XHR.Done -> pure unit
+    _ -> delay (Milliseconds 5.0) *> pollForReadyState xhr
+
 pinIpfs :: forall m. MonadAsk Env m => MonadAff m => String -> File.File -> m (Either APIError String)
 pinIpfs path file = do
   url <- asks ((_ <> path) <<< getBaseURL <<< _.ipfsServer)
-  content <- liftEffect $ fileToFormData file
-  let
-    affReq = defaultRequest { method = fromString "POST", url = url, content = Just $ formData content, headers = [ ContentType $ wrap "multipart/form-data; boundary=------------------------35e207f1e7c6a4aa" ] }
-  map (map _."Hash") $ runAjax $ ajax decodeResp affReq
+  xhr <-
+    liftEffect
+      $ do
+          form <- fileToFormData file
+          req <- XHR.xmlHttpRequest XHR.string
+          XHR.open (Left POST) url req
+          XHR.sendFormData form req
+          pure req
+  liftAff $ pollForReadyState xhr
+  resp <-
+    liftEffect $ { status: _, statusText: _, body: _ }
+      <$> XHR.status xhr
+      <*> XHR.statusText xhr
+      <*> XHR.response xhr
+  pure $ run resp
   where
+  run ::
+    { body :: Maybe String
+    , status :: Int
+    , statusText :: String
+    } ->
+    Either APIError String
+  run res = do
+    json <- note (XhrCallError $ "XHR: null response with status " <> show res.status <> " " <> res.statusText) res.body
+    bimap (ForeignParseError <<< renderForeignErrors) _."Hash" $ runExcept $ decodeJSONWith decodeResp json
+
   decodeResp :: Foreign -> F { "Hash" :: String, "Name" :: String, "Size" :: String }
   decodeResp = decode
 
