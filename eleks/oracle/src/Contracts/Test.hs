@@ -76,9 +76,6 @@ validatorHash testData = LedgerScripts.validatorHash . validator $ testData
 address :: TestData -> Ledger.Address
 address = scriptAddress . validator
 
--- mintPolicyHash :: TestData -> LedgerScripts.MintingPolicyHash
--- mintPolicyHash = Scripts.forwardingMintingPolicyHash . typedValidator
-
 tokenSymbol :: TestData -> Ledger.Address -> CurrencySymbol
 tokenSymbol testData address = Value.mpsSymbol . mintingPolicyHash $ tokenPolicy testData address
 

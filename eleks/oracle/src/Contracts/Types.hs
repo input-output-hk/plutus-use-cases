@@ -18,7 +18,9 @@
 {-# options_ghc -fno-strictness            #-}
 {-# options_ghc -fno-specialise            #-}
 
-module Contracts.NFT.Types
+module Contracts.Types (
+  GameId
+)
   where
 
 import           Ledger
@@ -29,3 +31,5 @@ import           PlutusTx.Prelude
 import qualified Prelude
 import           Prelude             (String)
 import           Text.Printf         (PrintfArg)
+
+type GameId = Integer
