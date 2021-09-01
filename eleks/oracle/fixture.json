@@ -134,5 +134,73 @@
             "away":null
             }
         }
+    },
+    {
+        "fixture":{
+            "id":1,
+            "referee":"David Coote, England",
+            "timezone":"UTC",
+            "date":"2021-08-14T14:00:00+00:00",
+            "timestamp":1628949600,
+            "periods":{
+            "first":1628949600,
+            "second":1628953200
+            },
+            "venue":{
+            "id":512,
+            "name":"Turf Moor",
+            "city":"Burnley"
+            },
+            "status":{
+            "long":"Match Finished",
+            "short":"FT",
+            "elapsed":90
+            }
+        },
+        "league":{
+            "id":39,
+            "name":"Premier League",
+            "country":"England",
+            "logo":"https:\/\/media.api-sports.io\/football\/leagues\/39.png",
+            "flag":"https:\/\/media.api-sports.io\/flags\/gb.svg",
+            "season":2021,
+            "round":"Regular Season - 1"
+        },
+        "teams":{
+            "home":{
+            "id":2,
+            "name":"Burnley",
+            "logo":"https:\/\/media.api-sports.io\/football\/teams\/44.png",
+            "winner":false
+            },
+            "away":{
+            "id":1,
+            "name":"Brighton",
+            "logo":"https:\/\/media.api-sports.io\/football\/teams\/51.png",
+            "winner":true
+            }
+        },
+        "goals":{
+            "home":1,
+            "away":2
+        },
+        "score":{
+            "halftime":{
+            "home":1,
+            "away":0
+            },
+            "fulltime":{
+            "home":1,
+            "away":2
+            },
+            "extratime":{
+            "home":null,
+            "away":null
+            },
+            "penalty":{
+            "home":null,
+            "away":null
+            }
+        }
     }
 ]

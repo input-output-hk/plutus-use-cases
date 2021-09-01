@@ -28,7 +28,6 @@ module Contracts.Oracle
     , OracleParams (..)
     , OracleData (..)
     , runOracle
-    , findOracle
     , oracleTokenName
     , requestOracleForAddress
     , requestTokenSymbol
@@ -36,6 +35,7 @@ module Contracts.Oracle
     , requestTokenClassFromOracle
     , listenOracleRequest
     , findOracleRequest
+    , awaitNextOracleRequest
     , UseOracleSchema
     , UseOracleParams (..)
     , useOracle
@@ -48,14 +48,14 @@ import qualified Data.Map                  as Map
 import           Data.Monoid               (Last (..))
 import           Data.Text                 (Text, pack)
 import           Data.Maybe                (fromJust)
-import           Data.List.NonEmpty        (NonEmpty)
+import qualified Data.List.NonEmpty        as NonEmpty
 import           GHC.Generics              (Generic)
 import           Plutus.Contract           as Contract
 import qualified PlutusTx
 import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton, MintingPolicyHash)
 import qualified Ledger.Scripts            as LedgerScripts
-import qualified Ledger.Tx            as LedgerScripts
+import qualified Ledger.Tx                 as LedgerScripts
 import           Ledger.Constraints        as Constraints
 import qualified Ledger.Contexts           as Validation
 import           Ledger.Oracle             (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), verifySignedMessageOnChain, verifySignedMessageConstraints)
@@ -302,39 +302,27 @@ startOracle op = do
     logInfo @String $ "started oracle " ++ show oracle
     return oracle
 
-updateOracle :: forall w s. Oracle -> OracleData -> Contract w s Text ()
-updateOracle oracle oracleData = do
-    m <- findOracle oracle
-    let c = Constraints.mustPayToTheScript oracleData $ assetClassValue (oracleAsset oracle) 1
-    case m of
-        Nothing -> do
-            ledgerTx <- submitTxConstraints (typedOracleValidator oracle) c
-            awaitTxConfirmed $ txId ledgerTx
-            logInfo @String $ "set initial oracle value to " ++ show oracleData
-        Just (oref, o,  _) -> do
-            let lookups = Constraints.unspentOutputs (Map.singleton oref o)     <>
-                          Constraints.typedValidatorLookups (typedOracleValidator oracle) <>
-                          Constraints.otherScript (oracleValidator oracle)
-                tx      = c <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
-            ledgerTx <- submitTxConstraintsWith lookups tx
-            awaitTxConfirmed $ txId ledgerTx
-            logInfo @String $ "updated oracle value to " ++ show oracleData
+-- updateOracle :: forall w s. Oracle -> OracleData -> Contract w s Text ()
+-- updateOracle oracle oracleData = do
+--     m <- findOracle oracle
+--     let c = Constraints.mustPayToTheScript oracleData $ assetClassValue (oracleAsset oracle) 1
+--     case m of
+--         Nothing -> do
+--             ledgerTx <- submitTxConstraints (typedOracleValidator oracle) c
+--             awaitTxConfirmed $ txId ledgerTx
+--             logInfo @String $ "set initial oracle value to " ++ show oracleData
+--         Just (oref, o,  _) -> do
+--             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     <>
+--                           Constraints.typedValidatorLookups (typedOracleValidator oracle) <>
+--                           Constraints.otherScript (oracleValidator oracle)
+--                 tx      = c <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
+--             ledgerTx <- submitTxConstraintsWith lookups tx
+--             awaitTxConfirmed $ txId ledgerTx
+--             logInfo @String $ "updated oracle value to " ++ show oracleData
 
 
 oracleValueFromTxOutTx :: TxOutTx -> Maybe OracleData
 oracleValueFromTxOutTx o = oracleValue (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
-
-findOracle :: forall w s. Oracle -> Contract w s Text (Maybe (TxOutRef, TxOutTx, OracleData))
-findOracle oracle = do
-    utxos <- Map.filter f <$> utxoAt (oracleAddress oracle)
-    return $ case Map.toList utxos of
-        [(oref, o)] -> do
-            x <- oracleValueFromTxOutTx o
-            return (oref, o, x)
-        _           -> Nothing
-  where
-    f :: TxOutTx -> Bool
-    f o = assetClassValueOf (txOutValue $ txOutTxOut o) (oracleAsset oracle) == 1
 
 type OracleSchema = Endpoint "update" OracleData
 
@@ -365,46 +353,64 @@ requestOracleForAddress oracle gameId = do
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-listenOracleRequest :: Oracle -> PrivateKey -> Contract w s Text ()
-listenOracleRequest oracle oraclePrivKey= do 
+listenOracleRequest :: forall w s. Oracle -> PrivateKey -> (GameId -> Contract w s Text (Maybe Integer)) -> Contract w s Text ()
+listenOracleRequest oracle oraclePrivKey getWinner = do 
     listen
   where
-    signUtxo:: Oracle -> Tx -> Contract w s Text ()
-    signUtxo oracle listenTx = do
-        let test = txOutRefs $ listenTx 
-        let requetTokenRefM = find (\(o, or) -> assetClassValueOf (txOutValue o) (requestTokenClassFromOracle oracle) == 1) . txOutRefs $ listenTx 
-        logInfo ("process tx " ++ (show $ listenTx))
-        when (PlutusTx.Prelude.isNothing requetTokenRefM) $ throwError "no request token in utxo"
-        let (o, oref) = fromJust requetTokenRefM 
-            txOutTx = TxOutTx listenTx o
-            oracleDataM = oracleValueFromTxOutTx txOutTx
-        when (PlutusTx.Prelude.isNothing oracleDataM) $ throwError "no oracle data in utxo"
-        let oracleData = fromJust oracleDataM 
-        logInfo ("my oracle data " ++ (show $ oracleData))
+    signUtxo:: Oracle -> (TxOutRef, TxOutTx, OracleData) -> Contract w s Text ()
+    signUtxo oracle (oref, o, oracleData) = do
         when (PlutusTx.Prelude.isJust $ ovWinnerSigned oracleData) $ throwError "already signed"
+        winnerIdM <- getWinner (ovGame oracleData)
+        when (PlutusTx.Prelude.isNothing $ winnerIdM) $ throwError "winner no known yet"
+        let winnerId = fromJust winnerIdM 
 
-        let winnerId = 1 -- TODO calculate
-            oracleData' = oracleData { ovWinner = winnerId, ovWinnerSigned = Just $ signMessage 1 oraclePrivKey }
+        let oracleData' = oracleData { ovWinner = winnerId, ovWinnerSigned = Just $ signMessage 1 oraclePrivKey }
             requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
         let 
-            lookups = Constraints.unspentOutputs (Map.singleton oref txOutTx)     
+            lookups = Constraints.unspentOutputs (Map.singleton oref o)     
                     <> Constraints.typedValidatorLookups (typedOracleValidator oracle) 
                     <> Constraints.otherScript (oracleValidator oracle)
             tx      = Constraints.mustPayToTheScript oracleData' requestTokenVal 
                     <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
 
+        logInfo ("submit transaction " ++ (show $ oracleData'))
         ledgerTx <- submitTxConstraintsWith lookups tx
         void $ awaitTxConfirmed $ txId ledgerTx
 
     listen = do
-        txs <- awaitUtxoProduced $ oracleAddress oracle
-        forM_ txs $ \onchainTx -> do
-             case onchainTx of
-                (Valid tx) -> 
-                    handleError (\e -> logInfo e ) $ signUtxo oracle tx
-                _          -> return ()
+        txs <- awaitNextOracleRequest oracle
+        forM_ txs $ \txData -> handleError (\e -> logInfo e ) $ signUtxo oracle txData
         listen
-       
+
+awaitNextOracleRequest:: Oracle -> Contract w s Text [(TxOutRef, TxOutTx, OracleData)]
+awaitNextOracleRequest oracle =
+    awaitNext
+    where
+    extractData oracle listenTx = do
+        let requetTokenRefM = find (\(o, oref) -> assetClassValueOf (txOutValue o)              (requestTokenClassFromOracle oracle) == 1) . txOutRefs $ listenTx 
+        logInfo ("process tx " ++ (show $ listenTx))
+        case requetTokenRefM of
+            Nothing -> throwError "no request token in utxo"
+            Just (o, oref) -> do
+                let txOutTx = TxOutTx listenTx o
+                    oracleDataM = oracleValueFromTxOutTx txOutTx
+                case oracleDataM of
+                    Nothing -> throwError "no oracle data in utxo"
+                    Just oracleData -> do
+                        logInfo ("found oracle data " ++ (show oracleData))
+                        return $ Just (oref, txOutTx, oracleData) 
+
+    awaitNext :: Contract w s Text [(TxOutRef, TxOutTx, OracleData)]
+    awaitNext = do
+        txs <- awaitUtxoProduced $ oracleAddress oracle
+        utxos <- (flip PlutusTx.Prelude.mapM) ( NonEmpty.toList $ txs) (\onchainTx -> do
+            case onchainTx of
+                (Valid tx) -> 
+                    handleError (\e -> do { logInfo @String e; return Nothing } ) $ extractData oracle tx
+                _          -> return Nothing)
+        let filtered = PlutusTx.Prelude.map fromJust . filter PlutusTx.Prelude.isJust $ utxos
+        return filtered
+            
 runOracle :: OracleParams -> Contract (Last Oracle) OracleSchema Text ()
 runOracle op = do
     oracle <- startOracle op
@@ -413,7 +419,8 @@ runOracle op = do
   where
     go :: Oracle -> Promise (Last Oracle) OracleSchema Text ()
     go oracle = endpoint @"update" $ \oracleData -> do
-            updateOracle oracle oracleData
+            logInfo @String "update called"
+            --updateOracle oracle oracleData
 
 findOracleRequest :: 
     forall w s. Oracle

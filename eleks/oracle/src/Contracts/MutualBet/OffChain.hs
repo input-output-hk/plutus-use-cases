@@ -37,15 +37,18 @@ import           Data.Bool                        (bool)
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Default                     (Default (def))
 import           Data.Either                      (fromRight)
+import           Data.Maybe                       (fromJust)
 import           Data.Monoid                      (Last (..))
+import           Data.Text                        (Text, pack)
 import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
 import           GHC.Generics                     (Generic)
-import           Ledger                           (Ada, POSIXTime, PubKeyHash, Value)
+import           Ledger                           hiding (singleton, MintingPolicyHash)
 import qualified Ledger
 import qualified Ledger.Ada                       as Ada
 import qualified Ledger.Constraints               as Constraints
 import           Ledger.Constraints.TxConstraints (TxConstraints)
 import qualified Ledger.Interval                  as Interval
+import qualified Ledger.Oracle                    as Oracle
 import           Ledger.TimeSlot                  (SlotConfig)
 import qualified Ledger.TimeSlot                  as TimeSlot
 import qualified Ledger.Typed.Scripts             as Scripts
@@ -81,7 +84,7 @@ data NewBetParams =
         , nbpOutcome :: Integer
         }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 data Bet =
     Bet
@@ -128,7 +131,7 @@ PlutusTx.unstableMakeIsData ''MutualBetState
 -- | Transition between auction states
 data MutualBetInput
     = NewBet { newBet :: Ada, newBettor :: PubKeyHash, newOutcome :: Integer } -- Increase the price
-    | Payout { gameOutcome :: Integer }
+    | Payout { oracleValue :: OracleData }
     deriving stock (Generic, Haskell.Show)
     deriving anyclass (ToJSON, FromJSON)
 
@@ -181,7 +184,7 @@ mutualBetTransition :: MutualBetParams -> State MutualBetState -> MutualBetInput
 mutualBetTransition MutualBetParams{mbpOracle} State{stateData=oldState} input =
     case (oldState, input) of
 
-        (Ongoing bets, NewBet{newBet, newBettor, newOutcome}) -> -- if the new bid is higher,
+        (Ongoing bets, NewBet{newBet, newBettor, newOutcome}) ->
             let constraints = mempty
                 newBets = Bet{amount = newBet, bettor = newBettor, outcome = newOutcome}:bets
                 newState =
@@ -190,9 +193,9 @@ mutualBetTransition MutualBetParams{mbpOracle} State{stateData=oldState} input =
                         , stateValue = Ada.toValue $ betsValueAmount newBets
                         }
             in Just (constraints, newState)
-        (Ongoing bets, Payout{gameOutcome}) ->
+        (Ongoing bets, Payout{oracleValue}) ->
             let 
-                winners = getWinners gameOutcome bets
+                winners = getWinners (ovWinner oracleValue) bets
                 constraints = foldMap mkTxPayWinners winners
                 newState = State { stateData = Finished bets, stateValue = mempty }
             in Just (constraints, newState)
@@ -247,6 +250,7 @@ data MutualBetLog =
 data MutualBetError =
     StateMachineContractError SM.SMContractError -- ^ State machine operation failed
     | MutualBetContractError ContractError -- ^ Endpoint, coin selection, etc. failed
+    | OracleError Text
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
@@ -273,9 +277,10 @@ mutualBetStart params = do
             (SM.runInitialise client (initialState self) $ Ada.toValue 0)
 
     logInfo $ MutualBetStarted params
-    gameOutput <- waitForGameEnd
+    _ <- mapError OracleError $ requestOracleForAddress (mbpOracle params) (mbpGame params)
+    ov <- waitForGameEnd params
     logInfo @Haskell.String "Payout"
-    r <- SM.runStep client Payout{gameOutcome = gameOutput}
+    r <- SM.runStep client Payout{oracleValue = ov}
     case r of
         SM.TransitionFailure i            -> logError (TransitionFailed i) -- TODO: Add an endpoint "retry" to the seller?
         SM.TransitionSuccess (Finished h) -> logInfo $ MutualBetEnded h
@@ -308,15 +313,38 @@ Updates to the user are provided via 'tell'.
 
 -}
 
-waitForGameEnd ::
-    forall w s e.
-    ( AsContractError e
-    )
-    => Contract w s e Integer
-waitForGameEnd = do 
-    awaitTime $ TimeSlot.slotToEndPOSIXTime def 100
-    loopM (\_ -> pure $ Right 1) ()
+isGameCompleted :: Ledger.PubKey -> MutualBetParams -> OracleData -> Either Haskell.String OracleData
+isGameCompleted pk params oracleData
+    | (pubKeyHash pk) /= (ovRequestAddress oracleData) = Left "Not signed by current script"
+    | (mbpGame params) /= (ovGame oracleData) = Left "Not current game"
+    | isNothing (ovWinnerSigned oracleData) = Left "Not signed"
+    | otherwise = case Oracle.verifySignedMessageOffChain 
+            (oOperatorKey $ mbpOracle params) (fromJust $ ovWinnerSigned oracleData) of
+                Left err       -> Left "Sign error"
+                Right winnerId -> 
+                    if winnerId > 0 
+                    then Right oracleData
+                    else Left "Winner is empty"
 
+waitForGameEnd ::
+    MutualBetParams
+    -> Contract w s MutualBetError OracleData
+waitForGameEnd params = do
+        logInfo @Haskell.String "before uraaa"
+        waitEnd
+    where 
+        waitEnd = do  
+            logInfo @Haskell.String "before next"
+            txs <- mapError OracleError $ awaitNextOracleRequest (mbpOracle params)
+            pk <- ownPubKey
+            logInfo @Haskell.String "Await next"
+
+            let currentGameSignedTx = find (\(_, _, oracleData) -> isRight $ isGameCompleted pk params oracleData) txs
+            case currentGameSignedTx of
+                Nothing -> do { logInfo @Haskell.String "Not completed"; waitEnd; }
+                Just (_, _, oracleData) -> return oracleData
+
+     
 data BettorEvent =
         MutualBetIsOver [Bet] -- ^ The mutual bet is over
         | MakeBet NewBetParams -- ^ make a bet bet
@@ -326,8 +354,8 @@ data BettorEvent =
 waitForChange :: SlotConfig -> MutualBetParams -> StateMachineClient MutualBetState MutualBetInput -> [Bet] -> Contract MutualBetOutput BettorSchema MutualBetError BettorEvent
 waitForChange slotCfg params client bets = do
     t <- currentTime
+    logInfo @Haskell.String "waitForChange"
     let
-        mutualBetOver = MutualBetIsOver bets Haskell.<$ Promise waitForGameEnd
         makeBet = endpoint @"bet" $ \params -> do 
                                         logInfo ("last bets" ++ Haskell.show params)
                                         pure $ MakeBet params
@@ -348,7 +376,7 @@ waitForChange slotCfg params client bets = do
                         [] -> pure (NoChange bets)
                         _  -> maybe (MutualBetIsOver bets) OtherBet <$> currentState client
 
-    selectList [makeBet, otherBid, mutualBetOver]
+    selectList [makeBet, otherBid]
 
 handleEvent :: StateMachineClient MutualBetState MutualBetInput -> [Bet] -> BettorEvent -> Contract MutualBetOutput BettorSchema MutualBetError (Either [Bet] ())
 handleEvent client bets change =
@@ -357,6 +385,7 @@ handleEvent client bets change =
     -- see note [Buyer client]
     in case change of
         MutualBetIsOver s -> do
+            logInfo @Haskell.String "Mutual bet over"
             tell (mutualBetStateOut $ Finished s)
             stop
         MakeBet betParams -> do
@@ -372,9 +401,12 @@ handleEvent client bets change =
                 SM.TransitionSuccess (Ongoing bets) -> logInfo (BetSubmitted bets) >> continue bets
                 SM.TransitionSuccess (Finished bets) -> logError (MutualBetEnded bets) >> stop
         OtherBet s -> do
+            logInfo @Haskell.String "SM: OtherBet"
             tell (mutualBetStateOut $ Ongoing s)
             continue s
-        NoChange s -> continue s
+        NoChange s -> do
+            logInfo @Haskell.String "SM: No Change"
+            continue s
 
 mutualBetBettor :: SlotConfig -> ThreadToken -> MutualBetParams -> Contract MutualBetOutput BettorSchema MutualBetError ()
 mutualBetBettor slotCfg currency params = do

@@ -13,16 +13,19 @@ module Spec.MutualBet
     ) where
 
 import           Control.Lens
+import           Contracts.Types     
 import           Control.Monad                      (void, when)
 import qualified Control.Monad.Freer                as Freer
 import qualified Control.Monad.Freer.Error          as Freer
 import           Control.Monad.Freer.Extras as Extras
 import           Control.Monad.Freer.Extras.Log     (LogLevel (..))
+import           Control.Monad.IO.Class             (liftIO)
 import           Data.Default                       (Default (def))
 import           Data.Monoid                        (Last (..))
 import           Data.Text                          (Text, pack)
 import           Ledger                             (Ada, Slot (..), Value, pubKeyHash)
 import qualified Ledger.Ada                         as Ada
+import           Ledger.Oracle             (Observation, SignedMessage, signMessage)
 import           Plutus.Contract                    hiding (currentSlot)
 import           Plutus.Contract.Test               hiding (not)
 import qualified Streaming.Prelude                  as S
@@ -35,10 +38,10 @@ import qualified Ledger.Value                       as Value
 import           Ledger.Value                       (CurrencySymbol)
 import           Plutus.Contract.Test.ContractModel
 import           Contracts.MutualBet
-import           Contracts.Oracle                   
+import           Contracts.Oracle                 
+import           Pab.Game                           
 import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)
-
 import           Test.Tasty
 
 slotCfg :: SlotConfig
@@ -48,14 +51,30 @@ oracleCurrency :: CurrencySymbol
 oracleCurrency = "aa"
 
 oracleParams :: OracleParams 
-oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 1_000_000, opGame = 1 } 
+oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 1_000_000 } 
+
+oracleRequestToken :: OracleRequestToken
+oracleRequestToken = OracleRequestToken
+    { ortOperator = pubKeyHash $ walletPubKey oracleWallet
+    , ortFee = opFees oracleParams
+    }
 
 oracleData ::  Oracle
 oracleData = Oracle
     { oSymbol = opSymbol oracleParams
+    , oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
     , oOperator = pubKeyHash $ walletPubKey oracleWallet
+    , oOperatorKey = walletPubKey oracleWallet
     , oFee = opFees oracleParams
-    , oGame = opGame oracleParams
+    }
+
+oracle ::  Oracle
+oracle = Oracle
+    { oSymbol = opSymbol oracleParams
+    , oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
+    , oOperator = pubKeyHash $ walletPubKey oracleWallet
+    , oOperatorKey = walletPubKey oracleWallet
+    , oFee = opFees oracleParams
     }
 
 mutualBetParams :: MutualBetParams
@@ -86,12 +105,22 @@ bettorContract cur = mutualBetBettor slotCfg cur mutualBetParams
 oracleContract :: Contract (Last Oracle) OracleSchema Text ()
 oracleContract = runOracle oracleParams
 
+signOracleTokenContract :: Oracle -> Contract Text EmptySchema Text ()
+signOracleTokenContract oracle = listenOracleRequest oracle (walletPrivKey oracleWallet) findGameByIdContract
+
+findGameByIdContract :: GameId -> Contract Text EmptySchema Text (Maybe Integer)
+findGameByIdContract gameId = do 
+    waitNSlots 20
+    return $ Just trace1Winner 
+    --liftIO $ (getWinnerTeamId <$> getGameById gameId)
+
 w1, w2, w3, bettor1, bettor2 :: Wallet
 w1 = Wallet 1
 w2 = Wallet 2
 w3 = Wallet 3
 w4 = Wallet 4
 w5 = Wallet 5
+betWallet = w1
 bettor1 = w2
 bettor2 = w3
 oracleWallet = w5
@@ -105,22 +134,25 @@ trace1Bettor2Bet = 10
 trace1Winner :: Integer
 trace1Winner = 1
 
-auctionTrace1 :: Trace.EmulatorTrace ()
-auctionTrace1 = do
-    oracleHdl <- Trace.activateContractWallet w1 $ oracleContract
-    mutualBetHdl <- Trace.activateContractWallet w1 mutualBetContract
-    _ <- Trace.waitNSlots 3
+mutualBetTrace1 :: Trace.EmulatorTrace ()
+mutualBetTrace1 = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    oracleSignHdl <- Trace.activateContractWallet oracleWallet (signOracleTokenContract oracle)
+    _ <- Trace.waitNSlots 5
+    mutualBetHdl <- Trace.activateContractWallet betWallet mutualBetContract
+    _ <- Trace.waitNSlots 5
     threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace trhead token " ++ show threadToken
+    Extras.logInfo $ "Trace thread token " ++ show threadToken
     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
     bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
     _ <- Trace.waitNSlots 1
     let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpOutcome = 1}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     _ <- Trace.waitNSlots 2
-    let bet11Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpOutcome = 0}
-    Trace.callEndpoint @"bet" bettor2Hdl bet11Params
-    void $ Trace.waitNSlots 120
+    let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpOutcome = 0}
+    Trace.callEndpoint @"bet" bettor2Hdl bet2Params
+    _ <- Trace.waitNSlots 8
+
 
 trace2WinningBid :: Ada
 trace2WinningBid = 70
@@ -181,5 +213,5 @@ tests =
             .&&. walletFundsChange bettor1 (Ada.toValue ( trace1Bettor2Bet))
             .&&. walletFundsChange bettor2 (inv (Ada.toValue trace1Bettor2Bet))
             )
-            auctionTrace1
+            mutualBetTrace1
         ]

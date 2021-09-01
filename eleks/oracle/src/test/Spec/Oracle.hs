@@ -14,11 +14,13 @@ module Spec.Oracle
     ) where
 
 import           Control.Lens
+import           Contracts.Types     
 import           Control.Monad                      (void, when)
 import qualified Control.Monad.Freer                as Freer
 import qualified Control.Monad.Freer.Error          as Freer
 import           Control.Monad.Freer.Extras as Extras
 import           Control.Monad.Freer.Extras.Log     (LogLevel (..))
+import           Control.Monad.IO.Class             (liftIO)
 import           Data.Default                       (Default (def))
 import           Data.Monoid                        (Last (..))
 import           Data.Text                          (Text, pack)
@@ -42,9 +44,8 @@ import           Contracts.MutualBet
 import           Contracts.Oracle                   
 import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)
-
+import           Pab.Game                           (getGameById)
 import           Test.Tasty
-
 
 
 -- import           Data.Text.Prettyprint.Doc
@@ -93,10 +94,13 @@ requestOracleTokenContract :: Oracle -> Contract Text EmptySchema Text ()
 requestOracleTokenContract oracle = requestOracleForAddress oracle gameId
 
 signOracleTokenContract :: Oracle -> Contract Text EmptySchema Text ()
-signOracleTokenContract oracle = listenOracleRequest oracle (walletPrivKey oracleWallet)
+signOracleTokenContract oracle = listenOracleRequest oracle (walletPrivKey oracleWallet) findGameByIdContract
 
 useOracleContract :: Oracle -> Contract Text UseOracleSchema Text ()
 useOracleContract oracle = useOracle oracle
+
+findGameByIdContract :: GameId -> Contract Text EmptySchema Text (Maybe Integer)
+findGameByIdContract gameId = return $ Just 1--liftIO $ (getWinnerTeamId <$> getGameById gameId)
 
 w1, w2, w3 :: Wallet
 w1 = Wallet 1

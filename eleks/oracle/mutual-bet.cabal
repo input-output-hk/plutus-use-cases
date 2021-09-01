@@ -26,6 +26,7 @@ library
       Contracts.MutualBet
       Contracts.MutualBet.OffChain
       Contracts.Oracle
+      Contracts.Types
       Pab.Game
     build-depends:
       aeson,

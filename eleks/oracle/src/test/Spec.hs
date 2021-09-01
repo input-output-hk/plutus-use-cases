@@ -18,7 +18,7 @@ limit = HedgehogTestLimit (Just 5)
 
 tests :: TestTree
 tests = localOption limit $ testGroup "use cases" [
-    -- Spec.MutualBet.tests
+    Spec.MutualBet.tests
     -- ,
-    Spec.Oracle.tests
+    --Spec.Oracle.tests
     ]
