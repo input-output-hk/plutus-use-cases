@@ -14,6 +14,7 @@
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 {-# OPTIONS_GHC -fobject-code #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Plutus.Contracts.Services.Sale.Core where
 
@@ -41,12 +42,12 @@ type LovelacePrice = Integer
 
 data Sale =
   Sale
-    { saleProtocolToken :: !AssetClass,
+    { saleProtocolToken :: !ThreadToken,
       salePrice         :: !LovelacePrice,
       saleValue         :: !Value
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+  deriving anyclass (J.ToJSON, J.FromJSON)
 
 PlutusTx.unstableMakeIsData ''Sale
 

@@ -18,7 +18,6 @@ import qualified Control.Lens                                     as Lens
 import qualified Data.Aeson                                       as J
 import qualified Data.Text                                        as T
 import qualified Ext.Plutus.Contracts.Auction                     as Auction
-import qualified Ext.PlutusTx.AssocMap                            as AssocMap
 import qualified GHC.Generics                                     as Haskell
 import           Ledger
 import qualified Ledger.Constraints                               as Constraints
