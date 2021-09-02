@@ -6,7 +6,7 @@ module Mlabs.Governance.Contract.Server (
   governanceEndpoints,
 ) where
 
-import PlutusTx.Prelude hiding (toList)
+import PlutusTx.Prelude hiding (toList, uncurry)
 import Prelude (String, show, uncurry)
 
 import Control.Monad (forever, void)
@@ -18,27 +18,26 @@ import Data.Text (Text)
 import Ledger.Constraints qualified as Constraints
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (Datum (..), Redeemer (..), fromBuiltinData, toBuiltinData)
-import Plutus.V1.Ledger.Crypto (PubKeyHash (..), pubKeyHash)
-import Plutus.V1.Ledger.Tx (Tx (..), TxOut (..), TxOutRef, TxOutTx (..), txId)
+import Ledger.Crypto (PubKeyHash (..), pubKeyHash)
+import Ledger.Tx (Tx (..), TxOut (..), TxOutRef, TxOutTx (..), txId)
 import Plutus.V1.Ledger.Value (Value (..), valueOf)
 import Text.Printf (printf)
 
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation (AssetClassGov (..), GovernanceDatum (..), GovernanceRedeemer (..))
 import Mlabs.Governance.Contract.Validation qualified as Validation
-import Mlabs.Plutus.Contract (getEndpoint, selects)
+import Mlabs.Plutus.Contract (selectForever, getEndpoint)
 
 type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.GovernanceSchema Text a
 
 governanceEndpoints :: AssetClassGov -> GovernanceContract ()
 governanceEndpoints gov =
-  forever $
-    selects
-      [ getEndpoint @Api.Deposit >>= deposit gov
-      , getEndpoint @Api.Withdraw >>= withdraw gov
-      , getEndpoint @Api.ProvideRewards >>= provideRewards gov
-      , getEndpoint @Api.QueryBalance >>= queryBalance gov
-      ]
+  selectForever
+    [ getEndpoint @Api.Deposit $ deposit gov
+    , getEndpoint @Api.Withdraw $ withdraw gov
+    , getEndpoint @Api.ProvideRewards $ provideRewards gov
+    , getEndpoint @Api.QueryBalance $ queryBalance gov
+    ]
 
 --- actions
 

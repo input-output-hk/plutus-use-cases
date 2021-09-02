@@ -161,7 +161,7 @@ testCantDepositNegativeAmount2 :: TestTree
 testCantDepositNegativeAmount2 =
   let (wallet, _, _, activateWallet) = setup Test.fstWalletWithGOV
       errCheck _ e _ = case e of
-        ScriptFailure (EvaluationError _) -> True
+        ScriptFailure (EvaluationError _ _) -> True
         _ -> False
       depoAmt = 20
    in checkPredicateOptions

@@ -2,7 +2,6 @@
 
 -- | Useful utils for contracts
 module Mlabs.Plutus.Contract (
-  selects,
   readDatum,
   Call,
   IsEndpoint (..),
@@ -10,11 +9,13 @@ module Mlabs.Plutus.Contract (
   getEndpoint,
   callSimulator,
   callEndpoint',
+  selectForever
 ) where
 
 import PlutusTx.Prelude
 import Prelude (String, foldl1)
 
+import Control.Monad (forever)
 import Control.Monad.Freer (Eff)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Functor (void)
@@ -30,17 +31,11 @@ import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator (Simulation, callEndpointOnInstance, waitNSlots)
 import Plutus.Trace.Effects.RunContract (RunContract, callEndpoint)
 import Plutus.Trace.Emulator.Types (ContractConstraints, ContractHandle)
-import PlutusTx (IsData, fromBuiltinData)
+import PlutusTx (FromData, fromBuiltinData)
 
-instance Semigroup (Contract.Contract w s e a) where
-  (<>) = Contract.select
-
---  |Concat many endponits to one
-selects :: [Contract w s e a] -> Contract w s e a
-selects = foldl1 Contract.select
 
 -- | For off-chain code
-readDatum :: IsData a => TxOutTx -> Maybe a
+readDatum :: FromData a => TxOutTx -> Maybe a
 readDatum txOut = do
   h <- txOutDatumHash $ txOutTxOut txOut
   Datum e <- lookupDatum (txOutTxTx txOut) h
@@ -59,7 +54,14 @@ callEndpoint' ::
   Eff effs ()
 callEndpoint' = callEndpoint @(EndpointSymbol ep)
 
-getEndpoint :: forall a w (s :: Row Type) e. (Contract.HasEndpoint (EndpointSymbol a) a s, Contract.AsContractError e, IsEndpoint a) => Contract w s e a
+getEndpoint 
+  :: forall a w s e b.
+     ( Contract.HasEndpoint (EndpointSymbol a) a s
+     , Contract.AsContractError e
+     , IsEndpoint a
+     , FromJSON a
+     )
+  => (a -> Contract w s e b) -> Contract.Promise w s e b
 getEndpoint = Contract.endpoint @(EndpointSymbol a)
 
 endpointName :: forall a. IsEndpoint a => a -> String
@@ -72,3 +74,6 @@ callSimulator :: IsEndpoint a => Contract.ContractInstanceId -> a -> Simulation 
 callSimulator cid input = do
   void $ callEndpointOnInstance cid (endpointName input) input
   void $ waitNSlots 1
+
+selectForever :: [Contract.Promise w s e a] -> Contract w s e b
+selectForever = forever . Contract.selectList
