@@ -18,7 +18,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Plutus.Contract (AsContractError, Contract, ownPubKey)
 import Plutus.V1.Ledger.Ada qualified as Ada
-import Plutus.V1.Ledger.Contexts (pubKeyHash)
+import Ledger.Contexts (pubKeyHash)
 import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Plutus.V1.Ledger.Value (AssetClass (..))
 import PlutusTx (unstableMakeIsData)

@@ -17,6 +17,7 @@ module Mlabs.Nft.Contract.StateMachine (
   nftValue,
   runStepWith,
   runInitialiseWith,
+  scriptInstance
 ) where
 
 import PlutusTx.Prelude hiding (Applicative (..), Monoid (..), Semigroup (..), check)
@@ -27,7 +28,7 @@ import Data.Functor (void)
 import Data.String (fromString)
 import Ledger (Address, MintingPolicy, ValidatorHash, scriptHashAddress)
 import Ledger.Constraints (ScriptLookups, TxConstraints, mustBeSignedBy)
-import Ledger.Typed.Scripts.Validators qualified as Validators
+import qualified Ledger.Typed.Scripts         as Scripts
 import Plutus.Contract (Contract)
 import Plutus.Contract.StateMachine qualified as SM
 import Plutus.V1.Ledger.Value (AssetClass (..), CurrencySymbol, Value, assetClassValue)
@@ -60,7 +61,7 @@ machine nftId = SM.mkStateMachine Nothing (transition nftId) isFinal
 {-# INLINEABLE mkValidator #-}
 
 -- | State machine validator
-mkValidator :: NftId -> Validators.ValidatorType NftMachine
+mkValidator :: NftId -> Scripts.ValidatorType NftMachine
 mkValidator nftId = SM.mkValidator (machine nftId)
 
 -- | State machine client
@@ -69,22 +70,22 @@ client nftId = SM.mkStateMachineClient $ SM.StateMachineInstance (machine nftId)
 
 -- | NFT validator hash
 nftValidatorHash :: NftId -> ValidatorHash
-nftValidatorHash nftId = Validators.validatorHash (scriptInstance nftId)
+nftValidatorHash nftId = Scripts.validatorHash (scriptInstance nftId)
 
 -- | NFT script address
 nftAddress :: NftId -> Address
 nftAddress nftId = scriptHashAddress (nftValidatorHash nftId)
 
 -- | NFT script instance
-scriptInstance :: NftId -> Validators.TypedValidator NftMachine
+scriptInstance :: NftId -> Scripts.TypedValidator NftMachine
 scriptInstance nftId =
-  Validators.mkTypedValidator @NftMachine
+  Scripts.mkTypedValidator @NftMachine
     ( $$(PlutusTx.compile [||mkValidator||])
         `PlutusTx.applyCode` PlutusTx.liftCode nftId
     )
     $$(PlutusTx.compile [||wrap||])
   where
-    wrap = Validators.wrapValidator
+    wrap = Scripts.wrapValidator
 
 {-# INLINEABLE transition #-}
 
@@ -144,7 +145,7 @@ runStepWith ::
   NftId ->
   Act ->
   ScriptLookups NftMachine ->
-  TxConstraints (Validators.RedeemerType NftMachine) (Validators.DatumType NftMachine) ->
+  TxConstraints (Scripts.RedeemerType NftMachine) (Scripts.DatumType NftMachine) ->
   Contract w schema e ()
 runStepWith nid act lookups constraints = void $ SM.runStepWith lookups constraints (client nid) act
 
@@ -154,6 +155,6 @@ runInitialiseWith ::
   Nft ->
   Value ->
   ScriptLookups NftMachine ->
-  TxConstraints (Validators.RedeemerType NftMachine) (Validators.DatumType NftMachine) ->
+  TxConstraints (Scripts.RedeemerType NftMachine) (Scripts.DatumType NftMachine) ->
   Contract w schema e ()
 runInitialiseWith nftId nft val lookups tx = void $ SM.runInitialiseWith lookups tx (client nftId) nft val
