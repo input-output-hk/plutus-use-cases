@@ -96,27 +96,14 @@ executable generate-purs
     -threaded
   build-depends:
     base >= 4.9 && < 5,
-    aeson,
-    directory,
-    servant-purescript,
-    filepath,
-    servant-server,
-    bytestring,
-    aeson-pretty,
-    freer-extras,
-    lens,
-    text,
-    mtl,
-    -- Plutus:
-    plutus-ledger-api,
     purescript-bridge,
-    playground-common,
+    servant-purescript -any,
+    mtl,
+    directory,
+    lens,
+    -- Plutus:
     plutus-starter,
-    plutus-pab,
-    plutus-contract,
-    plutus-use-cases,
-    plutus-ledger,
-    plutus-tx
+    plutus-pab
 
 test-suite test
     import: lang

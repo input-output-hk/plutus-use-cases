@@ -29,14 +29,12 @@ import           Language.PureScript.Bridge                  (BridgePart,
                                                               (^==))
 import           Language.PureScript.Bridge.Builder          (BridgeData)
 import           Language.PureScript.Bridge.TypeParameters   (A, E)
-import qualified PSGenerator.Common
 import           Plutus.Abstract.ContractResponse            (ContractResponse)
 import qualified Plutus.Contracts.NftMarketplace.Endpoints  as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
 import qualified Ext.Plutus.Contracts.Auction as Auction
 import qualified Plutus.Contracts.Services.Sale as Sale
 import           Plutus.PAB.Simulation                       (MarketplaceContracts (..))
-import           Plutus.V1.Ledger.Value                      (AssetClass)
 
 ratioBridge :: BridgePart
 ratioBridge = do
@@ -53,7 +51,6 @@ marketplaceTypes :: [SumType 'Haskell]
 marketplaceTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
-          , (order <*> (equal <*> (genericShow <*> mkSumType))) (Proxy @AssetClass)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserItemId)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserContractState)
