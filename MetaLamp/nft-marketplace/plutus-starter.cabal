@@ -103,7 +103,9 @@ executable generate-purs
     lens,
     -- Plutus:
     plutus-starter,
-    plutus-pab
+    plutus-pab,
+    plutus-contract,
+    plutus-ledger-api
 
 test-suite test
     import: lang

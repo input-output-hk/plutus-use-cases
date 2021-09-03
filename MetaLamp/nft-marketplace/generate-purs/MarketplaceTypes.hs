@@ -35,6 +35,8 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
 import qualified Ext.Plutus.Contracts.Auction as Auction
 import qualified Plutus.Contracts.Services.Sale as Sale
 import           Plutus.PAB.Simulation                       (MarketplaceContracts (..))
+import Plutus.Contract.StateMachine.ThreadToken (ThreadToken)
+import Plutus.V1.Ledger.Time (DiffMilliSeconds)
 
 ratioBridge :: BridgePart
 ratioBridge = do
@@ -48,7 +50,10 @@ psRatio = expand <$> psTypeParameters
     expand [x] = TypeInfo "web-common" "Data.Json.JsonTuple" "JsonTuple" [x, x]
 
 marketplaceTypes :: [SumType 'Haskell]
-marketplaceTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
+marketplaceTypes =
+      [ (equal <*> (genericShow <*> mkSumType)) (Proxy @ThreadToken)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @DiffMilliSeconds)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)
