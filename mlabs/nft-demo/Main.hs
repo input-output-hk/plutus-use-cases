@@ -14,7 +14,7 @@ import Data.Functor (void)
 import Playground.Contract (Wallet (Wallet))
 import Plutus.Contract (ContractInstanceId)
 import Plutus.PAB.Simulator qualified as Simulator
-import PlutusTx.Prelude (ByteString)
+import PlutusTx.Prelude (BuiltinByteString)
 
 import Mlabs.Nft.Contract qualified as Nft
 import Mlabs.Nft.Contract.Simulator.Handler qualified as Handler
@@ -94,7 +94,7 @@ user2 = Wallet 2
 user3 = Wallet 3
 
 -- | Content of NFT
-nftContent :: ByteString
+nftContent :: BuiltinByteString
 nftContent = "Mona Lisa"
 
 -- | NFT initial parameters

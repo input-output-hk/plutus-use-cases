@@ -15,6 +15,7 @@ import PlutusTx.Prelude
 
 import Control.Lens ((&), (.~))
 import Control.Monad (void)
+import Data.Default (def)
 import Data.Map qualified as Map
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.Value (AssetClass (..), TokenName, Value, assetClassValue)
@@ -42,7 +43,10 @@ test =
     mintTrace
 
 emCfg :: EmulatorConfig
-emCfg = EmulatorConfig $ Left $ Map.fromList [(Test.Wallet 1, v), (Test.Wallet 2, v)]
+emCfg = EmulatorConfig 
+          (Left $ Map.fromList [(Test.Wallet 1, v), (Test.Wallet 2, v)])
+          def
+          def
   where
     v :: Value
     v = lovelaceValueOf 100_000_000

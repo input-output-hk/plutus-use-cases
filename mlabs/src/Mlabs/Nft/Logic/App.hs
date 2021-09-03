@@ -43,7 +43,7 @@ data AppCfg = AppCfg
     appCfg'users :: [(UserId, BchWallet)]
   , appCfg'nftInRef :: TxOutRef
   , -- | nft content
-    appCfg'nftData :: ByteString
+    appCfg'nftData :: BuiltinByteString
   , -- | author of nft
     appCfg'nftAuthor :: UserId
   }

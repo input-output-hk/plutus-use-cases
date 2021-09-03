@@ -16,16 +16,16 @@ import Data.List.Extra (firstJust)
 import Data.Map qualified as M
 import Data.Monoid (Last (..))
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, mustMintValue, mustSpendPubKeyOutput, ownPubKeyHash)
-import Plutus.Contract (Contract, logError, ownPubKey, tell, throwError, utxoAt)
-import Plutus.V1.Ledger.Address (pubKeyAddress)
+import Plutus.Contract (Contract, toContract, logError, ownPubKey, tell, throwError, utxoAt)
+import Ledger.Address (pubKeyAddress)
 import Plutus.V1.Ledger.Api (Datum)
-import Plutus.V1.Ledger.Crypto (pubKeyHash)
+import Ledger.Crypto (pubKeyHash)
 
 import Mlabs.Emulator.Types (ownUserId)
 import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, StartParams (..), UserSchema, toUserAct)
 import Mlabs.Nft.Contract.StateMachine qualified as SM
 import Mlabs.Nft.Logic.Types (Act (UserAct), NftId, initNft, toNftId)
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
+import Mlabs.Plutus.Contract (getEndpoint, readDatum, selectForever)
 
 -- | NFT contract for the user
 type UserContract a = Contract () UserSchema SM.NftError a
@@ -39,20 +39,16 @@ type AuthorContract a = Contract (Last NftId) AuthorSchema SM.NftError a
 -- | Endpoints for user
 userEndpoints :: NftId -> UserContract ()
 userEndpoints nid =
-  forever $
-    selects
-      [ act $ getEndpoint @Buy
-      , act $ getEndpoint @SetPrice
+  selectForever
+      [ getEndpoint @Buy      $ userAction nid
+      , getEndpoint @SetPrice $ userAction nid
       ]
-  where
-    act :: IsUserAct a => UserContract a -> UserContract ()
-    act readInput = readInput >>= userAction nid
 
 -- | Endpoints for admin user
 authorEndpoints :: AuthorContract ()
 authorEndpoints = forever startNft'
   where
-    startNft' = getEndpoint @StartParams >>= startNft
+    startNft' = toContract $ getEndpoint @StartParams $ startNft
 
 userAction :: IsUserAct a => NftId -> a -> UserContract ()
 userAction nid input = do

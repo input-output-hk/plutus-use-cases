@@ -19,7 +19,7 @@ isNonNegative msg val
   | otherwise = throwError $ msg <> " should be non-negative"
 
 {-# INLINEABLE isPositive #-}
-isPositive :: (Applicative m, MonadError String m) => String -> Integer -> m ()
+isPositive :: (Applicative m, MonadError BuiltinByteString m) => BuiltinByteString -> Integer -> m ()
 isPositive msg val
   | val > 0 = pure ()
   | otherwise = throwError $ msg <> " should be positive"

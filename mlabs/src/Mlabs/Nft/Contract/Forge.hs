@@ -40,7 +40,7 @@ validate stateAddr (NftId token oref) _ ctx =
 
     hasUtxo = any (\inp -> Contexts.txInInfoOutRef inp == oref) $ Contexts.txInfoInputs info
 
-    checkMintedAmount = case Value.flattenValue (Contexts.txInfoForge info) of
+    checkMintedAmount = case Value.flattenValue (Contexts.txInfoMint info) of
       [(cur, tn, val)] -> Contexts.ownCurrencySymbol ctx == cur && token == tn && val == 1
       _ -> False
 

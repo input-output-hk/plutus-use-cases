@@ -31,9 +31,9 @@ import Plutus.Trace.Effects.RunContract (RunContract)
 import Plutus.Trace.Effects.Waiting (Waiting)
 import Plutus.Trace.Emulator (EmulatorRuntimeError, EmulatorTrace, initialChainState)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
-import Plutus.V1.Ledger.Contexts (pubKeyHash)
+import Ledger.Contexts (pubKeyHash)
 import Plutus.V1.Ledger.Value (Value, singleton)
-import PlutusTx.Prelude (ByteString)
+import PlutusTx.Prelude (BuiltinByteString)
 import Test.Utils (next)
 
 import Mlabs.Emulator.Types (UserId (..), adaCoin)
@@ -81,7 +81,7 @@ userAct wal act = do
   lift $ N.callUserAct nftId wal act >> next
 
 -- | NFT content for testing.
-nftContent :: ByteString
+nftContent :: BuiltinByteString
 nftContent = "Mona Lisa"
 
 {- | Initial distribution of wallets for testing.

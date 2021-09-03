@@ -17,7 +17,7 @@ import Control.Monad.Except (MonadError (..))
 import Control.Monad.State.Strict (MonadState (..), StateT (..), gets)
 
 -- | State update of plutus contracts
-type PlutusState st = StateT st (Either String)
+type PlutusState st = StateT st (Either BuiltinByteString)
 
 instance Functor (PlutusState st) where
   {-# INLINEABLE fmap #-}
@@ -43,7 +43,7 @@ instance Applicative (PlutusState st) where
 {- | Execute further if condition is True or throw error with
  given error message.
 -}
-guardError :: (Applicative m, MonadError String m) => String -> Bool -> m ()
+guardError :: (Applicative m, MonadError BuiltinByteString m) => BuiltinByteString -> Bool -> m ()
 guardError msg isTrue
   | isTrue = pure ()
   | otherwise = throwError msg

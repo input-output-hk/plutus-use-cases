@@ -78,7 +78,7 @@ moveFromTo from to coin amount =
   ]
 
 -- | Applies response to the blockchain state.
-applyResp :: Resp -> BchState -> Either Hask.String BchState
+applyResp :: Resp -> BchState -> Either BuiltinByteString BchState
 applyResp resp (BchState wallets) = fmap BchState $ case resp of
   Move addr coin amount -> updateWallet addr coin amount wallets
   Mint coin amount -> updateWallet Self coin amount wallets
@@ -86,7 +86,7 @@ applyResp resp (BchState wallets) = fmap BchState $ case resp of
   where
     updateWallet addr coin amt m = M.alterF (maybe (pure Nothing) (fmap Just . updateBalance coin amt)) addr m
 
-    updateBalance :: Coin -> Integer -> BchWallet -> Either Hask.String BchWallet
+    updateBalance :: Coin -> Integer -> BchWallet -> Either BuiltinByteString BchWallet
     updateBalance coin amt (BchWallet bals) = fmap BchWallet $ M.alterF (upd amt) coin bals
 
     upd amt x
