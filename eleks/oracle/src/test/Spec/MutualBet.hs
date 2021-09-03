@@ -51,7 +51,7 @@ oracleCurrency :: CurrencySymbol
 oracleCurrency = "aa"
 
 oracleParams :: OracleParams 
-oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 1_000_000 } 
+oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 1_000_000, opSigner = walletPrivKey oracleWallet } 
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
@@ -105,15 +105,6 @@ bettorContract cur = mutualBetBettor slotCfg cur mutualBetParams
 oracleContract :: Contract (Last Oracle) OracleSchema Text ()
 oracleContract = runOracle oracleParams
 
-signOracleTokenContract :: Oracle -> Contract Text EmptySchema Text ()
-signOracleTokenContract oracle = listenOracleRequest oracle (walletPrivKey oracleWallet) findGameByIdContract
-
-findGameByIdContract :: GameId -> Contract Text EmptySchema Text (Maybe Integer)
-findGameByIdContract gameId = do 
-    waitNSlots 20
-    return $ Just trace1Winner 
-    --liftIO $ (getWinnerTeamId <$> getGameById gameId)
-
 w1, w2, w3, bettor1, bettor2 :: Wallet
 w1 = Wallet 1
 w2 = Wallet 2
@@ -137,7 +128,6 @@ trace1Winner = 1
 mutualBetTrace1 :: Trace.EmulatorTrace ()
 mutualBetTrace1 = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
-    oracleSignHdl <- Trace.activateContractWallet oracleWallet (signOracleTokenContract oracle)
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betWallet mutualBetContract
     _ <- Trace.waitNSlots 5
@@ -151,8 +141,9 @@ mutualBetTrace1 = do
     _ <- Trace.waitNSlots 2
     let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpOutcome = 0}
     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
-    _ <- Trace.waitNSlots 8
-
+    let updateParams = UpdateOracleParams{ uoGameId = 1,  uoWinnerId = 1 }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 50
 
 trace2WinningBid :: Ada
 trace2WinningBid = 70
@@ -203,8 +194,8 @@ delay n = void $ Trace.waitNSlots $ fromIntegral n
 
 tests :: TestTree
 tests =
-    testGroup "auction"
-        [ checkPredicateOptions options "run an auction"
+    testGroup "mutual bet"
+        [ checkPredicateOptions options "run mutual bet"
             (--assertDone mutualBetContract (Trace.walletInstanceTag w1) (const True) "mutual bet contract should be done"
             -- .&&. 
             assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"

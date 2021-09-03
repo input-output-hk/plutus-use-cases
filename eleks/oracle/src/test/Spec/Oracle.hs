@@ -68,7 +68,7 @@ oracleCurrency :: CurrencySymbol
 oracleCurrency = "aa"
 
 oracleParams :: OracleParams 
-oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 3_000_000 } 
+oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 3_000_000, opSigner = walletPrivKey oracleWallet } 
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
@@ -93,14 +93,8 @@ oracleContract = runOracle oracleParams
 requestOracleTokenContract :: Oracle -> Contract Text EmptySchema Text ()
 requestOracleTokenContract oracle = requestOracleForAddress oracle gameId
 
-signOracleTokenContract :: Oracle -> Contract Text EmptySchema Text ()
-signOracleTokenContract oracle = listenOracleRequest oracle (walletPrivKey oracleWallet) findGameByIdContract
-
 useOracleContract :: Oracle -> Contract Text UseOracleSchema Text ()
 useOracleContract oracle = useOracle oracle
-
-findGameByIdContract :: GameId -> Contract Text EmptySchema Text (Maybe Integer)
-findGameByIdContract gameId = return $ Just 1--liftIO $ (getWinnerTeamId <$> getGameById gameId)
 
 w1, w2, w3 :: Wallet
 w1 = Wallet 1
@@ -130,7 +124,6 @@ requestOracleTrace = do
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle)
     void $ Trace.waitNSlots 3
 
-
 signOracleTestState :: OracleData
 signOracleTestState = OracleData
     { ovGame = gameId
@@ -142,8 +135,6 @@ signOracleTestState = OracleData
 signOracleTrace :: Trace.EmulatorTrace ()
 signOracleTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
-    _ <- Trace.waitNSlots 3
-    oracleSignHdl <- Trace.activateContractWallet oracleWallet (signOracleTokenContract oracle)
     _ <- Trace.waitNSlots 20
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle)
     void $ Trace.waitNSlots 3
@@ -152,11 +143,22 @@ useOracleTrace :: Trace.EmulatorTrace ()
 useOracleTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 3
-    oracleSignHdl <- Trace.activateContractWallet oracleWallet (signOracleTokenContract oracle)
+    requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle)
+    _ <- Trace.waitNSlots 5
+    let updateParams = UpdateOracleParams{ uoGameId = gameId,  uoWinnerId = 1 }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    _ <- Trace.waitNSlots 5   
+    useOracleHdl <- Trace.activateContractWallet oracleClientWallet (useOracleContract oracle)
+    let useOracleParams = UseOracleParams { uoGame = gameId }
+    Trace.callEndpoint @"use" useOracleHdl useOracleParams
+    void $ Trace.waitNSlots 1
+
+useFailIfNotSignedTrace :: Trace.EmulatorTrace ()
+useFailIfNotSignedTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 3
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle)
-    void $ Trace.waitNSlots 40
-
+    _ <- Trace.waitNSlots 5 
     useOracleHdl <- Trace.activateContractWallet oracleClientWallet (useOracleContract oracle)
     let useOracleParams = UseOracleParams { uoGame = gameId }
     Trace.callEndpoint @"use" useOracleHdl useOracleParams
@@ -166,16 +168,15 @@ useOracleNotOwnerFailTrace :: Trace.EmulatorTrace ()
 useOracleNotOwnerFailTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 3
-    oracleSignHdl <- Trace.activateContractWallet oracleWallet (signOracleTokenContract oracle)
-    _ <- Trace.waitNSlots 3
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle)
-    void $ Trace.waitNSlots 40
-
+    _ <- Trace.waitNSlots 5
+    let updateParams = UpdateOracleParams{ uoGameId = gameId,  uoWinnerId = 1 }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    _ <-  Trace.waitNSlots 5
     useOracleHdl <- Trace.activateContractWallet otherWallet (useOracleContract oracle)
     let useOracleParams = UseOracleParams { uoGame = gameId }
     Trace.callEndpoint @"use" useOracleHdl useOracleParams
     void $ Trace.waitNSlots 1
-
 
 tests :: TestTree
 tests =
@@ -215,6 +216,12 @@ tests =
                 )
         )
         useOracleTrace
+        ,
+        checkPredicateOptions options "Only oracle signed request can be used"
+        ( 
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["value signed by oracle", "Pd"] _) -> True; _ -> False  })
+        )
+        useFailIfNotSignedTrace
         ,
         checkPredicateOptions options "Only request owner could use oracle data"
         ( 
