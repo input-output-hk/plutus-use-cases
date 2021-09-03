@@ -15,10 +15,11 @@ in
       spago
       purty
       fix-purty
+      fix-stylish-haskell
       haskell-language-server
       stylish-haskell
-      fix-stylish-haskell
       pkgs.niv
       cardano-repo-tool
+      pkgs.ghcid
     ];
   }

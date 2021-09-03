@@ -22,7 +22,7 @@ let
   #     haskell-language-server
   #   }
   # }
-  
+
   packages = import ./nix;
 
   inherit (packages) pkgs plutus-starter;
