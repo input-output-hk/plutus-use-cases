@@ -47,7 +47,7 @@ Webap project Instructions for starting webapp is in [subfolder ./client/README.
 Wallet instances in the pab-server can be listed with a get request
 
 ```http request
-GET http://localhost:8080/api/new/contract/instances
+GET http://localhost:8080/api/contract/instances
 ```
 
 Once you have the instance ID, you can call pab endpoints for the wallet instance.
@@ -55,14 +55,14 @@ after each endpoint call, to receive the response, you will have to issue a get 
 The response in the last item of `cicCurrentState.observabaleState` list in the json response
 
 ```http request
-GET http://localhost:8080/api/new/contract/instance/{{instance_id}}/status
+GET http://localhost:8080/api/contract/instance/{{instance_id}}/status
 ```
 
 You can send `Enter` key input to the pab process to list the funds in console.
 Each instance also has utility endpoint `funds` to list funds in wallet.
 
 ```http request
-GET http://localhost:8080/api/new/contract/instance/{{instance_id}}/funds
+GET http://localhost:8080/api/contract/instance/{{instance_id}}/funds
 ```
 
 **NOTE**: The endpoints that create transactions will return immediately, but the transaction won't be confirmed yet. You can poll the `status` endpoint and find out when it gets confirmed from the `observableState`.
@@ -71,7 +71,7 @@ GET http://localhost:8080/api/new/contract/instance/{{instance_id}}/funds
 NFT can be minted by calling ` mint` endpoint on the instance id. The token name must be hex encoded.
 
 ```http request
-GET http://localhost:8080/api/new/contract/instance/{{instance_id}}/mint
+GET http://localhost:8080/api/contract/instance/{{instance_id}}/mint
 Content-Type: application/json
 
 {{ token_name_hex }}
@@ -88,7 +88,7 @@ Requires list of Objects. Each object has `spItems`, the list of tokens to be so
 `spSaleType` `Primary` if it's you created the NFT `Secondary` if you own the nft,
 but you didn't create it.
 ```http request
-POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/sell
+POST http://localhost:8080/api/contract/instances/{{instance_id}}/sell
 Content-Type: application/json
 
 [{
@@ -106,7 +106,7 @@ Content-Type: application/json
 Will return a list of items in sale, each items has an extra key : `reference` and it's value is the `TxOutRef` model.
 You use the `reference` to buy it from market
 ```http request
-POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/list
+POST http://localhost:8080/api/contract/instances/{{instance_id}}/list
 Content-Type: application/json
 
   "lmUtxoType": "MtDirectSale",
@@ -117,7 +117,7 @@ Purchase transaction can be made posting  list of `PurchaseParam` model to the e
 each object in the list corresponds to a sale. In PurchaseRequestObject has `ppItems`: the list of tokens to be sold and `ppValue` : total cost of those items
 
 ```http request
-POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/buy
+POST http://localhost:8080/api/contract/instances/{{instance_id}}/buy
 Content-Type: application/json
 
 [{
@@ -139,7 +139,7 @@ with `Auction` Datum. The Datum contains auction's expiry, startBid ,increment a
 List of Auction Items. The model contains `apValue` the value to be placed on auction `apMinBid`,
 the starting bid , `apMinIncrement` minimum increment to be added to bid in each new bid, and other configurations. respectively as shown below
 ```http request
-POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/startAuction
+POST http://localhost:8080/api/contract/instances/{{instance_id}}/startAuction
 Content-Type: application/json
 
 [{
@@ -164,7 +164,7 @@ Content-Type: application/json
 Will return a list of items in auction, each items has a key `reference` and it's value is the `TxOutRef` model.
 You use the `reference` to bid it from market
 ```http request
-POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/list
+POST http://localhost:8080/api/contract/instances/{{instance_id}}/list
 Content-Type: application/json
 
 {
@@ -179,7 +179,7 @@ and `bidValue` list of tokens and it's value to place on bid.
 Bidding is done only on the token having same policyId and tokenName as provided in createAuction endpoint.
 Other values will be received by the auction creator as tips.
 ```http request
-POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/bid
+POST http://localhost:8080/api/contract/instances/{{instance_id}}/bid
 Content-Type: application/json
 
 {
@@ -198,7 +198,7 @@ Once the Auction deadline is reached, auctions chan be claimed by the highest bi
 It required list of `TxOutRef` objects and when`ignoreUnClaimable` is set, Wallet code will ignore the utxos that can't be claimed and create transaction from claimable utxos.
 
 ```http request
-POST http://localhost:8080/api/new/contract/instances/{{instance_id}}/bid
+POST http://localhost:8080/api/contract/instances/{{instance_id}}/bid
 Content-Type: application/json
 
 {

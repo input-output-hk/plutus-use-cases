@@ -58,6 +58,7 @@ import Schema (FormSchema)
 import Playground.Contract (FunctionSchema)
 import Plutus.PAB.Core
 import qualified Ledger.Fee
+import qualified Plutus.Contract as Contract
 
 defaultMarket :: Market
 defaultMarket = Market{
@@ -76,8 +77,13 @@ type MarketPlatformSchema=
   .\/ MarketSchema
 
 simpleMarket :: Contract [AesonTypes.Value ] MarketPlatformSchema Text ()
-simpleMarket =awaitPromise (marketEndpoints defaultMarket)
-  >> awaitPromise utilEndpoints
+simpleMarket =forever
+  where 
+    forever = handleError errorHandler $ awaitPromise endpoints >> forever
+    endpoints= marketEndpoints defaultMarket `select` utilEndpoints `select` void mintEp 
+    errorHandler :: Show a => a -> Contract w s e ()
+    errorHandler e = do
+        Contract.logError $ show e
 
 instance HasDefinitions Market where
     getDefinitions =[defaultMarket]

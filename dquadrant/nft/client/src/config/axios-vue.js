@@ -1,7 +1,7 @@
 import axios from "axios";
 import Vue from "vue";
 
-const apiHost = process.env.VUE_APP_API_URL || "http://localhost/api/new/contract";
+const apiHost = process.env.VUE_APP_API_URL || "http://localhost:9080/api/contract";
 const instance=axios.create({baseURL: apiHost})
 instance.interceptors.request.use(
   function(config) {
