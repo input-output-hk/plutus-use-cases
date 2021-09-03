@@ -71,7 +71,7 @@ datumsCheck :: TracePredicate
 datumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (containsNft . Marketplace.mdSingletons)
+    (Utils.checkOneDatum (containsNft . Marketplace.mdSingletons))
     where
       containsNft = maybe False (\t -> (t ^. Marketplace._nftLot & isNothing) &&
                                 (t ^. Marketplace._nftRecord . Marketplace._niIssuer & isNothing) &&
@@ -82,7 +82,7 @@ datumsCheck' :: TracePredicate
 datumsCheck' =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (containsNft . Marketplace.mdSingletons)
+    (Utils.checkOneDatum (containsNft . Marketplace.mdSingletons))
     where
       containsNft = maybe False (\t -> (t ^. Marketplace._nftLot & isNothing) &&
                                 t ^. Marketplace._nftRecord . Marketplace._niIssuer == Just (Utils.walletPkh Fixtures.userWallet) &&

@@ -37,7 +37,7 @@ import qualified Prelude                                          as Haskell
 
 newtype Marketplace =
   Marketplace
-    { marketplaceProtocolToken :: ThreadToken
+    { marketplaceOperator :: PubKeyHash
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
@@ -251,7 +251,7 @@ marketplaceStateMachine marketplace = StateMachine
     { smTransition  = transition marketplace
     , smFinal       = const False
     , smCheck       = stateTransitionCheck
-    , smThreadToken = Just $ marketplaceProtocolToken marketplace
+    , smThreadToken = Nothing
     }
 
 {-# INLINABLE mkMarketplaceValidator #-}

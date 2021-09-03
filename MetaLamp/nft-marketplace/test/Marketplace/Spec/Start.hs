@@ -24,7 +24,7 @@ tests =
     [ checkPredicateOptions
         Fixtures.options
         "Should start a new marketplace with empty store"
-        (datumsCheck .&&. valueCheck)
+        datumsCheck
         startTrace
     ]
 
@@ -36,16 +36,10 @@ startTrace = do
 
 startContract ::
      Contract () Marketplace.MarketplaceOwnerSchema Text Marketplace.Marketplace
-startContract = Marketplace.start' $ pure Fixtures.marketplaceSymbol
+startContract = Marketplace.start
 
 datumsCheck :: TracePredicate
 datumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (== Marketplace.MarketplaceDatum AssocMap.empty AssocMap.empty)
-
-valueCheck :: TracePredicate
-valueCheck =
-  valueAtAddress
-    Fixtures.marketplaceAddress
-    (== V.singleton Fixtures.marketplaceSymbol Marketplace.marketplaceProtocolName 1)
+    (== [Marketplace.MarketplaceDatum AssocMap.empty AssocMap.empty])

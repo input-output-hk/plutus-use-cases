@@ -24,10 +24,6 @@ import           PlutusTx.Prelude                                          hidin
 import           Prelude                                                   (Semigroup (..))
 import qualified Prelude                                                   as Haskell
 
--- TODO!
--- marketplace :: CurrencySymbol -> Marketplace
--- marketplace protocol = Marketplace (assetClass protocol marketplaceProtocolName)
-
 marketplaceValidator :: Marketplace -> Validator
 marketplaceValidator = Scripts.validatorScript . marketplaceInst
 

@@ -36,9 +36,8 @@ import           Text.Printf                                  (printf)
 -- | Starts the NFT Marketplace protocol: minting protocol NFT, creating empty nft storage
 start :: Contract w s Text Core.Marketplace
 start = do
-    marketplaceToken <- mapError (T.pack . Haskell.show @SMContractError) $ getThreadToken
     pkh <- pubKeyHash <$> ownPubKey
-    let marketplace = Core.Marketplace marketplaceToken
+    let marketplace = Core.Marketplace pkh
     let client = Core.marketplaceClient marketplace
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
 

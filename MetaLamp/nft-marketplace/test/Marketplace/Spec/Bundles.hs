@@ -100,7 +100,7 @@ bundleDatumsCheck :: TracePredicate
 bundleDatumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (containsBundle . Marketplace.mdBundles)
+    (Utils.checkOneDatum (containsBundle . Marketplace.mdBundles))
     where
       containsBundle = maybe False checkBundle .
                        AssocMap.lookup Fixtures.bundleId
@@ -136,7 +136,7 @@ unbundleErrorTrace = do
 unbundleDatumsCheck :: TracePredicate
 unbundleDatumsCheck =
   dataAtAddress
-    Fixtures.marketplaceAddress $
+    Fixtures.marketplaceAddress $ Utils.checkOneDatum $
     \mp -> (containsNoBundle . Marketplace.mdBundles $ mp) && (containsNfts . Marketplace.mdSingletons $ mp)
     where
       containsNoBundle = isNothing . AssocMap.lookup Fixtures.bundleId

@@ -183,7 +183,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapDuration = 80
+                        saapDuration = 80 * 1000
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction

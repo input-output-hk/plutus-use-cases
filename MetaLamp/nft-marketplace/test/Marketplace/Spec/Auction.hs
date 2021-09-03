@@ -112,7 +112,7 @@ startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    Marketplace.saapDuration = 155
+    Marketplace.saapDuration = 155 * 1000
   }
 
 closeLotParams ::        Marketplace.CloseLotParams
@@ -195,7 +195,7 @@ startAnAuctionDatumsCheck :: TracePredicate
 startAnAuctionDatumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (nftIsOnAuction . Marketplace.mdSingletons)
+    (Utils.checkOneDatum (nftIsOnAuction . Marketplace.mdSingletons))
     where
       nftIsOnAuction = maybe False (\t -> t ^. Marketplace._nftLot ^? traverse . _2 . _Right & fmap auctionValue &
                                 (== Just (Marketplace.nftValue Fixtures.catTokenIpfsCid t))) .
@@ -205,7 +205,7 @@ completeAuctionDatumsCheck :: TracePredicate
 completeAuctionDatumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (nftNotOnAuction . Marketplace.mdSingletons)
+    (Utils.checkOneDatum (nftNotOnAuction . Marketplace.mdSingletons))
     where
       nftNotOnAuction = maybe False (isNothing . Marketplace.nftLot) .
                         AssocMap.lookup Fixtures.catTokenIpfsCidHash
@@ -245,7 +245,7 @@ startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    Marketplace.saapDuration = 142
+    Marketplace.saapDuration = 142 * 1000
   }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
@@ -310,7 +310,7 @@ startAnAuctionDatumsCheckB :: TracePredicate
 startAnAuctionDatumsCheckB =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (bundleIsOnAuction . Marketplace.mdBundles)
+    (Utils.checkOneDatum (bundleIsOnAuction . Marketplace.mdBundles))
     where
       bundleIsOnAuction = maybe False (\b -> b ^. Marketplace._nbTokens ^? Marketplace._HasLot . _2 . _Right & fmap auctionValue &
                                 (== Just (Marketplace.bundleValue AssocMap.empty b))) .
@@ -320,7 +320,7 @@ completeAuctionDatumsCheckB :: TracePredicate
 completeAuctionDatumsCheckB =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (bundleNotOnAuction . Marketplace.mdBundles)
+    (Utils.checkOneDatum (bundleNotOnAuction . Marketplace.mdBundles))
     where
       bundleNotOnAuction = maybe False (Prelude.not . Marketplace.hasLotBundle) .
                            AssocMap.lookup Fixtures.bundleId

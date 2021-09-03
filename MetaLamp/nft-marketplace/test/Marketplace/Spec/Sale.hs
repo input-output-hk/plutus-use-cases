@@ -166,7 +166,7 @@ openSaleDatumsCheck :: TracePredicate
 openSaleDatumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (nftIsOnSale . Marketplace.mdSingletons)
+    (Utils.checkOneDatum (nftIsOnSale . Marketplace.mdSingletons))
     where
       nftIsOnSale = maybe False (\t -> t ^. Marketplace._nftLot ^? traverse . _2 . _Left & fmap Sale.saleValue &
                                 (== Just (Marketplace.nftValue Fixtures.catTokenIpfsCid t))) .
@@ -176,7 +176,7 @@ completeSaleDatumsCheck :: TracePredicate
 completeSaleDatumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (nftNotOnSale . Marketplace.mdSingletons)
+    (Utils.checkOneDatum (nftNotOnSale . Marketplace.mdSingletons))
     where
       nftNotOnSale = maybe False (isNothing . Marketplace.nftLot) .
                      AssocMap.lookup Fixtures.catTokenIpfsCidHash
@@ -265,7 +265,7 @@ openSaleDatumsCheckB :: TracePredicate
 openSaleDatumsCheckB =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (bundleIsOnSale . Marketplace.mdBundles)
+    (Utils.checkOneDatum (bundleIsOnSale . Marketplace.mdBundles))
     where
       bundleIsOnSale = maybe False (\b -> b ^. Marketplace._nbTokens ^? Marketplace._HasLot . _2 . _Left & fmap Sale.saleValue &
                                 (== Just (Marketplace.bundleValue AssocMap.empty b))) .
@@ -275,7 +275,7 @@ completeSaleDatumsCheckB :: TracePredicate
 completeSaleDatumsCheckB =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (bundleNotOnSale . Marketplace.mdBundles)
+    (Utils.checkOneDatum (bundleNotOnSale . Marketplace.mdBundles))
     where
       bundleNotOnSale = maybe False (Prelude.not . Marketplace.hasLotBundle) .
                         AssocMap.lookup Fixtures.bundleId
