@@ -49,27 +49,27 @@ ownInputs ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}}=
     where
     resolved=map (\x->txInInfoResolved x) txInfoInputs
 
--- get List of valid parsed datums to the script in this transaction
+-- get List of valid parsed datums  the script in this transaction
 {-# INLINABLE ownInputDatums #-}
-ownInputDatums :: IsData a => ScriptContext  -> [a]
+ownInputDatums :: FromData a => ScriptContext  -> [a]
 ownInputDatums ctx= mapMaybe (txOutDatum ctx) $  ownInputs ctx
 
 -- get List of the parsed datums  including the TxOut if datum is valid
 {-# INLINABLE ownInputsWithDatum #-}
-maybeOwnInputsWithDatum:: IsData a =>  ScriptContext ->[Maybe (TxOut,a)]
+maybeOwnInputsWithDatum:: FromData a =>  ScriptContext ->[Maybe (TxOut,a)]
 maybeOwnInputsWithDatum ctx=map (txOutWithDatum ctx)  ( ownInputs ctx)
 
-ownInputsWithDatum:: IsData a=> ScriptContext  -> [(TxOut,a)]
+ownInputsWithDatum:: FromData a=> ScriptContext  -> [(TxOut,a)]
 ownInputsWithDatum ctx= map doValidate (ownInputs ctx)
   where
-    doValidate:: IsData a =>  TxOut -> (TxOut,a)
+    doValidate:: FromData a =>  TxOut -> (TxOut,a)
     doValidate txOut = case txOutWithDatum ctx txOut of
       Just a -> a
       _      -> traceError "Datum format in Utxo is not of required type"
 
 -- get input datum for the utxo that is currently being validated
 {-# INLINABLE ownInputDatum #-}
-ownInputDatum :: IsData a => ScriptContext -> Maybe a
+ownInputDatum :: FromData a => ScriptContext -> Maybe a
 ownInputDatum ctx = do
     txInfo <-findOwnInput ctx
     let txOut= txInInfoResolved txInfo
@@ -77,15 +77,15 @@ ownInputDatum ctx = do
 
 --  given an Utxo, resolve it's datum to our type
 {-# INLINABLE txOutDatum #-}
-txOutDatum::  IsData a =>  ScriptContext ->TxOut -> Maybe a
+txOutDatum::  FromData a =>  ScriptContext ->TxOut -> Maybe a
 txOutDatum ctx txOut =do
             dHash<-txOutDatumHash txOut
             datum<-findDatum dHash (scriptContextTxInfo ctx)
-            PlutusTx.fromData (getDatum datum)
+            PlutusTx.fromBuiltinData $ getDatum datum
 
 -- given txOut get resolve it to our type and return it with the txout
 {-# INLINABLE txOutWithDatum #-}
-txOutWithDatum::  IsData a =>  ScriptContext ->TxOut -> Maybe (TxOut,a)
+txOutWithDatum::  FromData a =>  ScriptContext ->TxOut -> Maybe (TxOut,a)
 txOutWithDatum ctx txOut =do
             d<-txOutDatum ctx txOut
             return (txOut,d)

@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE NumericUnderscores#-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
@@ -51,7 +52,7 @@ import Ledger
       mkValidatorScript,
       Address (addressCredential),
       Validator,
-      AssetClass, TxInInfo, toValidatorHash, Interval (Interval, ivFrom, ivTo), Extended (PosInf), after )
+      AssetClass, TxInInfo, toValidatorHash, Interval (Interval, ivFrom, ivTo), Extended (PosInf), after, Datum )
 import Ledger.Value hiding(lt)
 import Ledger.Credential
 import qualified Ledger.Typed.Scripts as Scripts
@@ -77,6 +78,37 @@ import Ledger.Time (POSIXTime)
 ---------------------------------------------------------------------------------------------
 ----- Foreign functions (these used be in some other file but PLC plugin didn't agree)
 ---------------------------------------------------------------------------------------------
+
+
+
+instance Semigroup Payment where
+    {-# INLINABLE (<>) #-}
+    (<>) (Payment a) (Payment b) = Payment (a <> b)
+
+instance Monoid Payment where
+  {-# INLINABLE mempty   #-}
+  mempty = Payment AssocMap.empty
+
+
+{-# INLINABLE payment  #-}
+payment :: PubKeyHash -> Value -> Payment
+payment pkHash value=Payment  (AssocMap.singleton pkHash value)
+
+{-# INLINABLE assetClassPayment #-}
+assetClassPayment :: AssetClass  -> [(PubKeyHash,Integer)] -> Payment
+assetClassPayment ac values=Payment (AssocMap.fromList mappedList)
+  where
+    mappedList= map (\(pkh,v)->(pkh,assetClassValue ac v)) values
+
+{-# INLINABLE paymentValue #-}
+paymentValue :: Payment -> PubKeyHash -> Value
+paymentValue (Payment p) pkh=case AssocMap.lookup pkh p of
+    Just v ->  v
+    _      ->Value AssocMap.empty
+
+{-# INLINABLE paymentPkhs #-}
+paymentPkhs :: Payment -> [PubKeyHash]
+paymentPkhs (Payment x) =  AssocMap.keys x
 
 -- moving this function to Data/Payment.hs will give following error
 --
@@ -143,12 +175,20 @@ data Market = Market
     ,   mAuctionFee         :: !Integer
     } deriving (Show,Generic, FromJSON, ToJSON)
 
-data MarketRedeemer =  ClaimBid| Bid | Buy | Withdraw
-    deriving (Generic,FromJSON,ToJSON,Show,Prelude.Eq)
+PlutusTx.makeLift ''Market
+PlutusTx.unstableMakeIsData ''Market
 
+
+data MarketRedeemer =  ClaimBid| Bid | Buy | Withdraw
+    deriving (Generic,FromJSON,ToJSON,Show,Prelude.Eq )
+
+PlutusTx.unstableMakeIsData ''MarketRedeemer
 
 data SellType = Primary | Secondary  deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
+PlutusTx.unstableMakeIsData ''SellType
+
 type PartyShare=(PubKeyHash,Percent)
+PlutusTx.unstableMakeIsData ''Price
 
 data DirectSale=DirectSale{
     dsSeller:: PubKeyHash, -- The mail seller
@@ -157,6 +197,7 @@ data DirectSale=DirectSale{
     dsCost:: Integer,  -- ^ total cost of asset
     dsType::  !SellType
 } deriving(Show,Generic,ToJSON,FromJSON)
+PlutusTx.unstableMakeIsData ''DirectSale
 
 -- total amount received by all the seller parties
 dsCostExcludingFee::Market-> DirectSale->Integer
@@ -218,7 +259,7 @@ aPaymentRecivers m@Market{mAuctionFee} a@Auction{aAssetClass,aValue,aParties} fV
     toPayment (pkh,v) = payment pkh v
 
 -- Given final bid value in an auction,
--- Get the amount after deducting market fee. It is to be distributed among seller parties. 
+-- Get the amount after deducting market fee. It is to be distributed among seller parties.
 {-# INLINABLE aPaymentAfterFee #-}
 aPaymentAfterFee :: Market -> Auction -> Value -> Integer
 aPaymentAfterFee Market{mAuctionFee} a v =totalPayment
@@ -259,14 +300,15 @@ validateBid auction ctx@ScriptContext  {scriptContextTxInfo=info}=
         &&  traceIfFalse "Insufficient payment to market contract" isMarketScriptPayed
         &&  traceIfFalse "Insufficient payment to previous bidder" isExBidderPaid
         &&  traceIfFalse "Not during the auction period" duringTheValidity
+        && traceIfFalse "Owner can't bid" (aBidder nAuction /= aOwner auction)
     _       -> trace "Output Datum can't be parsed to Auction" False
   where
     duringTheValidity  =   aDuration auction `contains` txInfoValidRange info
     validOutputDatum  nAuction  =  aMinIncrement auction == aMinIncrement nAuction &&
                                       aAssetClass auction == aAssetClass nAuction &&
                                       aDuration auction == aDuration nAuction &&
-                                      aOwner auction== aOwner nAuction &&
-                                      aBidder nAuction /= aOwner auction
+                                      aOwner auction== aOwner nAuction
+
 
     -- without this check, auction creator might say that
     -- they are placing asset on auction datum without locking them.
@@ -291,17 +333,17 @@ validateBid auction ctx@ScriptContext  {scriptContextTxInfo=info}=
 
 
 {-# INLINABLE  validateWithdraw #-}
-validateWithdraw :: Market -> Data -> ScriptContext -> Bool
+validateWithdraw :: Market -> BuiltinData  -> ScriptContext -> Bool
 validateWithdraw market datum ctx=
           isDirectSale
       ||  isAuction
       || traceIfFalse  "Only Operator can withdraw utxos with invalid datum" (txSignedBy info $ mOperator market)
   where
-      isAuction = case fromData datum of
+      isAuction = case fromBuiltinData  datum of
           (Just auction)      ->  traceIfFalse "Missing owner signature" (txSignedBy info (aOwner auction)) &&
-                                  traceIfFalse "Cannot withdraw auction with bids" (aBidder auction==aOwner auction) 
+                                  traceIfFalse "Cannot withdraw auction with bids" (aBidder auction==aOwner auction)
           _ -> False
-      isDirectSale= case fromData  datum of
+      isDirectSale= case fromBuiltinData  datum of
           (Just (DirectSale dsSeller _ _ _ _ ) )   -> traceIfFalse "Missing seller signature" (txSignedBy info  dsSeller)
           _                   -> False
       info=scriptContextTxInfo ctx
@@ -362,42 +404,70 @@ validateBuy market@Market{mOperator,mPrimarySaleFee,mSecondarySaleFee} ctx=
 
 
 {-# INLINABLE mkMarket #-}
-mkMarket :: Market ->  Data -> MarketRedeemer -> ScriptContext  -> Bool
-mkMarket market d action ctx =
+mkMarket :: Market ->  BuiltinData    -> MarketRedeemer -> ScriptContext  -> Bool
+mkMarket market  d action ctx =
     case  action of
         Buy       -> validateBuy market ctx
-        Withdraw  -> validateWithdraw market d ctx
-        Bid       -> case fromData d of
-                    Just auction -> validateBid auction ctx
-                    _            -> trace "Invalid Auction datum" False
-        ClaimBid  -> validateClaimAuction market ctx
+        _ -> trace "Invalid Redeemer dataum" False
+        -- Withdraw  -> validateWithdraw market d ctx
+        -- Bid       -> case fromBuiltinData d of
+        --             Just auction -> validateBid auction ctx
+        --             _            -> trace "Invalid Auction datum" False
+        -- ClaimBid  -> validateClaimAuction market ctx
+
 
 
 data MarketScriptType
 instance Scripts.ValidatorTypes MarketScriptType where
     type instance RedeemerType MarketScriptType = MarketRedeemer
-    type instance DatumType MarketScriptType = PubKeyHash
+    type instance DatumType MarketScriptType = BuiltinData
+
+-- marketValidator :: Market -> Validator
+-- marketValidator market = Ledger.mkValidatorScript $
+--     $$(PlutusTx.compile [|| validatorParam ||])
+--         `PlutusTx.applyCode`
+--             PlutusTx.liftCode market
+--     where validatorParam m = Scripts.wrapValidator (mkMarket m)
+
+-- typedMarketValidator :: Market -> Scripts.TypedValidator MarketScriptType
+-- typedMarketValidator = Scripts.mkTypedValidatorParam @MarketScriptType
+--     $$(PlutusTx.compile [|| mkMarket ||])
+--     $$(PlutusTx.compile [|| wrap ||])
+--     where
+--         wrap = Scripts.wrapValidator
+
+-- marketAddress :: Market -> Ledger.Address
+-- marketAddress = Scripts.validatorAddress  . typedMarketValidator
+
+
+
+-- typedMarketValidator :: Market -> Scripts.TypedValidator MarketScriptType
+-- typedMarketValidator = Scripts.mkTypedValidatorParam @MarketScriptType
+--     $$(PlutusTx.compile [|| dummyValidator ||])
+--     $$(PlutusTx.compile [|| Scripts.wrapValidator ||])
+--     where
+--         dummyValidator:: Market -> Datum -> MarketRedeemer -> ScriptContext -> Bool
+--         dummyValidator m d r ctx =True
+
+
+-- typedMarketValidator :: Market -> Scripts.TypedValidator Scripts.Any
+-- typedMarketValidator market =
+--   Scripts.unsafeMkTypedValidator    compiledMarket
+
+--   where
+--     compiledMarket= $$(PlutusTx.compile [|| mkMarket ||])
+--         `PlutusTx.applyCode`
+--             PlutusTx.liftCode market
+--     doWrap m =  Scripts.wrapValidator (mkMarket m)
 
 
 marketValidator :: Market -> Validator
-marketValidator market = Ledger.mkValidatorScript $
-    $$(PlutusTx.compile [|| validatorParam ||])
-        `PlutusTx.applyCode`
-            PlutusTx.liftCode market
-    where validatorParam m = Scripts.wrapValidator (mkMarket m)
-
-
--- marketValidator :: Market -> Validator
--- marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
---     where
---         a _ _ _=()
+marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
+    where
+        a _ _ _=()
 
 marketAddress :: Market -> Ledger.Address
-marketAddress = scriptAddress . marketValidator
+marketAddress = scriptAddress   . marketValidator
 
-PlutusTx.unstableMakeIsData ''MarketRedeemer
-PlutusTx.unstableMakeIsData ''SellType
-PlutusTx.unstableMakeIsData ''Price
-PlutusTx.unstableMakeIsData ''DirectSale
 
-PlutusTx.makeLift ''Market
+

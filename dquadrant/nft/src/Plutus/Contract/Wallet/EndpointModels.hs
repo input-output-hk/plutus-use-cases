@@ -3,12 +3,12 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-#LANGUAGE FlexibleContexts#-}
 module Plutus.Contract.Wallet.EndpointModels
 where
 
 import GHC.Generics (Generic)
 import Data.Aeson (ToJSON (toJSON), FromJSON, object, (.=))
-import Data.ByteString ( ByteString )
 import Playground.Contract
 import Plutus.Contract.Blockchain.MarketPlace
     ( dsCost,
@@ -22,10 +22,11 @@ import Ledger.Value
 import Data.String.Conversions (convertString)
 import Ledger.Ada (adaSymbol,adaToken)
 import Data.Aeson.Extras
-import Data.ByteString.Builder
 import Plutus.Contract.Wallet.Utils (ParsedUtxo)
-import Ledger.TimeSlot (slotToPOSIXTime)
 import Wallet.Emulator.Wallet (walletPubKey)
+import qualified Data.Aeson.Encoding (string)
+import qualified Data.Aeson.Extras as JSON
+import PlutusTx.Prelude (BuiltinByteString, fromBuiltin)
 
 
 -- The models in this package are the response types used to tell state.
@@ -43,6 +44,14 @@ import Wallet.Emulator.Wallet (walletPubKey)
 -- It's much readable and is easier to understant in  frontend.
 
 
+-- instance FromJSON CurrencySymbol where
+--   parseJSON =
+--     JSON.withObject "CurrencySymbol" $ \object -> do
+--       raw <- object .: "unCurrencySymbol"
+--       bytes <- JSON.decodeBuiltinByteString raw
+--       Haskell.pure $ CurrencySymbol $ PlutusTx.toBuiltin bytes
+
+
 -- A user involved in a share who's expected to get some  returns.
 data Party=Party{
   pPubKeyHash::PubKeyHash ,
@@ -52,8 +61,8 @@ data Party=Party{
 -- represents an AssetClass
 data AssetId=AssetId
     {
-        assCurrency :: !ByteString,
-        assToken:: !ByteString
+        assCurrency :: !BuiltinByteString,
+        assToken:: !BuiltinByteString
     } deriving(Generic, ToJSON,FromJSON,Prelude.Show,ToSchema )
 
 data MintParams = MintParams
@@ -72,8 +81,8 @@ data SellParams =SellParams{
 
 -- Singleton of a Value
 data ValueInfo=ValueInfo{
-    currency::ByteString,
-    token:: ByteString,
+    currency::BuiltinByteString,
+    token:: BuiltinByteString,
     value:: Integer
 } deriving(Generic,FromJSON,Prelude.Show,ToSchema,Prelude.Eq )
 
@@ -84,7 +93,7 @@ instance ToJSON ValueInfo
 
         doConvert bs= toJSON $ toText bs
 
-        toText bs= encodeByteString bs
+        toText bs= encodeByteString $ fromBuiltin  bs
 
 data PurchaseParam =PurchaseParam
   {
@@ -101,7 +110,6 @@ data AuctionParam = AuctionParam{
     apEndTime::POSIXTime
 } deriving(GHC.Generics.Generic,ToJSON,FromJSON,ToSchema)
 
-instance ToSchema POSIXTime
 data BidParam=BidParam{
   ref :: TxOutRef,
   bidValue       :: [ValueInfo]
@@ -111,7 +119,7 @@ data ClaimParam=ClaimParam{
   references ::[TxOutRef],
   ignoreUnClaimable :: Bool
 } deriving(Generic,ToJSON,FromJSON,ToSchema)
-instance ToSchema TxId
+
 instance ToSchema TxOutRef
 
 data Bidder = Bidder{
@@ -136,7 +144,7 @@ data NftsOnSaleResponse=NftsOnSaleResponse{
     cost::ValueInfo ,
     saleType:: SellType,
     fee:: Integer,
-    owner:: ByteString,
+    owner:: BuiltinByteString,
     values:: [ValueInfo],
     reference :: TxOutRef
 }deriving(Generic,FromJSON,ToJSON,Prelude.Show,Prelude.Eq)
@@ -146,13 +154,13 @@ data MarketType=MtDirectSale | MtAuction  deriving (Show, Prelude.Eq,Generic,ToJ
 
 data ListMarketRequest  = ListMarketRequest{
     lmUtxoType::MarketType,
-    lmByPkHash:: Maybe ByteString,
+    lmByPkHash:: Maybe BuiltinByteString,
     lmOwnPkHash:: Maybe Bool
 } deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
 
 
 assetIdToAssetClass :: AssetId -> AssetClass
-assetIdToAssetClass AssetId{assCurrency,assToken}=AssetClass (CurrencySymbol assCurrency, TokenName $ convertString assToken )
+assetIdToAssetClass AssetId{assCurrency,assToken}=AssetClass (CurrencySymbol assCurrency, TokenName assToken )
 
 assetIdOf:: AssetClass -> AssetId
 assetIdOf (AssetClass (CurrencySymbol c, TokenName t))=AssetId{
@@ -234,7 +242,7 @@ valueInfosToValue :: [ValueInfo] -> Value
 valueInfosToValue vinfos= mconcat $ map valueInfoToValue vinfos
 
 valueInfo :: AssetClass  -> Integer -> ValueInfo
-valueInfo (AssetClass (c, t)) = ValueInfo (unCurrencySymbol c) (convertString (unTokenName t))
+valueInfo (AssetClass (c, t)) = ValueInfo (unCurrencySymbol c) ( unTokenName t)
 
 priceToValueInfo::Price ->ValueInfo
-priceToValueInfo (Price (c, t, v))=ValueInfo (unCurrencySymbol c) (convertString (unTokenName t)) v
+priceToValueInfo (Price (c, t, v))=ValueInfo (unCurrencySymbol c) ( unTokenName t) v

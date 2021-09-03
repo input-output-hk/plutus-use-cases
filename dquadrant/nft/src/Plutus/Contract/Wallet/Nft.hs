@@ -16,7 +16,7 @@ where
 
 import Plutus.Contract.Blockchain.Nft
 import Plutus.Contract
-import Ledger hiding(TxOutRefNotFound, singleton,unspentOutputs)
+import Ledger hiding(TxOutRefNotFound, singleton,unspentOutputs,mint)
 import Ledger.Value
 import Data.String
 import Ledger.Constraints
@@ -27,11 +27,13 @@ import Data.Void
 import Prelude (show, Semigroup ((<>)), ($), (++), Integer)
 import Data.Aeson (toJSON)
 import Data.String.Conversions (convertString)
-import PlutusTx.Prelude (Maybe (Nothing, Just), ByteString)
+import PlutusTx.Prelude (Maybe (Nothing, Just))
 import Control.Applicative
 import qualified PlutusTx.AssocMap as AssocMap
 import Control.Monad
 import Control.Lens
+import Data.ByteString (ByteString)
+import PlutusTx.Builtins (BuiltinByteString)
 
 
 mintConstratints ::  TokenName -> Contract w s Text (Maybe (ScriptLookups a, TxConstraints i o))
@@ -42,21 +44,24 @@ mintConstratints tn = do
         []       -> logError  @String "no utxo found" >> pure Nothing
         oref : _ -> do
             let val     = singleton (curSymbol oref tn) tn 1
-                lookups = monetaryPolicy (policy oref tn) <> unspentOutputs utxos
-                tx      = mustForgeValue val <> mustSpendPubKeyOutput oref
+                nftPolicy=  policy oref tn
+                policyHash=mintingPolicyHash nftPolicy
+                lookups = mintingPolicy nftPolicy <> unspentOutputs utxos
+                tx      = mustMintCurrency   policyHash tn  1 <> mustSpendPubKeyOutput oref
             pure $ Just (lookups,tx)
+              
 
 type NftSchema =
-  Endpoint "mint" ByteString
+  Endpoint "mint" BuiltinByteString
   .\/ Endpoint "multiMint" Integer
 
-nftEndpoints :: (HasEndpoint "mint" ByteString s,HasEndpoint "multiMint" Integer s)
-  =>Contract [Types.Value] s Text ()
-nftEndpoints=handleError (\e->logError e) (void mintEp)
+nftEndpoints :: (HasEndpoint "mint" BuiltinByteString s,HasEndpoint "multiMint" Integer s)
+  =>Promise  [Types.Value] s Text ()
+nftEndpoints =void  mintEp
 
-mintEp :: HasEndpoint "mint" ByteString s =>Contract [Types.Value ] s Text Types.Value
-mintEp =do
-  assetName <-endpoint @"mint"
+mintEp :: HasEndpoint "mint" BuiltinByteString s =>Promise [Types.Value ] s Text Types.Value
+mintEp =
+  endpoint @"mint" $ \assetName ->do
   v<-mint $ TokenName assetName
   tell [toJSON  v]
   pure $ toJSON v
@@ -69,8 +74,10 @@ mint tn=do
         []       -> throwError  $ review _OtherError "No Utxos found in wallet"
         oref : _ -> do
             let val     = singleton (curSymbol oref tn) tn 1
-                lookups = monetaryPolicy (policy oref tn) <> unspentOutputs utxos
-                tx      = mustForgeValue val <> mustSpendPubKeyOutput oref
+                nftPolicy=  policy oref tn
+                policyHash=mintingPolicyHash nftPolicy
+                lookups = mintingPolicy nftPolicy <> unspentOutputs utxos
+                tx      = mustMintCurrency   policyHash tn  1 <> mustSpendPubKeyOutput oref
             ledgerTx <- submitTxConstraintsWith @Void lookups tx
             void $ awaitTxConfirmed $ txId ledgerTx
             logInfo @String $  "forged " ++ show val

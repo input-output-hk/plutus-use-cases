@@ -19,11 +19,11 @@ import           Ledger.Contexts          (ScriptContext (..), TxInfo (..), TxOu
 import Ledger
 import Ledger.Value
 import PlutusTx ( applyCode, liftCode, compile )
-import Ledger.Typed.Scripts (wrapMonetaryPolicy)
+import Ledger.Typed.Scripts (wrapMintingPolicy)
 
 {-# INLINABLE mkPolicy #-}
-mkPolicy :: TxOutRef -> TokenName -> ScriptContext -> Bool
-mkPolicy oref tn ctx@ScriptContext {scriptContextTxInfo=info@TxInfo{}} =
+mkPolicy :: TxOutRef -> TokenName ->() -> ScriptContext -> Bool
+mkPolicy oref tn _ ctx@ScriptContext {scriptContextTxInfo=info@TxInfo{}} =
     traceIfFalse "UTxO not consumed"   hasUTxO           &&
     traceIfFalse "wrong amount minted" checkMintedAmount
     where
@@ -32,22 +32,22 @@ mkPolicy oref tn ctx@ScriptContext {scriptContextTxInfo=info@TxInfo{}} =
     hasUTxO = any (\i -> txInInfoOutRef i == oref) $ txInfoInputs info
 
     checkMintedAmount :: Bool
-    checkMintedAmount = case flattenValue (txInfoForge info) of
+    checkMintedAmount = case flattenValue (txInfoMint  info) of
         [(cs, tn', amt)] -> cs  == ownCurrencySymbol ctx && tn' == tn && amt == 1
         _                -> False
 
-policy :: TxOutRef -> TokenName -> MonetaryPolicy
-policy oref tn = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \oref' tn' -> wrapMonetaryPolicy $ mkPolicy oref' tn' ||])
-    `PlutusTx.applyCode`
-    PlutusTx.liftCode oref
-    `PlutusTx.applyCode`
-    PlutusTx.liftCode tn
+-- policy :: TxOutRef -> TokenName -> MintingPolicy 
+-- policy oref tn = mkMintingPolicyScript $
+--     $$(PlutusTx.compile [|| \oref' tn' -> wrapMintingPolicy (mkPolicy oref' tn') ||])
+--     `PlutusTx.applyCode`
+--     PlutusTx.liftCode oref
+--     `PlutusTx.applyCode`
+--     PlutusTx.liftCode tn
 
--- policy::TxOutRef -> TokenName -> MonetaryPolicy
--- policy oref tn=mkMonetaryPolicyScript   $$(PlutusTx.compile [||a ||])
---   where
---     a _=()
+policy::TxOutRef -> TokenName -> MintingPolicy 
+policy oref tn=mkMintingPolicyScript   $$(PlutusTx.compile [||a ||])
+  where
+    a _ _=()
 
 
 curSymbol :: TxOutRef -> TokenName -> CurrencySymbol

@@ -39,14 +39,14 @@ type   ParsedUtxo a =  (TxOutRef,TxOutTx, a)
 
 -- Transform Utxo Map to list.
 -- But include only those utxos that have expected Datum type. Ignore others.
-flattenUtxosWithData ::   IsData a =>   UtxoMap  -> [ParsedUtxo a]
+flattenUtxosWithData ::   FromData a =>   UtxoMap  -> [ParsedUtxo a]
 flattenUtxosWithData m= mapMaybe doTransform $ Map.toList m
   where
     doTransform (ref,txOutTx) =txOutTxData txOutTx <&> (ref,txOutTx,)
 
  -- Find All utxos  at address and return It's reference, original transacction and   resolved datum of utxo
  -- The utxos that don't have expected data type are ignored.
-utxosWithDataAt ::    ( AsContractError e,IsData a) =>
+utxosWithDataAt ::    ( AsContractError e,FromData a) =>
                Address ->Contract w s e [ParsedUtxo a]
 utxosWithDataAt address=do
     utxos<-utxoAt address
@@ -55,7 +55,7 @@ utxosWithDataAt address=do
 -- With Filter funciton f, return list containing reference, parent transaction 
 -- and resolved. data of the utxo.
 -- Utxos that don't have expected data type are ignored
-filterUtxosWithDataAt ::    ( AsContractError e,IsData a) =>
+filterUtxosWithDataAt ::    ( AsContractError e,FromData a) =>
                (TxOutRef-> TxOutTx -> Bool) -> Address ->Contract w s e [ParsedUtxo a]
 filterUtxosWithDataAt f addr =do
     utxos<-utxoAt addr
@@ -64,7 +64,7 @@ filterUtxosWithDataAt f addr =do
 
 -- Given TxoutReferences, find thost at given address, and resolve the datum field to expected 
 -- data type
-resolveRefsWithDataAt:: (IsData  a,AsContractError e) => Address  ->[TxOutRef]  -> Contract w s e [ParsedUtxo a]
+resolveRefsWithDataAt:: (FromData  a,AsContractError e) => Address  ->[TxOutRef]  -> Contract w s e [ParsedUtxo a]
 resolveRefsWithDataAt addr refs= do
     utxos <- utxoAt addr
     let doResolve x =( do
@@ -75,7 +75,7 @@ resolveRefsWithDataAt addr refs= do
     pure $ mapMaybe doResolve  refs
 
 --  resolve UtxoRefs and return them with datum. If the datum is not in expected type, throw error
-resolveRefsWithDataAtWithError :: (IsData  a,AsContractError e) => Address  ->[TxOutRef]  -> Contract w s e [ParsedUtxo a]
+resolveRefsWithDataAtWithError :: (FromData  a,AsContractError e) => Address  ->[TxOutRef]  -> Contract w s e [ParsedUtxo a]
 resolveRefsWithDataAtWithError addr refs =do
   utxos <-utxoAt addr
   mapM  (resolveTxOutRefWithData utxos)  refs
@@ -84,12 +84,12 @@ resolveRefsWithDataAtWithError addr refs =do
 -- Given TxOut Reference, Resolve it's transaction 
 -- and the datum info expected data type
 -- If utxo is not found or datum couldn't be transformed properly, It will throw error.
-resolveRefWithDataAt:: (IsData  a,AsContractError e) => Address  ->TxOutRef  -> Contract w s e  (ParsedUtxo a)
+resolveRefWithDataAt:: (FromData  a,AsContractError e) => Address  ->TxOutRef  -> Contract w s e  (ParsedUtxo a)
 resolveRefWithDataAt addr ref = utxoAt addr >>= flip resolveTxOutRefWithData ref
 
 -- From a utxo reference, find out datum in it.
 --
-resolveTxOutRefWithData::(IsData a,AsContractError e) =>
+resolveTxOutRefWithData::(FromData a,AsContractError e) =>
   UtxoMap -> TxOutRef -> Contract  w s e (ParsedUtxo a)
 resolveTxOutRefWithData  utxos ref=  case Map.lookup ref utxos of
     Just tx -> case txOutTxData tx <&> (ref, tx,) of
@@ -98,7 +98,7 @@ resolveTxOutRefWithData  utxos ref=  case Map.lookup ref utxos of
     _       -> throwError  $ review _ConstraintResolutionError   $ TxOutRefNotFound ref
 
 -- Give TxOutRef, get Data in it
-txOutRefData :: (IsData a) => UtxoMap  -> TxOutRef -> Maybe a
+txOutRefData :: (FromData a) => UtxoMap  -> TxOutRef -> Maybe a
 txOutRefData  dataMap ref=do
     tx <-Map.lookup ref dataMap
     txOutTxData tx
@@ -106,14 +106,14 @@ txOutRefData  dataMap ref=do
 
 -- Given TxOutTx, resolve Datum in the Utxo to expected type
 
-txOutTxData :: (IsData a)=>TxOutTx -> Maybe a
+txOutTxData :: (FromData a)=>TxOutTx -> Maybe a
 txOutTxData o =mappedData (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
     where
-    mappedData :: IsData a => TxOut -> (DatumHash -> Maybe Datum) -> Maybe a
+    mappedData :: FromData a => TxOut -> (DatumHash -> Maybe Datum) -> Maybe a
     mappedData o f = do
         dh      <- txOutDatum o
         d <- f dh
-        fromData $ getDatum d
+        fromData $  builtinDataToData  $getDatum d
 
 
 --------------
@@ -131,13 +131,14 @@ type UtilSchema=
   Endpoint "funds" String
 
 -- don't restrict the return type to UtilSchema so that it can later be merged with other schemas.
-utilEndpoints :: HasEndpoint "funds" String s => Contract [Types.Value] s Text ()
-utilEndpoints= handleError (\e ->logError e) $ void fundsEp 
+utilEndpoints :: HasEndpoint "funds" String s => Promise [Types.Value] s  Text ()
+utilEndpoints= void fundsEp
 
-fundsEp :: HasEndpoint "funds" String s => Contract
-  [Types.Value] s Text Types.Value
-fundsEp= do
-    endpoint @"funds"
+-- fundsEp :: => Contract
+--   [Types.Value] s Text Types.Value
+fundsEp ::  HasEndpoint "funds" String s => Promise [Types.Value] s  Text Types.Value
+fundsEp= 
+    endpoint @"funds" $ \v -> do
     v<- ownFunds
     tell [ toJSON v]
 -- let's hope that in future we can return the json string without having to tell

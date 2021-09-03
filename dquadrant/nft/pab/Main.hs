@@ -30,13 +30,13 @@ import           Ledger.Constraints
 import qualified Ledger.Value                        as Value
 import           Plutus.Contract                     hiding (when)
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\), endpointsToSchemas, handleBuiltin)
+import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\), endpointsToSchemas, handleBuiltin, HasDefinitions (getDefinitions, getContract, getSchema), BuiltinHandler (contractHandler))
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
-import           Plutus.PAB.Simulator                (SimulatorEffectHandlers, callEndpointOnInstance, logString)
+import           Plutus.PAB.Simulator                (SimulatorEffectHandlers, callEndpointOnInstance, logString, SimulatorState, SimulatorContractHandler, mkSimulatorHandlers)
 import qualified Plutus.PAB.Simulator                as Simulator
 import           Plutus.PAB.Types                    (PABError (..))
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
-
+import           Data.Default                             (Default (def))
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
 import           Wallet.Types                        (ContractInstanceId (..))
 import           Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
@@ -54,6 +54,10 @@ import qualified Wallet.Emulator.Wallet as Wallet
 import GHC.Conc (atomically)
 import Ledger.Ada (adaToken,adaSymbol)
 import Prelude
+import Schema (FormSchema)
+import Playground.Contract (FunctionSchema)
+import Plutus.PAB.Core
+import qualified Ledger.Fee
 
 defaultMarket :: Market
 defaultMarket = Market{
@@ -71,17 +75,18 @@ type MarketPlatformSchema=
   .\/ UtilSchema
   .\/ MarketSchema
 
-endpoints :: Contract [AesonTypes.Value] MarketPlatformSchema Text ()
-endpoints=doSelection  >> endpoints
-  where
-    doSelection=
-      marketEndpoints defaultMarket
-      `select` nftEndpoints
-      `select` utilEndpoints
+simpleMarket :: Contract [AesonTypes.Value ] MarketPlatformSchema Text ()
+simpleMarket =awaitPromise (marketEndpoints defaultMarket)
+  >> awaitPromise utilEndpoints
+
+instance HasDefinitions Market where
+    getDefinitions =[defaultMarket]
+    getContract market = SomeBuiltin   simpleMarket
+    getSchema market = endpointsToSchemas @MarketPlatformSchema
 
 
 main :: IO ()
-main = void $ Simulator.runSimulationWith handlers $ do
+main = void $ Simulator.runSimulationWith simulatorHandlers $ do
     shutdown <- PAB.Server.startServerDebug
     forM_ wallets wInit
             -- cid <- Simulator.activateContract w  defaultMarket
@@ -106,20 +111,16 @@ main = void $ Simulator.runSimulationWith handlers $ do
 wallets :: [Wallet]
 wallets = [Wallet i | i <- [1 .. 5]]
 
-handleMarketContracts ::
-    ( Member (Error PABError) effs
-    , Member (LogMsg (PABMultiAgentMsg (Builtin Market))) effs
-    )
-    => ContractEffect (Builtin Market)
-    ~> Eff effs
-handleMarketContracts = handleBuiltin getSchema getContract where
-    getSchema =  \ _ -> endpointsToSchemas @MarketPlatformSchema
-    getContract   m =  SomeBuiltin   endpoints
 
-handlers :: SimulatorEffectHandlers (Builtin Market)
-handlers =
-    Simulator.mkSimulatorHandlers @(Builtin Market) []
-    $ interpret handleMarketContracts
+handleMarketContracts = Plutus.PAB.Effects.Contract.Builtin.handleBuiltin  @Market
+
+
+simulatorHandlers :: EffectHandlers (Builtin Market ) (SimulatorState (Builtin Market ))
+simulatorHandlers = mkSimulatorHandlers def def handler where
+  handler :: SimulatorContractHandler (Builtin Market)
+  handler = interpret (contractHandler handleBuiltin)
+
+
 
 logBalances :: forall t effs. Member (LogMsg (PABMultiAgentMsg t)) effs
             => Map.Map Wallet.Entity Value

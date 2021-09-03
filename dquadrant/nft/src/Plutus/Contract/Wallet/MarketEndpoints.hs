@@ -29,7 +29,7 @@ import Plutus.Contract.Blockchain.Utils
 
 import Data.Text (Text)
 import qualified Data.Map as Map
-import Plutus.Contract ( select, handleError, tell, HasEndpoint, awaitTxConfirmed, logInfo, throwError)
+import Plutus.Contract ( select, handleError, tell, HasEndpoint, awaitTxConfirmed, logInfo, throwError, Promise)
 import Ledger.AddressMap (UtxoMap)
 import qualified Plutus.Contract as Contract
 import qualified Data.Aeson.Types as AesonTypes
@@ -66,8 +66,8 @@ marketEndpoints :: (
     HasEndpoint "bid" BidParam s,
     HasEndpoint "claim" ClaimParam s,
     HasEndpoint "withdraw" [TxOutRef] s
-    ) => Market -> Contract [AesonTypes.Value] s Text  ()
-marketEndpoints market =  handleError handler (void selections)
+    ) => Market -> Promise [AesonTypes.Value] s Text  ()
+marketEndpoints market =  void selections
   where
     selections  =      sellEp market
               `select` buyEp market
@@ -78,70 +78,68 @@ marketEndpoints market =  handleError handler (void selections)
               `select` claimEp market
               `select` withdrawEp market
 
-    handler :: Show a => a -> Contract w s e ()
-    handler e = do
-        Contract.logError $ show e
 
-
-sellEp :: HasEndpoint "sell" [SellParams] s =>Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
+sellEp :: HasEndpoint "sell" [SellParams] s =>Market -> Promise [AesonTypes.Value] s Text AesonTypes.Value
 sellEp market =do
-    sps <-(endpoint @"sell")
+   (endpoint @"sell") $ \sps -> do
     ownPkh <-ownPubKey <&> pubKeyHash
     let sales=map (\x->(sellParamToDirectSale ownPkh x ,valueInfosToValue ( spItems x))) sps
     submitDirectSales market sales >>= confirmAndTell
 
 
-buyEp :: (HasEndpoint "buy" PurchaseParam s) => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
+buyEp :: (HasEndpoint "buy" PurchaseParam s) => Market -> Promise [AesonTypes.Value] s Text AesonTypes.Value
 buyEp market= do
-  PurchaseParam{ppItems,ppValue} <-(endpoint @"buy")
-  findMarketUtxos market ppItems >>= buyDirectSaleUtxos market >>= confirmAndTell
+   (endpoint @"buy") $ \pp -> do
+    findMarketUtxos market (ppItems  pp) >>= buyDirectSaleUtxos market >>= confirmAndTell
 
-withdrawEp :: (HasEndpoint "withdraw" [TxOutRef] s) => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
-withdrawEp market= do
-  utxos   <-(endpoint @"withdraw")
-  withdrawUtxos market utxos  >>= confirmAndTell
+withdrawEp :: (HasEndpoint "withdraw" [TxOutRef] s) => Market -> Promise [AesonTypes.Value] s Text AesonTypes.Value
+withdrawEp market=
+  (endpoint @"withdraw")  $ \utxos -> do
+    withdrawUtxos market utxos  >>= confirmAndTell
 
-listEp :: (HasEndpoint "list" ListMarketRequest s)=> Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
-listEp market = do
-  (ListMarketRequest lType lMaybePkh lOwnPkh)<-(endpoint @"list")
-  ownPkh <-ownPubKey <&> pubKeyHash
-  responses<-case lType of
-              MtDirectSale -> (case  lOwnPkh of
-                               Just True   ->  directSalesOfPkh market ownPkh
-                               _           -> (case lMaybePkh of 
-                                            Just pkh -> directSalesOfPkh market $ PubKeyHash pkh
-                                            _        -> directSalesInMarket market)
+listEp :: (HasEndpoint "list" ListMarketRequest s)=> Market -> Promise [AesonTypes.Value] s Text AesonTypes.Value
+listEp market = (endpoint @"list") handler
 
-                              )<&> map (directSaleToResponse  market) <&> toJSON
-              MtAuction   ->  (case  lOwnPkh of
-                                Just True ->  auctionsOfPkh market ownPkh
-                                _         ->(case lMaybePkh of 
-                                            Just pkh -> auctionsOfPkh market $ PubKeyHash pkh
-                                            _        -> auctionsInMarket market)
-                              )<&> map (auctionToResponse market)<&> toJSON 
-  tell [responses]
-  pure responses
+  where 
+    handler (ListMarketRequest lType lMaybePkh lOwnPkh)=do
+      ownPkh <-ownPubKey <&> pubKeyHash
+      responses<-case lType of
+                  MtDirectSale -> (case  lOwnPkh of
+                                  Just True   ->  directSalesOfPkh market ownPkh
+                                  _           -> (case lMaybePkh of 
+                                                Just pkh -> directSalesOfPkh market $ PubKeyHash pkh
+                                                _        -> directSalesInMarket market)
 
-startAuctionEp::  HasEndpoint "startAuction" [AuctionParam] s => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
-startAuctionEp market=do
-    aps <- endpoint @"startAuction"
+                                  )<&> map (directSaleToResponse  market) <&> toJSON
+                  MtAuction   ->  (case  lOwnPkh of
+                                    Just True ->  auctionsOfPkh market ownPkh
+                                    _         ->(case lMaybePkh of 
+                                                Just pkh -> auctionsOfPkh market $ PubKeyHash pkh
+                                                _        -> auctionsInMarket market)
+                                  )<&> map (auctionToResponse market)<&> toJSON 
+      tell [responses]
+      pure responses
+
+startAuctionEp::  HasEndpoint "startAuction" [AuctionParam] s => Market -> Promise [AesonTypes.Value] s Text AesonTypes.Value
+startAuctionEp market=
+  endpoint @"startAuction" \aps -> do
     ownPkh <-ownPubKey <&> pubKeyHash
     let as= map (aParamToAuction ownPkh) aps
     submitAuction market as >>= confirmAndTell
 
-bidEp::  HasEndpoint "bid" BidParam  s => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
+bidEp::  HasEndpoint "bid" BidParam  s => Market -> Promise [AesonTypes.Value] s Text AesonTypes.Value
 bidEp market=do
-  (BidParam ref bid) <- endpoint @"bid"
-  resolved <-parseMarketUtxo  market ref
-  bidAuctionUtxo market resolved (valueInfosToValue bid)  >>= confirmAndTell
+   endpoint @"bid" \(BidParam ref bid) -> do
+    resolved <-parseMarketUtxo  market ref
+    bidAuctionUtxo market resolved (valueInfosToValue bid)  >>= confirmAndTell
 
-claimEp::  HasEndpoint "claim" ClaimParam  s => Market -> Contract [AesonTypes.Value] s Text AesonTypes.Value
+claimEp::  HasEndpoint "claim" ClaimParam  s => Market -> Promise [AesonTypes.Value] s Text AesonTypes.Value
 claimEp market=do
-  (ClaimParam refs acceptError) <- endpoint @"claim"
-  parsed <-(if acceptError then parseMarketUtxosNoError else parseMarketUtxos) market refs
-  case parsed of 
-    [] -> throwNoUtxo
-    _ -> claimAuctionUtxos market parsed >>= confirmAndTell
+   endpoint @"claim"  \(ClaimParam refs acceptError) -> do
+    parsed <-(if acceptError then parseMarketUtxosNoError else parseMarketUtxos) market refs
+    case parsed of 
+      [] -> throwNoUtxo
+      _ -> claimAuctionUtxos market parsed >>= confirmAndTell
 
 confirmAndTell ::  AsContractError e =>  Tx -> Contract [AesonTypes.Value] s e AesonTypes.Value
 confirmAndTell  tx = do

@@ -82,7 +82,6 @@ test-suite tokens-test
     plutus-ledger-api -any,
     plutus-tokens -any,
     plutus-pab -any,
-    playground-common -any,
     aeson -any,
     lens,
     text,
@@ -103,6 +102,8 @@ executable tokens-pab
     -threaded
   default-language: Haskell2010
   build-depends:
+    playground-common -any,
+    data-default -any,
     base >= 4.9 && < 5,
     plutus-contract -any,
     plutus-pab -any,
