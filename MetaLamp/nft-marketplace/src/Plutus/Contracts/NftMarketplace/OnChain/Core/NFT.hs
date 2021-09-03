@@ -39,18 +39,18 @@ import           Prelude                        (Semigroup (..))
 import qualified Prelude                        as Haskell
 
 -- TODO (?) add tags
-type IpfsCid = ByteString
-type IpfsCidHash = ByteString
-type Auction = (AssetClass, PubKeyHash, Value, Slot)
-type Category = [ByteString]
+type IpfsCid = BuiltinByteString
+type IpfsCidHash = BuiltinByteString
+type Auction = (ThreadToken, PubKeyHash, Value, POSIXTime)
+type Category = [BuiltinByteString]
 type LotLink = Either Sale.Sale Auction
-type BundleId = ByteString
+type BundleId = BuiltinByteString
 
 data NftInfo =
   NftInfo
     { niCurrency    :: !CurrencySymbol
-    , niName        :: !ByteString
-    , niDescription :: !ByteString
+    , niName        :: !BuiltinByteString
+    , niDescription :: !BuiltinByteString
     , niCategory    :: !Category
     , niIssuer      :: !(Maybe PubKeyHash)
     }
@@ -91,8 +91,8 @@ Lens.makeClassyPrisms ''Bundle
 
 data BundleInfo =
   BundleInfo
-    { biName        :: !ByteString
-    , biDescription :: !ByteString
+    { biName        :: !BuiltinByteString
+    , biDescription :: !BuiltinByteString
     , biCategory    :: !Category
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)

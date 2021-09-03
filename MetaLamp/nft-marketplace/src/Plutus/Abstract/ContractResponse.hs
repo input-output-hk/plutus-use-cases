@@ -17,7 +17,6 @@ module Plutus.Abstract.ContractResponse where
 
 import qualified Control.Lens                     as Lens
 import           Control.Monad                    hiding (fmap)
-import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
 import           Data.Proxy                       (Proxy (..))

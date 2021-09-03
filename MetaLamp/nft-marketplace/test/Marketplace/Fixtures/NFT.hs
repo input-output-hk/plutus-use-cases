@@ -7,7 +7,7 @@ module Marketplace.Fixtures.NFT where
 
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import           PlutusTx.Builtins                            (sha2_256)
-import           PlutusTx.Prelude                             (ByteString)
+import           PlutusTx.Prelude                             (BuiltinByteString)
 
 cids :: [Marketplace.IpfsCid]
 cids = [catTokenIpfsCid, photoTokenIpfsCid]
@@ -22,10 +22,10 @@ bundleInfo = Marketplace.BundleInfo
     , biCategory    = bundleCategory
     }
 
-bundleName :: ByteString
+bundleName :: BuiltinByteString
 bundleName        = "Picture gallery"
 
-bundleDescription :: ByteString
+bundleDescription :: BuiltinByteString
 bundleDescription = "Collection of visual media"
 
 bundleCategory :: Marketplace.Category
@@ -37,10 +37,10 @@ catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
 catTokenIpfsCidHash :: Marketplace.IpfsCidHash
 catTokenIpfsCidHash = sha2_256 catTokenIpfsCid
 
-catTokenName :: ByteString
+catTokenName :: BuiltinByteString
 catTokenName = "Cat token"
 
-catTokenDescription :: ByteString
+catTokenDescription :: BuiltinByteString
 catTokenDescription = "A picture of a cat on a pogo stick"
 
 catTokenCategory :: Marketplace.Category
@@ -58,10 +58,10 @@ photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
 photoTokenIpfsCidHash :: Marketplace.IpfsCidHash
 photoTokenIpfsCidHash = sha2_256 photoTokenIpfsCid
 
-photoTokenName :: ByteString
+photoTokenName :: BuiltinByteString
 photoTokenName = "Photo token"
 
-photoTokenDescription :: ByteString
+photoTokenDescription :: BuiltinByteString
 photoTokenDescription = "A picture of a sunset"
 
 photoTokenCategory :: Marketplace.Category

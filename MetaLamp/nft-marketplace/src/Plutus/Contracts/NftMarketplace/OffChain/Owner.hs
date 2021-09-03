@@ -34,18 +34,11 @@ import qualified Prelude                                      as Haskell
 import           Text.Printf                                  (printf)
 
 -- | Starts the NFT Marketplace protocol: minting protocol NFT, creating empty nft storage
-start :: () -> Contract w s Text Core.Marketplace
-start () = start' $ do
+start :: Contract w s Text Core.Marketplace
+start = do
+    marketplaceToken <- mapError (T.pack . Haskell.show @SMContractError) $ getThreadToken
     pkh <- pubKeyHash <$> ownPubKey
-    fmap Currency.currencySymbol $
-           mapError (T.pack . Haskell.show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(Core.marketplaceProtocolName, 1)]
-
-start' :: Contract w s Text CurrencySymbol -> Contract w s Text Core.Marketplace
-start' getMarketplaceToken = do
-    marketplaceToken <- getMarketplaceToken
-    pkh <- pubKeyHash <$> ownPubKey
-    let marketplace = Core.marketplace marketplaceToken
+    let marketplace = Core.Marketplace marketplaceToken
     let client = Core.marketplaceClient marketplace
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
 
@@ -56,10 +49,10 @@ type MarketplaceOwnerSchema =
     Endpoint "start" ()
 
 data OwnerContractState = Started Core.Marketplace
-    deriving stock (Haskell.Eq, Haskell.Ord, Haskell.Show, Haskell.Generic)
+    deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
 Lens.makeClassyPrisms ''OwnerContractState
 
-ownerEndpoints :: Contract (ContractResponse Text OwnerContractState) MarketplaceOwnerSchema Void ()
-ownerEndpoints = forever $ withContractResponse (Proxy @"start") Started start
+ownerEndpoints :: Promise (ContractResponse Text OwnerContractState) MarketplaceOwnerSchema Void ()
+ownerEndpoints = withContractResponse (Proxy @"start") Started (const start) <> ownerEndpoints

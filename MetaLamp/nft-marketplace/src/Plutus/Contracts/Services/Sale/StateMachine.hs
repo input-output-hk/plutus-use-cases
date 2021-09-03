@@ -66,7 +66,7 @@ transition Sale{..} state redeemer = case (stateData state, redeemer) of
     _                                        -> Nothing
   where
     stateToken :: Value
-    stateToken = assetClassValue saleProtocolToken 1
+    stateToken = mempty -- TODO! assetClassValue saleProtocolToken 1
 
     val = stateValue state
 
@@ -100,9 +100,6 @@ saleInst sale = Scripts.mkTypedValidator @SaleScript
 
 saleClient :: Sale -> StateMachineClient SaleDatum SaleRedeemer
 saleClient sale = mkStateMachineClient $ StateMachineInstance (saleStateMachine sale) (saleInst sale)
-
-saleProtocolName :: TokenName
-saleProtocolName = "Sale"
 
 saleValidator :: Sale -> Validator
 saleValidator = Scripts.validatorScript . saleInst

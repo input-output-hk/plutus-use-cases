@@ -25,7 +25,6 @@ import           Data.Aeson                                   (FromJSON,
                                                                Result (..),
                                                                ToJSON, encode,
                                                                fromJSON)
-import qualified Data.ByteString                              as BS
 import qualified Data.Map.Strict                              as Map
 import qualified Data.Monoid                                  as Monoid
 import qualified Data.Semigroup                               as Semigroup
@@ -59,12 +58,11 @@ import           Plutus.PAB.Simulator                         (Simulation,
 import qualified Plutus.PAB.Simulator                         as Simulator
 import           Plutus.PAB.Types                             (PABError (..))
 import qualified Plutus.PAB.Webserver.Server                  as PAB.Server
-import           Plutus.V1.Ledger.Crypto                      (getPubKeyHash,
-                                                               pubKeyHash)
 import           Prelude                                      hiding (init)
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
 import           Wallet.Types                                 (ContractInstanceId)
+import           Data.Default                        (Default (def))
 
 ownerWallet :: Wallet
 ownerWallet = Wallet 1
@@ -277,26 +275,21 @@ data MarketplaceContracts =
 instance Pretty MarketplaceContracts where
     pretty = viaShow
 
-handleMarketplaceContract ::
-    ( Member (Error PABError) effs
-    , Member (LogMsg (PABMultiAgentMsg (Builtin MarketplaceContracts))) effs
-    )
-    => ContractEffect (Builtin MarketplaceContracts)
-    ~> Eff effs
-handleMarketplaceContract = Builtin.handleBuiltin getSchema getContract where
-  getSchema = \case
-    MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
-    MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
-    MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
-  getContract = \case
-    MarketplaceInfo marketplace       -> SomeBuiltin $ Marketplace.infoEndpoints marketplace
-    MarketplaceUser marketplace       -> SomeBuiltin $ Marketplace.userEndpoints marketplace
-    MarketplaceStart           -> SomeBuiltin Marketplace.ownerEndpoints
+instance Builtin.HasDefinitions MarketplaceContracts where
+    getDefinitions = [MarketplaceStart]
+    getSchema = \case
+        MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
+        MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
+        MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
+    getContract = \case
+        MarketplaceInfo marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.infoEndpoints marketplace
+        MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
+        MarketplaceStart           -> SomeBuiltin . awaitPromise $ Marketplace.ownerEndpoints
 
 handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin MarketplaceContracts) []
-    $ interpret handleMarketplaceContract
+    Simulator.mkSimulatorHandlers def def
+    $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @MarketplaceContracts))
 
 oneAdaInLovelace :: Integer
 oneAdaInLovelace = 1000000

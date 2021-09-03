@@ -37,6 +37,7 @@ library
       semigroups,
       cryptonite,
       memory,
+      data-default,
       -- Plutus:
       playground-common,
       plutus-contract,

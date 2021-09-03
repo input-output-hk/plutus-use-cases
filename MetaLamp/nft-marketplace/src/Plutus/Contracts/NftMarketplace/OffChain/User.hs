@@ -1,3 +1,5 @@
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
@@ -51,9 +53,9 @@ getOwnPubKey = pubKeyHash <$> ownPubKey
 
 data CreateNftParams =
   CreateNftParams {
-    cnpIpfsCid        :: ByteString,
-    cnpNftName        :: ByteString,
-    cnpNftDescription :: ByteString,
+    cnpIpfsCid        :: BuiltinByteString,
+    cnpNftName        :: BuiltinByteString,
+    cnpNftDescription :: BuiltinByteString,
     cnpNftCategory    :: Core.Category,
     cnpRevealIssuer   :: Bool
   }
@@ -76,7 +78,7 @@ createNft marketplace CreateNftParams {..} = do
     let tokenName = V.TokenName cnpIpfsCid
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(tokenName, 1)]
+           Currency.mintContract pkh [(tokenName, 1)]
 
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
@@ -186,10 +188,12 @@ closeSale marketplace CloseLotParams {..} = do
     logInfo @Haskell.String $ printf "Closed lot sale %s" (Haskell.show sale)
     pure ()
 
+deriving newtype instance Schema.ToSchema DiffMilliSeconds
+
 data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId   :: UserItemId,
-    saapDuration :: Slot
+    saapDuration :: DiffMilliSeconds
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -209,8 +213,8 @@ startAnAuction marketplace StartAnAuctionParams {..} = do
       Right bundleId@(Core.InternalBundleId bundleHash cids) ->
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
-    currSlot <- currentSlot
-    let endTime = currSlot + saapDuration
+    currTime <- currentTime
+    let endTime = currTime + fromMilliSeconds saapDuration
     (auctionToken, auctionParams) <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionValue endTime
 
     let client = Core.marketplaceClient marketplace
@@ -282,9 +286,9 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
 
 data BundleUpParams =
   BundleUpParams {
-    bupIpfsCids    :: [ByteString],
-    bupName        :: ByteString,
-    bupDescription :: ByteString,
+    bupIpfsCids    :: [BuiltinByteString],
+    bupName        :: BuiltinByteString,
+    bupDescription :: BuiltinByteString,
     bupCategory    :: Core.Category
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -315,7 +319,7 @@ bundleUp marketplace BundleUpParams {..} = do
 
 data UnbundleParams =
   UnbundleParams {
-    upIpfsCids :: [ByteString]
+    upIpfsCids :: [BuiltinByteString]
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -373,9 +377,9 @@ data UserContractState =
 
 Lens.makeClassyPrisms ''UserContractState
 
-userEndpoints :: Core.Marketplace -> Contract (ContractResponse Text UserContractState) MarketplaceUserSchema Void ()
-userEndpoints marketplace = forever $
-    withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
+userEndpoints :: Core.Marketplace -> Promise (ContractResponse Text UserContractState) MarketplaceUserSchema Void ()
+userEndpoints marketplace =
+    (withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
     `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
     `select` withContractResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
     `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
@@ -385,4 +389,4 @@ userEndpoints marketplace = forever $
     `select` withContractResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
     `select` withContractResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
-    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)
+    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints marketplace
