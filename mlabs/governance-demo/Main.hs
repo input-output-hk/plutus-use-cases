@@ -11,7 +11,7 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Aeson (FromJSON, Result (Success), encode, fromJSON)
 import Data.Functor (void)
 import Data.Monoid (Last (..))
-import Data.Text (Text, pack)
+
 
 import Mlabs.Governance.Contract.Api (Deposit (..), QueryBalance (..), Withdraw (..))
 import Mlabs.Governance.Contract.Simulator.Handler (BootstrapContract, GovernanceContracts (..))
@@ -29,28 +29,19 @@ import Plutus.PAB.Webserver.Server qualified as PWS
 import Wallet.Emulator.Types (Wallet (..), walletPubKey)
 import Wallet.Emulator.Wallet (walletAddress)
 
-import Plutus.Contract (Contract, ContractInstanceId, EmptySchema, awaitTxConfirmed, mapError, ownPubKey, submitTx, tell)
-import Plutus.Contracts.Currency as Currency
+
 
 import Mlabs.Plutus.PAB (call, waitForLast)
 import Mlabs.System.Console.PrettyLogger (logNewLine)
 import Mlabs.System.Console.Utils (logAction, logBalance, logMlabs)
 
-cfg =
-  BootstrapCfg
-    { wallets = Wallet <$> [1 .. 3] -- wallets participating, wallet #1 is admin
-    , govTokenName = "GOVToken" -- name of GOV token to be paid in exchange of xGOV tokens
-    , govAmount = 100 -- GOV amount each wallet gets on start
-    }
 
 -- | Main function to run simulator
 main :: IO ()
-main =
-  void $
-    Handler.runSimulation (bootstrapGovernance cfg) $ do
+main = void $ Simulator.runSimulationWith Handler.handlers $ do
       Simulator.logString @(Builtin GovernanceContracts) "Starting Governance PAB webserver"
       shutdown <- PWS.startServerDebug
-      let simWallets = wallets cfg
+      let simWallets = Handler.wallets
           (wallet1 : wallet2 : wallet3 : _) = simWallets
       (cids, gov) <-
         subscript
@@ -117,8 +108,8 @@ itializeContracts admin = do
   cidInit <- Simulator.activateContract admin Bootstrap
   govCs <- waitForLast cidInit
   void $ Simulator.waitUntilFinished cidInit
-  let gov = AssetClassGov govCs $ govTokenName cfg
-  cids <- forM (wallets cfg) $ \w -> Simulator.activateContract w (Governance gov)
+  let gov = AssetClassGov govCs $ Handler.govTokenName
+  cids <- forM Handler.wallets $ \w -> Simulator.activateContract w (Governance gov)
   return (cids, gov)
 
 -- shortcits for endpoint calls
@@ -131,37 +122,6 @@ getBalance cid wallet = do
   govBalance :: Integer <- waitForLast cid
   logAction $ "Balance is " ++ show govBalance
 
-data BootstrapCfg = BootstrapCfg
-  { wallets :: [Wallet]
-  , govTokenName :: TokenName
-  , govAmount :: Integer
-  }
-
--- Bootstrap Contract which mints desired tokens
--- and distributes them ower wallets according to `BootstrapCfg`
-bootstrapGovernance :: BootstrapCfg -> BootstrapContract
-bootstrapGovernance BootstrapCfg {..} = do
-  govCur <- mapError toText mintRequredTokens
-  let govCs = Currency.currencySymbol govCur
-      govPerWallet = Value.singleton govCs govTokenName govAmount
-  distributeGov govPerWallet
-  tell $ Last $ Just govCs
-  where
-    mintRequredTokens ::
-      Contract w EmptySchema Currency.CurrencyError Currency.OneShotCurrency
-    mintRequredTokens = do
-      ownPK <- pubKeyHash <$> ownPubKey
-      Currency.mintContract ownPK [(govTokenName, govAmount * length wallets)]
-
-    distributeGov govPerWallet = do
-      ownPK <- pubKeyHash <$> ownPubKey
-      forM_ wallets $ \w -> do
-        let pkh = walletPKH w
-        when (pkh /= ownPK) $ do
-          tx <- submitTx $ mustPayToPubKey pkh govPerWallet
-          awaitTxConfirmed $ txId tx
-
-    toText = pack . show
 
 printBalance :: Wallet -> Simulation (Builtin schema) ()
 printBalance wallet = do
@@ -169,3 +129,10 @@ printBalance wallet = do
   logBalance ("WALLET " <> show wallet) v
 
 walletPKH = pubKeyHash . walletPubKey
+
+-- cfg =
+--   BootstrapCfg
+--     { wallets = Wallet <$> [1 .. 3] -- wallets participating, wallet #1 is admin
+--     , govTokenName = "GOVToken" -- name of GOV token to be paid in exchange of xGOV tokens
+--     , govAmount = 100 -- GOV amount each wallet gets on start
+--     }
