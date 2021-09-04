@@ -57,7 +57,9 @@ import           Plutus.PAB.Simulator                         (Simulation,
                                                                SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                         as Simulator
 import           Plutus.PAB.Types                             (PABError (..))
-import qualified Plutus.PAB.Webserver.Server                  as PAB.Server
+import    qualified       Plutus.PAB.Types          as PAB
+import qualified Ext.Plutus.PAB.Webserver.Server                  as Ext.Plutus.PAB
+import qualified Plutus.PAB.Webserver.Server                  as PAB
 import           Prelude                                      hiding (init)
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
@@ -93,7 +95,8 @@ activateContracts = do
 startMpServer :: IO ()
 startMpServer = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
-    shutdown <- PAB.Server.startServerDebug
+    shutdown <- Ext.Plutus.PAB.startServer
+
     _ <- activateContracts
     Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
     _ <- liftIO getLine
@@ -102,7 +105,7 @@ startMpServer = void $ Simulator.runSimulationWith handlers $ do
 runNftMarketplace :: IO ()
 runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
-    shutdown <- PAB.Server.startServerDebug
+    shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
     let userCid = cidUser Map.! Wallet 2
         sender = pubKeyHash . walletPubKey $ Wallet 2
