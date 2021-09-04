@@ -6,8 +6,8 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators         #-}
 
 module Plutus.Contracts.NftMarketplace.OffChain.Info where

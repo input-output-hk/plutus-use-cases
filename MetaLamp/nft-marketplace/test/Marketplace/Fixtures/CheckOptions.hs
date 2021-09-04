@@ -6,6 +6,7 @@
 module Marketplace.Fixtures.CheckOptions where
 
 import           Control.Lens                                 ((&), (.~))
+import           Data.Default                                 (Default (def))
 import qualified Data.Map                                     as Map
 import           Ledger                                       (Value)
 import qualified Ledger.Ada                                   as Ada
@@ -14,7 +15,6 @@ import qualified Marketplace.Fixtures.Wallet                  as Fixtures
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Trace                                 as Trace
-import           Data.Default                        (Default (def))
 
 options :: CheckOptions
 options = defaultCheckOptions & emulatorConfig .~ emulatorCfg
@@ -22,4 +22,4 @@ options = defaultCheckOptions & emulatorConfig .~ emulatorCfg
   where
     emulatorCfg :: Trace.EmulatorConfig
     emulatorCfg = def
-    
+

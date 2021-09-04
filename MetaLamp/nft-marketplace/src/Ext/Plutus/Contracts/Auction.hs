@@ -32,7 +32,8 @@ import qualified Ledger.Typed.Scripts             as Scripts
 import           Ledger.Typed.Tx                  (TypedScriptTxOut (..))
 import           Ledger.Value                     (AssetClass)
 import           Plutus.Contract
-import           Plutus.Contract.StateMachine     hiding (mkValidator,typedValidator)
+import           Plutus.Contract.StateMachine     hiding (mkValidator,
+                                                   typedValidator)
 import qualified Plutus.Contract.StateMachine     as SM
 import           Plutus.Contract.Util             (loopM)
 import qualified Plutus.Contracts.Currency        as Currency

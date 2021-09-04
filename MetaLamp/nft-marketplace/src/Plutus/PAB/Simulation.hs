@@ -25,12 +25,14 @@ import           Data.Aeson                                   (FromJSON,
                                                                Result (..),
                                                                ToJSON, encode,
                                                                fromJSON)
+import           Data.Default                                 (Default (def))
 import qualified Data.Map.Strict                              as Map
 import qualified Data.Monoid                                  as Monoid
 import qualified Data.Semigroup                               as Semigroup
 import           Data.Text                                    (Text)
 import           Data.Text.Prettyprint.Doc                    (Pretty (..),
                                                                viaShow)
+import qualified Ext.Plutus.PAB.Webserver.Server              as Ext.Plutus.PAB
 import           GHC.Generics                                 (Generic)
 import           Ledger
 import           Ledger.Ada                                   (adaSymbol,
@@ -57,14 +59,12 @@ import           Plutus.PAB.Simulator                         (Simulation,
                                                                SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                         as Simulator
 import           Plutus.PAB.Types                             (PABError (..))
-import    qualified       Plutus.PAB.Types          as PAB
-import qualified Ext.Plutus.PAB.Webserver.Server                  as Ext.Plutus.PAB
+import qualified Plutus.PAB.Types                             as PAB
 import qualified Plutus.PAB.Webserver.Server                  as PAB
 import           Prelude                                      hiding (init)
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
 import           Wallet.Types                                 (ContractInstanceId)
-import           Data.Default                        (Default (def))
 
 ownerWallet :: Wallet
 ownerWallet = Wallet 1

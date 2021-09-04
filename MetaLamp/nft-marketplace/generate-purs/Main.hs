@@ -11,16 +11,18 @@
 
 module Main where
 
-import qualified Plutus.PAB.Run.PSGenerator as PAB
-import MarketplaceTypes
+import           Control.Applicative        ((<|>))
+import           Control.Lens               (set, view, (&))
+import           Control.Monad              (when)
+import           Data.Proxy
 import           Language.PureScript.Bridge
-import           Control.Applicative                        ((<|>))
-import Data.Proxy
-import           Servant.PureScript                         (HasBridge(..),apiModuleName, defaultSettings, Settings, _generateSubscriberAPI)
-import           Control.Lens                               (set, view, (&))
-import           System.Directory                           (doesDirectoryExist,
-                                                             removeDirectoryRecursive)
-import           Control.Monad                              (when)
+import           MarketplaceTypes
+import qualified Plutus.PAB.Run.PSGenerator as PAB
+import           Servant.PureScript         (HasBridge (..), Settings,
+                                             _generateSubscriberAPI,
+                                             apiModuleName, defaultSettings)
+import           System.Directory           (doesDirectoryExist,
+                                             removeDirectoryRecursive)
 
 myBridge :: BridgePart
 myBridge =
