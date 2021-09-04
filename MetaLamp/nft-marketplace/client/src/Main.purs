@@ -22,7 +22,7 @@ main :: Effect Unit
 main =
   runHalogenAff do
     let
-      env = { ipfsServer: { host: "localhost", port: 5001 }, pabServer: { host: "localhost", port: 8080 } }
+      env = { ipfsServer: { host: "localhost", port: 5001 }, pabServer: { host: "localhost", port: 9080 } }
     let
       rootComponent = H.hoist (runAppM env) App.component
     body <- awaitBody

@@ -49,7 +49,7 @@ getMarketplaceResponseWith endpoint pick cid param = pollEndpoint getNext endpoi
                 (preview pick state)
 
 getMarketplaceContractId :: forall a. Prism' MarketplaceContracts a -> ContractInstanceClientState MarketplaceContracts -> Maybe ContractId
-getMarketplaceContractId pick (ContractInstanceClientState { cicContract, cicDefintion }) = (const $ toContractIdParam cicContract) <$> (preview pick cicDefintion)
+getMarketplaceContractId pick (ContractInstanceClientState st) = (const $ toContractIdParam st.cicContract) <$> (preview pick st.cicDefinition)
 
 toContractIdParam :: ContractInstanceId -> ContractId
 toContractIdParam (ContractInstanceId { unContractInstanceId: JsonUUID uuid }) = ContractId <<< UUID.toString $ uuid
