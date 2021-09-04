@@ -162,9 +162,9 @@ pinIpfs path file = do
   decodeResp = decode
 
 instance contractAppM :: Contract AppM where
-  getContracts = getC "/api/new/contract/instances"
-  getContractStatus (ContractId cid) = getC $ "/api/new/contract/instance/" <> cid <> "/status"
-  callEndpoint (Endpoint endpoint) (ContractId cid) params = postC ("/api/new/contract/instance/" <> cid <> "/endpoint/" <> endpoint) (string <<< encodeJSON $ params)
+  getContracts = getC "/api/contract/instances"
+  getContractStatus (ContractId cid) = getC $ "/api/contract/instance/" <> cid <> "/status"
+  callEndpoint (Endpoint endpoint) (ContractId cid) params = postC ("/api/contract/instance/" <> cid <> "/endpoint/" <> endpoint) (string <<< encodeJSON $ params)
 
 instance pollContractAppM :: PollContract AppM where
   pollDelay = liftAff <<< delay <<< Milliseconds $ 1000.0

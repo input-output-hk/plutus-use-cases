@@ -128,12 +128,12 @@ component =
   handleAction :: Action -> H.HalogenM State Action Slots output m Unit
   handleAction = case _ of
     Initialize -> do
-      handleAction GetContracts
-      handleAction GetInstances
-      res <- IPFS.catFile "QmPD9JxfSzKBwHEac9m3zbnQiHnRRYRubL9vCnhoC2AdL4"
-      logInfo $ show res
       initialRoute <- hush <<< (Routing.parse routeCodec) <$> H.liftEffect Routing.getHash
       navigate $ fromMaybe UserPage initialRoute
+      res <- IPFS.catFile "QmTxda1tn2ourkdKYhTwMfLScLCLxJUXMX3q4ScLyVFy8n"
+      logInfo $ show res
+      handleAction GetContracts
+      handleAction GetInstances
     GoTo route e -> do
       H.liftEffect $ preventDefault (toEvent e)
       oldRoute <- H.gets _.route
