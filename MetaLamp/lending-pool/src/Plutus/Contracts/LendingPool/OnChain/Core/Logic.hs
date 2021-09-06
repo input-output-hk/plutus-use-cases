@@ -42,12 +42,15 @@ import           Playground.Contract
 import           Plutus.Abstract.IncentivizedAmount               (IncentivizedAmount (..))
 import           Plutus.Contract                                  hiding (when)
 import           Plutus.Contracts.LendingPool.OnChain.Core.Script (AaveDatum (..),
+                                                                   AaveNewState (..),
                                                                    AaveRedeemer (..),
                                                                    AaveState (..),
                                                                    Oracles,
                                                                    Reserve (..),
                                                                    UserConfig (..),
                                                                    UserConfigId)
+import           Plutus.Contracts.LendingPool.Shared              (UpdateConfigParams (..),
+                                                                   updateConfigAmounts)
 import qualified Plutus.Contracts.Service.Oracle                  as Oracle
 import qualified Plutus.V1.Ledger.Interval                        as Interval
 import           Plutus.V1.Ledger.Value
@@ -57,6 +60,7 @@ import qualified PlutusTx.Builtins                                as Builtins
 import           PlutusTx.Prelude                                 hiding
                                                                   (Semigroup (..),
                                                                    unless)
+import qualified PlutusTx.Prelude                                 as PTx
 import           Prelude                                          (Semigroup (..))
 import qualified Prelude
 
@@ -76,6 +80,11 @@ pickUserConfigs _                                = Nothing
 pickReserves :: AaveDatum -> Maybe (AaveState, AssocMap.Map AssetClass Reserve)
 pickReserves (ReservesDatum state configs) = Just (state, configs)
 pickReserves _                             = Nothing
+
+{-# INLINABLE pickAaveState #-}
+pickAaveState :: AaveDatum -> Maybe (AssetClass, AaveNewState)
+pickAaveState (StateDatum stateToken state) = Just (stateToken, state)
+pickAaveState _                             = Nothing
 
 {-# INLINABLE pickUserCollateralFunds #-}
 pickUserCollateralFunds :: AaveDatum -> Maybe (PubKeyHash, AssetClass)
@@ -105,6 +114,14 @@ findUserConfigs ctx state@AaveState{..} = do
   unless (newState == state) $ throwError "Invalid state address change"
   pure newUserConfigs
 
+findAaveState :: ScriptContext -> AssetClass -> Either Builtins.String AaveNewState
+findAaveState ctx stateToken = do
+  let txInfo = scriptContextTxInfo ctx
+  (newStateToken, newState) <- maybe (throwError "User configs not found") pure $
+    findOnlyOneDatumByValue ctx (assetClassValue stateToken 1) >>= pickAaveState
+  unless (newStateToken == stateToken) $ throwError "Invalid state address change"
+  pure newState
+
 findReserves :: ScriptContext -> AaveState -> Either Builtins.String (AssocMap.Map AssetClass Reserve)
 findReserves ctx state@AaveState{..} = do
   let txInfo = scriptContextTxInfo ctx
@@ -117,13 +134,24 @@ findReserves ctx state@AaveState{..} = do
 doesCollateralCoverDebt ::
      PubKeyHash
   -> Oracles
+  -> AssocMap.Map AssetClass Reserve
+  -> Slot
   -> AssocMap.Map UserConfigId UserConfig
   -> Bool
-doesCollateralCoverDebt actor oracles userConfigs = Just True == do
-  let byUser = filter (\((_, pkh), _) -> pkh == actor) . AssocMap.toList $ userConfigs
-  debt <- totalInLovelace oracles $ fmap (\((asset, _), config) -> (asset, iaAmount . ucDebt $ config)) byUser
-  investement <- totalInLovelace oracles $ fmap (\((asset, _), config) -> (asset, iaAmount . ucCollateralizedInvestment $ config)) byUser
+doesCollateralCoverDebt actor oracles reserves currentSlot userConfigs = Just True == do
+  byUser <- traverse (updateAmount reserves currentSlot) . filter (\((_, pkh), _) -> pkh == actor) . AssocMap.toList $ userConfigs
+  debt <- totalInLovelace oracles $ fmap (\(asset, config) -> (asset, iaAmount . ucDebt $ config)) byUser
+  investement <- totalInLovelace oracles $ fmap (\(asset, config) -> (asset, iaAmount . ucCollateralizedInvestment $ config)) byUser
   pure $ debt <= investement
+
+{-# INLINABLE updateAmount  #-}
+updateAmount :: AssocMap.Map AssetClass Reserve -> Slot -> (UserConfigId, UserConfig) -> Maybe (AssetClass, UserConfig)
+updateAmount reserves currentSlot ((asset, _), userConfig) =
+  (\reserve ->
+    (asset, updateConfigAmounts
+      UpdateConfigParams { ucpUpdatedReserve = reserve, ucpPreviousReserveUpdated = rLastUpdated reserve, ucpCurrentSlot = currentSlot }
+      userConfig)
+    ) <$> AssocMap.lookup asset reserves
 
 {-# INLINABLE totalInLovelace #-}
 totalInLovelace :: Oracles -> [(AssetClass, Rational)] -> Maybe Rational
@@ -160,46 +188,35 @@ checkNegativeFundsTransformation ctx asset actor = isValidFundsChange
        in fundsChange == paidAmout && fundsChange > 0 && paidAmout > 0
 
 {-# INLINABLE checkNegativeReservesTransformation #-}
-checkNegativeReservesTransformation :: AaveState
+checkNegativeReservesTransformation :: AssocMap.Map AssetClass Reserve
   -> AssocMap.Map AssetClass Reserve
   -> ScriptContext
   -> UserConfigId
   -> Bool
-checkNegativeReservesTransformation state@AaveState{..} reserves ctx (reserveId, _) =
+checkNegativeReservesTransformation oldReserves newReserves ctx (reserveId, _) =
   toBool $ do
-    newReserves <- findReserves ctx state
-    assertInsertAt reserveId reserves newReserves
+    assertInsertAt reserveId oldReserves newReserves
     remainderValue <- maybe (throwError "Remainder not found") pure . findValueByDatum ctx $ ReserveFundsDatum
-    oldState <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId $ reserves
+    oldState <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId $ oldReserves
     newState <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId $ newReserves
     let fundsAmount = rAmount newState
     unless
-      (assetClassValueOf remainderValue reserveId == fundsAmount && fundsAmount >= 0 && checkReservesConsistency oldState newState)
+      (assetClassValueOf remainderValue reserveId == fundsAmount && fundsAmount >= 0)
       (throwError "")
 
 {-# INLINABLE checkPositiveReservesTransformation #-}
-checkPositiveReservesTransformation :: AaveState
+checkPositiveReservesTransformation :: AssocMap.Map AssetClass Reserve
   -> AssocMap.Map AssetClass Reserve
   -> ScriptContext
   -> UserConfigId
   -> Bool
-checkPositiveReservesTransformation state@AaveState{..}reserves ctx (reserveId, _) =
+checkPositiveReservesTransformation oldReserves newReserves ctx (reserveId, _) =
   toBool $ do
-    newReserves <- findReserves ctx state
-    assertInsertAt reserveId reserves newReserves
+    assertInsertAt reserveId oldReserves newReserves
     investmentValue <- maybe (throwError "Investment not found") pure . findValueByDatum ctx $ ReserveFundsDatum
-    oldState <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId $ reserves
+    oldState <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId $ oldReserves
     newState <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId $ newReserves
     let fundsChange = rAmount newState - rAmount oldState
     unless
-      (assetClassValueOf investmentValue reserveId == fundsChange && fundsChange > 0 && checkReservesConsistency oldState newState)
+      (assetClassValueOf investmentValue reserveId == fundsChange && fundsChange > 0)
       (throwError "")
-
-{-# INLINABLE checkReservesConsistency #-}
-checkReservesConsistency :: Reserve -> Reserve -> Bool
-checkReservesConsistency oldState newState =
-  rCurrency oldState == rCurrency newState &&
-  rAToken oldState == rAToken newState &&
-  rLiquidityIndex oldState == rLiquidityIndex newState &&
-  rCurrentStableBorrowRate oldState == rCurrentStableBorrowRate newState &&
-  Oracle.fromTuple (rTrustedOracle oldState) == Oracle.fromTuple (rTrustedOracle newState)

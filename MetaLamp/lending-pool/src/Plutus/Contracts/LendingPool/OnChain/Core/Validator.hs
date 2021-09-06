@@ -31,6 +31,7 @@ import           Data.Text                                        (Text, pack)
 import           Data.Void                                        (Void)
 import           Ext.Plutus.Ledger.Contexts                       (findOnlyOneDatumByValue,
                                                                    findOnlyOneDatumHashByValue,
+                                                                   findValueByDatum,
                                                                    findValueByDatumHash,
                                                                    parseDatum,
                                                                    scriptInputsAt,
@@ -46,6 +47,7 @@ import           Playground.Contract
 import           Plutus.Abstract.IncentivizedAmount               (IncentivizedAmount (..),
                                                                    accrue)
 import           Plutus.Contract                                  hiding (when)
+import qualified Plutus.Contracts.LendingPool.InterestRate        as InterestRate
 import           Plutus.Contracts.LendingPool.OnChain.Core.Logic  (areOraclesTrusted,
                                                                    assertInsertAt,
                                                                    assertValidCurrentSlot,
@@ -53,6 +55,7 @@ import           Plutus.Contracts.LendingPool.OnChain.Core.Logic  (areOraclesTru
                                                                    checkNegativeReservesTransformation,
                                                                    checkPositiveReservesTransformation,
                                                                    doesCollateralCoverDebt,
+                                                                   findAaveState,
                                                                    findReserves,
                                                                    findUserConfigs,
                                                                    pickReserves,
@@ -62,6 +65,7 @@ import           Plutus.Contracts.LendingPool.OnChain.Core.Logic  (areOraclesTru
                                                                    toBoolPrefixed)
 import           Plutus.Contracts.LendingPool.OnChain.Core.Script (Aave (..),
                                                                    AaveDatum (..),
+                                                                   AaveNewState (..),
                                                                    AaveRedeemer (..),
                                                                    AaveScript,
                                                                    AaveState (..),
@@ -69,7 +73,9 @@ import           Plutus.Contracts.LendingPool.OnChain.Core.Script (Aave (..),
                                                                    UserConfig (..),
                                                                    UserConfigId,
                                                                    _ucCollateralizedInvestment)
-import           Plutus.Contracts.LendingPool.Shared              (updateConfigAmounts)
+import           Plutus.Contracts.LendingPool.Shared              (UpdateConfigParams (..),
+                                                                   updateConfigAmounts)
+import qualified Plutus.Contracts.LendingPool.Shared              as Shared
 import qualified Plutus.Contracts.Service.Oracle                  as Oracle
 import           Plutus.V1.Ledger.Value
 import qualified PlutusTx
@@ -100,13 +106,16 @@ makeAaveValidator :: Aave
                    -> AaveRedeemer
                    -> ScriptContext
                    -> Bool
+makeAaveValidator _ _ _ _ = True
+{-
 makeAaveValidator aave datum StartRedeemer ctx = trace "StartRedeemer" $ validateStart aave datum ctx
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
-makeAaveValidator aave datum (BorrowRedeemer userConfigId oracles slot) ctx   = trace "BorrowRedeemer" $ validateBorrow aave datum ctx userConfigId oracles slot
-makeAaveValidator aave datum (RepayRedeemer userConfigId slot) ctx    = trace "RepayRedeemer" $ validateRepay aave datum ctx userConfigId slot
-makeAaveValidator aave datum (ProvideCollateralRedeemer userConfigId) ctx    = trace "ProvideCollateralRedeemer" $ validateProvideCollateral aave datum ctx userConfigId
-makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId aTokenAsset oracles slot) ctx    = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId aTokenAsset oracles slot
+makeAaveValidator aave datum (BorrowRedeemer amount userConfigId oracles slot) ctx = trace "BorrowRedeemer" $ validateBorrow aave datum ctx amount userConfigId oracles slot
+makeAaveValidator aave datum (RepayRedeemer amount userConfigId slot) ctx = trace "RepayRedeemer" $ validateRepay aave datum ctx amount userConfigId slot
+makeAaveValidator aave datum (ProvideCollateralRedeemer userConfigId slot) ctx = trace "ProvideCollateralRedeemer" $ validateProvideCollateral aave datum ctx userConfigId slot
+makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId aTokenAsset oracles slot) ctx = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId aTokenAsset oracles slot
+-}
 
 {-# INLINABLE validateStart #-}
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
@@ -124,29 +133,30 @@ validateStart aave _ ctx = trace "validateStart: Lending Pool Datum management i
 
 {-# INLINABLE validateDeposit #-}
 validateDeposit :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
-validateDeposit aave (UserConfigsDatum state@AaveState{..} userConfigs) ctx userConfigId =
+validateDeposit aave (StateDatum stateToken oldState) ctx userConfigId =
   toBoolPrefixed "validateDeposit: " $ do
-    newUserConfigs <- findUserConfigs ctx state
-    assertInsertAt userConfigId userConfigs newUserConfigs
-    let oldState = AssocMap.lookup userConfigId userConfigs
-    newState <- maybe (throwError "User config not found") pure (AssocMap.lookup userConfigId newUserConfigs)
-    unless
-      (maybe ((iaAmount . ucCollateralizedInvestment) newState == (fromInteger 0)) ((ucCollateralizedInvestment newState ==) . ucCollateralizedInvestment) oldState &&
-      (iaAmount . ucDebt $ newState) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucDebt) oldState)
-      (throwError "Change is not valid")
+    newState <- findAaveState ctx stateToken
+    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
 
-validateDeposit aave (ReservesDatum state reserves) ctx userConfigId =
-  traceIfFalse "validateDeposit: Reserves Datum change is not valid" $ checkPositiveReservesTransformation state reserves ctx userConfigId
+    let oldUserConfig = AssocMap.lookup userConfigId (ansUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure (AssocMap.lookup userConfigId (ansUserConfigs newState))
+    unless
+      (maybe ((iaAmount . ucCollateralizedInvestment) newUserConfig == (fromInteger 0)) ((ucCollateralizedInvestment newUserConfig ==) . ucCollateralizedInvestment) oldUserConfig
+        && (iaAmount . ucDebt $ newUserConfig) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucDebt) oldUserConfig
+        && checkPositiveReservesTransformation (ansReserves oldState) (ansReserves newState) ctx userConfigId)
+      (throwError "Change is not valid")
 
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateWithdraw #-}
 validateWithdraw :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
-validateWithdraw aave (UserConfigsDatum stateToken userConfigs) ctx userConfigId =
-  -- TODO add implementation for this case
-  traceIfFalse "validateWithdraw: User Configs Datum change is not valid" False
-validateWithdraw aave (ReservesDatum stateToken reserves) ctx userConfigId =
-  traceIfFalse "validateWithdraw: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId
+validateWithdraw aave (StateDatum stateToken oldState) ctx userConfigId =
+  toBoolPrefixed "validateWithdraw: " $ do
+    newState <- findAaveState ctx stateToken
+
+    unless
+      (checkNegativeReservesTransformation (ansReserves oldState) (ansReserves newState) ctx userConfigId)
+      (throwError "")
 
 validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
   traceIfFalse "validateWithdraw: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx reserveId actor
@@ -154,123 +164,158 @@ validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
 validateWithdraw _ _ _ _ = trace "validateWithdraw: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateBorrow #-}
-validateBorrow :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Slot -> Bool
-validateBorrow aave (UserConfigsDatum state@AaveState{..} userConfigs) ctx userConfigId@(reserveId, actor) oracles slot =
+validateBorrow :: Aave -> AaveDatum -> ScriptContext -> Integer -> UserConfigId -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Slot -> Bool
+validateBorrow aave (StateDatum stateToken oldState) ctx borrowAmount userConfigId@(reserveId, actor) oracles slot =
   toBoolPrefixed "validateBorrow: " $ do
     assertValidCurrentSlot ctx slot
-    newUserConfigs <- findUserConfigs ctx state
-    assertInsertAt userConfigId userConfigs newUserConfigs
+    newState <- findAaveState ctx stateToken
+    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
+    assertInsertAt reserveId (ansReserves oldState) (ansReserves newState)
 
     let txInfo = scriptContextTxInfo ctx
     oracleValues <-
       case foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles of
         Just vs -> pure . AssocMap.fromList $ vs
         _       -> throwError "Oracles have not been provided"
-    reserve <- findReserves ctx state >>= maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId
-    unless (doesCollateralCoverDebt actor oracleValues newUserConfigs) $ throwError "Not enough collateral"
 
-    let oldState = AssocMap.lookup userConfigId userConfigs
-    newState <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId newUserConfigs
-    let accState = fmap (updateConfigAmounts reserve slot) oldState
+    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ oldState
+    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ newState
+
+    fundsValue <- maybe (throwError "Datum hash not found") pure $ findValueByDatum ctx ReserveFundsDatum
+    let availableLiquidity = flip assetClassValueOf reserveId fundsValue + borrowAmount
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . ansUserConfigs $ oldState
+    let updatedReserve = Shared.updateReserveOnBorrow reserveConfigs availableLiquidity borrowAmount slot oldReserve
+
+    unless (updatedReserve == newReserve) (throwError "Invalid reserve calculation")
+    unless (doesCollateralCoverDebt actor oracleValues (ansReserves newState) slot (ansUserConfigs newState)) $ throwError "Not enough collateral"
+    unless (areOraclesTrusted oracles (ansReserves oldState)) (throwError "Invalid oracles")
+
+    let oldUserConfig = AssocMap.lookup userConfigId (ansUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs newState)
+    let accUserConfig = fmap (updateConfigAmounts UpdateConfigParams { ucpUpdatedReserve = updatedReserve, ucpPreviousReserveUpdated = rLastUpdated oldReserve, ucpCurrentSlot = slot }) oldUserConfig
         actorSpentValue = valueSpentFrom txInfo actor
         actorRemainderValue = valuePaidTo txInfo actor
-        debtAmount = ((iaAmount . ucDebt) newState -) $ maybe (fromInteger 0) (iaAmount . ucDebt) accState
+        debtAmount = ((iaAmount . ucDebt) newUserConfig -) $ maybe (fromInteger 0) (iaAmount . ucDebt) accUserConfig
         disbursementAmount = fromInteger $ assetClassValueOf actorRemainderValue reserveId - assetClassValueOf actorSpentValue reserveId
     unless
       (debtAmount == disbursementAmount && debtAmount > fromInteger 0 && disbursementAmount > fromInteger 0 &&
-          (iaAmount . ucCollateralizedInvestment $ newState) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucCollateralizedInvestment) oldState)
+          (iaAmount . ucCollateralizedInvestment $ newUserConfig) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucCollateralizedInvestment) oldUserConfig)
       (throwError "Change is not valid")
 
-validateBorrow aave (ReservesDatum stateToken reserves) ctx userConfigId oracles _ =
-  traceIfFalse "validateBorrow: Reserves Datum change is not valid" $ checkNegativeReservesTransformation stateToken reserves ctx userConfigId && areOraclesTrusted oracles reserves
-
-validateBorrow aave ReserveFundsDatum ctx (reserveId, actor) oracles _ =
+validateBorrow aave ReserveFundsDatum ctx amount (reserveId, actor) oracles _ =
   traceIfFalse "validateBorrow: Reserve Funds Datum change is not valid" $ checkNegativeFundsTransformation ctx reserveId actor
 
-validateBorrow _ _ _ _ _ _ = trace "validateBorrow: Lending Pool Datum management is not allowed" False
+validateBorrow _ _ _ _ _ _ _ = trace "validateBorrow: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateRepay #-}
-validateRepay :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Slot -> Bool
-validateRepay aave (UserConfigsDatum state@AaveState{..} userConfigs) ctx userConfigId@(reserveId, actor) slot =
+validateRepay :: Aave -> AaveDatum -> ScriptContext -> Integer -> UserConfigId -> Slot -> Bool
+validateRepay aave (StateDatum stateToken oldState) ctx repayAmount userConfigId@(reserveId, actor) slot =
   toBoolPrefixed "validateRepay: " $ do
     assertValidCurrentSlot ctx slot
-    newUserConfigs <- findUserConfigs ctx state
-    assertInsertAt userConfigId userConfigs newUserConfigs
-    reserve <- findReserves ctx state >>= maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId
-    oldState <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId userConfigs
-    newState <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId newUserConfigs
-    let accState = updateConfigAmounts reserve slot oldState
+    newState <- findAaveState ctx stateToken
+    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
+    assertInsertAt reserveId (ansReserves oldState) (ansReserves newState)
+
+    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ oldState
+    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ newState
+
+    fundsValue <- maybe (throwError "Datum hash not found") pure $ findValueByDatum ctx ReserveFundsDatum
+    let availableLiquidity = flip assetClassValueOf reserveId fundsValue - repayAmount
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . ansUserConfigs $ oldState
+    let updatedReserve = Shared.updateReserveOnRepay reserveConfigs availableLiquidity repayAmount slot oldReserve
+
+    unless (updatedReserve == newReserve) (throwError "Invalid reserve calculation")
+
+    oldUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs newState)
+
+    let accUserConfig = updateConfigAmounts UpdateConfigParams { ucpUpdatedReserve = updatedReserve, ucpPreviousReserveUpdated = rLastUpdated oldReserve, ucpCurrentSlot = slot } oldUserConfig
         txInfo = scriptContextTxInfo ctx
         actorSpentValue = valueSpentFrom txInfo actor
         actorRemainderValue = valuePaidTo txInfo actor
-        newDebt = iaAmount . ucDebt $ newState
-        debtChange = (iaAmount . ucDebt) accState - newDebt
+        newDebt = iaAmount . ucDebt $ newUserConfig
+        debtChange = (iaAmount . ucDebt) accUserConfig - newDebt
         reimbursementAmount = fromInteger $ assetClassValueOf actorSpentValue reserveId - assetClassValueOf actorRemainderValue reserveId
     unless
       (debtChange == reimbursementAmount && debtChange > fromInteger 0 && reimbursementAmount > fromInteger 0 && newDebt >= (fromInteger 0) &&
-          ucCollateralizedInvestment newState == ucCollateralizedInvestment accState)
+          ucCollateralizedInvestment newUserConfig == ucCollateralizedInvestment accUserConfig)
       (throwError "Change is not valid")
 
-validateRepay aave (ReservesDatum stateToken reserves) ctx userConfigId _ =
-  traceIfFalse "validateRepay: Reserves Datum change is not valid" $ checkPositiveReservesTransformation stateToken reserves ctx userConfigId
-
-validateRepay _ _ _ _ _ = trace "validateRepay: Lending Pool Datum management is not allowed" False
+validateRepay _ _ _ _ _ _ = trace "validateRepay: Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateProvideCollateral #-}
-validateProvideCollateral :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
-validateProvideCollateral aave (UserConfigsDatum state@AaveState{..} userConfigs) ctx userConfigId@(reserveId, actor) =
+validateProvideCollateral :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Slot -> Bool
+validateProvideCollateral aave (StateDatum stateToken oldState) ctx userConfigId@(reserveId, actor) slot =
   toBoolPrefixed "validateProvideCollateral: " $ do
-    newUserConfigs <- findUserConfigs ctx state
-    assertInsertAt userConfigId userConfigs newUserConfigs
+    assertValidCurrentSlot ctx slot
+    newState <- findAaveState ctx stateToken
+    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
+    assertInsertAt reserveId (ansReserves oldState) (ansReserves newState)
+
     let txInfo = scriptContextTxInfo ctx
         actorSpentValue = valueSpentFrom txInfo actor
         actorRemainderValue = valuePaidTo txInfo actor
     (user, asset) <- maybe (throwError "Collateral not found") pure $
       findOnlyOneDatumByValue ctx (actorSpentValue - actorRemainderValue - txInfoFee txInfo) >>= pickUserCollateralFunds
 
-    let oldState = AssocMap.lookup userConfigId userConfigs
-    newState <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId newUserConfigs
-    let investmentAmount = ((iaAmount . ucCollateralizedInvestment) newState -) $ maybe (fromInteger 0) (iaAmount . ucCollateralizedInvestment) oldState
+    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ oldState
+    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ newState
+    fundsValue <- maybe (pure mempty) pure $ findValueByDatum ctx ReserveFundsDatum
+    let availableLiquidity = flip assetClassValueOf reserveId fundsValue
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . ansUserConfigs $ oldState
+    let updatedReserve = Shared.updateReserveOnLiquidityChange reserveConfigs availableLiquidity slot oldReserve
+
+    let oldUserConfig = AssocMap.lookup userConfigId (ansUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs newState)
+    let accUserConfig = updateConfigAmounts UpdateConfigParams { ucpUpdatedReserve = updatedReserve, ucpPreviousReserveUpdated = rLastUpdated oldReserve, ucpCurrentSlot = slot } <$> oldUserConfig
+        investmentAmount = ((iaAmount . ucCollateralizedInvestment) newUserConfig -) $ maybe (fromInteger 0) (iaAmount . ucCollateralizedInvestment) oldUserConfig
         disbursementAmount = fromInteger $ assetClassValueOf actorSpentValue asset - assetClassValueOf actorRemainderValue asset
     unless
       (user == actor && investmentAmount == disbursementAmount && investmentAmount > fromInteger 0 && disbursementAmount > fromInteger 0 &&
-          (iaAmount . ucDebt $ newState) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucDebt) oldState)
+          (iaAmount . ucDebt $ newUserConfig) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucDebt) oldUserConfig)
       (throwError "Change is not valid")
 
-validateProvideCollateral _ _ _ _ = trace "Lending Pool Datum management is not allowed" False
+validateProvideCollateral _ _ _ _ _ = trace "Lending Pool Datum management is not allowed" False
 
 {-# INLINABLE validateRevokeCollateral #-}
 validateRevokeCollateral :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> AssetClass -> [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] -> Slot -> Bool
-validateRevokeCollateral aave (UserConfigsDatum state@AaveState{..} userConfigs) ctx userConfigId@(reserveId, actor) aTokenAsset oracles slot =
+validateRevokeCollateral aave (StateDatum stateToken oldState) ctx userConfigId@(reserveId, actor) aTokenAsset oracles slot =
   toBoolPrefixed "validateRevokeCollateral: " $ do
     assertValidCurrentSlot ctx slot
-    newUserConfigs <- findUserConfigs ctx state
+    newState <- findAaveState ctx stateToken
+    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
+    assertInsertAt reserveId (ansReserves oldState) (ansReserves newState)
+
     let txInfo = scriptContextTxInfo ctx
     oracleValues <-
       case foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles of
         Just vs -> pure . AssocMap.fromList $ vs
         _       -> throwError "Oracles have not been provided"
-    unless (doesCollateralCoverDebt actor oracleValues newUserConfigs) $ throwError "Not enough collateral"
+    unless (doesCollateralCoverDebt actor oracleValues (ansReserves newState) slot (ansUserConfigs newState)) $ throwError "Not enough collateral"
+    unless (areOraclesTrusted oracles (ansReserves oldState)) (throwError "Invalid oracles")
 
-    oldState <- maybe (throwError "") pure $ AssocMap.lookup userConfigId userConfigs
-    newState <- maybe (throwError "") pure $ AssocMap.lookup userConfigId newUserConfigs
-    reserve <- findReserves ctx state >>= maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId
-    let accState = updateConfigAmounts reserve slot oldState
-        newInvestmentAmount = iaAmount . ucCollateralizedInvestment $ newState
-        investmentShrinkedBy = (iaAmount . ucCollateralizedInvestment) accState - newInvestmentAmount
+    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ oldState
+    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ newState
+    fundsValue <- maybe (throwError "Datum hash not found") pure $ findValueByDatum ctx ReserveFundsDatum
+    let availableLiquidity = flip assetClassValueOf reserveId fundsValue
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . ansUserConfigs $ oldState
+    let updatedReserve = Shared.updateReserveOnLiquidityChange reserveConfigs availableLiquidity slot oldReserve
+
+    oldUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs newState)
+    let accUserConfig = updateConfigAmounts UpdateConfigParams { ucpUpdatedReserve = updatedReserve, ucpPreviousReserveUpdated = rLastUpdated oldReserve, ucpCurrentSlot = slot } oldUserConfig
+        newInvestmentAmount = iaAmount . ucCollateralizedInvestment $ newUserConfig
+        investmentShrinkedBy = (iaAmount . ucCollateralizedInvestment) accUserConfig - newInvestmentAmount
         actorSpentValue = valueSpentFrom txInfo actor
         actorRemainderValue = valuePaidTo txInfo actor
         disbursementAmount = fromInteger $ assetClassValueOf actorRemainderValue aTokenAsset - assetClassValueOf actorSpentValue aTokenAsset
     unless
       (investmentShrinkedBy == disbursementAmount && investmentShrinkedBy > fromInteger 0 &&
-      disbursementAmount > fromInteger 0 && ucDebt newState == IncentivizedAmount slot (rCurrentStableBorrowRate reserve) (iaAmount . ucDebt $ accState))
+      disbursementAmount > fromInteger 0 && ucDebt newUserConfig == IncentivizedAmount slot (rCurrentStableBorrowRate updatedReserve) (iaAmount . ucDebt $ accUserConfig))
       (throwError "Change is not valid")
 
 validateRevokeCollateral aave  (UserCollateralFundsDatum owner aTokenAsset) ctx (reserveId, actor) revokedAsset oracles _ =
   traceIfFalse "validateRevokeCollateral: UserCollateralFundsDatum change is not valid" $
   owner == actor && revokedAsset == aTokenAsset && checkNegativeFundsTransformation ctx aTokenAsset actor
-
-validateRevokeCollateral aave (ReservesDatum stateToken reserves) ctx userConfigId revokedAsset oracles _ =
-  traceIfFalse "validateRevokeCollateral: Reserves Datum change is not valid" $ areOraclesTrusted oracles reserves
 
 validateRevokeCollateral _ _ _ _ _ _ _ = trace "validateRevokeCollateral: Lending Pool Datum management is not allowed" False

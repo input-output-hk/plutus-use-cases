@@ -59,14 +59,30 @@ newtype Aave = Aave
 
 PlutusTx.makeLift ''Aave
 
+data InterestRateModel = InterestRateModel {
+    irmOptimalUtilizationRate :: Rational,
+    irmExcessUtilizationRate  :: Rational,
+    irmStableRateSlope1       :: Rational,
+    irmStableRateSlope2       :: Rational,
+    irmMarketBorrowRate       :: Rational
+}
+    deriving stock (Prelude.Eq, Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)
+
+PlutusTx.unstableMakeIsData ''InterestRateModel
+PlutusTx.makeLift ''InterestRateModel
+
 data Reserve = Reserve
     { rCurrency                :: AssetClass, -- reserve id
       rAToken                  :: AssetClass,
       rAmount                  :: Integer,
-      rLiquidityIndex          :: Integer,
-      rCurrentStableAccrualRate :: Rational,
+      rLiquidityRate          :: Rational,
+      rMarketBorrowRate :: Rational, -- base borrow rate, which is provided by oracle in aave - here it is provided by the owner
       rCurrentStableBorrowRate :: Rational,
-      rTrustedOracle           :: (CurrencySymbol, PubKeyHash, Integer, AssetClass)
+      rTrustedOracle           :: (CurrencySymbol, PubKeyHash, Integer, AssetClass),
+      rLastUpdated :: Slot,
+      rLastLiquidityCumulativeIndex :: Rational,
+      rInterestRateModel :: InterestRateModel
     }
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
@@ -75,7 +91,8 @@ data Reserve = Reserve
 instance Eq Reserve where
   a == b =
     rCurrency a == rCurrency b && rAToken a == rAToken b &&
-    rAmount a == rAmount b && rLiquidityIndex a == rLiquidityIndex b
+    rAmount a == rAmount b && rLiquidityRate a == rLiquidityRate b
+    && rMarketBorrowRate a == rMarketBorrowRate b && rLastLiquidityCumulativeIndex a == rLastLiquidityCumulativeIndex b
     && rCurrentStableBorrowRate a == rCurrentStableBorrowRate b && rTrustedOracle a == rTrustedOracle b
 
 instance Eq (CurrencySymbol, PubKeyHash, Integer, AssetClass) where
@@ -111,9 +128,9 @@ data AaveRedeemer =
     StartRedeemer
   | DepositRedeemer UserConfigId
   | WithdrawRedeemer UserConfigId
-  | BorrowRedeemer UserConfigId [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] Slot
-  | RepayRedeemer UserConfigId Slot
-  | ProvideCollateralRedeemer UserConfigId
+  | BorrowRedeemer Integer UserConfigId [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] Slot
+  | RepayRedeemer Integer UserConfigId Slot
+  | ProvideCollateralRedeemer UserConfigId Slot
   | RevokeCollateralRedeemer UserConfigId AssetClass [(CurrencySymbol, PubKeyHash, Integer, AssetClass)] Slot
     deriving Show
 
@@ -134,12 +151,24 @@ instance Eq AaveState where
 PlutusTx.unstableMakeIsData ''AaveState
 PlutusTx.makeLift ''AaveState
 
+data AaveNewState = AaveNewState {
+    ansReserves    :: AssocMap.Map AssetClass Reserve,
+    ansUserConfigs :: AssocMap.Map UserConfigId UserConfig
+}
+    deriving stock (Prelude.Eq, Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)
+
+PlutusTx.unstableMakeIsData ''AaveNewState
+PlutusTx.makeLift ''AaveNewState
+Lens.makeClassyPrisms ''AaveNewState
+
 data AaveDatum =
     LendingPoolDatum LendingPoolOperator
   | ReservesDatum AaveState (AssocMap.Map AssetClass Reserve) -- State token and reserve currency -> reserve map
   | ReserveFundsDatum
   | UserConfigsDatum AaveState (AssocMap.Map UserConfigId UserConfig) -- State token and UserConfigId -> user config map
   | UserCollateralFundsDatum PubKeyHash AssetClass -- User pub key and aToken asset type
+  | StateDatum AssetClass AaveNewState
   deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum

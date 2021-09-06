@@ -74,7 +74,7 @@ fundsAt pkh = utxoValue <$> utxoAt (pubKeyHashAddress pkh)
 
 -- | Gets all UTxOs belonging to the Lending Pool script and concats them into one Value
 poolFunds :: Aave -> Contract w s Text Value
-poolFunds aave =  utxoValue <$> utxoAt (Core.aaveAddress aave)
+poolFunds aave = utxoValue <$> utxoAt (Core.aaveAddress aave)
 
 type AaveInfoSchema =
     Endpoint "fundsAt" PubKeyHash
