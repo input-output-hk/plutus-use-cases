@@ -293,8 +293,8 @@ react input = do
 
     addReserve cfg@Types.CoinCfg {..} = do
       st <- get
-      State.guardError "Reserve is already present" 
-                       $ M.member coinCfg'coin (st.lp'reserves)
+      State.guardError "Reserve is already present" $
+        M.member coinCfg'coin (st.lp'reserves)
       let newReserves = M.insert coinCfg'coin (initReserve cfg) $ st.lp'reserves
           newCoinMap = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
       put $ st {lp'reserves = newReserves, lp'coinMap = newCoinMap}

@@ -16,17 +16,17 @@ import Data.Map qualified as Map
 import Data.Semigroup (Last (..), sconcat)
 import Data.Text (Text)
 import Ledger.Constraints qualified as Constraints
-import Plutus.Contract qualified as Contract
-import Plutus.V1.Ledger.Api (Datum (..), Redeemer (..), fromBuiltinData, toBuiltinData)
 import Ledger.Crypto (PubKeyHash (..), pubKeyHash)
 import Ledger.Tx (Tx (..), TxOut (..), TxOutRef, TxOutTx (..), txId)
+import Plutus.Contract qualified as Contract
+import Plutus.V1.Ledger.Api (Datum (..), Redeemer (..), fromBuiltinData, toBuiltinData)
 import Plutus.V1.Ledger.Value (Value (..), valueOf)
 import Text.Printf (printf)
 
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation (AssetClassGov (..), GovernanceDatum (..), GovernanceRedeemer (..))
 import Mlabs.Governance.Contract.Validation qualified as Validation
-import Mlabs.Plutus.Contract (selectForever, getEndpoint)
+import Mlabs.Plutus.Contract (getEndpoint, selectForever)
 
 type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.GovernanceSchema Text a
 

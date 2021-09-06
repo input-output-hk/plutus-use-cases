@@ -48,10 +48,9 @@ machine lid =
 
     checkTimestamp _ input ctx = maybe True check $ getInputTime input
       where
-        check t = 
-          Ledger.Slot t 
-          `Ledger.member` 
-          TimeSlot.posixTimeRangeToContainedSlotRange def range
+        check t =
+          Ledger.Slot t
+            `Ledger.member` TimeSlot.posixTimeRangeToContainedSlotRange def range
         range = Ledger.txInfoValidRange $ Ledger.scriptContextTxInfo ctx
 
     getInputTime = \case

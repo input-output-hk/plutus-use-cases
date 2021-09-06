@@ -32,10 +32,10 @@ import Prelude
 
 import Control.Lens ((&), (.~))
 import Data.Map qualified as M
+import Ledger.Contexts (pubKeyHash)
 import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, walletPubKey)
 import Plutus.Trace.Emulator (EmulatorTrace, initialChainState)
 import Plutus.V1.Ledger.Ada qualified as Ada
-import Ledger.Contexts (pubKeyHash)
 import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Plutus.V1.Ledger.Value (TokenName, Value)
 import Plutus.V1.Ledger.Value qualified as Value

@@ -19,8 +19,8 @@ import Data.Either (fromRight)
 
 import Ledger (CurrencySymbol)
 import Ledger.Constraints (TxConstraints, checkScriptContext, mustPayToPubKey)
-import Ledger.Typed.Scripts as Scripts (MintingPolicy, wrapMintingPolicy)
 import Ledger.Contexts qualified as Contexts
+import Ledger.Typed.Scripts as Scripts (MintingPolicy, wrapMintingPolicy)
 import Plutus.V1.Ledger.Scripts as Scripts (Datum (getDatum), mkMintingPolicyScript)
 import Plutus.V1.Ledger.Value qualified as Value
 import PlutusTx (applyCode, compile, fromBuiltinData, liftCode)

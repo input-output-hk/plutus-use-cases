@@ -15,11 +15,11 @@ import Control.Monad (forever)
 import Data.List.Extra (firstJust)
 import Data.Map qualified as M
 import Data.Monoid (Last (..))
-import Ledger.Constraints (mintingPolicy, mustIncludeDatum, mustMintValue, mustSpendPubKeyOutput, ownPubKeyHash)
-import Plutus.Contract (Contract, toContract, logError, ownPubKey, tell, throwError, utxoAt)
 import Ledger.Address (pubKeyAddress)
-import Plutus.V1.Ledger.Api (Datum)
+import Ledger.Constraints (mintingPolicy, mustIncludeDatum, mustMintValue, mustSpendPubKeyOutput, ownPubKeyHash)
 import Ledger.Crypto (pubKeyHash)
+import Plutus.Contract (Contract, logError, ownPubKey, tell, throwError, toContract, utxoAt)
+import Plutus.V1.Ledger.Api (Datum)
 
 import Mlabs.Emulator.Types (ownUserId)
 import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, StartParams (..), UserSchema, toUserAct)
@@ -40,9 +40,9 @@ type AuthorContract a = Contract (Last NftId) AuthorSchema SM.NftError a
 userEndpoints :: NftId -> UserContract ()
 userEndpoints nid =
   selectForever
-      [ getEndpoint @Buy      $ userAction nid
-      , getEndpoint @SetPrice $ userAction nid
-      ]
+    [ getEndpoint @Buy $ userAction nid
+    , getEndpoint @SetPrice $ userAction nid
+    ]
 
 -- | Endpoints for admin user
 authorEndpoints :: AuthorContract ()

@@ -9,7 +9,7 @@ module Mlabs.Plutus.Contract (
   getEndpoint,
   callSimulator,
   callEndpoint',
-  selectForever
+  selectForever,
 ) where
 
 import PlutusTx.Prelude
@@ -33,7 +33,6 @@ import Plutus.Trace.Effects.RunContract (RunContract, callEndpoint)
 import Plutus.Trace.Emulator.Types (ContractConstraints, ContractHandle)
 import PlutusTx (FromData, fromBuiltinData)
 
-
 -- | For off-chain code
 readDatum :: FromData a => TxOutTx -> Maybe a
 readDatum txOut = do
@@ -54,14 +53,15 @@ callEndpoint' ::
   Eff effs ()
 callEndpoint' = callEndpoint @(EndpointSymbol ep)
 
-getEndpoint 
-  :: forall a w s e b.
-     ( Contract.HasEndpoint (EndpointSymbol a) a s
-     , Contract.AsContractError e
-     , IsEndpoint a
-     , FromJSON a
-     )
-  => (a -> Contract w s e b) -> Contract.Promise w s e b
+getEndpoint ::
+  forall a w s e b.
+  ( Contract.HasEndpoint (EndpointSymbol a) a s
+  , Contract.AsContractError e
+  , IsEndpoint a
+  , FromJSON a
+  ) =>
+  (a -> Contract w s e b) ->
+  Contract.Promise w s e b
 getEndpoint = Contract.endpoint @(EndpointSymbol a)
 
 endpointName :: forall a. IsEndpoint a => a -> String

@@ -32,7 +32,7 @@ module Mlabs.Demo.Contract.Mint (
 import PlutusTx.Prelude hiding (Semigroup (..))
 import Prelude (Semigroup (..))
 
-import Control.Monad (void, forever)
+import Control.Monad (forever, void)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import Data.Void (Void)
@@ -134,4 +134,5 @@ mintContract mp = do
 mintEndpoints :: Contract () MintSchema Text ()
 -- mintEndpoints = mint >> mintEndpoints where mint = endpoint @"mint" >>= mintContract
 mintEndpoints = forever mint
-  where mint = toContract $ endpoint @"mint" mintContract
+  where
+    mint = toContract $ endpoint @"mint" mintContract

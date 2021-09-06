@@ -55,7 +55,8 @@ handleNftContracts ::
   Nft.StartParams ->
   ContractEffect (Builtin NftContracts) ~> Eff effs
 handleNftContracts sp = error "Fix required after Plutus update"
-  -- Builtin.handleBuiltin getSchema getContract
+
+-- Builtin.handleBuiltin getSchema getContract
 --   where
 --     getSchema = \case
 --       StartNft -> Builtin.endpointsToSchemas @Nft.AuthorSchema
@@ -67,8 +68,9 @@ handleNftContracts sp = error "Fix required after Plutus update"
 -- FIXME
 handlers :: Nft.StartParams -> SimulatorEffectHandlers (Builtin NftContracts)
 handlers sp = error "Fix required after Plutus update"
-  -- Simulator.mkSimulatorHandlers @(Builtin NftContracts) def def $
-  --   interpret (handleNftContracts sp)
+
+-- Simulator.mkSimulatorHandlers @(Builtin NftContracts) def def $
+--   interpret (handleNftContracts sp)
 
 startNftContract :: Nft.StartParams -> Contract (Last NftId) Nft.AuthorSchema Text ()
 startNftContract startParams = mapError (pack . show) $ Nft.startNft startParams

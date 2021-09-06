@@ -43,10 +43,11 @@ test =
     mintTrace
 
 emCfg :: EmulatorConfig
-emCfg = EmulatorConfig 
-          (Left $ Map.fromList [(Test.Wallet 1, v), (Test.Wallet 2, v)])
-          def
-          def
+emCfg =
+  EmulatorConfig
+    (Left $ Map.fromList [(Test.Wallet 1, v), (Test.Wallet 2, v)])
+    def
+    def
   where
     v :: Value
     v = lovelaceValueOf 100_000_000

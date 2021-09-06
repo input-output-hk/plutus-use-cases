@@ -17,7 +17,7 @@ module Mlabs.Nft.Contract.StateMachine (
   nftValue,
   runStepWith,
   runInitialiseWith,
-  scriptInstance
+  scriptInstance,
 ) where
 
 import PlutusTx.Prelude hiding (Applicative (..), Monoid (..), Semigroup (..), check)
@@ -28,7 +28,7 @@ import Data.Functor (void)
 import Data.String (fromString)
 import Ledger (Address, MintingPolicy, ValidatorHash, scriptHashAddress)
 import Ledger.Constraints (ScriptLookups, TxConstraints, mustBeSignedBy)
-import qualified Ledger.Typed.Scripts         as Scripts
+import Ledger.Typed.Scripts qualified as Scripts
 import Plutus.Contract (Contract)
 import Plutus.Contract.StateMachine qualified as SM
 import Plutus.V1.Ledger.Value (AssetClass (..), CurrencySymbol, Value, assetClassValue)

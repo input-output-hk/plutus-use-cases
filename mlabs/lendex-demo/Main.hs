@@ -18,14 +18,14 @@ import Data.Functor (void)
 import Data.Monoid (Last (..))
 
 import Ledger.Constraints (mustPayToPubKey)
-import Playground.Contract (TokenName, Wallet (..))
-import Plutus.Contract hiding (when)
-import Plutus.Contracts.Currency qualified as Currency
-import Plutus.PAB.Simulator qualified as Simulator
 import Ledger.Contexts (pubKeyHash)
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Tx (txId)
 import Ledger.Value qualified as Value
+import Playground.Contract (TokenName, Wallet (..))
+import Plutus.Contract hiding (when)
+import Plutus.Contracts.Currency qualified as Currency
+import Plutus.PAB.Simulator qualified as Simulator
 import Wallet.Emulator.Wallet qualified as Wallet
 
 import Mlabs.Lending.Contract qualified as Contract

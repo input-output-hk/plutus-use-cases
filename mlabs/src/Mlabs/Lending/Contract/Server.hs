@@ -23,9 +23,9 @@ import Data.Map qualified as Map (elems)
 import Data.Maybe (mapMaybe)
 import Data.Semigroup (Last (..))
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
+import Ledger.Crypto (pubKeyHash)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (Datum (..))
-import Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Tx
 import PlutusTx (FromData)
@@ -68,25 +68,26 @@ userEndpoints lid =
     , getEndpoint @Api.Withdraw $ userAction lid
     , getEndpoint @Api.LiquidationCall $ userAction lid
     ]
-  -- TODO fix repetition
-  -- where
-    -- act :: Api.IsUserAct a => UserContract a -> UserContract ()
-    -- act readInput = readInput >>= userAction lid
+
+-- TODO fix repetition
+-- where
+-- act :: Api.IsUserAct a => UserContract a -> UserContract ()
+-- act readInput = readInput >>= userAction lid
 
 -- | Endpoints for price oracle
 oracleEndpoints :: Types.LendexId -> OracleContract ()
 oracleEndpoints lid =
   selectForever
-      [ getEndpoint @Api.SetAssetPrice $ priceOracleAction lid
-      ]
+    [ getEndpoint @Api.SetAssetPrice $ priceOracleAction lid
+    ]
 
 -- | Endpoints for admin
 adminEndpoints :: Types.LendexId -> AdminContract ()
 adminEndpoints lid = do
   Contract.toContract $ getEndpoint @Api.StartLendex $ startLendex lid
   selectForever
-      [ getEndpoint @Api.AddReserve $ adminAction lid
-      ]
+    [ getEndpoint @Api.AddReserve $ adminAction lid
+    ]
 
 {- | Endpoints for querrying Lendex state:
    * `QueryAllLendexes` - returns a list of `LendingPool` data associated with each available lendes
@@ -95,9 +96,9 @@ adminEndpoints lid = do
 queryEndpoints :: Types.LendexId -> QueryContract ()
 queryEndpoints lid =
   selectForever
-      [ getEndpoint @Api.QueryAllLendexes $ queryAllLendexes lid
-      , getEndpoint @Api.QuerySupportedCurrencies $ \_ -> querySupportedCurrencies lid
-      ]
+    [ getEndpoint @Api.QueryAllLendexes $ queryAllLendexes lid
+    , getEndpoint @Api.QuerySupportedCurrencies $ \_ -> querySupportedCurrencies lid
+    ]
 
 -- actions
 
