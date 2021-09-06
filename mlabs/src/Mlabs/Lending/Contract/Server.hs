@@ -106,6 +106,7 @@ queryEndpoints lid =
     selects
       [ getEndpoint @Api.QueryAllLendexes >>= queryAllLendexes lid
       , getEndpoint @Api.QuerySupportedCurrencies >> querySupportedCurrencies lid
+      , getEndpoint @Api.QuerryCurrentBalance >> queryCurrentBalance lid
       ]
 
 -- actions
@@ -164,6 +165,31 @@ querySupportedCurrencies lid = do
         (\(coin, rsrv) -> Types.SupportedCurrency coin rsrv.reserve'aToken rsrv.reserve'rate)
         (M.toList lp.lp'reserves)
     tellResult = Contract.tell . Just . Last . Types.QueryResSupportedCurrencies
+
+queryCurrentBalance :: Types.LendexId -> QueryContract ()
+queryCurrentBalance lid = do
+  (_, pool) <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
+  tellResult . fmap (uncurry Types.UserBalance) . castWallet . getWallets $ pool 
+  pure ()
+  where
+    getWallets :: Types.LendingPool -> [(Types.UserId, Types.User)]
+    getWallets lp =  M.toList $ lp.lp'users
+
+    castWallet :: [(Types.UserId, Types.User)] -> [(Types.UserId, [(Types.Coin, Integer)])]
+    castWallet = fmap (\(x,user) -> (x, getUser user)) 
+
+    getUser :: Types.User -> [(Types.Coin, Integer)]
+    getUser usr = 
+      let 
+        lst = M.toList $ usr.user'wallets 
+        f'  = \(c,w) -> (c,(getWalletSum w))
+      in
+        f' <$> lst
+
+    getWalletSum :: Types.Wallet -> Integer
+    getWalletSum wal = wal.wallet'deposit 
+        
+    tellResult = Contract.tell . Just . Last . Types.QueryResCurrentBalance
 
 ----------------------------------------------------------
 -- to act conversion

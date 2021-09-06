@@ -30,6 +30,7 @@ module Mlabs.Lending.Contract.Api (
   -- ** Query actions
   QueryAllLendexes (..),
   QuerySupportedCurrencies (..),
+  QuerryCurrentBalance(..),
 
   -- ** Price oracle actions
   SetAssetPrice (..),
@@ -166,6 +167,10 @@ newtype QuerySupportedCurrencies = QuerySupportedCurrencies ()
   deriving stock (Hask.Show, Generic)
   deriving newtype (FromJSON, ToJSON, ToSchema)
 
+newtype QuerryCurrentBalance = QuerryCurrentBalance ()
+  deriving stock (Hask.Show, Generic)
+  deriving newtype (FromJSON, ToJSON, ToSchema)
+
 -- price oracle actions
 
 -- | Updates for the prices of the currencies on the markets
@@ -201,6 +206,7 @@ type AdminSchema =
 type QuerySchema =
   Call QueryAllLendexes
     .\/ Call QuerySupportedCurrencies
+    .\/ Call QuerryCurrentBalance
 
 ----------------------------------------------------------
 -- proxy types for ToSchema instance
@@ -295,3 +301,6 @@ instance IsEndpoint QueryAllLendexes where
 
 instance IsEndpoint QuerySupportedCurrencies where
   type EndpointSymbol QuerySupportedCurrencies = "query-supported-currencies"
+
+instance IsEndpoint QuerryCurrentBalance where
+  type EndpointSymbol QuerryCurrentBalance = "query-current-balance"

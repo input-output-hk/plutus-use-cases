@@ -50,6 +50,7 @@ module Mlabs.Lending.Logic.Types (
   fromAToken,
   QueryRes (..),
   SupportedCurrency (..),
+  UserBalance(..),
 ) where
 
 import PlutusTx.Prelude hiding ((%))
@@ -411,12 +412,22 @@ data SupportedCurrency = SupportedCurrency
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
+data UserBalance = UserBalance
+  { -- | User Id
+    ub'id :: !UserId
+     -- | Coin, 
+  , ub'funds :: [ (Coin, Integer) ] 
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
 -- If another query is added, extend this data type
 
 -- | Results of query endpoints calls on `QueryContract`
 data QueryRes
   = QueryResAllLendexes [(Address, LendingPool)]
   | QueryResSupportedCurrencies {getSupported :: [SupportedCurrency]}
+  | QueryResCurrentBalance [UserBalance]
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
