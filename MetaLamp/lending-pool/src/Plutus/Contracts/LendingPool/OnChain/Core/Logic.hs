@@ -42,7 +42,7 @@ import           Playground.Contract
 import           Plutus.Abstract.IncentivizedAmount               (IncentivizedAmount (..))
 import           Plutus.Contract                                  hiding (when)
 import           Plutus.Contracts.LendingPool.OnChain.Core.Script (AaveDatum (..),
-                                                                   AaveNewState (..),
+                                                                   AaveState (..),
                                                                    AaveRedeemer (..),
                                                                    AaveState (..),
                                                                    Oracles,
@@ -71,18 +71,8 @@ assertMapChange filterChanged old new = unless (f old == f new) (throwError "Une
 assertInsertAt :: (Eq k, Eq a) => k -> AssocMap.Map k a -> AssocMap.Map k a -> Either Builtins.String ()
 assertInsertAt key = assertMapChange $ (/= key) . fst
 
-{-# INLINABLE pickUserConfigs #-}
-pickUserConfigs :: AaveDatum -> Maybe (AaveState, AssocMap.Map UserConfigId UserConfig)
-pickUserConfigs (UserConfigsDatum state configs) = Just (state, configs)
-pickUserConfigs _                                = Nothing
-
-{-# INLINABLE pickReserves #-}
-pickReserves :: AaveDatum -> Maybe (AaveState, AssocMap.Map AssetClass Reserve)
-pickReserves (ReservesDatum state configs) = Just (state, configs)
-pickReserves _                             = Nothing
-
 {-# INLINABLE pickAaveState #-}
-pickAaveState :: AaveDatum -> Maybe (AssetClass, AaveNewState)
+pickAaveState :: AaveDatum -> Maybe (AssetClass, AaveState)
 pickAaveState (StateDatum stateToken state) = Just (stateToken, state)
 pickAaveState _                             = Nothing
 
@@ -106,29 +96,13 @@ assertValidCurrentSlot :: ScriptContext -> Slot -> Either Builtins.String ()
 assertValidCurrentSlot ctx slot = fromBool "Invalid current slot value" $
   Interval.LowerBound (Interval.Finite slot) True == Interval.ivFrom (posixTimeRangeToSlotRange . txInfoValidRange . scriptContextTxInfo $ ctx)
 
-findUserConfigs :: ScriptContext -> AaveState -> Either Builtins.String (AssocMap.Map UserConfigId UserConfig)
-findUserConfigs ctx state@AaveState{..} = do
-  let txInfo = scriptContextTxInfo ctx
-  (newState, newUserConfigs) <- maybe (throwError "User configs not found") pure $
-    findOnlyOneDatumByValue ctx (assetClassValue asUserConfigs 1) >>= pickUserConfigs
-  unless (newState == state) $ throwError "Invalid state address change"
-  pure newUserConfigs
-
-findAaveState :: ScriptContext -> AssetClass -> Either Builtins.String AaveNewState
+findAaveState :: ScriptContext -> AssetClass -> Either Builtins.String AaveState
 findAaveState ctx stateToken = do
   let txInfo = scriptContextTxInfo ctx
   (newStateToken, newState) <- maybe (throwError "User configs not found") pure $
     findOnlyOneDatumByValue ctx (assetClassValue stateToken 1) >>= pickAaveState
   unless (newStateToken == stateToken) $ throwError "Invalid state address change"
   pure newState
-
-findReserves :: ScriptContext -> AaveState -> Either Builtins.String (AssocMap.Map AssetClass Reserve)
-findReserves ctx state@AaveState{..} = do
-  let txInfo = scriptContextTxInfo ctx
-  (newState, newReserves) <- maybe (throwError "Reserves not found") pure $
-    findOnlyOneDatumByValue ctx (assetClassValue asReserves 1) >>= pickReserves
-  unless (newState == state) $ throwError "Invalid state address change"
-  pure newReserves
 
 {-# INLINABLE doesCollateralCoverDebt #-}
 doesCollateralCoverDebt ::

@@ -141,34 +141,22 @@ type LendingPoolOperator = PubKeyHash
 
 type Oracles = AssocMap.Map AssetClass Integer -- Shows how many lovelaces should be paid for a specific asset
 
-data AaveState = AaveState { asReserves :: AssetClass, asUserConfigs :: AssetClass }
-    deriving stock (Prelude.Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
-
-instance Eq AaveState where
-  a == b = asReserves a == asReserves b && asUserConfigs a == asUserConfigs b
-
-PlutusTx.unstableMakeIsData ''AaveState
-PlutusTx.makeLift ''AaveState
-
-data AaveNewState = AaveNewState {
-    ansReserves    :: AssocMap.Map AssetClass Reserve,
-    ansUserConfigs :: AssocMap.Map UserConfigId UserConfig
+data AaveState = AaveState {
+    asReserves    :: AssocMap.Map AssetClass Reserve,
+    asUserConfigs :: AssocMap.Map UserConfigId UserConfig
 }
     deriving stock (Prelude.Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
-PlutusTx.unstableMakeIsData ''AaveNewState
-PlutusTx.makeLift ''AaveNewState
-Lens.makeClassyPrisms ''AaveNewState
+PlutusTx.unstableMakeIsData ''AaveState
+PlutusTx.makeLift ''AaveState
+Lens.makeClassyPrisms ''AaveState
 
 data AaveDatum =
     LendingPoolDatum LendingPoolOperator
-  | ReservesDatum AaveState (AssocMap.Map AssetClass Reserve) -- State token and reserve currency -> reserve map
   | ReserveFundsDatum
-  | UserConfigsDatum AaveState (AssocMap.Map UserConfigId UserConfig) -- State token and UserConfigId -> user config map
   | UserCollateralFundsDatum PubKeyHash AssetClass -- User pub key and aToken asset type
-  | StateDatum AssetClass AaveNewState
+  | StateDatum AssetClass AaveState
   deriving stock (Show)
 
 PlutusTx.unstableMakeIsData ''AaveDatum

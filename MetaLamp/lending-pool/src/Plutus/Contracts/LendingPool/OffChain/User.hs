@@ -49,7 +49,7 @@ import qualified Plutus.Contracts.LendingPool.OffChain.AToken as AToken
 import qualified Plutus.Contracts.LendingPool.OffChain.State  as State
 import           Plutus.Contracts.LendingPool.OnChain.Core    (Aave,
                                                                AaveDatum (..),
-                                                               AaveNewState (..),
+                                                               AaveState (..),
                                                                AaveRedeemer (..),
                                                                Reserve (..),
                                                                UserConfig (..),
@@ -101,8 +101,8 @@ deposit aave DepositParams {..} = do
 
     let userConfigId = (rCurrency reserve, dpOnBehalfOf)
     (stateTx, _) <- State.modifyAaveState aave (Core.DepositRedeemer userConfigId) $
-        \oldState@AaveNewState{..} ->
-            case AssocMap.lookup userConfigId ansUserConfigs of
+        \oldState@AaveState{..} ->
+            case AssocMap.lookup userConfigId asUserConfigs of
                 Nothing -> do
                     slot <- currentSlot
                     State.addUserConfig
@@ -162,17 +162,17 @@ PlutusTx.makeLift ''BorrowParams
 borrow :: Aave -> BorrowParams -> Contract w s Text ()
 borrow aave BorrowParams {..} = do
     oldStateOutput <- State.findAaveState aave
-    let oldState@AaveNewState {..} = ovValue oldStateOutput
-    reserve <- maybe (throwError "Reserve not found") pure $ AssocMap.lookup bpAsset ansReserves
+    let oldState@AaveState {..} = ovValue oldStateOutput
+    reserve <- maybe (throwError "Reserve not found") pure $ AssocMap.lookup bpAsset asReserves
     let userConfigId = (rCurrency reserve, bpOnBehalfOf)
     slot <- currentSlot
 
     availableLiquidity <- flip assetClassValueOf bpAsset <$> State.getAaveCollateralValue aave
-    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == bpAsset) . AssocMap.toList $ ansUserConfigs
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == bpAsset) . AssocMap.toList $ asUserConfigs
     let updatedReserve = updateReserveOnBorrow reserveConfigs availableLiquidity bpAmount slot reserve
 
     userConfigs <- do
-        case AssocMap.lookup userConfigId ansUserConfigs of
+        case AssocMap.lookup userConfigId asUserConfigs of
             Nothing -> do
                 pure $ AssocMap.insert
                     userConfigId
@@ -180,7 +180,7 @@ borrow aave BorrowParams {..} = do
                         ucDebt = IncentivizedAmount slot (rCurrentStableBorrowRate reserve) (fromInteger bpAmount),
                         ucCollateralizedInvestment = IncentivizedAmount slot (fromInteger 0) (fromInteger 0)
                     }
-                    ansUserConfigs
+                    asUserConfigs
             Just userConfig -> do
                 pure $ AssocMap.insert
                     userConfigId
@@ -194,8 +194,8 @@ borrow aave BorrowParams {..} = do
                             }
                         $ userConfig
                     )
-                    ansUserConfigs
-    oracles <- either throwError pure $ findOraclesForUser bpOnBehalfOf ansReserves userConfigs
+                    asUserConfigs
+    oracles <- either throwError pure $ findOraclesForUser bpOnBehalfOf asReserves userConfigs
     let redeemer = Core.BorrowRedeemer bpAmount userConfigId oracles slot
 
     utxos <-
@@ -207,7 +207,7 @@ borrow aave BorrowParams {..} = do
     let disbursementTx =  TxUtils.mustSpendFromScript (Core.aaveInstance aave) inputs bpOnBehalfOf payment <>
                             TxUtils.mustPayToScript (Core.aaveInstance aave) bpOnBehalfOf Core.ReserveFundsDatum remainder
 
-    newState <- State.updateReserveNew bpAsset updatedReserve oldState { ansUserConfigs = userConfigs }
+    newState <- State.updateReserveNew bpAsset updatedReserve oldState { asUserConfigs = userConfigs }
     stateTx <- (<> (mempty, mustValidateIn (Interval.from slot))) . fst <$> do
         State.updateAaveState aave redeemer (newState Prelude.<$ oldStateOutput)
 
@@ -256,12 +256,12 @@ repay aave RepayParams {..} = do
     slot <- currentSlot
     stateTx <- (<> (mempty, mustValidateIn (Interval.from slot))) . fst <$> (
         State.modifyAaveState aave (Core.RepayRedeemer rpAmount userConfigId slot) $
-            \oldState@AaveNewState{..} -> do
+            \oldState@AaveState{..} -> do
                 availableLiquidity <- flip assetClassValueOf rpAsset <$> State.getAaveCollateralValue aave
-                let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == rpAsset) . AssocMap.toList $ ansUserConfigs
+                let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == rpAsset) . AssocMap.toList $ asUserConfigs
                 let updatedReserve = updateReserveOnRepay reserveConfigs availableLiquidity rpAmount slot reserve
 
-                s <- case AssocMap.lookup userConfigId ansUserConfigs of
+                s <- case AssocMap.lookup userConfigId asUserConfigs of
                     Nothing ->
                         throwError "User does not have any debt."
                     Just userConfig -> do
@@ -319,17 +319,12 @@ provideCollateral aave ProvideCollateralParams {..} = do
     slot <- currentSlot
     stateTx <- (<> (mempty, mustValidateIn (Interval.from slot))) . fst <$>
         (State.modifyAaveState aave (Core.ProvideCollateralRedeemer userConfigId slot) $
-            \oldState@AaveNewState{..} -> do
+            \oldState@AaveState{..} -> do
                 availableLiquidity <- flip assetClassValueOf pcpUnderlyingAsset <$> State.getAaveCollateralValue aave
-                let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == pcpUnderlyingAsset) . AssocMap.toList $ ansUserConfigs
+                let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == pcpUnderlyingAsset) . AssocMap.toList $ asUserConfigs
                 let updatedReserve = updateReserveOnLiquidityChange reserveConfigs (availableLiquidity + pcpAmount) slot reserve
-                logInfo @Prelude.String $
-                    " total available - "
-                    <> show availableLiquidity
-                    <> " liq rate - " <> show (rLiquidityRate updatedReserve)
-                    <> " average borrow rate - " <> show (getAverageStableBorrowRate reserveConfigs)
 
-                case AssocMap.lookup userConfigId ansUserConfigs of
+                case AssocMap.lookup userConfigId asUserConfigs of
                     Nothing -> do
                         let normalizedIncome = InterestRate.getNormalizedIncome updatedReserve (rLastUpdated reserve) slot
                         State.addUserConfig
@@ -376,17 +371,17 @@ revokeCollateral :: Aave -> RevokeCollateralParams -> Contract w s Text ()
 revokeCollateral aave RevokeCollateralParams {..} = do
     oldStateOutput <- State.findAaveState aave
     let oldState = ovValue oldStateOutput
-    reserve <- maybe (throwError "Reserve not found") pure $ AssocMap.lookup rcpUnderlyingAsset (ansReserves oldState)
+    reserve <- maybe (throwError "Reserve not found") pure $ AssocMap.lookup rcpUnderlyingAsset (asReserves oldState)
     let userConfigId = (rCurrency reserve, rcpOnBehalfOf)
 
     slot <- currentSlot
     newState <- do
-        case AssocMap.lookup userConfigId (ansUserConfigs oldState) of
+        case AssocMap.lookup userConfigId (asUserConfigs oldState) of
             Nothing ->
                 throwError "User does not have any collateral."
             Just userConfig -> do
                 availableLiquidity <- flip assetClassValueOf rcpUnderlyingAsset <$> State.getAaveCollateralValue aave
-                let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == rcpUnderlyingAsset) . AssocMap.toList $ (ansUserConfigs oldState)
+                let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == rcpUnderlyingAsset) . AssocMap.toList $ (asUserConfigs oldState)
                 let updatedReserve = updateReserveOnLiquidityChange reserveConfigs (availableLiquidity - rcpAmount) slot reserve
                 State.updateUserConfig
                     userConfigId
@@ -403,7 +398,7 @@ revokeCollateral aave RevokeCollateralParams {..} = do
                     oldState
                     >>= State.updateReserveNew rcpUnderlyingAsset updatedReserve
 
-    oracles <- either throwError pure $ findOraclesForUser rcpOnBehalfOf (ansReserves newState) (ansUserConfigs newState)
+    oracles <- either throwError pure $ findOraclesForUser rcpOnBehalfOf (asReserves newState) (asUserConfigs newState)
     let aTokenAsset = rAToken reserve
     let redeemer = Core.RevokeCollateralRedeemer userConfigId aTokenAsset oracles slot
 

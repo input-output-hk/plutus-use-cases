@@ -36,7 +36,7 @@ import           PlutusTx.Ratio                                   (Rational,
                                                                    reduce)
 import qualified Prelude
 
--- refer to getCompoundedBorrowBalance
+-- refer to getCompoundedBorrowBalance and calculateCompoundedInterest
 {-# INLINABLE accrueDebt #-}
 accrueDebt :: Slot -> Rational -> IncentivizedAmount -> IncentivizedAmount
 accrueDebt slot newRate IncentivizedAmount {..} =
@@ -60,7 +60,7 @@ somePow a n
     | n == 1 = a
     | otherwise = a * somePow a (n - 1)
 
--- refer to getNormalizedIncome
+-- refer to AToken's module balanceOf and calculateCumulatedBalanceInternal
 {-# INLINABLE accrueInterest #-}
 accrueInterest :: Slot -> Slot -> Reserve -> IncentivizedAmount -> IncentivizedAmount
 accrueInterest previousReserveUpdated slot reserve IncentivizedAmount {..} =
@@ -94,6 +94,10 @@ updateConfigAmounts UpdateConfigParams {..} UserConfig{..} =
         where
             curSlot = Slot . (*10) . getSlot $ ucpCurrentSlot
 
+{-# INLINABLE getAverageStableBorrowRate #-}
+getAverageStableBorrowRate :: [UserConfig] -> Rational
+getAverageStableBorrowRate userConfigs = getAverageStableBorrow userConfigs * InterestRate.getTotalBorrows userConfigs
+
 {-# INLINABLE getAverageStableBorrow #-}
 getAverageStableBorrow :: [UserConfig] -> Rational
 getAverageStableBorrow userConfigs =
@@ -105,11 +109,7 @@ getAverageStableBorrow userConfigs =
             (\cur acc -> if ((== fromInteger 0) . iaAmount . ucDebt $ cur) then acc else acc + (iaRate . ucDebt $ cur)) (fromInteger 0) userConfigs
         rateDivisor = foldr (\cur acc -> if ((== fromInteger 0) . iaAmount . ucDebt $ cur) then acc else acc + 1) 0 userConfigs
 
-{-# INLINABLE getAverageStableBorrowRate #-}
-getAverageStableBorrowRate :: [UserConfig] -> Rational
-getAverageStableBorrowRate userConfigs = getAverageStableBorrow userConfigs * InterestRate.getTotalBorrows userConfigs
-
--- provide/revoke scenario - availableLiquidity changes
+-- refer to updateReserveInterestRatesAndTimestampInternal
 updateReserveOnLiquidityChange :: [UserConfig] -> Integer -> Slot -> Reserve -> Reserve
 updateReserveOnLiquidityChange userConfigs newAvailableLiquidity slot reserve =
     InterestRate.updateReserveInterestRates rateParams slot averageStableBorrowRate $ InterestRate.updateCumulativeIndices reserve userConfigs slot
@@ -118,7 +118,7 @@ updateReserveOnLiquidityChange userConfigs newAvailableLiquidity slot reserve =
             rateParams = InterestRate.RateParams newAvailableLiquidity totalBorrows
             averageStableBorrowRate = getAverageStableBorrowRate userConfigs
 
--- refer to increaseTotalBorrowsStableAndUpdateAverageRate, decreaseTotalBorrowsStableAndUpdateAverageRate
+-- refer to increaseTotalBorrowsStableAndUpdateAverageRate
 {-# INLINABLE updateReserveOnBorrow #-}
 updateReserveOnBorrow :: [UserConfig] -> Integer -> Integer -> Slot -> Reserve -> Reserve
 updateReserveOnBorrow userConfigs availableLiquidity borrowAmount slot reserve@Reserve{..} =
@@ -132,6 +132,7 @@ updateReserveOnBorrow userConfigs availableLiquidity borrowAmount slot reserve@R
             averageStableBorrowRate = (weightedLastBorrow + weightedPreviousTotalBorrows) `InterestRate.divideRatio` totalBorrows
             rateParams = InterestRate.RateParams availableLiquidity totalBorrows
 
+-- refer to decreaseTotalBorrowsStableAndUpdateAverageRate
 {-# INLINABLE updateReserveOnRepay #-}
 updateReserveOnRepay :: [UserConfig] -> Integer -> Integer -> Slot -> Reserve -> Reserve
 updateReserveOnRepay userConfigs availableLiquidity repayAmount slot reserve@Reserve{..} =
@@ -149,26 +150,17 @@ updateReserveOnRepay userConfigs availableLiquidity repayAmount slot reserve@Res
 Regarding reserve updates:
 
 rLiquidityRate + rLastLiquidityCumulativeIndex are used to calculate normalizedIncome,
-which is the final param used to directly accrue interest in IncentivizedToken
+which is the final param used to accrue interest with IncentivizedToken.
 
 Update flow:
 
 1. Available liquidity changes(provide/revoke) or total borrow changes (borrow/repay)
 
-2. updateCumulativeIndices increases rLastLiquidityCumulativeIndex, which is then used to update user config collateral? (done before each operation)
-But shouldn't this mean all user configs should be updated? idk, bottom line rLastLiquidityCumulativeIndex is some parameter used to accrue interest.
+2. updateCumulativeIndices recalculates rLastLiquidityCumulativeIndex, which is then used to update user config collateral. 
+This is done before each operation.
 
-3.
-On provide/revoke:
-change rLiquidityRate(another interest accual param) + rCurrentStableBorrowRate (hol up, isnt this updateReserveInterestRates?)
+3. updateReserveInterestRates - this should also be done on each action, since availableLiquidity and totalBorrows change on every action
+and they are used to calculate the current rates.
 
-On borrow/repay:
-change averageStableBorrowRate, which is used to calculate liquidityRate, which in turn is used to accrue interest
-Do we need it?
-
-overallBorrowRate is a weighted average - for stable rate this means totalBorrows * currentStableBorrowAverage
-
-4. updateReserveInterestRates - this should also be done on each action, since availableLiquidity and totalBorrows change on every action
-and they are used to calculate current rates.
 -}
 

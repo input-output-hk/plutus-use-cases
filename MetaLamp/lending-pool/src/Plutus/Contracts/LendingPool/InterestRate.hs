@@ -37,6 +37,7 @@ import           PlutusTx.Ratio                                   (Ratio,
                                                                    reduce)
 import qualified Prelude
 
+-- refer to updateCumulativeIndexes
 {-# INLINABLE updateCumulativeIndices #-}
 updateCumulativeIndices :: Reserve -> [UserConfig] -> Slot -> Reserve
 updateCumulativeIndices reserve@Reserve{..} userConfigs currentSlot =
@@ -77,6 +78,7 @@ data RateParams = RateParams {
     rpTotalBorrows       :: Rational
 }
 
+-- refer to calculateInterestRates
 {-# INLINABLE updateReserveInterestRates #-}
 updateReserveInterestRates :: RateParams -> Slot -> Rational -> Reserve -> Reserve
 updateReserveInterestRates rateParams currentSlot averageStableBorrowRate reserve@Reserve{..} =
@@ -94,20 +96,6 @@ getCurrentLiqudityRate rateParams averageStableBorrowRate =
     where
         utilizationRate = getUtilizationRate rateParams
         borrowRate = if (rpTotalBorrows rateParams) == (fromInteger 0) then (fromInteger 0) else averageStableBorrowRate
-
-defaultRateModel :: InterestRateModel
-defaultRateModel = InterestRateModel {
-    irmOptimalUtilizationRate = 8 % 10,
-    irmExcessUtilizationRate = 2 % 10,
-    irmStableRateSlope1 = 4 % 100,
-    irmStableRateSlope2 = 1 % 1,
-    irmMarketBorrowRate = 4 % 100
-}
-
--- TODO: figure out the right way to do it
-{-# INLINABLE divideRatio #-}
-divideRatio :: Rational -> Rational -> Rational
-divideRatio a b = reduce (numerator a * denominator b) (denominator a * numerator b)
 
 {-# INLINABLE getCurrentStableBorrowRate #-}
 getCurrentStableBorrowRate :: InterestRateModel -> RateParams -> Rational
@@ -128,6 +116,21 @@ getUtilizationRate RateParams{..} =
         then fromInteger 0
         else rpTotalBorrows `divideRatio` (rpTotalBorrows + fromInteger rpAvailableLiquidity)
 
+defaultRateModel :: InterestRateModel
+defaultRateModel = InterestRateModel {
+    irmOptimalUtilizationRate = 8 % 10,
+    irmExcessUtilizationRate = 2 % 10,
+    irmStableRateSlope1 = 4 % 100,
+    irmStableRateSlope2 = 1 % 1,
+    irmMarketBorrowRate = 4 % 100
+}
+
+-- TODO: figure out the right way to do it - the numbers are constantly growing
+{-# INLINABLE divideRatio #-}
+divideRatio :: Rational -> Rational -> Rational
+divideRatio a b = reduce (numerator a * denominator b) (denominator a * numerator b)
+
+-- refer to getNormalizedIncome
 {-# INLINABLE getNormalizedIncome #-}
 getNormalizedIncome :: Reserve -> Slot -> Slot -> Rational
 getNormalizedIncome Reserve{..} previous current =

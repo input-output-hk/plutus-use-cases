@@ -32,6 +32,7 @@ import           Data.Void                                        (Void)
 import           Ext.Plutus.Ledger.Contexts                       (findOnlyOneDatumByValue,
                                                                    findOnlyOneDatumHashByValue,
                                                                    findValueByDatum,
+                                                                   findInputValueByDatum,
                                                                    findValueByDatumHash,
                                                                    parseDatum,
                                                                    scriptInputsAt,
@@ -56,16 +57,12 @@ import           Plutus.Contracts.LendingPool.OnChain.Core.Logic  (areOraclesTru
                                                                    checkPositiveReservesTransformation,
                                                                    doesCollateralCoverDebt,
                                                                    findAaveState,
-                                                                   findReserves,
-                                                                   findUserConfigs,
-                                                                   pickReserves,
                                                                    pickUserCollateralFunds,
-                                                                   pickUserConfigs,
                                                                    toBool,
                                                                    toBoolPrefixed)
 import           Plutus.Contracts.LendingPool.OnChain.Core.Script (Aave (..),
                                                                    AaveDatum (..),
-                                                                   AaveNewState (..),
+                                                                   AaveState (..),
                                                                    AaveRedeemer (..),
                                                                    AaveScript,
                                                                    AaveState (..),
@@ -106,8 +103,6 @@ makeAaveValidator :: Aave
                    -> AaveRedeemer
                    -> ScriptContext
                    -> Bool
-makeAaveValidator _ _ _ _ = True
-{-
 makeAaveValidator aave datum StartRedeemer ctx = trace "StartRedeemer" $ validateStart aave datum ctx
 makeAaveValidator aave datum (DepositRedeemer userConfigId) ctx  = trace "DepositRedeemer" $ validateDeposit aave datum ctx userConfigId
 makeAaveValidator aave datum (WithdrawRedeemer userConfigId) ctx = trace "WithdrawRedeemer" $ validateWithdraw aave datum ctx userConfigId
@@ -115,7 +110,6 @@ makeAaveValidator aave datum (BorrowRedeemer amount userConfigId oracles slot) c
 makeAaveValidator aave datum (RepayRedeemer amount userConfigId slot) ctx = trace "RepayRedeemer" $ validateRepay aave datum ctx amount userConfigId slot
 makeAaveValidator aave datum (ProvideCollateralRedeemer userConfigId slot) ctx = trace "ProvideCollateralRedeemer" $ validateProvideCollateral aave datum ctx userConfigId slot
 makeAaveValidator aave datum (RevokeCollateralRedeemer userConfigId aTokenAsset oracles slot) ctx = trace "RevokeCollateralRedeemer" $ validateRevokeCollateral aave datum ctx userConfigId aTokenAsset oracles slot
--}
 
 {-# INLINABLE validateStart #-}
 validateStart :: Aave -> AaveDatum -> ScriptContext -> Bool
@@ -136,14 +130,14 @@ validateDeposit :: Aave -> AaveDatum -> ScriptContext -> UserConfigId -> Bool
 validateDeposit aave (StateDatum stateToken oldState) ctx userConfigId =
   toBoolPrefixed "validateDeposit: " $ do
     newState <- findAaveState ctx stateToken
-    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
+    assertInsertAt userConfigId (asUserConfigs oldState) (asUserConfigs newState)
 
-    let oldUserConfig = AssocMap.lookup userConfigId (ansUserConfigs oldState)
-    newUserConfig <- maybe (throwError "User config not found") pure (AssocMap.lookup userConfigId (ansUserConfigs newState))
+    let oldUserConfig = AssocMap.lookup userConfigId (asUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure (AssocMap.lookup userConfigId (asUserConfigs newState))
     unless
       (maybe ((iaAmount . ucCollateralizedInvestment) newUserConfig == (fromInteger 0)) ((ucCollateralizedInvestment newUserConfig ==) . ucCollateralizedInvestment) oldUserConfig
         && (iaAmount . ucDebt $ newUserConfig) == (fromInteger 0) && maybe True ((== (fromInteger 0)) . iaAmount . ucDebt) oldUserConfig
-        && checkPositiveReservesTransformation (ansReserves oldState) (ansReserves newState) ctx userConfigId)
+        && checkPositiveReservesTransformation (asReserves oldState) (asReserves newState) ctx userConfigId)
       (throwError "Change is not valid")
 
 validateDeposit _ _ _ _ = trace "validateDeposit: Lending Pool Datum management is not allowed" False
@@ -155,7 +149,7 @@ validateWithdraw aave (StateDatum stateToken oldState) ctx userConfigId =
     newState <- findAaveState ctx stateToken
 
     unless
-      (checkNegativeReservesTransformation (ansReserves oldState) (ansReserves newState) ctx userConfigId)
+      (checkNegativeReservesTransformation (asReserves oldState) (asReserves newState) ctx userConfigId)
       (throwError "")
 
 validateWithdraw aave ReserveFundsDatum ctx (reserveId, actor) =
@@ -169,8 +163,8 @@ validateBorrow aave (StateDatum stateToken oldState) ctx borrowAmount userConfig
   toBoolPrefixed "validateBorrow: " $ do
     assertValidCurrentSlot ctx slot
     newState <- findAaveState ctx stateToken
-    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
-    assertInsertAt reserveId (ansReserves oldState) (ansReserves newState)
+    assertInsertAt userConfigId (asUserConfigs oldState) (asUserConfigs newState)
+    assertInsertAt reserveId (asReserves oldState) (asReserves newState)
 
     let txInfo = scriptContextTxInfo ctx
     oracleValues <-
@@ -178,20 +172,20 @@ validateBorrow aave (StateDatum stateToken oldState) ctx borrowAmount userConfig
         Just vs -> pure . AssocMap.fromList $ vs
         _       -> throwError "Oracles have not been provided"
 
-    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ oldState
-    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ newState
+    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . asReserves $ oldState
+    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . asReserves $ newState
 
-    fundsValue <- maybe (throwError "Datum hash not found") pure $ findValueByDatum ctx ReserveFundsDatum
-    let availableLiquidity = flip assetClassValueOf reserveId fundsValue + borrowAmount
-    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . ansUserConfigs $ oldState
+    fundsValue <- maybe (throwError "Datum hash not found") pure $ findInputValueByDatum ctx ReserveFundsDatum
+    let availableLiquidity = flip assetClassValueOf reserveId fundsValue
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . asUserConfigs $ oldState
     let updatedReserve = Shared.updateReserveOnBorrow reserveConfigs availableLiquidity borrowAmount slot oldReserve
 
     unless (updatedReserve == newReserve) (throwError "Invalid reserve calculation")
-    unless (doesCollateralCoverDebt actor oracleValues (ansReserves newState) slot (ansUserConfigs newState)) $ throwError "Not enough collateral"
-    unless (areOraclesTrusted oracles (ansReserves oldState)) (throwError "Invalid oracles")
+    unless (doesCollateralCoverDebt actor oracleValues (asReserves newState) slot (asUserConfigs newState)) $ throwError "Not enough collateral"
+    unless (areOraclesTrusted oracles (asReserves oldState)) (throwError "Invalid oracles")
 
-    let oldUserConfig = AssocMap.lookup userConfigId (ansUserConfigs oldState)
-    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs newState)
+    let oldUserConfig = AssocMap.lookup userConfigId (asUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (asUserConfigs newState)
     let accUserConfig = fmap (updateConfigAmounts UpdateConfigParams { ucpUpdatedReserve = updatedReserve, ucpPreviousReserveUpdated = rLastUpdated oldReserve, ucpCurrentSlot = slot }) oldUserConfig
         actorSpentValue = valueSpentFrom txInfo actor
         actorRemainderValue = valuePaidTo txInfo actor
@@ -213,21 +207,21 @@ validateRepay aave (StateDatum stateToken oldState) ctx repayAmount userConfigId
   toBoolPrefixed "validateRepay: " $ do
     assertValidCurrentSlot ctx slot
     newState <- findAaveState ctx stateToken
-    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
-    assertInsertAt reserveId (ansReserves oldState) (ansReserves newState)
+    assertInsertAt userConfigId (asUserConfigs oldState) (asUserConfigs newState)
+    assertInsertAt reserveId (asReserves oldState) (asReserves newState)
 
-    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ oldState
-    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ newState
+    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . asReserves $ oldState
+    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . asReserves $ newState
 
-    fundsValue <- maybe (throwError "Datum hash not found") pure $ findValueByDatum ctx ReserveFundsDatum
+    fundsValue <- maybe (throwError "Datum hash not found") pure $ findInputValueByDatum ctx ReserveFundsDatum
     let availableLiquidity = flip assetClassValueOf reserveId fundsValue - repayAmount
-    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . ansUserConfigs $ oldState
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . asUserConfigs $ oldState
     let updatedReserve = Shared.updateReserveOnRepay reserveConfigs availableLiquidity repayAmount slot oldReserve
 
     unless (updatedReserve == newReserve) (throwError "Invalid reserve calculation")
 
-    oldUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs oldState)
-    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs newState)
+    oldUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (asUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (asUserConfigs newState)
 
     let accUserConfig = updateConfigAmounts UpdateConfigParams { ucpUpdatedReserve = updatedReserve, ucpPreviousReserveUpdated = rLastUpdated oldReserve, ucpCurrentSlot = slot } oldUserConfig
         txInfo = scriptContextTxInfo ctx
@@ -249,8 +243,8 @@ validateProvideCollateral aave (StateDatum stateToken oldState) ctx userConfigId
   toBoolPrefixed "validateProvideCollateral: " $ do
     assertValidCurrentSlot ctx slot
     newState <- findAaveState ctx stateToken
-    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
-    assertInsertAt reserveId (ansReserves oldState) (ansReserves newState)
+    assertInsertAt userConfigId (asUserConfigs oldState) (asUserConfigs newState)
+    assertInsertAt reserveId (asReserves oldState) (asReserves newState)
 
     let txInfo = scriptContextTxInfo ctx
         actorSpentValue = valueSpentFrom txInfo actor
@@ -258,15 +252,15 @@ validateProvideCollateral aave (StateDatum stateToken oldState) ctx userConfigId
     (user, asset) <- maybe (throwError "Collateral not found") pure $
       findOnlyOneDatumByValue ctx (actorSpentValue - actorRemainderValue - txInfoFee txInfo) >>= pickUserCollateralFunds
 
-    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ oldState
-    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ newState
-    fundsValue <- maybe (pure mempty) pure $ findValueByDatum ctx ReserveFundsDatum
+    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . asReserves $ oldState
+    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . asReserves $ newState
+    fundsValue <- maybe (pure mempty) pure $ findInputValueByDatum ctx ReserveFundsDatum
     let availableLiquidity = flip assetClassValueOf reserveId fundsValue
-    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . ansUserConfigs $ oldState
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . asUserConfigs $ oldState
     let updatedReserve = Shared.updateReserveOnLiquidityChange reserveConfigs availableLiquidity slot oldReserve
 
-    let oldUserConfig = AssocMap.lookup userConfigId (ansUserConfigs oldState)
-    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs newState)
+    let oldUserConfig = AssocMap.lookup userConfigId (asUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (asUserConfigs newState)
     let accUserConfig = updateConfigAmounts UpdateConfigParams { ucpUpdatedReserve = updatedReserve, ucpPreviousReserveUpdated = rLastUpdated oldReserve, ucpCurrentSlot = slot } <$> oldUserConfig
         investmentAmount = ((iaAmount . ucCollateralizedInvestment) newUserConfig -) $ maybe (fromInteger 0) (iaAmount . ucCollateralizedInvestment) oldUserConfig
         disbursementAmount = fromInteger $ assetClassValueOf actorSpentValue asset - assetClassValueOf actorRemainderValue asset
@@ -283,26 +277,26 @@ validateRevokeCollateral aave (StateDatum stateToken oldState) ctx userConfigId@
   toBoolPrefixed "validateRevokeCollateral: " $ do
     assertValidCurrentSlot ctx slot
     newState <- findAaveState ctx stateToken
-    assertInsertAt userConfigId (ansUserConfigs oldState) (ansUserConfigs newState)
-    assertInsertAt reserveId (ansReserves oldState) (ansReserves newState)
+    assertInsertAt userConfigId (asUserConfigs oldState) (asUserConfigs newState)
+    assertInsertAt reserveId (asReserves oldState) (asReserves newState)
 
     let txInfo = scriptContextTxInfo ctx
     oracleValues <-
       case foldrM (\o@(_, _, _, oAsset) acc -> fmap ((: acc) . (oAsset, )) (Oracle.findOracleValueInTxInputs txInfo o)) [] oracles of
         Just vs -> pure . AssocMap.fromList $ vs
         _       -> throwError "Oracles have not been provided"
-    unless (doesCollateralCoverDebt actor oracleValues (ansReserves newState) slot (ansUserConfigs newState)) $ throwError "Not enough collateral"
-    unless (areOraclesTrusted oracles (ansReserves oldState)) (throwError "Invalid oracles")
+    unless (doesCollateralCoverDebt actor oracleValues (asReserves newState) slot (asUserConfigs newState)) $ throwError "Not enough collateral"
+    unless (areOraclesTrusted oracles (asReserves oldState)) (throwError "Invalid oracles")
 
-    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ oldState
-    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . ansReserves $ newState
-    fundsValue <- maybe (throwError "Datum hash not found") pure $ findValueByDatum ctx ReserveFundsDatum
+    oldReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . asReserves $ oldState
+    newReserve <- maybe (throwError "Reserve not found") pure . AssocMap.lookup reserveId . asReserves $ newState
+    fundsValue <- maybe (throwError "Datum hash not found") pure $ findInputValueByDatum ctx ReserveFundsDatum
     let availableLiquidity = flip assetClassValueOf reserveId fundsValue
-    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . ansUserConfigs $ oldState
+    let reserveConfigs = fmap snd . filter (\((asset, _), _) -> asset == reserveId) . AssocMap.toList . asUserConfigs $ oldState
     let updatedReserve = Shared.updateReserveOnLiquidityChange reserveConfigs availableLiquidity slot oldReserve
 
-    oldUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs oldState)
-    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (ansUserConfigs newState)
+    oldUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (asUserConfigs oldState)
+    newUserConfig <- maybe (throwError "User config not found") pure $ AssocMap.lookup userConfigId (asUserConfigs newState)
     let accUserConfig = updateConfigAmounts UpdateConfigParams { ucpUpdatedReserve = updatedReserve, ucpPreviousReserveUpdated = rLastUpdated oldReserve, ucpCurrentSlot = slot } oldUserConfig
         newInvestmentAmount = iaAmount . ucCollateralizedInvestment $ newUserConfig
         investmentShrinkedBy = (iaAmount . ucCollateralizedInvestment) accUserConfig - newInvestmentAmount

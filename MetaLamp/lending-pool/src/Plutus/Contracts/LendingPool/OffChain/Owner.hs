@@ -45,7 +45,7 @@ import qualified Plutus.Contracts.LendingPool.OffChain.State as State
 import qualified Plutus.Contracts.LendingPool.OnChain.AToken as AToken
 import           Plutus.Contracts.LendingPool.OnChain.Core   (Aave,
                                                               AaveDatum (..),
-                                                              AaveNewState (..),
+                                                              AaveState (..),
                                                               AaveRedeemer (..),
                                                               Reserve (..),
                                                               UserConfig (..))
@@ -123,7 +123,7 @@ start' getAaveToken params = do
     slot <- currentSlot
     let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve aave slot params)) params
 
-    stateTx <- State.putAaveState aave Core.StartRedeemer AaveNewState { ansReserves = reserveMap, ansUserConfigs = AssocMap.empty }
+    stateTx <- State.putAaveState aave Core.StartRedeemer AaveState { asReserves = reserveMap, asUserConfigs = AssocMap.empty }
     ledgerTx <- TxUtils.submitTxPair stateTx
     void $ awaitTxConfirmed $ txId ledgerTx
 
