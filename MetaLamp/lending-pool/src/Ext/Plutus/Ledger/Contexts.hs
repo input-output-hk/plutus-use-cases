@@ -47,8 +47,15 @@ findValueByDatum :: PlutusTx.IsData a => ScriptContext -> a -> Maybe Value
 findValueByDatum ctx datum = (`findValueByDatumHash` scriptOutputs) <$> findDatumHash (Datum $ PlutusTx.toData datum) txInfo
   where
     txInfo = scriptContextTxInfo ctx
-    (scriptsHash, _) = ownHashes ctx
-    scriptOutputs = scriptOutputsAt scriptsHash txInfo
+    scriptOutputs = getScriptOutputs ctx
+
+{-# INLINABLE findInputValueByDatum #-}
+findInputValueByDatum :: PlutusTx.IsData a => ScriptContext -> a -> Maybe Value
+findInputValueByDatum ctx datum = (`findValueByDatumHash` scriptOutputs) <$> findDatumHash (Datum $ PlutusTx.toData datum) txInfo
+  where
+    txInfo = scriptContextTxInfo ctx
+    (validatorHash, _) = ownHashes ctx
+    scriptOutputs = scriptInputsAt validatorHash txInfo
 
 {-# INLINABLE findValueByDatumHash #-}
 -- | Concat value of the script's outputs that have the specified hash of a datum

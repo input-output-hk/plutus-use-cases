@@ -40,10 +40,12 @@ import           Plutus.Abstract.OutputValue                 (OutputValue (..))
 import qualified Plutus.Abstract.TxUtils                     as TxUtils
 import           Plutus.Contract                             hiding (when)
 import           Plutus.Contracts.Currency                   as Currency
+import qualified Plutus.Contracts.LendingPool.InterestRate   as InterestRate
 import qualified Plutus.Contracts.LendingPool.OffChain.State as State
 import qualified Plutus.Contracts.LendingPool.OnChain.AToken as AToken
 import           Plutus.Contracts.LendingPool.OnChain.Core   (Aave,
                                                               AaveDatum (..),
+                                                              AaveState (..),
                                                               AaveRedeemer (..),
                                                               Reserve (..),
                                                               UserConfig (..))
@@ -76,17 +78,29 @@ data CreateParams =
 
 PlutusTx.makeLift ''CreateParams
 
-createReserve :: Aave -> CreateParams -> Reserve
-createReserve aave CreateParams {..} =
+createReserve :: Aave -> Slot -> CreateParams -> Reserve
+createReserve aave currentSlot CreateParams {..} =
     Reserve
         { rCurrency = cpAsset,
           rAmount = 0,
           rAToken = AToken.makeAToken (Core.aaveHash aave) cpAsset,
-          rLiquidityIndex = 1,
-          rCurrentStableBorrowRate = 101 % 100,
-          rCurrentStableAccrualRate = 101 % 100,
-          rTrustedOracle = Oracle.toTuple cpOracle
+          rCurrentStableBorrowRate =
+              InterestRate.getCurrentStableBorrowRate
+                interestModel
+                rateParams,
+          rLiquidityRate = fromInteger 0,
+          rTrustedOracle = Oracle.toTuple cpOracle,
+          rLastUpdated = currentSlot,
+          rLastLiquidityCumulativeIndex = fromInteger 0,
+          rMarketBorrowRate = 180 % 100,
+          rInterestRateModel = interestModel
            }
+    where
+        rateParams = InterestRate.RateParams
+            { InterestRate.rpAvailableLiquidity = 0,
+              InterestRate.rpTotalBorrows = fromInteger 0
+             }
+        interestModel = InterestRate.defaultRateModel
 
 -- | Starts the Lending Pool protocol: minting pool NFTs, creating empty user configuration state and all specified liquidity reserves
 start :: [CreateParams] -> Contract w s Text Aave
@@ -106,12 +120,11 @@ start' getAaveToken params = do
     ledgerTx <- TxUtils.submitTxPair aaveTokenTx
     void $ awaitTxConfirmed $ txId ledgerTx
 
-    let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve aave params)) params
-    reservesTx <- State.putReserves aave Core.StartRedeemer reserveMap
-    ledgerTx <- TxUtils.submitTxPair reservesTx
-    void $ awaitTxConfirmed $ txId ledgerTx
-    userConfigsTx <- State.putUserConfigs aave Core.StartRedeemer AssocMap.empty
-    ledgerTx <- TxUtils.submitTxPair userConfigsTx
+    slot <- currentSlot
+    let reserveMap = AssocMap.fromList $ fmap (\params -> (cpAsset params, createReserve aave slot params)) params
+
+    stateTx <- State.putAaveState aave Core.StartRedeemer AaveState { asReserves = reserveMap, asUserConfigs = AssocMap.empty }
+    ledgerTx <- TxUtils.submitTxPair stateTx
     void $ awaitTxConfirmed $ txId ledgerTx
 
     logInfo @Prelude.String $ printf "started Aave %s at address %s" (show aave) (show $ Core.aaveAddress aave)

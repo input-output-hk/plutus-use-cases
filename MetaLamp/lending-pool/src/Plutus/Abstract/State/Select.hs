@@ -40,8 +40,8 @@ getDatum o = case txOutDatumHash $ txOutTxOut o of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
-getState :: (PlutusTx.IsData datum) => Address -> Contract w s Text [OutputValue datum]
-getState address = do
+getOutputsAt :: (PlutusTx.IsData datum) => Address -> Contract w s Text [OutputValue datum]
+getOutputsAt address = do
     utxos <- utxoAt address
     traverse getDatum' . Map.toList $ utxos
   where
@@ -54,7 +54,7 @@ findOutputsBy :: (PlutusTx.IsData datum) =>
   AssetClass ->
   (datum -> Maybe a) ->
   Contract w s Text [OutputValue a]
-findOutputsBy address stateToken mapDatum = mapMaybe checkStateToken <$> getState address
+findOutputsBy address stateToken mapDatum = mapMaybe checkStateToken <$> getOutputsAt address
     where
         checkStateToken (OutputValue oref outTx datum) =
             if assetClassValueOf (txOutValue $ txOutTxOut outTx) stateToken == 1

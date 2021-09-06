@@ -72,12 +72,5 @@ aaveAddress = Ledger.scriptAddress . aaveValidator
 aave :: CurrencySymbol -> Aave
 aave protocol = Aave (assetClass protocol aaveProtocolName)
 
-reserveStateToken, userStateToken :: Aave -> AssetClass
-reserveStateToken aave = State.makeStateToken (aaveHash aave) (aaveProtocolInst aave) "aaveReserve"
-userStateToken aave = State.makeStateToken (aaveHash aave) (aaveProtocolInst aave) "aaveUser"
-
-getAaveState :: Aave -> AaveState
-getAaveState aave = AaveState {
-  asReserves = reserveStateToken aave,
-  asUserConfigs = userStateToken aave
-}
+aaveStateToken :: Aave -> AssetClass
+aaveStateToken aave = State.makeStateToken (aaveHash aave) (aaveProtocolInst aave) "aaveState"

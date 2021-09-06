@@ -48,7 +48,7 @@ import qualified Prelude
 forgeATokensFrom :: forall w s. Aave -> Reserve -> PubKeyHash -> Integer -> Contract w s Text (TxUtils.TxPair AaveScript)
 forgeATokensFrom aave reserve pkh amount = do
     let policy = makeLiquidityPolicy (Core.aaveHash aave) (rCurrency reserve)
-        aTokenAmount = amount -- / rLiquidityIndex reserve -- TODO: how should we divide?
+        aTokenAmount = amount
         forgeValue = assetClassValue (rAToken reserve) aTokenAmount
     let payment = assetClassValue (rCurrency reserve) amount
     pure $

@@ -5,7 +5,7 @@ import Business.Aave as Aave
 import Business.AaveInfo as AaveInfo
 import Business.AaveUser (UserContractId)
 import Business.AaveUser as AaveUser
-import Capability.LogMessages (class LogMessages)
+import Capability.LogMessages (class LogMessages, logInfo)
 import Capability.PollContract (class PollContract)
 import Component.Contract as Contract
 import Component.Contract as ContractComponent
@@ -148,7 +148,10 @@ component =
               RD.maybe (throwError "contracts are missing") pure
                 $ state.contracts
             case catMaybes (AaveInfo.getInfoContractId <$> contracts) of
-              [ cid ] -> lift (AaveInfo.reserves cid) >>= either (throwError <<< show) pure
+              [ cid ] -> do
+                result <- lift (AaveInfo.reserves cid) >>= either (throwError <<< show) pure
+                lift <<< logInfo <<< show $ result
+                pure result
               _ -> throwError "Info contract not found"
 
   content = BEM.block "content"
