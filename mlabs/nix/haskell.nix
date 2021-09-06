@@ -37,6 +37,11 @@ in pkgs.haskell-nix.cabalProject rec {
       plutus-ledger.doHaddock = deferPluginErrors;
       plutus-ledger.flags.defer-plugin-errors = deferPluginErrors;
 
+      cardano-crypto-praos.components.library.pkgconfig =
+        pkgs.lib.mkForce [ [ pkgs.libsodium-vrf ] ];
+      cardano-crypto-class.components.library.pkgconfig =
+        pkgs.lib.mkForce [ [ pkgs.libsodium-vrf ] ];
+
       # This allows us to generate .tix coverage files, which could be useful?
       "${src.name}".components.library.doCoverage = doCoverage;
     };
