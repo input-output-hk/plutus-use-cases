@@ -9,7 +9,7 @@ module Mlabs.Lending.Contract.StateMachine (
   runInitialise,
 ) where
 
-import Ledger.TimeSlot qualified as TimeSlot (posixTimeRangeToSlotRange)
+import Ledger.TimeSlot qualified as TimeSlot (posixTimeRangeToContainedSlotRange)
 import PlutusTx.Prelude hiding (Applicative (..), Monoid (..), Semigroup (..), check)
 import PlutusTx.Prelude qualified as Plutus
 import Prelude qualified as Hask (String)
@@ -48,7 +48,10 @@ machine lid =
 
     checkTimestamp _ input ctx = maybe True check $ getInputTime input
       where
-        check t = Ledger.Slot t `Ledger.member` TimeSlot.posixTimeRangeToSlotRange def range
+        check t = 
+          Ledger.Slot t 
+          `Ledger.member` 
+          TimeSlot.posixTimeRangeToContainedSlotRange def range
         range = Ledger.txInfoValidRange $ Ledger.scriptContextTxInfo ctx
 
     getInputTime = \case

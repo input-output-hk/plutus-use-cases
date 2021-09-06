@@ -25,10 +25,10 @@ import Data.Semigroup (Last (..))
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (Datum (..))
-import Plutus.V1.Ledger.Crypto (pubKeyHash)
+import Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Tx
-import PlutusTx (IsData)
+import PlutusTx (FromData)
 import PlutusTx.AssocMap qualified as M
 
 import Mlabs.Emulator.Types (UserId (..), ownUserId)
@@ -36,7 +36,7 @@ import Mlabs.Lending.Contract.Api qualified as Api
 import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
 import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
 import Mlabs.Lending.Logic.Types qualified as Types
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
+import Mlabs.Plutus.Contract (getEndpoint, readDatum, selectForever)
 
 -- | User contract monad
 type UserContract a = Contract.Contract () Api.UserSchema StateMachine.LendexError a
@@ -58,43 +58,35 @@ type QueryResult = Maybe (Last Types.QueryRes)
 -- | Endpoints for user
 userEndpoints :: Types.LendexId -> UserContract ()
 userEndpoints lid =
-  forever $
-    selects
-      [ act $ getEndpoint @Api.Deposit
-      , act $ getEndpoint @Api.Borrow
-      , act $ getEndpoint @Api.Repay
-      , act $ getEndpoint @Api.SwapBorrowRateModel
-      , act $ getEndpoint @Api.AddCollateral
-      , act $ getEndpoint @Api.RemoveCollateral
-      , act $ getEndpoint @Api.Withdraw
-      , act $ getEndpoint @Api.LiquidationCall
-      ]
-  where
-    act :: Api.IsUserAct a => UserContract a -> UserContract ()
-    act readInput = readInput >>= userAction lid
+  selectForever
+    [ getEndpoint @Api.Deposit $ userAction lid
+    , getEndpoint @Api.Borrow $ userAction lid
+    , getEndpoint @Api.Repay $ userAction lid
+    , getEndpoint @Api.SwapBorrowRateModel $ userAction lid
+    , getEndpoint @Api.AddCollateral $ userAction lid
+    , getEndpoint @Api.RemoveCollateral $ userAction lid
+    , getEndpoint @Api.Withdraw $ userAction lid
+    , getEndpoint @Api.LiquidationCall $ userAction lid
+    ]
+  -- TODO fix repetition
+  -- where
+    -- act :: Api.IsUserAct a => UserContract a -> UserContract ()
+    -- act readInput = readInput >>= userAction lid
 
 -- | Endpoints for price oracle
 oracleEndpoints :: Types.LendexId -> OracleContract ()
 oracleEndpoints lid =
-  forever $
-    selects
-      [ act $ getEndpoint @Api.SetAssetPrice
+  selectForever
+      [ getEndpoint @Api.SetAssetPrice $ priceOracleAction lid
       ]
-  where
-    act :: Api.IsPriceAct a => OracleContract a -> OracleContract ()
-    act readInput = readInput >>= priceOracleAction lid
 
 -- | Endpoints for admin
 adminEndpoints :: Types.LendexId -> AdminContract ()
 adminEndpoints lid = do
-  getEndpoint @Api.StartLendex >>= startLendex lid
-  forever $
-    selects
-      [ act $ getEndpoint @Api.AddReserve
+  Contract.toContract $ getEndpoint @Api.StartLendex $ startLendex lid
+  selectForever
+      [ getEndpoint @Api.AddReserve $ adminAction lid
       ]
-  where
-    act :: Api.IsGovernAct a => AdminContract a -> AdminContract ()
-    act readInput = readInput >>= adminAction lid
 
 {- | Endpoints for querrying Lendex state:
    * `QueryAllLendexes` - returns a list of `LendingPool` data associated with each available lendes
@@ -102,10 +94,9 @@ adminEndpoints lid = do
 -}
 queryEndpoints :: Types.LendexId -> QueryContract ()
 queryEndpoints lid =
-  forever $
-    selects
-      [ getEndpoint @Api.QueryAllLendexes >>= queryAllLendexes lid
-      , getEndpoint @Api.QuerySupportedCurrencies >> querySupportedCurrencies lid
+  selectForever
+      [ getEndpoint @Api.QueryAllLendexes $ queryAllLendexes lid
+      , getEndpoint @Api.QuerySupportedCurrencies $ \_ -> querySupportedCurrencies lid
       ]
 
 -- actions
@@ -195,7 +186,7 @@ getCurrentTime = getSlot <$> Contract.currentSlot
 findInputStateDatum :: Types.LendexId -> UserContract Datum
 findInputStateDatum = findInputStateData
 
-findInputStateData :: IsData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError d
+findInputStateData :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError d
 findInputStateData lid = do
   txOuts <- Map.elems <$> Contract.utxoAt (StateMachine.lendexAddress lid)
   maybe err pure $ firstJust readDatum txOuts

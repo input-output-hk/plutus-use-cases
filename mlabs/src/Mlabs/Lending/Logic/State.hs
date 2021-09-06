@@ -95,7 +95,7 @@ import Mlabs.Lending.Logic.Types qualified as Types
 import PlutusTx.Ratio qualified as R
 
 -- | Type for errors
-type Error = Hask.String
+type Error = BuiltinByteString
 
 -- | State update of lending pool
 type St = PlutusState LendingPool
@@ -135,7 +135,7 @@ isAdmin :: Types.UserId -> St ()
 isAdmin = checkRole "Is not admin" lp'admins
 
 {-# INLINEABLE checkRole #-}
-checkRole :: Hask.String -> (LendingPool -> [Types.UserId]) -> Types.UserId -> St ()
+checkRole :: BuiltinByteString -> (LendingPool -> [Types.UserId]) -> Types.UserId -> St ()
 checkRole msg extract uid = do
   users <- gets extract
   guardError msg $ elem uid users

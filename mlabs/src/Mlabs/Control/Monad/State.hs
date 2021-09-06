@@ -43,7 +43,11 @@ instance Applicative (PlutusState st) where
 {- | Execute further if condition is True or throw error with
  given error message.
 -}
-guardError :: (Applicative m, MonadError BuiltinByteString m) => BuiltinByteString -> Bool -> m ()
+guardError 
+  :: ( Applicative m
+     , MonadError BuiltinByteString m
+     ) 
+  => BuiltinByteString -> Bool -> m ()
 guardError msg isTrue
   | isTrue = pure ()
   | otherwise = throwError msg

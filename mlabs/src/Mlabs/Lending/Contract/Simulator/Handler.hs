@@ -54,6 +54,7 @@ instance Pretty LendexContracts where
 
 type InitContract = Contract (Last CurrencySymbol) EmptySchema Server.LendexError ()
 
+-- FIXME
 handleLendexContracts ::
   ( Member (Error PABError) effs
   , Member (LogMsg (PABMultiAgentMsg (Builtin LendexContracts))) effs
@@ -61,23 +62,27 @@ handleLendexContracts ::
   LendexId ->
   InitContract ->
   ContractEffect (Builtin LendexContracts) ~> Eff effs
-handleLendexContracts lendexId initHandler = Builtin.handleBuiltin getSchema getContract
-  where
-    getSchema = \case
-      Init -> Builtin.endpointsToSchemas @EmptySchema
-      User -> Builtin.endpointsToSchemas @Api.UserSchema
-      Oracle -> Builtin.endpointsToSchemas @Api.OracleSchema
-      Admin -> Builtin.endpointsToSchemas @Api.AdminSchema
-    getContract = \case
-      Init -> SomeBuiltin initHandler
-      User -> SomeBuiltin $ Server.userEndpoints lendexId
-      Oracle -> SomeBuiltin $ Server.oracleEndpoints lendexId
-      Admin -> SomeBuiltin $ Server.adminEndpoints lendexId
+handleLendexContracts = error "Fix required after Plutus update"
+-- handleLendexContracts lendexId initHandler = 
+  -- Builtin.handleBuiltin getSchema getContract
+  -- where
+  --   getSchema = \case
+  --     Init -> Builtin.endpointsToSchemas @EmptySchema
+  --     User -> Builtin.endpointsToSchemas @Api.UserSchema
+  --     Oracle -> Builtin.endpointsToSchemas @Api.OracleSchema
+  --     Admin -> Builtin.endpointsToSchemas @Api.AdminSchema
+  --   getContract = \case
+  --     Init -> SomeBuiltin initHandler
+  --     User -> SomeBuiltin $ Server.userEndpoints lendexId
+  --     Oracle -> SomeBuiltin $ Server.oracleEndpoints lendexId
+  --     Admin -> SomeBuiltin $ Server.adminEndpoints lendexId
 
+-- FIXME
 handlers :: LendexId -> InitContract -> SimulatorEffectHandlers (Builtin LendexContracts)
-handlers lid initContract =
-  Simulator.mkSimulatorHandlers @(Builtin LendexContracts) def [] $
-    interpret (handleLendexContracts lid initContract)
+handlers = error "Fix required after Plutus update"
+-- handlers lid initContract =
+  -- Simulator.mkSimulatorHandlers @(Builtin LendexContracts) def [] $
+  --   interpret (handleLendexContracts lid initContract)
 
 -- | Runs simulator for Lendex
 runSimulator :: LendexId -> InitContract -> Sim () -> IO ()

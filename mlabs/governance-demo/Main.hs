@@ -108,7 +108,7 @@ itializeContracts admin = do
   cidInit <- Simulator.activateContract admin Bootstrap
   govCs <- waitForLast cidInit
   void $ Simulator.waitUntilFinished cidInit
-  let gov = AssetClassGov govCs $ Handler.govTokenName
+  let gov = AssetClassGov govCs Handler.govTokenName
   cids <- forM Handler.wallets $ \w -> Simulator.activateContract w (Governance gov)
   return (cids, gov)
 

@@ -18,7 +18,7 @@ import           Plutus.V1.Ledger.Api (Validator, MintingPolicy, TxOutRef)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import           Codec.Serialise
 import Ledger.Typed.Scripts.Validators as VS
-import PlutusTx as PlutusTx
+import PlutusTx
 
 
 import qualified Data.ByteString.Lazy   as LB

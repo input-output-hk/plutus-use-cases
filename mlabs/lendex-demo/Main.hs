@@ -22,10 +22,10 @@ import Playground.Contract (TokenName, Wallet (..))
 import Plutus.Contract hiding (when)
 import Plutus.Contracts.Currency qualified as Currency
 import Plutus.PAB.Simulator qualified as Simulator
-import Plutus.V1.Ledger.Contexts (pubKeyHash)
-import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
-import Plutus.V1.Ledger.Tx (txId)
-import Plutus.V1.Ledger.Value qualified as Value
+import Ledger.Contexts (pubKeyHash)
+import Ledger.Crypto (PubKeyHash (..))
+import Ledger.Tx (txId)
+import Ledger.Value qualified as Value
 import Wallet.Emulator.Wallet qualified as Wallet
 
 import Mlabs.Lending.Contract qualified as Contract
