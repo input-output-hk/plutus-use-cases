@@ -10,6 +10,7 @@ module Mlabs.Lending.Contract.Server (
   oracleEndpoints,
   adminEndpoints,
   queryEndpoints,
+  queryCurrentBalance,
 
   -- * Errors
   StateMachine.LendexError,
@@ -166,28 +167,27 @@ querySupportedCurrencies lid = do
         (M.toList lp.lp'reserves)
     tellResult = Contract.tell . Just . Last . Types.QueryResSupportedCurrencies
 
+-- | Queries current Balance
 queryCurrentBalance :: Types.LendexId -> QueryContract ()
 queryCurrentBalance lid = do
-  (_, pool) <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
-  tellResult . fmap (uncurry Types.UserBalance) . castWallet . getWallets $ pool 
+  (_, pool)   <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
+  let users    = getUsers pool
+  let wallets  = fmap (\(uid, usr) -> (uid, fmap (\(coin,wallet)-> (coin, aux wallet)) . M.toList . getUserWallets $ usr)) . M.toList $ users
+  tellResult . fmap ( \(uid,info) -> Types.UserBalance uid (unPack info)) $ wallets
   pure ()
   where
-    getWallets :: Types.LendingPool -> [(Types.UserId, Types.User)]
-    getWallets lp =  M.toList $ lp.lp'users
 
-    castWallet :: [(Types.UserId, Types.User)] -> [(Types.UserId, [(Types.Coin, Integer)])]
-    castWallet = fmap (\(x,user) -> (x, getUser user)) 
+    getUsers :: Types.LendingPool ->  M.Map Types.UserId Types.User
+    getUsers lp = lp.lp'users 
 
-    getUser :: Types.User -> [(Types.Coin, Integer)]
-    getUser usr = 
-      let 
-        lst = M.toList $ usr.user'wallets 
-        f'  = \(c,w) -> (c,(getWalletSum w))
-      in
-        f' <$> lst
+    getUserWallets :: Types.User ->  M.Map Types.Coin Types.Wallet 
+    getUserWallets usr =  usr.user'wallets
 
-    getWalletSum :: Types.Wallet -> Integer
-    getWalletSum wal = wal.wallet'deposit 
+    aux :: Types.Wallet -> (Integer,Integer,Integer)
+    aux wallet = (,,) wallet.wallet'borrow wallet.wallet'deposit wallet.wallet'collateral
+
+    unPack :: [(Types.Coin,(Integer,Integer,Integer))] -> [Types.Funds]
+    unPack = fmap (\(c,(x,y,z)) -> Types.Funds c x y z ) 
         
     tellResult = Contract.tell . Just . Last . Types.QueryResCurrentBalance
 
