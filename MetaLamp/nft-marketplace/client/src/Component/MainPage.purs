@@ -3,6 +3,7 @@ module Component.MainPage where
 import Data.Route
 import Data.Unit
 import Prelude
+
 import Business.Marketplace (getMarketplaceContracts)
 import Business.Marketplace as Marketplace
 import Business.MarketplaceInfo (InfoContractId, getInfoContractId)
@@ -26,9 +27,10 @@ import Data.Either (either, hush)
 import Data.Json.JsonTuple (JsonTuple(..))
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..))
+import Data.UserInstance (UserInstance)
 import Effect.Class (class MonadEffect)
 import Halogen as H
 import Halogen.HTML as HH
@@ -54,7 +56,7 @@ import Web.UIEvent.MouseEvent (MouseEvent, toEvent)
 type State
   = { route :: Maybe Route
     , contracts :: RemoteData String (Array (ContractInstanceClientState MarketplaceContracts))
-    , userInstances :: RemoteData String (Array ({ pubKey :: PubKeyHash, contractId :: UserContractId }))
+    , userInstances :: RemoteData String (Array UserInstance)
     , currentInstance :: WalletSelector.UserWallet
     , infoInstance :: Maybe InfoContractId
     }
@@ -62,7 +64,7 @@ type State
 _contracts :: Lens' State (RemoteData String (Array (ContractInstanceClientState MarketplaceContracts)))
 _contracts = prop (SProxy :: SProxy "contracts")
 
-_userInstances :: Lens' State (RemoteData String (Array ({ pubKey :: PubKeyHash, contractId :: UserContractId })))
+_userInstances :: Lens' State (RemoteData String (Array UserInstance))
 _userInstances = prop (SProxy :: SProxy "userInstances")
 
 data Query a
@@ -156,10 +158,10 @@ component =
                 lift $ H.modify_ _ { infoInstance = Just cid }
               _ -> throwError "Info contract not found"
             parTraverse
-              ( \contractId -> do
-                  lift $ logInfo $ "Found user instance: " <> show contractId
-                  pubKey <- lift (ownPubKey contractId) >>= either (throwError <<< show) pure
-                  pure $ { pubKey, contractId }
+              ( \userInstance -> do
+                  lift $ logInfo $ "Found user instance: " <> show userInstance
+                  userPubKey <- lift (ownPubKey userInstance) >>= either (throwError <<< show) pure
+                  pure $ { userInstance, userPubKey }
               )
               (catMaybes <<< map getUserContractId $ contracts)
     HandleFile file -> do
@@ -174,13 +176,15 @@ component =
         $ H.modify_ _ { route = Just route }
       pure (Just a)
 
-pages :: forall m. State -> H.ComponentHTML Action Slots m
+pages :: forall m.
+  LogMessages m =>
+  State -> H.ComponentHTML Action Slots m
 pages st =
   navbar
     $ case st.route of
         Nothing -> HH.h1_ [ HH.text "Loading page..." ]
         Just route -> case route of
-          UserPage -> HH.slot User._userPage unit User.component unit absurd
+          UserPage -> renderUserPage $ getUserPageInput st
           MarketPage -> HH.slot Market._marketPage unit Market.component unit absurd
 
 navbar :: forall w. HH.HTML w Action -> HH.HTML w Action
@@ -204,3 +208,22 @@ navbar html =
         ]
     , html
     ]
+
+getUserPageInput :: State -> Maybe User.Input
+getUserPageInput st = do
+  infoInstance <- st.infoInstance
+  ucs <- RD.toMaybe st.userInstances
+  userInstance <- case ucs of
+    [userA, userB, userC] -> Just $ case st.currentInstance of
+      WalletSelector.WalletA -> userA
+      WalletSelector.WalletB -> userB
+      WalletSelector.WalletC -> userC
+    _ -> Nothing
+  pure {infoInstance, userInstance}
+
+renderUserPage :: forall m.
+  LogMessages m =>
+  Maybe User.Input -> H.ComponentHTML Action Slots m
+renderUserPage = case _ of
+  Nothing -> HH.h1_ [ HH.text "Loading user page..." ]
+  Just ui -> HH.slot User._userPage unit User.component ui absurd
