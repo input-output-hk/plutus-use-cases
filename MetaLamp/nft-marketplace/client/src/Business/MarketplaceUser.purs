@@ -9,7 +9,7 @@ import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe)
 import Data.Newtype (class Newtype, unwrap)
-import Plutus.Contracts.NftMarketplace.OffChain.User (_GetPubKey, _GetPubKeyBalance)
+import Plutus.Contracts.NftMarketplace.OffChain.User
 import Plutus.PAB.Simulation (MarketplaceContracts, _MarketplaceUser)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
@@ -33,3 +33,30 @@ ownPubKey cid = getMarketplaceResponseWith (Endpoint "ownPubKey") _GetPubKey (un
 
 ownPubKeyBalance :: forall m. PollContract m => UserContractId -> m (Either PollError Value)
 ownPubKeyBalance cid = getMarketplaceResponseWith (Endpoint "ownPubKeyBalance") _GetPubKeyBalance (unwrap cid) ContractUnit
+
+createNft :: forall m. PollContract m => UserContractId -> CreateNftParams -> m (Either PollError Unit)
+createNft = getMarketplaceResponseWith (Endpoint "createNft") _NftCreated <<< unwrap
+
+openSale :: forall m. PollContract m => UserContractId -> OpenSaleParams -> m (Either PollError Unit)
+openSale = getMarketplaceResponseWith (Endpoint "openSale") _OpenedSale <<< unwrap
+
+buyItem :: forall m. PollContract m => UserContractId -> CloseLotParams -> m (Either PollError Unit)
+buyItem = getMarketplaceResponseWith (Endpoint "buyItem") _NftBought <<< unwrap
+
+closeSale :: forall m. PollContract m => UserContractId -> CloseLotParams -> m (Either PollError Unit)
+closeSale = getMarketplaceResponseWith (Endpoint "closeSale") _ClosedSale <<< unwrap
+
+startAnAuction :: forall m. PollContract m => UserContractId -> StartAnAuctionParams -> m (Either PollError Unit)
+startAnAuction = getMarketplaceResponseWith (Endpoint "startAnAuction") _AuctionStarted <<< unwrap
+
+completeAnAuction :: forall m. PollContract m => UserContractId -> CloseLotParams -> m (Either PollError Unit)
+completeAnAuction = getMarketplaceResponseWith (Endpoint "completeAnAuction") _AuctionComplete <<< unwrap
+
+bidOnAuction :: forall m. PollContract m => UserContractId -> BidOnAuctionParams -> m (Either PollError Unit)
+bidOnAuction = getMarketplaceResponseWith (Endpoint "bidOnAuction") _BidSubmitted <<< unwrap
+
+bundleUp :: forall m. PollContract m => UserContractId -> BundleUpParams -> m (Either PollError Unit)
+bundleUp = getMarketplaceResponseWith (Endpoint "bundleUp") _Bundled <<< unwrap
+
+unbundle :: forall m. PollContract m => UserContractId -> UnbundleParams -> m (Either PollError Unit)
+unbundle = getMarketplaceResponseWith (Endpoint "unbundle") _Unbundled <<< unwrap

@@ -3,7 +3,6 @@ module Component.MainPage where
 import Data.Route
 import Data.Unit
 import Prelude
-
 import Business.Marketplace (getMarketplaceContracts)
 import Business.Marketplace as Marketplace
 import Business.MarketplaceInfo (InfoContractId, getInfoContractId)
@@ -50,7 +49,6 @@ import Routing.Hash as Routing
 import Utils.BEM as BEM
 import View.RemoteDataState (remoteDataState)
 import Web.Event.Event (preventDefault)
-import Web.File.File as File
 import Web.UIEvent.MouseEvent (MouseEvent, toEvent)
 
 type State
@@ -82,7 +80,6 @@ data Action
   | ChooseWallet WalletSelector.Output
   | GetContracts
   | GetInstances
-  | HandleFile File.File
 
 component ::
   forall m input output.
@@ -119,13 +116,8 @@ component =
     HH.div_
       [ HH.text "Choose wallet: "
       , HH.slot WalletSelector._walletSelector unit WalletSelector.component st.currentInstance (Just <<< ChooseWallet)
-      , HH.input [ HP.type_ HP.InputFile, HE.onFileUpload f ]
       , pages st
       ]
-
-  f = case _ of
-    [ file ] -> Just $ HandleFile file
-    _ -> Nothing
 
   handleAction :: Action -> H.HalogenM State Action Slots output m Unit
   handleAction = case _ of
@@ -158,15 +150,12 @@ component =
                 lift $ H.modify_ _ { infoInstance = Just cid }
               _ -> throwError "Info contract not found"
             parTraverse
-              ( \userInstance -> do
-                  lift $ logInfo $ "Found user instance: " <> show userInstance
-                  userPubKey <- lift (ownPubKey userInstance) >>= either (throwError <<< show) pure
-                  pure $ { userInstance, userPubKey }
+              ( \userContract -> do
+                  lift $ logInfo $ "Found user instance: " <> show userContract
+                  userPubKey <- lift (ownPubKey userContract) >>= either (throwError <<< show) pure
+                  pure $ { userContract, userPubKey }
               )
               (catMaybes <<< map getUserContractId $ contracts)
-    HandleFile file -> do
-      res <- IPFS.pinFile file
-      logInfo $ "uploaded file : " <> show res
 
   handleQuery :: forall a. Query a -> H.HalogenM State Action Slots output m (Maybe a)
   handleQuery = case _ of
@@ -176,7 +165,11 @@ component =
         $ H.modify_ _ { route = Just route }
       pure (Just a)
 
-pages :: forall m.
+pages ::
+  forall m.
+  IPFS.IPFS m =>
+  PollContract m =>
+  MonadEffect m =>
   LogMessages m =>
   State -> H.ComponentHTML Action Slots m
 pages st =
@@ -214,14 +207,20 @@ getUserPageInput st = do
   infoInstance <- st.infoInstance
   ucs <- RD.toMaybe st.userInstances
   userInstance <- case ucs of
-    [userA, userB, userC] -> Just $ case st.currentInstance of
-      WalletSelector.WalletA -> userA
-      WalletSelector.WalletB -> userB
-      WalletSelector.WalletC -> userC
+    [ userA, userB, userC ] ->
+      Just
+        $ case st.currentInstance of
+            WalletSelector.WalletA -> userA
+            WalletSelector.WalletB -> userB
+            WalletSelector.WalletC -> userC
     _ -> Nothing
-  pure {infoInstance, userInstance}
+  pure { infoInstance, userInstance }
 
-renderUserPage :: forall m.
+renderUserPage ::
+  forall m.
+  IPFS.IPFS m =>
+  MonadEffect m =>
+  PollContract m =>
   LogMessages m =>
   Maybe User.Input -> H.ComponentHTML Action Slots m
 renderUserPage = case _ of
