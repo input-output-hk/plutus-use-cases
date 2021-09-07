@@ -5,6 +5,7 @@ module Mlabs.Lending.Contract.Emulator.Client (
   callGovernAct,
   callStartLendex,
   queryAllLendexes,
+  queryCurrentBalance,
 ) where
 
 import Prelude
@@ -70,4 +71,13 @@ queryAllLendexes lid wal spm = do
   void $ callEndpoint @"query-all-lendexes" hdl spm
   ls' <- observableState hdl
   let Just (Last (Types.QueryResAllLendexes ls)) = ls'
+  pure ls
+
+-- | Queries for all Lendexes started  with given StartParams
+queryCurrentBalance :: Types.LendexId -> Emulator.Wallet -> Api.QuerryCurrentBalance -> EmulatorTrace [Types.UserBalance]
+queryCurrentBalance lid wal x = do
+  hdl <- activateContractWallet wal (queryEndpoints lid)
+  void $ callEndpoint @"query-current-balance" hdl x
+  ls' <- observableState hdl
+  let Just (Last (Types.QueryResCurrentBalance ls)) = ls'
   pure ls

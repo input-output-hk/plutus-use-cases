@@ -10,7 +10,6 @@ module Mlabs.Lending.Contract.Server (
   oracleEndpoints,
   adminEndpoints,
   queryEndpoints,
-  queryCurrentBalance,
 
   -- * Errors
   StateMachine.LendexError,

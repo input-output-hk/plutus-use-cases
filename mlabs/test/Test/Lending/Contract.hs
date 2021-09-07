@@ -75,6 +75,7 @@ test =
     , testLiquidationCall
     , testQueryAllLendexes
     , testQuerrySupportedCurrencies
+    , testQueryCurrentBalance
     ]
   where
     check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
@@ -92,7 +93,7 @@ test =
         , check "Liquidation call real currency" (liquidationCallScene False) (liquidationCallScript False)
         ]
     testQueryAllLendexes = check "QueryAllLendexes works" queryAllLendexesScene queryAllLendexesScript
-
+    testQueryCurrentBalance = check "QeuryCurrentBalance works" queryCurrentBalanceScene queryCurrentBalanceScript
 --------------------------------------------------------------------------------
 -- deposit test
 
@@ -320,6 +321,18 @@ queryAllLendexesScript = do
 
 queryAllLendexesScene :: Scene
 queryAllLendexesScene = depositScene
+
+--------------------------------------------------------------------------------
+-- querry get Current Balance test
+
+queryCurrentBalanceScript :: Trace.EmulatorTrace ()
+queryCurrentBalanceScript = do 
+  depositScript
+  void $ L.queryCurrentBalance lendexId w1 (L.QuerryCurrentBalance ())
+
+-- | Scene is identical as the State is not changed.
+queryCurrentBalanceScene :: Scene
+queryCurrentBalanceScene = depositScene
 
 --------------------------------------------------------------------------------
 -- querry supported currencies test
