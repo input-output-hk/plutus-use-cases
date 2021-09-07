@@ -17,8 +17,8 @@ module Mlabs.Lending.Contract.Server (
 
 import Prelude
 
-import Data.Bifunctor (second)
 import Control.Monad (forever, guard)
+import Data.Bifunctor (second)
 import Data.List.Extra (firstJust)
 import Data.Map qualified as Map (elems)
 import Data.Maybe (mapMaybe)
@@ -170,25 +170,24 @@ querySupportedCurrencies lid = do
 -- | Queries current Balance
 queryCurrentBalance :: Types.LendexId -> QueryContract ()
 queryCurrentBalance lid = do
-  (_, pool)   <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
-  let users    = getUsers pool
-  let wallets  = fmap (second (fmap (second aux) . M.toList . getUserWallets)) . M.toList $ users
-  tellResult . fmap (uncurry Types.UserBalance . second unPack ) $ wallets
+  (_, pool) <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
+  let users = getUsers pool
+  let wallets = fmap (second (fmap (second aux) . M.toList . getUserWallets)) . M.toList $ users
+  tellResult . fmap (uncurry Types.UserBalance . second unPack) $ wallets
   pure ()
-  
   where
-    getUsers :: Types.LendingPool ->  M.Map Types.UserId Types.User
-    getUsers lp = lp.lp'users 
+    getUsers :: Types.LendingPool -> M.Map Types.UserId Types.User
+    getUsers lp = lp.lp'users
 
-    getUserWallets :: Types.User ->  M.Map Types.Coin Types.Wallet 
-    getUserWallets usr =  usr.user'wallets
+    getUserWallets :: Types.User -> M.Map Types.Coin Types.Wallet
+    getUserWallets usr = usr.user'wallets
 
-    aux :: Types.Wallet -> (Integer,Integer,Integer)
+    aux :: Types.Wallet -> (Integer, Integer, Integer)
     aux wallet = (,,) wallet.wallet'borrow wallet.wallet'deposit wallet.wallet'collateral
 
-    unPack :: [(Types.Coin,(Integer,Integer,Integer))] -> [Types.Funds]
-    unPack = fmap (\(c,(x,y,z)) -> Types.Funds c x y z ) 
-        
+    unPack :: [(Types.Coin, (Integer, Integer, Integer))] -> [Types.Funds]
+    unPack = fmap (\(c, (x, y, z)) -> Types.Funds c x y z)
+
     tellResult = Contract.tell . Just . Last . Types.QueryResCurrentBalance
 
 ----------------------------------------------------------

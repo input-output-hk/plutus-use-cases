@@ -94,6 +94,7 @@ test =
         ]
     testQueryAllLendexes = check "QueryAllLendexes works" queryAllLendexesScene queryAllLendexesScript
     testQueryCurrentBalance = check "QeuryCurrentBalance works" queryCurrentBalanceScene queryCurrentBalanceScript
+
 --------------------------------------------------------------------------------
 -- deposit test
 
@@ -326,7 +327,7 @@ queryAllLendexesScene = depositScene
 -- querry get Current Balance test
 
 queryCurrentBalanceScript :: Trace.EmulatorTrace ()
-queryCurrentBalanceScript = do 
+queryCurrentBalanceScript = do
   depositScript
   void $ L.queryCurrentBalance lendexId w1 (L.QuerryCurrentBalance ())
 

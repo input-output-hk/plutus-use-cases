@@ -30,7 +30,7 @@ module Mlabs.Lending.Contract.Api (
   -- ** Query actions
   QueryAllLendexes (..),
   QuerySupportedCurrencies (..),
-  QuerryCurrentBalance(..),
+  QuerryCurrentBalance (..),
 
   -- ** Price oracle actions
   SetAssetPrice (..),

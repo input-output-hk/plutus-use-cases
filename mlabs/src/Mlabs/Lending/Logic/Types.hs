@@ -45,13 +45,13 @@ module Mlabs.Lending.Logic.Types (
   PriceAct (..),
   GovernAct (..),
   Coin,
-  Funds(..),
+  Funds (..),
   toLendingToken,
   fromLendingToken,
   fromAToken,
   QueryRes (..),
   SupportedCurrency (..),
-  UserBalance(..),
+  UserBalance (..),
 ) where
 
 import PlutusTx.Prelude hiding ((%))
@@ -413,23 +413,24 @@ data SupportedCurrency = SupportedCurrency
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
--- | Query returns the user's funds currently locked in the current Lendex,
--- including both underlying tokens and aTokens of multiple kinds. Also returns
--- the user's current borrow amount and advances interest.
+{- | Query returns the user's funds currently locked in the current Lendex,
+ including both underlying tokens and aTokens of multiple kinds. Also returns
+ the user's current borrow amount and advances interest.
+-}
 data UserBalance = UserBalance
   { -- | User Id
-    ub'id    :: !UserId
-     -- | Funds 
-  , ub'funds :: [Funds] 
+    ub'id :: !UserId
+  , -- | Funds
+    ub'funds :: [Funds]
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
-data Funds = Funds 
-  { funds'coin       :: Coin
-  , funds'deposit    :: Integer  
+data Funds = Funds
+  { funds'coin :: Coin
+  , funds'deposit :: Integer
   , funds'collateral :: Integer
-  , funds'borrow     :: Integer
+  , funds'borrow :: Integer
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
