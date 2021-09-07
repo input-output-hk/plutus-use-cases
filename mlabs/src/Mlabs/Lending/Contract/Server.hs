@@ -17,6 +17,7 @@ module Mlabs.Lending.Contract.Server (
 
 import Prelude
 
+import Data.Bifunctor (second)
 import Control.Monad (forever, guard)
 import Data.List.Extra (firstJust)
 import Data.Map qualified as Map (elems)
@@ -171,11 +172,11 @@ queryCurrentBalance :: Types.LendexId -> QueryContract ()
 queryCurrentBalance lid = do
   (_, pool)   <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
   let users    = getUsers pool
-  let wallets  = fmap (\(uid, usr) -> (uid, fmap (\(coin,wallet)-> (coin, aux wallet)) . M.toList . getUserWallets $ usr)) . M.toList $ users
-  tellResult . fmap ( \(uid,info) -> Types.UserBalance uid (unPack info)) $ wallets
+  let wallets  = fmap (second (fmap (second aux) . M.toList . getUserWallets)) . M.toList $ users
+  tellResult . fmap (uncurry Types.UserBalance . second unPack ) $ wallets
   pure ()
+  
   where
-
     getUsers :: Types.LendingPool ->  M.Map Types.UserId Types.User
     getUsers lp = lp.lp'users 
 
