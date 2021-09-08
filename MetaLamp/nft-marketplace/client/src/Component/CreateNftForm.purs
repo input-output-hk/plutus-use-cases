@@ -30,6 +30,7 @@ type SubmittedNft
     , description :: String
     , subcategories :: Array String
     , file :: File
+    , revealIssuer :: Boolean
     }
 
 getSubmittedNft :: File -> { | PutNftRow F.OutputType } -> SubmittedNft
@@ -38,6 +39,7 @@ getSubmittedNft file form =
   , description: form.description
   , subcategories: _.category <$> form.subcategories
   , file: file
+  , revealIssuer: form.revealIssuer
   }
 
 newtype PutNftForm r f
@@ -49,6 +51,7 @@ type PutNftRow f
   = ( name :: f Void String String
     , description :: f Void String String
     , subcategories :: f V.FieldError (Maybe (Array CategoryInfo)) (Array CategoryInfo)
+    , revealIssuer :: f Void Boolean Boolean
     )
 
 -- Form component types
@@ -89,6 +92,7 @@ putNftComponent =
         PutNftForm
           { name: F.noValidation
           , description: F.noValidation
+          , revealIssuer: F.noValidation
           , subcategories: F.hoistFn_ (fromMaybe [])
           }
     , initialInputs: Nothing
@@ -174,6 +178,21 @@ putNftComponent =
                 , HE.onFileUpload onFileUpload
                 ]
           ]
+      , UI.field
+          { label: "Reveal Issuer"
+          , help: Right "Do you want to reveal you are the issuer of the token?"
+          }
+          [ HH.label
+              [ class_ "checkbox" ]
+              [ HH.input
+                  [ class_ "checkbox"
+                  , HP.type_ HP.InputCheckbox
+                  , HP.checked $ F.getInput _revealIssuer st.form
+                  , HE.onChange \_ -> Just $ F.modify _revealIssuer not
+                  ]
+              , HH.text " Toggle reveal issuer"
+              ]
+          ]
       ]
     where
     mkCategoryForm i = do
@@ -190,6 +209,8 @@ putNftComponent =
     _description = SProxy :: SProxy "description"
 
     _categoryForm = SProxy :: SProxy "categoryForm"
+
+    _revealIssuer = SProxy :: SProxy "revealIssuer"
 
 -----
 -- Category form, nested inside

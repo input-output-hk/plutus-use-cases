@@ -106,7 +106,7 @@ component =
               , cnpNftName: nft.name
               , cnpNftDescription: nft.description
               , cnpNftCategory: nft.subcategories
-              , cnpRevealIssuer: true
+              , cnpRevealIssuer: nft.revealIssuer
               }
       logInfo $ "Marketplace nft created: " <> show resp
       pure unit
