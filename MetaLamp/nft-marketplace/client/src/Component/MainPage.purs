@@ -3,6 +3,7 @@ module Component.MainPage where
 import Data.Route
 import Data.Unit
 import Prelude
+
 import Business.Marketplace (getMarketplaceContracts)
 import Business.Marketplace as Marketplace
 import Business.MarketplaceInfo (InfoContractId, getInfoContractId)
@@ -30,6 +31,7 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..))
 import Data.UserInstance (UserInstance)
+import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
 import Halogen as H
 import Halogen.HTML as HH
@@ -85,6 +87,7 @@ component ::
   forall m input output.
   MonadEffect m =>
   Navigate m =>
+  MonadAff m =>
   LogMessages m =>
   PollContract m =>
   IPFS.IPFS m =>
@@ -170,6 +173,7 @@ pages ::
   IPFS.IPFS m =>
   PollContract m =>
   MonadEffect m =>
+  MonadAff m =>
   LogMessages m =>
   State -> H.ComponentHTML Action Slots m
 pages st =
@@ -220,6 +224,7 @@ renderUserPage ::
   forall m.
   IPFS.IPFS m =>
   MonadEffect m =>
+  MonadAff m =>
   PollContract m =>
   LogMessages m =>
   Maybe User.Input -> H.ComponentHTML Action Slots m

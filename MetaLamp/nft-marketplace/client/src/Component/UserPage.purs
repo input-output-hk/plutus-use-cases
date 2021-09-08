@@ -1,6 +1,7 @@
 module Component.UserPage where
 
 import Prelude
+
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceUser (UserContractId)
 import Business.MarketplaceUser as MarketplaceUser
@@ -8,11 +9,13 @@ import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages, logError, logInfo)
 import Capability.PollContract (class PollContract)
 import Chain.State (handleAction)
+import Component.CreateNftForm as CreateNftForm
 import Control.Monad.Error.Class (throwError)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Symbol (SProxy(..))
 import Data.UserInstance (UserInstance)
+import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
 import Effect.Exception (throw)
 import Halogen (Component, lift, liftEffect)
@@ -44,6 +47,10 @@ data Action
   = Initialize
   | Reinitialize Input
   | CreateNft File.File
+  | HandleEventForm CreateNftForm.Event
+
+type Slots =
+  ( eventForm :: CreateNftForm.Slot Unit )
 
 component ::
   forall query output m.
@@ -51,6 +58,7 @@ component ::
   IPFS.IPFS m =>
   PollContract m =>
   MonadEffect m =>
+  MonadAff m =>
   H.Component HH.HTML query Input output m
 component =
   H.mkComponent
@@ -65,14 +73,15 @@ component =
               }
     }
   where
-  render :: State -> H.ComponentHTML Action () m
+  render :: State -> H.ComponentHTML Action Slots m
   render _ =
     HH.div_
       [ HH.h3_ [ HH.text "Create NFT from file: " ]
       , HH.input [ HP.type_ HP.InputFile, HE.onFileUpload onNftUpload ]
+      , HH.slot (SProxy :: _ "eventForm") unit CreateNftForm.eventComponent unit (Just <<< HandleEventForm)
       ]
 
-  handleAction :: forall slots. Action -> H.HalogenM State Action slots output m Unit
+  handleAction :: Action -> H.HalogenM State Action Slots output m Unit
   handleAction = case _ of
     Initialize -> do
       state <- H.get
@@ -104,6 +113,7 @@ component =
               }
       logInfo $ "Marketplace nft created: " <> show resp
       pure unit
+    HandleEventForm event -> logInfo $ show event
 
 onNftUpload :: Array File.File → Maybe Action
 onNftUpload = case _ of
