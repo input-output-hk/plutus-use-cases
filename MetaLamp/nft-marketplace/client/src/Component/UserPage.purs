@@ -2,29 +2,30 @@ module Component.UserPage where
 
 import Prelude
 import Business.MarketplaceInfo (InfoContractId)
-import Business.MarketplaceUser (UserContractId)
-import Business.MarketplaceUser as MarketplaceUser
+import Business.MarketplaceInfo as MarketplaceInfo
+import Business.MarketplaceUser (createNft) as MarketplaceUser
 import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages, logError, logInfo)
 import Capability.PollContract (class PollContract)
-import Chain.State (handleAction)
 import Component.CreateNftForm as CreateNftForm
-import Control.Monad.Error.Class (throwError)
+import Component.Utils (runRD)
+import Data.Bifunctor (lmap)
 import Data.Either (Either(..))
+import Data.Lens (Lens')
+import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Symbol (SProxy(..))
 import Data.UserInstance (UserInstance)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
 import Effect.Exception (throw)
-import Halogen (Component, lift, liftEffect)
+import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
-import Plutus.Contracts.NftMarketplace.OffChain.User as MarketplaceUser
-import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import Web.File.File as File
+import Network.RemoteData (RemoteData(..))
+import Plutus.Contracts.NftMarketplace.OffChain.User (CreateNftParams(..)) as MarketplaceUser
+import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
+import Plutus.V1.Ledger.Value (Value)
 
 type Slot id
   = forall query. H.Slot query Void id
@@ -40,11 +41,21 @@ type Input
 type State
   = { userInstance :: UserInstance
     , infoInstance :: InfoContractId
+    , userFunds :: RemoteData String Value
+    , marketplaceState :: RemoteData String MarketplaceDatum
     }
+
+_userFunds :: Lens' State (RemoteData String Value)
+_userFunds = prop (SProxy :: SProxy "userFunds")
+
+_marketplaceState :: Lens' State (RemoteData String MarketplaceDatum)
+_marketplaceState = prop (SProxy :: SProxy "marketplaceState")
 
 data Action
   = Initialize
   | Reinitialize Input
+  | GetUserFunds
+  | GetMarketplaceState
   | CreateNft CreateNftForm.SubmittedNft
 
 type Slots
@@ -60,7 +71,7 @@ component ::
   H.Component HH.HTML query Input output m
 component =
   H.mkComponent
-    { initialState: identity
+    { initialState: initialState
     , render
     , eval:
         H.mkEval
@@ -71,6 +82,14 @@ component =
               }
     }
   where
+  initialState :: Input -> State
+  initialState i =
+    { userInstance: i.userInstance
+    , infoInstance: i.infoInstance
+    , userFunds: NotAsked
+    , marketplaceState: NotAsked
+    }
+
   render :: State -> H.ComponentHTML Action Slots m
   render _ =
     HH.div_
@@ -81,11 +100,21 @@ component =
   handleAction :: Action -> H.HalogenM State Action Slots output m Unit
   handleAction = case _ of
     Initialize -> do
+      handleAction GetUserFunds
+      handleAction GetMarketplaceState
       state <- H.get
       logInfo $ show state
-    Reinitialize st -> do
-      H.put st
+    Reinitialize i -> do
+      H.put $ initialState i
       handleAction Initialize
+    GetUserFunds -> do
+      state <- H.get
+      runRD _userFunds $ map (lmap show)
+        $ MarketplaceInfo.fundsAt state.infoInstance state.userInstance.userPubKey
+    GetMarketplaceState -> do
+      state <- H.get
+      runRD _marketplaceState $ map (lmap show)
+        $ MarketplaceInfo.marketplaceStore state.infoInstance
     CreateNft nft -> do
       ipfsCid <-
         IPFS.pinFile nft.file

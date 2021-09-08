@@ -1,12 +1,11 @@
 module AppAff where
 
-import Capability.Navigate
-import Data.Route
+import Capability.Navigate (class Navigate)
+import Data.Route (routeCodec)
 import Prelude
-import Utils.APIError
+import Utils.APIError (APIError(..))
 import Affjax (Error, Response, defaultRequest, printError, request)
-import Affjax.RequestBody (RequestBody, formData, string)
-import Affjax.RequestHeader (RequestHeader(..))
+import Affjax.RequestBody (RequestBody, string)
 import Affjax.ResponseFormat as ResponseFormat
 import AjaxUtils (renderForeignErrors)
 import Capability.Contract (class Contract, ContractId(..), Endpoint(..))
@@ -15,31 +14,27 @@ import Capability.LogMessages (class LogMessages)
 import Capability.PollContract (class PollContract)
 import Control.Monad.Except (ExceptT, runExcept, runExceptT)
 import Control.Monad.Reader.Trans (class MonadAsk, ReaderT, asks, runReaderT)
-import Data.Argonaut.Core (Json, stringify)
-import Data.Bifunctor (bimap, lmap)
+import Data.Bifunctor (bimap)
 import Data.Either (Either(..), note)
 import Data.HTTP.Method (Method(..), fromString)
 import Data.Maybe (Maybe(..))
-import Data.MediaType.Common (multipartFormData)
 import Data.Newtype (wrap)
 import Effect (Effect)
-import Effect.Aff (Aff, Milliseconds(..), delay, launchAff)
+import Effect.Aff (Aff, Milliseconds(..), delay)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
-import Foreign (renderForeignError)
 import Foreign.Generic (class Decode, Foreign, F, decode, encodeJSON)
 import Foreign.JSON (decodeJSONWith)
-import Foreign.NullOrUndefined (undefined)
-import Routing.Duplex as Routing
-import Routing.Hash as Routing
+import Routing.Duplex (print) as Routing
+import Routing.Hash (setHash) as Routing
 import Servant.PureScript.Ajax (AjaxError(..), ErrorDescription(..), ajax)
 import Type.Equality (class TypeEquals, from)
 import Web.File.File as File
 import Web.XHR.FormData as FormData
-import Web.XHR.ReadyState as XHR
-import Web.XHR.ResponseType as XHR
-import Web.XHR.XMLHttpRequest as XHR
+import Web.XHR.ReadyState (ReadyState(..)) as XHR
+import Web.XHR.ResponseType (string) as XHR
+import Web.XHR.XMLHttpRequest (XMLHttpRequest, open, readyState, response, sendFormData, status, statusText, xmlHttpRequest) as XHR
 
 type Env
   = { ipfsServer :: ServerInfo, pabServer :: ServerInfo }
