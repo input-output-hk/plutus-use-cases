@@ -100,6 +100,7 @@ adminEndpoints lid = do
 {- | Endpoints for querrying Lendex state:
    * `QueryAllLendexes` - returns a list of `LendingPool` data associated with each available lendes
    * `QuerySupportedCurrencies` - returns the list of supported currencies (see `SupportedCurrency`) for current `LendingPool`
+   * `QuerryCurrentBalance` - returns a list of all the users, together with their current balances.
 -}
 queryEndpoints :: Types.LendexId -> QueryContract ()
 queryEndpoints lid =

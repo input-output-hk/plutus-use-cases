@@ -73,7 +73,7 @@ queryAllLendexes lid wal spm = do
   let Just (Last (Types.QueryResAllLendexes ls)) = ls'
   pure ls
 
--- | Queries for all Lendexes started  with given StartParams
+-- | Queries the current balance of all the users in the Lendex.
 queryCurrentBalance :: Types.LendexId -> Emulator.Wallet -> Api.QuerryCurrentBalance -> EmulatorTrace [Types.UserBalance]
 queryCurrentBalance lid wal x = do
   hdl <- activateContractWallet wal (queryEndpoints lid)
