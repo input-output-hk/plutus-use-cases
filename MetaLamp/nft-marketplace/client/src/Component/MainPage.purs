@@ -3,7 +3,6 @@ module Component.MainPage where
 import Data.Route
 import Data.Unit
 import Prelude
-
 import Business.Marketplace (getMarketplaceContracts)
 import Business.Marketplace as Marketplace
 import Business.MarketplaceInfo (InfoContractId, getInfoContractId)

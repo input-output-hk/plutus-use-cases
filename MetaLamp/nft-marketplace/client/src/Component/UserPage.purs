@@ -1,7 +1,6 @@
 module Component.UserPage where
 
 import Prelude
-
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceUser (UserContractId)
 import Business.MarketplaceUser as MarketplaceUser
@@ -46,11 +45,10 @@ type State
 data Action
   = Initialize
   | Reinitialize Input
-  | CreateNft File.File
-  | HandleEventForm CreateNftForm.Event
+  | CreateNft CreateNftForm.SubmittedNft
 
-type Slots =
-  ( eventForm :: CreateNftForm.Slot Unit )
+type Slots
+  = ( createNftForm :: CreateNftForm.Slot Unit )
 
 component ::
   forall query output m.
@@ -77,8 +75,7 @@ component =
   render _ =
     HH.div_
       [ HH.h3_ [ HH.text "Create NFT from file: " ]
-      , HH.input [ HP.type_ HP.InputFile, HE.onFileUpload onNftUpload ]
-      , HH.slot (SProxy :: _ "eventForm") unit CreateNftForm.eventComponent unit (Just <<< HandleEventForm)
+      , HH.slot (SProxy :: _ "createNftForm") unit CreateNftForm.putNftComponent unit (Just <<< CreateNft)
       ]
 
   handleAction :: Action -> H.HalogenM State Action Slots output m Unit
@@ -89,9 +86,9 @@ component =
     Reinitialize st -> do
       H.put st
       handleAction Initialize
-    CreateNft file -> do
+    CreateNft nft -> do
       ipfsCid <-
-        IPFS.pinFile file
+        IPFS.pinFile nft.file
           >>= case _ of
               Left e -> do
                 let
@@ -106,16 +103,10 @@ component =
         MarketplaceUser.createNft contractId
           $ MarketplaceUser.CreateNftParams
               { cnpIpfsCid: ipfsCid
-              , cnpNftName: "String"
-              , cnpNftDescription: "String"
-              , cnpNftCategory: [ "String" ]
+              , cnpNftName: nft.name
+              , cnpNftDescription: nft.description
+              , cnpNftCategory: nft.subcategories
               , cnpRevealIssuer: true
               }
       logInfo $ "Marketplace nft created: " <> show resp
       pure unit
-    HandleEventForm event -> logInfo $ show event
-
-onNftUpload :: Array File.File → Maybe Action
-onNftUpload = case _ of
-  [ file ] -> Just $ CreateNft file
-  _ -> Nothing

@@ -1,7 +1,6 @@
 module View.FormElement where
 
 import Prelude
-
 import DOM.HTML.Indexed (HTMLa, HTMLbutton, HTMLinput, HTMLtextarea)
 import DOM.HTML.Indexed.InputType (InputType(..))
 import Data.Either (Either(..), either)
@@ -21,14 +20,14 @@ import Record.Builder as Builder
 import Web.Event.Event (Event)
 import Web.UIEvent.FocusEvent (FocusEvent)
 
-type Plain i p = Array (HH.HTML i p) -> HH.HTML i p
+type Plain i p
+  = Array (HH.HTML i p) -> HH.HTML i p
 
 class_ :: forall r t. String -> HH.IProp ( "class" :: String | r ) t
 class_ = HP.class_ <<< HH.ClassName
 
 ----------
 -- Typography
-
 h1_ :: forall i p. Plain i p
 h1_ = HH.h1 [ class_ "title" ]
 
@@ -43,7 +42,6 @@ a props = HH.a ([ class_ "has-text-blue" ] <> props)
 
 ----------
 -- Layout
-
 section_ :: forall i p. Plain i p
 section_ content =
   HH.section
@@ -67,7 +65,6 @@ content_ = HH.div [ class_ "content" ]
 
 ----------
 -- Buttons
-
 button :: forall i p. Array (HH.IProp HTMLbutton p) -> Plain i p
 button props = HH.button ([ class_ "button is-light" ] <> props)
 
@@ -79,12 +76,11 @@ buttonPrimary props = HH.button ([ class_ "button is-link" ] <> props)
 
 ----------
 -- Form
-
 grouped_ :: forall i p. Plain i p
 grouped_ array =
   HH.div
     [ class_ "field is-grouped" ]
-    ( wrap <$> array )
+    (wrap <$> array)
   where
   wrap x = HH.p [ class_ "control" ] [ x ]
 
@@ -103,12 +99,12 @@ field config contents =
         Right str -> help_ str
     ]
   where
-    help_ str = HH.p [ class_ "help" ] [ HH.text str ]
-    helpError_ str = HH.p [ class_ "help is-danger" ] [ HH.text str ]
+  help_ str = HH.p [ class_ "help" ] [ HH.text str ]
+
+  helpError_ str = HH.p [ class_ "help is-danger" ] [ HH.text str ]
 
 ----------
 -- Formless
-
 -- Render a result as help text
 resultToHelp :: forall t e. ToText e => String -> FormFieldResult e t -> Either String String
 resultToHelp str = case _ of
@@ -117,74 +113,76 @@ resultToHelp str = case _ of
   other -> maybe (Right str) Left $ V.showError other
 
 -- Provide your own label, error or help text, and placeholder
-type FieldConfig' =
-  { label :: String
-  , help :: Either String String
-  , placeholder :: String
-  }
+type FieldConfig'
+  = { label :: String
+    , help :: Either String String
+    , placeholder :: String
+    }
 
 -- Provide a label, help text, placeholder, and symbol to have Formless wire everything
 -- up on your behalf.
-type FieldConfig sym =
-  { label :: String
-  , help :: String
-  , placeholder :: String
-  , sym :: SProxy sym
-  }
+type FieldConfig sym
+  = { label :: String
+    , help :: String
+    , placeholder :: String
+    , sym :: SProxy sym
+    }
 
 input :: forall i p. FieldConfig' -> Array (HH.IProp HTMLinput p) -> HH.HTML i p
 input config props =
   field
     { label: config.label, help: config.help }
-    [ HH.input $
-        [ HP.type_ InputText
-        , either (const $ class_ "input is-danger") (const $ class_ "input") config.help
-        , HP.placeholder config.placeholder
-        ] <> props
+    [ HH.input
+        $ [ HP.type_ InputText
+          , either (const $ class_ "input is-danger") (const $ class_ "input") config.help
+          , HP.placeholder config.placeholder
+          ]
+        <> props
     ]
 
 textarea :: forall i p. FieldConfig' -> Array (HH.IProp HTMLtextarea p) -> HH.HTML i p
 textarea config props =
   field
     { label: config.label, help: config.help }
-    [ HH.textarea $
-        [ config.help # either
-            (const $ class_ "textarea is-danger")
-            (const $ class_ "textarea")
-        , HP.placeholder config.placeholder
-        ] <> props
+    [ HH.textarea
+        $ [ config.help
+              # either
+                  (const $ class_ "textarea is-danger")
+                  (const $ class_ "textarea")
+          , HP.placeholder config.placeholder
+          ]
+        <> props
     ]
 
 -- Already ready to work with Formless
-formlessField
-  :: forall form st act ps m sym e o t0 t1 r fields inputs
-   . IsSymbol sym
-  => ToText e
-  => Newtype (form Record F.FormField) { | fields }
-  => Newtype (form Variant F.InputFunction) (Variant inputs)
-  => Cons sym (F.FormField e String o) t0 fields
-  => Cons sym (F.InputFunction e String o) t1 inputs
-  => (FieldConfig'
-       -> Array (HH.IProp
-                  (value :: String, onBlur :: FocusEvent, onInput :: Event | r)
-                  (F.Action form act)
-                )
-       -> F.ComponentHTML form act ps m
-     )
-  -> FieldConfig sym
-  -> F.PublicState form st
-  -> F.ComponentHTML form act ps m
+formlessField ::
+  forall form st act ps m sym e o t0 t1 r fields inputs.
+  IsSymbol sym =>
+  ToText e =>
+  Newtype (form Record F.FormField) { | fields } =>
+  Newtype (form Variant F.InputFunction) (Variant inputs) =>
+  Cons sym (F.FormField e String o) t0 fields =>
+  Cons sym (F.InputFunction e String o) t1 inputs =>
+  ( FieldConfig' ->
+    Array
+      ( HH.IProp
+          ( value :: String, onBlur :: FocusEvent, onInput :: Event | r )
+          (F.Action form act)
+      ) ->
+    F.ComponentHTML form act ps m
+  ) ->
+  FieldConfig sym ->
+  F.PublicState form st ->
+  F.ComponentHTML form act ps m
 formlessField fieldType config state = fieldType (Builder.build config' config) props
   where
-    config' =
-      Builder.delete (SProxy :: SProxy "sym")
-        >>> Builder.modify (SProxy :: SProxy "help") (const help')
+  config' =
+    Builder.delete (SProxy :: SProxy "sym")
+      >>> Builder.modify (SProxy :: SProxy "help") (const help')
 
-    help' =
-      maybe (Right config.help) (Left <<< toText) (F.getError config.sym state.form)
+  help' = maybe (Right config.help) (Left <<< toText) (F.getError config.sym state.form)
 
-    props =
-      [ HP.value (F.getInput config.sym state.form)
-      , HE.onValueInput (Just <<< F.setValidate config.sym)
-      ]
-
+  props =
+    [ HP.value (F.getInput config.sym state.form)
+    , HE.onValueInput (Just <<< F.setValidate config.sym)
+    ]
