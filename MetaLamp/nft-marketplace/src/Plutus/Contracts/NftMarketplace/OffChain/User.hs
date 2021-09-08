@@ -15,67 +15,70 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.User where
 
-import           Control.Lens                                  (_2, _Left,
-                                                                _Right, (^.),
-                                                                (^?))
-import qualified Control.Lens                                  as Lens
-import           Control.Monad                                 hiding (fmap)
-import qualified Data.Aeson                                    as J
-import           Data.Proxy                                    (Proxy (..))
-import           Data.Text                                     (Text)
-import qualified Data.Text                                     as T
-import qualified Ext.Plutus.Contracts.Auction                  as Auction
-import           Ext.Plutus.Ledger.Value                       (utxoValue)
-import qualified GHC.Generics                                  as Haskell
+import           Control.Lens                                           (_2,
+                                                                         _Left,
+                                                                         _Right,
+                                                                         (^.),
+                                                                         (^?))
+import qualified Control.Lens                                           as Lens
+import           Control.Monad                                          hiding
+                                                                        (fmap)
+import qualified Data.Aeson                                             as J
+import           Data.Proxy                                             (Proxy (..))
+import           Data.Text                                              (Text)
+import qualified Data.Text                                              as T
+import qualified Ext.Plutus.Contracts.Auction                           as Auction
+import           Ext.Plutus.Ledger.Value                                (utxoValue)
+import qualified GHC.Generics                                           as Haskell
 import           Ledger
-import qualified Ledger.Typed.Scripts                          as Scripts
+import qualified Ledger.Typed.Scripts                                   as Scripts
 import           Ledger.Typed.Tx
-import qualified Ledger.Value                                  as V
+import qualified Ledger.Value                                           as V
 import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                     as Currency
+import           Plutus.Contracts.Currency                              as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID
 import           Plutus.Contracts.NftMarketplace.OffChain.Info
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core  as Core
-import qualified Plutus.Contracts.Services.Sale                as Sale
+import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Core
+import qualified Plutus.Contracts.Services.Sale                         as Sale
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                             as AssocMap
-import           PlutusTx.Prelude                              hiding
-                                                               (Semigroup (..))
-import           Prelude                                       (Semigroup (..))
-import qualified Prelude                                       as Haskell
+import qualified PlutusTx.AssocMap                                      as AssocMap
+import           PlutusTx.Prelude                                       hiding
+                                                                        (Semigroup (..))
+import           Prelude                                                (Semigroup (..))
+import qualified Prelude                                                as Haskell
 import qualified Schema
-import           Text.Printf                                   (printf)
+import           Text.Printf                                            (printf)
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
 
 data CreateNftParams =
   CreateNftParams {
-    cnpIpfsCid        :: BuiltinByteString,
-    cnpNftName        :: BuiltinByteString,
-    cnpNftDescription :: BuiltinByteString,
-    cnpNftCategory    :: Core.Category,
+    cnpIpfsCid        :: Text,
+    cnpNftName        :: Text,
+    cnpNftDescription :: Text,
+    cnpNftCategory    :: [Text],
     cnpRevealIssuer   :: Bool
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''CreateNftParams
-PlutusTx.makeLift ''CreateNftParams
 Lens.makeClassy_ ''CreateNftParams
 
 -- | The user specifies which NFT to mint and add to marketplace store,
 --   he gets it into his wallet and the corresponding store entry is created
 createNft :: Core.Marketplace -> CreateNftParams -> Contract w s Text ()
 createNft marketplace CreateNftParams {..} = do
-    let ipfsCidHash = sha2_256 cnpIpfsCid
+    let ipfsCid = deserializeByteString cnpIpfsCid
+    let ipfsCidHash = sha2_256 ipfsCid
     nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
     when (isJust $ AssocMap.lookup ipfsCidHash nftStore) $ throwError "Nft entry already exists"
 
     pkh <- getOwnPubKey
-    let tokenName = V.TokenName cnpIpfsCid
+    let tokenName = V.TokenName ipfsCid
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
            Currency.mintContract pkh [(tokenName, 1)]
@@ -83,9 +86,9 @@ createNft marketplace CreateNftParams {..} = do
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
             { niCurrency          = Currency.currencySymbol nft
-            , niName        = cnpNftName
-            , niDescription = cnpNftDescription
-            , niCategory = cnpNftCategory
+            , niName        = deserializeByteString cnpNftName
+            , niDescription = deserializeByteString cnpNftDescription
+            , niCategory = deserializeByteString <$> cnpNftCategory
             , niIssuer      = if cnpRevealIssuer then Just pkh else Nothing
             }
     void $ mapError' $ runStep client $ Core.CreateNftRedeemer ipfsCidHash nftEntry
@@ -101,8 +104,6 @@ data OpenSaleParams =
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''OpenSaleParams
-PlutusTx.makeLift ''OpenSaleParams
 Lens.makeClassy_ ''OpenSaleParams
 
 -- | The user opens sale for his NFT
@@ -136,8 +137,6 @@ data CloseLotParams =
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''CloseLotParams
-PlutusTx.makeLift ''CloseLotParams
 Lens.makeClassy_ ''CloseLotParams
 
 -- | The user buys specified NFT lot
@@ -198,8 +197,6 @@ data StartAnAuctionParams =
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''StartAnAuctionParams
-PlutusTx.makeLift ''StartAnAuctionParams
 Lens.makeClassy_ ''StartAnAuctionParams
 
 -- | The user starts an auction for specified NFT
@@ -258,8 +255,6 @@ data BidOnAuctionParams =
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''BidOnAuctionParams
-PlutusTx.makeLift ''BidOnAuctionParams
 Lens.makeClassy_ ''BidOnAuctionParams
 
 -- | The user submits a bid on the auction for specified NFT
@@ -286,29 +281,28 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
 
 data BundleUpParams =
   BundleUpParams {
-    bupIpfsCids    :: [BuiltinByteString],
-    bupName        :: BuiltinByteString,
-    bupDescription :: BuiltinByteString,
-    bupCategory    :: Core.Category
+    bupIpfsCids    :: [Text],
+    bupName        :: Text,
+    bupDescription :: Text,
+    bupCategory    :: [Text]
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''BundleUpParams
-PlutusTx.makeLift ''BundleUpParams
 Lens.makeClassy_ ''BundleUpParams
 
 -- | The user creates a bundle from specified NFTs
 bundleUp :: forall w s. Core.Marketplace -> BundleUpParams -> Contract w s Text ()
 bundleUp marketplace BundleUpParams {..} = do
-    let bundleId = Core.calcBundleIdHash bupIpfsCids
+    let ipfsCids = deserializeByteString <$> bupIpfsCids
+    let bundleId = Core.calcBundleIdHash ipfsCids
     bundles <- Core.mdBundles <$> marketplaceStore marketplace
     when (isJust $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry already exists"
-    let nftIds = sha2_256 <$> bupIpfsCids
+    let nftIds = sha2_256 <$> ipfsCids
     let bundleInfo = Core.BundleInfo
-          { biName        = bupName
-          , biDescription = bupDescription
-          , biCategory    = bupCategory
+          { biName        = deserializeByteString bupName
+          , biDescription = deserializeByteString bupDescription
+          , biCategory    = deserializeByteString <$> bupCategory
           }
 
     let client = Core.marketplaceClient marketplace
@@ -319,19 +313,17 @@ bundleUp marketplace BundleUpParams {..} = do
 
 data UnbundleParams =
   UnbundleParams {
-    upIpfsCids :: [BuiltinByteString]
+    upIpfsCids :: [Text]
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''UnbundleParams
-PlutusTx.makeLift ''UnbundleParams
 Lens.makeClassy_ ''UnbundleParams
 
 -- | The user unbundles specified NFTs
 unbundle :: Core.Marketplace -> UnbundleParams -> Contract w s Text ()
 unbundle marketplace UnbundleParams {..} = do
-    let bundleId = Core.calcBundleIdHash upIpfsCids
+    let bundleId = Core.calcBundleIdHash $ fmap deserializeByteString upIpfsCids
     bundles <- Core.mdBundles <$> marketplaceStore marketplace
     when (isNothing $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry does not exist"
 

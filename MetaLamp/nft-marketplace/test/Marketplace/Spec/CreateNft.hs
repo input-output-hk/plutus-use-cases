@@ -95,4 +95,4 @@ valueCheck =
     (walletAddress Fixtures.userWallet)
     (Utils.one hasNft . V.flattenValue)
     where
-      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCid
+      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
