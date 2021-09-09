@@ -259,7 +259,7 @@ instance IsUserAct LiquidationCall where toUserAct LiquidationCall {..} = Types.
 
 -- price acts
 
-instance IsPriceAct  SetAssetPrice where toPriceAct (SetAssetPrice asset rate) = Types.SetAssetPriceAct asset rate
+instance IsPriceAct SetAssetPrice where toPriceAct (SetAssetPrice asset rate) = Types.SetAssetPriceAct asset rate
 
 -- govern acts
 

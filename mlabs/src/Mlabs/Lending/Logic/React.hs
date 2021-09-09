@@ -14,10 +14,10 @@ import PlutusTx.Prelude
 
 import Control.Monad.Except (MonadError (throwError))
 import Control.Monad.State.Strict (MonadState (get, put), gets)
+import Data.Semigroup (Last (..))
 import PlutusTx.AssocMap qualified as M
 import PlutusTx.These (these)
 import Prelude qualified as Hask
-import Data.Semigroup (Last (..))
 
 import Mlabs.Control.Check (isNonNegative, isPositive, isPositiveRational, isUnitRange)
 import Mlabs.Data.List qualified as L
@@ -45,26 +45,27 @@ import Mlabs.Lending.Logic.Types qualified as Types
 import PlutusTx.Ratio qualified as R
 
 {-# INLINEABLE qReact #-}
+
 -- | React to query actions by using the State Machine.
 qReact :: Types.Act -> State.St (Maybe (Last Types.QueryRes))
 qReact input = do
   case input of
     Types.QueryAct uid t act -> queryAct uid t act
-    _ -> pure $ Nothing -- does nothing for any other type of input 
-  
+    _ -> pure Nothing -- does nothing for any other type of input
   where
     queryAct uid time = \case
       Types.QueryCurrentBalanceAct () -> queryCurrentBalance uid time
-    
+
     ---------------------------------------------------------------------------------------------------------
     -- Current Balance Query
-    queryCurrentBalance ::  Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
+    queryCurrentBalance :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
     queryCurrentBalance uid cTime = do
       user <- State.getUser uid
       tDeposit <- State.getTotalDeposit user
       pure . Just . Last . Types.QueryResCurrentBalance $ Types.UserBalance uid tDeposit
 
 {-# INLINEABLE react #-}
+
 {- | State transitions for lending pool.
  For a given action we update internal state of Lending pool and produce
  list of responses to simulate change of the balances on blockchain.
@@ -322,7 +323,7 @@ react input = do
               newCoinMap = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
           put $ st {lp'reserves = newReserves, lp'coinMap = newCoinMap}
           return []
-    
+
     ---------------------------------------------------
     -- health checks
 
@@ -373,6 +374,7 @@ react input = do
     todo = return []
 
 {-# INLINEABLE checkInput #-}
+
 -- | Check if input is valid
 checkInput :: Types.Act -> State.St ()
 checkInput = \case
@@ -381,7 +383,7 @@ checkInput = \case
     checkUserAct act
   Types.PriceAct time _uid act -> checkPriceAct time act
   Types.GovernAct _uid act -> checkGovernAct act
-  Types.QueryAct {}-> pure () -- TODO think of input checks for query
+  Types.QueryAct {} -> pure () -- TODO think of input checks for query
   where
     checkUserAct = \case
       Types.DepositAct amount asset -> do

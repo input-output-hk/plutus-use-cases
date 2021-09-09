@@ -15,12 +15,19 @@ module Mlabs.Lending.Contract.Server (
   StateMachine.LendexError,
 ) where
 
-import Prelude qualified as Hask
 import Control.Monad (forever, guard)
+import Control.Monad.State.Strict (runStateT)
 import Data.List.Extra (firstJust)
 import Data.Map qualified as Map (elems)
 import Data.Semigroup (Last (..))
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
+import Mlabs.Emulator.Types (UserId (..), ownUserId)
+import Mlabs.Lending.Contract.Api qualified as Api
+import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
+import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
+import Mlabs.Lending.Logic.React qualified as React
+import Mlabs.Lending.Logic.Types qualified as Types
+import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (Datum (..))
 import Plutus.V1.Ledger.Crypto (pubKeyHash)
@@ -28,15 +35,8 @@ import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Tx
 import PlutusTx (IsData)
 import PlutusTx.AssocMap qualified as M
-import PlutusTx.Prelude 
-import Mlabs.Emulator.Types (UserId (..), ownUserId)
-import Mlabs.Lending.Contract.Api qualified as Api
-import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
-import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
-import Mlabs.Lending.Logic.Types qualified as Types
-import Mlabs.Lending.Logic.React qualified as React
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
-import Control.Monad.State.Strict (runStateT)
+import PlutusTx.Prelude
+import Prelude qualified as Hask
 
 -- | User contract monad
 type UserContract a = Contract.Contract () Api.UserSchema StateMachine.LendexError a
@@ -143,18 +143,17 @@ startLendex lid (Api.StartLendex Types.StartParams {..}) =
 -- Query actions
 
 queryAction :: Api.IsQueryAct a => Types.LendexId -> a -> QueryContract ()
-queryAction lid input =  do
+queryAction lid input = do
   (_, pool) <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
   qAction pool =<< getQueryAct input
-
   where
     qAction :: Types.LendingPool -> Types.Act -> QueryContract ()
-    qAction pool act = Contract.tell $ buildLog pool act  
-    
+    qAction pool act = Contract.tell $ buildLog pool act
+
     -- Builds the Log by running a State Machine
-    buildLog ::  Types.LendingPool -> Types.Act -> QueryResult
-    buildLog pool action = either (const Nothing) fst $ runStateT (React.qReact action) pool 
-            
+    buildLog :: Types.LendingPool -> Types.Act -> QueryResult
+    buildLog pool action = either (const Nothing) fst $ runStateT (React.qReact action) pool
+
 queryAllLendexes :: Types.LendexId -> Api.QueryAllLendexes -> QueryContract ()
 queryAllLendexes lid (Api.QueryAllLendexes spm) = do
   utxos <- Contract.utxoAt $ StateMachine.lendexAddress lid
@@ -214,8 +213,8 @@ getGovernAct act = do
 getQueryAct :: Api.IsQueryAct a => a -> QueryContract Types.Act
 getQueryAct act = do
   uid <- ownUserId
-  t   <- getCurrentTime
-  pure $ Types.QueryAct uid t  $ Api.toQueryAct act
+  t <- getCurrentTime
+  pure $ Types.QueryAct uid t $ Api.toQueryAct act
 
 getCurrentTime :: Contract.AsContractError e => Contract.Contract w s e Integer
 getCurrentTime = getSlot <$> Contract.currentSlot

@@ -72,11 +72,11 @@ handleLendexContracts lendexId initHandler = Builtin.handleBuiltin getSchema get
       Admin -> Builtin.endpointsToSchemas @Api.AdminSchema
       Query -> Builtin.endpointsToSchemas @Api.QuerySchema
     getContract = \case
-      Init   -> SomeBuiltin initHandler
-      User   -> SomeBuiltin $ Server.userEndpoints   lendexId
+      Init -> SomeBuiltin initHandler
+      User -> SomeBuiltin $ Server.userEndpoints lendexId
       Oracle -> SomeBuiltin $ Server.oracleEndpoints lendexId
-      Admin  -> SomeBuiltin $ Server.adminEndpoints  lendexId
-      Query  -> SomeBuiltin $ Server.queryEndpoints  lendexId
+      Admin -> SomeBuiltin $ Server.adminEndpoints lendexId
+      Query -> SomeBuiltin $ Server.queryEndpoints lendexId
 
 handlers :: LendexId -> InitContract -> SimulatorEffectHandlers (Builtin LendexContracts)
 handlers lid initContract =

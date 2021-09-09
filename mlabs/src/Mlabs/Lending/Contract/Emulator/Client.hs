@@ -79,4 +79,3 @@ queryAllLendexes lid wal spm = do
   ls' <- observableState hdl
   let Just (Last (Types.QueryResAllLendexes ls)) = ls'
   pure ls
-

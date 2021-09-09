@@ -75,7 +75,7 @@ test =
     , testLiquidationCall
     , testQueryAllLendexes
     , testQuerrySupportedCurrencies
---    , testQueryCurrentBalance
+    --    , testQueryCurrentBalance
     ]
   where
     check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
@@ -93,7 +93,8 @@ test =
         , check "Liquidation call real currency" (liquidationCallScene False) (liquidationCallScript False)
         ]
     testQueryAllLendexes = check "QueryAllLendexes works" queryAllLendexesScene queryAllLendexesScript
-    -- testQueryCurrentBalance = check "QeuryCurrentBalance works" queryCurrentBalanceScene queryCurrentBalanceScript
+
+-- testQueryCurrentBalance = check "QeuryCurrentBalance works" queryCurrentBalanceScene queryCurrentBalanceScript
 
 --------------------------------------------------------------------------------
 -- deposit test
@@ -333,9 +334,10 @@ queryAllLendexesScene = depositScene
 --   depositScript
 --   void $ L.queryCurrentBalance lendexId w1 (L.QueryCurrentBalance ())
 
--- | Scene is identical as the State is not changed.
--- queryCurrentBalanceScene :: Scene
--- queryCurrentBalanceScene = depositScene
+{- | Scene is identical as the State is not changed.
+ queryCurrentBalanceScene :: Scene
+ queryCurrentBalanceScene = depositScene
+-}
 
 --------------------------------------------------------------------------------
 -- querry supported currencies test

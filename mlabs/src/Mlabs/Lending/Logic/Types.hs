@@ -38,7 +38,7 @@ module Mlabs.Lending.Logic.Types (
   initReserve,
   initLendingPool,
   Act (..),
-  QueryAct(..),
+  QueryAct (..),
   UserAct (..),
   StartParams (..),
   HealthReport,
@@ -215,6 +215,7 @@ initLendingPool curSym coinCfgs admins oracles =
     coinMap = M.fromList $ fmap (\(CoinCfg coin _ aToken _ _) -> (aToken, coin)) coinCfgs
 
 {-# INLINEABLE initReserve #-}
+
 -- | Initialise empty reserve with given ratio of its coin to ada
 initReserve :: CoinCfg -> Reserve
 initReserve CoinCfg {..} =
@@ -311,10 +312,10 @@ data Act
       }
   | -- | app query actions
     QueryAct
-     { queryAct'userId :: UserId
-     , queryAct'time   :: Integer
-     , queryAct'act    :: QueryAct
-     }
+      { queryAct'userId :: UserId
+      , queryAct'time :: Integer
+      , queryAct'act :: QueryAct
+      }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -377,7 +378,7 @@ data UserAct
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Query Actions.
-data QueryAct
+newtype QueryAct
   = -- | Query current balance
     QueryCurrentBalanceAct ()
   deriving stock (Hask.Show, Generic, Hask.Eq)
@@ -440,10 +441,14 @@ data UserBalance = UserBalance
   deriving anyclass (FromJSON, ToJSON)
 
 data Funds = Funds
-  { funds'coin :: Coin          -- ^ Coin
-  , funds'deposit :: Integer    -- ^ Deposit Balance
-  , funds'collateral :: Integer -- ^ Collateral Balance
-  , funds'borrow :: Integer     -- ^ Borrow Balance
+  { -- | Coin
+    funds'coin :: Coin
+  , -- | Deposit Balance
+    funds'deposit :: Integer
+  , -- | Collateral Balance
+    funds'collateral :: Integer
+  , -- | Borrow Balance
+    funds'borrow :: Integer
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
