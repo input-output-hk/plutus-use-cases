@@ -1,6 +1,7 @@
 module Component.UserPage where
 
 import Prelude
+
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
 import Business.MarketplaceUser (createNft) as MarketplaceUser
@@ -26,6 +27,7 @@ import Network.RemoteData (RemoteData(..))
 import Plutus.Contracts.NftMarketplace.OffChain.User (CreateNftParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.V1.Ledger.Value (Value)
+import View.NftSingletons (renderNftSingletons)
 
 type Slot id
   = forall query. H.Slot query Void id
@@ -91,9 +93,11 @@ component =
     }
 
   render :: State -> H.ComponentHTML Action Slots m
-  render _ =
+  render st =
     HH.div_
-      [ HH.h3_ [ HH.text "Create NFT from file: " ]
+      [ HH.h3_ [ HH.text "Wallet NFT singletons: " ]
+      , renderNftSingletons st.userFunds st.marketplaceState
+      , HH.h3_ [ HH.text "Create NFT from file: " ]
       , HH.slot (SProxy :: _ "createNftForm") unit CreateNftForm.putNftComponent unit (Just <<< CreateNft)
       ]
 
@@ -138,4 +142,4 @@ component =
               , cnpRevealIssuer: nft.revealIssuer
               }
       logInfo $ "Marketplace nft created: " <> show resp
-      pure unit
+      handleAction Initialize
