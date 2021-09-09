@@ -21,6 +21,7 @@ module Mlabs.Lending.Logic.App (
   userAct,
   priceAct,
   governAct,
+  queryAct,
 ) where
 
 import PlutusTx.Prelude hiding ((%))
@@ -138,3 +139,9 @@ priceAct uid arg = do
 -- | Make govern act
 governAct :: Types.UserId -> Types.GovernAct -> Script
 governAct uid arg = Script.putAct $ Types.GovernAct uid arg
+
+-- | Make query act
+queryAct :: Types.UserId -> Types.QueryAct -> Script
+queryAct uid arg = do
+  t <- Script.getCurrentTime
+  Script.putAct $ Types.QueryAct uid t arg

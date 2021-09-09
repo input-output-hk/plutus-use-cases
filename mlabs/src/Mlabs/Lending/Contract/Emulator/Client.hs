@@ -4,8 +4,8 @@ module Mlabs.Lending.Contract.Emulator.Client (
   callPriceAct,
   callGovernAct,
   callStartLendex,
+  callQueryAct,
   queryAllLendexes,
-  queryCurrentBalance,
 ) where
 
 import Prelude
@@ -42,6 +42,13 @@ callUserAct lid wal act = do
         Types.BadBorrow (Types.UserId pkh) asset -> callEndpoint' hdl $ Api.LiquidationCall act'collateral pkh asset act'debtToCover act'receiveAToken
         _ -> throwError $ GenericError "Bad borrow has wrong settings"
 
+-- | Calls query act
+callQueryAct :: Types.LendexId -> Emulator.Wallet -> Types.QueryAct -> EmulatorTrace ()
+callQueryAct lid wal act = do
+  hdl <- activateContractWallet wal (queryEndpoints lid)
+  void $ case act of
+    Types.QueryCurrentBalanceAct () -> callEndpoint' hdl $ Api.QueryCurrentBalance ()
+
 -- | Calls price oracle act
 callPriceAct :: Types.LendexId -> Emulator.Wallet -> Types.PriceAct -> EmulatorTrace ()
 callPriceAct lid wal act = do
@@ -73,11 +80,3 @@ queryAllLendexes lid wal spm = do
   let Just (Last (Types.QueryResAllLendexes ls)) = ls'
   pure ls
 
--- | Queries the current balance of all the users in the Lendex.
-queryCurrentBalance :: Types.LendexId -> Emulator.Wallet -> Api.QuerryCurrentBalance -> EmulatorTrace [Types.UserBalance]
-queryCurrentBalance lid wal x = do
-  hdl <- activateContractWallet wal (queryEndpoints lid)
-  void $ callEndpoint @"query-current-balance" hdl x
-  ls' <- observableState hdl
-  let Just (Last (Types.QueryResCurrentBalance ls)) = ls'
-  pure ls

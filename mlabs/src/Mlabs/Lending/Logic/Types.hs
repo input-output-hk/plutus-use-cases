@@ -38,6 +38,7 @@ module Mlabs.Lending.Logic.Types (
   initReserve,
   initLendingPool,
   Act (..),
+  QueryAct(..),
   UserAct (..),
   StartParams (..),
   HealthReport,
@@ -131,7 +132,7 @@ data StartParams = StartParams
 
 type HealthReport = Map BadBorrow Rational
 
-{- | Borrow that don't has enough collateral.
+{- | Borrow that doesn't have enough collateral.
  It has health check ration below one.
 -}
 data BadBorrow = BadBorrow
@@ -214,7 +215,6 @@ initLendingPool curSym coinCfgs admins oracles =
     coinMap = M.fromList $ fmap (\(CoinCfg coin _ aToken _ _) -> (aToken, coin)) coinCfgs
 
 {-# INLINEABLE initReserve #-}
-
 -- | Initialise empty reserve with given ratio of its coin to ada
 initReserve :: CoinCfg -> Reserve
 initReserve CoinCfg {..} =
@@ -309,6 +309,12 @@ data Act
       { governAct'userd :: UserId
       , goverAct'act :: GovernAct
       }
+  | -- | app query actions
+    QueryAct
+     { queryAct'userId :: UserId
+     , queryAct'time   :: Integer
+     , queryAct'act    :: QueryAct
+     }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -370,6 +376,13 @@ data UserAct
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
+-- | Query Actions.
+data QueryAct
+  = -- | Query current balance
+    QueryCurrentBalanceAct ()
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
 -- | Acts that can be done by admin users.
 newtype GovernAct
   = -- | Adds new reserve
@@ -421,16 +434,16 @@ data UserBalance = UserBalance
   { -- | User Id
     ub'id :: !UserId
   , -- | Funds
-    ub'funds :: [Funds]
+    ub'tDeposit :: Integer
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 data Funds = Funds
-  { funds'coin :: Coin
-  , funds'deposit :: Integer
-  , funds'collateral :: Integer
-  , funds'borrow :: Integer
+  { funds'coin :: Coin          -- ^ Coin
+  , funds'deposit :: Integer    -- ^ Deposit Balance
+  , funds'collateral :: Integer -- ^ Collateral Balance
+  , funds'borrow :: Integer     -- ^ Borrow Balance
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
@@ -441,7 +454,7 @@ data Funds = Funds
 data QueryRes
   = QueryResAllLendexes [(Address, LendingPool)]
   | QueryResSupportedCurrencies {getSupported :: [SupportedCurrency]}
-  | QueryResCurrentBalance [UserBalance]
+  | QueryResCurrentBalance UserBalance
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -456,6 +469,7 @@ PlutusTx.unstableMakeIsData ''ReserveInterest
 PlutusTx.unstableMakeIsData ''UserAct
 PlutusTx.unstableMakeIsData ''PriceAct
 PlutusTx.unstableMakeIsData ''GovernAct
+PlutusTx.unstableMakeIsData ''QueryAct
 PlutusTx.unstableMakeIsData ''User
 PlutusTx.unstableMakeIsData ''Wallet
 PlutusTx.unstableMakeIsData ''Reserve
@@ -463,6 +477,5 @@ PlutusTx.unstableMakeIsData ''StartParams
 PlutusTx.unstableMakeIsData ''BadBorrow
 PlutusTx.unstableMakeIsData ''LendingPool
 PlutusTx.unstableMakeIsData ''Act
-
 PlutusTx.unstableMakeIsData ''LendexId
 PlutusTx.makeLift ''LendexId

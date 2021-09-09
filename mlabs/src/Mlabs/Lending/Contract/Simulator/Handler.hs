@@ -46,6 +46,8 @@ data LendexContracts
     Oracle
   | -- | govern actions
     Admin
+  | -- | Query actions
+    Query
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -68,11 +70,13 @@ handleLendexContracts lendexId initHandler = Builtin.handleBuiltin getSchema get
       User -> Builtin.endpointsToSchemas @Api.UserSchema
       Oracle -> Builtin.endpointsToSchemas @Api.OracleSchema
       Admin -> Builtin.endpointsToSchemas @Api.AdminSchema
+      Query -> Builtin.endpointsToSchemas @Api.QuerySchema
     getContract = \case
-      Init -> SomeBuiltin initHandler
-      User -> SomeBuiltin $ Server.userEndpoints lendexId
+      Init   -> SomeBuiltin initHandler
+      User   -> SomeBuiltin $ Server.userEndpoints   lendexId
       Oracle -> SomeBuiltin $ Server.oracleEndpoints lendexId
-      Admin -> SomeBuiltin $ Server.adminEndpoints lendexId
+      Admin  -> SomeBuiltin $ Server.adminEndpoints  lendexId
+      Query  -> SomeBuiltin $ Server.queryEndpoints  lendexId
 
 handlers :: LendexId -> InitContract -> SimulatorEffectHandlers (Builtin LendexContracts)
 handlers lid initContract =
