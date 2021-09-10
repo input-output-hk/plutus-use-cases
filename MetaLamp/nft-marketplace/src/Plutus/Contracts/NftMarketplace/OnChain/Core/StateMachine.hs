@@ -5,30 +5,36 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 
 module Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine where
 
-import           Control.Lens                   ((&), (.~), (?~), (^.))
-import qualified Control.Lens                   as Lens
-import qualified Data.Aeson                     as J
-import qualified Data.Text                      as T
-import qualified Ext.Plutus.Contracts.Auction   as Auction
-import qualified GHC.Generics                   as Haskell
+import           Control.Lens                                     ((&), (.~),
+                                                                   (?~), (^.))
+import qualified Control.Lens                                     as Lens
+import qualified Data.Aeson                                       as J
+import qualified Data.Text                                        as T
+import qualified Ext.Plutus.Contracts.Auction                     as Auction
+import qualified Ext.PlutusTx.AssocMap                            as AssocMap
+import qualified GHC.Generics                                     as Haskell
 import           Ledger
-import qualified Ledger.Constraints             as Constraints
-import qualified Ledger.Typed.Scripts           as Scripts
-import qualified Ledger.Value                   as V
+import qualified Ledger.Constraints                               as Constraints
+import qualified Ledger.Typed.Scripts                             as Scripts
+import qualified Ledger.Value                                     as V
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import qualified Plutus.Contracts.Services.Sale as Sale
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
+import qualified Plutus.Contracts.Services.Sale                   as Sale
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap              as AssocMap
-import           PlutusTx.Prelude               hiding (Semigroup (..))
-import           Prelude                        (Semigroup (..))
-import qualified Prelude                        as Haskell
+import qualified PlutusTx.AssocMap                                as AssocMap
+import           PlutusTx.Prelude                                 hiding
+                                                                  (Semigroup (..))
+import           Prelude                                          (Semigroup (..))
+import qualified Prelude                                          as Haskell
 
 newtype Marketplace =
   Marketplace
@@ -39,60 +45,92 @@ newtype Marketplace =
 
 PlutusTx.makeLift ''Marketplace
 
-type IpfsCid = ByteString
-type IpfsCidHash = ByteString
-type Sale = (AssetClass, Sale.LovelacePrice, Value)
-type Auction = (AssetClass, PubKeyHash, Value, Slot)
-
-data Lot = Lot
-                { lotLink    :: Either Sale Auction
-                , lotIpfsCid :: ByteString
-                }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''Lot
-
-PlutusTx.makeLift ''Lot
-
-Lens.makeClassy_ ''Lot
-
-data NFT =
-  NFT
-    { nftId          :: CurrencySymbol
-    , nftName        :: ByteString
-    , nftDescription :: ByteString
-    , nftIssuer      :: Maybe PubKeyHash
-    , nftLot         :: Maybe Lot
-    }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''NFT
-
-PlutusTx.makeLift ''NFT
-
-Lens.makeClassy_ ''NFT
-
+-- TODO (?) Prohibit for users which don't have bundled NFTs inside wallet to bundle and unbundle
+-- TODO make sum types for eithers (?)
 data MarketplaceRedeemer
-  = CreateNftRedeemer IpfsCidHash NFT
-  | PutLotRedeemer IpfsCidHash Lot
-  | RemoveLotRedeemer IpfsCidHash
+  = CreateNftRedeemer IpfsCidHash NftInfo
+  | PutLotRedeemer (Either InternalNftId InternalBundleId) LotLink
+  | RemoveLotRedeemer (Either IpfsCidHash BundleId)
+  | BundleUpRedeemer [IpfsCidHash] BundleId BundleInfo
+  | UnbundleRedeemer BundleId
   deriving  (Haskell.Show)
 
 PlutusTx.unstableMakeIsData ''MarketplaceRedeemer
 
 PlutusTx.makeLift ''MarketplaceRedeemer
 
-newtype MarketplaceDatum =
+data MarketplaceDatum =
   MarketplaceDatum
-    { getMarketplaceDatum :: AssocMap.Map IpfsCidHash NFT
+    {
+      mdSingletons :: AssocMap.Map IpfsCidHash NFT,
+      mdBundles    :: AssocMap.Map BundleId NftBundle
     }
-  deriving  (Haskell.Show)
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
 
 PlutusTx.unstableMakeIsData ''MarketplaceDatum
 
 PlutusTx.makeLift ''MarketplaceDatum
+
+{-# INLINABLE insertNft #-}
+insertNft :: IpfsCidHash
+                      -> NFT -> MarketplaceDatum -> MarketplaceDatum
+insertNft ipfsCidHash nftEntry store@MarketplaceDatum{..} =
+    store { mdSingletons = AssocMap.insert ipfsCidHash nftEntry mdSingletons }
+
+{-# INLINABLE insertBundle #-}
+insertBundle :: BundleId
+                      -> NftBundle -> MarketplaceDatum -> MarketplaceDatum
+insertBundle bundleId bundle store@MarketplaceDatum{..} =
+    store { mdBundles = AssocMap.insert bundleId bundle mdBundles }
+
+{-# INLINABLE nftUnion #-}
+nftUnion :: MarketplaceDatum -> AssocMap.Map IpfsCidHash NFT
+nftUnion MarketplaceDatum{..} = foldr union mdSingletons $ fmap getNfts $ toList mdBundles
+  where
+    union = AssocMap.unionWith const
+    getNfts NftBundle{..} = case nbTokens of
+      NoLot val      -> fmap (\info -> NFT info Nothing) val
+      HasLot val lot -> fmap (\(cid, info) -> NFT info (Just (cid, lot))) val
+
+{-# INLINABLE bundleUp #-}
+bundleUp :: [IpfsCidHash] -> BundleId -> BundleInfo -> MarketplaceDatum -> MarketplaceDatum
+bundleUp nftIds bundleId bundleInfo MarketplaceDatum{..} =
+    MarketplaceDatum { mdSingletons = foldr AssocMap.delete mdSingletons nftIds
+          , mdBundles = AssocMap.insert bundleId (makeBundle mdSingletons nftIds bundleInfo) mdBundles
+          }
+
+{-# INLINABLE unbundle #-}
+unbundle :: BundleId -> MarketplaceDatum -> MarketplaceDatum
+unbundle bundleId MarketplaceDatum{..} =
+    MarketplaceDatum { mdSingletons = foldr insert mdSingletons $ AssocMap.toList tokens
+          , mdBundles = AssocMap.delete bundleId mdBundles
+          }
+  where
+    bundle = fromMaybe (traceError "Bundle has not been created.") $
+                            AssocMap.lookup bundleId mdBundles
+    tokens = case nbTokens bundle of
+      NoLot ts   -> ts
+      HasLot _ _ -> traceError "Could not unbundle: bundle has lot."
+    insert (nftId, record) = AssocMap.insert nftId $ NFT record Nothing
+
+{-# INLINABLE addLotToBundle #-}
+addLotToBundle
+        :: AssocMap.Map IpfsCidHash IpfsCid -> LotLink -> NftBundle -> NftBundle
+addLotToBundle cids lot NftBundle {..} = case nbTokens of
+      NoLot tokens      -> NftBundle nbRecord $ HasLot (AssocMap.fromList $ fmap addCid $ AssocMap.toList tokens) lot
+      HasLot _ _ -> traceError "Could not add lot: bundle has one."
+    where
+      addCid :: (IpfsCidHash, NftInfo) -> (IpfsCidHash, (IpfsCid, NftInfo))
+      addCid (nftId, entry) = (nftId, (fromMaybe (traceError "NFT IPFS Cid not provided") $ AssocMap.lookup nftId cids, entry))
+
+{-# INLINABLE removeLotFromBundle #-}
+removeLotFromBundle :: NftBundle -> NftBundle
+removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
+  where
+    tokens = case nbTokens of
+      HasLot tokens _ -> tokens
+      NoLot _         -> traceError "Could not remove lot: bundle has none."
 
 {-# INLINABLE transition #-}
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
@@ -100,56 +138,111 @@ transition marketplace state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
     -- TODO check that ipfsCidHash is a hash (?)
         -> Just ( mustBeSignedByIssuer nftEntry
-                , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash nftEntry nftStore) currStateValue
+                , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )
-    PutLotRedeemer ipfsCidHash lot
-        -> let newEntry = maybe (traceError "NFT has not been created.") (_nftLot ?~ lot) $
-                            AssocMap.lookup ipfsCidHash nftStore
+    PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot
+        -> let newEntry = maybe (traceError "NFT has not been created.") (_nftLot ?~ (ipfsCid, lot)) $
+                            AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
            in  Just ( mempty
-                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) currStateValue
+                    , State (insertNft ipfsCidHash newEntry nftStore) currStateValue
                     )
-    RemoveLotRedeemer ipfsCidHash
+    PutLotRedeemer (Right (InternalBundleId bundleId cids)) lot
+        -> let newEntry = maybe (traceError "Bundle has not been created.") (addLotToBundle cids lot) $
+                            AssocMap.lookup bundleId $ mdBundles nftStore
+           in  Just ( mempty
+                    , State (insertBundle bundleId newEntry nftStore) currStateValue
+                    )
+    RemoveLotRedeemer (Left ipfsCidHash)
         -> let newEntry = maybe (traceError "NFT has not been created.") (_nftLot .~ Nothing) $
-                            AssocMap.lookup ipfsCidHash nftStore
+                            AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
            in  Just ( mempty
-                    , State (MarketplaceDatum $ AssocMap.insert ipfsCidHash newEntry nftStore) currStateValue
+                    , State (insertNft ipfsCidHash newEntry nftStore) currStateValue
                     )
-    _                                        -> Nothing
+    RemoveLotRedeemer (Right bundleId)
+        -> let newEntry = maybe (traceError "NFT has not been created.") removeLotFromBundle $
+                            AssocMap.lookup bundleId $ mdBundles nftStore
+           in  Just ( mempty
+                    , State (insertBundle bundleId newEntry nftStore) currStateValue
+                    )
+    BundleUpRedeemer nftIds bundleId bundleInfo
+        -> Just ( mempty
+                , State (bundleUp nftIds bundleId bundleInfo nftStore) currStateValue
+                )
+    UnbundleRedeemer bundleId
+        -> Just ( mempty
+                , State (unbundle bundleId nftStore) currStateValue
+                )
+    _                                        -> trace "Invalid transition" Nothing
   where
     stateToken :: Value
     stateToken = V.assetClassValue (marketplaceProtocolToken marketplace) 1
 
-    nftStore :: AssocMap.Map IpfsCidHash NFT
-    nftStore = getMarketplaceDatum $ stateData state
+    nftStore :: MarketplaceDatum
+    nftStore = stateData state
 
     currStateValue = stateValue state - stateToken
 
-    mustBeSignedByIssuer entry = case nftIssuer entry of
+    mustBeSignedByIssuer entry = case niIssuer entry of
       Just pkh -> Constraints.mustBeSignedBy pkh
       Nothing  -> mempty
 
 {-# INLINABLE stateTransitionCheck #-}
 stateTransitionCheck :: MarketplaceDatum -> MarketplaceRedeemer -> ScriptContext -> Bool
-stateTransitionCheck (MarketplaceDatum nftStore) (CreateNftRedeemer ipfsCidHash nftEntry) ctx =
+stateTransitionCheck nftStore (CreateNftRedeemer ipfsCidHash nftEntry) ctx =
   traceIfFalse "CreateNftRedeemer: " $
   traceIfFalse "NFT entry already exists" $
-    isNothing $ AssocMap.lookup ipfsCidHash nftStore
-stateTransitionCheck (MarketplaceDatum nftStore) (PutLotRedeemer ipfsCidHash lot) ctx =
+    isNothing $ AssocMap.lookup ipfsCidHash $ nftUnion nftStore
+stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot) ctx =
   traceIfFalse "PutLotRedeemer: " $
-  let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash nftStore
-      nftIpfsCid = lotIpfsCid lot
-      lotValue = either (Sale.saleValue . Sale.fromTuple) (Auction.apAsset . Auction.fromTuple) $ lotLink lot
-      nftValue = V.singleton (nftId nftEntry) (V.TokenName nftIpfsCid) 1
-      hasBeenPutOnSale = lotValue == nftValue
-      isValidHash = sha2_256 nftIpfsCid == ipfsCidHash
--- TODO (?) check that there was no previous lot (isNothing $ nftLot nftEntry)
+  let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
+      lotValue = either Sale.saleValue (Auction.apAsset . Auction.fromTuple) lot
+      hasBeenPutOnSale = lotValue == nftValue ipfsCid nftEntry
+      isValidHash = sha2_256 ipfsCid == ipfsCidHash
+      hasNoExistingLot = isNothing $ nftLot nftEntry
   in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale &&
-      traceIfFalse "Invalid IPFS Cid Hash" isValidHash
-stateTransitionCheck (MarketplaceDatum nftStore) (RemoveLotRedeemer ipfsCidHash) ctx =
+      traceIfFalse "Invalid IPFS Cid Hash" isValidHash &&
+      traceIfFalse "NFT already has a lot" hasNoExistingLot
+stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Right (InternalBundleId bundleId cids)) lot) ctx =
+  traceIfFalse "PutLotRedeemer: " $
+  let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
+      lotValue = either Sale.saleValue (Auction.apAsset . Auction.fromTuple) lot
+      cidHashes = case nbTokens bundle of
+          NoLot tokens    -> AssocMap.keys tokens
+          HasLot tokens _ -> AssocMap.keys tokens
+      allCidsProvided = all (isJust . (`AssocMap.lookup` cids)) cidHashes
+      hasBeenPutOnSale = bundleValue cids bundle == lotValue
+      isValidHash (ipfsCidHash, ipfsCid) = sha2_256 ipfsCid == ipfsCidHash
+      hasValidHashes = all isValidHash $ AssocMap.toList cids
+      hasNoExistingLot = not $ hasLotBundle bundle
+  in  traceIfFalse "Bundle has not been put on sale or auction" hasBeenPutOnSale &&
+      traceIfFalse "Not all IPFS Cids provided" allCidsProvided &&
+      traceIfFalse "Invalid IPFS Cid Hash provided" hasValidHashes &&
+      traceIfFalse "Bundle already has a lot" hasNoExistingLot
+stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (Left ipfsCidHash)) ctx =
   traceIfFalse "RemoveLotRedeemer: " $
-  let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash nftStore
+  let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
       hasBeenPutOnSale = isJust $ nftLot nftEntry
   in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale
+stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (Right bundleId)) ctx =
+  traceIfFalse "RemoveLotRedeemer: " $
+  let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
+      hasLot = hasLotBundle bundle
+  in  traceIfFalse "Bundle has not been put on sale or auction" hasLot
+stateTransitionCheck MarketplaceDatum {..} (BundleUpRedeemer nftIds bundleId bundleInfo) ctx =
+  traceIfFalse "BundleUpRedeemer: " $
+  let doesNotExist = isNothing $ AssocMap.lookup bundleId mdBundles
+      notEmty = not $ null nftIds
+      nfts =  fromMaybe (traceError "NFT does not exist or is part of existing bundle") . (`AssocMap.lookup` mdSingletons) <$> nftIds
+      doesNotHaveLots = all (isNothing . nftLot) nfts
+  in  traceIfFalse "Bundle entry already exists" doesNotExist &&
+      traceIfFalse "Bundle is empty" notEmty &&
+      traceIfFalse "One of NFTs has a lot" doesNotHaveLots
+stateTransitionCheck MarketplaceDatum {..} (UnbundleRedeemer bundleId) ctx =
+  traceIfFalse "UnbundleRedeemer: " $
+  let bundle = fromMaybe (traceError "Bundle does not exist") $ AssocMap.lookup bundleId mdBundles
+      doesNotHaveLot = not $ hasLotBundle bundle
+  in  traceIfFalse "Bundle has a lot" doesNotHaveLot
+stateTransitionCheck _ _ _ = traceError "Transition disallowed"
 
 {-# INLINABLE marketplaceStateMachine #-}
 marketplaceStateMachine :: Marketplace -> StateMachine MarketplaceDatum MarketplaceRedeemer

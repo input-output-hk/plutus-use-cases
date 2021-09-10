@@ -27,6 +27,7 @@ import           Plutus.Abstract.ContractResponse            (ContractResponse,
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                   as Currency
+import qualified Plutus.Contracts.Services.Sale.Core         as Core
 import qualified Plutus.Contracts.Services.Sale.StateMachine as Core
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                           as AssocMap
