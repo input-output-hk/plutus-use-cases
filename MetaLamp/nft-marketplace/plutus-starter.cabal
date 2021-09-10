@@ -23,7 +23,7 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Plutus.Contracts.NftMarketplace.OnChain.Core Plutus.Contracts.NftMarketplace.OffChain.ID Plutus.Contracts.NftMarketplace.OnChain.Core.ID Plutus.Contracts.Services.Sale.Core Ext.PlutusTx.AssocMap Plutus.Contracts.NftMarketplace.OnChain.Core.NFT Ext.Plutus.Contracts.Auction Plutus.Contracts.Services.Sale Plutus.Contracts.Services.Sale.Endpoints Plutus.Contracts.Services.Sale.StateMachine Plutus.Contracts.NftMarketplace.OffChain.Info Ext.Plutus.Ledger.Contexts Ext.Plutus.Ledger.Value Plutus.Contracts.NftMarketplace.OffChain.User Plutus.Abstract.ContractResponse Plutus.Abstract.OutputValue Plutus.Abstract.TxUtils Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation
+      Plutus.Contracts.NftMarketplace.OnChain.Core Plutus.Contracts.NftMarketplace.OffChain.ID Plutus.Contracts.NftMarketplace.OnChain.Core.ID Plutus.Contracts.Services.Sale.Core Ext.PlutusTx.AssocMap Plutus.Contracts.NftMarketplace.OnChain.Core.NFT Ext.Plutus.Contracts.Auction Plutus.Contracts.Services.Sale Plutus.Contracts.Services.Sale.Endpoints Plutus.Contracts.Services.Sale.StateMachine Plutus.Contracts.NftMarketplace.OffChain.Info Ext.Plutus.Ledger.Value Plutus.Contracts.NftMarketplace.OffChain.User Plutus.Abstract.ContractResponse Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -60,3 +60,46 @@ executable pab-simulation
   build-depends:
     base >= 4.9 && < 5,
     plutus-starter
+
+test-suite test
+    type: exitcode-stdio-1.0
+    main-is: Main.hs
+    hs-source-dirs: test
+    other-modules:
+      Marketplace.Spec.Start Utils.Data Marketplace.Spec.Auction Marketplace.Fixtures.NFT Marketplace.Spec.Bundles Marketplace.Spec.Sale Utils.Trace Utils Marketplace.Fixtures.Wallet Marketplace.Fixtures Marketplace.Fixtures.CheckOptions Marketplace.Fixtures.Script Marketplace.Spec.CreateNft
+    default-language: Haskell2010
+    ghc-options: -Wall -Wnoncanonical-monad-instances
+                 -Wincomplete-uni-patterns -Wincomplete-record-updates
+                 -Wredundant-constraints -Widentities -rtsopts
+                 -- See Plutus Tx readme
+                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    build-depends:
+        plutus-core -any,
+        plutus-tx -any,
+        plutus-contract -any,
+        plutus-ledger -any,
+        plutus-starter,
+        plutus-ledger-api,
+        plutus-tx-plugin
+    build-depends:
+        base >=4.9 && <5,
+        aeson -any,
+        bytestring -any,
+        containers -any,
+        data-default -any,
+        freer-extras -any,
+        hedgehog -any,
+        prettyprinter -any,
+        tasty -any,
+        tasty-hunit -any,
+        tasty-hedgehog >=0.2.0.0,
+        tasty-golden -any,
+        tasty-quickcheck -any,
+        text -any,
+        lens -any,
+        mtl -any,
+        row-types -any,
+        QuickCheck -any,
+        freer-simple -any,
+        foldl -any,
+        streaming -any

@@ -62,6 +62,7 @@ data CreateNftParams =
 
 PlutusTx.unstableMakeIsData ''CreateNftParams
 PlutusTx.makeLift ''CreateNftParams
+Lens.makeClassy_ ''CreateNftParams
 
 -- | The user specifies which NFT to mint and add to marketplace store,
 --   he gets it into his wallet and the corresponding store entry is created
@@ -100,6 +101,7 @@ data OpenSaleParams =
 
 PlutusTx.unstableMakeIsData ''OpenSaleParams
 PlutusTx.makeLift ''OpenSaleParams
+Lens.makeClassy_ ''OpenSaleParams
 
 -- | The user opens sale for his NFT
 openSale :: Core.Marketplace -> OpenSaleParams -> Contract w s Text ()
@@ -125,20 +127,21 @@ openSale marketplace OpenSaleParams {..} = do
     logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show sale)
     pure ()
 
-data CompleteSaleParams =
-  CompleteSaleParams {
-    cspItemId    :: UserItemId
+data CloseLotParams =
+  CloseLotParams {
+    clpItemId    :: UserItemId
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''CompleteSaleParams
-PlutusTx.makeLift ''CompleteSaleParams
+PlutusTx.unstableMakeIsData ''CloseLotParams
+PlutusTx.makeLift ''CloseLotParams
+Lens.makeClassy_ ''CloseLotParams
 
 -- | The user buys specified NFT lot
-buyNft :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
-buyNft marketplace CompleteSaleParams {..} = do
-    let internalId = toInternalId cspItemId
+buyItem :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
+buyItem marketplace CloseLotParams {..} = do
+    let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     sale <- case internalId of
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
@@ -160,9 +163,9 @@ buyNft marketplace CompleteSaleParams {..} = do
     pure ()
 
 -- | The user closes NFT sale and receives his token back
-closeSale :: Core.Marketplace -> CompleteSaleParams -> Contract w s Text ()
-closeSale marketplace CompleteSaleParams {..} = do
-    let internalId = toInternalId cspItemId
+closeSale :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
+closeSale marketplace CloseLotParams {..} = do
+    let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     sale <- case internalId of
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
@@ -183,21 +186,22 @@ closeSale marketplace CompleteSaleParams {..} = do
     logInfo @Haskell.String $ printf "Closed lot sale %s" (Haskell.show sale)
     pure ()
 
-data HoldAnAuctionParams =
-  HoldAnAuctionParams {
-    haapItemId   :: UserItemId,
-    haapDuration :: Slot
+data StartAnAuctionParams =
+  StartAnAuctionParams {
+    saapItemId   :: UserItemId,
+    saapDuration :: Slot
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
-PlutusTx.unstableMakeIsData ''HoldAnAuctionParams
-PlutusTx.makeLift ''HoldAnAuctionParams
+PlutusTx.unstableMakeIsData ''StartAnAuctionParams
+PlutusTx.makeLift ''StartAnAuctionParams
+Lens.makeClassy_ ''StartAnAuctionParams
 
 -- | The user starts an auction for specified NFT
-startAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
-startAnAuction marketplace HoldAnAuctionParams {..} = do
-    let internalId = toInternalId haapItemId
+startAnAuction :: Core.Marketplace -> StartAnAuctionParams -> Contract w s Text ()
+startAnAuction marketplace StartAnAuctionParams {..} = do
+    let internalId = toInternalId saapItemId
     nftStore <- marketplaceStore marketplace
     auctionValue <- case internalId of
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
@@ -206,7 +210,7 @@ startAnAuction marketplace HoldAnAuctionParams {..} = do
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currSlot <- currentSlot
-    let endTime = currSlot + haapDuration
+    let endTime = currSlot + saapDuration
     (auctionToken, auctionParams) <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionValue endTime
 
     let client = Core.marketplaceClient marketplace
@@ -217,9 +221,9 @@ startAnAuction marketplace HoldAnAuctionParams {..} = do
     pure ()
 
 -- | The user completes the auction for specified NFT
-completeAnAuction :: Core.Marketplace -> HoldAnAuctionParams -> Contract w s Text ()
-completeAnAuction marketplace HoldAnAuctionParams {..} = do
-    let internalId = toInternalId haapItemId
+completeAnAuction :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
+completeAnAuction marketplace CloseLotParams {..} = do
+    let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     auction <- case internalId of
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
@@ -252,6 +256,7 @@ data BidOnAuctionParams =
 
 PlutusTx.unstableMakeIsData ''BidOnAuctionParams
 PlutusTx.makeLift ''BidOnAuctionParams
+Lens.makeClassy_ ''BidOnAuctionParams
 
 -- | The user submits a bid on the auction for specified NFT
 bidOnAuction :: Core.Marketplace -> BidOnAuctionParams -> Contract w s Text ()
@@ -287,11 +292,14 @@ data BundleUpParams =
 
 PlutusTx.unstableMakeIsData ''BundleUpParams
 PlutusTx.makeLift ''BundleUpParams
+Lens.makeClassy_ ''BundleUpParams
 
 -- | The user creates a bundle from specified NFTs
-bundleUp :: Core.Marketplace -> BundleUpParams -> Contract w s Text ()
+bundleUp :: forall w s. Core.Marketplace -> BundleUpParams -> Contract w s Text ()
 bundleUp marketplace BundleUpParams {..} = do
     let bundleId = Core.calcBundleIdHash bupIpfsCids
+    bundles <- Core.mdBundles <$> marketplaceStore marketplace
+    when (isJust $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry already exists"
     let nftIds = sha2_256 <$> bupIpfsCids
     let bundleInfo = Core.BundleInfo
           { biName        = bupName
@@ -314,11 +322,14 @@ data UnbundleParams =
 
 PlutusTx.unstableMakeIsData ''UnbundleParams
 PlutusTx.makeLift ''UnbundleParams
+Lens.makeClassy_ ''UnbundleParams
 
 -- | The user unbundles specified NFTs
 unbundle :: Core.Marketplace -> UnbundleParams -> Contract w s Text ()
 unbundle marketplace UnbundleParams {..} = do
     let bundleId = Core.calcBundleIdHash upIpfsCids
+    bundles <- Core.mdBundles <$> marketplaceStore marketplace
+    when (isNothing $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry does not exist"
 
     let client = Core.marketplaceClient marketplace
     void $ mapError' $ runStep client $ Core.UnbundleRedeemer bundleId
@@ -335,10 +346,10 @@ ownPubKeyBalance = getOwnPubKey >>= fundsAt
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
     .\/ Endpoint "openSale" OpenSaleParams
-    .\/ Endpoint "buyNft" CompleteSaleParams
-    .\/ Endpoint "closeSale" CompleteSaleParams
-    .\/ Endpoint "startAnAuction" HoldAnAuctionParams
-    .\/ Endpoint "completeAnAuction" HoldAnAuctionParams
+    .\/ Endpoint "buyItem" CloseLotParams
+    .\/ Endpoint "closeSale" CloseLotParams
+    .\/ Endpoint "startAnAuction" StartAnAuctionParams
+    .\/ Endpoint "completeAnAuction" CloseLotParams
     .\/ Endpoint "bidOnAuction" BidOnAuctionParams
     .\/ Endpoint "bundleUp" BundleUpParams
     .\/ Endpoint "unbundle" UnbundleParams
@@ -366,7 +377,7 @@ userEndpoints :: Core.Marketplace -> Contract (ContractResponse Text UserContrac
 userEndpoints marketplace = forever $
     withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
     `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
-    `select` withContractResponse (Proxy @"buyNft") (const NftBought) (buyNft marketplace)
+    `select` withContractResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
     `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
     `select` withContractResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
     `select` withContractResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
