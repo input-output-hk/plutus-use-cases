@@ -13,6 +13,10 @@ import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (CurrencySymbol, TokenName(..), Value)
 import PlutusTx.AssocMap as AssocMap
 
+-- TODO
+-- BuiltinByteString maps to String but displays incorrectly
+-- decodeUtf8 :: BuiltinByteString -> BuiltinString
+-- decodeUtf8 (BuiltinByteString b) = BuiltinString $ Text.decodeUtf8 b
 type NftSingleton
   = { ipfsCid :: String
     , currency :: CurrencySymbol
