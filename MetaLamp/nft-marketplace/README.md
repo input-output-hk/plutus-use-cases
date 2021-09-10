@@ -1,19 +1,6 @@
 # NFT Marketplace
 
-Marketplace model:
-. Store only files from IPFS network. Get the IpfsCid
-. NFT token should be minted first in a separate transaction so that state token won't be linked to IpfsCid
-. Minting policy is parametrized by IpfsCid
-. TokenName of a NFT is the IpfsCid
-. NFT ID is the CurrencySymbol
-. Store "data NFT" above in scripts datum as (Map nftId "data NFT")
-. Only user with NFT (inside his wallet) identified by the nftId has access to view "data NFT"
-. Nobody can modify "data NFT"
-. Nobody can mint another NFT with same nftId
-. Nobody can burn NFT (?)
-. To put item on sale user reveals "data NFT"s IpfsCid field
-  (only user with NFT inside wallet could change this field)
-TODO do we store NFT metadata from Cardano in IPFS also?
+[The description and specification of a project](Spec.md)
 
 ## Setting up
 
