@@ -38,7 +38,7 @@ The marketplace operator receives a tip from NFT selling and auctioning.
 
 ## Features list
 
-### Marketplace
+### Marketplace owner API
 
 `start()` - Start marketplace smart contract.
 
@@ -46,7 +46,7 @@ The marketplace operator receives a tip from NFT selling and auctioning.
 
 `createNft()` - Mint NFT token and add it to the marketplace.
 
-`addNft()` - Add NFT from another marketplace that uses the same minting protocol ([IPFS cId as a token name](#implementation-features)).
+`addNft()` - Add NFT from another marketplace that uses the same minting protocol ([IPFS content id as a token name](#implementation-features)).
 
 `openSale()` - Puts NFT on sale.
 
@@ -76,11 +76,11 @@ The marketplace operator receives a tip from NFT selling and auctioning.
 
 `getAuctionState()` - Get current auction state for specified NFT
 
-## Implementation features
+## Implementation details
 
 The main features are related to uploading a file and minting NFT. 
 
-- **Uniqueness of an uploaded file:** Using IPFS - [Content-addressable Storage](https://en.wikipedia.org/wiki/Content-addressable_storage) to store uploading files, that guarantee the uniqueness of a linked file. `IPFS cId` link is used to link the NFT with file in a storage.
+- **Uniqueness of an uploaded file:** Using IPFS - [Content-addressable Storage](https://en.wikipedia.org/wiki/Content-addressable_storage) to store uploading files, that guarantee the uniqueness of a linked file. `IPFS content id (cId)` link is used to link the NFT with file in a storage.
 
 - **Availability of cId:** `CId` is available in NFT owner's wallet - it is used as a token name. Using a `cId` as a token name is a requirement for this marketplace implementation. NFT can be imported from another marketplace, only if that requirement was abided.
 
