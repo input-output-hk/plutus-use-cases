@@ -32,27 +32,10 @@ module Plutus.Contract.Blockchain.MarketPlace
 where
 
 import GHC.Generics (Generic)
-import qualified Prelude (Show, Eq)
 import PlutusTx.Prelude
-import  PlutusTx
-import Ledger
-    ( getContinuingOutputs,
-      txSignedBy,
-      valuePaidTo,
-      ScriptContext(ScriptContext, scriptContextTxInfo),
-      TxInfo(txInfoValidRange),
-      TxOut(txOutValue),
-      Value,
-      POSIXTimeRange,
-      PubKeyHash,
-      CurrencySymbol,
-      TokenName,
-      scriptAddress,
-      contains,
-      mkValidatorScript,
-      Address (addressCredential),
-      Validator,
-      AssetClass, TxInInfo, toValidatorHash, Interval (Interval, ivFrom, ivTo), Extended (PosInf), after, Datum )
+import qualified Prelude
+import  PlutusTx hiding( txOutDatum)
+import Ledger hiding(txOutDatum)
 import Ledger.Value hiding(lt)
 import Ledger.Credential
 import qualified Ledger.Typed.Scripts as Scripts
@@ -73,13 +56,14 @@ import Ledger.Contexts
       TxOut(TxOut, txOutValue) )
 import Ledger.Interval (UpperBound(UpperBound),LowerBound(LowerBound))
 import Ledger.Time (POSIXTime)
+import qualified Data.Bifunctor
 
 
 ---------------------------------------------------------------------------------------------
 ----- Foreign functions (these used be in some other file but PLC plugin didn't agree)
 ---------------------------------------------------------------------------------------------
 
-
+-- Payment.hs
 
 instance Semigroup Payment where
     {-# INLINABLE (<>) #-}
@@ -98,7 +82,7 @@ payment pkHash value=Payment  (AssocMap.singleton pkHash value)
 assetClassPayment :: AssetClass  -> [(PubKeyHash,Integer)] -> Payment
 assetClassPayment ac values=Payment (AssocMap.fromList mappedList)
   where
-    mappedList= map (\(pkh,v)->(pkh,assetClassValue ac v)) values
+    mappedList= map (Data.Bifunctor.second (assetClassValue ac)) values
 
 {-# INLINABLE paymentValue #-}
 paymentValue :: Payment -> PubKeyHash -> Value
@@ -131,6 +115,74 @@ validatePayment f p=
 --  Plutus.Contract.Blockchain.Utils.$s$fFoldable[]_$cfoldMap
 --           No unfolding
 
+
+--Utils.hs
+-- address of this validator
+{-# INLINABLE ownAddress #-}
+ownAddress :: ScriptContext -> Address
+ownAddress ctx=scriptHashAddress (ownHash ctx)
+
+-- all the utxos that are being redeemed from this contract in this transaction
+{-# INLINABLE  ownInputs #-}
+ownInputs:: ScriptContext -> [TxOut]
+ownInputs ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}}=
+     filter (\x->txOutAddress x==ownAddress ctx) resolved
+    where
+    resolved=map (\x->txInInfoResolved x) txInfoInputs
+
+-- get List of valid parsed datums  the script in this transaction
+{-# INLINABLE ownInputDatums #-}
+ownInputDatums :: FromData a => ScriptContext  -> [a]
+ownInputDatums ctx= mapMaybe (txOutDatum ctx) $  ownInputs ctx
+
+-- get List of the parsed datums  including the TxOut if datum is valid
+{-# INLINABLE ownInputsWithDatum #-}
+maybeOwnInputsWithDatum:: FromData a =>  ScriptContext ->[Maybe (TxOut,a)]
+maybeOwnInputsWithDatum ctx=map (txOutWithDatum ctx)  ( ownInputs ctx)
+
+ownInputsWithDatum:: FromData a=> ScriptContext  -> [(TxOut,a)]
+ownInputsWithDatum ctx= map doValidate (ownInputs ctx)
+  where
+    doValidate:: FromData a =>  TxOut -> (TxOut,a)
+    doValidate txOut = case txOutWithDatum ctx txOut of
+      Just a -> a
+      _      -> traceError "Datum format in Utxo is not of required type"
+
+-- get input datum for the utxo that is currently being validated
+{-# INLINABLE ownInputDatum #-}
+ownInputDatum :: FromData a => ScriptContext -> Maybe a
+ownInputDatum ctx = do
+    txInfo <-findOwnInput ctx
+    let txOut= txInInfoResolved txInfo
+    txOutDatum ctx txOut
+
+--  given an Utxo, resolve it's datum to our type
+{-# INLINABLE txOutDatum #-}
+txOutDatum::  FromData a =>  ScriptContext ->TxOut -> Maybe a
+txOutDatum ctx txOut =do
+            dHash<-txOutDatumHash txOut
+            datum<-findDatum dHash (scriptContextTxInfo ctx)
+            PlutusTx.fromBuiltinData $ getDatum datum
+
+-- given txOut get resolve it to our type and return it with the txout
+{-# INLINABLE txOutWithDatum #-}
+txOutWithDatum::  FromData a =>  ScriptContext ->TxOut -> Maybe (TxOut,a)
+txOutWithDatum ctx txOut =do
+            d<-txOutDatum ctx txOut
+            return (txOut,d)
+
+--  value that is being redeemed from this contract in this utxo
+{-# INLINABLE ownInputValue #-}
+ownInputValue:: ScriptContext -> Value
+ownInputValue ctx = case  findOwnInput ctx of
+      Just TxInInfo{txInInfoResolved} ->  txOutValue txInInfoResolved
+
+-- total value that will be locked by this contract in this transaction
+{-# INLINABLE  ownOutputValue #-}
+ownOutputValue :: ScriptContext -> Value
+ownOutputValue ctx = valueLockedBy (scriptContextTxInfo ctx) (ownHash ctx)
+
+
 {-# INLINABLE allowSingleScript #-}
 allowSingleScript:: ScriptContext  -> Bool
 allowSingleScript ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}} =
@@ -141,6 +193,7 @@ allowSingleScript ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}} =
         ScriptCredential vhash ->  traceIfFalse  "Reeming other Script utxo is Not allowed" (thisScriptHash == vhash)
         _ -> True
     thisScriptHash= ownHash ctx
+
 
 allScriptInputsCount:: ScriptContext ->Integer
 allScriptInputsCount ctx@(ScriptContext info purpose)=
@@ -165,7 +218,7 @@ type Percent = Integer
 
 {-# INLINABLE valueOfPrice#-}
 valueOfPrice :: Price ->  Value
-valueOfPrice (Price (c,t,v)) = singleton c t v
+valueOfPrice (Price (c,t,v)) = Ledger.Value.singleton c t v
 
 
 data Market = Market
@@ -180,11 +233,11 @@ PlutusTx.unstableMakeIsData ''Market
 
 
 data MarketRedeemer =  ClaimBid| Bid | Buy | Withdraw
-    deriving (Generic,FromJSON,ToJSON,Show,Prelude.Eq )
+    deriving (Generic,FromJSON,ToJSON,Show,Prelude.Eq)
 
 PlutusTx.unstableMakeIsData ''MarketRedeemer
 
-data SellType = Primary | Secondary  deriving (Show, Prelude.Eq,Generic,ToJSON,FromJSON,ToSchema)
+data SellType = Primary | Secondary  deriving (Show,Generic,ToJSON,FromJSON,ToSchema,Prelude.Eq)
 PlutusTx.unstableMakeIsData ''SellType
 
 type PartyShare=(PubKeyHash,Percent)
@@ -232,7 +285,7 @@ data Auction = Auction{
     aMinIncrement :: !Integer, -- min increment  from previous auction per bid
     aDuration:: !POSIXTimeRange, -- Auction duration
     aValue:: Value  -- The value that's placed on Auction. this is what winner gets.
-} deriving (Generic, Show,ToJSON,FromJSON,Prelude.Eq)
+} deriving (Generic, Show,ToJSON,FromJSON)
 PlutusTx.unstableMakeIsData ''Auction
 
 -- Given final bid value
@@ -286,7 +339,7 @@ aClaimInterval Auction{aDuration}= Interval (toLower $ ivTo aDuration) (UpperBou
 -- Given a payment get It as value of Auction's asset class
 {-# INLINABLE auctionAssetValue #-}
 auctionAssetValue :: Auction -> Integer -> Value
-auctionAssetValue Auction{aAssetClass=AssetClass (c, t)} = singleton c t
+auctionAssetValue Auction{aAssetClass=AssetClass (c, t)} = Ledger.Value.singleton c t
 
 
 {-# INLINABLE  validateBid #-}
@@ -408,12 +461,13 @@ mkMarket :: Market ->  BuiltinData    -> MarketRedeemer -> ScriptContext  -> Boo
 mkMarket market  d action ctx =
     case  action of
         Buy       -> validateBuy market ctx
+        Withdraw  -> validateWithdraw market d ctx
+        Bid       -> case fromBuiltinData d of
+                    Just auction -> validateBid auction ctx
+                    _            -> trace "Invalid Auction datum" False
+        ClaimBid  -> validateClaimAuction market ctx
         _ -> trace "Invalid Redeemer dataum" False
-        -- Withdraw  -> validateWithdraw market d ctx
-        -- Bid       -> case fromBuiltinData d of
-        --             Just auction -> validateBid auction ctx
-        --             _            -> trace "Invalid Auction datum" False
-        -- ClaimBid  -> validateClaimAuction market ctx
+
 
 
 
@@ -422,12 +476,6 @@ instance Scripts.ValidatorTypes MarketScriptType where
     type instance RedeemerType MarketScriptType = MarketRedeemer
     type instance DatumType MarketScriptType = BuiltinData
 
--- marketValidator :: Market -> Validator
--- marketValidator market = Ledger.mkValidatorScript $
---     $$(PlutusTx.compile [|| validatorParam ||])
---         `PlutusTx.applyCode`
---             PlutusTx.liftCode market
---     where validatorParam m = Scripts.wrapValidator (mkMarket m)
 
 -- typedMarketValidator :: Market -> Scripts.TypedValidator MarketScriptType
 -- typedMarketValidator = Scripts.mkTypedValidatorParam @MarketScriptType
@@ -436,29 +484,13 @@ instance Scripts.ValidatorTypes MarketScriptType where
 --     where
 --         wrap = Scripts.wrapValidator
 
+-- marketValidator :: Market -> Validator
+-- marketValidator market = Scripts.validatorScript (typedMarketValidator market)
+
+
 -- marketAddress :: Market -> Ledger.Address
 -- marketAddress = Scripts.validatorAddress  . typedMarketValidator
 
-
-
--- typedMarketValidator :: Market -> Scripts.TypedValidator MarketScriptType
--- typedMarketValidator = Scripts.mkTypedValidatorParam @MarketScriptType
---     $$(PlutusTx.compile [|| dummyValidator ||])
---     $$(PlutusTx.compile [|| Scripts.wrapValidator ||])
---     where
---         dummyValidator:: Market -> Datum -> MarketRedeemer -> ScriptContext -> Bool
---         dummyValidator m d r ctx =True
-
-
--- typedMarketValidator :: Market -> Scripts.TypedValidator Scripts.Any
--- typedMarketValidator market =
---   Scripts.unsafeMkTypedValidator    compiledMarket
-
---   where
---     compiledMarket= $$(PlutusTx.compile [|| mkMarket ||])
---         `PlutusTx.applyCode`
---             PlutusTx.liftCode market
---     doWrap m =  Scripts.wrapValidator (mkMarket m)
 
 
 marketValidator :: Market -> Validator
@@ -468,6 +500,3 @@ marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
 
 marketAddress :: Market -> Ledger.Address
 marketAddress = scriptAddress   . marketValidator
-
-
-

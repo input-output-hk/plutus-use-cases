@@ -15,7 +15,7 @@ import Plutus.Contract.Blockchain.MarketPlace
 import Test.TestHelper
 import Ledger.Value
 
-import PlutusTx (fromData)
+import PlutusTx (fromData, FromData (fromBuiltinData))
 import Ledger
 import PlutusTx.Prelude
 import Plutus.Contract.Test
@@ -350,7 +350,7 @@ tests =
 execMarketTimed :: TestName-> TestContextBuilder -> POSIXTimeRange -> TestTree
 execMarketTimed name ctx range =testCase name (executeSpendContext  _marketValidator ctx range @?= True)
   where
-    _marketValidator d r ctx= case fromData r of
+    _marketValidator d r ctx= case fromBuiltinData  r of
       Just redeemer -> mkMarket defaultMarket d redeemer ctx
       _     -> False
 
@@ -370,7 +370,7 @@ primarySale w parties (Price(c,t,v)) = DirectSale{
     dsCost=v,
     dsType=Primary
 }
-priceInToken :: ByteString -> Integer -> Price
+priceInToken :: BuiltinByteString  -> Integer -> Price
 priceInToken token iValue = Price (CurrencySymbol token, TokenName "", iValue)
 priceInLovelace :: Integer->Price
 priceInLovelace v=Price (adaSymbol, adaToken, v)
@@ -381,7 +381,7 @@ execMarket testName  ctx = execMarketTimed testName ctx  always
 execFailMarketTimed :: TestName-> TestContextBuilder -> POSIXTimeRange -> TestTree
 execFailMarketTimed name ctx range =testCase name (executeSpendContext  _marketValidator ctx range @?= False)
   where
-    _marketValidator d r ctx= case fromData r of
+    _marketValidator d r ctx= case fromBuiltinData  r of
       Just redeemer -> mkMarket defaultMarket d redeemer ctx
       _     -> False
 

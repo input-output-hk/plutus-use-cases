@@ -97,7 +97,11 @@ buyDirectSaleUtxos m fUtxos= submitTxConstraintsWith @MarketScriptType lookups t
 submitAuction :: AsContractError e => Market -> [Auction] -> Contract w s e Tx
 submitAuction market  as = submitTx $ Prelude.mconcat $ map constraint as
   where
-    constraint auction = mustPayToOtherScript (validatorHash $ marketValidator market) (Datum $ toBuiltinData auction) $ aValue auction
+    constraint auction = mustPayToOtherScript (validatorHash $ marketValidator market) (Datum $ toBuiltinData auction) (aValue auction)
+                        <> mustValidateIn (aCreateInterval auction)
+    aCreateInterval:: Auction -> POSIXTimeRange
+    aCreateInterval Auction{aDuration}= Interval (LowerBound PosInf False) (excludeBoundary $ ivTo aDuration) 
+    excludeBoundary (UpperBound  a _)=UpperBound a False
 
 bidAuctionUtxo :: AsContractError e => Market -> ParsedUtxo Auction ->Value -> Contract w s e Tx
 bidAuctionUtxo market (ref,tx@TxOutTx{txOutTxOut=utxo},ac) bidAmount = do

@@ -20,13 +20,11 @@ where
 
 import Test.TestHelper
 import Ledger.Ada ( lovelaceValueOf )
-import Ledger.Value as Value ( geq )
 import Plutus.Contract.Test
 import PlutusTx.Prelude hiding (Eq((==)))
 import Test.Tasty
 import Plutus.Contract.Wallet.EndpointModels hiding(value)
 import Plutus.Trace.Emulator
-import Ledger.TimeSlot (slotToPOSIXTime)
 import Ledger hiding(singleton)
 import Prelude (show, Eq ((==)))
 import Data.Functor
@@ -76,17 +74,18 @@ defaultAuctionParam _nft parties =AuctionParam{
             apValue=toValueInfo  _nft ,
             apMinBid=valueInfoLovelace 10_000_000,
             apMinIncrement=2_000_000,
-            apStartTime=slotToPOSIXTime 10,
-            apEndTime=slotToPOSIXTime 100
+            apStartTime= slotNoToPosixTime 10,
+            apEndTime= slotNoToPosixTime 100
           }
 
-defaultResponse :: TxOutRef ->ByteString-> AuctionResponse
+
+defaultResponse :: TxOutRef ->BuiltinByteString -> AuctionResponse
 defaultResponse utxoRef _nft= AuctionResponse{
     arOwner = pubKeyHash $ walletPubKey  $ Wallet 1,
       arValue = [ValueInfo _nft "" 1],
       arMinBid = ValueInfo "" "" 10_000_000,
       arMinIncrement = 2_000_000,
-      arDuration =  (Finite (slotToPOSIXTime $ Slot 10) ,  Finite  (slotToPOSIXTime $ Slot 100) ),
+      arDuration =  (Finite (  slotNoToPosixTime 10) ,  Finite  ( slotNoToPosixTime 100) ),
       arBidder = Bidder{
                   bPubKeyHash   = pubKeyHash $ walletPubKey  $ Wallet 1,
                   bBid          = 0,
@@ -125,7 +124,7 @@ canQueryOwnAndOthersAuction = defaultCheck
 
     doListOwn h2 >>=expectSingleAuction (defaultResponse u2 "ba")
     doListOfWallet 2 h1 >>= expectSingleAuction (defaultResponse u2 "ba")
-    throw $ "We just fail"
+    throw  "We just fail"
 
 canWithdrawFromAuction ::TestTree
 canWithdrawFromAuction=defaultCheck

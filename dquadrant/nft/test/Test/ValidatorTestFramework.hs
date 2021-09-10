@@ -23,13 +23,13 @@ import Plutus.Contract.Test
 import PlutusTx.Prelude
 import Ledger hiding(value,signatures)
 import qualified PlutusTx.AssocMap as AssocMap
-import PlutusTx (IsData(toData), Data)
 import Ledger.Credential ( Credential(ScriptCredential) )
 import Ledger.Value
 import GHC.Show (Show)
+import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 
-data TestCtxIn  =  PkhCtxIn (Address,Value) | ScriptCtxIn (ByteString,Value,Data) |ThisScripCtxIn(Value, Data,Data) deriving (Show)
-data TestCtxOut = PkhCtxOut (Address,Value) | ScriptCtxOut (ByteString,Value,Data) |ThisScripCtxOut(Value,Data) deriving (Show)
+data TestCtxIn  =  PkhCtxIn (Address,Value) | ScriptCtxIn (BuiltinByteString,Value,BuiltinData ) |ThisScripCtxIn(Value, BuiltinData,BuiltinData) deriving (Show)
+data TestCtxOut = PkhCtxOut (Address,Value) | ScriptCtxOut (BuiltinByteString,Value,BuiltinData) |ThisScripCtxOut(Value,BuiltinData) deriving (Show)
 
 
 -- Context Builder for test transaction
@@ -63,20 +63,20 @@ builderPayLovelaceTo w v=builderPayTo w (lovelaceValueOf v)
 
 -- Lock value and data in the script that is being validated.
 -- This is the validator script we are currently testing
-builderLockInThisScript:: IsData _data=>Value -> _data->TestContextBuilder
+builderLockInThisScript:: ToData _data=>Value -> _data->TestContextBuilder
 builderLockInThisScript v _data =TestContextBuilder{
     ctxInputs=[],
-    ctxOutputs=[ThisScripCtxOut ( v, toData _data)],
+    ctxOutputs=[ThisScripCtxOut ( v, toBuiltinData  _data)],
     ctxSignatures=[]
   }
 
 -- Lock value and data in a script.
 -- It's a script that we depend on. but we are not testing it.
 -- So, the validator of this script will not be executed.
-builderLockInScript:: IsData _data=>ByteString -> _data -> Value->TestContextBuilder
+builderLockInScript:: ToData _data=>BuiltinByteString -> _data -> Value->TestContextBuilder
 builderLockInScript bs _data v =TestContextBuilder{
     ctxInputs=[],
-    ctxOutputs=[ScriptCtxOut (bs,v,toData _data)],
+    ctxOutputs=[ScriptCtxOut (bs,v,toBuiltinData _data)],
     ctxSignatures=[]
   }
 
@@ -92,9 +92,9 @@ builderSpend w v=TestContextBuilder{
 
 
 -- Redeem from Script Address.
-builderRedeem:: (IsData _data,IsData redeemer)=>redeemer-> Value->_data->TestContextBuilder
+builderRedeem:: (ToData _data,ToData redeemer)=>redeemer-> Value->_data->TestContextBuilder
 builderRedeem redeemer value _data=TestContextBuilder{
-    ctxInputs=[ThisScripCtxIn (value,toData _data,toData redeemer)],
+    ctxInputs=[ThisScripCtxIn (value,toBuiltinData _data,toBuiltinData redeemer)],
     ctxOutputs=[],
     ctxSignatures=[]
   }
@@ -103,7 +103,7 @@ builderRedeem redeemer value _data=TestContextBuilder{
 -- we can just ignore it.
 builderRedeemAnotherScript:: Value ->TestContextBuilder
 builderRedeemAnotherScript v =TestContextBuilder{
-    ctxInputs=[ThisScripCtxIn (v,toData (),toData ())],
+    ctxInputs=[ThisScripCtxIn (v,toBuiltinData (),toBuiltinData ())],
     ctxOutputs=[],
     ctxSignatures=[]
 }
@@ -125,12 +125,12 @@ builderSign w=TestContextBuilder{
 -- note that it won't throw exceptions or stuffs.
 -- the result can be asserted only based on the return value.
 executeSpendContext ::
-  (Data -> Data -> ScriptContext -> Bool)
+  (BuiltinData -> BuiltinData -> ScriptContext -> Bool)
   -> TestContextBuilder -> POSIXTimeRange -> Bool
 executeSpendContext f ctx range =executeContext f ctx range defaultForge
 
-executeContext :: (Data->Data->ScriptContext ->Bool)->TestContextBuilder-> POSIXTimeRange ->Value ->Bool
-executeContext f (TestContextBuilder cInputs cOutputs signatures) timeRange forge=
+executeContext :: (BuiltinData ->BuiltinData->ScriptContext ->Bool)->TestContextBuilder-> POSIXTimeRange ->Value ->Bool
+executeContext f (TestContextBuilder cInputs cOutputs signatures) timeRange mint=
         all (\(tin,i)-> applyRedeemer tin i) $ indexedInputs
   where
 
@@ -166,7 +166,7 @@ executeContext f (TestContextBuilder cInputs cOutputs signatures) timeRange forg
         txInfoInputs        =map (\(v,i)->TxInInfo (TxOutRef testSourceTxHash i) (toInput v) ) indexedInputs
       , txInfoOutputs     =  map toOutput cOutputs -- [TxOut] -- ^ Transaction outputs
       , txInfoFee         =  defaultFee --  ^ The fee paid by this transaction.
-      , txInfoForge       =  forge -- Value ^ The 'Value' forged by this transaction.
+      , txInfoMint        =  mint -- Value ^ The 'Value' forged by this transaction.
       , txInfoDCert       = [] -- [_] ^ Digests of certificates included in this transaction
       , txInfoWdrl        = [] -- [_] ^ Withdrawals
       , txInfoValidRange  = timeRange-- [_] ^ The valid range for the transaction.

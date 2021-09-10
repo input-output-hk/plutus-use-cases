@@ -104,7 +104,7 @@ export default {
     parseStartTime(item) {
       let timeStamp;
       if (item.arDuration !== undefined && item.arDuration.length !== 0) {
-        timeStamp = item.arDuration[0].contents.getPOSIXTime
+        timeStamp = item.arDuration[0].contents
         // timeStamp = moment(timeStamp).format("MM/DD/YYYY hh:mm a")
         timeStamp = parseTimeStampToDate(timeStamp)
       } else {
@@ -115,7 +115,7 @@ export default {
     parseEndTime(item) {
       let timeStamp;
       if (item.arDuration !== undefined && item.arDuration.length !== 0) {
-        timeStamp = item.arDuration[1].contents.getPOSIXTime
+        timeStamp = item.arDuration[1].contents
         // timeStamp = moment(timeStamp).format("MM/DD/YYYY hh:mm a")
         timeStamp = parseTimeStampToDate(timeStamp)
       } else {
@@ -219,9 +219,7 @@ export default {
           "arMarketFee": 5000000,
           "arStartTime": [
             {
-              "contents": {
-                "getPOSIXTime": 0
-              },
+              "contents": 0,
               "tag": "Finite"
             },
             true
@@ -251,9 +249,7 @@ export default {
           },
           "arEndTime": [
             {
-              "contents": {
-                "getPOSIXTime": 1624744416
-              },
+              "contents":1624744416,
               "tag": "Finite"
             },
             false

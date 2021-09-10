@@ -241,8 +241,8 @@ export default {
                   value: this.toLovelace(this.auction.apMinBid.value)
                 },
                 apMinIncrement: this.toLovelace(this.auction.apMinIncrement),
-                apStartTime: {getPOSIXTime: startTime},
-                apEndTime: {getPOSIXTime: endTime}
+                apStartTime: startTime,
+                apEndTime:  endTime
               }]
           )).then(() => {
             this.$task.infoMessage("Placing on auction. Please wait a moment.")

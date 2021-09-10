@@ -5,35 +5,43 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 module Test.TestHelper
 where
 import Ledger.Ada(adaSymbol,adaToken, lovelaceValueOf)
+import Ledger.TimeSlot
 import Ledger.Value
-import PlutusTx.Builtins (ByteString, emptyByteString, encodeUtf8)
-import Ledger (txId, TxOutTx (txOutTxTx), pubKeyHash, Address, pubKeyAddress, TxId)
+    ( CurrencySymbol(CurrencySymbol, unCurrencySymbol),
+      TokenName(TokenName, unTokenName),
+      Value,
+      geq,
+      singleton )
+import PlutusTx.Builtins ( emptyByteString, BuiltinByteString)
+import Ledger hiding(singleton,value)
 import Plutus.Trace
     ( EmulatorTrace,
       ContractHandle,
-      activateContractWallet, EmulatorConfig )
+      activateContractWallet, EmulatorConfig (_initialChainState, _slotConfig, _feeConfig) )
 import Data.Text (Text)
-import Data.Aeson (Result (Error, Success), ToJSON (toJSON), fromJSON, encode)
+import           Data.Default                             (Default (def))
+import Data.Aeson (Result (Error, Success), ToJSON (toJSON), fromJSON, encode, FromJSON)
 import Plutus.Trace.Emulator.ContractInstance (ContractInstanceState(ContractInstanceState))
 import Plutus.Contract.Types
-    ( select,
-      ResumableResult(ResumableResult) )
+    ( ResumableResult(ResumableResult) )
 import qualified Control.Monad.Freer.Extras as Extras
 import qualified Data.Aeson.Types as AesonTypes
 import Plutus.Contract.Wallet.MarketPlace
 import Plutus.Contract.Wallet.MarketEndpoints
-import Playground.Contract
-import Plutus.Contract (HasEndpoint, tell, logError, handleError)
+-- import Playground.Contract
+-- import Playground.Contract
+-- import Playground.Contract
+-- import Playground.Contract
+import Plutus.Contract 
 import qualified Data.Map as Map
 import Plutus.Contract.Wallet.EndpointModels
 import Data.Functor (void)
-import Wallet.Emulator (walletPubKey)
 import Plutus.Trace.Emulator
-    ( waitNSlots,
-      EmulatorRuntimeError(GenericError),
+    ( EmulatorRuntimeError(GenericError),
       getContractState,
       callEndpoint,
       EmulatorConfig(EmulatorConfig) )
@@ -42,6 +50,8 @@ import Plutus.Contract.Test (TracePredicate, checkPredicateOptions, defaultCheck
 import Test.Tasty (TestTree)
 import Control.Lens.Operators
 import Data.String.Conversions (convertString)
+import Wallet.Emulator
+import qualified Plutus.Contract as Contract
 
 
 defaultMarket :: Market
@@ -56,12 +66,12 @@ type TestSchema=
   MarketSchema
   .\/ Endpoint "filterTxOuts" TxId
 
-filterTxOutsEp :: (AsContractError e,HasEndpoint "filterTxOuts" TxId s) => Contract [AesonTypes.Value] s e ()
-filterTxOutsEp= do
-  x <- endpoint @"filterTxOuts"
-  vs<-marketTxOutsByTxId defaultMarket x
-  tell [toJSON vs]
-  pure ()
+filterTxOutsEp :: (AsContractError e,HasEndpoint "filterTxOuts" TxId s) => Promise  [AesonTypes.Value] s e ()
+filterTxOutsEp= 
+  endpoint @"filterTxOuts" (\x ->do 
+    vs<-marketTxOutsByTxId defaultMarket x
+    tell [toJSON vs]
+    pure ())
   where
     marketTxOutsByTxId :: AsContractError e => Market ->TxId -> Contract w s e [TxOutRef]
     marketTxOutsByTxId market txIdp =
@@ -70,8 +80,14 @@ filterTxOutsEp= do
         included _ txOutTx =txId (txOutTxTx txOutTx) == txIdp
 
 
-testEndpoints :: Contract [AesonTypes.Value] TestSchema Text  ()
-testEndpoints= handleError (\e -> logError e) (marketEndpoints defaultMarket `select`filterTxOutsEp) >>testEndpoints
+testEndpoints :: Contract [AesonTypes.Value] TestSchema Text ()
+testEndpoints= forever
+  where 
+    forever = handleError errorHandler $ awaitPromise endpoints >> forever
+    endpoints= marketEndpoints defaultMarket `select` filterTxOutsEp
+    errorHandler :: Show a => a -> Contract w s e ()
+    errorHandler e = do
+        Contract.logError $ show e
 
 defaultMarketAddress :: Address
 defaultMarketAddress=marketAddress  defaultMarket
@@ -88,25 +104,27 @@ sellParamLovelace _values sType lovelace=SellParams{
                 }
         }
 
-nft :: ByteString  -> Value
+nft :: BuiltinByteString   -> Value
 nft t =cardanoToken t  1
 
-cardanoToken :: ByteString -> Integer -> Value
+cardanoToken :: BuiltinByteString -> Integer -> Value
 cardanoToken t = singleton (CurrencySymbol t)  (TokenName emptyByteString)
 
 
-negNft::ByteString   -> Value
+negNft::BuiltinByteString   -> Value
 negNft t=cardanoToken t (-1)
 
-noNft:: ByteString -> Value
+noNft:: BuiltinByteString -> Value
 noNft t =cardanoToken t  0
 
 operator :: Wallet
 operator=Wallet 9
 
+slotNoToPosixTime:: Integer -> POSIXTime 
+slotNoToPosixTime v = slotToBeginPOSIXTime def (Slot v)
 
 wait :: EmulatorTrace()
-wait=void $ waitNSlots 4
+wait=void $ EmulatorTrace.waitNSlots 3
 
 getHandle:: Integer ->  EmulatorTrace (ContractHandle [AesonTypes.Value] TestSchema Text)
 getHandle i =activateContractWallet (Wallet i) testEndpoints
@@ -118,9 +136,10 @@ lastResult h=do
   state <-case  lastState  of
     [] -> EmulatorTrace.throwError $ GenericError "Tried to Get last constract scatate but it's empty"
     (v : _) ->  ( Extras.logDebug    @String $ "parseJson : " ++ show v ) >> pure v
+    
   case fromJSON state of
     Success p -> pure p
-    Error  e  -> do Extras.logError @String $ "AesonError : " ++ show e ++" : "++(convertString $ encode state)
+    Error  e  -> do Extras.logError @String $ "The datatype that was tell'ed by contract is different : " ++ show e ++" : "++(convertString $ encode state)
                     EmulatorTrace.throwError (GenericError $ e ++" : " ++ (convertString $ encode state))
 
 assertTrue ::  String ->Bool -> EmulatorTrace  ()
@@ -129,6 +148,7 @@ assertTrue b a =
 
 throw:: String -> EmulatorTrace ()
 throw s =EmulatorTrace.throwError (GenericError s)
+
 
 lastUtxos :: ContractHandle [AesonTypes.Value] TestSchema Text-> EmulatorTrace [TxOutRef]
 lastUtxos h = do
@@ -144,7 +164,12 @@ waitForLastUtxos h= do
 
 
 configurationWithNfts :: EmulatorConfig
-configurationWithNfts = EmulatorConfig $ Left $ Map.fromList distribution
+configurationWithNfts = EmulatorConfig{
+    _initialChainState =Left $ Map.fromList distribution 
+  , _slotConfig =def
+  , _feeConfig=def  
+
+  }
   where
     distribution= [
                 (Wallet 1 ,adaFunds<>nft "aa" <> nft "ab" <> nft "ac"),
