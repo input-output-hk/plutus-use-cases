@@ -31,7 +31,6 @@ library
       Contracts.MutualBet
       Contracts.MutualBet.OffChain
       Contracts.Types
-      Contracts.Test1
       Pab.Game
     build-depends:
       aeson,
