@@ -61,8 +61,8 @@ oracleRequestToken = OracleRequestToken
 
 oracleData ::  Oracle
 oracleData = Oracle
-    { oSymbol = opSymbol oracleParams
-    , oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
+    { --oSymbol = opSymbol oracleParams
+      oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
     , oOperator = pubKeyHash $ walletPubKey oracleWallet
     , oOperatorKey = walletPubKey oracleWallet
     , oFee = opFees oracleParams
@@ -70,8 +70,8 @@ oracleData = Oracle
 
 oracle ::  Oracle
 oracle = Oracle
-    { oSymbol = opSymbol oracleParams
-    , oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
+    { --oSymbol = opSymbol oracleParams
+      oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
     , oOperator = pubKeyHash $ walletPubKey oracleWallet
     , oOperatorKey = walletPubKey oracleWallet
     , oFee = opFees oracleParams
@@ -102,7 +102,7 @@ mutualBetContract = mutualBetStart mutualBetParams
 bettorContract :: ThreadToken -> Contract MutualBetOutput BettorSchema MutualBetError ()
 bettorContract cur = mutualBetBettor slotCfg cur mutualBetParams
 
-oracleContract :: Contract (Last Oracle) OracleSchema Text ()
+oracleContract :: Contract (Last OracleContractState) OracleSchema Text ()
 oracleContract = runOracle oracleParams
 
 w1, w2, w3, bettor1, bettor2 :: Wallet

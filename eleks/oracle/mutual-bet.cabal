@@ -23,21 +23,28 @@ maintainer:         Your email
 
 library
     exposed-modules:
+      Contracts.Oracle.Types
+      Contracts.Oracle.RequestToken
+      Contracts.Oracle.OnChain
+      Contracts.Oracle.OffChain
+      Contracts.Oracle
       Contracts.MutualBet
       Contracts.MutualBet.OffChain
-      Contracts.Oracle
       Contracts.Types
+      Contracts.Test1
       Pab.Game
     build-depends:
       aeson,
       base >= 4.9 && < 5,
       bytestring,
       base64-bytestring,
+      cardano-api -any,
       data-default -any,
       text -any,
       lens -any,
       containers -any,
       semigroups -any,
+      serialise,
       playground-common,
       plutus-contract,
       plutus-tx-plugin,
@@ -46,6 +53,7 @@ library
       plutus-ledger-api,
       plutus-chain-index,
       plutus-use-cases,
+
     hs-source-dirs: src src/Contracts/MutualBet
     default-language: Haskell2010
     ghc-options:
@@ -81,6 +89,7 @@ test-suite plutus-example-projects-test
     freer-extras,
     freer-simple -any,
     lens -any,
+    sort -any,
     streaming -any,
     text -any,
     tasty -any,
@@ -124,3 +133,19 @@ executable oracle-client
     req ^>= 3.9.0, 
     text, 
     uuid
+
+executable gs
+  main-is: GenerateOracleScript.hs
+  hs-source-dirs: pab
+  ghc-options:  -threaded
+  build-depends:        
+    aeson, 
+    base >= 4.9 && < 5,
+    cardano-api, 
+    cardano-ledger-alonzo,
+    mutual-bet -any,
+    plutus-contract,
+    plutus-ledger,
+    plutus-ledger-api,
+    plutus-tx,
+    bytestring

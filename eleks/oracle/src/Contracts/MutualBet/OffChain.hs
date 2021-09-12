@@ -330,11 +330,9 @@ waitForGameEnd ::
     MutualBetParams
     -> Contract w s MutualBetError OracleData
 waitForGameEnd params = do
-        logInfo @Haskell.String "before uraaa"
         waitEnd
     where 
         waitEnd = do  
-            logInfo @Haskell.String "before next"
             txs <- mapError OracleError $ awaitNextOracleRequest (mbpOracle params)
             pk <- ownPubKey
             logInfo @Haskell.String "Await next"
