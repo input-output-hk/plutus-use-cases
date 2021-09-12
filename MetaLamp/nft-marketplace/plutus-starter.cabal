@@ -110,6 +110,24 @@ executable generate-purs
     plutus-contract,
     plutus-ledger-api
 
+executable marketplace-state-machine-script
+  import:               lang
+  hs-source-dirs:       alonzo-testnet
+  main-is:              StartMarketplace.hs
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    bytestring,
+    text,
+    aeson,
+    serialise,
+    plutus-starter,
+    plutus-tx,
+    cardano-api,
+    cardano-ledger-alonzo,
+    plutus-ledger-api
+
 test-suite test
     import: lang
     type: exitcode-stdio-1.0
@@ -147,3 +165,5 @@ test-suite test
         freer-simple -any,
         foldl -any,
         streaming -any
+
+

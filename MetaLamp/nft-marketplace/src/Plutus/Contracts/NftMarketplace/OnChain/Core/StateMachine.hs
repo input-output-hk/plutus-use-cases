@@ -46,6 +46,7 @@ PlutusTx.makeLift ''Marketplace
 
 -- TODO (?) Prohibit for users which don't have bundled NFTs inside wallet to bundle and unbundle
 -- TODO make sum types for eithers (?)
+-- TODO: add fromJson instance and JSON example
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
   | PutLotRedeemer (Either InternalNftId InternalBundleId) LotLink
@@ -53,11 +54,11 @@ data MarketplaceRedeemer
   | BundleUpRedeemer [IpfsCidHash] BundleId BundleInfo
   | UnbundleRedeemer BundleId
   deriving  (Haskell.Show)
-
 PlutusTx.unstableMakeIsData ''MarketplaceRedeemer
 
 PlutusTx.makeLift ''MarketplaceRedeemer
 
+-- TODO: add JSON example
 data MarketplaceDatum =
   MarketplaceDatum
     {
