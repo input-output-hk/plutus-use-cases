@@ -25,13 +25,14 @@ import           Data.Aeson                                   (FromJSON,
                                                                Result (..),
                                                                ToJSON, encode,
                                                                fromJSON)
-import qualified Data.ByteString                              as BS
+import           Data.Default                                 (Default (def))
 import qualified Data.Map.Strict                              as Map
 import qualified Data.Monoid                                  as Monoid
 import qualified Data.Semigroup                               as Semigroup
 import           Data.Text                                    (Text)
 import           Data.Text.Prettyprint.Doc                    (Pretty (..),
                                                                viaShow)
+import qualified Ext.Plutus.PAB.Webserver.Server              as Ext.Plutus.PAB
 import           GHC.Generics                                 (Generic)
 import           Ledger
 import           Ledger.Ada                                   (adaSymbol,
@@ -58,9 +59,8 @@ import           Plutus.PAB.Simulator                         (Simulation,
                                                                SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                         as Simulator
 import           Plutus.PAB.Types                             (PABError (..))
-import qualified Plutus.PAB.Webserver.Server                  as PAB.Server
-import           Plutus.V1.Ledger.Crypto                      (getPubKeyHash,
-                                                               pubKeyHash)
+import qualified Plutus.PAB.Types                             as PAB
+import qualified Plutus.PAB.Webserver.Server                  as PAB
 import           Prelude                                      hiding (init)
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
@@ -92,10 +92,20 @@ activateContracts = do
 
     pure $ ContractIDs users cidInfo
 
+startMpServer :: IO ()
+startMpServer = void $ Simulator.runSimulationWith handlers $ do
+    Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
+    shutdown <- Ext.Plutus.PAB.startServer
+
+    _ <- activateContracts
+    Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
+    _ <- liftIO getLine
+    shutdown
+
 runNftMarketplace :: IO ()
 runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 8080. Press enter to exit."
-    shutdown <- PAB.Server.startServerDebug
+    Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
+    shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
     let userCid = cidUser Map.! Wallet 2
         sender = pubKeyHash . walletPubKey $ Wallet 2
@@ -176,7 +186,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapDuration = 80
+                        saapDuration = 80 * 1000
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
@@ -268,26 +278,21 @@ data MarketplaceContracts =
 instance Pretty MarketplaceContracts where
     pretty = viaShow
 
-handleMarketplaceContract ::
-    ( Member (Error PABError) effs
-    , Member (LogMsg (PABMultiAgentMsg (Builtin MarketplaceContracts))) effs
-    )
-    => ContractEffect (Builtin MarketplaceContracts)
-    ~> Eff effs
-handleMarketplaceContract = Builtin.handleBuiltin getSchema getContract where
-  getSchema = \case
-    MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
-    MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
-    MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
-  getContract = \case
-    MarketplaceInfo marketplace       -> SomeBuiltin $ Marketplace.infoEndpoints marketplace
-    MarketplaceUser marketplace       -> SomeBuiltin $ Marketplace.userEndpoints marketplace
-    MarketplaceStart           -> SomeBuiltin Marketplace.ownerEndpoints
+instance Builtin.HasDefinitions MarketplaceContracts where
+    getDefinitions = [MarketplaceStart]
+    getSchema = \case
+        MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
+        MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
+        MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
+    getContract = \case
+        MarketplaceInfo marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.infoEndpoints marketplace
+        MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
+        MarketplaceStart           -> SomeBuiltin . awaitPromise $ Marketplace.ownerEndpoints
 
 handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin MarketplaceContracts) []
-    $ interpret handleMarketplaceContract
+    Simulator.mkSimulatorHandlers def def
+    $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @MarketplaceContracts))
 
 oneAdaInLovelace :: Integer
 oneAdaInLovelace = 1000000

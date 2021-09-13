@@ -5,73 +5,81 @@
 
 module Marketplace.Fixtures.NFT where
 
+import           Data.Text                                    (Text)
+import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import           PlutusTx.Builtins                            (sha2_256)
-import           PlutusTx.Prelude                             (ByteString)
+import           PlutusTx.Prelude                             (BuiltinByteString)
 
-cids :: [Marketplace.IpfsCid]
+cids :: [Text]
 cids = [catTokenIpfsCid, photoTokenIpfsCid]
 
 bundleId :: Marketplace.BundleId
-bundleId = Marketplace.calcBundleIdHash cids
+bundleId = Marketplace.calcBundleIdHash $ fmap Marketplace.deserializeByteString cids
 
 bundleInfo :: Marketplace.BundleInfo
 bundleInfo = Marketplace.BundleInfo
-    { biName        = bundleName
-    , biDescription = bundleDescription
-    , biCategory    = bundleCategory
+    { biName        = Marketplace.deserializeByteString bundleName
+    , biDescription = Marketplace.deserializeByteString bundleDescription
+    , biCategory    = Marketplace.deserializeByteString <$> bundleCategory
     }
 
-bundleName :: ByteString
+bundleName :: Text
 bundleName        = "Picture gallery"
 
-bundleDescription :: ByteString
+bundleDescription :: Text
 bundleDescription = "Collection of visual media"
 
-bundleCategory :: Marketplace.Category
+bundleCategory :: [Text]
 bundleCategory = ["User","Stan"]
 
-catTokenIpfsCid :: Marketplace.IpfsCid
+catTokenIpfsCid :: Text
 catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
 
-catTokenIpfsCidHash :: Marketplace.IpfsCidHash
-catTokenIpfsCidHash = sha2_256 catTokenIpfsCid
+catTokenIpfsCidBs :: BuiltinByteString
+catTokenIpfsCidBs = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
 
-catTokenName :: ByteString
+catTokenIpfsCidHash :: Marketplace.IpfsCidHash
+catTokenIpfsCidHash = sha2_256 $ Marketplace.deserializeByteString catTokenIpfsCid
+
+catTokenName :: Text
 catTokenName = "Cat token"
 
-catTokenDescription :: ByteString
+catTokenDescription :: Text
 catTokenDescription = "A picture of a cat on a pogo stick"
 
-catTokenCategory :: Marketplace.Category
+catTokenCategory :: [Text]
 catTokenCategory = ["GIFs"]
 
 hasCatTokenRecord :: Marketplace.NftInfo -> Bool
 hasCatTokenRecord Marketplace.NftInfo {..} =
-  niCategory == catTokenCategory &&
-  niName == catTokenName &&
-  niDescription == catTokenDescription
+  niCategory == (Marketplace.deserializeByteString <$> catTokenCategory) &&
+  niName == (Marketplace.deserializeByteString catTokenName) &&
+  niDescription == (Marketplace.deserializeByteString catTokenDescription)
 
-photoTokenIpfsCid :: Marketplace.IpfsCid
+photoTokenIpfsCid :: Text
 photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
 
-photoTokenIpfsCidHash :: Marketplace.IpfsCidHash
-photoTokenIpfsCidHash = sha2_256 photoTokenIpfsCid
+photoTokenIpfsCidBs :: BuiltinByteString
+photoTokenIpfsCidBs = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
 
-photoTokenName :: ByteString
+photoTokenIpfsCidHash :: Marketplace.IpfsCidHash
+photoTokenIpfsCidHash = sha2_256 $ Marketplace.deserializeByteString photoTokenIpfsCid
+
+photoTokenName :: Text
 photoTokenName = "Photo token"
 
-photoTokenDescription :: ByteString
+photoTokenDescription :: Text
 photoTokenDescription = "A picture of a sunset"
 
-photoTokenCategory :: Marketplace.Category
+photoTokenCategory :: [Text]
 photoTokenCategory = ["Photos"]
 
 hasPhotoTokenRecord :: Marketplace.NftInfo -> Bool
 hasPhotoTokenRecord Marketplace.NftInfo {..} =
-  niCategory == photoTokenCategory &&
-  niName == photoTokenName &&
-  niDescription == photoTokenDescription
+  niCategory == (Marketplace.deserializeByteString <$> photoTokenCategory) &&
+  niName == (Marketplace.deserializeByteString photoTokenName) &&
+  niDescription == (Marketplace.deserializeByteString photoTokenDescription)
 
 oneAdaInLovelace :: Integer
 oneAdaInLovelace = 1000000

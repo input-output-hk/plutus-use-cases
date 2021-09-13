@@ -1,6 +1,8 @@
 module Utils.Data where
 
-import           Plutus.V1.Ledger.Crypto (PubKeyHash, pubKeyHash)
+import           Ledger                  (Address, pubKeyHash)
+import           Plutus.V1.Ledger.Crypto (PubKeyHash)
+import           Wallet.Emulator.Types   (Wallet (..), walletPubKey)
 import           Wallet.Emulator.Wallet  (Wallet, walletPubKey)
 
 one :: (a -> Bool) -> [a] -> Bool
@@ -10,3 +12,7 @@ one f = foldr reducer False
 
 walletPkh :: Wallet -> PubKeyHash
 walletPkh = pubKeyHash . walletPubKey
+
+checkOneDatum :: (d -> Bool) -> [d] -> Bool
+checkOneDatum check [d] = check d
+checkOneDatum _ _       = False

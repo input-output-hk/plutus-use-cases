@@ -166,17 +166,17 @@ openSaleDatumsCheck :: TracePredicate
 openSaleDatumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (nftIsOnSale . Marketplace.mdSingletons)
+    (Utils.checkOneDatum (nftIsOnSale . Marketplace.mdSingletons))
     where
       nftIsOnSale = maybe False (\t -> t ^. Marketplace._nftLot ^? traverse . _2 . _Left & fmap Sale.saleValue &
-                                (== Just (Marketplace.nftValue Fixtures.catTokenIpfsCid t))) .
+                                (== Just (Marketplace.nftValue Fixtures.catTokenIpfsCidBs t))) .
                     AssocMap.lookup Fixtures.catTokenIpfsCidHash
 
 completeSaleDatumsCheck :: TracePredicate
 completeSaleDatumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (nftNotOnSale . Marketplace.mdSingletons)
+    (Utils.checkOneDatum (nftNotOnSale . Marketplace.mdSingletons))
     where
       nftNotOnSale = maybe False (isNothing . Marketplace.nftLot) .
                      AssocMap.lookup Fixtures.catTokenIpfsCidHash
@@ -187,7 +187,7 @@ openSaleValueCheck =
     (walletAddress Fixtures.userWallet)
     (isNothing . find hasNft . V.flattenValue)
     where
-      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCid
+      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
 closeSaleValueCheck :: TracePredicate
 closeSaleValueCheck =
@@ -195,7 +195,7 @@ closeSaleValueCheck =
     (walletAddress Fixtures.userWallet)
     (Utils.one hasNft . V.flattenValue)
     where
-      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCid
+      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
 buyItemValueCheck :: TracePredicate
 buyItemValueCheck =
@@ -203,7 +203,7 @@ buyItemValueCheck =
     (walletAddress Fixtures.buyerWallet)
     (Utils.one hasNft . V.flattenValue)
     where
-      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCid
+      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
 errorCheckUser :: TracePredicate
 errorCheckUser = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
@@ -265,7 +265,7 @@ openSaleDatumsCheckB :: TracePredicate
 openSaleDatumsCheckB =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (bundleIsOnSale . Marketplace.mdBundles)
+    (Utils.checkOneDatum (bundleIsOnSale . Marketplace.mdBundles))
     where
       bundleIsOnSale = maybe False (\b -> b ^. Marketplace._nbTokens ^? Marketplace._HasLot . _2 . _Left & fmap Sale.saleValue &
                                 (== Just (Marketplace.bundleValue AssocMap.empty b))) .
@@ -275,7 +275,7 @@ completeSaleDatumsCheckB :: TracePredicate
 completeSaleDatumsCheckB =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (bundleNotOnSale . Marketplace.mdBundles)
+    (Utils.checkOneDatum (bundleNotOnSale . Marketplace.mdBundles))
     where
       bundleNotOnSale = maybe False (Prelude.not . Marketplace.hasLotBundle) .
                         AssocMap.lookup Fixtures.bundleId
@@ -286,8 +286,8 @@ openSaleValueCheckB =
     (walletAddress Fixtures.userWallet) $
     \v -> (isNothing . find hasCatToken . V.flattenValue $ v) && (isNothing . find hasPhotoToken . V.flattenValue $ v)
     where
-      hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCid
-      hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCid
+      hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
+      hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCidBs
 
 closeSaleValueCheckB :: TracePredicate
 closeSaleValueCheckB =
@@ -295,8 +295,8 @@ closeSaleValueCheckB =
     (walletAddress Fixtures.userWallet) $
     \v -> (Utils.one hasCatToken . V.flattenValue $ v) && (Utils.one hasPhotoToken . V.flattenValue $ v)
     where
-      hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCid
-      hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCid
+      hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
+      hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCidBs
 
 buyItemValueCheckB :: TracePredicate
 buyItemValueCheckB =
@@ -304,5 +304,5 @@ buyItemValueCheckB =
     (walletAddress Fixtures.buyerWallet) $
     \v -> (Utils.one hasCatToken . V.flattenValue $ v) && (Utils.one hasPhotoToken . V.flattenValue $ v)
     where
-      hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCid
-      hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCid
+      hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
+      hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCidBs

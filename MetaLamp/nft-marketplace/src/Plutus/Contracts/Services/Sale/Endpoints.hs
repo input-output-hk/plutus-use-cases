@@ -53,11 +53,9 @@ PlutusTx.makeLift ''OpenSaleParams
 openSale :: OpenSaleParams -> Contract w s Text Core.Sale
 openSale OpenSaleParams {..}  = do
     pkh <- getOwnPubKey
-    saleCurrency <- fmap Currency.currencySymbol $
-           mapError (T.pack . Haskell.show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(Core.saleProtocolName, 1)]
+    saleToken <- mapError (T.pack . Haskell.show @SMContractError) $ getThreadToken
     let sale = Core.Sale
-                { saleProtocolToken = assetClass saleCurrency Core.saleProtocolName,
+                { saleProtocolToken = saleToken,
                   salePrice         = ospSalePrice,
                   saleValue         = ospSaleValue
                 }

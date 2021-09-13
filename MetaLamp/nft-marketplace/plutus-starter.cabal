@@ -21,9 +21,27 @@ maintainer:         Your email
 -- category:
 -- extra-source-files: CHANGELOG.md
 
+flag defer-plugin-errors
+    description:
+        Defer errors from the plugin, useful for things like Haddock that can't handle it.
+    default: False
+    manual: True
+
+common lang
+    default-language:   Haskell2010
+    ghc-options:
+      -Wall -Wnoncanonical-monad-instances
+      -Wincomplete-uni-patterns -Wincomplete-record-updates
+      -Wredundant-constraints -Widentities -rtsopts
+      -- See Plutus Tx readme
+      -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    if flag(defer-plugin-errors)
+        ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
 library
+    import: lang
     exposed-modules:
-      Plutus.Contracts.NftMarketplace.OnChain.Core Plutus.Contracts.NftMarketplace.OffChain.ID Plutus.Contracts.NftMarketplace.OnChain.Core.ID Plutus.Contracts.Services.Sale.Core Ext.PlutusTx.AssocMap Plutus.Contracts.NftMarketplace.OnChain.Core.NFT Ext.Plutus.Contracts.Auction Plutus.Contracts.Services.Sale Plutus.Contracts.Services.Sale.Endpoints Plutus.Contracts.Services.Sale.StateMachine Plutus.Contracts.NftMarketplace.OffChain.Info Ext.Plutus.Ledger.Value Plutus.Contracts.NftMarketplace.OffChain.User Plutus.Abstract.ContractResponse Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation
+      Plutus.Contracts.NftMarketplace.OnChain.Core Plutus.Contracts.NftMarketplace.OffChain.Serialization Ext.Plutus.PAB.Webserver.Server Plutus.Contracts.NftMarketplace.OffChain.ID Plutus.Contracts.NftMarketplace.OnChain.Core.ID Plutus.Contracts.Services.Sale.Core Plutus.Contracts.NftMarketplace.OnChain.Core.NFT Ext.Plutus.Contracts.Auction Plutus.Contracts.Services.Sale Plutus.Contracts.Services.Sale.Endpoints Plutus.Contracts.Services.Sale.StateMachine Plutus.Contracts.NftMarketplace.OffChain.Info Ext.Plutus.Ledger.Value Plutus.Contracts.NftMarketplace.OffChain.User Plutus.Abstract.ContractResponse Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -37,6 +55,10 @@ library
       semigroups,
       cryptonite,
       memory,
+      data-default,
+      servant-server,
+      wai-cors,
+      servant-options,
       -- Plutus:
       playground-common,
       plutus-contract,
@@ -47,12 +69,19 @@ library
       plutus-use-cases,
       plutus-pab
     hs-source-dirs: src
-    default-language: Haskell2010
-    ghc-options:
-            -- See Plutus Tx readme
-            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+
+executable pab
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs: pab
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter
 
 executable pab-simulation
+  import: lang
   main-is: Main.hs
   hs-source-dirs: pab-simulation
   ghc-options:
@@ -61,18 +90,33 @@ executable pab-simulation
     base >= 4.9 && < 5,
     plutus-starter
 
+executable generate-purs
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs: generate-purs
+  other-modules: MarketplaceTypes
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    purescript-bridge,
+    servant-purescript -any,
+    mtl,
+    directory,
+    lens,
+    -- Plutus:
+    plutus-starter,
+    plutus-pab,
+    plutus-contract,
+    plutus-ledger-api
+
 test-suite test
+    import: lang
     type: exitcode-stdio-1.0
     main-is: Main.hs
     hs-source-dirs: test
     other-modules:
       Marketplace.Spec.Start Utils.Data Marketplace.Spec.Auction Marketplace.Fixtures.NFT Marketplace.Spec.Bundles Marketplace.Spec.Sale Utils.Trace Utils Marketplace.Fixtures.Wallet Marketplace.Fixtures Marketplace.Fixtures.CheckOptions Marketplace.Fixtures.Script Marketplace.Spec.CreateNft
-    default-language: Haskell2010
-    ghc-options: -Wall -Wnoncanonical-monad-instances
-                 -Wincomplete-uni-patterns -Wincomplete-record-updates
-                 -Wredundant-constraints -Widentities -rtsopts
-                 -- See Plutus Tx readme
-                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
     build-depends:
         plutus-core -any,
         plutus-tx -any,

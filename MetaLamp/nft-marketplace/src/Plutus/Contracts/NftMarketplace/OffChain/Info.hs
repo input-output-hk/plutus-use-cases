@@ -6,6 +6,7 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
 
@@ -50,7 +51,7 @@ marketplaceStore marketplace = do
 
 getStateDatum ::
     Maybe (OnChainState Core.MarketplaceDatum i, UtxoMap) -> Contract w s Text Core.MarketplaceDatum
-getStateDatum = maybe (throwError "Marketplace output not found") (pure . tyTxOutData . fst . fst)
+getStateDatum = maybe (throwError "Marketplace output not found") (pure . tyTxOutData . ocsTxOut . fst)
 
 getNftEntry :: Core.MarketplaceDatum -> Core.InternalNftId -> Contract w s Text Core.NFT
 getNftEntry nftStore (Core.InternalNftId ipfsCidHash ipfsCid) =
@@ -111,9 +112,11 @@ data InfoContractState =
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
-infoEndpoints :: Core.Marketplace -> Contract (ContractResponse Text InfoContractState) MarketplaceInfoSchema Void ()
-infoEndpoints marketplace = forever $
-    withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
+Lens.makeClassyPrisms ''InfoContractState
+
+infoEndpoints :: Core.Marketplace -> Promise (ContractResponse Text InfoContractState) MarketplaceInfoSchema Void ()
+infoEndpoints marketplace =
+    (withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
     `select` withContractResponse (Proxy @"marketplaceFunds") MarketplaceFunds (const $ marketplaceFunds marketplace)
     `select` withContractResponse (Proxy @"marketplaceStore") MarketplaceStore (const $ marketplaceStore marketplace)
-    `select` withContractResponse (Proxy @"getAuctionState") AuctionState (getAuctionState marketplace)
+    `select` withContractResponse (Proxy @"getAuctionState") AuctionState (getAuctionState marketplace)) <> infoEndpoints marketplace

@@ -18,7 +18,6 @@ import qualified Control.Lens                                     as Lens
 import qualified Data.Aeson                                       as J
 import qualified Data.Text                                        as T
 import qualified Ext.Plutus.Contracts.Auction                     as Auction
-import qualified Ext.PlutusTx.AssocMap                            as AssocMap
 import qualified GHC.Generics                                     as Haskell
 import           Ledger
 import qualified Ledger.Constraints                               as Constraints
@@ -38,9 +37,9 @@ import qualified Prelude                                          as Haskell
 
 newtype Marketplace =
   Marketplace
-    { marketplaceProtocolToken :: AssetClass
+    { marketplaceOperator :: PubKeyHash
     }
-  deriving stock (Haskell.Eq, Haskell.Ord, Haskell.Show, Haskell.Generic)
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
 
 PlutusTx.makeLift ''Marketplace
@@ -177,7 +176,7 @@ transition marketplace state redeemer = case redeemer of
     _                                        -> trace "Invalid transition" Nothing
   where
     stateToken :: Value
-    stateToken = V.assetClassValue (marketplaceProtocolToken marketplace) 1
+    stateToken = mempty -- TODO! V.assetClassValue (marketplaceProtocolToken marketplace) 1
 
     nftStore :: MarketplaceDatum
     nftStore = stateData state
@@ -252,7 +251,7 @@ marketplaceStateMachine marketplace = StateMachine
     { smTransition  = transition marketplace
     , smFinal       = const False
     , smCheck       = stateTransitionCheck
-    , smThreadToken = Just $ marketplaceProtocolToken marketplace
+    , smThreadToken = Nothing
     }
 
 {-# INLINABLE mkMarketplaceValidator #-}

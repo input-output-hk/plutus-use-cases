@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
@@ -16,7 +17,6 @@ module Plutus.Abstract.ContractResponse where
 
 import qualified Control.Lens                     as Lens
 import           Control.Monad                    hiding (fmap)
-import qualified Data.ByteString                  as BS
 import qualified Data.Map                         as Map
 import           Data.Monoid                      (Last (..))
 import           Data.Proxy                       (Proxy (..))
@@ -63,15 +63,16 @@ withContractResponse :: forall l a p r s.
     => Proxy l
     -> (a -> r)
     -> (p -> Contract (ContractResponse Text r) s Text a)
-    -> Contract (ContractResponse Text r) s Void ()
+    -> Promise (ContractResponse Text r) s Void ()
 withContractResponse _ g c = do
-    e <- runError $ do
-        p <- endpoint @l
-        _ <- tell CrPending
-        errorHandler `handleError` c p
-    tell $ case e of
-        Left err -> CrError err
-        Right a  -> CrSuccess $ g a
+    handleEndpoint @l $ \case
+        Left err -> tell $ CrError err
+        Right p -> do
+            _ <- tell CrPending
+            e <- runError $ errorHandler `handleError` c p
+            tell $ case e of
+                Left err -> CrError err
+                Right a  -> CrSuccess $ g a
 
 errorHandler :: Text -> Contract w s Text b
 errorHandler e = do
