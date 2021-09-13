@@ -11,13 +11,10 @@ import Effect.Unsafe (unsafePerformEffect)
 import Halogen as H
 import Halogen.Aff (awaitBody, runHalogenAff)
 import Halogen.VDom.Driver (runUI)
-import Routing.Duplex as Routing
-import Routing.Hash as Routing
-import Effect.Aff (Aff, launchAff_)
+import Routing.Duplex (parse) as Routing
+import Routing.Hash (matchesWith) as Routing
+import Effect.Aff (launchAff_)
 
--- TODO add to readme
--- ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["webui://-", "http://localhost:3000", "http://127.0.0.1:5001", "https://webui.ipfs.io", "https://localhost:8009", "http://localhost:8009"]'
--- ipfs config --json API.HTTPHeaders.Access-Control-Allow-Methods '["PUT", "POST"]'
 main :: Effect Unit
 main =
   runHalogenAff do

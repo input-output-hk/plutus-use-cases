@@ -12,11 +12,8 @@ import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDat
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (CurrencySymbol, TokenName(..), Value)
 import PlutusTx.AssocMap as AssocMap
+import Utils.ByteString as Utils
 
--- TODO
--- BuiltinByteString maps to String but displays incorrectly
--- decodeUtf8 :: BuiltinByteString -> BuiltinString
--- decodeUtf8 (BuiltinByteString b) = BuiltinString $ Text.decodeUtf8 b
 type NftSingleton
   = { ipfsCid :: String
     , currency :: CurrencySymbol
@@ -59,8 +56,8 @@ findNftSingletons funds store = foldr getSingleton [] userSingletons
         `snoc`
           { ipfsCid: ipfsCid
           , currency: currencySymbol
-          , name: record.niName
-          , description: record.niDescription
-          , category: record.niCategory
+          , name: Utils.decodeUtf8 record.niName
+          , description: Utils.decodeUtf8 record.niDescription
+          , category: map Utils.decodeUtf8 record.niCategory
           , issuer: record.niIssuer
           }
