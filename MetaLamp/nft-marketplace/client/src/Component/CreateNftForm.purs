@@ -114,8 +114,8 @@ putNftComponent =
       when (isJust st.file) do
         res <- H.queryAll _categoryForm $ H.request F.submitReply
         case map F.unwrapOutputFields $ catMaybes $ toUnfoldable $ M.values res of
-          [] -> eval F.submit
-          subcategories -> eval (F.set _subcategories (Just subcategories)) *> eval F.submit
+          [] -> eval F.submit *> eval F.resetAll
+          subcategories -> eval (F.set _subcategories (Just subcategories)) *> eval F.submit *> eval F.resetAll
     HandleFile file -> do
       H.modify_ _ { file = Just file }
     where
@@ -129,6 +129,7 @@ putNftComponent =
     F.Submitted outputs -> do
       file <- (H.gets _.file) >>= maybe (liftEffect $ throw "No file provided") pure
       H.raise (getSubmittedNft file $ F.unwrapOutputFields outputs)
+      H.modify_ _ { file = Nothing } -- TODO also reset file input
     _ -> pure unit
 
   render st =
