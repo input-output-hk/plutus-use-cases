@@ -141,12 +141,6 @@ putNftComponent =
                   [ HE.onClick \_ -> Just $ F.injAction AddCategoryForm ]
                   [ HH.text "Add Category Form" ]
               ]
-          , HH.div
-              [ class_ "control" ]
-              [ UI.buttonPrimary
-                  [ HE.onClick \_ -> Just $ F.injAction SubmitAll ]
-                  [ HH.text "Submit" ]
-              ]
           ]
       , UI.input
           { label: "NFT Name"
@@ -168,8 +162,6 @@ putNftComponent =
           [ HP.value $ F.getInput _description st.form
           , HE.onValueInput $ Just <<< F.setValidate _description
           ]
-      , HH.div_
-          (mkCategoryForm <$> st.formIds)
       , UI.field
           { label: "Select File", help: Right "Upload a file corresponding to the token" }
           [ HH.input
@@ -192,6 +184,14 @@ putNftComponent =
                   ]
               , HH.text " Toggle reveal issuer"
               ]
+          ]
+      , HH.div_
+          (mkCategoryForm <$> st.formIds)
+      , HH.div
+          [ class_ "control" ]
+          [ UI.buttonPrimary
+              [ HE.onClick \_ -> Just $ F.injAction SubmitAll ]
+              [ HH.text "Submit" ]
           ]
       ]
     where

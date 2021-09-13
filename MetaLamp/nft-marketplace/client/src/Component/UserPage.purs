@@ -1,7 +1,6 @@
 module Component.UserPage where
 
 import Prelude
-
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
 import Business.MarketplaceUser (createNft) as MarketplaceUser
