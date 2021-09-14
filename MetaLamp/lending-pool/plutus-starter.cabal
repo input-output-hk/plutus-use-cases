@@ -30,6 +30,7 @@ library
       bytestring,
       containers,
       text,
+      data-default,
       freer-simple,
       freer-extras,
       prettyprinter,

@@ -38,8 +38,8 @@ findValueByDatumHash dh outs = mconcat $ mapMaybe f outs
 
 {-# INLINABLE parseDatum #-}
 -- | Find datum inside pending transaction and parse it from data
-parseDatum :: PlutusTx.IsData a => TxInfo -> DatumHash -> Maybe a
-parseDatum txInfo dh = findDatum dh txInfo >>= (PlutusTx.fromData . getDatum)
+parseDatum :: (PlutusTx.FromData a, PlutusTx.ToData a) => TxInfo -> DatumHash -> Maybe a
+parseDatum txInfo dh = findDatum dh txInfo >>= (PlutusTx.fromBuiltinData . getDatum)
 
 {-# INLINABLE valueSpentFrom #-}
 -- | Concat value of the inputs belonging to the provided public key inside the pending transaction's inputs

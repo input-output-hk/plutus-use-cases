@@ -62,13 +62,13 @@ import           Plutus.PAB.Simulator                        (Simulation,
 import qualified Plutus.PAB.Simulator                        as Simulator
 import           Plutus.PAB.Types                            (PABError (..))
 import qualified Plutus.PAB.Webserver.Server                 as PAB.Server
-import           Plutus.V1.Ledger.Crypto                     (getPubKeyHash,
-                                                              pubKeyHash)
+import           Plutus.V1.Ledger.Crypto                     (getPubKeyHash)
+import Ledger.Crypto (pubKeyHash)
 import           Prelude                                     hiding (init)
 import           Wallet.Emulator.Types                       (Wallet (..),
                                                               walletPubKey)
 import           Wallet.Types                                (ContractInstanceId)
-
+import           Data.Default                                 (Default (def))
 ownerWallet :: Wallet
 ownerWallet = Wallet 1
 
@@ -90,12 +90,12 @@ distributeFunds wallets assets = do
     ownPK <- pubKeyHash <$> ownPubKey
     let testCurrenciesValue = mconcat $ fmap (`assetClassValue` 1000) assets
         policyLookups = mconcat $
-            fmap (Constraints.monetaryPolicy . FungibleToken.makeLiquidityPolicy . Prelude.snd . unAssetClass) assets
+            fmap (Constraints.mintingPolicy . FungibleToken.makeLiquidityPolicy . Prelude.snd . unAssetClass) assets
         adaValue = lovelaceValueOf amount
     forM_ wallets $ \w -> do
         let pkh = pubKeyHash $ walletPubKey w
             lookups = policyLookups
-            tx = mustForgeValue testCurrenciesValue <> mustPayToPubKey pkh (adaValue <> testCurrenciesValue)
+            tx = mustMintValue testCurrenciesValue <> mustPayToPubKey pkh (adaValue <> testCurrenciesValue)
         when (pkh /= ownPK) $ do
             ledgerTx <- submitTxConstraintsWith @Scripts.Any lookups tx
             void $ awaitTxConfirmed $ txId ledgerTx
@@ -265,30 +265,25 @@ data AaveContracts =
 instance Pretty AaveContracts where
     pretty = viaShow
 
-handleAaveContract ::
-    ( Member (Error PABError) effs
-    , Member (LogMsg (PABMultiAgentMsg (Builtin AaveContracts))) effs
-    )
-    => ContractEffect (Builtin AaveContracts)
-    ~> Eff effs
-handleAaveContract = Builtin.handleBuiltin getSchema getContract where
-  getSchema = \case
-    AaveUser _          -> Builtin.endpointsToSchemas @Aave.AaveUserSchema
-    AaveInfo _          -> Builtin.endpointsToSchemas @Aave.AaveInfoSchema
-    AaveStart           -> Builtin.endpointsToSchemas @Aave.AaveOwnerSchema
-    DistributeFunds _ _ -> Builtin.endpointsToSchemas @Empty
-    CreateOracles _     -> Builtin.endpointsToSchemas @Empty
-  getContract = \case
-    AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints aave
-    AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints aave
-    AaveStart           -> SomeBuiltin Aave.ownerEndpoints
-    DistributeFunds wallets assets -> SomeBuiltin $ distributeFunds wallets assets
-    CreateOracles assets -> SomeBuiltin $ createOracles assets
+instance Builtin.HasDefinitions AaveContracts where
+    getDefinitions = [AaveStart]   -- TODO: not sure about contract definitions
+    getSchema = \case
+        AaveUser _          -> Builtin.endpointsToSchemas @Aave.AaveUserSchema
+        AaveInfo _          -> Builtin.endpointsToSchemas @Aave.AaveInfoSchema
+        AaveStart           -> Builtin.endpointsToSchemas @Aave.AaveOwnerSchema
+        DistributeFunds _ _ -> Builtin.endpointsToSchemas @Empty
+        CreateOracles _     -> Builtin.endpointsToSchemas @Empty
+    getContract = \case
+        AaveInfo aave       -> SomeBuiltin $ Aave.infoEndpoints aave
+        AaveUser aave       -> SomeBuiltin $ Aave.userEndpoints aave
+        AaveStart           -> SomeBuiltin Aave.ownerEndpoints
+        DistributeFunds wallets assets -> SomeBuiltin $ distributeFunds wallets assets
+        CreateOracles assets -> SomeBuiltin $ createOracles assets
 
 handlers :: SimulatorEffectHandlers (Builtin AaveContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin AaveContracts) []
-    $ interpret handleAaveContract
+    Simulator.mkSimulatorHandlers def def
+    $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @AaveContracts))
 
 oneAdaInLovelace :: Integer
 oneAdaInLovelace = 1000000

@@ -11,6 +11,7 @@ let
   haskell = pkgs.callPackage ./haskell {
     inherit gitignore-nix sources haskell-nix;
     inherit compiler-nix-name; # Use the same GHC version as plutus
+    inherit (pkgs) libsodium-vrf;
   };
 
   hlint = plutus.plutus.hlint;
@@ -35,8 +36,8 @@ let
 
   cardano-repo-tool = plutus.plutus.cardano-repo-tool;
 in
-{ 
-  inherit nodejs purs spago purty fix-purty; 
-  inherit haskell hlint cabal-install stylish-haskell fix-stylish-haskell haskell-language-server; 
+{
+  inherit nodejs purs spago purty fix-purty;
+  inherit haskell hlint cabal-install stylish-haskell fix-stylish-haskell haskell-language-server;
   inherit cardano-repo-tool;
 }

@@ -20,7 +20,7 @@ import           Ledger                                      hiding (singleton)
 import           Ledger.Constraints                          as Constraints
 import           Ledger.Constraints.OnChain                  as Constraints
 import           Ledger.Constraints.TxConstraints            as Constraints
-import           Ledger.Typed.Scripts                        (MonetaryPolicy)
+import           Ledger.Typed.Scripts                        (MintingPolicy)
 import qualified Ledger.Typed.Scripts                        as Scripts
 import           Plutus.Abstract.OutputValue                 (OutputValue (..))
 import qualified Plutus.Abstract.TxUtils                     as TxUtils
@@ -30,8 +30,9 @@ import           Plutus.Contracts.LendingPool.OnChain.Core   (Aave, AaveScript,
                                                               Reserve (..))
 import qualified Plutus.Contracts.LendingPool.OnChain.Core   as Core
 import qualified Plutus.Contracts.Service.FungibleToken      as FungibleToken
-import           Plutus.V1.Ledger.Contexts                   (ScriptContext,
-                                                              scriptCurrencySymbol)
+import           Plutus.V1.Ledger.Contexts                   (ScriptContext)
+import Ledger.Contexts (scriptCurrencySymbol)
+
 import qualified Plutus.V1.Ledger.Scripts                    as Scripts
 import           Plutus.V1.Ledger.Value                      (AssetClass (..),
                                                               TokenName (..),

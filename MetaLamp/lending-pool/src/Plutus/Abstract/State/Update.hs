@@ -35,7 +35,7 @@ import           Plutus.Abstract.OutputValue      (OutputValue (..))
 import qualified Plutus.Abstract.TxUtils          as TxUtils
 import           Plutus.Contract                  hiding (when)
 import           Plutus.V1.Ledger.Value
-import           PlutusTx                         (IsData)
+import           PlutusTx                         (FromData, ToData)
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..),
                                                    unless)
@@ -46,8 +46,8 @@ type OwnerToken = AssetClass
 
 -- State token can be only be forged when there is an input and output containing an owner token belonging to a script
 {-# INLINABLE validateStateForging #-}
-validateStateForging :: ValidatorHash -> OwnerToken -> TokenName -> ScriptContext -> Bool
-validateStateForging ownerScript ownerToken tokenName ctx = traceIfFalse "State forging not authorized" $
+validateStateForging :: ValidatorHash -> OwnerToken -> TokenName -> BuiltinData -> ScriptContext -> Bool
+validateStateForging ownerScript ownerToken tokenName _ ctx = traceIfFalse "State forging not authorized" $
     hasOneOwnerToken outputValues && hasOneOwnerToken inputValues && hasOneStateToken forgedValue && hasOneStateToken (mconcat outputValues)
   where
     txInfo = scriptContextTxInfo ctx
@@ -55,14 +55,14 @@ validateStateForging ownerScript ownerToken tokenName ctx = traceIfFalse "State 
 
     outputValues = snd <$> scriptOutputsAt ownerScript txInfo
     inputValues = snd <$> scriptInputsAt ownerScript txInfo
-    forgedValue = txInfoForge txInfo
+    forgedValue = txInfoMint txInfo
 
     hasOneOwnerToken values = assetClassValueOf (mconcat values) ownerToken == 1
     hasOneStateToken value = assetClassValueOf value stateToken == 1
 
-makeStatePolicy :: ValidatorHash -> OwnerToken -> TokenName -> MonetaryPolicy
-makeStatePolicy ownerScript ownerToken tokenName = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [|| \os ot tn -> Scripts.wrapMonetaryPolicy $ validateStateForging os ot tn||])
+makeStatePolicy :: ValidatorHash -> OwnerToken -> TokenName -> MintingPolicy
+makeStatePolicy ownerScript ownerToken tokenName = mkMintingPolicyScript $
+    $$(PlutusTx.compile [|| \os ot tn -> Scripts.wrapMintingPolicy $ validateStateForging os ot tn||])
         `PlutusTx.applyCode` PlutusTx.liftCode ownerScript
         `PlutusTx.applyCode` PlutusTx.liftCode ownerToken
         `PlutusTx.applyCode` PlutusTx.liftCode tokenName
@@ -86,7 +86,8 @@ data StateHandle scriptType a = StateHandle {
 }
 
 putState ::
-    (IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
+    (FromData (DatumType scriptType), ToData (DatumType scriptType),
+    FromData (RedeemerType scriptType), ToData (RedeemerType scriptType)) =>
     PutStateHandle scriptType ->
     StateHandle scriptType a ->
     a ->
@@ -105,7 +106,8 @@ putState PutStateHandle {..} StateHandle{..} newState = do
             (assetClassValue ownerToken 1)
 
 updateState ::
-    (IsData (DatumType scriptType), IsData (RedeemerType scriptType)) =>
+    (FromData (DatumType scriptType), ToData (DatumType scriptType),
+    FromData (RedeemerType scriptType), ToData (RedeemerType scriptType)) =>
     Scripts.TypedValidator scriptType ->
     StateHandle scriptType a ->
     OutputValue a ->

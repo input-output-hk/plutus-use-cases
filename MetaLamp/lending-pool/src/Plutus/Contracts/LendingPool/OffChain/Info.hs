@@ -89,9 +89,9 @@ data InfoContractState =
     | Users (AssocMap.Map (AssetClass, PubKeyHash) UserConfig)
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
-infoEndpoints :: Aave -> Contract (ContractResponse Text InfoContractState) AaveInfoSchema Void ()
-infoEndpoints aave = forever $
-    withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
+infoEndpoints :: Aave -> Promise (ContractResponse Text InfoContractState) AaveInfoSchema Void ()
+infoEndpoints aave = 
+    (withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
     `select` withContractResponse (Proxy @"poolFunds") PoolFunds (const $ poolFunds aave)
     `select` withContractResponse (Proxy @"reserves") Reserves (const $ reserves aave)
-    `select` withContractResponse (Proxy @"users") Users (const $ users aave)
+    `select` withContractResponse (Proxy @"users") Users (const $ users aave)) <> infoEndpoints aave
