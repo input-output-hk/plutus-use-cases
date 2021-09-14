@@ -51,5 +51,5 @@ renderSale ::
 renderSale sale =
   HH.div_
     [ HH.h4_ [ HH.text "Ongoing sale: " ]
-    , HH.p_ [ HH.text $ "price: " <> show (unwrap sale).salePrice <> " Lovelace"]
+    , HH.p_ [ HH.text $ "price: " <> show (unwrap sale).salePrice <> " Lovelace" ]
     ]

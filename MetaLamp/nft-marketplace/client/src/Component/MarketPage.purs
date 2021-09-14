@@ -129,5 +129,5 @@ renderLot r = case r.lot of
           [ HH.text "Close Sale" ]
       , HH.button
           [ HE.onClick \_ -> Just (BuyNft r) ]
-          [ HH.text "Buy Nft" ]
+          [ HH.text "Buy NFT" ]
       ]
