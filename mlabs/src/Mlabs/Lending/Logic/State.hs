@@ -23,7 +23,9 @@ module Mlabs.Lending.Logic.State (
   initReserve,
   guardError,
   getWallet,
+  getWallet',
   getsWallet,
+  getsWallet',
   getUser,
   getsUser,
   getReserve,
@@ -54,6 +56,7 @@ module Mlabs.Lending.Logic.State (
   modifyHealthReport,
   getNormalisedIncome,
   getCumulativeBalance,
+  getWalletCumulativeBalance,
 ) where
 
 import PlutusTx.Prelude
@@ -161,6 +164,18 @@ getsWallet uid coin f = fmap f $ getWallet uid coin
 getWallet :: Types.UserId -> Types.Coin -> St Wallet
 getWallet uid coin =
   getsUser uid (fromMaybe defaultWallet . M.lookup coin . user'wallets)
+
+-- | Get all user internal wallets.
+{-# INLINEABLE getsWallet' #-}
+getsWallet' :: Types.UserId -> (Map Types.Coin Wallet -> a) -> St a
+getsWallet' uid f =
+  f <$> getWallet' uid
+
+-- | Get all user internal wallets.
+{-# INLINEABLE getWallet' #-}
+getWallet' :: Types.UserId -> St (Map Types.Coin Wallet)
+getWallet' uid =
+  getsUser uid user'wallets
 
 {-# INLINEABLE getsUser #-}
 
@@ -384,3 +399,11 @@ getCumulativeBalance :: Types.UserId -> Types.Coin -> St Rational
 getCumulativeBalance uid asset = do
   ni <- getNormalisedIncome asset
   getsWallet uid asset (IR.getCumulativeBalance ni)
+
+{-# INLINEABLE getWalletCumulativeBalance #-}
+getWalletCumulativeBalance :: Types.UserId -> St (Map Types.Coin Rational)
+getWalletCumulativeBalance uid = do
+  wallet <- getsWallet' uid M.toList :: St [(Types.Coin, Wallet)]
+  coins <- return $ fst <$> wallet :: St [Types.Coin]
+  ni <- mapM getNormalisedIncome coins
+  return . M.fromList $ zip coins ni

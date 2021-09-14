@@ -46,7 +46,6 @@ module Mlabs.Lending.Logic.Types (
   PriceAct (..),
   GovernAct (..),
   Coin,
-  Funds (..),
   toLendingToken,
   fromLendingToken,
   fromAToken,
@@ -434,24 +433,32 @@ data SupportedCurrency = SupportedCurrency
 data UserBalance = UserBalance
   { -- | User Id
     ub'id :: !UserId
-  , -- | Funds
-    ub'tDeposit :: Integer
+  , -- | Total Deposit for User,
+    ub'totalDeposit :: !Integer
+  , -- | Total Collateral for User,
+    ub'totalCollateral :: !Integer
+  , -- | Total Borrow for User,
+    ub'totalBorrow :: !Integer
+  , -- | Normalised Income for User,
+    ub'cumulativeBalance :: Map Coin Rational
+  , -- | User Funds
+    ub'funds :: Map Coin Wallet
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
-data Funds = Funds
-  { -- | Coin
-    funds'coin :: Coin
-  , -- | Deposit Balance
-    funds'deposit :: Integer
-  , -- | Collateral Balance
-    funds'collateral :: Integer
-  , -- | Borrow Balance
-    funds'borrow :: Integer
-  }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
+-- data Funds = Funds
+--   { -- | Coin
+--     funds'coin :: Coin
+--   , -- | Deposit Balance
+--     funds'deposit :: Integer
+--   , -- | Collateral Balance
+--     funds'collateral :: Integer
+--   , -- | Borrow Balance
+--     funds'borrow :: Integer
+--   }
+--   deriving stock (Hask.Show, Generic, Hask.Eq)
+--   deriving anyclass (FromJSON, ToJSON)
 
 -- If another query is added, extend this data type
 

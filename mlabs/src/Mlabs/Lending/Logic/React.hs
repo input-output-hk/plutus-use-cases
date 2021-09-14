@@ -46,7 +46,7 @@ import PlutusTx.Ratio qualified as R
 
 {-# INLINEABLE qReact #-}
 
--- | React to query actions by using the State Machine.
+-- | React to query actions by using the State Machine functions.
 qReact :: Types.Act -> State.St (Maybe (Last Types.QueryRes))
 qReact input = do
   case input of
@@ -59,10 +59,22 @@ qReact input = do
     ---------------------------------------------------------------------------------------------------------
     -- Current Balance Query
     queryCurrentBalance :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
-    queryCurrentBalance uid cTime = do
+    queryCurrentBalance uid _cTime = do
       user <- State.getUser uid
+      tWallet <- State.getWallet' uid
       tDeposit <- State.getTotalDeposit user
-      pure . Just . Last . Types.QueryResCurrentBalance $ Types.UserBalance uid tDeposit
+      tCollateral <- State.getTotalCollateral user
+      tBorrow <- State.getTotalBorrow user
+      tWalletCumulativeBalance <- State.getWalletCumulativeBalance uid
+      pure . Just . Last . Types.QueryResCurrentBalance $
+        Types.UserBalance
+          { ub'id = uid
+          , ub'totalDeposit = tDeposit
+          , ub'totalCollateral = tCollateral
+          , ub'totalBorrow = tBorrow
+          , ub'cumulativeBalance = tWalletCumulativeBalance
+          , ub'funds = tWallet
+          }
 
 {-# INLINEABLE react #-}
 
