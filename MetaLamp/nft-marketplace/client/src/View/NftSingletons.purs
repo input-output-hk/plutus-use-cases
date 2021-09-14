@@ -8,6 +8,7 @@ import Data.Newtype (unwrap)
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData)
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
+import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Value (Value)
 import View.RemoteDataState (remoteDataState)
 
@@ -42,4 +43,13 @@ renderNft html nft =
     , HH.p_ [ HH.text $ maybe "***HIDDEN***" (unwrap >>> _.getPubKeyHash) nft.issuer ]
     , html
     , HH.br_
+    ]
+
+renderSale ::
+  forall props act.
+  Sale -> HH.HTML props act
+renderSale sale =
+  HH.div_
+    [ HH.h4_ [ HH.text "Ongoing sale: " ]
+    , HH.p_ [ HH.text $ "price: " <> show (unwrap sale).salePrice <> " Lovelace"]
     ]
