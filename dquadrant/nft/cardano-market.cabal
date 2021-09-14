@@ -1,5 +1,5 @@
 cabal-version:      2.4
-name:               plutus-market
+name:               cardano-market
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
@@ -23,16 +23,8 @@ maintainer:         IOHK
 
 library
     exposed-modules:
-      -- Plutus.Contract.Wallet.Erc20
-      Plutus.Contract.Wallet.Nft
-      Plutus.Contract.Wallet.MarketPlace
-      Plutus.Contract.Wallet.MarketEndpoints
       Plutus.Contract.Blockchain.MarketPlace
-      Plutus.Contract.Wallet.EndpointModels
       Plutus.Contract.Blockchain.Nft
-      Plutus.Contract.Wallet.Utils
-
-
     other-modules:
       Plutus.Contract.Data.Payment
       Plutus.Contract.Blockchain.Utils
@@ -58,6 +50,38 @@ library
             -- See Plutus Tx readme
             -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
 
+library market-wallet
+    exposed-modules:
+      Plutus.Contract.Wallet.Nft
+      Plutus.Contract.Wallet.MarketPlace
+      Plutus.Contract.Wallet.MarketEndpoints
+      Plutus.Contract.Wallet.EndpointModels
+    other-modules:
+      Plutus.Contract.Wallet.Utils
+
+    build-depends:
+      cardano-market,
+      base >= 4.9 && < 5,
+      aeson,
+      bytestring,
+      playground-common,
+      plutus-contract,
+      plutus-tx-plugin,
+      plutus-tx,
+      plutus-ledger,
+      lens,
+      text,
+      containers,
+      utf8-string,
+      freer-extras,
+      string-conversions
+    hs-source-dirs: wallet
+    default-language: Haskell2010
+    ghc-options:
+            -- See Plutus Tx readme
+            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+
+
 test-suite market-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -75,13 +99,14 @@ test-suite market-test
               -- See Plutus Tx readme
               -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
   build-depends:
+    cardano-market,
+    market-wallet,
     data-default -any,
     plutus-tx -any,
     plutus-tx-plugin,
     plutus-contract -any,
     plutus-ledger -any,
     plutus-ledger-api -any,
-    plutus-market -any,
     plutus-pab -any,
     aeson -any,
     lens,
@@ -103,6 +128,8 @@ executable market-simulation
     -threaded
   default-language: Haskell2010
   build-depends:
+    market-wallet,
+    cardano-market,
     playground-common -any,
     data-default -any,
     base >= 4.9 && < 5,
@@ -113,7 +140,6 @@ executable market-simulation
     prettyprinter -any,
     freer-extras -any,
     plutus-ledger -any,
-    plutus-market,
     text -any,
     containers -any,
     bytestring -any,
@@ -121,11 +147,15 @@ executable market-simulation
 
 executable market-cli
   main-is: Main.hs
-  hs-source-dirs: util
+  hs-source-dirs: cli
   ghc-options:  -threaded -rtsopts "-with-rtsopts=-T"
   default-language: Haskell2010
   build-depends:
+      cardano-market,
+      cardano-cli,
       cardano-api
+    , transformers
+    , transformers-except
     , cardano-ledger-alonzo
     , plutus-ledger
     , plutus-ledger-api
@@ -135,11 +165,11 @@ executable market-cli
     serialise -any,
     plutus-contract -any,
     plutus-pab -any,
+    plutus-tx,
     aeson -any,
     freer-simple -any,
     prettyprinter -any,
     freer-extras -any,
-    plutus-market,
     text -any,
     containers -any,
     prettyprinter -any

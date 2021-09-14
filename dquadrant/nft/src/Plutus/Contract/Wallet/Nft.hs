@@ -39,7 +39,7 @@ import PlutusTx.Builtins (BuiltinByteString)
 mintConstratints ::  TokenName -> Contract w s Text (Maybe (ScriptLookups a, TxConstraints i o))
 mintConstratints tn = do
     pk    <- ownPubKey
-    utxos <- utxoAt (pubKeyAddress pk)
+    utxos <- utxosAt (pubKeyAddress pk)
     case Map.keys utxos of
         []       -> logError  @String "no utxo found" >> pure Nothing
         oref : _ -> do
@@ -49,7 +49,7 @@ mintConstratints tn = do
                 lookups = mintingPolicy nftPolicy <> unspentOutputs utxos
                 tx      = mustMintCurrency   policyHash tn  1 <> mustSpendPubKeyOutput oref
             pure $ Just (lookups,tx)
-              
+
 
 type NftSchema =
   Endpoint "mint" BuiltinByteString
@@ -69,7 +69,7 @@ mintEp =
 mint :: (AsContractError e) =>TokenName -> Contract w s e TxId
 mint tn=do
     pk    <- ownPubKey
-    utxos <- utxoAt (pubKeyAddress pk)
+    utxos <- utxosAt (pubKeyAddress pk)
     case Map.keys utxos of
         []       -> throwError  $ review _OtherError "No Utxos found in wallet"
         oref : _ -> do
