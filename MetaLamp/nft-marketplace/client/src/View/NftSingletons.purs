@@ -1,6 +1,7 @@
 module View.NftSingletons where
 
 import Prelude
+import Business.Datum (Auction)
 import Business.Datum as Datum
 import Data.Foldable (intercalate)
 import Data.Maybe (maybe)
@@ -10,6 +11,7 @@ import Network.RemoteData (RemoteData)
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Value (Value)
+import Utils.Time (posixTimeToUtcUnsafe)
 import View.RemoteDataState (remoteDataState)
 
 renderNftSingletons ::
@@ -52,4 +54,13 @@ renderSale sale =
   HH.div_
     [ HH.h4_ [ HH.text "Ongoing sale: " ]
     , HH.p_ [ HH.text $ "price: " <> show (unwrap sale).salePrice <> " Lovelace" ]
+    ]
+
+renderAuction ::
+  forall props act.
+  Auction -> HH.HTML props act
+renderAuction auction =
+  HH.div_
+    [ HH.h4_ [ HH.text "Auction: " ]
+    , HH.p_ [ HH.text $ "end time: " <> show (posixTimeToUtcUnsafe auction.endTime) ]
     ]

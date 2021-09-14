@@ -25,7 +25,7 @@ import Network.RemoteData (RemoteData(..))
 import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
 import Plutus.Contracts.NftMarketplace.OffChain.User (CloseLotParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
-import View.NftSingletons (renderNftSingletonLots, renderSale)
+import View.NftSingletons (renderAuction, renderNftSingletonLots, renderSale)
 
 type Slot id
   = forall query. H.Slot query Void id
@@ -120,7 +120,10 @@ renderLot ::
   forall props.
   Datum.NftSingletonLot -> HH.HTML props Action
 renderLot r = case r.lot of
-  Right auction -> HH.div_ []
+  Right auction ->
+    HH.div_
+      [ renderAuction auction
+      ]
   Left sale ->
     HH.div_
       [ renderSale sale

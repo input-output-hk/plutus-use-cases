@@ -14,7 +14,6 @@ import Plutus.Contract.StateMachine.ThreadToken (ThreadToken)
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import Plutus.V1.Ledger.Time (POSIXTime)
 import Plutus.V1.Ledger.Value (CurrencySymbol, TokenName(..), Value)
 import PlutusTx.AssocMap as AssocMap
 import Utils.ByteString as Utils
