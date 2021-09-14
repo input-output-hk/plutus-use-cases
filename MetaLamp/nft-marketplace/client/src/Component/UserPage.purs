@@ -10,7 +10,7 @@ import Capability.LogMessages (class LogMessages, logError, logInfo)
 import Capability.PollContract (class PollContract)
 import Component.CreateNftForm as CreateNftForm
 import Component.PutOnSaleForm as PutOnSaleForm
-import Component.Utils (runRD)
+import Component.Utils (PageInput, runRD)
 import Data.Bifunctor (lmap)
 import Data.BigInteger (fromInt)
 import Data.Either (Either(..))
@@ -38,11 +38,6 @@ type Slot id
 _userPage :: SProxy "userPage"
 _userPage = SProxy
 
-type Input
-  = { userInstance :: UserInstance
-    , infoInstance :: InfoContractId
-    }
-
 type State
   = { userInstance :: UserInstance
     , infoInstance :: InfoContractId
@@ -58,7 +53,7 @@ _marketplaceState = prop (SProxy :: SProxy "marketplaceState")
 
 data Action
   = Initialize
-  | Reinitialize Input
+  | Reinitialize PageInput
   | GetUserFunds
   | GetMarketplaceState
   | CreateNft CreateNftForm.SubmittedNft
@@ -74,7 +69,7 @@ component ::
   PollContract m =>
   MonadEffect m =>
   MonadAff m =>
-  H.Component HH.HTML query Input output m
+  H.Component HH.HTML query PageInput output m
 component =
   H.mkComponent
     { initialState: initialState
@@ -88,7 +83,7 @@ component =
               }
     }
   where
-  initialState :: Input -> State
+  initialState :: PageInput -> State
   initialState i =
     { userInstance: i.userInstance
     , infoInstance: i.infoInstance
@@ -100,8 +95,8 @@ component =
   render st =
     HH.div_
       [ HH.h3_ [ HH.text "Wallet NFT singletons: " ]
-      , renderNftSingletons st.userFunds st.marketplaceState $
-          \nft -> HH.slot (SProxy :: _ "putOnSaleForm") nft PutOnSaleForm.component unit (Just <<< PutOnSale nft)
+      , renderNftSingletons st.userFunds st.marketplaceState
+          $ \nft -> HH.slot (SProxy :: _ "putOnSaleForm") nft PutOnSaleForm.component unit (Just <<< PutOnSale nft)
       , HH.h3_ [ HH.text "Create NFT from file: " ]
       , HH.slot (SProxy :: _ "createNftForm") unit CreateNftForm.putNftComponent unit (Just <<< CreateNft)
       ]
