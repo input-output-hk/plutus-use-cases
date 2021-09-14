@@ -1,15 +1,18 @@
 module Component.UserPage where
 
 import Prelude
+import Business.Datum as Datum
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
-import Business.MarketplaceUser (createNft) as MarketplaceUser
+import Business.MarketplaceUser (createNft, openSale) as MarketplaceUser
 import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages, logError, logInfo)
 import Capability.PollContract (class PollContract)
 import Component.CreateNftForm as CreateNftForm
+import Component.PutOnSaleForm as PutOnSaleForm
 import Component.Utils (runRD)
 import Data.Bifunctor (lmap)
+import Data.BigInteger (fromInt)
 import Data.Either (Either(..))
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
@@ -23,7 +26,8 @@ import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData(..))
-import Plutus.Contracts.NftMarketplace.OffChain.User (CreateNftParams(..)) as MarketplaceUser
+import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
+import Plutus.Contracts.NftMarketplace.OffChain.User (CreateNftParams(..), OpenSaleParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.V1.Ledger.Value (Value)
 import View.NftSingletons (renderNftSingletons)
@@ -58,9 +62,10 @@ data Action
   | GetUserFunds
   | GetMarketplaceState
   | CreateNft CreateNftForm.SubmittedNft
+  | PutOnSale Datum.NftSingleton PutOnSaleForm.PriceOutput
 
 type Slots
-  = ( createNftForm :: CreateNftForm.Slot Unit )
+  = ( createNftForm :: CreateNftForm.Slot Unit, putOnSaleForm :: PutOnSaleForm.Slot Datum.NftSingleton )
 
 component ::
   forall query output m.
@@ -95,7 +100,8 @@ component =
   render st =
     HH.div_
       [ HH.h3_ [ HH.text "Wallet NFT singletons: " ]
-      , renderNftSingletons st.userFunds st.marketplaceState
+      , renderNftSingletons st.userFunds st.marketplaceState $
+          \nft -> HH.slot (SProxy :: _ "putOnSaleForm") nft PutOnSaleForm.component unit (Just <<< PutOnSale nft)
       , HH.h3_ [ HH.text "Create NFT from file: " ]
       , HH.slot (SProxy :: _ "createNftForm") unit CreateNftForm.putNftComponent unit (Just <<< CreateNft)
       ]
@@ -141,4 +147,14 @@ component =
               , cnpRevealIssuer: nft.revealIssuer
               }
       logInfo $ "Marketplace nft created: " <> show resp
+      handleAction Initialize
+    PutOnSale nft p -> do
+      contractId <- H.gets _.userInstance.userContract
+      resp <-
+        MarketplaceUser.openSale contractId
+          $ MarketplaceUser.OpenSaleParams
+              { ospItemId: UserNftId nft.ipfsCid
+              , ospSalePrice: fromInt p.price
+              }
+      logInfo $ "Marketplace nft put on sale: " <> show resp
       handleAction Initialize

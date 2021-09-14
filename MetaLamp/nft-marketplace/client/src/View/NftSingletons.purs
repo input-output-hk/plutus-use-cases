@@ -3,7 +3,7 @@ module View.NftSingletons where
 import Prelude
 import Business.Datum as Datum
 import Data.Foldable (intercalate)
-import Data.Maybe (fromMaybe, maybe)
+import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData)
@@ -13,15 +13,15 @@ import View.RemoteDataState (remoteDataState)
 
 renderNftSingletons ::
   forall props act.
-  RemoteData String Value -> RemoteData String MarketplaceDatum -> HH.HTML props act
-renderNftSingletons val md = remoteDataState render ({ value: _, datum: _ } <$> val <*> md)
+  RemoteData String Value -> RemoteData String MarketplaceDatum -> (Datum.NftSingleton -> HH.HTML props act) -> HH.HTML props act
+renderNftSingletons val md injRender = remoteDataState render ({ value: _, datum: _ } <$> val <*> md)
   where
-  render rd = HH.div_ $ map renderNft $ Datum.findNftSingletons rd.value rd.datum
+  render rd = HH.div_ $ map (renderNft injRender) $ Datum.findNftSingletons rd.value rd.datum
 
 renderNft ::
   forall props act.
-  Datum.NftSingleton -> HH.HTML props act
-renderNft nft =
+  (Datum.NftSingleton -> HH.HTML props act) -> Datum.NftSingleton -> HH.HTML props act
+renderNft injRender nft =
   HH.div_
     [ HH.h4_ [ HH.text "IPFS Content ID: " ]
     , HH.p_ [ HH.text nft.ipfsCid ]
@@ -33,5 +33,6 @@ renderNft nft =
     , HH.p_ [ HH.text $ intercalate "." nft.category ]
     , HH.h4_ [ HH.text "NFT issuer: " ]
     , HH.p_ [ HH.text $ maybe "***HIDDEN***" (unwrap >>> _.getPubKeyHash) nft.issuer ]
+    , injRender nft
     , HH.br_
     ]
