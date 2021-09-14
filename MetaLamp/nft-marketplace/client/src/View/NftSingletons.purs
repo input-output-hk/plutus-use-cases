@@ -16,12 +16,19 @@ renderNftSingletons ::
   RemoteData String Value -> RemoteData String MarketplaceDatum -> (Datum.NftSingleton -> HH.HTML props act) -> HH.HTML props act
 renderNftSingletons val md injRender = remoteDataState render ({ value: _, datum: _ } <$> val <*> md)
   where
-  render rd = HH.div_ $ map (renderNft injRender) $ Datum.findNftSingletons rd.value rd.datum
+  render rd = HH.div_ $ map (\n -> renderNft (injRender n) n) $ Datum.findNftSingletons rd.value rd.datum
+
+renderNftSingletonLots ::
+  forall props act.
+  RemoteData String MarketplaceDatum -> (Datum.NftSingletonLot -> HH.HTML props act) -> HH.HTML props act
+renderNftSingletonLots md injRender = remoteDataState render md
+  where
+  render rd = HH.div_ $ map (\r -> renderNft (injRender r) r.nft) $ Datum.findNftSingletonLots rd
 
 renderNft ::
   forall props act.
-  (Datum.NftSingleton -> HH.HTML props act) -> Datum.NftSingleton -> HH.HTML props act
-renderNft injRender nft =
+  HH.HTML props act -> Datum.NftSingleton -> HH.HTML props act
+renderNft html nft =
   HH.div_
     [ HH.h4_ [ HH.text "IPFS Content ID: " ]
     , HH.p_ [ HH.text nft.ipfsCid ]
@@ -33,6 +40,6 @@ renderNft injRender nft =
     , HH.p_ [ HH.text $ intercalate "." nft.category ]
     , HH.h4_ [ HH.text "NFT issuer: " ]
     , HH.p_ [ HH.text $ maybe "***HIDDEN***" (unwrap >>> _.getPubKeyHash) nft.issuer ]
-    , injRender nft
+    , html
     , HH.br_
     ]

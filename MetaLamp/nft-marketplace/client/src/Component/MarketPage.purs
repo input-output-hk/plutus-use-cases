@@ -19,6 +19,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData(..))
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
+import View.NftSingletons (renderNftSingletonLots)
 
 type Slot id
   = forall query. H.Slot query Void id
@@ -69,7 +70,12 @@ component =
     }
 
   render :: State -> H.ComponentHTML Action () m
-  render _ = HH.h1_ [ HH.text "MarketPage" ]
+  render st =
+    HH.div_
+      [ HH.h3_ [ HH.text "Market NFT singletons: " ]
+      , renderNftSingletonLots st.marketplaceState
+          $ \lot -> HH.div_ []
+      ]
 
   handleAction :: Action -> H.HalogenM State Action () output m Unit
   handleAction = case _ of
