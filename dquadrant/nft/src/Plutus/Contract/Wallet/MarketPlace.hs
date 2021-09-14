@@ -70,7 +70,7 @@ import Data.Functor hiding (fmap)
 import Control.Lens (review)
 
 
--- Create direct sale. in the tuple (DirectSale,Value), DirectSale contains 
+-- Create direct sale. in the tuple (DirectSale,Value), DirectSale contains
 -- data required to validate buy  action. Value is the amount to be put on directsale.
 submitDirectSales:: (AsContractError  e) => Market ->[(DirectSale ,Value)] -> Contract w s e Tx
 submitDirectSales market sps=do submitTx $ Prelude.mconcat $ map toConstraint sps
@@ -100,7 +100,7 @@ submitAuction market  as = submitTx $ Prelude.mconcat $ map constraint as
     constraint auction = mustPayToOtherScript (validatorHash $ marketValidator market) (Datum $ toBuiltinData auction) (aValue auction)
                         <> mustValidateIn (aCreateInterval auction)
     aCreateInterval:: Auction -> POSIXTimeRange
-    aCreateInterval Auction{aDuration}= Interval (LowerBound PosInf False) (excludeBoundary $ ivTo aDuration) 
+    aCreateInterval Auction{aDuration}= Interval (LowerBound PosInf False) (excludeBoundary $ ivTo aDuration)
     excludeBoundary (UpperBound  a _)=UpperBound a False
 
 bidAuctionUtxo :: AsContractError e => Market -> ParsedUtxo Auction ->Value -> Contract w s e Tx
@@ -156,7 +156,7 @@ claimAuctionUtxos market refs@[(_,_,a)] = submitTxConstraintsWith @MarketScriptT
 
 withdrawUtxos :: (AsContractError e) => Market -> [TxOutRef]  -> Contract w s e Tx
 withdrawUtxos market refs=do
-  utxoMap<-utxoAt  $ marketAddress market
+  utxoMap<-utxosAt  $ marketAddress market
   let resolvedUtxos = mapMaybe (\utxo ->Map.lookup utxo utxoMap<&>(utxo,)) refs
 
   let lookups =(otherScript $ marketValidator market) <> unspentOutputs (Map.fromList resolvedUtxos)

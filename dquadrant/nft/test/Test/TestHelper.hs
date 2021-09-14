@@ -36,7 +36,7 @@ import Plutus.Contract.Wallet.MarketEndpoints
 -- import Playground.Contract
 -- import Playground.Contract
 -- import Playground.Contract
-import Plutus.Contract 
+import Plutus.Contract
 import qualified Data.Map as Map
 import Plutus.Contract.Wallet.EndpointModels
 import Data.Functor (void)
@@ -67,22 +67,22 @@ type TestSchema=
   .\/ Endpoint "filterTxOuts" TxId
 
 filterTxOutsEp :: (AsContractError e,HasEndpoint "filterTxOuts" TxId s) => Promise  [AesonTypes.Value] s e ()
-filterTxOutsEp= 
-  endpoint @"filterTxOuts" (\x ->do 
+filterTxOutsEp=
+  endpoint @"filterTxOuts" (\x ->do
     vs<-marketTxOutsByTxId defaultMarket x
     tell [toJSON vs]
     pure ())
   where
     marketTxOutsByTxId :: AsContractError e => Market ->TxId -> Contract w s e [TxOutRef]
     marketTxOutsByTxId market txIdp =
-      utxoAt (marketAddress market) <&>  Map.keys .Map.filterWithKey included
+      utxosAt (marketAddress market) <&>  Map.keys .Map.filterWithKey included
       where
         included _ txOutTx =txId (txOutTxTx txOutTx) == txIdp
 
 
 testEndpoints :: Contract [AesonTypes.Value] TestSchema Text ()
 testEndpoints= forever
-  where 
+  where
     forever = handleError errorHandler $ awaitPromise endpoints >> forever
     endpoints= marketEndpoints defaultMarket `select` filterTxOutsEp
     errorHandler :: Show a => a -> Contract w s e ()
@@ -120,7 +120,7 @@ noNft t =cardanoToken t  0
 operator :: Wallet
 operator=Wallet 9
 
-slotNoToPosixTime:: Integer -> POSIXTime 
+slotNoToPosixTime:: Integer -> POSIXTime
 slotNoToPosixTime v = slotToBeginPOSIXTime def (Slot v)
 
 wait :: EmulatorTrace()
@@ -136,7 +136,7 @@ lastResult h=do
   state <-case  lastState  of
     [] -> EmulatorTrace.throwError $ GenericError "Tried to Get last constract scatate but it's empty"
     (v : _) ->  ( Extras.logDebug    @String $ "parseJson : " ++ show v ) >> pure v
-    
+
   case fromJSON state of
     Success p -> pure p
     Error  e  -> do Extras.logError @String $ "The datatype that was tell'ed by contract is different : " ++ show e ++" : "++(convertString $ encode state)
@@ -165,9 +165,9 @@ waitForLastUtxos h= do
 
 configurationWithNfts :: EmulatorConfig
 configurationWithNfts = EmulatorConfig{
-    _initialChainState =Left $ Map.fromList distribution 
+    _initialChainState =Left $ Map.fromList distribution
   , _slotConfig =def
-  , _feeConfig=def  
+  , _feeConfig=def
 
   }
   where

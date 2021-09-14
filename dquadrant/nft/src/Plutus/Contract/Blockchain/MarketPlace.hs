@@ -477,26 +477,26 @@ instance Scripts.ValidatorTypes MarketScriptType where
     type instance DatumType MarketScriptType = BuiltinData
 
 
--- typedMarketValidator :: Market -> Scripts.TypedValidator MarketScriptType
--- typedMarketValidator = Scripts.mkTypedValidatorParam @MarketScriptType
---     $$(PlutusTx.compile [|| mkMarket ||])
---     $$(PlutusTx.compile [|| wrap ||])
---     where
---         wrap = Scripts.wrapValidator
-
--- marketValidator :: Market -> Validator
--- marketValidator market = Scripts.validatorScript (typedMarketValidator market)
-
-
--- marketAddress :: Market -> Ledger.Address
--- marketAddress = Scripts.validatorAddress  . typedMarketValidator
-
-
+typedMarketValidator :: Market -> Scripts.TypedValidator MarketScriptType
+typedMarketValidator = Scripts.mkTypedValidatorParam @MarketScriptType
+    $$(PlutusTx.compile [|| mkMarket ||])
+    $$(PlutusTx.compile [|| wrap ||])
+    where
+        wrap = Scripts.wrapValidator
 
 marketValidator :: Market -> Validator
-marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
-    where
-        a _ _ _=()
+marketValidator market = Scripts.validatorScript (typedMarketValidator market)
+
 
 marketAddress :: Market -> Ledger.Address
-marketAddress = scriptAddress   . marketValidator
+marketAddress = Scripts.validatorAddress  . typedMarketValidator
+
+
+
+-- marketValidator :: Market -> Validator
+-- marketValidator market= mkValidatorScript $$(PlutusTx.compile [||a ||])
+--     where
+--         a _ _ _=()
+
+-- marketAddress :: Market -> Ledger.Address
+-- marketAddress = scriptAddress   . marketValidator
