@@ -38,10 +38,14 @@ import           PlutusTx.Prelude               hiding (Semigroup (..))
 import           Prelude                        (Semigroup (..))
 import qualified Prelude                        as Haskell
 
+-- TODO can't use POSIXTime directly because of custom JSON instances defined in Plutus:
+-- generated purescript type has generic instances
+type POSIXTimeT = Integer
+
 -- TODO (?) add tags
 type IpfsCid = BuiltinByteString
 type IpfsCidHash = BuiltinByteString
-type Auction = (ThreadToken, PubKeyHash, Value, POSIXTime)
+type Auction = (ThreadToken, PubKeyHash, Value, POSIXTimeT)
 type Category = [BuiltinByteString]
 type LotLink = Either Sale.Sale Auction
 type BundleId = BuiltinByteString

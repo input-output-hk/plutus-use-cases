@@ -2,7 +2,7 @@ module Business.Datum where
 
 import Prelude
 import Data.Array (catMaybes, snoc)
-import Data.BigInteger (fromInt)
+import Data.BigInteger (BigInteger, fromInt)
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
 import Data.Json.JsonTuple (JsonTuple(..))
@@ -37,7 +37,7 @@ type Auction
   = { threadToken :: ThreadToken
     , owner :: PubKeyHash
     , value :: Value
-    , endTime :: POSIXTime
+    , endTime :: BigInteger
     }
 
 findNftSingletons :: Value -> MarketplaceDatum -> Array NftSingleton
@@ -84,7 +84,7 @@ findNftSingletonLots store = map getSingleton marketplaceSingletons
   where
   marketplaceSingletons ::
     Array
-      ( Tuple (Tuple String (Either Sale (JsonTuple ThreadToken (JsonTuple PubKeyHash (JsonTuple Value POSIXTime)))))
+      ( Tuple (Tuple String (Either Sale (JsonTuple ThreadToken (JsonTuple PubKeyHash (JsonTuple Value BigInteger)))))
           { niCurrency :: CurrencySymbol
           , niName :: String
           , niDescription :: String
