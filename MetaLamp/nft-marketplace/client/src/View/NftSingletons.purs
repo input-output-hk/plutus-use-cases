@@ -11,6 +11,7 @@ import Network.RemoteData (RemoteData)
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Value (Value)
+import View.FormElement (class_)
 import View.RemoteDataState (remoteDataState)
 
 renderNftSingletons ::
@@ -31,7 +32,7 @@ renderNft ::
   forall props act.
   HH.HTML props act -> Datum.NftSingleton -> HH.HTML props act
 renderNft html nft =
-  HH.div_
+  HH.div [ class_ "nft" ]
     [ HH.h4_ [ HH.text "IPFS Content ID: " ]
     , HH.p_ [ HH.text nft.ipfsCid ]
     , HH.h4_ [ HH.text "NFT name: " ]
