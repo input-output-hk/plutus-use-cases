@@ -6,11 +6,13 @@
             id="stable-mint-key"
             title-text="Mint Stable coin"
             submit-text="Mint Stable coin"
-            :conversion-rate="stable_mint_to_ada"
+            :conversion-rate="rates.scRate"
             conversion-from-text="Stable"
             conversion-to-text="Ada"
+            ada-get = "Total ada required to pay"
             on-change-input=""
             @submit-action="onMintStableCoin"
+            :fee-value="getFeeValue()"
         />
       </b-col>
       <b-col xl="6" lg="6" md="12" sm="24">
@@ -18,11 +20,13 @@
             id="stable-redeem-key"
             title-text="Redeem Stable coin"
             submit-text="Redeem Stable coin"
-            conversion-rate="reserve_mint_to_ada"
+            :conversion-rate="rates.scRate"
             conversion-from-text="Stable"
             conversion-to-text="Ada"
+            ada-get = "Total ada you will receive"
             on-change-input=""
             @submit-action="onRedeemStableCoin"
+            :fee-value="getFeeValue()"
         />
       </b-col>
     </b-row>
@@ -31,7 +35,7 @@
 
 <script>
 import MintRedeemCard from "./MintRedeemCard";
-import {mapActions, mapGetters} from "vuex";
+import { mapGetters} from "vuex";
 
 export default {
   name: "StableMintRedeemPage",
@@ -41,27 +45,36 @@ export default {
 
   // only mapState and mapGetters
   computed: {
-    ...mapGetters([
-      "stable_mint_to_ada",
-      "stable_redeem_to_ada",
-    ])
+    ...mapGetters({
+      rates: "getCurrentRates",
+      states: "getCurrentState",
+
+    })
   },
 
   // only mapMutations and mapActions
   methods: {
-    ...mapActions([
-      "mintStableCoin",
-      "redeemStableCoin",
-    ]),
-    onMintStableCoin(inputVal,rateNume,rateDeno) {
-      console.log(rateNume+rateDeno)
+    //Calculate fee value by dividing ratios and multiply by 100 to get %
+    getFeeValue(){
+      return this.states.bankFee[0]/this.states.bankFee[1]
+    },
+    postStatusCall(){
+      setTimeout(()=>{
+        this.$http.post(
+            `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/funds`,"\"\""
+        ).finally(() => this.$http.post(
+            `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/currentRates`,"\"\""
+        )).finally(() => this.$http.post(
+            `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/currentState`,"\"\""
+        ))
+      }, 2000)
+    },
+    onMintStableCoin(inputVal) {
       this.$task.start()
       this.$http.post(
           `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/mintStableCoin`
           ,
           {
-            "rateNume": parseInt(rateNume),
-            "rateDeno": parseInt(rateDeno),
             "tokenAmount": parseInt(inputVal)
           },
           {
@@ -73,18 +86,14 @@ export default {
       ).then(() => {
             this.$task.infoMessage("Transaction Submitted. Wait for it to get confirmed")
             this.$task.complete();
-          }
-      );
+          }).then(() => this.postStatusCall());
     },
-    onRedeemStableCoin(inputVal,rateNume,rateDeno) {
-      console.log(rateNume+rateDeno)
+    onRedeemStableCoin(inputVal) {
       this.$task.start()
       this.$http.post(
           `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/redeemStableCoin`
           ,
           {
-            "rateNume": parseInt(rateNume),
-            "rateDeno": parseInt(rateDeno),
             "tokenAmount": parseInt(inputVal)
           },
           {
@@ -96,8 +105,7 @@ export default {
       ).then(() => {
             this.$task.infoMessage("Transaction Submitted. Wait for it to get confirmed")
             this.$task.complete();
-          }
-      );
+          }).then(() => this.postStatusCall());
     },
   }
 }

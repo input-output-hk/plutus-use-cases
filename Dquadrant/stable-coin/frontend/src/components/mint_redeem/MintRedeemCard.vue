@@ -1,6 +1,6 @@
 <template>
   <div class="card sketchy-box-shadow">
-    <h6 class="card-title">{{titleText}}</h6>
+    <h6 class="card-title">{{ titleText }}</h6>
     <div class="amount-input-form">
       <b-form-input v-model="inputVal"
                     placeholder="Enter amount here"
@@ -9,55 +9,32 @@
       >
       </b-form-input>
     </div>
-    <span class="text-helper">A fee is charged for currency conversion</span>
+    <span class="text-helper">{{ feeValue }}% fee is charged for currency conversion</span>
     <div class="conversion-info">
       <span class="text-conversion">
-        Conversion rate ({{conversionFromText}} -> {{conversionToText}}) = {{convertedAda}} Ada
+        Conversion rate ({{ conversionFromText }} -> {{ conversionToText }}) = {{ conversionRateTxt }}
       </span>
       <span class="text-conversion">
-        Total Ada required to pay = {{feeAda}} Ada
+        {{ adaGet }} = {{ convertedAda }} Ada
       </span>
     </div>
     <div class="action-wrapper">
       <MyButton v-bind:modal-id="id"
                 show-loading="false"
-                :disabled="inputVal.length===0"
+                :disabled="inputVal.length===0 || this.states.contractStatus !== 'Running' "
                 :btn-text="submitText"
                 @click-btn="onSubmit"
 
 
       />
     </div>
-<!--    <div>-->
-<!--      <b-modal v-bind:id="id"-->
-<!--               v-bind:ok-title="submitText"-->
-<!--               hide-footer-->
-<!--      >-->
-<!--        <template #modal-title>-->
-<!--          <h6>Confirm transaction from wallet  </h6>-->
-<!--        </template>-->
-<!--        <div class="modal-content">-->
-<!--          <span class="text-sm-center">-->
-<!--            Content goes here!-->
-<!--          </span>-->
-<!--        </div>-->
-<!--        <div class="modal-footer">-->
-<!--          <MyButton-->
-<!--              class="full-width"-->
-<!--              show-loading="true"-->
-<!--              :disabled="inputVal.length===0"-->
-<!--              :btn-text="submitText"-->
-<!--              @click-btn="onSubmit"-->
-<!--          />-->
-<!--        </div>-->
-<!--      </b-modal>-->
-<!--    </div>-->
   </div>
 </template>
 
 <script>
 import MyButton from "../base/MyButton";
 import {mapGetters} from "vuex";
+import {toAda} from "../../util/stringUtils";
 
 export default {
   name: "MintRedeemCard",
@@ -66,45 +43,66 @@ export default {
   },
   props: ["id", "titleText", "submitText",
     "conversionRate", "conversionFromText",
-    "conversionToText"],
-  data(){
+    "conversionToText", "adaGet", "feeValue"],
+  data() {
     return {
       inputVal: "",
-      rateNume: "1",
-      rateDeno: "1",
-      convertedAda: "",
-      feeAda: ""
     }
   },
   methods: {
-    onSubmit(){
-      console.log("in card: "+ this.inputVal)
-      this.$emit("submit-action",  this.inputVal,this.rateNume,this.rateDeno)
-    }
+    onSubmit() {
+      this.$emit("submit-action", this.inputVal)
+    },
   },
-  computed: mapGetters({
-    // selected contract instance watched from navbar in Base.vue
-    instance: "getInstance"
-  })
+  computed: {
+    ...mapGetters({
+      states: "getCurrentState"
+    }),
+    conversionRateTxt() {
+      const adaVal = toAda(this.conversionRate)
+      if (adaVal >= 1) {
+        return `${adaVal} Ada`
+      }
+      return `${this.conversionRate} lovelace`
+    },
+    convertedAda() {
+      const parsedInputVal = parseInt(this.inputVal)
+      if (isNaN(parsedInputVal)) {
+        return 0;
+      } else {
+        const feeValue = (this.states.bankFee[0] / this.states.bankFee[1])/100
+        const totalLovelaceRequiredToPay = parseInt(this.inputVal) * this.conversionRate
+        const totalLovelaceWithFee =
+            this.titleText.includes("Redeem") ?
+                totalLovelaceRequiredToPay - (totalLovelaceRequiredToPay * feeValue) :
+                totalLovelaceRequiredToPay + (totalLovelaceRequiredToPay * feeValue)
+
+        return toAda(totalLovelaceWithFee)
+      }
+    }
+  }
 }
 </script>
 
 <style scoped>
-.card{
+.card {
   padding: 28px;
   background: white;
   border-radius: 12px;
   border: none;
 }
-.card-title{
+
+.card-title {
   color: #484848;
   font-weight: normal;
 
 }
-.amount-input-form{
+
+.amount-input-form {
   margin: 12px 0;
 }
-.amount-input{
+
+.amount-input {
   min-height: 50px;
   background: #f4f4f4;
   border: none;
@@ -112,37 +110,45 @@ export default {
   width: 100%;
   padding: 12px;
 }
-.amount-input::placeholder{
+
+.amount-input::placeholder {
   font-size: 18px;
   font-weight: normal;
 }
-.text-helper{
+
+.text-helper {
   color: #f28e38;
   display: block;
   margin: 12px 0;
 }
-.conversion-info{
+
+.conversion-info {
   margin: 8px 0;
 }
-.text-conversion{
+
+.text-conversion {
   color: #484848;
   display: block;
   width: 100%;
   font-size: 18px;
 
 }
-.action-wrapper{
+
+.action-wrapper {
   margin: 12px 0;
 }
-.modal-content{
+
+.modal-content {
   padding: 24px;
-  border:none;
-}
-.modal-footer{
   border: none;
 }
-@media(max-width: 576px){
-  .modal-dialog{
+
+.modal-footer {
+  border: none;
+}
+
+@media (max-width: 576px) {
+  .modal-dialog {
     max-width: 768px;
   }
 }
