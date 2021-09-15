@@ -78,7 +78,7 @@ userWallets :: [Wallet]
 userWallets = [Wallet i | i <- [2 .. 4]]
 
 testAssets :: [AssetClass]
-testAssets = fmap toAsset ["MOGUS", "USD"]
+testAssets = fmap toAsset ["EURO", "USD"]
 
 toAsset :: TokenName -> AssetClass
 toAsset tokenName =

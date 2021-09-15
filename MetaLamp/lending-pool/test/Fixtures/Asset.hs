@@ -7,17 +7,17 @@ import qualified Plutus.Contracts.LendingPool.OnChain.AToken as AToken
 import           Plutus.PAB.Simulation                       (toAsset)
 import           Plutus.V1.Ledger.Value                      (AssetClass)
 
-mogus :: AssetClass
-mogus = toAsset "MOGUS"
+euro :: AssetClass
+euro = toAsset "EURO"
 
 usd :: AssetClass
 usd = toAsset "USD"
 
 defaultAssets :: [AssetClass]
-defaultAssets = [mogus, usd]
+defaultAssets = [euro, usd]
 
-amogus :: AssetClass
-amogus = AToken.makeAToken AaveMock.aaveHash mogus
+aeuro :: AssetClass
+aeuro = AToken.makeAToken AaveMock.aaveHash euro
 
 ausd :: AssetClass
 ausd = AToken.makeAToken AaveMock.aaveHash usd
