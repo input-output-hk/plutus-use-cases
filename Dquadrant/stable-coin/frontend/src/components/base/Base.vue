@@ -7,13 +7,13 @@
     </header>
     <router-view></router-view>
     <b-alert
-      class="position-fixed fixed-bottom m-0 rounded-0"
-      style="z-index: 2000;"
-      :variant="$store.state.alert.variant"
-      :show="$store.state.alert.countDown"
-      @dismissed="$store.state.alert.countDown=0"
-      @dismiss-count-down="alertCountdownChanged"
-      dismissibe
+        class="position-fixed fixed-bottom m-0 rounded-0"
+        style="z-index: 2000;"
+        :variant="$store.state.alert.variant"
+        :show="$store.state.alert.countDown"
+        @dismissed="$store.state.alert.countDown=0"
+        @dismiss-count-down="alertCountdownChanged"
+        dismissibe
     >
       {{ $store.state.alert.message }}
     </b-alert>
@@ -24,26 +24,27 @@
 
 export default {
   name: "Base",
-  mounted() {
+  created() {
     this.$task.do(
-      this.$http.get('/instances').then(x => {
-        if (x.data.length === 0) {
-          throw Error("PAB responded with empty list of contract instances")
-        }
-        const sorted = x.data.sort((a, b) => a.cicWallet.getWallet > b.cicWallet.getWallet)
-        this.$store.state.contract.instances = sorted
-        this.$store.state.contract.instance = sorted[0]
-      }).then(this.refreshStatus)
+        this.$http.get('/instances').then(x => {
+          if (x.data.length === 0) {
+            throw Error("PAB responded with empty list of contract instances")
+          }
+          const sorted = x.data.sort((a, b) => a.cicWallet.getWallet > b.cicWallet.getWallet)
+          this.$store.state.contract.instances = sorted
+          this.$store.state.contract.instance = sorted.filter(item => item.cicDefinition.tag !== "OracleContract")?.[0]
+          this.$store.state.contract.oracleContractInstanceId = sorted.filter(item => item.cicDefinition.tag === "OracleContract")?.[0]?.cicContract?.unContractInstanceId
+          this.$store.state.contract.feeContractInstanceId = sorted.filter(item => item.cicDefinition.tag === "StableContract" && item.cicWallet.getWallet === 2)?.[0]?.cicContract?.unContractInstanceId
+        }).then(this.refreshStatus)
     )
   },
   methods: {
-
     refreshStatus() {
       return this.$http.get(
-        `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/status`,
+          `/instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/status`,
       ).then((x) => {
-        this.$store.state.contract.instance.status=x.data.cicCurrentState
-        this.timeoutHandle = setTimeout(this.refreshStatus, 500)
+        this.$store.state.contract.status = x.data.cicCurrentState
+        this.timeoutHandle = setTimeout(this.refreshStatus, 5000)
       })
     },
     alertCountdownChanged(newValue) {
@@ -66,10 +67,52 @@ export default {
         }
       }
     },
+    transformFunds(funds) {
+      let tokenBalances = []
+      let adaBalance = 0
+      let index = 0;
+      for (let value of funds) {
+        if (value.length === 2) {
+          let [policy, tokens] = value
+          const currency = policy.unCurrencySymbol
+          if (currency === "") {
+            if (tokens.length === 1 && tokens[0].length === 2) {
+              adaBalance = tokens[0][1]
+            }
+          } else if (currency) {
+            for (let token of tokens) {
+              if (token.length === 2) {
+                if (token[1] > 0) {
+                  const tName=token[0].unTokenName
+                  tokenBalances.push({
+                    index: index,
+                    currency: currency,
+                    name: tName.startsWith('\u00000x')?tName.replace('\u00000x',''):tName,
+                    value: token[1]
+                  })
+                  index++;
+                }
+              }
+            }
+          }
+        }
+      }
+      return {
+        ada: adaBalance,
+        tokens: tokenBalances
+      }
+    }
+
   },
   computed: {
-    activeInstance() {
-      return this.$store.state.contract.instance
+    currentStatus:{
+      get: function (){
+        const state = this.$store.state.contract.status
+        return state ? state.observableState.length : 0
+      },
+      set: function (newVal){
+        this.currentStatus = newVal
+      }
     },
     animate() {
       return this.$store.state.progress.animate
@@ -110,12 +153,27 @@ export default {
       else
         this.variant = 'danger';
     },
-    activeInstance(newVal) {
-      console.log(newVal)
-      this.$store.state.contract.logs = []
-      this.$store.state.contract.funds = []
-      this.$store.state.contract.responses = []
+    currentStatus(newVal) {
+      if (newVal) {
+        const last = this.$store.state.contract.status.observableState[newVal - 1]
+        if (typeof last === "object" && last.getValue
+            && last.getValue.length && last.getValue[0]
+            && last.getValue[0].length
+            && last.getValue[0][0].unCurrencySymbol !== undefined) {
+          console.log("Balance update: \n" + JSON.stringify(last, null, 2))
+          this.$store.state.contract.funds = this.transformFunds(last.getValue)
+        } else {
+          console.log("New Api Response: \n" + JSON.stringify(last, null, 2))
+          this.$store.state.contract.lastObservable = last
+          this.$http.post(
+              `instance/${this.$store.state.contract.instance.cicContract.unContractInstanceId}/endpoint/funds`, "\"\""
+          )
+        }
+      }
     }
+  },
+  destroyed() {
+    clearTimeout(this.timeoutHandle)
   },
   data: function () {
     return {
