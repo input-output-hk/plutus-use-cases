@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+
 .hover-highlight{
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
     transition: box-shadow 0.2s ease-in-out;
@@ -10,4 +12,417 @@
 }
 .hover-highlight:hover .hover-reveal{
     visibility: visible;
+}
+
+/* ============================================= */
+/* text styles */
+/* ============================================= */
+
+body {
+    margin: 0;
+    overflow: auto;
+    font-family: 'Roboto', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue','Barlow',
+    sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body h1, h2, h3, h4, h5, h6, text, span, button, input, div, a, li{
+    font-family: 'Roboto', sans-serif;
+    letter-spacing: 0.75px;
+}
+
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+
+/* ============================================= */
+/* Typography */
+/* ============================================= */
+
+h1 {
+    font-size: 2em; /* 2*16 = 32 */
+}
+
+h2 {
+    font-size: 1.75em; /* 1.5*16 = 24 */
+}
+
+h3 {
+    font-size: 1.5em; /* 1.17*16 = 18.72 */
+}
+
+h4 {
+    font-size: 1.25em; /* 1*16 = 16 */
+}
+
+h5 {
+    font-size: 1.12em; /* 0.83*16 = 13.28 */
+}
+
+h6 {
+    font-size: 1em; /* 0.75*16 = 12 */
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 500;
+    color: rgb(78, 92, 110);
+    margin: 0;
+}
+
+/* ============================================= */
+/* text color styles */
+/* ============================================= */
+.text-pink{
+    color: #FC3258;
+}
+
+.text-blue{
+    color: #5c5cd3;
+}
+
+.text-token-blue {
+    color: #3870ea;
+}
+
+.text-white {
+    color: #ffffff;
+}
+
+.text-black {
+    color: #000000;
+}
+
+.text-grey {
+    color: grey;
+}
+
+.text-grey1{
+    color: #333333;
+}
+
+.text-grey2{
+    color: #484848;
+}
+
+.text-grey3{
+    color: #828282;
+}
+
+.text-grey4{
+    color: #bdbdbd;
+}
+
+.text-grey5{
+    color: #e0e0e0;
+}
+
+.text-grey6{
+    color: #f2f2f2;
+}
+
+.text-green {
+    color: #4caf50;
+}
+
+.text-red {
+    color: #f44336;
+}
+
+.text-orange {
+    color: #f28e38;
+}
+
+.text-yellow {
+    color: #ffb822;
+}
+
+.text-night {
+    color: #303b4f;
+}
+
+.text-stormy {
+    color: #586782;
+}
+
+.text-mouse {
+    color: #a4afbf;
+}
+
+.text-cloud{
+    color: #E5E9ED;
+}
+
+.text-sky{
+    color: #EAECEF;
+}
+
+.text-pearl{
+    color: #f4f4f4;
+}
+
+
+.text-break {
+    word-break: break-word;
+}
+
+/* link style */
+.text-link{
+    cursor: pointer;
+    color: #1890ff !important;
+}
+
+.text-link:hover{
+    color: #1890ff !important;
+    text-decoration: underline;
+}
+
+/* helper text style*/
+.text-helper{
+    font-size: 16px;
+    font-weight: normal;
+}
+
+.wrap-word {
+    white-space: -moz-pre-wrap !important; /* Mozilla, since 1999 */
+    hyphens: auto; /* Mozilla */
+    white-space: -o-pre-wrap; /* Opera 7 */
+    white-space: pre-wrap; /* CSS3 */
+    word-wrap: break-word; /* Internet Explorer 5.5+ */
+    word-break: break-word;
+    line-height: initial;
+}
+
+.break-text{
+    white-space: -moz-pre-wrap !important; /* Mozilla, since 1999 */
+    hyphens: auto; /* Mozilla */
+    white-space: -o-pre-wrap; /* Opera 7 */
+    white-space: pre; /* CSS3 */
+    line-height: initial;
+}
+
+/* ============================================= */
+/* text underline */
+/* ============================================= */
+.text-web-yellow-underline{
+    text-decoration-color: #f6d475;
+    text-underline-position: under;
+    text-decoration-line: underline;
+    text-decoration-thickness: 4px;
+}
+
+
+/* ============================================= */
+/* Global scroll styling  */
+/* ============================================= */
+/* width */
+div *::-webkit-scrollbar {
+    display: none;
+    /*width: 8px;*/
+    /*height: 8px;*/
+}
+
+/* Track */
+div *::-webkit-scrollbar-track {
+    /*box-shadow: inset 0 0 5px #f4f4f4;*/
+    /*border-radius: 15px;*/
+}
+
+/* Handle */
+div *::-webkit-scrollbar-thumb {
+    /*background: #A4AFBF;*/
+    /*border-radius: 10px;*/
+}
+
+
+/* ============================================= */
+/* Flex display */
+/* ============================================= */
+.centered-flex {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    width: 100%;
+}
+
+.h-centered-flex {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    flex-direction: column;
+    width: 100%;
+}
+
+.h-justified-flex {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.h-vertically-centered-flex{
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+}
+
+.h-start-flex {
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.h-start-top-flex {
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.h-end-flex {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.h-evenly-justified-flex {
+    display: flex;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.vertical-start-flex {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    flex-direction: column;
+}
+
+.no-flex-wrap {
+    flex-wrap: nowrap;
+}
+
+
+/* ============================================= */
+/* unordered list */
+/* ============================================= */
+
+/* vertical */
+.none-ul-li {
+    list-style-type: none;
+}
+
+.square-ul-list {
+    list-style-type: square;
+    display: list-item;
+}
+
+/* horizontal */
+.no-style-ul-h{
+    list-style-type: none;
+    margin: 0 8px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.no-style-ul-h li {
+    display: flex;
+    padding: 0 0.7%;
+    margin: 0 8px;
+    cursor: pointer;
+    width: 100%;
+}
+
+/* ============================================= */
+/* wrapper */
+/* ============================================= */
+
+.full-view-relative{
+    position: relative;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;
+}
+
+.full-view-absolute{
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;
+}
+
+.full-height-relative{
+    position: relative;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100%;
+}
+
+.full-height-absolute{
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100%;
+}
+
+/* ============================================= */
+/* constraint wrapper */
+/* ============================================= */
+.constraint-1080{
+    width: 1080px;
+    margin: 0 auto;
+}
+
+@media(max-width: 1180px){
+    .constraint-1080{
+        width: 95%;
+    }
+}
+
+.constraint-768{
+    width: 768px;
+    margin: 0 auto;
+}
+
+@media(max-width: 868px){
+    .constraint-768{
+        width:  95%;
+    }
+}
+
+/* ============================================= */
+/* box shadows */
+/* ============================================= */
+.sketchy-box-shadow{
+    box-shadow: rgb(0 0 0 / 10%) 0px 4px 12px;
+}
+
+input::placeholder{
+    font-size: 18px;
+    color: darkgrey !important;
 }
