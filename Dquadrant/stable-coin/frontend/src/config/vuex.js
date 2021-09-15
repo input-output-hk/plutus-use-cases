@@ -1,5 +1,6 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
+import {getCurrentStateAndRates, getTotalTokens} from "../util/arrUtil";
 
 Vue.use(Vuex);
 
@@ -19,19 +20,26 @@ export const store = new Vuex.Store({
     contract: {
       activeIndex:0,
       instance: {
-        cicDefintion:{
+        cicDefinition:{
           tag: undefined
         },
         cicContract:{
-          unContractInstanceId: undefined
+          unContractInstanceId: undefined,
         },
-        status:{
-          logs:[],
-          observableState:[]
-        },
-        funds: {
-          getValue:[]
+        cicWallet:{
+          getWallet: undefined
         }
+      },
+      oracleContractInstanceId:  undefined,
+      feeContractInstanceId:  undefined,
+      funds: {
+        ada:undefined,
+        tokens:[]
+      },
+      lastObservable:undefined,
+      status:{
+        logs:[],
+        observableState:[]
       },
       instances: [],
 
@@ -44,6 +52,23 @@ export const store = new Vuex.Store({
         this.state.progress.status = payload.status
       }
       this.state.progress.animate = payload.animate
+    }
+  },
+  getters: {
+    getAdaTotal: state => {
+      return getTotalTokens(state.contract.status.observableState, "AdaToken", false)
+    },
+    getStableTokenTotal: state => {
+      return getTotalTokens(state.contract.status.observableState, "StableToken")
+    },
+    getReserveTokenTotal: state => {
+      return getTotalTokens(state.contract.status.observableState, "ReserveToken")
+    },
+    getCurrentRates: state => {
+      return getCurrentStateAndRates(state.contract.status.observableState, "currentCoinsRates")
+    },
+    getCurrentState: state => {
+      return getCurrentStateAndRates(state.contract.status.observableState, "currentCoinsState");
     }
   }
 });

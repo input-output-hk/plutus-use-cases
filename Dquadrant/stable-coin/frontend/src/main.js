@@ -6,26 +6,39 @@ import {store} from './config/vuex'
 import './config/axios-vue'
 import './config/progress-vue'
 import './assets/main.css'
-import Base from "./components/base/Base";
-import Market from "./components/Market";
-import MintRedeemPage from "./components/mint_redeem/MintRedeemPage";
+// import '../src/util/piechartjs'
+import Base from "./components/base/Base"
+import UpdateFee from "./components/contract_owner/ContractOwnerPage"
+import MintRedeemPage from "./components/mint_redeem/MintRedeemPage"
+import Dashboard from "./components/dashboard/Dashboard"
+import OraclePage from "./components/oracle/OraclePage"
 
 
 const routes = [
   {
     path: '',
-    redirect: 'market'
+    redirect: 'dashboard'
   },
   {
-    path: '/market',
-    name: 'market',
-    component: Market
+    path: '/configure',
+    name: 'configure',
+    component: UpdateFee
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: Dashboard
   },
   {
     path: '/mint',
     name: 'mint',
     component: MintRedeemPage
-  }
+  },
+  {
+    path: '/oracle',
+    name: 'oracle',
+    component: OraclePage
+  },
 ]
 
 const router = new VueRouter({
