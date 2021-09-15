@@ -48,7 +48,7 @@ getAaveResponseWith endpoint pick cid param = pollEndpoint getNext endpoint para
                 (preview pick state)
 
 getAaveContractId :: forall a. Prism' AaveContracts a -> ContractInstanceClientState AaveContracts -> Maybe ContractId
-getAaveContractId pick (ContractInstanceClientState { cicContract, cicDefintion }) = (const $ toContractIdParam cicContract) <$> (preview pick cicDefintion)
+getAaveContractId pick (ContractInstanceClientState st) = (const $ toContractIdParam st.cicContract) <$> (preview pick st.cicDefinition)
 
 toContractIdParam :: ContractInstanceId -> ContractId
 toContractIdParam (ContractInstanceId { unContractInstanceId: JsonUUID uuid }) = ContractId <<< UUID.toString $ uuid

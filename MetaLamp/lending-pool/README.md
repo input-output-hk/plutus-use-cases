@@ -32,7 +32,7 @@ cabal build all
 cabal run pab
 ```
 
-This will then start up the server on port 8080.
+This will then start up the server on port 9080.
 
 4. To run test simulation do:
 

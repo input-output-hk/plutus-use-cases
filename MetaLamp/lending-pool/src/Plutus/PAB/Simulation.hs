@@ -69,6 +69,8 @@ import           Wallet.Emulator.Types                       (Wallet (..),
                                                               walletPubKey)
 import           Wallet.Types                                (ContractInstanceId)
 import           Data.Default                                 (Default (def))
+import qualified Ext.Plutus.PAB.Webserver.Server                  as Ext.Plutus.PAB
+
 ownerWallet :: Wallet
 ownerWallet = Wallet 1
 
@@ -148,10 +150,10 @@ activateContracts = do
 
 runLendingPool :: IO ()
 runLendingPool = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 8080. Press enter to exit."
-    shutdown <- PAB.Server.startServerDebug
+    Simulator.logString @(Builtin AaveContracts) "Starting Aave PAB webserver on port 9080. Press enter to exit."
+    shutdown <- Ext.Plutus.PAB.startServer
     _ <- activateContracts
-    Simulator.logString @(Builtin AaveContracts) "Aave PAB webserver started on port 8080. Initialization complete. Press enter to exit."
+    Simulator.logString @(Builtin AaveContracts) "Aave PAB webserver started on port 9080. Initialization complete. Press enter to exit."
     _ <- liftIO getLine
     shutdown
 

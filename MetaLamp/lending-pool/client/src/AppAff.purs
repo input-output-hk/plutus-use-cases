@@ -81,9 +81,9 @@ post path body = do
   runAjax $ ajax decode affReq
 
 instance contractAppM :: Contract AppM where
-  getContracts = get "/api/new/contract/instances"
-  getContractStatus (ContractId cid) = get $ "/api/new/contract/instance/" <> cid <> "/status"
-  callEndpoint (Endpoint endpoint) (ContractId cid) params = post ("/api/new/contract/instance/" <> cid <> "/endpoint/" <> endpoint) (string <<< encodeJSON $ params)
+  getContracts = get "/api/contract/instances"
+  getContractStatus (ContractId cid) = get $ "/api/contract/instance/" <> cid <> "/status"
+  callEndpoint (Endpoint endpoint) (ContractId cid) params = post ("/api/contract/instance/" <> cid <> "/endpoint/" <> endpoint) (string <<< encodeJSON $ params)
 
 instance pollContractAppM :: PollContract AppM where
   pollDelay = liftAff <<< delay <<< Milliseconds $ 1000.0

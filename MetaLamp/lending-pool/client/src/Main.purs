@@ -13,7 +13,7 @@ main :: Effect Unit
 main =
   runHalogenAff do
     let
-      rootComponent = H.hoist (runAppM { host: "localhost", port: 8080 }) App.component
+      rootComponent = H.hoist (runAppM { host: "localhost", port: 9080 }) App.component
     body <- awaitBody
     runUI rootComponent unit body
 

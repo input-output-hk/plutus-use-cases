@@ -21,9 +21,27 @@ maintainer:         Your email
 -- category:
 -- extra-source-files: CHANGELOG.md
 
+flag defer-plugin-errors
+    description:
+        Defer errors from the plugin, useful for things like Haddock that can't handle it.
+    default: False
+    manual: True
+
+common lang
+    default-language:   Haskell2010
+    ghc-options:
+      -Wall -Wnoncanonical-monad-instances
+      -Wincomplete-uni-patterns -Wincomplete-record-updates
+      -Wredundant-constraints -Widentities -rtsopts
+      -- See Plutus Tx readme
+      -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    if flag(defer-plugin-errors)
+        ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
 library
+    import: lang
     exposed-modules:
-      Plutus.Abstract.State Plutus.Abstract.State.Select Plutus.Abstract.State.Update Plutus.Abstract.ContractResponse Plutus.Abstract.OutputValue Plutus.Abstract.TxUtils Plutus.Contracts.Service.FungibleToken Plutus.Contracts.Service.Oracle Plutus.Contracts.LendingPool.OnChain.Core Plutus.Contracts.LendingPool.OnChain.Core.Script Plutus.Contracts.LendingPool.OnChain.Core.Validator Plutus.Contracts.LendingPool.OnChain.Core.Logic Plutus.Contracts.LendingPool.OnChain.AToken Plutus.Contracts.LendingPool.OffChain.AToken Plutus.Contracts.LendingPool.OffChain.Info Plutus.Contracts.LendingPool.OffChain.Owner Plutus.Contracts.LendingPool.OffChain.State Plutus.Contracts.LendingPool.OffChain.User Plutus.PAB.Simulation Ext.Plutus.Ledger.Value Ext.Plutus.Ledger.Contexts
+      Plutus.Abstract.State Plutus.Abstract.State.Select Plutus.Abstract.State.Update Plutus.Abstract.ContractResponse Plutus.Abstract.OutputValue Plutus.Abstract.TxUtils Plutus.Contracts.Service.FungibleToken Plutus.Contracts.Service.Oracle Plutus.Contracts.LendingPool.OnChain.Core Plutus.Contracts.LendingPool.OnChain.Core.Script Plutus.Contracts.LendingPool.OnChain.Core.Validator Plutus.Contracts.LendingPool.OnChain.Core.Logic Plutus.Contracts.LendingPool.OnChain.AToken Plutus.Contracts.LendingPool.OffChain.AToken Plutus.Contracts.LendingPool.OffChain.Info Plutus.Contracts.LendingPool.OffChain.Owner Plutus.Contracts.LendingPool.OffChain.State Plutus.Contracts.LendingPool.OffChain.User Ext.Plutus.PAB.Webserver.Server Plutus.PAB.Simulation Ext.Plutus.Ledger.Value Ext.Plutus.Ledger.Contexts
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -35,6 +53,13 @@ library
       freer-extras,
       prettyprinter,
       lens,
+      semigroups,
+      cryptonite,
+      memory,
+      data-default,
+      servant-server,
+      wai-cors,
+      servant-options,
       -- Plutus:
       playground-common,
       plutus-contract,
@@ -45,12 +70,9 @@ library
       plutus-use-cases,
       plutus-pab
     hs-source-dirs: src
-    default-language: Haskell2010
-    ghc-options:
-            -- See Plutus Tx readme
-            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
 
 executable pab
+  import: lang
   main-is: Main.hs
   hs-source-dirs: pab
   ghc-options:
@@ -60,6 +82,7 @@ executable pab
     plutus-starter
 
 executable pab-simulation
+  import: lang
   main-is: Main.hs
   hs-source-dirs: pab-simulation
   ghc-options:
@@ -69,6 +92,7 @@ executable pab-simulation
     plutus-starter
 
 executable generate-purs
+  import: lang
   main-is: Main.hs
   hs-source-dirs: generate-purs
   other-modules: AaveTypes
@@ -78,7 +102,7 @@ executable generate-purs
     base >= 4.9 && < 5,
     aeson,
     directory,
-    servant-purescript,
+    servant-purescript -any,
     filepath,
     servant-server,
     bytestring,
@@ -96,9 +120,10 @@ executable generate-purs
     plutus-contract,
     plutus-use-cases,
     plutus-ledger,
-    plutus-tx
+    plutus-tx -any
 
 test-suite test
+    import: lang
     type: exitcode-stdio-1.0
     main-is: Main.hs
     hs-source-dirs: test
