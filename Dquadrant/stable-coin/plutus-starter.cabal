@@ -14,7 +14,6 @@ library
                        Plutus.Contracts.Coins.Types
                        Plutus.Contracts.Coins.Endpoints
                        Plutus.Contracts.Oracle.Core
-                       Plutus.Contracts.Utils.StateMachine
                      
   build-depends:       aeson
                      , base ^>=4.14.1.0
@@ -90,10 +89,22 @@ executable stablecoin-pab
                      , plutus-contract -any
                      , stable-coin-starter
                      , plutus-use-cases
+                     , data-default -any
   default-language:    Haskell2010
   default-extensions: AllowAmbiguousTypes BlockArguments BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveFunctor DeriveGeneric DerivingStrategies DerivingVia DuplicateRecordFields EmptyCase ExplicitNamespaces FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude NumericUnderscores OverloadedLabels OverloadedStrings PatternSynonyms RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators TypeSynonymInstances UndecidableInstances ViewPatterns ImportQualifiedPost RoleAnnotations
 
 
+executable oracle-client
+  main-is: oracle-client.hs
+  hs-source-dirs:      pab
+  ghc-options:         -Wall
+  default-language:    Haskell2010
+  build-depends:       base ^>= 4.14.1.0
+                     , bytestring
+                     , regex-tdfa ^>= 1.3.1.0
+                     , req ^>= 3.9.0
+                     , text
+                     , uuid
 
 test-suite stablecoin-tests
   Type:                exitcode-stdio-1.0
@@ -129,6 +140,7 @@ test-suite stablecoin-tests
   Other-modules:
                        Spec.StableCoinTest
                        Spec.OracleTest
+                       Utils.ValidatorTestFramework
   default-extensions:
     RecordWildCards
     OverloadedStrings
