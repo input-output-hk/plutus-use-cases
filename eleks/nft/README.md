@@ -96,7 +96,7 @@ This will then start up the server on port 8080. The devcontainer process will t
 
 ```
 export INSTANCE_ID=...
-curl -s http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq
+curl -s http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq
 ```
 
 This has a lot of information; and in particular we can see what endpoints are still available
@@ -110,12 +110,12 @@ export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"cpTokenName":"TestToken","cpDescription":"Test description","cpAuthor":"John Smith","cpFile":"https://ipfs.io/ipfs/bafybeieznanm2s27u2okty2xgorltsfoegtgvamovfjx56ctgijtz4caoy"}' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/create
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/endpoint/create
 
 #get response
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
 4. Query my nft tokens.
@@ -124,12 +124,12 @@ export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/userNftTokens
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/endpoint/userNftTokens
 
 #get response
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
 5. Put token on sell. You should be onwer of the spTokenName
@@ -138,14 +138,14 @@ curl -H "Content-Type: application/json" \
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"spSellPrice":1000,"spTokenName": "tokenName"}' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sell
+  --data '{"spSellPrice":1000,"spTokenName": "TestToken"}' \
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/endpoint/sell
 
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
 6. Query all selling tokens. It get all selling tokens from all users
@@ -154,12 +154,12 @@ export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/sellingTokens
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/endpoint/sellingTokens
 
 #get response
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
 7. Buy token.
@@ -168,14 +168,14 @@ curl -H "Content-Type: application/json" \
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"bpTokenName": "tokenName"}' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/buy
+  --data '{"bpTokenName": "TestToken"}' \
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/endpoint/buy
 
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
 8. Сancel token selling. You should have put token on sale to be able to retrieve it.
@@ -184,14 +184,14 @@ curl -H "Content-Type: application/json" \
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"cspTokenName": "tokenName"}' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/cancelSell
+  --data '{"cspTokenName": "TestToken"}' \
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/endpoint/cancelSell
 
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
 9. Get user key. Get the invoker wallet public key hash
@@ -201,13 +201,13 @@ export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/userPubKeyHash
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/endpoint/userPubKeyHash
 
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
 10. Transfer Token. If you own the token you can directly transfer it to the other user.
@@ -216,14 +216,14 @@ curl -H "Content-Type: application/json" \
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"tpTokenName": "tokenName", "tpReceiverWallet": 1}' \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/endpoint/transfer
+  --data '{"tpTokenName": "TestToken", "tpReceiverWallet": 2}' \
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/endpoint/transfer
 
 #get response
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:8080/api/new/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+  http://localhost:8080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 ```
 
 ## Frontend App

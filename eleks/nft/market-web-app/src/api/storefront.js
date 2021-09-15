@@ -2,7 +2,7 @@ import { fetchStatus } from './status';
 
 export async function fetchStorefront(wallet) {
   const response = await fetch(
-    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/sellingTokens`,
+    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/sellingTokens`,
     {
       method: 'POST',
       headers: {

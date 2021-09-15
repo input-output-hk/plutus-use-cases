@@ -3,7 +3,7 @@ import { errorMap } from '../helpers/errorMap.js';
 
 const fetchUserPublicKey = async (wallet) =>
   await fetch(
-    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/userPubKeyHash`,
+    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/userPubKeyHash`,
     {
       method: 'POST',
       headers: {
@@ -49,7 +49,7 @@ const checkStatus = async (response, wallet, tag) => {
 
 export async function fetchStatus(wallet, tag) {
   const response = await fetch(
-    `http://localhost:8080/api/new/contract/instance/${wallet.id}/status`,
+    `http://localhost:8080/api/contract/instance/${wallet.id}/status`,
     {
       method: 'GET',
       headers: {

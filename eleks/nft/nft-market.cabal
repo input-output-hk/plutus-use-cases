@@ -96,6 +96,7 @@ executable nft-market-pab
     text -any,
     containers -any,
     lens -any,
+    servant-client -any,
     plutus-contract -any,
     plutus-pab -any,
     nft-market -any,
