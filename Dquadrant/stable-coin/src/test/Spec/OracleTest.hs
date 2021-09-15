@@ -17,7 +17,7 @@ import            Control.Monad                       (void)
 import qualified  Data.Map                            as Map
 import            Data.Monoid                         (Last (..))
 import            Data.Text                           hiding (all, length, reverse)
-import            Ledger                              (pubKeyHash, txOutValue, txOutTxOut, pubKeyAddress)
+import            Ledger                              (pubKeyHash, txOutValue, txOutTxOut, pubKeyAddress, POSIXTimeRange, always)
 import qualified  Ledger.Ada                          as Ada
 import            Ledger.Address                      (Address)
 import qualified  Ledger.Typed.Scripts                as Scripts
@@ -32,7 +32,7 @@ import            PlutusTx.Prelude
 import qualified  PlutusTx.Prelude                    as PlutusTx
 import            PlutusTx.Ratio                      as R
 import            Test.Tasty
-import qualified  Test.Tasty.HUnit                    as HUnit
+import            Test.Tasty.HUnit                  
 import qualified  Prelude
 import qualified  PlutusTx.Numeric                    as P
 import           Plutus.Trace.Emulator.Types (_ContractLog, cilMessage)
@@ -44,13 +44,16 @@ import Plutus.Contracts.Coins.Types
 import Plutus.Contracts.Coins.Endpoints
 import Plutus.Contracts.Oracle.Core
 import qualified Data.Aeson.Types as Types
+-- import Utils.ValidatorTestFramework
 
 oracleW1:: Wallet
 oracleW1 = Wallet 1
 
+--Currency symbol used in test for oracle
 oracleSymbol :: CurrencySymbol
 oracleSymbol = "ff"
 
+--Default oracle paramter for oracle contract
 oracle :: Oracle
 oracle = Oracle
             { oNftSymbol = oracleSymbol
@@ -79,6 +82,7 @@ options =
                                 ]
 
     in defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution
+
 
 tests :: TestTree
 tests =
@@ -110,6 +114,9 @@ tests =
                 )
           $ runOracleTrace
         
+        -- execOracle "Can update oracle" (
+        --   builderRedeem Update (Ada.lovelaceValueOf 1) newOracleValue
+        -- )
     ]
 
 newOracleValue :: Integer
@@ -126,7 +133,7 @@ initialiseOracle = do
   void $ Trace.waitNSlots 10
   return oracleHdl
 
-checkOracle :: Oracle -> Contract () BlockchainActions Text ()
+checkOracle :: Oracle -> Contract () OracleSchema Text ()
 checkOracle oracle = do
     m <- findOracle oracle
     case m of
@@ -146,7 +153,7 @@ updateOracleTrace newValue = do
   void $ Trace.activateContract oracleW1 (checkOracle oracle) "checkOracle"
   void $ Trace.waitNSlots 10
 
-checkWalletHasOracleToken :: Oracle -> Contract () BlockchainActions Text ()
+checkWalletHasOracleToken :: Oracle -> Contract () OracleSchema Text ()
 checkWalletHasOracleToken Oracle{oNftSymbol}= do
     pk    <- ownPubKey
     utxos <- utxoAt $ pubKeyAddress pk
@@ -179,3 +186,14 @@ runOracleTrace = do
   void $ Trace.waitNSlots 10
 
 
+-- execOracle :: TestName-> TestContextBuilder -> TestTree
+-- execOracle testName  ctx = execOracleTimed testName ctx  always
+
+-- execOracleTimed :: TestName-> TestContextBuilder -> POSIXTimeRange -> TestTree
+-- execOracleTimed name ctx range =testCase name (executeSpendContext  _oracleValidator ctx range @?= True)
+--   where
+--     _oracleValidator d r ctx= case PlutusTx.fromData r of
+--       Just redeemer -> case PlutusTx.fromData d of 
+--                           Just dat -> mkOracleValidator oracle dat redeemer ctx
+--                           _ -> False
+--       _     -> False

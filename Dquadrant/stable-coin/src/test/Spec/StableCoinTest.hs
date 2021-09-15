@@ -72,7 +72,8 @@ bp = BankParam
             maxReserveRatio = 4 % 1,
             rcDefaultRate = 1,
             oracleParam = oracle,
-            oracleAddr = oracleAddress oracle
+            oracleAddr = oracleAddress oracle,
+            bankCurrencyAsset = Value.assetClass Ada.adaSymbol Ada.adaToken
             }
 
 coinsMachineAddress :: Address
@@ -83,12 +84,12 @@ oValidatorAddress = oracleAddress oracle
 
 reserveCoinsValue :: BankParam -> Integer -> Value
 reserveCoinsValue bankParam@BankParam {reserveCoinTokenName} tokenAmount =
-  let mpHash = Scripts.forwardingMonetaryPolicyHash $ CoinsMachine.scriptInstance bankParam
+  let mpHash = Scripts.forwardingMintingPolicyHash $ CoinsMachine.scriptInstance bankParam
    in Value.singleton (Value.mpsSymbol mpHash) reserveCoinTokenName tokenAmount
 
 stableCoinsValue :: BankParam -> Integer -> Value
 stableCoinsValue bankParam@BankParam {stableCoinTokenName} tokenAmount =
-  let mpHash = Scripts.forwardingMonetaryPolicyHash $ CoinsMachine.scriptInstance bankParam
+  let mpHash = Scripts.forwardingMintingPolicyHash $ CoinsMachine.scriptInstance bankParam
    in Value.singleton (Value.mpsSymbol mpHash) stableCoinTokenName tokenAmount
 
 adaVal :: Integer -> Value
@@ -100,7 +101,7 @@ initialAdaValue = adaVal 100_000_000
 oracleFee :: Value
 oracleFee = adaVal $ oFee oracle
 
---value of oracle for getting multiple time oracle used in same test
+-- value of oracle for getting multiple time oracle used in same test
 oracleFeeMultiply :: Integer -> Value
 oracleFeeMultiply mulBy = adaVal (oFee oracle * mulBy)
 
@@ -121,13 +122,6 @@ options =
 
     in defaultCheckOptions & emulatorConfig . Trace.initialChainState .~ Left initialDistribution
 
-
-emCfg :: Trace.EmulatorConfig
-emCfg = Trace.EmulatorConfig $ Left $ Map.fromList [(Wallet 1, v), (Wallet 2, v)]
- where
-  v :: Value
-  v = Ada.lovelaceValueOf 100_000_000
-
 tests :: TestTree
 tests =
   testGroup
@@ -138,14 +132,20 @@ tests =
             (valueAtAddress coinsMachineAddress (== (adaVal 100)))
               .&&. 
               assertNoFailedTransactions
-              .&&. walletFundsChange w2 ((stableCoinsValue bp 100) <> (negate (adaVal 100)) <> (negate oracleFee))
+              .&&. walletFundsChange w2 ((stableCoinsValue bp 100) <> (negate (adaVal 100)) 
+              <> 
+              (negate oracleFee)
+              )
           )
       $ mintStableCoins 100
     ,
       checkPredicateOptions options "mint reservecoins"
         ( (valueAtAddress coinsMachineAddress (== (adaVal 100)))
             .&&. assertNoFailedTransactions
-            .&&. walletFundsChange w2 ((reserveCoinsValue bp 100) <> (negate (adaVal 100)) <> (negate oracleFee))
+            .&&. walletFundsChange w2 ((reserveCoinsValue bp 100) <> (negate (adaVal 100)) 
+            <> 
+            (negate oracleFee)
+            )
         )
         $ mintReserveCoins 100
         
@@ -156,29 +156,39 @@ tests =
       checkPredicateOptions options "mint stablecoins redeem stablecoins"
         ( ( valueAtAddress coinsMachineAddress (== (adaVal 5)))
             .&&. assertNoFailedTransactions
-            .&&. walletFundsChange w2 ((stableCoinsValue bp 5) <> (negate (adaVal 5)) <> (negate (oracleFeeMultiply 2)))
+            .&&. walletFundsChange w2 ((stableCoinsValue bp 5) <> (negate (adaVal 5)) 
+            <> 
+            (negate (oracleFeeMultiply 2))
+            )
         )
         $ mintAndRedeemStableCoins 10 5
     ,    
       checkPredicateOptions options "mint reservecoins redeem reservecoins"
         ( ( valueAtAddress coinsMachineAddress (== (adaVal 5)))
             .&&. assertNoFailedTransactions
-            .&&. walletFundsChange w2 ((reserveCoinsValue bp 5) <> (negate (adaVal 5)) <> (negate (oracleFeeMultiply 2)))
+            .&&. walletFundsChange w2 ((reserveCoinsValue bp 5) <> (negate (adaVal 5)) 
+            <> 
+            (negate (oracleFeeMultiply 2))
+            )
         )
         $ mintAndRedeemReserveCoins 10 5
     ,
         --TODO improve on error testing to test specific log message of error
         checkPredicateOptions options "mint stablecoins try redeem more stablecoins than minted should fail"
         (  
-           assertContractError (coinsContract bp) (Trace.walletInstanceTag w2) (\_ -> True) "should throw insufficent funds"
+           assertContractError (coinsEndpoints bp) (Trace.walletInstanceTag w2) (\_ -> True) "should throw insufficent funds"
         )
         $ mintAndRedeemStableCoins 10 15
     ,
         checkPredicateOptions options "mint reserve coins try redeem more reserve coins than minted should fail"
         (  
-           assertContractError (coinsContract bp) (Trace.walletInstanceTag w2) (\_ -> True) "should throw insufficent funds"
+           assertContractError (coinsEndpoints bp) (Trace.walletInstanceTag w2) (\_ -> True) "should throw insufficent funds"
         )
-        $ mintAndRedeemReserveCoins 10 15
+        $
+         mintAndRedeemReserveCoins 10 15
+
+--TODO Max reserve and min reserve, bank fee update status test
+    
     ]
 
 newOracleValue :: Integer
@@ -205,7 +215,7 @@ initialise = do
   Trace.callEndpoint @"update" oracleHdl 1
   void $ Trace.waitNSlots 10
 
-  hdl <- Trace.activateContractWallet w2 $ coinsContract bp
+  hdl <- Trace.activateContractWallet w2 $ coinsEndpoints bp
   
   let i = 1 :: Integer
   Trace.callEndpoint @"start" hdl i
