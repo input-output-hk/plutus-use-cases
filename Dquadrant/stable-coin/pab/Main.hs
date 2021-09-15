@@ -20,6 +20,8 @@ import           Control.Monad.Freer.Extras.Log          (LogMsg)
 import           Control.Monad.IO.Class                  (MonadIO (..))
 import           Data.Aeson                              (FromJSON (..), ToJSON (..), genericToJSON, genericParseJSON
                                                          , defaultOptions, Options(..), Result(Success),fromJSON, encode)
+import           Data.Default                           (Default (def))
+
 import qualified Data.Map.Strict                         as Map
 import qualified Data.Monoid                             as Monoid
 import qualified Data.Semigroup                          as Semigroup
@@ -55,20 +57,32 @@ import Plutus.Contracts.Oracle.Core
 
 import qualified Data.Aeson.Types as AesonTypes
 
+wallets :: [Wallet]
+wallets = [Wallet i | i <- [2 .. 4]]
+
+stableCoinName :: TokenName
+stableCoinName = "StableToken"
+
+reserveCoinName :: TokenName
+reserveCoinName = "ReserveToken"
 
 main :: IO ()
 main =  
     void $ Simulator.runSimulationWith handlers $ do 
-    Simulator.logString @(Builtin StableContracts) "Starting plutus-starter PAB webserver on port 8080. Press enter to exit."
+    Simulator.logString @(Builtin StableContracts) "Starting plutus-starter PAB webserver on port 9080. Press enter to exit."
     shutdown  <- PAB.Server.startServerDebug
 
     cidOracle <- Simulator.activateContract (Wallet 1) OracleContract
 
+    liftIO $ writeFile "oracle.cid" $ show $ unContractInstanceId cidOracle
+
     oracle    <- flip Simulator.waitForState cidOracle $ \json -> case (fromJSON json :: Result (Monoid.Last (Oracle))) of
                     Success (Monoid.Last (Just x)) -> Just x
                     _                              -> Nothing
- 
+    
     Simulator.logString @(Builtin StableContracts) $ "Started oracle contract" ++ show oracle
+
+    let pkhOwner = pubKeyHash $ walletPubKey $ Wallet 2
 
     let bp =
           BankParam
@@ -78,7 +92,9 @@ main =
             maxReserveRatio = 100 % 1,
             rcDefaultRate = 1000000,
             oracleParam = oracle,
-            oracleAddr = oracleAddress oracle
+            oracleAddr = oracleAddress oracle,
+            bankCurrencyAsset = Value.assetClass adaSymbol adaToken,
+            bankContractOwner = pkhOwner
             }
 
     w1cid <- Simulator.activateContract (Wallet 1) $ StableContract bp
@@ -92,6 +108,8 @@ main =
             cid <- Simulator.activateContract w  $ StableContract bp
             liftIO $ writeFile ('W' : show (getWallet w) ++ ".cid") $ show $ unContractInstanceId cid
     
+    -- _ <- Simulator.callEndpointOnInstance cidOracle "update" (1000000::Integer)
+
     void $ liftIO getLine
     
     Simulator.logString @(Builtin StableContracts) "Balances at the end of the simulation"
@@ -100,15 +118,8 @@ main =
 
     shutdown
 
-
-waitForLast :: FromJSON a => ContractInstanceId -> Simulator.Simulation t a
-waitForLast cid =
-    flip Simulator.waitForState cid $ \json -> case fromJSON json of
-        Success (Monoid.Last (Just x)) -> Just x
-        _                       -> Nothing
-
 data StableContracts = StableContract BankParam | OracleContract
-    deriving (Eq, Ord, Show, Generic)
+    deriving (Show, Generic)
 
 instance ToJSON StableContracts where
   toJSON = genericToJSON defaultOptions {
@@ -120,31 +131,16 @@ instance FromJSON StableContracts where
 instance Pretty StableContracts where
     pretty = viaShow
 
-wallets :: [Wallet]
-wallets = [Wallet i | i <- [2 .. 4]]
-
-stableCoinName :: TokenName
-stableCoinName = "StableToken"
-
-reserveCoinName :: TokenName
-reserveCoinName = "ReserveToken"
-
-
-handleTokenContract ::
-    ( Member (Error PABError) effs
-    , Member (LogMsg (PABMultiAgentMsg (Builtin StableContracts))) effs
-    )
-    => ContractEffect (Builtin StableContracts)
-    ~> Eff effs
-handleTokenContract = Builtin.handleBuiltin getSchema getContract where
+instance Builtin.HasDefinitions StableContracts where
+    getDefinitions =[OracleContract]
     getSchema = \case
-      OracleContract         -> Builtin.endpointsToSchemas @(OracleSchema    .\\ BlockchainActions)
-      StableContract _       -> Builtin.endpointsToSchemas @(BankStateSchema .\\ BlockchainActions)
+      OracleContract   -> Builtin.endpointsToSchemas @OracleSchema
+      StableContract _ -> Builtin.endpointsToSchemas @BankStateSchema
     getContract = \case
-      OracleContract         -> SomeBuiltin $ runOracle
-      StableContract bankParam-> SomeBuiltin $ coinsContract bankParam
+      OracleContract           -> SomeBuiltin $ oracleContract
+      StableContract bankParam -> SomeBuiltin $ coinsEndpoints bankParam
 
 handlers :: SimulatorEffectHandlers (Builtin StableContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin StableContracts) [] 
-    $ interpret handleTokenContract
+    Simulator.mkSimulatorHandlers def def 
+    $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @StableContracts))
