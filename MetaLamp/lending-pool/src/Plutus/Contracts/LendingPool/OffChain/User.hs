@@ -365,7 +365,7 @@ Lens.makeClassyPrisms ''UserContractState
 
 -- TODO ? add repayWithCollateral
 userEndpoints :: Aave -> Promise (ContractResponse Text UserContractState) AaveUserSchema Void ()
-userEndpoints aave = 
+userEndpoints aave =
     (withContractResponse (Proxy @"deposit") (const Deposited) (deposit aave)
     `select` withContractResponse (Proxy @"withdraw") (const Withdrawn) (withdraw aave)
     `select` withContractResponse (Proxy @"borrow") (const Borrowed) (borrow aave)

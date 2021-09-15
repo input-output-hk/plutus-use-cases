@@ -257,4 +257,4 @@ runOracle op = do
         awaitPromise $ endpoint @"update" $ \x -> do
             updateOracle oracle x
             go oracle
-        
+

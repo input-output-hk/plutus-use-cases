@@ -26,12 +26,14 @@ import           Data.Aeson                                  (FromJSON,
                                                               ToJSON, encode,
                                                               fromJSON)
 import qualified Data.ByteString                             as BS
+import           Data.Default                                (Default (def))
 import qualified Data.Map.Strict                             as Map
 import qualified Data.Monoid                                 as Monoid
 import qualified Data.Semigroup                              as Semigroup
 import           Data.Text                                   (Text)
 import           Data.Text.Prettyprint.Doc                   (Pretty (..),
                                                               viaShow)
+import qualified Ext.Plutus.PAB.Webserver.Server             as Ext.Plutus.PAB
 import           GHC.Generics                                (Generic)
 import           Ledger
 import           Ledger.Ada                                  (adaSymbol,
@@ -40,6 +42,7 @@ import           Ledger.Ada                                  (adaSymbol,
                                                               lovelaceValueOf)
 import           Ledger.Constraints
 import qualified Ledger.Constraints.OffChain                 as Constraints
+import           Ledger.Crypto                               (pubKeyHash)
 import qualified Ledger.Typed.Scripts                        as Scripts
 import           Ledger.Value                                as Value
 import           Plutus.Abstract.ContractResponse            (ContractResponse (..))
@@ -63,13 +66,10 @@ import qualified Plutus.PAB.Simulator                        as Simulator
 import           Plutus.PAB.Types                            (PABError (..))
 import qualified Plutus.PAB.Webserver.Server                 as PAB.Server
 import           Plutus.V1.Ledger.Crypto                     (getPubKeyHash)
-import Ledger.Crypto (pubKeyHash)
 import           Prelude                                     hiding (init)
 import           Wallet.Emulator.Types                       (Wallet (..),
                                                               walletPubKey)
 import           Wallet.Types                                (ContractInstanceId)
-import           Data.Default                                 (Default (def))
-import qualified Ext.Plutus.PAB.Webserver.Server                  as Ext.Plutus.PAB
 
 ownerWallet :: Wallet
 ownerWallet = Wallet 1

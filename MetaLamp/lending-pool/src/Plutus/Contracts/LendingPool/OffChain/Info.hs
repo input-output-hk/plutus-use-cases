@@ -90,7 +90,7 @@ data InfoContractState =
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
 infoEndpoints :: Aave -> Promise (ContractResponse Text InfoContractState) AaveInfoSchema Void ()
-infoEndpoints aave = 
+infoEndpoints aave =
     (withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
     `select` withContractResponse (Proxy @"poolFunds") PoolFunds (const $ poolFunds aave)
     `select` withContractResponse (Proxy @"reserves") Reserves (const $ reserves aave)
