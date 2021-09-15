@@ -1,16 +1,20 @@
 <template>
-  <div class="card sketchy-box-shadow">
+  <div class="card">
     <h6 class="card-title">{{titleText}}</h6>
     <div class="amount-input-form">
       <b-form-input v-model="inputVal"
-                    placeholder="Enter amount in lovelace for 1 USD here"
+                    :placeholder="inputLabelText"
                     type="number"
+                    :step="step"
+                    min="0"
                     required
       >
       </b-form-input>
     </div>
 
-    <span class="text-muted">* Note this if for demo purpose of showing fluctuations in price of usd to ada rate.</span>
+    <span v-if="inputVal!==''" class="pb-3 pt-1">{{exchangeRateText}}</span>
+
+    <span class="text-muted">{{inputHelperText}}</span>
     <div class="action-wrapper">
       <MyButton v-bind:modal-id="id"
                 show-loading="false"
@@ -24,7 +28,6 @@
 
 <script>
 import MyButton from "../base/MyButton";
-import {mapGetters} from "vuex";
 
 export default {
   name: "OracleCard",
@@ -33,32 +36,30 @@ export default {
   },
   props: ["id", "titleText", "submitText",
     "conversionRate", "conversionFromText",
-    "conversionToText"],
+    "conversionToText", "inputLabelText", "inputHelperText","step"],
   data(){
     return {
       inputVal: "",
-      rateNume: "1",
-      rateDeno: "1",
-      convertedAda: "",
-      feeAda: ""
     }
   },
   methods: {
     onSubmit(){
       console.log("in card: "+ this.inputVal)
-      this.$emit("submit-action",  this.inputVal,this.rateNume,this.rateDeno)
+      this.$emit("submit-action",  this.inputVal)
     }
   },
-  computed: mapGetters({
-    // selected contract instance watched from navbar in Base.vue
-    instance: "getInstance"
-  })
+  computed: {
+    exchangeRateText(){
+      return `Updated Exchange rate will be 1 Usd = ${this.inputVal} Ada`
+    }
+  }
 }
 </script>
 
 <style scoped>
 .card{
-  padding: 28px;
+  /*width: 768px;*/
+  /*padding: 28px;*/
   background: white;
   border-radius: 12px;
   border: none;
@@ -108,6 +109,14 @@ export default {
 .modal-footer{
   border: none;
 }
+
+/*@media(max-width: 868px){*/
+/*  .card{*/
+/*    width: 100%;*/
+/*    padding: 16px;*/
+/*  }*/
+/*}*/
+
 @media(max-width: 576px){
   .modal-dialog{
     max-width: 768px;
