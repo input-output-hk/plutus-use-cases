@@ -1,0 +1,7 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:faucet-backend"
+    - path: "app/Main.hs"
+      component: "faucet-backend:exe:faucet-app"
+

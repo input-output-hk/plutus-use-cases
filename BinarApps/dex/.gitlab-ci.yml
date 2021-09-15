@@ -1,0 +1,113 @@
+image: "plutus4binarapps/dex-plutus-dev:v1.2"
+
+.automatic:
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.manual:
+  rules:
+    - if: "$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH"
+      when: manual
+      allow_failure: false
+    - when: on_success
+
+.cabal-cache:
+  cache: &cabal_cache
+    key: cache-dot-cabal
+    paths:
+      - /builds/plutus/dex/prebuild-cache/
+    policy: pull-push
+
+.copy-cabal-cache:
+  extends: .cabal-cache
+  cache:
+    policy: pull
+  variables:
+    GIT_CLEAN_FLAGS: -ffdx -e prebuild-cache/
+  before_script:
+    - cp -rf /builds/plutus/dex/prebuild-cache/.cabal /home/uniswap/
+    - cp -rf /builds/plutus/dex/prebuild-cache/dist-newstyle /builds/plutus/dex/
+
+.base-cache: &base_cache
+  variables:
+    GIT_CLEAN_FLAGS: -ffdx -e prebuild-cache/ -e dist-newstyle/
+  before_script:
+    - cp -rf /builds/plutus/dex/prebuild-cache/.cabal /home/uniswap/
+    - cp -rf /builds/plutus/dex/prebuild-cache/dist-newstyle /builds/plutus/dex/
+
+.dex-cache:
+  <<: *base_cache
+  cache:
+    - <<: *cabal_cache
+    - key: dex-cache-$CI_COMMIT_REF_SLUG
+      paths:
+        - /builds/plutus/dex/dist-newstyle
+      policy: pull-push
+
+.middleware-cache:
+  <<: *base_cache
+  cache:
+    - <<: *cabal_cache
+    - key: middleware-cache-$CI_COMMIT_REF_SLUG
+      paths:
+        - /builds/plutus/dex/dist-newstyle
+      policy: pull-push
+
+stages:
+  - lint
+  - prebuild
+  - build
+  - test
+
+prebuild:
+  stage: prebuild
+  extends:
+    - .automatic
+    - .cabal-cache
+  script:
+    - |
+      if [[ ! -d /builds/plutus/dex/prebuild-cache/.cabal ]]; then
+        cabal update
+        cabal configure --index-state=2021-07-07T00:00:00Z
+        #  The GitLab CI can only archive files from directories relative to your build directory.
+        cp -Rf /home/uniswap/.cabal /builds/plutus/dex/prebuild-cache/
+        cp -Rf /builds/plutus/dex/dist-newstyle /builds/plutus/dex/prebuild-cache/
+      else
+       echo "Using cache.. ."
+      fi
+
+# dex
+lint_dex:
+  stage: lint
+  extends: .automatic
+  script: "hlint dex"
+
+build_dex:
+  stage: build
+  extends:
+    - .automatic
+    - .dex-cache
+  needs:
+    - prebuild
+    - lint_dex
+  script:
+    - cabal build dex
+
+# middleware
+lint_middleware:
+  stage: lint
+  extends: .automatic
+  script: "hlint middleware"
+
+build_middleware:
+  stage: build
+  extends:
+    - .automatic
+    - .middleware-cache
+  needs:
+    - prebuild
+    - lint_middleware
+  script:
+    - ls -la /builds/plutus/dex/prebuild-cache/
+    - cabal build middleware
