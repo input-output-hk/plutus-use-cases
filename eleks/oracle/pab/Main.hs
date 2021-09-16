@@ -58,15 +58,34 @@ import qualified Ledger.Typed.Scripts                as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
 import           Pab.Game                            as GameApi
 
+initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
+initGame oracle game = do
+    let gameId  = fixtureId $ fixture game  
+        team1Id = teamId $ home $ teams game
+        team2Id = teamId $ away $ teams game
+        
+    let mutualBetParams = MutualBetParams 
+                            { mbpGame   = gameId
+                            , mbpOracle = oracle
+                            , mbpTeam1  = team1Id
+                            , mbpTeam2  = team2Id }
+    Simulator.logString @(Builtin MutualBetContracts) $ "params" ++ show mutualBetParams
+    cidStartContract <- Simulator.activateContract mutualBetOwnerWallet $ MutualBetStartContract mutualBetParams
+    return cidStartContract
+    Simulator.logString @(Builtin MutualBetContracts) $ "get thread token"
+    threadToken <- waitForLastBetOuput cidStartContract
+    Simulator.logString @(Builtin MutualBetContracts) $ "game thread token" ++ show threadToken
+    void $ forM bettorWallets $ \bettorWallet -> do
+        cidBettorContract <- Simulator.activateContract bettorWallet $ MutualBetBettorContract slotCfg threadToken mutualBetParams
+        Simulator.waitForEndpoint cidBettorContract "bet"
+        Simulator.logString @(Builtin MutualBetContracts) "bettor endpoint started for wallet"
+        return ()
+    return ()
+
 main :: IO ()
 main = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MutualBetContracts) "Starting mutual bet"
     shutdown <- PAB.Server.startServerDebug
-
-    let w1 = Wallet 1
-        w2 = Wallet 2
-        oracleWallet = Wallet 5
-    w1Address <- pubKeyAddress <$> Simulator.handleAgentThread w1 ownPubKey
 
     cidOracleToken <- Simulator.activateContract oracleWallet $ OracleTokenInit
     currency <- waitForLast cidOracleToken
@@ -76,26 +95,12 @@ main = void $ Simulator.runSimulationWith handlers $ do
                         , opSigner = (walletPrivKey oracleWallet)
                         }
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
-    Simulator.logString @(Builtin MutualBetContracts) $ "ura0"
     oracle <- waitForLastOracle cidOracle
-    Simulator.logString @(Builtin MutualBetContracts) $ "ura1" ++ (show oracle)
     Simulator.waitForEndpoint cidOracle "update"
-    Simulator.logString @(Builtin MutualBetContracts) $ "ura2"
     games <- liftIO $ fromRight [] <$> GameApi.getGames
     void $ forM games $ \game -> do
-        let gameId  = fixtureId $ fixture game
-            team1Id = teamId $ home $ teams game
-            team2Id = teamId $ away $ teams game
-        
-        let mutualBetParams = MutualBetParams 
-                                { mbpGame   = gameId
-                                , mbpOracle = oracle
-                                , mbpTeam1  = team1Id
-                                , mbpTeam2  = team2Id }
-        Simulator.logString @(Builtin MutualBetContracts) $ "params" ++ show mutualBetParams
-        cidStartContract <- Simulator.activateContract w1 $ MutualBetStartContract mutualBetParams
-        return cidStartContract
-    --     -- threadToken <- waitForLastBetOuput cidStartContract
+        initGame oracle game
+
     forever $ do
         Simulator.logString @(Builtin MutualBetContracts) $ "query active games"
         cidAwaitOracleRequest <- Simulator.callEndpointOnInstance cidOracle "games" ()
@@ -116,6 +121,8 @@ main = void $ Simulator.runSimulationWith handlers $ do
                     Simulator.logString @(Builtin MutualBetContracts) $ "updated for " ++ show updatedGameId
 
         Simulator.logString @(Builtin MutualBetContracts) $ "wait 5 seconds"
+
+        -- todo query active games and create contract
         void $ liftIO $ threadDelay 5_000_000
 
 data MutualBetContracts =
@@ -179,12 +186,18 @@ waitForLastGameIds cid =
 
 waitForLastBetOuput :: ContractInstanceId -> Simulator.Simulation t ThreadToken
 waitForLastBetOuput cid =
-    flip Simulator.waitForState cid $ \json -> case fromJSON json of
-        Success (x) -> Just x
+    flip Simulator.waitForState cid $ \json -> case (fromJSON json) :: Result MutualBetOutput of
+        Success (output) -> getLast $ mutualBetThreadToken output
         _           -> Nothing
 
-wallets :: [Wallet]
-wallets = [Wallet i | i <- [1 .. 4]]
+bettorWallets :: [Wallet]
+bettorWallets = [Wallet i | i <- [1 .. 4]]
+
+mutualBetOwnerWallet :: Wallet
+mutualBetOwnerWallet = Wallet 6
+
+oracleWallet :: Wallet 
+oracleWallet = Wallet 5
 
 slotCfg :: SlotConfig
 slotCfg = def
