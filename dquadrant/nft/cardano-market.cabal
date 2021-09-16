@@ -154,6 +154,8 @@ executable market-cli
       cardano-market,
       cardano-cli,
       cardano-api
+    , transformers
+    , transformers-except
     , cardano-ledger-alonzo
     , plutus-ledger
     , plutus-ledger-api
