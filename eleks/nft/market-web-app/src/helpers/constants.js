@@ -1,7 +1,7 @@
 export const WALLETS = [
   {
     name: 'Wallet1',
-    id: '18d72de0-16e2-4239-9113-490b7bd31b87',
+    id: 'd5b89b3e-2507-493f-a7c9-d2f2b07ec1b2',
     number: 1,
   },
   {

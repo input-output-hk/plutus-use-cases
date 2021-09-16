@@ -32,6 +32,7 @@ import           Plutus.Contract                     (ContractError)
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (..), SomeBuiltin (..), HasDefinitions (..), type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
+import           Plutus.PAB.Types                   (PABError, WebserverConfig (..), baseUrl, defaultWebServerConfig) 
 import           Plutus.PAB.Simulator                (SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                as Simulator
 import           Plutus.PAB.Types                    (PABError (..))
@@ -45,6 +46,7 @@ import           Wallet.API                          (ownPubKey)
 import           Ledger                              (CurrencySymbol(..), pubKeyAddress)
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
+import           Servant.Client            (BaseUrl (..), Scheme (Http))
 
 extract :: Maybe a -> a
 extract (Just x) = x
@@ -53,7 +55,7 @@ extract Nothing  = undefined
 main :: IO ()
 main = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin NFTMarketContracts) "Starting nft market place PAB webserver on port 8080. Press enter to exit."
-    shutdown <- PAB.Server.startServerDebug
+    shutdown <- PAB.Server.startServerDebug' defaultWebServerConfig{ baseUrl = BaseUrl Http "localhost" 8080 ""}
 
     let w1 = Wallet 1
     w1Address <- pubKeyAddress <$> Simulator.handleAgentThread w1 ownPubKey

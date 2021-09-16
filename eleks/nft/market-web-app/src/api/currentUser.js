@@ -2,7 +2,7 @@ import { fetchStatus } from './status';
 
 export async function fetchUserPublicKey(wallet) {
   const response = await fetch(
-    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/userPubKeyHash`,
+    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/userPubKeyHash`,
     {
       method: 'POST',
       headers: {

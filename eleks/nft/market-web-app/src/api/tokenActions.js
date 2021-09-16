@@ -2,7 +2,7 @@ import { fetchStatus } from './status';
 
 export async function fetchSellToken(wallet, data) {
   const response = await fetch(
-    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/sell`,
+    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/sell`,
     {
       method: 'POST',
       headers: {
@@ -23,7 +23,7 @@ export async function fetchSellToken(wallet, data) {
 
 export async function fetchBuyToken(wallet, data) {
   const response = await fetch(
-    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/buy`,
+    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/buy`,
     {
       method: 'POST',
       headers: {
@@ -44,7 +44,7 @@ export async function fetchBuyToken(wallet, data) {
 
 export async function fetchCancelSellToken(wallet, data) {
   const response = await fetch(
-    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/cancelSell`,
+    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/cancelSell`,
     {
       method: 'POST',
       headers: {
@@ -65,7 +65,7 @@ export async function fetchCancelSellToken(wallet, data) {
 
 export async function fetchTransferToken(wallet, data) {
   const response = await fetch(
-    `http://localhost:8080/api/new/contract/instance/${wallet.id}/endpoint/transfer`,
+    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/transfer`,
     {
       method: 'POST',
       headers: {
