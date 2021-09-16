@@ -61,7 +61,7 @@ data OracleData = OracleData
     }
     deriving (Show, Generic, FromJSON, ToJSON, Haskell.Eq)
 
-PlutusTx.unstableMakeIsData ''OracleData
+PlutusTx.makeIsDataIndexed ''OracleData [('OracleData, 0)]
 PlutusTx.makeLift ''OracleData
 
 instance Eq OracleData where

@@ -56,18 +56,17 @@ import qualified Prelude                   as Haskell
 import           Schema                    (ToSchema)
 import Contracts.Oracle.Types
 
-
-
 {-# INLINABLE checkRequesTokenPolicy #-}
-checkRequesTokenPolicy :: OracleRequestToken -> () -> ScriptContext -> Bool
+checkRequesTokenPolicy :: OracleRequestToken -> BuiltinData -> ScriptContext -> Bool
 checkRequesTokenPolicy requestToken _ ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}, scriptContextPurpose=Minting _} = 
-    traceIfFalse "Should forge one token" (forgedSymbolsCount == 1)
+    traceIfFalse "Should forge one token" (forgedCount == 1)
     && traceIfFalse "Is fee paid" (isFeePaid (Just $ ortOperator requestToken))
     where
         ownSymbol = ownCurrencySymbol ctx
         info = scriptContextTxInfo ctx
         forged = txInfoMint info
         forgedSymbolsCount = length $ symbols forged
+        forgedCount = valueOf forged ownSymbol oracleTokenName
         feeValue = Ada.toValue . Ada.lovelaceOf $ ortFee requestToken
         isFeePaid :: Maybe PubKeyHash -> Bool
         isFeePaid feeAddr = isJust . find (\o ->

@@ -16,10 +16,14 @@ import qualified Data.ByteString.Short as SBS
 import qualified Data.ByteString as B
 
 import qualified  Data.ByteString.Lazy.Char8 as LB8
-import           Contracts.Oracle
-import           Ledger (PubKeyHash, PubKey (..), Slot, pubKeyHash)
+import           Contracts.Oracle.RequestToken
+import           Contracts.Oracle.Types
+import           Contracts.Oracle.OnChain
+import           Ledger
 
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
+
+-- cabal exec -- gs 42 1500000 "payment.vkey"
 main :: IO ()
 main = do
     args <- getArgs
@@ -28,28 +32,37 @@ main = do
     let fee = if nargs > 1 then read(args!!1) else  1000000
     let oracleScriptFile = "oracle.plutus"
         requestTokenScriptFile = "requesttoken.plutus"
-    let pkMaybe = if nargs > 2 then decode(LB8.pack $ args!!2):: Maybe PubKey else Nothing
+  
+    let vkeyPath = if nargs > 2 then args!!2  else ""
+    vkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentKey) vkeyPath
+    case vkeyEither of 
+      Left _  -> putStrLn $ "Vkey not fouund"
+      Right vkey -> do
+        let pk = PubKey $ Plutus.fromBytes $ serialiseToRawBytes vkey
+        let pkh = pubKeyHash pk
+        putStrLn $ "public key: " ++ show pk
+        putStrLn $ "public key hash: " ++ show pkh
 
-    case pkMaybe of 
-        Nothing ->   putStrLn $ "Incorrect PK"
-        Just pk -> do
-            let pkh = pubKeyHash pk
-            putStrLn $ "Writing output to: " ++ oracleScriptFile
-            putStrLn $ "Writing output to: " ++ requestTokenScriptFile
-            let oracleRequestTokenInfo = OracleRequestToken
-                    { ortOperator = pkh
-                    , ortFee =fee
-                    }
-            let oracle = Oracle
-                    { --oSymbol = opSymbol op
-                      oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
-                    , oOperator = pkh
-                    , oOperatorKey = pk
-                    , oFee = fee
-                    }
-            writePlutusScript scriptnum oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
-            writePlutusScript scriptnum requestTokenScriptFile (mintingScript oracleRequestTokenInfo) (mintingScriptShortBs oracleRequestTokenInfo)
+        let oracleRequestTokenInfo = OracleRequestToken
+                { ortOperator = pkh
+                , ortFee =fee
+                }
+        let oracle = Oracle
+                { --oSymbol = opSymbol op
+                  oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
+                , oOperator = pkh
+                , oOperatorKey = pk
+                , oFee = fee
+                }
+        let oracleData = OracleData
+              { ovGame = 1
+              , ovWinner = 1
+              , ovRequestAddress = pkh
+              , ovWinnerSigned = Nothing
+              }
 
+        writePlutusScript scriptnum oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
+        writePlutusScript scriptnum requestTokenScriptFile (mintingScript oracleRequestTokenInfo) (mintingScriptShortBs oracleRequestTokenInfo)
 
 writePlutusScript :: Integer -> FilePath -> PlutusScript PlutusScriptV1 -> SBS.ShortByteString -> IO ()
 writePlutusScript scriptnum filename scriptSerial scriptSBS =

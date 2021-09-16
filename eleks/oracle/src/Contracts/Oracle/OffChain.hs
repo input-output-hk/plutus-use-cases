@@ -145,13 +145,14 @@ requestOracleForAddress oracle gameId = do
             , ovWinnerSigned = Nothing
             }
 
+    let red = Ledger.Redeemer (PlutusTx.toBuiltinData (0 :: Integer))
     let lookups = Constraints.typedValidatorLookups inst 
                 <> Constraints.otherScript mrScript
                 <> Constraints.mintingPolicy tokenMintingPolicy
 
         tx      = Constraints.mustPayToTheScript oracleData forgedToken
                 <> Constraints.mustPayToPubKey (oOperator oracle) feeVal
-                <> Constraints.mustMintValue forgedToken
+                <> Constraints.mustMintValueWithRedeemer red forgedToken
 
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
