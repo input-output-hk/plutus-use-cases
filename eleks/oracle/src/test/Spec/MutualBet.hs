@@ -196,9 +196,8 @@ tests :: TestTree
 tests =
     testGroup "mutual bet"
         [ checkPredicateOptions options "run mutual bet"
-            (--assertDone mutualBetContract (Trace.walletInstanceTag w1) (const True) "mutual bet contract should be done"
-            -- .&&. 
-            assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
+            (assertDone mutualBetContract (Trace.walletInstanceTag w1) (const True) "mutual bet contract should be done"
+            .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
             .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
             .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) trace1FinalState ) "final state should be OK"
             .&&. walletFundsChange bettor1 (Ada.toValue ( trace1Bettor2Bet))

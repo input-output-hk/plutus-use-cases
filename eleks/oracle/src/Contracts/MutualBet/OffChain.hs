@@ -348,7 +348,7 @@ data BettorEvent =
         | MakeBet NewBetParams -- ^ make a bet bet
         | OtherBet [Bet] -- ^ Another bettor make a bet
         | NoChange [Bet] -- ^ Nothing has changed
-
+        deriving (Haskell.Show)
 waitForChange :: SlotConfig -> MutualBetParams -> StateMachineClient MutualBetState MutualBetInput -> [Bet] -> Contract MutualBetOutput BettorSchema MutualBetError BettorEvent
 waitForChange slotCfg params client bets = do
     t <- currentTime
@@ -371,7 +371,12 @@ waitForChange slotCfg params client bets = do
                     })
                 $ \AddressChangeResponse{acrTxns} ->
                     case acrTxns of
-                        [] -> pure (NoChange bets)
+                        [] -> do
+                            state <- currentState client
+                            case state of
+                               Nothing -> pure (MutualBetIsOver bets)
+                               _       -> pure (NoChange bets)
+                
                         _  -> maybe (MutualBetIsOver bets) OtherBet <$> currentState client
 
     selectList [makeBet, otherBid]
@@ -383,7 +388,7 @@ handleEvent client bets change =
     -- see note [Buyer client]
     in case change of
         MutualBetIsOver s -> do
-            logInfo @Haskell.String "Mutual bet over"
+            logInfo @Haskell.String "Mutual bet over 11"  
             tell (mutualBetStateOut $ Finished s)
             stop
         MakeBet betParams -> do
