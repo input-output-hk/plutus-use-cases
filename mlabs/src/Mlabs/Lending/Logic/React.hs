@@ -7,12 +7,14 @@
 -- | State transitions for Aave-like application
 module Mlabs.Lending.Logic.React (
   react,
+  qReact,
 ) where
 
 import PlutusTx.Prelude
 
 import Control.Monad.Except (MonadError (throwError))
 import Control.Monad.State.Strict (MonadState (get, put), gets)
+import Data.Semigroup (Last (..))
 import PlutusTx.AssocMap qualified as M
 import PlutusTx.These (these)
 import Prelude qualified as Hask
@@ -42,6 +44,38 @@ import Mlabs.Lending.Logic.Types (
 import Mlabs.Lending.Logic.Types qualified as Types
 import PlutusTx.Ratio qualified as R
 
+{-# INLINEABLE qReact #-}
+
+-- | React to query actions by using the State Machine functions.
+qReact :: Types.Act -> State.St (Maybe (Last Types.QueryRes))
+qReact input = do
+  case input of
+    Types.QueryAct uid t act -> queryAct uid t act
+    _ -> pure Nothing -- does nothing for any other type of input
+  where
+    queryAct uid time = \case
+      Types.QueryCurrentBalanceAct () -> queryCurrentBalance uid time
+
+    ---------------------------------------------------------------------------------------------------------
+    -- Current Balance Query
+    queryCurrentBalance :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
+    queryCurrentBalance uid _cTime = do
+      user <- State.getUser uid
+      tWallet <- State.getWallet' uid
+      tDeposit <- State.getTotalDeposit user
+      tCollateral <- State.getTotalCollateral user
+      tBorrow <- State.getTotalBorrow user
+      tWalletCumulativeBalance <- State.getWalletCumulativeBalance uid
+      pure . Just . Last . Types.QueryResCurrentBalance $
+        Types.UserBalance
+          { ub'id = uid
+          , ub'totalDeposit = tDeposit
+          , ub'totalCollateral = tCollateral
+          , ub'totalBorrow = tBorrow
+          , ub'cumulativeBalance = tWalletCumulativeBalance
+          , ub'funds = tWallet
+          }
+
 {-# INLINEABLE react #-}
 
 {- | State transitions for lending pool.
@@ -55,6 +89,7 @@ react input = do
     Types.UserAct t uid act -> withHealthCheck t $ userAct t uid act
     Types.PriceAct t uid act -> withHealthCheck t $ priceAct t uid act
     Types.GovernAct uid act -> governAct uid act
+    Types.QueryAct {} -> pure [] -- A query should produce no state modifying actions
   where
     userAct time uid = \case
       Types.DepositAct {..} -> depositAct time uid act'amount act'asset
@@ -360,6 +395,7 @@ checkInput = \case
     checkUserAct act
   Types.PriceAct time _uid act -> checkPriceAct time act
   Types.GovernAct _uid act -> checkGovernAct act
+  Types.QueryAct {} -> pure () -- TODO think of input checks for query
   where
     checkUserAct = \case
       Types.DepositAct amount asset -> do
