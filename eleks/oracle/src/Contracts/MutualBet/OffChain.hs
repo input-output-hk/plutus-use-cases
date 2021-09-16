@@ -388,7 +388,7 @@ handleEvent client bets change =
     -- see note [Buyer client]
     in case change of
         MutualBetIsOver s -> do
-            logInfo @Haskell.String "Mutual bet over 11"  
+            logInfo @Haskell.String "Mutual bet over"  
             tell (mutualBetStateOut $ Finished s)
             stop
         MakeBet betParams -> do
