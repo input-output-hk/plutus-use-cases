@@ -1,7 +1,7 @@
 module Business.Datum where
 
 import Prelude
-import Data.Array (catMaybes, snoc)
+import Data.Array (catMaybes, foldM, snoc)
 import Data.BigInteger (BigInteger, fromInt)
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
@@ -11,6 +11,7 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), snd)
 import Plutus.Contract.StateMachine.ThreadToken (ThreadToken)
+import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (Bundle(..))
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
@@ -37,6 +38,13 @@ type Auction
     , owner :: PubKeyHash
     , value :: Value
     , endTime :: BigInteger
+    }
+
+type NftBundle
+  = { name :: String
+    , description :: String
+    , category :: Array String
+    , tokens :: Array NftSingleton
     }
 
 findNftSingletons :: Value -> MarketplaceDatum -> Array NftSingleton
@@ -77,6 +85,72 @@ findNftSingletons funds store = foldr getSingleton [] userSingletons
           , category: map Utils.decodeUtf8 record.niCategory
           , issuer: record.niIssuer
           }
+
+findNftBundles :: Value -> MarketplaceDatum -> Array NftBundle
+findNftBundles funds store = foldr getBundle [] marketplaceBundles
+  where
+  userSingletons :: Map.Map CurrencySymbol String
+  userSingletons = Map.fromFoldable $ foldr getNft [] $ AssocMap.toTuples $ _.getValue $ unwrap funds
+
+  getNft (Tuple currencySymbol val) acc = case AssocMap.toTuples val of
+    [ Tuple (TokenName ipfsCid) quantity ]
+      | quantity == fromInt 1 -> acc `snoc` Tuple currencySymbol ipfsCid.unTokenName
+    _ -> acc
+
+  marketplaceBundles ::
+    Array
+      { bundleInfo ::
+          { biCategory :: Array String
+          , biDescription :: String
+          , biName :: String
+          }
+      , tokens ::
+          Array
+            { niCategory :: Array String
+            , niCurrency :: CurrencySymbol
+            , niDescription :: String
+            , niIssuer :: Maybe PubKeyHash
+            , niName :: String
+            }
+      }
+  marketplaceBundles =
+    catMaybes
+      $ map (getInfo <<< unwrap <<< snd)
+      $ AssocMap.toTuples
+      $ (unwrap store).mdBundles
+
+  getInfo record = case record.nbTokens of
+    NoLot tokens ->
+      Just
+        { bundleInfo: unwrap record.nbRecord
+        , tokens: map (unwrap <<< snd) $ AssocMap.toTuples tokens
+        }
+    _ -> Nothing
+
+  getBundle bundle acc = case foldM lookupToken [] bundle.tokens of
+    Nothing -> acc
+    Just ts ->
+      acc
+        `snoc`
+          { name: bundle.bundleInfo.biName
+          , description: bundle.bundleInfo.biDescription
+          , category: bundle.bundleInfo.biCategory
+          , tokens: ts
+          }
+
+  lookupToken acc nft = case Map.lookup nft.niCurrency userSingletons of
+    Nothing -> Nothing
+    Just ipfsCid ->
+      Just
+        $ acc
+            `snoc`
+              { ipfsCid: ipfsCid
+              , currency: nft.niCurrency
+              , name: Utils.decodeUtf8 nft.niName
+              , description: Utils.decodeUtf8 nft.niDescription
+              , category: map Utils.decodeUtf8 nft.niCategory
+              , issuer: nft.niIssuer
+              }
 
 findNftSingletonLots :: MarketplaceDatum -> Array NftSingletonLot
 findNftSingletonLots store = map getSingleton marketplaceSingletons
