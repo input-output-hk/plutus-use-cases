@@ -57,7 +57,7 @@ in pkgs.haskell-nix.cabalProject rec {
     = sources.plutus.sha256;
     "https://github.com/input-output-hk/hedgehog-extras"."${sources.hedgehog-extras.rev}"
     = sources.hedgehog-extras.sha256;
-    "https://github.com/michaelpj/flat.git"."${sources.flat.rev}"
+    "https://github.com/Quid2/flat.git"."${sources.flat.rev}"
     = sources.flat.sha256;
     "https://github.com/shmish111/purescript-bridge.git"."${sources.purescript-bridge.rev}"
     = sources.purescript-bridge.sha256;

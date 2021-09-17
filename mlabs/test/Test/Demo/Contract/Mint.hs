@@ -31,10 +31,10 @@ test =
     (Test.defaultCheckOptions & Test.emulatorConfig .~ emCfg)
     "mint trace"
     ( Test.walletFundsChange
-        (Test.Wallet 1)
+        Test.w1
         (lovelaceValueOf (-15_000_000) <> assetClassValue usdToken 15)
         Test..&&. Test.walletFundsChange
-          (Test.Wallet 2)
+          Test.w2
           ( lovelaceValueOf (-50_000_000)
               <> assetClassValue usdToken 20
               <> assetClassValue cadToken 30
@@ -45,7 +45,7 @@ test =
 emCfg :: EmulatorConfig
 emCfg =
   EmulatorConfig
-    (Left $ Map.fromList [(Test.Wallet 1, v), (Test.Wallet 2, v)])
+    (Left $ Map.fromList [(Test.w1, v), (Test.w2, v)])
     def
     def
   where
@@ -66,8 +66,8 @@ cadToken = AssetClass (curSymbol, cad)
 
 mintTrace :: EmulatorTrace ()
 mintTrace = do
-  h1 <- activateContractWallet (Test.Wallet 1) mintEndpoints
-  h2 <- activateContractWallet (Test.Wallet 2) mintEndpoints
+  h1 <- activateContractWallet Test.w1 mintEndpoints
+  h2 <- activateContractWallet Test.w2 mintEndpoints
 
   -- Scenario 1: Buy single currency.
   callEndpoint @"mint" h1 MintParams {mpTokenName = usd, mpAmount = 5}

@@ -9,7 +9,7 @@ extra-source-files:  CHANGELOG.md
 
 common common-imports
   build-depends:
-    base >=4.14 && <4.15
+    base 
     , aeson
     , ansi-terminal
     , bytestring
@@ -139,6 +139,7 @@ library
     Mlabs.Plutus.PAB
     Mlabs.System.Console.PrettyLogger
     Mlabs.System.Console.Utils
+    Mlabs.Utils.Wallet 
 
 executable mlabs-plutus-use-cases
   import:  common-imports
@@ -156,8 +157,8 @@ executable deploy-app
       mlabs-plutus-use-cases
     , cardano-ledger-alonzo
     , cardano-api
-    , serialise==0.2.3.0
-    , cardano-api==1.28.0
+    , serialise
+    , cardano-api
 
 executable nft-demo
   import:  common-imports
@@ -194,7 +195,7 @@ Test-suite mlabs-plutus-use-cases-tests
     -fplugin=RecordDotPreprocessor
   
   Build-Depends:
-    base >=4.9 && <5
+    base 
     , data-default
     , freer-extras
     , freer-simple

@@ -65,7 +65,7 @@ data NftId = NftId
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 -- deriving newtype instance ToSchema TxId
-deriving instance ToSchema TxOutRef
+-- deriving instance ToSchema TxOutRef
 
 instance Eq NftId where
   {-# INLINEABLE (==) #-}

@@ -9,10 +9,10 @@ import Prelude
 import Data.Aeson (FromJSON, Result (..), fromJSON)
 import Data.Functor (void)
 import Data.Monoid (Last (..))
+import Mlabs.Utils.Wallet (walletFromNumber)
 import Plutus.Contract (ContractInstanceId)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator (Simulation, callEndpointOnInstance, valueAt, waitForState, waitNSlots)
-import Wallet.Emulator.Wallet (Wallet (..))
 import Wallet.Emulator.Wallet qualified as Wallet
 
 import Mlabs.Plutus.Contract (IsEndpoint, endpointName)
@@ -35,4 +35,4 @@ waitForLast cid =
 
 printBalance :: Integer -> Simulation (Builtin schema) ()
 printBalance n =
-  logBalance ("WALLET " <> show n) =<< valueAt (Wallet.walletAddress (Wallet n))
+  logBalance ("WALLET " <> show n) =<< (valueAt . Wallet.walletAddress $ walletFromNumber n)

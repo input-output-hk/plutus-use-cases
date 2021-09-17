@@ -9,6 +9,7 @@ module Mlabs.Governance.Contract.Server (
 import PlutusTx.Prelude hiding (toList, uncurry)
 import Prelude (String, show, uncurry)
 
+import Control.Lens ((^.), (^?))
 import Control.Monad (forever, void)
 import Data.List.Extra (maximumOn)
 import Data.List.NonEmpty qualified as NE
@@ -17,16 +18,20 @@ import Data.Semigroup (Last (..), sconcat)
 import Data.Text (Text)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash (..), pubKeyHash)
-import Ledger.Tx (Tx (..), TxOut (..), TxOutRef, TxOutTx (..), txId)
+import Ledger.Tx (ChainIndexTxOut, Tx (..), TxOut (..), TxOutRef, TxOutTx (..), ciTxOutDatum, ciTxOutValue, fromTxOut, toTxOut, txId, txOutPubKey)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (Datum (..), Redeemer (..), fromBuiltinData, toBuiltinData)
 import Plutus.V1.Ledger.Value (Value (..), valueOf)
 import Text.Printf (printf)
 
+import GHC.Base (Maybe (Nothing))
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation (AssetClassGov (..), GovernanceDatum (..), GovernanceRedeemer (..))
 import Mlabs.Governance.Contract.Validation qualified as Validation
 import Mlabs.Plutus.Contract (getEndpoint, selectForever)
+import PlutusTx.Prelude (sequenceA)
+
+--import GHC.Base (Applicative(pure))
 
 type GovernanceContract a = Contract.Contract (Maybe (Last Integer)) Api.GovernanceSchema Text a
 
@@ -49,7 +54,7 @@ deposit gov (Api.Deposit amnt) = do
         Just (datum, utxo, oref) ->
           ( sconcat
               [ Constraints.mustMintValue xGovValue
-              , Constraints.mustPayToTheScript datum $ Validation.govSingleton gov amnt <> txOutValue (txOutTxOut utxo)
+              , Constraints.mustPayToTheScript datum $ Validation.govSingleton gov amnt <> (utxo ^. ciTxOutValue)
               , Constraints.mustSpendScriptOutput oref (Redeemer . toBuiltinData $ GRDeposit amnt)
               ]
           , sconcat
@@ -91,7 +96,7 @@ withdraw gov (Api.Withdraw assets) = do
         pure $
           let valxGov = Validation.xgovSingleton gov (fst ac) (snd ac)
               valGov = Validation.govSingleton gov (snd ac)
-              scriptBalance = txOutValue $ txOutTxOut utxo
+              scriptBalance = utxo ^. ciTxOutValue
            in ( sconcat
                   [ Constraints.mustPayToTheScript datum $ scriptBalance - valGov
                   , Constraints.mustPayToPubKey ownPkh valGov
@@ -115,11 +120,23 @@ provideRewards :: AssetClassGov -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards gov (Api.ProvideRewards val) = do
   depositMap <- depositMapC
   let -- annotates each depositor with the total percentage of GOV deposited to the contract
-      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm + t, (pkh, amm % total) : p)) (0, []) depositMap
-      dispatch = map (\(pkh, prop) -> (pkh, Value $ fmap (round.(prop *).(% 1)) <$> getValue val)) props
+      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm + t, (pkh, amm % total) : p)) (0, mempty) depositMap
 
-  let tx = foldMap (uncurry Constraints.mustPayToPubKey) dispatch
-      lookups =
+      dispatch =
+        map
+          ( \(pkh, prop) ->
+              case pkh of
+                Just pkh' -> Just (pkh', Value $ fmap (round.(prop *).(% 1)) <$> getValue val)
+                Nothing -> Nothing
+          )
+          props
+
+  let aux = \case
+        Just x -> Just $ uncurry Constraints.mustPayToPubKey x
+        Nothing -> Nothing
+  tx <- maybe err pure $ foldMap aux dispatch
+
+  let lookups =
         sconcat
           [ Constraints.otherScript $ Validation.govValidator gov
           ]
@@ -128,45 +145,40 @@ provideRewards gov (Api.ProvideRewards val) = do
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   Contract.logInfo @String $ printf "Provided rewards to all xGOV holders"
   where
+    err = Contract.throwError "Could not find PublicKeyHash."
+
     govOf v = valueOf v (acGovCurrencySymbol gov) (acGovTokenName gov)
-
-    getPkh (_, o) = case txOutDatumHash $ txOutTxOut o of
-      Nothing -> []
-      Just h -> case Map.lookup h $ txData $ txOutTxTx o of
-        Nothing -> []
-        Just (Datum e) -> case fromBuiltinData e of
-          Nothing -> []
-          Just gd -> [(gdPubKeyHash gd, govOf . txOutValue . txOutTxOut $ o)]
-
+    getPkh (_, o) = (,) ((txOutPubKey . toTxOut) o) (govOf . txOutValue . toTxOut $ o)
     depositMapC = do
-      utxos <- fmap Map.toList . Contract.utxoAt $ Validation.govAddress gov
-      pure $ utxos >>= getPkh
+      utxos <- fmap Map.toList . Contract.utxosAt $ Validation.govAddress gov
+      pure $ getPkh <$> utxos
 
 queryBalance :: AssetClassGov -> Api.QueryBalance -> GovernanceContract ()
 queryBalance gov (Api.QueryBalance pkh) = do
   amm <- maybe 0 foo <$> findGovernance pkh gov
   Contract.tell . Just $ Last amm
   where
-    foo (_, tx, _) = govOf . txOutValue $ txOutTxOut tx
+    foo (_, tx, _) = govOf $ tx ^. ciTxOutValue
     govOf v = valueOf v (acGovCurrencySymbol gov) (acGovTokenName gov)
 
 --- util
 
 -- looks for governance, returns one with the biggest GOV value attached to it, if it exists
-findGovernance :: PubKeyHash -> AssetClassGov -> GovernanceContract (Maybe (Validation.GovernanceDatum, TxOutTx, TxOutRef))
+findGovernance ::
+  PubKeyHash ->
+  AssetClassGov ->
+  GovernanceContract (Maybe (Validation.GovernanceDatum, ChainIndexTxOut, TxOutRef))
 findGovernance pkh gov@AssetClassGov {..} = do
-  utxos <- Contract.utxoAt $ Validation.govAddress gov
+  utxos <- Contract.utxosAt $ Validation.govAddress gov
   case Map.toList utxos >>= foo of
     [] -> pure Nothing
     xs -> pure . Just $ maximumOn getVal xs
   where
     govOf v = valueOf v acGovCurrencySymbol acGovTokenName
-    getVal (_, tx, _) = govOf . txOutValue $ txOutTxOut tx
 
-    foo (oref, o) = case txOutDatumHash $ txOutTxOut o of
-      Nothing -> []
-      Just h -> case Map.lookup h $ txData $ txOutTxTx o of
-        Nothing -> []
-        Just (Datum e) -> case fromBuiltinData e of
-          Just gd | gdPubKeyHash gd == pkh -> [(gd, o, oref)]
-          _ -> []
+    getVal (_, tx, _) = govOf $ tx ^. ciTxOutValue
+    foo (oref, o) = case o ^? ciTxOutDatum of
+      Just (Right (Datum e)) -> case fromBuiltinData e of
+        Just gd | gd == pkh -> [(GovernanceDatum gd acGovCurrencySymbol, o, oref)]
+        _ -> mempty
+      _ -> mempty

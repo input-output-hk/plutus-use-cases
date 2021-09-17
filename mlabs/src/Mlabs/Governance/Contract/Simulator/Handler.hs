@@ -31,9 +31,10 @@ import Plutus.Contract (Contract, EmptySchema, awaitTxConfirmed, mapError, ownPu
 
 import Ledger (CurrencySymbol, pubKeyHash, txId)
 import Ledger.Constraints (mustPayToPubKey)
+import Mlabs.Utils.Wallet (walletFromNumber)
 import Plutus.Contracts.Currency as Currency
 import Plutus.V1.Ledger.Value qualified as Value
-import Wallet.Emulator.Types (Wallet (..), walletPubKey)
+import Wallet.Emulator.Types (Wallet (..), WalletNumber (..), fromWalletNumber, walletPubKey)
 
 import Plutus.PAB.Core (EffectHandlers)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (contractHandler), HasDefinitions (..), SomeBuiltin (..), endpointsToSchemas, handleBuiltin)
@@ -42,7 +43,7 @@ import Plutus.PAB.Simulator as Simulator
 
 -- FIXME this was passed as `BootstrapCfg` before update from calling side,
 --       but now coz `bootstrapGovernance` moved here, had to hardcode them till can figure out better way
-wallets = Wallet <$> [1 .. 3] -- wallets participating, wallet #1 is admin
+wallets = walletFromNumber <$> [1 .. 3] -- wallets participating, wallet #1 is admin
 govTokenName = "GOVToken" -- name of GOV token to be paid in exchange of xGOV tokens
 govAmount = 100
 

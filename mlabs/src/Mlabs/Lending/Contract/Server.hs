@@ -17,6 +17,7 @@ module Mlabs.Lending.Contract.Server (
 
 import Prelude
 
+import Control.Lens ((^.), (^?))
 import Control.Monad (forever, guard)
 import Data.List.Extra (firstJust)
 import Data.Map qualified as Map (elems)
@@ -24,6 +25,7 @@ import Data.Maybe (mapMaybe)
 import Data.Semigroup (Last (..))
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
 import Ledger.Crypto (pubKeyHash)
+import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress, ciTxOutDatum, txOutAddress)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (Datum (..))
 import Plutus.V1.Ledger.Slot (getSlot)
@@ -36,7 +38,7 @@ import Mlabs.Lending.Contract.Api qualified as Api
 import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
 import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
 import Mlabs.Lending.Logic.Types qualified as Types
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, selectForever)
+import Mlabs.Plutus.Contract (getEndpoint, readDatum, readDatum', selectForever)
 
 -- | User contract monad
 type UserContract a = Contract.Contract () Api.UserSchema StateMachine.LendexError a
@@ -125,7 +127,7 @@ startLendex lid (Api.StartLendex Types.StartParams {..}) =
 
 queryAllLendexes :: Types.LendexId -> Api.QueryAllLendexes -> QueryContract ()
 queryAllLendexes lid (Api.QueryAllLendexes spm) = do
-  utxos <- Contract.utxoAt $ StateMachine.lendexAddress lid
+  utxos <- Contract.utxosAt $ StateMachine.lendexAddress lid
   Contract.tell . Just . Last . Types.QueryResAllLendexes . mapMaybe f . Map.elems $ utxos
   pure ()
   where
@@ -138,10 +140,10 @@ queryAllLendexes lid (Api.QueryAllLendexes spm) = do
       -- todo: we could check that the Coins is SartParams are a subset of the ones being dealt in now?
       pure lp
 
-    f :: TxOutTx -> Maybe (Address, Types.LendingPool)
+    f :: ChainIndexTxOut -> Maybe (Address, Types.LendingPool)
     f o = do
-      let add = txOutAddress $ txOutTxOut o
-      (dat :: (Types.LendexId, Types.LendingPool)) <- readDatum o
+      let add = o ^. ciTxOutAddress
+      (dat :: (Types.LendexId, Types.LendingPool)) <- readDatum' o
       lp <- startedWith (snd dat) spm
       pure (add, lp)
 
@@ -189,7 +191,7 @@ findInputStateDatum = findInputStateData
 
 findInputStateData :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError d
 findInputStateData lid = do
-  txOuts <- Map.elems <$> Contract.utxoAt (StateMachine.lendexAddress lid)
-  maybe err pure $ firstJust readDatum txOuts
+  txOuts <- Map.elems <$> Contract.utxosAt (StateMachine.lendexAddress lid)
+  maybe err pure $ firstJust readDatum' txOuts
   where
     err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"

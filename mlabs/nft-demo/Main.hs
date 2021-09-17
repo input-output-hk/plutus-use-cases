@@ -15,6 +15,7 @@ import Playground.Contract (Wallet (Wallet))
 import Plutus.Contract (ContractInstanceId)
 import Plutus.PAB.Simulator qualified as Simulator
 import PlutusTx.Prelude (BuiltinByteString)
+import Wallet.Emulator.Wallet (WalletNumber (..), fromWalletNumber)
 
 import Mlabs.Nft.Contract qualified as Nft
 import Mlabs.Nft.Contract.Simulator.Handler qualified as Handler
@@ -22,6 +23,7 @@ import Mlabs.Nft.Logic.Types (NftId)
 import Mlabs.Plutus.PAB (call, printBalance, waitForLast)
 import Mlabs.System.Console.PrettyLogger (logNewLine)
 import Mlabs.System.Console.Utils (logAction, logMlabs)
+import Mlabs.Utils.Wallet (walletFromNumber)
 import PlutusTx.Ratio qualified as R
 
 -- | Main function to run simulator
@@ -89,9 +91,9 @@ setPrice cid newPrice = call cid (Nft.SetPrice newPrice)
 
 -- Users for testing
 user1, user2, user3 :: Wallet
-user1 = Wallet 1
-user2 = Wallet 2
-user3 = Wallet 3
+user1 = walletFromNumber 1
+user2 = walletFromNumber 2
+user3 = walletFromNumber 3
 
 -- | Content of NFT
 nftContent :: BuiltinByteString

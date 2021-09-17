@@ -22,10 +22,12 @@ import Ledger.Contexts (pubKeyHash)
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Tx (txId)
 import Ledger.Value qualified as Value
+import Mlabs.Utils.Wallet (walletFromNumber)
 import Playground.Contract (TokenName, Wallet (..))
 import Plutus.Contract hiding (when)
 import Plutus.Contracts.Currency qualified as Currency
 import Plutus.PAB.Simulator qualified as Simulator
+import Wallet.Emulator.Wallet (WalletNumber (..), fromWalletNumber)
 import Wallet.Emulator.Wallet qualified as Wallet
 
 import Mlabs.Lending.Contract qualified as Contract
@@ -166,10 +168,10 @@ lendexId = LendexId "lendex"
 
 -- | Wallets that are used for testing.
 wAdmin, w1, w2, w3 :: Wallet
-wAdmin = Wallet 4
-w1 = Wallet 1
-w2 = Wallet 2
-w3 = Wallet 3
+wAdmin = walletFromNumber 4
+w1 = walletFromNumber 1
+w2 = walletFromNumber 2
+w3 = walletFromNumber 3
 
 wallets :: [Wallet]
 wallets = [w1, w2, w3]

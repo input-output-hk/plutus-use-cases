@@ -3,6 +3,7 @@
 -- | Useful utils for contracts
 module Mlabs.Plutus.Contract (
   readDatum,
+  readDatum',
   Call,
   IsEndpoint (..),
   endpointName,
@@ -15,6 +16,7 @@ module Mlabs.Plutus.Contract (
 import PlutusTx.Prelude
 import Prelude (String, foldl1)
 
+import Control.Lens (review, (^?))
 import Control.Monad (forever)
 import Control.Monad.Freer (Eff)
 import Data.Aeson (FromJSON, ToJSON)
@@ -25,6 +27,8 @@ import Data.Proxy (Proxy (..))
 import Data.Row (KnownSymbol, Row)
 import GHC.TypeLits (Symbol, symbolVal)
 import Ledger (Datum (Datum), TxOut (txOutDatumHash), TxOutTx (txOutTxOut, txOutTxTx), lookupDatum)
+import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress, ciTxOutDatum, toTxOut, txOutAddress)
+import Mlabs.Data.List (maybeRight)
 import Playground.Contract (Contract, ToSchema)
 import Plutus.Contract qualified as Contract
 import Plutus.PAB.Effects.Contract.Builtin (Builtin)
@@ -38,6 +42,13 @@ readDatum :: FromData a => TxOutTx -> Maybe a
 readDatum txOut = do
   h <- txOutDatumHash $ txOutTxOut txOut
   Datum e <- lookupDatum (txOutTxTx txOut) h
+  PlutusTx.fromBuiltinData e
+
+-- | For off-chain code - from querying the chain
+readDatum' :: FromData a => ChainIndexTxOut -> Maybe a
+readDatum' txOut = do
+  d <- txOut ^? ciTxOutDatum
+  Datum e <- maybeRight d
   PlutusTx.fromBuiltinData e
 
 type Call a = Contract.Endpoint (EndpointSymbol a) a
