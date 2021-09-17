@@ -4,16 +4,19 @@ import Prelude
 import Business.Datum as Datum
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
-import Business.MarketplaceUser (buyItem, closeSale, completeAnAuction) as MarketplaceUser
+import Business.MarketplaceUser (bidOnAuction, buyItem, closeSale, completeAnAuction) as MarketplaceUser
 import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages, logInfo)
 import Capability.PollContract (class PollContract)
+import Component.BidOnAuctionForm as BidOnAuctionForm
 import Component.Utils (PageInput, runRD)
+import Component.Utils as Utils
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..))
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
+import Data.Newtype (wrap)
 import Data.Symbol (SProxy(..))
 import Data.UserInstance (UserInstance)
 import Effect.Aff.Class (class MonadAff)
@@ -23,7 +26,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Network.RemoteData (RemoteData(..))
 import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
-import Plutus.Contracts.NftMarketplace.OffChain.User (CloseLotParams(..)) as MarketplaceUser
+import Plutus.Contracts.NftMarketplace.OffChain.User (BidOnAuctionParams(..), CloseLotParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import View.NftSingletons (renderAuction, renderNftSingletonLots, renderSale)
 
@@ -49,6 +52,11 @@ data Action
   | CloseSale Datum.NftSingletonLot
   | BuyNft Datum.NftSingletonLot
   | CompleteAuction Datum.NftSingletonLot
+  | BidOnAuction Datum.NftSingletonLot BidOnAuctionForm.BidOutput
+
+type Slots
+  = ( bidOnAuctionForm :: BidOnAuctionForm.Slot Datum.NftSingleton
+    )
 
 component ::
   forall query output m.
@@ -78,14 +86,14 @@ component =
     , marketplaceState: NotAsked
     }
 
-  render :: State -> H.ComponentHTML Action () m
+  render :: State -> H.ComponentHTML Action Slots m
   render st =
     HH.div_
       [ HH.h3_ [ HH.text "Market NFT singletons: " ]
       , renderNftSingletonLots st.marketplaceState renderLot
       ]
 
-  handleAction :: Action -> H.HalogenM State Action () output m Unit
+  handleAction :: Action -> H.HalogenM State Action Slots output m Unit
   handleAction = case _ of
     Initialize -> do
       handleAction GetMarketplaceState
@@ -125,10 +133,21 @@ component =
               }
       logInfo $ "Marketplace auction complete: " <> show resp
       handleAction Initialize
+    BidOnAuction r o -> do
+      contractId <- H.gets _.userInstance.userContract
+      resp <-
+        MarketplaceUser.bidOnAuction contractId
+          $ MarketplaceUser.BidOnAuctionParams
+              { boapItemId: UserNftId r.nft.ipfsCid
+              , boapBid: Utils.mkAdaFromInt o.bid
+              }
+      logInfo $ "Marketplace auction complete: " <> show resp
+      handleAction Initialize
 
 renderLot ::
-  forall props.
-  Datum.NftSingletonLot -> HH.HTML props Action
+  forall m.
+  MonadAff m =>
+  Datum.NftSingletonLot -> H.ComponentHTML Action Slots m
 renderLot r = case r.lot of
   Right auction ->
     HH.div_
@@ -136,6 +155,7 @@ renderLot r = case r.lot of
       , HH.button
           [ HE.onClick \_ -> Just (CompleteAuction r) ]
           [ HH.text "Complete Auction" ]
+      , HH.slot (SProxy :: _ "bidOnAuctionForm") r.nft BidOnAuctionForm.component unit (Just <<< BidOnAuction r)
       ]
   Left sale ->
     HH.div_
