@@ -4,7 +4,7 @@ import Prelude
 import Business.Datum as Datum
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
-import Business.MarketplaceUser (buyItem, closeSale) as MarketplaceUser
+import Business.MarketplaceUser (buyItem, closeSale, completeAnAuction) as MarketplaceUser
 import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages, logInfo)
 import Capability.PollContract (class PollContract)
@@ -48,6 +48,7 @@ data Action
   | GetMarketplaceState
   | CloseSale Datum.NftSingletonLot
   | BuyNft Datum.NftSingletonLot
+  | CompleteAuction Datum.NftSingletonLot
 
 component ::
   forall query output m.
@@ -115,6 +116,15 @@ component =
               }
       logInfo $ "Marketplace nft bought: " <> show resp
       handleAction Initialize
+    CompleteAuction r -> do
+      contractId <- H.gets _.userInstance.userContract
+      resp <-
+        MarketplaceUser.completeAnAuction contractId
+          $ MarketplaceUser.CloseLotParams
+              { clpItemId: UserNftId r.nft.ipfsCid
+              }
+      logInfo $ "Marketplace auction complete: " <> show resp
+      handleAction Initialize
 
 renderLot ::
   forall props.
@@ -123,6 +133,9 @@ renderLot r = case r.lot of
   Right auction ->
     HH.div_
       [ renderAuction auction
+      , HH.button
+          [ HE.onClick \_ -> Just (CompleteAuction r) ]
+          [ HH.text "Complete Auction" ]
       ]
   Left sale ->
     HH.div_
