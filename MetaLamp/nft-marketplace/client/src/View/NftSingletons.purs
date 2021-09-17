@@ -4,6 +4,7 @@ import Prelude
 import Business.Datum (Auction)
 import Business.Datum as Datum
 import Data.Foldable (intercalate)
+import Data.Formatter.DateTime as Fmt
 import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
 import Halogen.HTML as HH
@@ -11,6 +12,7 @@ import Network.RemoteData (RemoteData)
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Value (Value)
+import Utils.Time as Utils
 import View.FormElement (class_)
 import View.RemoteDataState (remoteDataState)
 
@@ -62,5 +64,5 @@ renderAuction ::
 renderAuction auction =
   HH.div_
     [ HH.h4_ [ HH.text "Auction: " ]
-    , HH.p_ [ HH.text $ "end time: " <> show auction.endTime ]
+    , HH.p_ [ HH.text $ "end time: " <> Fmt.format Utils.timeFormatter (Utils.posixTimeToUtcUnsafe auction.endTime) ]
     ]

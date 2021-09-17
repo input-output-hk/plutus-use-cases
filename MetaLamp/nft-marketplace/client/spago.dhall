@@ -31,6 +31,7 @@ You can edit this file as you like.
   , "routing"
   , "routing-duplex"
   , "halogen-formless"
+  , "formatters"
   ]
 , packages = ./packages.dhall
 , sources =
