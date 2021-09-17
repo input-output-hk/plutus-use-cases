@@ -1,8 +1,9 @@
 import { fetchStatus } from './status';
+const API_URL = process.env.REACT_APP_API_URL;
 
 export async function fetchStorefront(wallet) {
   const response = await fetch(
-    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/sellingTokens`,
+    `${API_URL}/${wallet.id}/endpoint/sellingTokens`,
     {
       method: 'POST',
       headers: {
@@ -13,7 +14,7 @@ export async function fetchStorefront(wallet) {
   );
 
   if (response.status === 200) {
-    return await fetchStatus(wallet, "SellingTokens");
+    return await fetchStatus(wallet, 'SellingTokens');
   } else {
     return {
       error: 'Unable to fetch storefront tokens',

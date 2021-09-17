@@ -1,8 +1,9 @@
 import { fetchStatus } from './status';
+const API_URL = process.env.REACT_APP_API_URL;
 
 export async function fetchUserPublicKey(wallet) {
   const response = await fetch(
-    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/userPubKeyHash`,
+    `${API_URL}/${wallet.id}/endpoint/userPubKeyHash`,
     {
       method: 'POST',
       headers: {
@@ -13,7 +14,7 @@ export async function fetchUserPublicKey(wallet) {
   );
 
   if (response.status === 200) {
-    return await fetchStatus(wallet, "UserPubKeyHash");
+    return await fetchStatus(wallet, 'UserPubKeyHash');
   } else {
     return {
       error: 'Unable to fetch public key',
