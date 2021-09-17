@@ -44,7 +44,6 @@ import qualified Data.Map                  as Map
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               (Last (..))
 import           Data.Text                 (Text, pack)
-import           Data.Maybe                (fromJust)
 import qualified Data.List.NonEmpty        as NonEmpty
 import           GHC.Generics              (Generic)
 import           Plutus.Contract           as Contract
@@ -250,19 +249,19 @@ useOracle oracle =
     use oracle = endpoint @"use" $ \oracleParams -> do
         pkh <- pubKeyHash <$> Contract.ownPubKey
         oracleRequestMaybe <- findOracleRequest oracle (uoGame oracleParams) pkh
-        when (PlutusTx.Prelude.isNothing oracleRequestMaybe) $ throwError "no oracle request"
-        let (oref, o, t) = fromJust oracleRequestMaybe  
+        case oracleRequestMaybe of
+            Nothing -> throwError "no oracle request"
+            Just (oref, o, t) -> do
+                let inst = typedOracleValidator oracle
+                    mrScript = oracleValidator oracle
+                    redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
+                    requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
 
-        let inst = typedOracleValidator oracle
-            mrScript = oracleValidator oracle
-            redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
-            requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
+                let lookups = Constraints.typedValidatorLookups inst 
+                            <> Constraints.otherScript mrScript
+                            <> Constraints.unspentOutputs (Map.singleton oref o)
+                    tx  = Constraints.mustSpendScriptOutput oref redeemer
+                            <> Constraints.mustPayToPubKey pkh requestTokenVal
 
-        let lookups = Constraints.typedValidatorLookups inst 
-                    <> Constraints.otherScript mrScript
-                    <> Constraints.unspentOutputs (Map.singleton oref o)
-            tx  = Constraints.mustSpendScriptOutput oref redeemer
-                    <> Constraints.mustPayToPubKey pkh requestTokenVal
-
-        ledgerTx <- submitTxConstraintsWith lookups tx
-        void $ awaitTxConfirmed $ txId ledgerTx
+                ledgerTx <- submitTxConstraintsWith lookups tx
+                void $ awaitTxConfirmed $ txId ledgerTx

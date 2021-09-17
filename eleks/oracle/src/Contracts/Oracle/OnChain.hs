@@ -20,6 +20,7 @@ module Contracts.Oracle.OnChain
     , oracleAddress
     , oracleScriptAsShortBs
     , oraclePlutusScript
+    , verifyOracleValueSigned
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)
@@ -33,7 +34,6 @@ import qualified Data.Map                  as Map
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               (Last (..))
 import           Data.Text                 (Text, pack)
-import           Data.Maybe                (fromJust)
 import qualified Data.List.NonEmpty        as NonEmpty
 import           GHC.Generics              (Generic)
 import           Plutus.Contract           as Contract
@@ -118,17 +118,7 @@ mkOracleValidator oracle oracleData r ctx =
         Nothing -> traceError "Input data is invalid"
         Just h  -> h
 
-    verifyValueSigned :: Maybe (SignedMessage Integer) -> PubKey -> Maybe Integer
-    verifyValueSigned smMaybe pk =
-
-        case smMaybe of
-            Nothing -> Nothing
-            Just sm@SignedMessage{osmMessageHash, osmSignature, osmDatum=Datum dv} -> do
-                case checkSignature osmMessageHash pk osmSignature of
-                    Left err -> Nothing
-                    Right _  -> maybe (Nothing) pure (PlutusTx.fromBuiltinData dv) 
-
-    isValueSigned = isJust $ verifyValueSigned (ovWinnerSigned oracleData) (oOperatorKey oracle)
+    isValueSigned = isJust $ verifyOracleValueSigned (ovWinnerSigned oracleData) (oOperatorKey oracle)
 
     feesPaid :: Bool
     feesPaid =
@@ -137,6 +127,17 @@ mkOracleValidator oracle oracleData r ctx =
         outVal = txOutValue ownOutput
       in
         outVal `geq` (inVal <> Ada.lovelaceValueOf (oFee oracle))
+
+{-# INLINABLE verifyOracleValueSigned #-}
+verifyOracleValueSigned :: Maybe (SignedMessage Integer) -> PubKey -> Maybe Integer
+verifyOracleValueSigned smMaybe pk =
+    case smMaybe of
+        Nothing -> Nothing
+        Just sm@SignedMessage{osmMessageHash, osmSignature, osmDatum=Datum dv} -> do
+            case checkSignature osmMessageHash pk osmSignature of
+                Left err -> Nothing
+                Right _  -> maybe (Nothing) pure (PlutusTx.fromBuiltinData dv) 
+
 
 data Oracling
 instance Scripts.ValidatorTypes Oracling where

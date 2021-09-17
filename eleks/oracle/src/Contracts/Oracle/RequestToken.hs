@@ -35,7 +35,6 @@ import qualified Data.Map                  as Map
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               (Last (..))
 import           Data.Text                 (Text, pack)
-import           Data.Maybe                (fromJust)
 import qualified Data.List.NonEmpty        as NonEmpty
 import           GHC.Generics              (Generic)
 import           Plutus.Contract           as Contract

@@ -3,6 +3,7 @@
 --  - 'OffChain' contains the instance endpoints and client functionality
 --  - 'OnChain' contains the validation logic
 --  - 'Types' conains a few common datatypes for working with this contract
+--  - 'RequestTOken' conains a mint policy for oracle service fee token
 --    oracle.
 module Contracts.Oracle
   ( module OnChain
