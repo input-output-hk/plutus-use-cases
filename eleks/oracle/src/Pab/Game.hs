@@ -19,6 +19,7 @@ module Pab.Game
     , FixtureStatus (..)
     , GameTeams (..)
     , Team(..)
+    , GameId
     ) where
 
 import Data.Aeson

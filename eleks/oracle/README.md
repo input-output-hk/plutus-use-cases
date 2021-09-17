@@ -9,26 +9,17 @@ Here's an example of running and interacting with this contract via the API. For
 have `jq` installed.
 
 1. Build the PAB executable:
-
 ```
 cabal build bet-pab
 ```
 
 2. Run the PAB binary:
-
 ```
 cabal exec -- bet-pab
-````
-
-3. Run the PAB binary:
-
 ```
-cabal exec -- oracle-client
-````
 
-### Queries
+### Pab Queries
 
-##Pab Query
 1. Instance status
 export INSTANCE_ID=...
 curl -s http://localhost:9080/api/new/contract/instance/$INSTANCE_ID/status | jq
@@ -36,4 +27,26 @@ curl -s http://localhost:9080/api/new/contract/instance/$INSTANCE_ID/status | jq
 2. Running mutual bat contract info and instance id
 curl -s http://localhost:9080/api/contract/instances/wallet/1 | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract.unContractInstanceId'
 
-//todo make a bet
+### Pab transactions
+1. Make a bet 
+
+export INSTANCE_ID=...
+
+## Rest server 
+
+1. Build the game rest server:
+```
+cabal build game-server
+```
+2. Run the Games server:
+```
+cabal exec -- game-server
+```
+
+### Rest server quieries 
+
+1. Games list
+curl -s http://localhost:8081/games
+
+1. Game by id 
+curl -s http://localhost:8081/games/1

@@ -150,3 +150,18 @@ executable gs
     plutus-ledger-api,
     plutus-tx,
     bytestring
+  
+executable game-server
+  main-is: GameServer.hs
+  hs-source-dirs: server
+  ghc-options:  -threaded
+  build-depends:        
+    aeson, 
+    base >= 4.9 && < 5,
+    bytestring,
+    mtl,
+    mutual-bet -any,
+    servant-server -any,
+    text -any,
+    warp,
+ 
