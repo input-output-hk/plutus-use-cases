@@ -29,7 +29,9 @@ library
       Contracts.Oracle.OffChain
       Contracts.Oracle
       Contracts.MutualBet
+      Contracts.MutualBet.Types
       Contracts.MutualBet.OffChain
+      Contracts.MutualBet.StateMachine
       Contracts.Types
       Pab.Game
     build-depends:
