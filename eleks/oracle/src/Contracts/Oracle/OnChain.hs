@@ -61,12 +61,12 @@ mkOracleValidator :: Oracle -> OracleData -> OracleRedeemer -> ScriptContext -> 
 mkOracleValidator oracle oracleData r ctx =
     traceIfFalse "request token missing from input" inputHasRequestToken  &&
     case r of
-        Use    -> traceIfFalse "signed by request owner"             (txSignedBy info $ ovRequestAddress oracleData )
-                  && traceIfFalse "value signed by oracle"      (isValueSigned)
+        Use    -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
+                  && traceIfFalse "value signed by oracle" (isValueSigned)
                   && traceIfFalse "expected requester to get oracle token" 
                      (sentToAddress (Just $ ovRequestAddress oracleData) $ requestTokenExpectedVal)
-        Update -> traceIfFalse "operator signature missing"     (txSignedBy info $ oOperator oracle) 
-                  && traceIfFalse "invalid output datum"        validOutputDatum
+        Update -> traceIfFalse "operator signature missing" (txSignedBy info $ oOperator oracle) 
+                  && traceIfFalse "invalid output datum" validOutputDatum
 
   where
     info :: TxInfo
