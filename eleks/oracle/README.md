@@ -3,7 +3,7 @@
 We have provided an example PAB application in `./pab`. With the PAB we can serve and interact
 with contracts over a web API. You can read more about the PAB here: [PAB Architecture](https://github.com/input-output-hk/plutus/blob/master/plutus-pab/ARCHITECTURE.adoc).
 
-Here, the PAB is configured with the `NFT` contract from `./src/Plutus/Contracts/NFT.hs`
+Here, the PAB is configured with the `Oracle` contract from `./src/Plutus/Contracts/Oracle.hs`
 
 Here's an example of running and interacting with this contract via the API. For this it will help if you
 have `jq` installed.
@@ -20,33 +20,20 @@ cabal build bet-pab
 cabal exec -- bet-pab
 ````
 
-2. Run the PAB binary:
+3. Run the PAB binary:
 
 ```
 cabal exec -- oracle-client
 ````
 
-export INSTANCE_ID='66bbf5bc-2493-445a-ab14-dcd857f69246'
+### Queries
+
+##Pab Query
+1. Instance status
+export INSTANCE_ID=...
 curl -s http://localhost:9080/api/new/contract/instance/$INSTANCE_ID/status | jq
 
-curl -s http://localhost:9080/api/contract/instances | jq
+2. Running mutual bat contract info and instance id
+curl -s http://localhost:9080/api/contract/instances/wallet/1 | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract.unContractInstanceId'
 
-curl -s http://localhost:9080/api/new/contract/instances/wallet/1 | jq '.[].cicDefintion | select(.mbpOracle != null)'
-
-curl -s http://localhost:9080/api/new/contract/instances/wallet/1 | jq '.[] | select(.cicDefintion.mbpOracle != null) | .cicContract.unContractInstanceId'
-
-
-
-
-curl -s http://localhost:9080/api/new/contract/instances | jq '.[] | select(.cicDefintion.tag=="OracleContract") | .cicContract.unContractInstanceId'
-
-curl -s http://localhost:9080/api/contract/instances | jq '.[].cicDefinition'
-curl -s http://localhost:9080/api/contract/instances | jq '.[].cicDefinition.tag'
-
-
-
-curl -s http://localhost:9080/api/new/contract/definitions | jq '.cicCurrentState.cicDefintion'
-curl -vk http://localhost:9080/api/new/contract/definitions
-
-
-| jq '.cicCurrentState.observableState'
+//todo make a bet
