@@ -28,9 +28,6 @@ You can edit this file as you like.
   , "undefinable"
   , "uuid"
   , "web-socket"
-  , "routing"
-  , "routing-duplex"
-  , "halogen-formless"
   ]
 , packages = ./packages.dhall
 , sources =
