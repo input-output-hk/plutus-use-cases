@@ -217,7 +217,7 @@ component =
                     (const <<< pure $ unit)
                     revokeCollateral
               Nothing -> throwError "Asset name not found"
-  
+
   render :: State -> H.ComponentHTML Action Slots m
   render state =
     HH.div_
@@ -227,17 +227,18 @@ component =
           Loading -> HH.div_ []
           Failure e -> HH.h4_ [ HH.text e ]
           Success _ -> HH.div_ []
-      , case state.submit of 
-        Loading -> HH.div_ [ HH.text "Loading..." ]
-        _ -> HH.div_
-          $ mapWithIndex
-              ( \index (Tuple title operation) ->
-                  HH.h2_
-                    [ HH.text title
-                    , HH.slot _amountForm index AmountForm.component (reservesToAmounts state.reserves) (Just <<< (OnSubmitAmount operation))
-                    ]
-              )
-              [ Tuple "Deposit" SubmitDeposit, Tuple "Withdraw" SubmitWithdraw, Tuple "Borrow" SubmitBorrow, Tuple "Repay" SubmitRepay, Tuple "ProvideCollateral" SubmitProvideCollateral, Tuple "RevokeCollateral" SubmitRevokeCollateral ]
+      , case state.submit of
+          Loading -> HH.div_ [ HH.text "Loading..." ]
+          _ ->
+            HH.div_
+              $ mapWithIndex
+                  ( \index (Tuple title operation) ->
+                      HH.h2_
+                        [ HH.text title
+                        , HH.slot _amountForm index AmountForm.component (reservesToAmounts state.reserves) (Just <<< (OnSubmitAmount operation))
+                        ]
+                  )
+                  [ Tuple "Deposit" SubmitDeposit, Tuple "Withdraw" SubmitWithdraw, Tuple "Borrow" SubmitBorrow, Tuple "Repay" SubmitRepay, Tuple "ProvideCollateral" SubmitProvideCollateral, Tuple "RevokeCollateral" SubmitRevokeCollateral ]
       ]
 
 reservesToAmounts :: Array { amount :: BigInteger, asset :: AssetClass } -> Array AmountForm.AmountInfo
