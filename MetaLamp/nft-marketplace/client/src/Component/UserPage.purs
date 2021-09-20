@@ -29,7 +29,6 @@ import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData(..))
-import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
 import Plutus.Contracts.NftMarketplace.OffChain.User (BundleUpParams(..), CreateNftParams(..), OpenSaleParams(..), StartAnAuctionParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.V1.Ledger.Value (Value)
@@ -61,14 +60,14 @@ data Action
   | GetMarketplaceState
   | CreateNft CreateNftForm.SubmittedNft
   | CreateBundle CreateBundleForm.SubmittedBundle
-  | PutOnSale Datum.NftSingleton PutOnSaleForm.PriceOutput
-  | PutOnAuction Datum.NftSingleton StartAnAuctionForm.DurationOutput
+  | PutOnSale Datum.Item PutOnSaleForm.PriceOutput
+  | PutOnAuction Datum.Item StartAnAuctionForm.DurationOutput
 
 type Slots
   = ( createNftForm :: CreateNftForm.Slot Unit
     , createBundleForm :: CreateBundleForm.Slot Unit
-    , putOnSaleForm :: PutOnSaleForm.Slot Datum.NftSingleton
-    , putOnAuctionForm :: StartAnAuctionForm.Slot Datum.NftSingleton
+    , putOnSaleForm :: PutOnSaleForm.Slot Datum.Item
+    , putOnAuctionForm :: StartAnAuctionForm.Slot Datum.Item
     )
 
 component ::
@@ -107,13 +106,20 @@ component =
       , renderNftSingletons st.userFunds st.marketplaceState
           $ \nft ->
               HH.div_
-                [ HH.slot (SProxy :: _ "putOnSaleForm") nft PutOnSaleForm.component unit (Just <<< PutOnSale nft)
-                , HH.slot (SProxy :: _ "putOnAuctionForm") nft StartAnAuctionForm.component unit (Just <<< PutOnAuction nft)
+                [ HH.h4_ [ HH.text "NFT sale options: " ]
+                , HH.slot (SProxy :: _ "putOnSaleForm") (Left nft) PutOnSaleForm.component unit (Just <<< PutOnSale (Left nft))
+                , HH.slot (SProxy :: _ "putOnAuctionForm") (Left nft) StartAnAuctionForm.component unit (Just <<< PutOnAuction (Left nft))
                 ]
-      , HH.h3_ [ HH.text "Create Bunle: " ]
+      , HH.h3_ [ HH.text "Create Bundle: " ]
       , HH.slot (SProxy :: _ "createBundleForm") unit CreateBundleForm.component unit (Just <<< CreateBundle)
       , HH.h3_ [ HH.text "Wallet NFT Bundles: " ]
-      , renderNftBundles st.userFunds st.marketplaceState $ const (HH.div_ [])
+      , renderNftBundles st.userFunds st.marketplaceState
+          $ \bundle ->
+              HH.div_
+                [ HH.h4_ [ HH.text "Bundle sale options: " ]
+                , HH.slot (SProxy :: _ "putOnSaleForm") (Right bundle) PutOnSaleForm.component unit (Just <<< PutOnSale (Right bundle))
+                , HH.slot (SProxy :: _ "putOnAuctionForm") (Right bundle) StartAnAuctionForm.component unit (Just <<< PutOnAuction (Right bundle))
+                ]
       , HH.h3_ [ HH.text "Create NFT from file: " ]
       , HH.slot (SProxy :: _ "createNftForm") unit CreateNftForm.putNftComponent unit (Just <<< CreateNft)
       ]
@@ -172,23 +178,23 @@ component =
               }
       logInfo $ "Marketplace bundle created: " <> show resp
       handleAction Initialize
-    PutOnSale nft p -> do
+    PutOnSale item p -> do
       contractId <- H.gets _.userInstance.userContract
       resp <-
         MarketplaceUser.openSale contractId
           $ MarketplaceUser.OpenSaleParams
-              { ospItemId: UserNftId nft.ipfsCid
+              { ospItemId: Datum.getItemId item
               , ospSalePrice: fromInt p.price
               }
-      logInfo $ "Marketplace nft put on sale: " <> show resp
+      logInfo $ "Marketplace item put on sale: " <> show resp
       handleAction Initialize
-    PutOnAuction nft p -> do
+    PutOnAuction item p -> do
       contractId <- H.gets _.userInstance.userContract
       resp <-
         MarketplaceUser.startAnAuction contractId
           $ MarketplaceUser.StartAnAuctionParams
-              { saapItemId: UserNftId nft.ipfsCid
+              { saapItemId: Datum.getItemId item
               , saapDuration: wrap $ fromInt (p.duration * 1000)
               }
-      logInfo $ "Marketplace nft put on auction: " <> show resp
+      logInfo $ "Marketplace item put on auction: " <> show resp
       handleAction Initialize

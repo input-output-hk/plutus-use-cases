@@ -3,7 +3,7 @@ module Business.Datum where
 import Prelude
 import Data.Array (catMaybes, foldM, snoc)
 import Data.BigInteger (BigInteger, fromInt)
-import Data.Either (Either(..))
+import Data.Either (Either(..), either)
 import Data.Foldable (foldr)
 import Data.Json.JsonTuple (JsonTuple(..))
 import Data.Map as Map
@@ -11,6 +11,7 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), snd)
 import Plutus.Contract.StateMachine.ThreadToken (ThreadToken)
+import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
 import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (Bundle(..))
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.Contracts.Services.Sale.Core (Sale)
@@ -18,6 +19,12 @@ import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (CurrencySymbol, TokenName(..), Value)
 import PlutusTx.AssocMap as AssocMap
 import Utils.ByteString as Utils
+
+type Item
+  = Either NftSingleton NftBundle
+
+getItemId :: Item -> UserItemId
+getItemId = either (UserNftId <<< _.ipfsCid) (UserBundleId <<< map _.ipfsCid <<< _.tokens)
 
 type NftSingleton
   = { ipfsCid :: String
