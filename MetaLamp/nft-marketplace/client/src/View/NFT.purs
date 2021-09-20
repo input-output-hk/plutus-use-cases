@@ -37,6 +37,13 @@ renderNftBundles val md injRender = remoteDataState render ({ value: _, datum: _
   where
   render rd = HH.div_ $ map (\n -> renderBundle (injRender n) n) $ Datum.findNftBundles rd.value rd.datum
 
+renderNftBundleLots ::
+  forall props act.
+  RemoteData String MarketplaceDatum -> (Datum.NftBundleLot -> HH.HTML props act) -> HH.HTML props act
+renderNftBundleLots md injRender = remoteDataState render md
+  where
+  render rd = HH.div_ $ map (\r -> renderBundle (injRender r) r.bundle) $ Datum.findNftBundleLots rd
+
 renderNft ::
   forall props act.
   HH.HTML props act -> Datum.NftSingleton -> HH.HTML props act

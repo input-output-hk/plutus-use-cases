@@ -54,6 +54,11 @@ type NftBundle
     , tokens :: Array NftSingleton
     }
 
+type NftBundleLot
+  = { bundle :: NftBundle
+    , lot :: Either Sale Auction
+    }
+
 findNftSingletons :: Value -> MarketplaceDatum -> Array NftSingleton
 findNftSingletons funds store = foldr getSingleton [] userSingletons
   where
@@ -202,3 +207,47 @@ findNftSingletonLots store = map getSingleton marketplaceSingletons
               , endTime: pOSIXTime
               }
     }
+
+findNftBundleLots :: MarketplaceDatum -> Array NftBundleLot
+findNftBundleLots store =
+  catMaybes
+    $ map (getInfo <<< unwrap <<< snd)
+    $ AssocMap.toTuples
+    $ (unwrap store).mdBundles
+  where
+  getInfo record = case record.nbTokens of
+    HasLot tokens lot ->
+      let
+        bundleInfo = unwrap record.nbRecord
+      in
+        Just
+          { bundle:
+              { name: Utils.decodeUtf8 bundleInfo.biName
+              , description: Utils.decodeUtf8 bundleInfo.biDescription
+              , category: Utils.decodeUtf8 <$> bundleInfo.biCategory
+              , tokens: map (getToken <<< unwrap <<< snd) $ AssocMap.toTuples tokens
+              }
+          , lot:
+              case lot of
+                Left sale -> Left sale
+                Right (JsonTuple (Tuple threadToken (JsonTuple (Tuple pubKeyHash (JsonTuple (Tuple value pOSIXTime)))))) ->
+                  Right
+                    { threadToken: threadToken
+                    , owner: pubKeyHash
+                    , value: value
+                    , endTime: pOSIXTime
+                    }
+          }
+    _ -> Nothing
+
+  getToken (Tuple ipfsCid record) =
+    let
+      nft = unwrap record
+    in
+      { ipfsCid: Utils.decodeUtf8 ipfsCid
+      , currency: nft.niCurrency
+      , name: Utils.decodeUtf8 nft.niName
+      , description: Utils.decodeUtf8 nft.niDescription
+      , category: map Utils.decodeUtf8 nft.niCategory
+      , issuer: nft.niIssuer
+      }
