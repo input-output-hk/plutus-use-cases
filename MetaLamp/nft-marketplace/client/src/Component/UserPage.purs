@@ -4,7 +4,7 @@ import Prelude
 import Business.Datum as Datum
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
-import Business.MarketplaceUser (bundleUp, createNft, openSale, startAnAuction) as MarketplaceUser
+import Business.MarketplaceUser (bundleUp, createNft, openSale, startAnAuction, unbundle) as MarketplaceUser
 import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages, logError, logInfo)
 import Capability.PollContract (class PollContract)
@@ -28,8 +28,9 @@ import Effect.Exception (throw)
 import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Network.RemoteData (RemoteData(..))
-import Plutus.Contracts.NftMarketplace.OffChain.User (BundleUpParams(..), CreateNftParams(..), OpenSaleParams(..), StartAnAuctionParams(..)) as MarketplaceUser
+import Plutus.Contracts.NftMarketplace.OffChain.User (BundleUpParams(..), CreateNftParams(..), OpenSaleParams(..), StartAnAuctionParams(..), UnbundleParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.V1.Ledger.Value (Value)
 import View.NftSingletons (renderNftBundles, renderNftSingletons)
@@ -60,6 +61,7 @@ data Action
   | GetMarketplaceState
   | CreateNft CreateNftForm.SubmittedNft
   | CreateBundle CreateBundleForm.SubmittedBundle
+  | Unbundle Datum.NftBundle
   | PutOnSale Datum.Item PutOnSaleForm.PriceOutput
   | PutOnAuction Datum.Item StartAnAuctionForm.DurationOutput
 
@@ -119,6 +121,10 @@ component =
                 [ HH.h4_ [ HH.text "Bundle sale options: " ]
                 , HH.slot (SProxy :: _ "putOnSaleForm") (Right bundle) PutOnSaleForm.component unit (Just <<< PutOnSale (Right bundle))
                 , HH.slot (SProxy :: _ "putOnAuctionForm") (Right bundle) StartAnAuctionForm.component unit (Just <<< PutOnAuction (Right bundle))
+                , HH.h4_ [ HH.text "Bundle management: " ]
+                , HH.button
+                    [ HE.onClick \_ -> Just (Unbundle bundle) ]
+                    [ HH.text "UNBUNDLE" ]
                 ]
       , HH.h3_ [ HH.text "Create NFT from file: " ]
       , HH.slot (SProxy :: _ "createNftForm") unit CreateNftForm.putNftComponent unit (Just <<< CreateNft)
@@ -175,6 +181,15 @@ component =
               , bupName: bundle.name
               , bupDescription: bundle.description
               , bupCategory: bundle.subcategories
+              }
+      logInfo $ "Marketplace bundle created: " <> show resp
+      handleAction Initialize
+    Unbundle bundle -> do
+      contractId <- H.gets _.userInstance.userContract
+      resp <-
+        MarketplaceUser.unbundle contractId
+          $ MarketplaceUser.UnbundleParams
+              { upIpfsCids: _.ipfsCid <$> bundle.tokens
               }
       logInfo $ "Marketplace bundle created: " <> show resp
       handleAction Initialize
