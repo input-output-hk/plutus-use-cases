@@ -32,7 +32,7 @@ import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
 import Plutus.Contracts.NftMarketplace.OffChain.User (CreateNftParams(..), OpenSaleParams(..), StartAnAuctionParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.V1.Ledger.Value (Value)
-import View.NftSingletons (renderNftSingletons)
+import View.NftSingletons (renderNftBundles, renderNftSingletons)
 
 type Slot id
   = forall query. H.Slot query Void id
@@ -107,6 +107,8 @@ component =
                 [ HH.slot (SProxy :: _ "putOnSaleForm") nft PutOnSaleForm.component unit (Just <<< PutOnSale nft)
                 , HH.slot (SProxy :: _ "putOnAuctionForm") nft StartAnAuctionForm.component unit (Just <<< PutOnAuction nft)
                 ]
+      , HH.h3_ [ HH.text "Wallet NFT Bundles: " ]
+      , renderNftBundles st.userFunds st.marketplaceState $ const (HH.div_ [])
       , HH.h3_ [ HH.text "Create NFT from file: " ]
       , HH.slot (SProxy :: _ "createNftForm") unit CreateNftForm.putNftComponent unit (Just <<< CreateNft)
       ]

@@ -30,6 +30,13 @@ renderNftSingletonLots md injRender = remoteDataState render md
   where
   render rd = HH.div_ $ map (\r -> renderNft (injRender r) r.nft) $ Datum.findNftSingletonLots rd
 
+renderNftBundles ::
+  forall props act.
+  RemoteData String Value -> RemoteData String MarketplaceDatum -> (Datum.NftBundle -> HH.HTML props act) -> HH.HTML props act
+renderNftBundles val md injRender = remoteDataState render ({ value: _, datum: _ } <$> val <*> md)
+  where
+  render rd = HH.div_ $ map (\n -> renderBundle (injRender n) n) $ Datum.findNftBundles rd.value rd.datum
+
 renderNft ::
   forall props act.
   HH.HTML props act -> Datum.NftSingleton -> HH.HTML props act
@@ -45,6 +52,23 @@ renderNft html nft =
     , HH.p_ [ HH.text $ intercalate "." nft.category ]
     , HH.h4_ [ HH.text "NFT issuer: " ]
     , HH.p_ [ HH.text $ maybe "***HIDDEN***" (unwrap >>> _.getPubKeyHash) nft.issuer ]
+    , html
+    , HH.br_
+    ]
+
+renderBundle ::
+  forall props act.
+  HH.HTML props act -> Datum.NftBundle -> HH.HTML props act
+renderBundle html bundle =
+  HH.div [ class_ "bundle" ]
+    [ HH.h4_ [ HH.text "Bundle name: " ]
+    , HH.p_ [ HH.text bundle.name ]
+    , HH.h4_ [ HH.text "Bundle description: " ]
+    , HH.p_ [ HH.text bundle.description ]
+    , HH.h4_ [ HH.text "Bundle category: " ]
+    , HH.p_ [ HH.text $ intercalate "." bundle.category ]
+    , HH.h4_ [ HH.text "Bundle tokens: " ]
+    , HH.div_ $ map (renderNft (HH.div_ [])) bundle.tokens
     , html
     , HH.br_
     ]
