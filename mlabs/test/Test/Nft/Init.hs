@@ -24,6 +24,7 @@ import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.Reader (ReaderT, ask, lift, runReaderT)
 import Data.Map qualified as M
+import Ledger.Contexts (pubKeyHash)
 import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, walletPubKey)
 import Plutus.Trace.Effects.EmulatedWalletAPI (EmulatedWalletAPI)
 import Plutus.Trace.Effects.EmulatorControl (EmulatorControl)
@@ -31,15 +32,15 @@ import Plutus.Trace.Effects.RunContract (RunContract)
 import Plutus.Trace.Effects.Waiting (Waiting)
 import Plutus.Trace.Emulator (EmulatorRuntimeError, EmulatorTrace, initialChainState)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
-import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import Plutus.V1.Ledger.Value (Value, singleton)
-import PlutusTx.Prelude (ByteString)
+import PlutusTx.Prelude (BuiltinByteString)
 import Test.Utils (next)
 
 import Mlabs.Emulator.Types (UserId (..), adaCoin)
 import Mlabs.Nft.Contract qualified as N
 import Mlabs.Nft.Contract.Emulator.Client qualified as N
 import Mlabs.Nft.Logic.Types (NftId, UserAct (..))
+import Mlabs.Utils.Wallet (walletFromNumber)
 import PlutusTx.Ratio qualified as R
 
 checkOptions :: CheckOptions
@@ -47,9 +48,9 @@ checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left 
 
 -- | Wallets that are used for testing.
 w1, w2, w3 :: Wallet
-w1 = Wallet 1
-w2 = Wallet 2
-w3 = Wallet 3
+w1 = walletFromNumber 1
+w2 = walletFromNumber 2
+w3 = walletFromNumber 3
 
 toUserId :: Wallet -> UserId
 toUserId = UserId . pubKeyHash . walletPubKey
@@ -81,7 +82,7 @@ userAct wal act = do
   lift $ N.callUserAct nftId wal act >> next
 
 -- | NFT content for testing.
-nftContent :: ByteString
+nftContent :: BuiltinByteString
 nftContent = "Mona Lisa"
 
 {- | Initial distribution of wallets for testing.

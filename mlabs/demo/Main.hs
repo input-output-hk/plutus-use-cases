@@ -5,7 +5,7 @@ module Main (main) where
 --------------------------------------------------------------------------------
 
 import GHC.Generics
-import Prelude
+import Prelude qualified as Hask
 
 --------------------------------------------------------------------------------
 

@@ -6,9 +6,9 @@
 module Test.Governance.Init (
   checkOptions,
   fstWalletWithGOV,
-  sndWalletWithGOV,
-  walletNoGOV,
-  adminWallet,
+  -- sndWalletWithGOV,
+  -- walletNoGOV,
+  -- adminWallet,
   gov,
   acGOV,
   xgov,
@@ -31,6 +31,8 @@ import Mlabs.Governance.Contract.Validation qualified as Gov
 
 import Ledger (Address, CurrencySymbol, Value)
 import Ledger qualified
+import Mlabs.Utils.Wallet (walletFromNumber)
+
 import Plutus.Contract.Test (
   CheckOptions,
   Outcome (..),
@@ -40,6 +42,7 @@ import Plutus.Contract.Test (
   emulatorConfig,
   walletPubKey,
  )
+
 import Plutus.Trace.Emulator (initialChainState)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
 import Plutus.V1.Ledger.Value qualified as Value (singleton)
@@ -53,11 +56,13 @@ checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
 
 -- | Wallets that are used for testing.
-fstWalletWithGOV, sndWalletWithGOV, walletNoGOV, adminWallet :: Wallet
-fstWalletWithGOV = Wallet 1
-sndWalletWithGOV = Wallet 2
-walletNoGOV = Wallet 3
-adminWallet = Wallet 50
+fstWalletWithGOV :: Wallet
+--fstWalletWithGOV, sndWalletWithGOV, walletNoGOV, adminWallet :: Wallet
+fstWalletWithGOV = walletFromNumber 1
+
+-- sndWalletWithGOV = walletFromNumber 2
+-- walletNoGOV = walletFromNumber 3
+-- adminWallet = walletFromNumber 50
 
 scriptAddress :: Address
 scriptAddress = Gov.govAddress acGOV
@@ -93,9 +98,9 @@ initialDistribution :: M.Map Wallet Value
 initialDistribution =
   M.fromList
     [ (fstWalletWithGOV, ada 1000_000_000 <> gov 100)
-    , (sndWalletWithGOV, ada 1000_000_000 <> gov 100)
-    , (walletNoGOV, ada 1000_000_000)
-    , (adminWallet, ada 1000_000_000)
+    -- , (sndWalletWithGOV, ada 1000_000_000 <> gov 100)
+    -- , (walletNoGOV, ada 1000_000_000)
+    -- , (adminWallet, ada 1000_000_000)
     ]
 
 -- | Assert that contract finished excution with arbitrary error

@@ -54,4 +54,5 @@ formatValue v =
     formatTokenValue (_, name, value) =
       case name of
         "" -> Pretty.padRight ' ' 7 "Ada" ++ " " ++ show value
-        (Value.TokenName n) -> Pretty.padRight ' ' 7 $ Char8.unpack n ++ " " ++ show value
+        --         (Value.TokenName n) -> Pretty.padRight ' ' 7 $ Char8.unpack n ++ " " ++ show value
+        (Value.TokenName n) -> Pretty.padRight ' ' 7 $ show n ++ " " ++ show value

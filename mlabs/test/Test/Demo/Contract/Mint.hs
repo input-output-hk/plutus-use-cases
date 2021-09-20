@@ -15,6 +15,7 @@ import PlutusTx.Prelude
 
 import Control.Lens ((&), (.~))
 import Control.Monad (void)
+import Data.Default (def)
 import Data.Map qualified as Map
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.Value (AssetClass (..), TokenName, Value, assetClassValue)
@@ -23,6 +24,10 @@ import Plutus.Trace.Emulator as Emulator
 import Test.Tasty (TestTree)
 
 import Mlabs.Demo.Contract.Mint (MintParams (..), curSymbol, mintEndpoints)
+import Mlabs.Utils.Wallet (walletFromNumber)
+
+wallet1 = walletFromNumber 1
+wallet2 = walletFromNumber 2
 
 test :: TestTree
 test =
@@ -30,10 +35,10 @@ test =
     (Test.defaultCheckOptions & Test.emulatorConfig .~ emCfg)
     "mint trace"
     ( Test.walletFundsChange
-        (Test.Wallet 1)
+        wallet1
         (lovelaceValueOf (-15_000_000) <> assetClassValue usdToken 15)
         Test..&&. Test.walletFundsChange
-          (Test.Wallet 2)
+          wallet2
           ( lovelaceValueOf (-50_000_000)
               <> assetClassValue usdToken 20
               <> assetClassValue cadToken 30
@@ -42,7 +47,11 @@ test =
     mintTrace
 
 emCfg :: EmulatorConfig
-emCfg = EmulatorConfig $ Left $ Map.fromList [(Test.Wallet 1, v), (Test.Wallet 2, v)]
+emCfg =
+  EmulatorConfig
+    (Left $ Map.fromList [(wallet1, v), (wallet2, v)])
+    def
+    def
   where
     v :: Value
     v = lovelaceValueOf 100_000_000
@@ -61,8 +70,8 @@ cadToken = AssetClass (curSymbol, cad)
 
 mintTrace :: EmulatorTrace ()
 mintTrace = do
-  h1 <- activateContractWallet (Test.Wallet 1) mintEndpoints
-  h2 <- activateContractWallet (Test.Wallet 2) mintEndpoints
+  h1 <- activateContractWallet Test.w1 mintEndpoints
+  h2 <- activateContractWallet Test.w2 mintEndpoints
 
   -- Scenario 1: Buy single currency.
   callEndpoint @"mint" h1 MintParams {mpTokenName = usd, mpAmount = 5}

@@ -15,7 +15,7 @@ import Plutus.Trace.Emulator qualified as Trace
 
 -- | Throws error to emulator trace.
 throwError :: String -> Trace.EmulatorTrace a
-throwError msg = Trace.throwError (Trace.GenericError msg)
+throwError msg = Trace.throwError (Trace.GenericError $ "Generic Error:" <> msg)
 
 -- | Wait for one slot.
 next :: Trace.EmulatorTrace ()

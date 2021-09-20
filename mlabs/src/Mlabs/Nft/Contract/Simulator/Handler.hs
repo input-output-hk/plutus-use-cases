@@ -47,25 +47,30 @@ data NftContracts
 instance Pretty NftContracts where
   pretty = viaShow
 
+-- FIXME
 handleNftContracts ::
   ( Member (Error PABError) effs
   , Member (LogMsg (PABMultiAgentMsg (Builtin NftContracts))) effs
   ) =>
   Nft.StartParams ->
   ContractEffect (Builtin NftContracts) ~> Eff effs
-handleNftContracts sp = Builtin.handleBuiltin getSchema getContract
-  where
-    getSchema = \case
-      StartNft -> Builtin.endpointsToSchemas @Nft.AuthorSchema
-      User _ -> Builtin.endpointsToSchemas @Nft.UserSchema
-    getContract = \case
-      StartNft -> SomeBuiltin (startNftContract sp)
-      User nid -> SomeBuiltin (Nft.userEndpoints nid)
+handleNftContracts sp = error "Fix required after Plutus update"
 
+-- Builtin.handleBuiltin getSchema getContract
+--   where
+--     getSchema = \case
+--       StartNft -> Builtin.endpointsToSchemas @Nft.AuthorSchema
+--       User _ -> Builtin.endpointsToSchemas @Nft.UserSchema
+--     getContract = \case
+--       StartNft -> SomeBuiltin (startNftContract sp)
+--       User nid -> SomeBuiltin (Nft.userEndpoints nid)
+
+-- FIXME
 handlers :: Nft.StartParams -> SimulatorEffectHandlers (Builtin NftContracts)
-handlers sp =
-  Simulator.mkSimulatorHandlers @(Builtin NftContracts) def [] $
-    interpret (handleNftContracts sp)
+handlers sp = error "Fix required after Plutus update"
+
+-- Simulator.mkSimulatorHandlers @(Builtin NftContracts) def def $
+--   interpret (handleNftContracts sp)
 
 startNftContract :: Nft.StartParams -> Contract (Last NftId) Nft.AuthorSchema Text ()
 startNftContract startParams = mapError (pack . show) $ Nft.startNft startParams

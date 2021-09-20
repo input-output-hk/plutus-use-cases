@@ -19,8 +19,8 @@ import Data.Either (fromRight)
 
 import Ledger (CurrencySymbol)
 import Ledger.Constraints (TxConstraints, checkScriptContext, mustPayToPubKey)
+import Ledger.Contexts qualified as Contexts
 import Ledger.Typed.Scripts as Scripts (MintingPolicy, wrapMintingPolicy)
-import Plutus.V1.Ledger.Contexts qualified as Contexts
 import Plutus.V1.Ledger.Scripts as Scripts (Datum (getDatum), mkMintingPolicyScript)
 import Plutus.V1.Ledger.Value qualified as Value
 import PlutusTx (applyCode, compile, fromBuiltinData, liftCode)
@@ -63,7 +63,7 @@ validate :: Types.LendexId -> () -> Contexts.ScriptContext -> Bool
 validate lendexId _ ctx = case (getInState, getOutState) of
   (Just st1, Just st2) ->
     if hasLendexId st1 && hasLendexId st2
-      then all (isValidForge st1 st2) $ Value.flattenValue $ Contexts.txInfoForge info
+      then all (isValidForge st1 st2) $ Value.flattenValue $ Contexts.txInfoMint info
       else traceIfFalse "Bad Lendex identifier" False
   (Just _, Nothing) -> traceIfFalse "Failed to find LendingPool state in outputs" False
   (Nothing, Just _) -> traceIfFalse "Failed to find LendingPool state in inputs" False

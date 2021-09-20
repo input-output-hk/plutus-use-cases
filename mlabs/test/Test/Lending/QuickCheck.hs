@@ -17,7 +17,6 @@ import Prelude (
   drop,
   fmap,
   length,
-  uncurry,
   zip3,
   (<$>),
   (<*>),

@@ -7,9 +7,9 @@ module Mlabs.Nft.Contract.Forge (
 import PlutusTx.Prelude
 
 import Ledger (Address, CurrencySymbol)
+import Ledger.Contexts qualified as Contexts
 import Ledger.Typed.Scripts (MintingPolicy)
 import Ledger.Typed.Scripts qualified as Scripts
-import Plutus.V1.Ledger.Contexts qualified as Contexts
 import Plutus.V1.Ledger.Scripts qualified as Scripts
 import Plutus.V1.Ledger.Value qualified as Value
 import PlutusTx qualified
@@ -30,7 +30,7 @@ import Mlabs.Nft.Logic.Types (NftId (NftId))
  First argument is an address of NFT state machine script. We use it to check
  that NFT coin was payed to script after minting.
 -}
-validate :: Address -> NftId -> () -> Contexts.ScriptContext -> Bool
+validate :: Address -> NftId -> BuiltinData -> Contexts.ScriptContext -> Bool
 validate stateAddr (NftId token oref) _ ctx =
   traceIfFalse "UTXO not consumed" hasUtxo
     && traceIfFalse "wrong amount minted" checkMintedAmount
@@ -40,7 +40,7 @@ validate stateAddr (NftId token oref) _ ctx =
 
     hasUtxo = any (\inp -> Contexts.txInInfoOutRef inp == oref) $ Contexts.txInfoInputs info
 
-    checkMintedAmount = case Value.flattenValue (Contexts.txInfoForge info) of
+    checkMintedAmount = case Value.flattenValue (Contexts.txInfoMint info) of
       [(cur, tn, val)] -> Contexts.ownCurrencySymbol ctx == cur && token == tn && val == 1
       _ -> False
 

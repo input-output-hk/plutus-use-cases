@@ -9,7 +9,7 @@ extra-source-files:  CHANGELOG.md
 
 common common-imports
   build-depends:
-    base >=4.14 && <4.15
+    base 
     , aeson
     , ansi-terminal
     , bytestring
@@ -39,6 +39,9 @@ common common-imports
     , text
     , freer-extras
     , insert-ordered-containers
+    , serialise
+    , cardano-api
+    , cardano-ledger-alonzo
 
 common common-language
     default-extensions:
@@ -104,6 +107,9 @@ library
     Mlabs.Control.Monad.State
     Mlabs.Data.List
     Mlabs.Data.Ord
+    Mlabs.Deploy.Governance
+    Mlabs.Deploy.Nft
+    Mlabs.Deploy.Utils
     Mlabs.Demo.Contract.Burn
     Mlabs.Demo.Contract.Mint
     Mlabs.Emulator.App
@@ -143,6 +149,7 @@ library
     Mlabs.Plutus.PAB
     Mlabs.System.Console.PrettyLogger
     Mlabs.System.Console.Utils
+    Mlabs.Utils.Wallet 
 
 executable mlabs-plutus-use-cases
   import:  common-imports
@@ -152,6 +159,18 @@ executable mlabs-plutus-use-cases
 
   main-is: app/Main.hs
   build-depends: mlabs-plutus-use-cases
+
+executable deploy-app
+  import:  common-imports
+  import:  common-language
+  import:  common-configs
+  main-is: deploy-app/Main.hs
+  build-depends: 
+      mlabs-plutus-use-cases
+    , cardano-ledger-alonzo
+    , cardano-api
+    , serialise
+    , cardano-api
 
 executable nft-demo
   import:  common-imports
@@ -192,7 +211,7 @@ Test-suite mlabs-plutus-use-cases-tests
     -fplugin=RecordDotPreprocessor
   
   Build-Depends:
-    base >=4.9 && <5
+    base 
     , data-default
     , freer-extras
     , freer-simple

@@ -36,7 +36,7 @@ data App st act = App
     app'st :: !st
   , -- | error log
     -- ^ it reports on which act and pool state error has happened
-    app'log :: ![(act, st, Hask.String)]
+    app'log :: ![(act, st, BuiltinByteString)]
   , -- | current state of blockchain
     app'wallets :: !BchState
   }

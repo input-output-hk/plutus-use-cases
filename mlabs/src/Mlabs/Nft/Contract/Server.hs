@@ -9,23 +9,25 @@ module Mlabs.Nft.Contract.Server (
   startNft,
 ) where
 
-import Prelude
+import Prelude (String, (<>))
 
+import Control.Lens (preview)
 import Control.Monad (forever)
-import Data.List.Extra (firstJust)
 import Data.Map qualified as M
 import Data.Monoid (Last (..))
+import Ledger.Address (pubKeyAddress)
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, mustMintValue, mustSpendPubKeyOutput, ownPubKeyHash)
-import Plutus.Contract (Contract, logError, ownPubKey, tell, throwError, utxoAt)
-import Plutus.V1.Ledger.Address (pubKeyAddress)
-import Plutus.V1.Ledger.Api (Datum)
-import Plutus.V1.Ledger.Crypto (pubKeyHash)
-
+import Ledger.Crypto (pubKeyHash)
+import Ledger.Tx (ciTxOutDatum)
+import Mlabs.Data.List (firstJustRight)
 import Mlabs.Emulator.Types (ownUserId)
 import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, StartParams (..), UserSchema, toUserAct)
 import Mlabs.Nft.Contract.StateMachine qualified as SM
 import Mlabs.Nft.Logic.Types (Act (UserAct), NftId, initNft, toNftId)
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
+import Mlabs.Plutus.Contract (getEndpoint, selectForever)
+import Plutus.Contract (Contract, logError, ownPubKey, tell, throwError, toContract, utxosAt)
+import Plutus.V1.Ledger.Api (Datum)
+import PlutusTx.Prelude hiding ((<>))
 
 -- | NFT contract for the user
 type UserContract a = Contract () UserSchema SM.NftError a
@@ -39,20 +41,16 @@ type AuthorContract a = Contract (Last NftId) AuthorSchema SM.NftError a
 -- | Endpoints for user
 userEndpoints :: NftId -> UserContract ()
 userEndpoints nid =
-  forever $
-    selects
-      [ act $ getEndpoint @Buy
-      , act $ getEndpoint @SetPrice
-      ]
-  where
-    act :: IsUserAct a => UserContract a -> UserContract ()
-    act readInput = readInput >>= userAction nid
+  selectForever
+    [ getEndpoint @Buy $ userAction nid
+    , getEndpoint @SetPrice $ userAction nid
+    ]
 
 -- | Endpoints for admin user
 authorEndpoints :: AuthorContract ()
 authorEndpoints = forever startNft'
   where
-    startNft' = getEndpoint @StartParams >>= startNft
+    startNft' = toContract $ getEndpoint @StartParams $ startNft
 
 userAction :: IsUserAct a => NftId -> a -> UserContract ()
 userAction nid input = do
@@ -70,7 +68,7 @@ userAction nid input = do
 -}
 startNft :: StartParams -> AuthorContract ()
 startNft StartParams {..} = do
-  orefs <- M.keys <$> (utxoAt . pubKeyAddress =<< ownPubKey)
+  orefs <- M.keys <$> (utxosAt . pubKeyAddress =<< ownPubKey)
   case orefs of
     [] -> logError @String "No UTXO found"
     oref : _ -> do
@@ -98,7 +96,7 @@ getUserAct act = do
 -- | Finds Datum for NFT state machine script.
 findInputStateDatum :: NftId -> UserContract Datum
 findInputStateDatum nid = do
-  utxos <- utxoAt (SM.nftAddress nid)
-  maybe err pure $ firstJust (readDatum . snd) $ M.toList utxos
+  utxos <- utxosAt (SM.nftAddress nid)
+  maybe err pure $ firstJustRight (preview ciTxOutDatum . snd) $ M.toList utxos
   where
     err = throwError $ SM.toNftError "Can not find NFT app instance"

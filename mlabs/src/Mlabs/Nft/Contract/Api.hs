@@ -19,7 +19,7 @@ module Mlabs.Nft.Contract.Api (
 import GHC.Generics (Generic)
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import Plutus.Contract (type (.\/))
-import PlutusTx.Prelude (ByteString, Integer, Maybe, Rational)
+import PlutusTx.Prelude (BuiltinByteString, Integer, Maybe, Rational)
 import Prelude qualified as Hask (Eq, Show)
 
 import Mlabs.Nft.Logic.Types (UserAct (BuyAct, SetPriceAct))
@@ -50,7 +50,7 @@ newtype SetPrice = SetPrice
 -- | Parameters to init NFT
 data StartParams = StartParams
   { -- | NFT content
-    sp'content :: ByteString
+    sp'content :: BuiltinByteString
   , -- | author share [0, 1] on reselling of the NFT
     sp'share :: Rational
   , -- | current price of NFT, if it's nothing then nobody can buy it.

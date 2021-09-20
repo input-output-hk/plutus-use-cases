@@ -6,6 +6,8 @@ module Mlabs.Data.List (
   sortOn,
   sortBy,
   mapM_,
+  firstJustRight,
+  maybeRight,
 ) where
 
 import PlutusTx.Prelude hiding (mapM_, take)
@@ -109,3 +111,17 @@ mapM_ f = \case
   a : as -> do
     _ <- f a
     mapM_ f as
+
+{-# INLINEABLE firstJustRight #-}
+firstJustRight :: (a -> Maybe (Either b c)) -> [a] -> Maybe c
+firstJustRight f = \case
+  (x : xs) ->
+    case f x of
+      Just (Right a) -> Just a
+      _ -> firstJustRight f xs
+  [] ->
+    Nothing
+
+{-# INLINEABLE maybeRight #-}
+maybeRight :: Either a b -> Maybe b
+maybeRight = either (const Nothing) Just

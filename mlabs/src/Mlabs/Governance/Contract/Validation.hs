@@ -129,7 +129,7 @@ mkValidator gov datum redeemer ctx =
     --- checks
 
     checkForging :: Bool
-    checkForging = case AssocMap.lookup xGov . Value.getValue $ txInfoForge info of
+    checkForging = case AssocMap.lookup xGov . Value.getValue $ txInfoMint info of
       Nothing -> False
       Just mp -> case (redeemer, AssocMap.lookup (coerce pkh) mp) of
         (GRDeposit n, Just m) -> n == m
@@ -210,7 +210,7 @@ mkPolicy vh AssetClassGov {..} _ ctx =
           Just m -> (pkh, n - m) : xs
 
     mintedDeposit :: [(TokenName, Integer)]
-    mintedDeposit = case AssocMap.lookup (ownCurrencySymbol ctx) . Value.getValue $ txInfoForge info of
+    mintedDeposit = case AssocMap.lookup (ownCurrencySymbol ctx) . Value.getValue $ txInfoMint info of
       Nothing -> traceError "no self minting"
       Just mp -> filter ((> 0) . snd) $ AssocMap.toList mp
 

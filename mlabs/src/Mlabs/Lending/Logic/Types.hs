@@ -71,7 +71,7 @@ import Mlabs.Emulator.Types (Coin, UserId (..), adaCoin)
 import PlutusTx.Ratio qualified as R
 
 -- | Unique identifier of the lending pool state.
-newtype LendexId = LendexId ByteString
+newtype LendexId = LendexId BuiltinByteString
   deriving stock (Hask.Show, Generic)
   deriving newtype (Eq)
   deriving anyclass (ToJSON, FromJSON)
@@ -467,6 +467,7 @@ data QueryRes
   = QueryResAllLendexes [(Address, LendingPool)]
   | QueryResSupportedCurrencies {getSupported :: [SupportedCurrency]}
   | QueryResCurrentBalance UserBalance
+  deriving (Eq)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 

@@ -40,7 +40,7 @@ data Nft = Nft
   { -- | token name, unique identifier for NFT
     nft'id :: NftId
   , -- | data (media, audio, photo, etc)
-    nft'data :: ByteString
+    nft'data :: BuiltinByteString
   , -- | share for the author on each sell
     nft'share :: Rational
   , -- | author
@@ -64,8 +64,8 @@ data NftId = NftId
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
-deriving newtype instance ToSchema TxId
-deriving instance ToSchema TxOutRef
+-- deriving newtype instance ToSchema TxId
+-- deriving instance ToSchema TxOutRef
 
 instance Eq NftId where
   {-# INLINEABLE (==) #-}
@@ -75,7 +75,7 @@ instance Eq NftId where
 {-# INLINEABLE initNft #-}
 
 -- | Initialise NFT
-initNft :: TxOutRef -> UserId -> ByteString -> Rational -> Maybe Integer -> Nft
+initNft :: TxOutRef -> UserId -> BuiltinByteString -> Rational -> Maybe Integer -> Nft
 initNft nftInRef author content share mPrice =
   Nft
     { nft'id = toNftId nftInRef content
@@ -89,8 +89,8 @@ initNft nftInRef author content share mPrice =
 {-# INLINEABLE toNftId #-}
 
 -- | Calculate NFT identifier from it's content (data).
-toNftId :: TxOutRef -> ByteString -> NftId
-toNftId oref content = NftId (tokenName $ sha2_256 content) oref
+toNftId :: TxOutRef -> BuiltinByteString -> NftId
+toNftId oref content = NftId (TokenName $ sha2_256 content) oref
 
 -- | Actions with NFTs with UserId.
 data Act = UserAct UserId UserAct

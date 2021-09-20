@@ -114,10 +114,10 @@ defaultAppConfig = AppConfig reserves users curSym admins oracles
     users = zipWith (\coinName userName -> (Types.UserId (PubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames
     wal cs = BchWallet $ Hask.uncurry M.singleton cs
 
-    toAToken name = Value.tokenName $ "a" <> name
+    toAToken name = Value.TokenName $ "a" <> name
 
-toCoin :: ByteString -> Types.Coin
-toCoin str = Value.AssetClass (Value.currencySymbol str, Value.tokenName str)
+toCoin :: BuiltinByteString -> Types.Coin
+toCoin str = Value.AssetClass (Value.CurrencySymbol str, Value.TokenName str)
 
 ----------------------------------------------------------
 -- scripts
