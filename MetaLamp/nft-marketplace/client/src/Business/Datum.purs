@@ -132,9 +132,9 @@ findNftBundles funds store = foldr getBundle [] marketplaceBundles
     Just ts ->
       acc
         `snoc`
-          { name: bundle.bundleInfo.biName
-          , description: bundle.bundleInfo.biDescription
-          , category: bundle.bundleInfo.biCategory
+          { name: Utils.decodeUtf8 bundle.bundleInfo.biName
+          , description: Utils.decodeUtf8 bundle.bundleInfo.biDescription
+          , category: Utils.decodeUtf8 <$> bundle.bundleInfo.biCategory
           , tokens: ts
           }
 

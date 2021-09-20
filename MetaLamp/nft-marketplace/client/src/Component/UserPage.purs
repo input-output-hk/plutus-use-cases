@@ -4,10 +4,11 @@ import Prelude
 import Business.Datum as Datum
 import Business.MarketplaceInfo (InfoContractId)
 import Business.MarketplaceInfo as MarketplaceInfo
-import Business.MarketplaceUser (createNft, openSale, startAnAuction) as MarketplaceUser
+import Business.MarketplaceUser (bundleUp, createNft, openSale, startAnAuction) as MarketplaceUser
 import Capability.IPFS as IPFS
 import Capability.LogMessages (class LogMessages, logError, logInfo)
 import Capability.PollContract (class PollContract)
+import Component.CreateBundleForm as CreateBundleForm
 import Component.CreateNftForm as CreateNftForm
 import Component.PutOnSaleForm as PutOnSaleForm
 import Component.StartAnAuctionForm as StartAnAuctionForm
@@ -29,7 +30,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData(..))
 import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
-import Plutus.Contracts.NftMarketplace.OffChain.User (CreateNftParams(..), OpenSaleParams(..), StartAnAuctionParams(..)) as MarketplaceUser
+import Plutus.Contracts.NftMarketplace.OffChain.User (BundleUpParams(..), CreateNftParams(..), OpenSaleParams(..), StartAnAuctionParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.V1.Ledger.Value (Value)
 import View.NftSingletons (renderNftBundles, renderNftSingletons)
@@ -59,11 +60,13 @@ data Action
   | GetUserFunds
   | GetMarketplaceState
   | CreateNft CreateNftForm.SubmittedNft
+  | CreateBundle CreateBundleForm.SubmittedBundle
   | PutOnSale Datum.NftSingleton PutOnSaleForm.PriceOutput
   | PutOnAuction Datum.NftSingleton StartAnAuctionForm.DurationOutput
 
 type Slots
   = ( createNftForm :: CreateNftForm.Slot Unit
+    , createBundleForm :: CreateBundleForm.Slot Unit
     , putOnSaleForm :: PutOnSaleForm.Slot Datum.NftSingleton
     , putOnAuctionForm :: StartAnAuctionForm.Slot Datum.NftSingleton
     )
@@ -107,6 +110,8 @@ component =
                 [ HH.slot (SProxy :: _ "putOnSaleForm") nft PutOnSaleForm.component unit (Just <<< PutOnSale nft)
                 , HH.slot (SProxy :: _ "putOnAuctionForm") nft StartAnAuctionForm.component unit (Just <<< PutOnAuction nft)
                 ]
+      , HH.h3_ [ HH.text "Create Bunle: " ]
+      , HH.slot (SProxy :: _ "createBundleForm") unit CreateBundleForm.component unit (Just <<< CreateBundle)
       , HH.h3_ [ HH.text "Wallet NFT Bundles: " ]
       , renderNftBundles st.userFunds st.marketplaceState $ const (HH.div_ [])
       , HH.h3_ [ HH.text "Create NFT from file: " ]
@@ -154,6 +159,18 @@ component =
               , cnpRevealIssuer: nft.revealIssuer
               }
       logInfo $ "Marketplace nft created: " <> show resp
+      handleAction Initialize
+    CreateBundle bundle -> do
+      contractId <- H.gets _.userInstance.userContract
+      resp <-
+        MarketplaceUser.bundleUp contractId
+          $ MarketplaceUser.BundleUpParams
+              { bupIpfsCids: bundle.tokenIpfsCids
+              , bupName: bundle.name
+              , bupDescription: bundle.description
+              , bupCategory: bundle.subcategories
+              }
+      logInfo $ "Marketplace bundle created: " <> show resp
       handleAction Initialize
     PutOnSale nft p -> do
       contractId <- H.gets _.userInstance.userContract
