@@ -143,7 +143,7 @@ mutualBetTrace1 = do
     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
     let updateParams = UpdateOracleParams{ uoGameId = 1,  uoWinnerId = 1 }
     Trace.callEndpoint @"update" oracleHdl updateParams
-    void $ Trace.waitNSlots 50
+    void $ Trace.waitNSlots 5
 
 trace2WinningBid :: Ada
 trace2WinningBid = 70
