@@ -46,6 +46,8 @@ data LendexContracts
     Oracle
   | -- | govern actions
     Admin
+  | -- | Query actions
+    Query
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -62,7 +64,7 @@ handleLendexContracts ::
   LendexId ->
   InitContract ->
   ContractEffect (Builtin LendexContracts) ~> Eff effs
-handleLendexContracts = error "Fix required after Plutus update"
+handleLendexContracts lendexId initHandler = error "Fix required after Plutus update"
 
 -- handleLendexContracts lendexId initHandler =
 -- Builtin.handleBuiltin getSchema getContract
@@ -72,11 +74,13 @@ handleLendexContracts = error "Fix required after Plutus update"
 --     User -> Builtin.endpointsToSchemas @Api.UserSchema
 --     Oracle -> Builtin.endpointsToSchemas @Api.OracleSchema
 --     Admin -> Builtin.endpointsToSchemas @Api.AdminSchema
+--     Query -> Builtin.endpointsToSchemas @Api.QuerySchema
 --   getContract = \case
 --     Init -> SomeBuiltin initHandler
 --     User -> SomeBuiltin $ Server.userEndpoints lendexId
 --     Oracle -> SomeBuiltin $ Server.oracleEndpoints lendexId
 --     Admin -> SomeBuiltin $ Server.adminEndpoints lendexId
+--     Query -> SomeBuiltin $ Server.queryEndpoints lendexId
 
 -- FIXME
 handlers :: LendexId -> InitContract -> SimulatorEffectHandlers (Builtin LendexContracts)

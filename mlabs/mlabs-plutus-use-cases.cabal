@@ -79,11 +79,21 @@ common common-language
       
 common common-configs
   default-language: Haskell2010
-                     
+
+common common-ghc-options
+  Ghc-Options:
+    -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas
+    -fno-specialize
+    -fno-strictness
+    -fno-warn-orphans
+    -fobject-code
+
 library
   import:  common-imports
   import:  common-language
   import:  common-configs
+  import:  common-ghc-options
                   
   Ghc-Options:
     -Wall
@@ -145,6 +155,8 @@ executable mlabs-plutus-use-cases
   import:  common-imports
   import:  common-language
   import:  common-configs
+  import:  common-ghc-options
+
   main-is: app/Main.hs
   build-depends: mlabs-plutus-use-cases
 
@@ -163,12 +175,14 @@ executable deploy-app
 executable nft-demo
   import:  common-imports
   import:  common-language
+  import:  common-ghc-options  
   main-is: nft-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable governance-demo
   import:  common-imports
   import:  common-language
+  import:  common-ghc-options  
   main-is: governance-demo/Main.hs
   build-depends: 
       mlabs-plutus-use-cases
@@ -177,6 +191,7 @@ executable lendex-demo
   import:  common-imports
   import:  common-language
   import:  common-configs
+  import:  common-ghc-options  
   main-is: lendex-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
@@ -184,6 +199,7 @@ Test-suite mlabs-plutus-use-cases-tests
   import:          common-imports
   import:          common-language
   import:          common-configs
+  import:  common-ghc-options  
   Type:            exitcode-stdio-1.0
   hs-source-dirs:  test
   Main-is:         Main.hs
