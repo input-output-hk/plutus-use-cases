@@ -41,6 +41,7 @@ import qualified Ledger.Constraints               as Constraints
 import           Ledger.Constraints.TxConstraints (TxConstraints)
 import qualified Ledger.Interval                  as Interval
 import qualified Ledger.Oracle                    as Oracle
+import qualified Ledger.Value                     as Value
 import           Ledger.TimeSlot                  (SlotConfig)
 import qualified Ledger.TimeSlot                  as TimeSlot
 import qualified Ledger.Typed.Scripts             as Scripts
@@ -112,14 +113,17 @@ mutualBetTransition MutualBetParams{mbpOracle} State{stateData=oldState} input =
                         , stateValue = Ada.toValue $ betsValueAmount newBets
                         }
             in Just (constraints, newState)
-        (Ongoing bets, Payout{oracleValue}) ->
+        (Ongoing bets, Payout{oracleValue, oracleRef})
+          | isValueSigned oracleValue ->
             let 
                 winners = getWinners (ovWinner oracleValue) bets
-                constraints = foldMap mkTxPayWinners winners
+                redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
+                constraints = foldMap mkTxPayWinners winners 
+                              <> Constraints.mustSpendScriptOutput oracleRef redeemer
                 newState = State { stateData = Finished bets, stateValue = mempty }
             in Just (constraints, newState)
-
         _ -> Nothing
+    where isValueSigned oracleValue = isJust $ verifyOracleValueSigned (ovWinnerSigned oracleValue) (oOperatorKey mbpOracle)
 
 
 {-# INLINABLE mutualBetStateMachine #-}

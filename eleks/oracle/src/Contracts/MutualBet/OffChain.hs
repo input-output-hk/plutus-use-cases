@@ -37,6 +37,7 @@ import           Data.Bool                        (bool)
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Default                     (Default (def))
 import           Data.Either                      (fromRight)
+import qualified Data.Map                          as Map
 import           Data.Maybe                       (fromJust)
 import           Data.Monoid                      (Last (..))
 import           Data.Text                        (Text, pack)
@@ -46,6 +47,7 @@ import           Ledger                           hiding (singleton, MintingPoli
 import qualified Ledger
 import qualified Ledger.Ada                       as Ada
 import qualified Ledger.Constraints               as Constraints
+import           Ledger.Constraints               (ScriptLookups (..))
 import           Ledger.Constraints.TxConstraints (TxConstraints)
 import qualified Ledger.Interval                  as Interval
 import qualified Ledger.Oracle                    as Oracle
@@ -113,6 +115,7 @@ mutualBetStart params = do
     self <- Ledger.pubKeyHash <$> ownPubKey
     let inst         = typedValidator (threadToken, params)
         client       = machineClient inst threadToken params
+        oracle       = mbpOracle params
 
     _ <- handleError
             (\e -> do { logError (MutualBetFailed e); throwError (StateMachineContractError e) })
@@ -120,9 +123,17 @@ mutualBetStart params = do
 
     logInfo $ MutualBetStarted params
     _ <- mapError OracleError $ requestOracleForAddress (mbpOracle params) (mbpGame params)
-    ov <- waitForGameEnd params
-    logInfo @Haskell.String "Payout"
-    r <- SM.runStep client Payout{oracleValue = ov}
+    (oref, o, ov) <- waitForGameEnd params
+    logInfo ("Payout " ++ Haskell.show ov)
+    let lookups = ScriptLookups
+                { slMPS = Map.empty
+                , slTxOutputs = Map.singleton oref o
+                , slOtherScripts = Map.singleton (oracleAddress oracle) (oracleValidator oracle)
+                , slOtherData = Map.empty
+                , slTypedValidator = Nothing
+                , slOwnPubkey = Nothing
+                }
+    r <- SM.runStepWith lookups mempty client Payout{oracleValue = ov, oracleRef = oref}
     case r of
         SM.TransitionFailure i            -> logError (TransitionFailed i) -- TODO: Add an endpoint "retry" to the seller?
         SM.TransitionSuccess (Finished h) -> logInfo $ MutualBetEnded h
@@ -170,7 +181,7 @@ isGameCompleted pk params oracleData
 
 waitForGameEnd ::
     MutualBetParams
-    -> Contract w s MutualBetError OracleData
+    -> Contract w s MutualBetError (TxOutRef, TxOutTx, OracleData)
 waitForGameEnd params = do
         waitEnd
     where 
@@ -182,7 +193,7 @@ waitForGameEnd params = do
             let currentGameSignedTx = find (\(_, _, oracleData) -> isRight $ isGameCompleted pk params oracleData) txs
             case currentGameSignedTx of
                 Nothing -> do { logInfo @Haskell.String "Not completed"; waitEnd; }
-                Just (_, _, oracleData) -> return oracleData
+                Just d -> return d
 
      
 data BettorEvent =
