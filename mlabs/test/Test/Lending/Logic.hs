@@ -49,13 +49,13 @@ test =
   testGroup
     "Logic"
     [ testCase "Deposit" testDeposit
-    , testCase "Borrow" testBorrow
-    , testCase "Borrow without collateral" testBorrowNoCollateral
-    , testCase "Borrow with not enough collateral" testBorrowNotEnoughCollateral
-    , testCase "Withdraw" testWithdraw
-    , testCase "Repay" testRepay
-    , testGroup "Borrow liquidation" testLiquidationCall
-    , testCase "Wrong user sets the price" testWrongUserPriceSet
+    -- , testCase "Borrow" testBorrow
+    -- , testCase "Borrow without collateral" testBorrowNoCollateral
+    -- , testCase "Borrow with not enough collateral" testBorrowNotEnoughCollateral
+    -- , testCase "Withdraw" testWithdraw
+    -- , testCase "Repay" testRepay
+    -- , testGroup "Borrow liquidation" testLiquidationCall
+    -- , testCase "Wrong user sets the price" testWrongUserPriceSet
     ]
   where
     testBorrow = testWallets [(user1, w1)] borrowScript

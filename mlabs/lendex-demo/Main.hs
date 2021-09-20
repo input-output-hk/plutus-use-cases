@@ -22,7 +22,6 @@ import Ledger.Contexts (pubKeyHash)
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Tx (txId)
 import Ledger.Value qualified as Value
-import Mlabs.Utils.Wallet (walletFromNumber)
 import Playground.Contract (TokenName, Wallet (..))
 import Plutus.Contract hiding (when)
 import Plutus.Contracts.Currency qualified as Currency
@@ -37,6 +36,7 @@ import Mlabs.Lending.Logic.Types hiding (User (..), Wallet (..))
 import Mlabs.Plutus.PAB (call, printBalance, waitForLast)
 import Mlabs.System.Console.PrettyLogger (logNewLine)
 import Mlabs.System.Console.Utils (logAction, logMlabs)
+import Mlabs.Utils.Wallet (walletFromNumber)
 import PlutusTx.Ratio qualified as R
 
 -- | Console demo for Lendex with simulator
@@ -149,7 +149,7 @@ activateInit wal = do
   wid <- Simulator.activateContract wal Handler.Init
   cur <- waitForLast wid
   void $ Simulator.waitUntilFinished wid
-  pure cur
+  return cur
 
 activateAdmin :: Wallet -> Handler.Sim ContractInstanceId
 activateAdmin wal = Simulator.activateContract wal Handler.Admin

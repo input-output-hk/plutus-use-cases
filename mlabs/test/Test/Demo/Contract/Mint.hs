@@ -24,6 +24,10 @@ import Plutus.Trace.Emulator as Emulator
 import Test.Tasty (TestTree)
 
 import Mlabs.Demo.Contract.Mint (MintParams (..), curSymbol, mintEndpoints)
+import Mlabs.Utils.Wallet (walletFromNumber)
+
+wallet1 = walletFromNumber 1
+wallet2 = walletFromNumber 2
 
 test :: TestTree
 test =
@@ -31,10 +35,10 @@ test =
     (Test.defaultCheckOptions & Test.emulatorConfig .~ emCfg)
     "mint trace"
     ( Test.walletFundsChange
-        Test.w1
+        wallet1
         (lovelaceValueOf (-15_000_000) <> assetClassValue usdToken 15)
         Test..&&. Test.walletFundsChange
-          Test.w2
+          wallet2
           ( lovelaceValueOf (-50_000_000)
               <> assetClassValue usdToken 20
               <> assetClassValue cadToken 30
@@ -45,7 +49,7 @@ test =
 emCfg :: EmulatorConfig
 emCfg =
   EmulatorConfig
-    (Left $ Map.fromList [(Test.w1, v), (Test.w2, v)])
+    (Left $ Map.fromList [(wallet1, v), (wallet2, v)])
     def
     def
   where

@@ -16,7 +16,9 @@ module Mlabs.Emulator.Scene (
   coinDiff,
 ) where
 
-import Prelude
+import PlutusTx.Prelude
+
+-- import Data.Monoid (mempty)
 
 import Control.Applicative (Alternative (..))
 
@@ -52,6 +54,12 @@ instance Semigroup Scene where
 
 instance Monoid Scene where
   mempty = Scene mempty mempty Nothing
+
+instance Semigroup (M.Map Wallet Value) where
+  (<>) = M.union
+
+instance Monoid (M.Map Wallet Value) where
+  mempty = M.empty
 
 -- | Creates scene with single user in it that owns so many coins, app owns zero coins.
 owns :: Wallet -> [(Coin, Integer)] -> Scene
