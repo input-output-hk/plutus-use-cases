@@ -2,6 +2,7 @@ module Business.Datum where
 
 import Prelude
 import Data.Array (catMaybes, foldM, snoc)
+import Data.Bifunctor (bimap)
 import Data.BigInteger (BigInteger, fromInt)
 import Data.Either (Either(..), either)
 import Data.Foldable (foldr)
@@ -25,6 +26,15 @@ type Item
 
 getItemId :: Item -> UserItemId
 getItemId = either (UserNftId <<< _.ipfsCid) (UserBundleId <<< map _.ipfsCid <<< _.tokens)
+
+type ItemLot
+  = Either NftSingletonLot NftBundleLot
+
+getLot :: ItemLot -> Either Sale Auction
+getLot = either _.lot _.lot
+
+getItem :: ItemLot -> Item
+getItem = bimap _.nft _.bundle
 
 type NftSingleton
   = { ipfsCid :: String

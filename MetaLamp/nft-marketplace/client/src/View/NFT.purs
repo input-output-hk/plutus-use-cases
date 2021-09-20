@@ -1,4 +1,4 @@
-module View.NftSingletons where
+module View.NFT where
 
 import Prelude
 import Business.Datum (Auction)

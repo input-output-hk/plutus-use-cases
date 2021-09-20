@@ -33,7 +33,7 @@ import Network.RemoteData (RemoteData(..))
 import Plutus.Contracts.NftMarketplace.OffChain.User (BundleUpParams(..), CreateNftParams(..), OpenSaleParams(..), StartAnAuctionParams(..), UnbundleParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.V1.Ledger.Value (Value)
-import View.NftSingletons (renderNftBundles, renderNftSingletons)
+import View.NFT (renderNftBundles, renderNftSingletons)
 
 type Slot id
   = forall query. H.Slot query Void id
