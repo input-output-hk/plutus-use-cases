@@ -23,7 +23,7 @@ import           Plutus.Abstract.ContractResponse (ContractResponse (..))
 import           Plutus.Contract.Test             (TracePredicate)
 import qualified Plutus.Trace.Emulator            as Trace
 import           Plutus.Trace.Emulator.Types      (EmulatorRuntimeError (..))
-import           PlutusTx                         (IsData, fromData)
+import           PlutusTx                         (FromData, fromBuiltinData)
 import qualified Wallet.Emulator.Folds            as Folds
 import           Wallet.Emulator.MultiAgent       (EmulatorEvent)
 
@@ -50,18 +50,18 @@ getState pick userHandle = do
 utxoAtAddress :: Monad m => Address -> (UtxoMap -> m c)-> L.FoldM m EmulatorEvent c
 utxoAtAddress address check = Folds.postMapM check (L.generalize $ Folds.utxoAtAddress address)
 
-datumsAtAddress :: (IsData a, Show a) => Address -> ([a] -> Bool) -> TracePredicate
+datumsAtAddress :: (FromData a, Show a) => Address -> ([a] -> Bool) -> TracePredicate
 datumsAtAddress address check = utxoAtAddress address $ \utxo -> do
     let datums = getDatums utxo
         result = check datums
     unless result $ tell @(Doc Void) (fromString $ "Datum check failed: " <> show datums)
     pure result
 
-getDatums :: IsData a => UtxoMap -> [a]
+getDatums :: (FromData a) => UtxoMap -> [a]
 getDatums = mapMaybe findDatum . Map.elems
 
-findDatum :: PlutusTx.IsData a => Ledger.TxOutTx -> Maybe a
+findDatum :: (PlutusTx.FromData a) => Ledger.TxOutTx -> Maybe a
 findDatum o = do
     hash <- Ledger.txOutDatumHash $ Ledger.txOutTxOut o
     (Ledger.Datum e) <- Map.lookup hash $ Ledger.txData $ Ledger.txOutTxTx o
-    PlutusTx.fromData e
+    PlutusTx.fromBuiltinData e

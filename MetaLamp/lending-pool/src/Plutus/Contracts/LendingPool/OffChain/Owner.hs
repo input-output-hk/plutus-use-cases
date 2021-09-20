@@ -93,7 +93,7 @@ start = start' $ do
     pkh <- pubKeyHash <$> ownPubKey
     fmap Currency.currencySymbol $
            mapError (pack . show @Currency.CurrencyError) $
-           Currency.forgeContract pkh [(Core.aaveProtocolName, 1)]
+           Currency.mintContract pkh [(Core.aaveProtocolName, 1)]
 
 start' :: Contract w s Text CurrencySymbol -> [CreateParams] -> Contract w s Text Aave
 start' getAaveToken params = do
@@ -123,5 +123,5 @@ type AaveOwnerSchema =
 data OwnerContractState = Started Aave
     deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
-ownerEndpoints :: Contract (ContractResponse Text OwnerContractState) AaveOwnerSchema Void ()
-ownerEndpoints = forever $ withContractResponse (Proxy @"start") Started start
+ownerEndpoints :: Promise (ContractResponse Text OwnerContractState) AaveOwnerSchema Void ()
+ownerEndpoints = withContractResponse (Proxy @"start") Started start <> ownerEndpoints

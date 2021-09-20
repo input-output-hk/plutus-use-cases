@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -70,16 +71,18 @@ withContractResponse :: forall l a p r s.
     => Proxy l
     -> (a -> r)
     -> (p -> Contract (ContractResponse Text r) s Text a)
-    -> Contract (ContractResponse Text r) s Void ()
+    -> Promise (ContractResponse Text r) s Void ()
 withContractResponse _ g c = do
-    e <- runError $ do
-        p <- endpoint @l
-        _ <- tell ContractPending
-        errorHandler `handleError` c p
-    tell $ case e of
-        Left err -> ContractError err
-        Right a  -> ContractSuccess $ g a
-        where
-        errorHandler e = do
-            logInfo @Text ("Error submiting the transaction: " <> e)
-            throwError e
+    handleEndpoint @l $ \case
+        Left err -> tell $ ContractError err
+        Right p -> do
+            _ <- tell ContractPending
+            e <- runError $ errorHandler `handleError` c p
+            tell $ case e of
+                Left err -> ContractError err
+                Right a  -> ContractSuccess $ g a
+
+errorHandler :: Text -> Contract w s Text b
+errorHandler e = do
+    logInfo @Text ("Error submiting the transaction: " <> e)
+    throwError e

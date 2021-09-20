@@ -1,8 +1,9 @@
 module Utils.Data where
 
 import           Data.Function                    ((&))
+import           Ledger.Crypto                    (pubKeyHash)
 import           Plutus.Abstract.ContractResponse (ContractResponse (..))
-import           Plutus.V1.Ledger.Crypto          (PubKeyHash, pubKeyHash)
+import           Plutus.V1.Ledger.Crypto          (PubKeyHash)
 import qualified PlutusTx.AssocMap                as AssocMap
 import qualified PlutusTx.Prelude                 as PlutusTx
 import           Wallet.Emulator.Wallet           (Wallet, walletPubKey)

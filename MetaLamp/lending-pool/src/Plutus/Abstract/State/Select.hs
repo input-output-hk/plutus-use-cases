@@ -31,16 +31,16 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..),
 import           Prelude                          (Semigroup (..))
 import qualified Prelude
 
-getDatum :: PlutusTx.IsData a => TxOutTx -> Contract w s Text a
+getDatum :: (PlutusTx.FromData a, PlutusTx.ToData a) => TxOutTx -> Contract w s Text a
 getDatum o = case txOutDatumHash $ txOutTxOut o of
         Nothing -> throwError "datumHash not found"
         Just h -> case Map.lookup h $ txData $ txOutTxTx o of
             Nothing -> throwError "datum not found"
-            Just (Datum e) -> case PlutusTx.fromData e of
+            Just (Datum e) -> case PlutusTx.fromBuiltinData e of
                 Nothing -> throwError "datum has wrong type"
                 Just d  -> return d
 
-getState :: (PlutusTx.IsData datum) => Address -> Contract w s Text [OutputValue datum]
+getState :: (PlutusTx.FromData datum, PlutusTx.ToData datum) => Address -> Contract w s Text [OutputValue datum]
 getState address = do
     utxos <- utxoAt address
     traverse getDatum' . Map.toList $ utxos
@@ -49,7 +49,7 @@ getState address = do
         d <- getDatum o
         pure $ OutputValue oref o d
 
-findOutputsBy :: (PlutusTx.IsData datum) =>
+findOutputsBy :: (PlutusTx.FromData datum, PlutusTx.ToData datum) =>
   Address ->
   AssetClass ->
   (datum -> Maybe a) ->
@@ -61,7 +61,7 @@ findOutputsBy address stateToken mapDatum = mapMaybe checkStateToken <$> getStat
                 then fmap (OutputValue oref outTx) (mapDatum datum)
                 else Nothing
 
-findOutputBy :: (PlutusTx.IsData datum) =>
+findOutputBy :: (PlutusTx.FromData datum, PlutusTx.ToData datum) =>
   Address ->
   AssetClass ->
   (datum -> Maybe a) ->

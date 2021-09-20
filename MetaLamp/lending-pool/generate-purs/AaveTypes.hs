@@ -37,7 +37,6 @@ import qualified Plutus.Contracts.LendingPool.OffChain.User  as Aave
 import qualified Plutus.Contracts.LendingPool.OnChain.Core   as Aave
 import qualified Plutus.Contracts.Service.Oracle             as Oracle
 import           Plutus.PAB.Simulation                       (AaveContracts (..))
-import           Plutus.V1.Ledger.Value                      (AssetClass)
 
 ratioBridge :: BridgePart
 ratioBridge = do
@@ -56,7 +55,6 @@ aaveTypes = [ (equal <*> (genericShow <*> mkSumType)) (Proxy @AaveContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Oracle.Oracle)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.CreateParams)
-          , (order <*> (equal <*> (genericShow <*> mkSumType))) (Proxy @AssetClass)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.UserContractState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.InfoContractState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Aave.Reserve)

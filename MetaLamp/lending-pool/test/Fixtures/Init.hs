@@ -56,7 +56,7 @@ startContract :: Contract () Aave.AaveOwnerSchema Text ()
 startContract = void $ AaveMock.start startParams
 
 userContract :: Contract (ContractResponse Text Aave.UserContractState) Aave.AaveUserSchema Void ()
-userContract = void $ Aave.userEndpoints AaveMock.aave
+userContract = void $ awaitPromise $ Aave.userEndpoints AaveMock.aave
 
 distributeTrace :: Trace.EmulatorTrace ()
 distributeTrace = do

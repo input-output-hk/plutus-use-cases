@@ -20,15 +20,13 @@ import qualified Ledger.Constraints                     as Constraints
 import qualified Ledger.Constraints.OnChain             as Constraints
 import qualified Ledger.Constraints.TxConstraints       as Constraints
 import           Ledger.Typed.Scripts                   (DatumType,
-                                                         MonetaryPolicy,
+                                                         MintingPolicy,
                                                          RedeemerType,
                                                          TypedValidator)
 import qualified Ledger.Typed.Scripts                   as Scripts
 import           Plutus.Abstract.OutputValue            (OutputValue (..))
 import           Plutus.Contract
 import qualified Plutus.Contracts.Service.FungibleToken as FungibleToken
-import           Plutus.V1.Ledger.Contexts              (ScriptContext,
-                                                         scriptCurrencySymbol)
 import qualified Plutus.V1.Ledger.Scripts               as Scripts
 import           Plutus.V1.Ledger.Value                 (AssetClass (unAssetClass),
                                                          TokenName (..),
@@ -42,7 +40,9 @@ import qualified Prelude
 
 type TxPair a = (Constraints.ScriptLookups a, Constraints.TxConstraints (RedeemerType a) (DatumType a))
 
-type IsScriptData a = (PlutusTx.IsData (RedeemerType a), PlutusTx.IsData (DatumType a))
+type IsScriptData a = (
+    PlutusTx.FromData (RedeemerType a), PlutusTx.ToData (RedeemerType a),
+    PlutusTx.FromData (DatumType a), PlutusTx.ToData (DatumType a))
 
 submitTxPair :: (AsContractError e, IsScriptData a) =>
     TxPair a
@@ -50,13 +50,13 @@ submitTxPair :: (AsContractError e, IsScriptData a) =>
 submitTxPair = Prelude.uncurry submitTxConstraintsWith
 
 mustForgeValue :: (IsScriptData a) =>
-    MonetaryPolicy
+    MintingPolicy
     -> Value
     -> TxPair a
 mustForgeValue policy value = (lookups, tx)
     where
-        lookups = Constraints.monetaryPolicy policy
-        tx = Constraints.mustForgeValue value
+        lookups = Constraints.mintingPolicy policy
+        tx = Constraints.mustMintValue value
 
 mustPayToScript :: (IsScriptData a) =>
   TypedValidator a
@@ -78,7 +78,7 @@ mustSpendScriptOutputs script inputs = (lookups, tx)
         unspent = Map.fromList $ fmap (\(OutputValue ref tx _) -> (ref, tx)) inputs
         lookups = Constraints.otherScript (Scripts.validatorScript script) <> Constraints.unspentOutputs unspent
         tx = Prelude.mconcat $
-            fmap (\(OutputValue ref _ redeemer) -> Constraints.mustSpendScriptOutput ref (Redeemer $ PlutusTx.toData redeemer)) inputs
+            fmap (\(OutputValue ref _ redeemer) -> Constraints.mustSpendScriptOutput ref (Redeemer $ PlutusTx.toBuiltinData redeemer)) inputs
 
 mustSpendFromScript :: (IsScriptData a) =>
   TypedValidator a

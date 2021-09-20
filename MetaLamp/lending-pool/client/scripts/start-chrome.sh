@@ -1,1 +1,0 @@
-chromium --disable-web-security --user-data-dir=/chrome-temp

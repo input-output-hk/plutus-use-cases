@@ -28,7 +28,8 @@ import           Ledger                                    hiding (singleton)
 import           Ledger.Constraints                        as Constraints
 import           Ledger.Constraints.OnChain                as Constraints
 import           Ledger.Constraints.TxConstraints          as Constraints
-import           Ledger.Typed.Scripts                      (MonetaryPolicy)
+import           Ledger.Contexts                           (scriptCurrencySymbol)
+import           Ledger.Typed.Scripts                      (MintingPolicy)
 import qualified Ledger.Typed.Scripts                      as Scripts
 import           Plutus.Abstract.OutputValue               (OutputValue (..))
 import qualified Plutus.Abstract.TxUtils                   as TxUtils
@@ -37,8 +38,7 @@ import           Plutus.Contracts.LendingPool.OnChain.Core (Aave, AaveScript,
                                                             Reserve (..))
 import qualified Plutus.Contracts.LendingPool.OnChain.Core as Core
 import qualified Plutus.Contracts.Service.FungibleToken    as FungibleToken
-import           Plutus.V1.Ledger.Contexts                 (ScriptContext,
-                                                            scriptCurrencySymbol)
+import           Plutus.V1.Ledger.Contexts                 (ScriptContext)
 import qualified Plutus.V1.Ledger.Scripts                  as Scripts
 import           Plutus.V1.Ledger.Value                    (AssetClass (..),
                                                             TokenName (..),
@@ -53,8 +53,8 @@ import           Prelude                                   (Semigroup (..))
 import qualified Prelude
 
 {-# INLINABLE validator #-}
-validator :: ValidatorHash -> AssetClass -> TokenName -> ScriptContext -> Bool
-validator aaveScript underlyingAsset aTokenName ctx =
+validator :: ValidatorHash -> AssetClass -> TokenName -> BuiltinData -> ScriptContext -> Bool
+validator aaveScript underlyingAsset aTokenName _ ctx =
     traceIfFalse "Aave tokens mint forbidden" $ amountMinted /= 0 && amountScriptAsset == amountMinted
     where
         txInfo :: TxInfo
@@ -65,7 +65,7 @@ validator aaveScript underlyingAsset aTokenName ctx =
         amountAsset = flip assetClassValueOf underlyingAsset
 
         amountMinted :: Integer
-        amountMinted = assetClassValueOf (txInfoForge txInfo) aTokenCurrency
+        amountMinted = assetClassValueOf (txInfoMint txInfo) aTokenCurrency
 
         amountScriptAsset :: Integer
         amountScriptAsset =
@@ -73,9 +73,9 @@ validator aaveScript underlyingAsset aTokenName ctx =
               inputValue = foldMap snd $ scriptInputsAt aaveScript txInfo
            in amountAsset outputValue - amountAsset inputValue
 
-makeLiquidityPolicy :: ValidatorHash -> AssetClass -> MonetaryPolicy
-makeLiquidityPolicy aaveScript asset = Scripts.mkMonetaryPolicyScript $
-  $$(PlutusTx.compile [|| \s a t -> Scripts.wrapMonetaryPolicy $ validator s a t||])
+makeLiquidityPolicy :: ValidatorHash -> AssetClass -> MintingPolicy
+makeLiquidityPolicy aaveScript asset = Scripts.mkMintingPolicyScript $
+  $$(PlutusTx.compile [|| \s a t -> Scripts.wrapMintingPolicy $ validator s a t||])
     `PlutusTx.applyCode`
         PlutusTx.liftCode aaveScript
     `PlutusTx.applyCode`

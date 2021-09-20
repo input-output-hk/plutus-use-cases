@@ -100,7 +100,7 @@ oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe Integer
 oracleValue o f = do
     dh      <- txOutDatum o
     Datum d <- f dh
-    PlutusTx.fromData d
+    PlutusTx.fromBuiltinData d
 
 {-# INLINABLE findOracleValueInTxInputs #-}
 findOracleValueInTxInputs :: TxInfo -> (CurrencySymbol, PubKeyHash, Integer, AssetClass) -> Maybe Integer
@@ -184,7 +184,7 @@ data OracleParams = OracleParams
 startOracle :: forall w s. OracleParams -> Contract w s Text Oracle
 startOracle op = do
     pkh <- pubKeyHash <$> Contract.ownPubKey
-    osc <- mapError (pack . Prelude.show) (forgeContract pkh [(oracleTokenName, 1)] :: Contract w s CurrencyError OneShotCurrency)
+    osc <- mapError (pack . Prelude.show) (mintContract pkh [(oracleTokenName, 1)] :: Contract w s CurrencyError OneShotCurrency)
     let cs     = Currency.currencySymbol osc
         oracle = Oracle
             { oSymbol   = cs
@@ -208,7 +208,7 @@ updateOracle oracle x = do
             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     <>
                           Constraints.typedValidatorLookups (oracleInst oracle) <>
                           Constraints.otherScript (oracleValidator oracle)
-                tx      = c <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toData Update)
+                tx      = c <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
             ledgerTx <- submitTxConstraintsWith @Oracling lookups tx
             awaitTxConfirmed $ txId ledgerTx
             logInfo @Prelude.String $ "updated oracle value to " ++ Prelude.show x
@@ -238,8 +238,8 @@ useOracle (fromTuple -> oracle) = do
         Constraints.otherScript (oracleValidator oracle) <>
         Constraints.unspentOutputs unspent
   let val = (assetClassValue oracleCoin 1) <> lovelaceValueOf (oFee oracle)
-  let tx = Constraints.mustSpendScriptOutput oracleRef (Redeemer $ PlutusTx.toData Use) <>
-           Constraints.mustPayToOtherScript (validatorHash $ oracleValidator oracle) (Datum $ PlutusTx.toData oracleDatum) val
+  let tx = Constraints.mustSpendScriptOutput oracleRef (Redeemer $ PlutusTx.toBuiltinData Use) <>
+           Constraints.mustPayToOtherScript (validatorHash $ oracleValidator oracle) (Datum $ PlutusTx.toBuiltinData oracleDatum) val
   pure $ (lookups, tx)
   where
     oracleCoin = oracleAsset oracle
@@ -253,7 +253,8 @@ runOracle op = do
     go oracle
   where
     go :: Oracle -> Contract (Last Oracle) OracleSchema Text a
-    go oracle = do
-        x <- endpoint @"update"
-        updateOracle oracle x
-        go oracle
+    go oracle =
+        awaitPromise $ endpoint @"update" $ \x -> do
+            updateOracle oracle x
+            go oracle
+

@@ -27,18 +27,18 @@ tests = testGroup "provideCollateral" [
         (walletFundsChange
             Fixtures.lenderWallet
             (Fixtures.initialFunds <>
-            assetClassValue Fixtures.mogus (negate 100))
-        .&&. Shared.reservesChange (Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.mogus Fixtures.initialReserves)
+            assetClassValue Fixtures.euro (negate 100))
+        .&&. Shared.reservesChange (Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.euro Fixtures.initialReserves)
         .&&. Shared.userConfigsChange
             (AssocMap.insert
-            (Fixtures.mogus, Utils.getPubKey Fixtures.lenderWallet)
+            (Fixtures.euro, Utils.getPubKey Fixtures.lenderWallet)
             (Aave.UserConfig { Aave.ucDebt = 0, Aave.ucCollateralizedInvestment = 100 })
             Fixtures.initialUsers)
         )
         $ do
             handles <- Fixtures.defaultTrace
-            deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 100
-            provideCollateral (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 100,
+            deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.euro 100
+            provideCollateral (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.euro 100,
     checkPredicate
         "Should fail if user's aToken balance is insufficient"
         (walletFundsChange Fixtures.lenderWallet Fixtures.initialFunds
@@ -48,7 +48,7 @@ tests = testGroup "provideCollateral" [
         )
         $ do
             handles <- Fixtures.defaultTrace
-            provideCollateral (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 100
+            provideCollateral (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.euro 100
     ]
 
 provideCollateral :: Fixtures.UserHandle -> Wallet -> AssetClass -> Integer -> Trace.EmulatorTrace ()

@@ -33,9 +33,9 @@ tests = testGroup "borrow" [
         walletFundsChange
             Fixtures.borrowerWallet
             (Fixtures.initialFunds <>
-            assetClassValue Fixtures.mogus (negate 100) <> assetClassValue Fixtures.usd 50)
+            assetClassValue Fixtures.euro (negate 100) <> assetClassValue Fixtures.usd 50)
         .&&. Shared.reservesChange (
-            Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.mogus
+            Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.euro
             . Utils.modifyAt (over Aave._rAmount (subtract 50 . (+100))) Fixtures.usd $ Fixtures.initialReserves)
         .&&. Shared.userConfigsChange
             (
@@ -44,7 +44,7 @@ tests = testGroup "borrow" [
                 (Aave.UserConfig { Aave.ucDebt = 50, Aave.ucCollateralizedInvestment = 0 })
                 .
                 AssocMap.insert
-                (Fixtures.mogus, Utils.getPubKey Fixtures.borrowerWallet)
+                (Fixtures.euro, Utils.getPubKey Fixtures.borrowerWallet)
                 (Aave.UserConfig { Aave.ucDebt = 0, Aave.ucCollateralizedInvestment = 100 })
                 .
                 AssocMap.insert
@@ -57,8 +57,8 @@ tests = testGroup "borrow" [
             handles <- Fixtures.defaultTrace
             deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.usd 100
 
-            deposit (handles Map.! Fixtures.borrowerWallet) Fixtures.borrowerWallet Fixtures.mogus 100
-            provideCollateral (handles Map.! Fixtures.borrowerWallet) Fixtures.borrowerWallet Fixtures.mogus 100
+            deposit (handles Map.! Fixtures.borrowerWallet) Fixtures.borrowerWallet Fixtures.euro 100
+            provideCollateral (handles Map.! Fixtures.borrowerWallet) Fixtures.borrowerWallet Fixtures.euro 100
             borrow (handles Map.! Fixtures.borrowerWallet) Fixtures.borrowerWallet Fixtures.usd 50,
     checkPredicate
         "Should fail if user's collateral is insufficient"

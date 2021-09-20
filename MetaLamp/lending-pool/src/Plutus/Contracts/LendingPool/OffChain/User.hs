@@ -332,7 +332,7 @@ revokeCollateral aave RevokeCollateralParams {..} = do
         userDatum = Core.UserCollateralFundsDatum rcpOnBehalfOf
         getUsersCollateral :: AssetClass -> TxOutTx -> Bool
         getUsersCollateral asset tx = ((> 0) . flip assetClassValueOf asset . txOutValue . txOutTxOut $ tx) &&
-                                      (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toData $ userDatum asset)
+                                      (txOutDatumHash . txOutTxOut $ tx) == Just (datumHash . Datum . PlutusTx.toBuiltinData $ userDatum asset)
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -364,13 +364,13 @@ data UserContractState =
 Lens.makeClassyPrisms ''UserContractState
 
 -- TODO ? add repayWithCollateral
-userEndpoints :: Aave -> Contract (ContractResponse Text UserContractState) AaveUserSchema Void ()
-userEndpoints aave = forever $
-    withContractResponse (Proxy @"deposit") (const Deposited) (deposit aave)
+userEndpoints :: Aave -> Promise (ContractResponse Text UserContractState) AaveUserSchema Void ()
+userEndpoints aave =
+    (withContractResponse (Proxy @"deposit") (const Deposited) (deposit aave)
     `select` withContractResponse (Proxy @"withdraw") (const Withdrawn) (withdraw aave)
     `select` withContractResponse (Proxy @"borrow") (const Borrowed) (borrow aave)
     `select` withContractResponse (Proxy @"repay") (const Repaid) (repay aave)
     `select` withContractResponse (Proxy @"provideCollateral") (const CollateralProvided) (provideCollateral aave)
     `select` withContractResponse (Proxy @"revokeCollateral") (const CollateralRevoked) (revokeCollateral aave)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
-    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)
+    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints aave

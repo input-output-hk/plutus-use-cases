@@ -26,19 +26,19 @@ tests = testGroup "deposit" [
         (walletFundsChange
             Fixtures.lenderWallet
             (Fixtures.initialFunds <>
-            assetClassValue Fixtures.mogus (negate 100) <> assetClassValue Fixtures.amogus 100)
-        .&&. Shared.reservesChange (Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.mogus Fixtures.initialReserves)
+            assetClassValue Fixtures.euro (negate 100) <> assetClassValue Fixtures.aeuro 100)
+        .&&. Shared.reservesChange (Utils.modifyAt (over Aave._rAmount (+100)) Fixtures.euro Fixtures.initialReserves)
         .&&. Shared.userConfigsChange
             (
                 AssocMap.insert
-                (Fixtures.mogus, Utils.getPubKey Fixtures.lenderWallet)
+                (Fixtures.euro, Utils.getPubKey Fixtures.lenderWallet)
                 (Aave.UserConfig { Aave.ucDebt = 0, Aave.ucCollateralizedInvestment = 0 })
                 $ Fixtures.initialUsers
             )
         )
         $ do
             handles <- Fixtures.defaultTrace
-            deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 100,
+            deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.euro 100,
     checkPredicate
         "Should fail if user's wallet balance is insufficient"
         (walletFundsChange Fixtures.lenderWallet Fixtures.initialFunds
@@ -48,7 +48,7 @@ tests = testGroup "deposit" [
         )
         $ do
             handles <- Fixtures.defaultTrace
-            deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.mogus 10000
+            deposit (handles Map.! Fixtures.lenderWallet) Fixtures.lenderWallet Fixtures.euro 10000
     ]
 
 deposit :: Fixtures.UserHandle -> Wallet -> AssetClass -> Integer -> Trace.EmulatorTrace ()

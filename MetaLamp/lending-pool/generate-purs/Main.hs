@@ -13,12 +13,6 @@ module Main where
 
 import           AaveTypes                                  (aaveTypes,
                                                              ratioBridge)
-import           Cardano.Metadata.Types                     (AnnotatedSignature,
-                                                             HashFunction,
-                                                             Property,
-                                                             PropertyKey,
-                                                             Subject,
-                                                             SubjectProperties)
 import           Cardano.Wallet.Types                       (WalletInfo)
 import           Control.Applicative                        ((<|>))
 import           Control.Lens                               (set, view, (&))
@@ -47,9 +41,7 @@ import qualified PSGenerator.Common
 import           Plutus.Contract.Checkpoint                 (CheckpointKey,
                                                              CheckpointStore,
                                                              CheckpointStoreItem)
-import           Plutus.Contract.Effects                    (TxConfirmed)
 import           Plutus.Contract.Resumable                  (Responses)
-import           Plutus.PAB.Effects.Contract.ContractExe    (ContractExe)
 import           Plutus.PAB.Events.ContractInstanceState    (PartiallyDecodedResponse)
 import qualified Plutus.PAB.Webserver.API                   as API
 import           Plutus.PAB.Webserver.Types                 (ChainReport,
@@ -85,20 +77,7 @@ myBridge =
     PSGenerator.Common.servantBridge <|>
     PSGenerator.Common.miscBridge <|>
     ratioBridge <|>
-    metadataBridge <|>
     defaultBridge
-
--- Some of the metadata types have a datakind type parameter that
--- PureScript won't support, so we must drop it.
-metadataBridge :: BridgePart
-metadataBridge = do
-  (typeName ^== "Property")
-    <|> (typeName ^== "SubjectProperties")
-    <|> (typeName ^== "AnnotatedSignature")
-  typeModule ^== "Cardano.Metadata.Types"
-  moduleName <- view (haskType . typeModule)
-  name <- view (haskType . typeName)
-  pure $ TypeInfo "plutus-pab" moduleName name []
 
 data MyBridge
 
@@ -114,8 +93,7 @@ myTypes =
     PSGenerator.Common.ledgerTypes <>
     PSGenerator.Common.playgroundTypes <>
     PSGenerator.Common.walletTypes <>
-    [ (equal <*> (genericShow <*> mkSumType)) (Proxy @ContractExe)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @(FullReport A))
+    [ (equal <*> (genericShow <*> mkSumType)) (Proxy @(FullReport A))
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @ChainReport)
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractReport A))
     , (equal <*> (genericShow <*> mkSumType))
@@ -123,7 +101,6 @@ myTypes =
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(PartiallyDecodedResponse A))
 
     -- Contract request / response types
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @TxConfirmed)
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @CheckpointStore)
     , (order <*> (genericShow <*> mkSumType)) (Proxy @CheckpointKey)
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(CheckpointStoreItem A))
@@ -132,14 +109,6 @@ myTypes =
     -- Logging types
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(LogMessage A))
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @LogLevel)
-
-    -- Metadata types
-    , (order <*> (genericShow <*> mkSumType)) (Proxy @Subject)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @(SubjectProperties A))
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @(Property A))
-    , (order <*> (genericShow <*> mkSumType)) (Proxy @PropertyKey)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @HashFunction)
-    , (equal <*> (genericShow <*> mkSumType)) (Proxy @(AnnotatedSignature A))
 
     -- * Web API types
     , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractActivationArgs A))

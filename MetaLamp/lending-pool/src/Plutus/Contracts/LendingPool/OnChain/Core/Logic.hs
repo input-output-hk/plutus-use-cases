@@ -147,7 +147,7 @@ checkNegativeReservesTransformation stateToken reserves ctx (reserveId, _) =
     reservesOutputDatum =
       reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
 
-    remainderDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
+    remainderDatumHash = findDatumHash (Datum $ PlutusTx.toBuiltinData ReserveFundsDatum) txInfo
     remainderValue = (`findValueByDatumHash` scriptOutputs) <$> remainderDatumHash
 
     checkreserves :: (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
@@ -181,7 +181,7 @@ checkPositiveReservesTransformation stateToken reserves ctx (reserveId, _) = may
     reservesOutputDatum =
       reservesOutputDatumHash >>= parseDatum txInfo >>= pickReserves
 
-    investmentDatumHash = findDatumHash (Datum $ PlutusTx.toData ReserveFundsDatum) txInfo
+    investmentDatumHash = findDatumHash (Datum $ PlutusTx.toBuiltinData ReserveFundsDatum) txInfo
     investmentValue = (`findValueByDatumHash` scriptOutputs) <$> investmentDatumHash
 
     checkreserves :: (AssetClass, AssocMap.Map AssetClass Reserve) -> Bool
