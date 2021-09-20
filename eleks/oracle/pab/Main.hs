@@ -91,7 +91,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     currency <- waitForLast cidOracleToken
     let oracleParams = OracleParams
                         { opSymbol = Currency.currencySymbol currency
-                        , opFees   = 1_000_000
+                        , opFees   = 1_500_000
                         , opSigner = (walletPrivKey oracleWallet)
                         }
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
@@ -123,7 +123,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
         Simulator.logString @(Builtin MutualBetContracts) $ "wait 5 seconds"
 
         -- todo query active games and create contract
-        void $ liftIO $ threadDelay 5_000_000
+        void $ liftIO $ threadDelay 10_000_000
 
 data MutualBetContracts =
     OracleTokenInit

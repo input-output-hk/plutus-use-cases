@@ -66,6 +66,14 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                          as Haskell
 
+data NewBetParams = 
+    NewBetParams
+        { nbpAmount  :: Integer
+        , nbpOutcome :: Integer
+        }
+    deriving stock (Haskell.Eq, Haskell.Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, ToSchema)
+
 type BettorSchema = Endpoint "bet" NewBetParams
 type MutualBetStartSchema = EmptySchema -- Don't need any endpoints: the contract runs automatically until the auction is finished.
 
@@ -248,8 +256,9 @@ handleEvent client bets change =
             logInfo @Haskell.String "Submitting bid"
             self <- Ledger.pubKeyHash <$> ownPubKey
             logInfo @Haskell.String "Received pubkey"
-            let newBet = NewBet{newBet = nbpAmount betParams, newBettor = self, newOutcome = nbpOutcome betParams}
-                bet1 = Bet{amount = nbpAmount betParams, bettor = self, outcome = nbpOutcome betParams} 
+            let betAda = Ada.lovelaceOf $ nbpAmount betParams
+                newBet = NewBet{newBet = betAda, newBettor = self, newOutcome = nbpOutcome betParams}
+                bet1 = Bet{amount = betAda, bettor = self, outcome = nbpOutcome betParams} 
             r <- SM.runStep client newBet
             logInfo @Haskell.String "SM: runStep done"
             case r of

@@ -116,11 +116,11 @@ bettor1 = w2
 bettor2 = w3
 oracleWallet = w5
 
-trace1Bettor1Bet :: Ada
-trace1Bettor1Bet = 10
+trace1Bettor1Bet :: Integer
+trace1Bettor1Bet = 10_000_000
 
-trace1Bettor2Bet :: Ada
-trace1Bettor2Bet = 10
+trace1Bettor2Bet :: Integer
+trace1Bettor2Bet = 10_000_000
 
 trace1Winner :: Integer
 trace1Winner = 1
@@ -160,11 +160,11 @@ trace1FinalState =
     MutualBetOutput
         { mutualBetState = Last $ Just $ Finished $
             [
-                Bet{ amount = trace1Bettor2Bet
+                Bet{ amount = Ada.lovelaceOf trace1Bettor2Bet
                 , bettor = pubKeyHash (walletPubKey bettor2)
                 , outcome = 0
                 },
-                Bet{ amount = trace1Bettor1Bet
+                Bet{ amount = Ada.lovelaceOf trace1Bettor1Bet
                 , bettor = pubKeyHash (walletPubKey bettor1)
                 , outcome = 1
                 }
@@ -200,8 +200,8 @@ tests =
             .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
             .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
             .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) trace1FinalState ) "final state should be OK"
-            .&&. walletFundsChange bettor1 (Ada.toValue ( trace1Bettor2Bet))
-            .&&. walletFundsChange bettor2 (inv (Ada.toValue trace1Bettor2Bet))
+            .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ trace1Bettor2Bet)
+            .&&. walletFundsChange bettor2 (inv (Ada.toValue . Ada.lovelaceOf $ trace1Bettor2Bet))
             )
             mutualBetTrace1
         ]

@@ -49,14 +49,6 @@ data MutualBetParams
 
 PlutusTx.makeLift ''MutualBetParams
 
-data NewBetParams = 
-    NewBetParams
-        { nbpAmount  :: Ada
-        , nbpOutcome :: Integer
-        }
-    deriving stock (Haskell.Eq, Haskell.Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, ToSchema)
-
 data Bet =
     Bet
         { amount  :: Ada
