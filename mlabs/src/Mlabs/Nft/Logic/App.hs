@@ -66,7 +66,7 @@ initApp AppCfg {..} =
  The first user is author and the owner of NFT. NFT is locked with no price.
 -}
 defaultAppCfg :: AppCfg
-defaultAppCfg = AppCfg users dummyOutRef "mona-lisa" (fst $ users !! 0)
+defaultAppCfg = AppCfg users dummyOutRef "mona-lisa" (fst . head $ users)
   where
     dummyOutRef = TxOutRef (TxId "") 0
 

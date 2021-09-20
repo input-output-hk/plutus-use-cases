@@ -467,6 +467,7 @@ data QueryRes
   = QueryResAllLendexes [(Address, LendingPool)]
   | QueryResSupportedCurrencies {getSupported :: [SupportedCurrency]}
   | QueryResCurrentBalance UserBalance
+  deriving (Eq)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 

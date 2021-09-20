@@ -2,7 +2,8 @@ module Test.Nft.Contract (
   test,
 ) where
 
-import Prelude
+import PlutusTx.Prelude hiding (foldMap, mconcat, (<>))
+import Prelude (foldMap, mconcat, (<>))
 
 import Plutus.Contract.Test (Wallet (..), checkPredicateOptions)
 import Test.Nft.Init (Script, adaCoin, checkOptions, runScript, userAct, w1, w2, w3)
