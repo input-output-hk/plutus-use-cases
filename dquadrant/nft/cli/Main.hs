@@ -89,6 +89,15 @@ toHexString bs = fromText $  toText (Base16 bs )
 --   where 
 --     hexText= t  input
 
+main' :: IO ()
+main' = do
+
+  let addressIfAny = deserialiseAddress AsAddressAny "addr_test1qqfmaywyru4qjz8nyt5h05keeyktx6r4v75dh9fc9c905qlypt3rpwjn5mxm26rry0uyyymrzf22t93t5cuaefspt98qj0zw0n"
+  case addressIfAny of 
+    Nothing -> putStrLn "Error couln't desrialise address"
+    Just addr -> orDie renderClientCommandError $ runClientCommand $ ShelleyCommand $ QueryCmd $ QueryUTxO' (AnyConsensusModeParams . CardanoModeParams $ EpochSlots 21600) (QueryUTxOByAddress (Set.fromList [addr])) (Testnet  (NetworkMagic 1097911063)) Nothing
+
+
 main :: IO ()
 defaultMarket :: Market
 defaultMarket = Market{
