@@ -101,10 +101,10 @@ component =
     }
 
   handleAction = case _ of
-    HandleCategoryForm ix Destroy1 -> do
+    HandleCategoryForm ix DestroyCategory -> do
       H.modify_ \st -> st { categoryFormIds = filter (_ /= ix) st.categoryFormIds }
       eval $ F.set _subcategories Nothing
-    HandleIpfsCidForm ix Destroy2 -> do
+    HandleIpfsCidForm ix DestroyIpfsCid -> do
       H.modify_ \st -> st { ipfsCidFormIds = filter (_ /= ix) st.ipfsCidFormIds }
       eval $ F.set _tokenIpfsCids Nothing
     AddCategoryForm ->
@@ -235,10 +235,10 @@ type CategoryFormSlot
   = H.Slot (F.Query' CategoryForm) CategoryFormMessage
 
 data CategoryFormAction
-  = RemoveMe1
+  = RemoveCategory
 
 data CategoryFormMessage
-  = Destroy1
+  = DestroyCategory
 
 -- Form spec
 categoryFormComponent ::
@@ -261,14 +261,14 @@ categoryFormComponent =
     }
 
   handleAction = case _ of
-    RemoveMe1 -> H.raise Destroy1
+    RemoveCategory -> H.raise DestroyCategory
 
   render st =
     UI.formContent_
       [ HH.div
           [ class_ "field" ]
           [ UI.buttonPrimary
-              [ HE.onClick \_ -> Just $ F.injAction RemoveMe1 ]
+              [ HE.onClick \_ -> Just $ F.injAction RemoveCategory ]
               [ HH.text "Remove Category" ]
           ]
       , UI.input
@@ -304,10 +304,10 @@ type IpfsCidFormSlot
   = H.Slot (F.Query' IpfsCidForm) IpfsCidFormMessage
 
 data IpfsCidFormAction
-  = RemoveMe2
+  = RemoveMeIpfsCid
 
 data IpfsCidFormMessage
-  = Destroy2
+  = DestroyIpfsCid
 
 -- Form spec
 ipfsCidFormComponent ::
@@ -330,14 +330,14 @@ ipfsCidFormComponent =
     }
 
   handleAction = case _ of
-    RemoveMe2 -> H.raise Destroy2
+    RemoveMeIpfsCid -> H.raise DestroyIpfsCid
 
   render st =
     UI.formContent_
       [ HH.div
           [ class_ "field" ]
           [ UI.buttonPrimary
-              [ HE.onClick \_ -> Just $ F.injAction RemoveMe2 ]
+              [ HE.onClick \_ -> Just $ F.injAction RemoveMeIpfsCid ]
               [ HH.text "Remove Token" ]
           ]
       , UI.input
