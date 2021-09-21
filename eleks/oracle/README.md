@@ -55,7 +55,17 @@ curl -s http://localhost:9080/api/new/contract/instance/$INSTANCE_ID/status | jq
 2. Running mutual bat contract info and instance id
 curl -s http://localhost:9080/api/contract/instances/wallet/1 | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract.unContractInstanceId'
 
+
+curl -s http://localhost:9080/api/contract/instances/wallet/1 | jq '.[] | .cicDefinition, .cicContract.unContractInstanceId'
 ### Pab transactions
 1. Make a bet 
-
 export INSTANCE_ID=...
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '{"nbpAmount":1500000, "nbpOutcome": 55}' \
+  http://localhost:9080/api/contract/instance/$INSTANCE_ID/endpoint/bet
+
+2. Get contract state
+curl -H "Content-Type: application/json" \
+  --request GET \
+  http://localhost:9080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'

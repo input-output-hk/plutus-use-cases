@@ -99,7 +99,7 @@ mkTxPayWinners :: (PubKeyHash, Ada)-> TxConstraints Void Void
 mkTxPayWinners (winnerAddressHash, winnerPrize) = Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue winnerPrize
 
 {-# INLINABLE mutualBetTransition #-}
--- | The transitions of the auction state machine.
+-- | The transitions of the mutual bet state machine.
 mutualBetTransition :: MutualBetParams -> State MutualBetState -> MutualBetInput -> Maybe (TxConstraints Void Void, State MutualBetState)
 mutualBetTransition MutualBetParams{mbpOracle} State{stateData=oldState} input =
     case (oldState, input) of
