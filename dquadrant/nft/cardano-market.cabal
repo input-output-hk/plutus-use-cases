@@ -153,7 +153,9 @@ executable market-cli
   build-depends:
       cardano-market,
       cardano-cli,
-      cardano-api
+      cardano-api,
+      filepath,
+      directory
     , transformers
     , ouroboros-network
     , transformers-except
