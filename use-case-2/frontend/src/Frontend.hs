@@ -23,7 +23,6 @@ import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import Data.Maybe (fromMaybe)
-import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Semigroup (First(..))
 import Data.Text (Text)
@@ -47,6 +46,7 @@ import Common.Plutus.Contracts.Uniswap.Types
 import Common.Plutus.Contracts.Uniswap.Estimates
 import Common.Schema
 import Frontend.WebsocketParse
+import Frontend.Widgets
 
 -- This runs in a monad that can be run on the client or the server.
 -- To run code in a pure client or pure server context, use one of the
@@ -708,11 +708,3 @@ viewPooledTokens
      )
   => m (Dynamic t (Maybe (Maybe [PooledToken])))
 viewPooledTokens = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
-
-toggleBtnUsability :: Bool -> Map Text Text
-toggleBtnUsability True = ("class" =: "btn btn-lg btn-block btn-outline-primary")
-toggleBtnUsability False = ("class" =: "btn btn-lg btn-block btn-secondary" <> "disabled" =: "true")
-
-toggleSpinner :: Bool -> Map Text Text
-toggleSpinner True = ("class" =: "d-none")
-toggleSpinner False = ("class" =: "spinner-border spinner-border-sm" <> "role" =: "status" <> "aria-hidden" =: "true")
