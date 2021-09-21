@@ -52,10 +52,10 @@ checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left 
 
 -- | Wallets that are used for testing.
 wAdmin, w1, w2, w3 :: Wallet
-wAdmin = walletFromNumber 50
 w1 = walletFromNumber 1
 w2 = walletFromNumber 2
 w3 = walletFromNumber 3
+wAdmin = walletFromNumber 4
 
 toUserId :: Wallet -> UserId
 toUserId = UserId . pubKeyHash . walletPubKey

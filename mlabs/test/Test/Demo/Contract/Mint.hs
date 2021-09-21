@@ -70,8 +70,8 @@ cadToken = AssetClass (curSymbol, cad)
 
 mintTrace :: EmulatorTrace ()
 mintTrace = do
-  h1 <- activateContractWallet Test.w1 mintEndpoints
-  h2 <- activateContractWallet Test.w2 mintEndpoints
+  h1 <- activateContractWallet wallet1 mintEndpoints
+  h2 <- activateContractWallet wallet2 mintEndpoints
 
   -- Scenario 1: Buy single currency.
   callEndpoint @"mint" h1 MintParams {mpTokenName = usd, mpAmount = 5}
