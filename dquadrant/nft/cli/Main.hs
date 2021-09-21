@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NamedFieldPuns #-}
 import           Control.Monad.Trans.Except.Extra (firstExceptT, handleIOExceptT, hoistEither,
                    hoistMaybe, left, newExceptT)
 import qualified Plutus.V1.Ledger.Api as Plutus
@@ -13,10 +14,11 @@ import Cardano.Api.Shelley (toAlonzoData, PlutusScript (PlutusScriptSerialised))
 import System.Environment (getArgs)
 import qualified Data.ByteString.Char8 as C
 import Data.Text.Encoding
+import GHC.Exception
 import qualified Data.ByteString.Lazy as LBS
 import Plutus.Contract.Blockchain.MarketPlace (marketValidator, Market (..), DirectSale (DirectSale), SellType (Primary), marketAddress, MarketRedeemer (Buy))
 import Wallet.Emulator
-import Ledger (pubKeyHash, datumHash, Datum (Datum))
+import Ledger (pubKeyHash, datumHash, Datum (Datum), Tx)
 import Data.Text.Conversions (Base16(Base16, unBase16), ToText (toText), FromText (fromText), UTF8 (unUTF8, UTF8), Base64, DecodeText (decodeText), convertText)
 import Data.ByteString(ByteString(), split, unpack)
 import Data.Text (Text)
@@ -28,29 +30,56 @@ import Data.Text.Encoding (encodeUtf8)
 import Plutus.V1.Ledger.Api (CurrencySymbol(CurrencySymbol))
 import Plutus.V1.Ledger.Api (TokenName(TokenName))
 import Text.Read (readMaybe, Lexeme (Number))
-import Cardano.Api 
+import Cardano.Api
 import Cardano.Api.Shelley
 import Cardano.CLI.Types (SocketPath(SocketPath), TxOutChangeAddress (TxOutChangeAddress))
-import PlutusTx.Builtins (sha2_256, sha3_256)
+import PlutusTx.Builtins (sha2_256, sha3_256, addInteger)
 import Data.ByteString.Lazy (toStrict)
 import Data.Aeson (ToJSON(toJSON), encode)
 import Codec.Serialise (serialise)
 import Plutus.V1.Ledger.Address (Address(Address))
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import qualified Data.Sequence.Strict as Seq
+
 import Cardano.CLI.Shelley.Run.Transaction
 import Control.Monad.Trans.Except
 import Cardano.CLI.Shelley.Commands
 import Cardano.CLI.Environment (readEnvSocketPath)
+import Control.Monad (unless, void)
+import System.Posix.Internals (withFilePath)
+import Cardano.Api.Byron (LocalStateQueryClient(LocalStateQueryClient))
+import Cardano.Api.NetworkId.Extra (testnetNetworkId)
+import Control.Exception (try, handle, handleJust)
+import GHC.Exception
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx(ValidatedTx))
+import qualified Cardano.Ledger.Alonzo.TxBody as Alonzo
+import qualified Cardano.Ledger.ShelleyMA.AuxiliaryData as Allegra
+import qualified Cardano.Ledger.ShelleyMA.AuxiliaryData as Mary
+import qualified Cardano.Ledger.ShelleyMA.TxBody as Allegra
+import qualified Cardano.Ledger.ShelleyMA.TxBody as Mary
+import Cardano.Ledger.ShelleyMA.TxBody (ValidityInterval(ValidityInterval, invalidBefore, invalidHereafter))
 
+import qualified Shelley.Spec.Ledger.Genesis as Shelley
+import qualified Shelley.Spec.Ledger.Metadata as Shelley
+import qualified Shelley.Spec.Ledger.Tx as Shelley
+import qualified Shelley.Spec.Ledger.TxBody as Shelley
+import qualified Shelley.Spec.Ledger.UTxO as Shelley
 
-
+import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as Net.Query
+import           Ouroboros.Network.Protocol.LocalStateQuery.Type (AcquireFailure (..))
+import qualified Ouroboros.Network.Protocol.LocalStateQuery.Type as Net.Query
+import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Client as Net.Tx
+import Data.Maybe.Strict
+import Ouroboros.Network.Protocol.LocalTxSubmission.Type
+import qualified Data.Text as Text
+import GHC.Exception.Type (Exception)
 
 unHex ::  ToText a => a -> Maybe  ByteString
 unHex v = convertText (toText v) <&> unBase16
 
 unHexBs :: ByteString -> Maybe ByteString
-unHexBs v =  decodeText (UTF8 v) >>= convertText  <&> unBase16 
+unHexBs v =  decodeText (UTF8 v) >>= convertText  <&> unBase16
 
 toHexString :: (FromText a1, ToText (Base16 a2)) => a2 -> a1
 toHexString bs = fromText $  toText (Base16 bs )
@@ -85,6 +114,7 @@ main = do
           putStrLn $ "Script Written to : " ++ scriptname
           putStrLn $ "Market  :: " ++ ( show $ marketAddress defaultMarket )
         "balance" -> putStrLn "Not implemented"
+        "connect" -> runConnectionTest
 
         _ -> printHelp
 
@@ -107,7 +137,7 @@ printSellDatum [pkhStr, tokenStr,costStr] =do
 
       Left error -> putStrLn  error
   where
-    dataToJsonString :: (FromData a,ToJSON a) => a -> String 
+    dataToJsonString :: (FromData a,ToJSON a) => a -> String
     dataToJsonString v=   fromText $ decodeUtf8  $ toStrict $ Data.Aeson.encode   $ toJSON v
 
 
@@ -127,7 +157,7 @@ printSellDatum [pkhStr, tokenStr,costStr] =do
     maybeCost  = readMaybe costStr
 
     maybeAclass= case splitByColon  of
-      [cHexBytes,tBytes]     ->  case unHexBs cHexBytes of 
+      [cHexBytes,tBytes]     ->  case unHexBs cHexBytes of
         Just b  ->  Just $  toAc [b ,tBytes]
         _       -> Nothing
       _         -> Nothing
@@ -201,106 +231,66 @@ writePlutusScript scriptnum filename scriptSerial scriptSBS =
 --   -> TxBodyFile
 --   -> Maybe Word
 --   -> ExceptT ShelleyTxCmdError IO ()
-runTxBuild (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) networkId mScriptValidity txins txinsc txouts
-           (TxOutChangeAddress changeAddr) mValue mLowerBound mUpperBound certFiles withdrawals reqSigners
-           metadataSchema scriptFiles metadataFiles mpparams mUpdatePropFile outBody@(TxBodyFile fpath)
-           mOverrideWits = do
-  SocketPath sockPath <-  readEnvSocketPath
 
-  let localNodeConnInfo = LocalNodeConnectInfo cModeParams networkId sockPath
-      consensusMode = consensusModeOnly cModeParams
-      dummyFee = Just $ Lovelace 0
-      onlyInputs = [input | (input,_) <- txins]
+data SomeError = SomeError String deriving  (Show)
 
-  case (consensusMode, cardanoEraStyle era) of
-    (CardanoMode, ShelleyBasedEra sbe) -> do
-      txBodyContent <-
-        TxBodyContent
-          <$> validateTxIns               era txins
-          <*> validateTxInsCollateral     era txinsc
-          <*> validateTxOuts              era txouts
-          <*> validateTxFee               era dummyFee
-          <*> ((,) <$> validateTxValidityLowerBound era mLowerBound
-                   <*> validateTxValidityUpperBound era mUpperBound)
-          <*> validateTxMetadataInEra     era metadataSchema metadataFiles
-          <*> validateTxAuxScripts        era scriptFiles
-          <*> pure (BuildTxWith TxExtraScriptDataNone) --TODO alonzo: support this
-          <*> validateRequiredSigners     era reqSigners
-          <*> validateProtocolParameters  era mpparams
-          <*> validateTxWithdrawals       era withdrawals
-          <*> validateTxCertificates      era certFiles
-          <*> validateTxMintValue         era mValue
-          <*> validateTxScriptValidity    era mScriptValidity
-
-      eInMode <- case toEraInMode era CardanoMode of
-                   Just result -> return result
-                   Nothing ->
-                     left (ShelleyTxCmdEraConsensusModeMismatchTxBalance outBody
-                            (AnyConsensusMode CardanoMode) (AnyCardanoEra era))
-
-      (utxo, pparams, eraHistory, systemStart, stakePools) <-
-        newExceptT . fmap (join . first ShelleyTxCmdAcquireFailure) $
-          executeLocalStateQueryExpr localNodeConnInfo Nothing $ \_ntcVersion -> runExceptT $ do
-            unless (null txinsc) $ do
-              collateralUtxo <- firstExceptT ShelleyTxCmdTxSubmitErrorEraMismatch . newExceptT . queryExpr
-                $ QueryInEra eInMode
-                $ QueryInShelleyBasedEra sbe (QueryUTxO . QueryUTxOByTxIn $ Set.fromList txinsc)
-              txinsExist txinsc collateralUtxo
-              notScriptLockedTxIns collateralUtxo
-
-            utxo <- firstExceptT ShelleyTxCmdTxSubmitErrorEraMismatch . newExceptT . queryExpr
-              $ QueryInEra eInMode $ QueryInShelleyBasedEra sbe
-              $ QueryUTxO (QueryUTxOByTxIn (Set.fromList onlyInputs))
-
-            txinsExist onlyInputs utxo
-
-            pparams <- firstExceptT ShelleyTxCmdTxSubmitErrorEraMismatch . newExceptT . queryExpr
-              $ QueryInEra eInMode $ QueryInShelleyBasedEra sbe QueryProtocolParameters
-
-            eraHistory <- lift . queryExpr $ QueryEraHistory CardanoModeIsMultiEra
-
-            systemStart <- lift $ queryExpr QuerySystemStart
+instance Exception SomeError
 
 
-            stakePools <- firstExceptT ShelleyTxCmdTxSubmitErrorEraMismatch . ExceptT $
-              queryExpr . QueryInEra eInMode . QueryInShelleyBasedEra sbe $ QueryStakePools
+runConnectionTest :: IO ()
+runConnectionTest = do
+  handleJust catcher handler ( getLocalChainTip localNodeConnInfo >>=print )
+  v<-queryNodeLocalState localNodeConnInfo Nothing protocolParamsQuery
+  pParam<-case v of
+    Left af -> throw $ SomeError  "Acquire Failure"
+    Right e -> case e of
+      Left em -> throw $ SomeError "Missmatched Era"
+      Right pp -> return pp
 
-            return (utxo, pparams, eraHistory, systemStart, stakePools)
 
-      let cAddr = case anyAddressInEra era changeAddr of
-                    Just addr -> addr
-                    Nothing -> error $ "runTxBuild: Byron address used: " <> show changeAddr
+  res <- case makeTransactionBody $ body pParam of
+          Left tbe -> throw $ SomeError "Tx Body has error"
+          Right txBody -> do
+            let tx = makeSignedTransaction [] (txBody) -- witness and txBody
+            submitTxToNodeLocal localNodeConnInfo $  TxInMode tx AlonzoEraInCardanoMode
+  case res of
+    SubmitSuccess ->  putTextLn "Transaction successfully submitted."
+    SubmitFail reason ->
+      case reason of
+        TxValidationErrorInMode err _eraInMode ->  print err
+        TxValidationEraMismatch mismatchErr -> print mismatchErr
 
-      (BalancedTxBody balancedTxBody _ fee) <-
-        firstExceptT ShelleyTxCmdBalanceTxBody
-          . hoistEither
-          $ makeTransactionBodyAutoBalance eInMode systemStart eraHistory
-                                           pparams stakePools utxo txBodyContent
-                                           cAddr mOverrideWits
-
-      putStrLn $ "Estimated transaction fee: " <> (show fee :: String)
-
-      firstExceptT ShelleyTxCmdWriteFileError . newExceptT
-        $ writeFileTextEnvelope fpath Nothing balancedTxBody
-
-    (CardanoMode, LegacyByronEra) -> left ShelleyTxCmdByronEra
-
-    (wrongMode, _) -> left (ShelleyTxCmdUnsupportedMode (AnyConsensusMode wrongMode))
   where
-    txinsExist :: Monad m => [TxIn] -> UTxO era -> ExceptT ShelleyTxCmdError m ()
-    txinsExist ins (UTxO utxo)
-      | null utxo = left $ ShelleyTxCmdTxInsDoNotExist ins
-      | otherwise = do
-          let utxoIns = Map.keys utxo
-              occursInUtxo = [ txin | txin <- ins, txin `elem` utxoIns ]
-          if length occursInUtxo == length ins
-          then return ()
-          else left . ShelleyTxCmdTxInsDoNotExist $ ins \\ ins `intersect` occursInUtxo
+    localNodeConnInfo = LocalNodeConnectInfo (CardanoModeParams (EpochSlots 21600))  (Testnet  (NetworkMagic 1097911063))  "/home/sysadmin/.cardano/testnet/node.socket"
+    protocolParamsQuery= QueryInEra AlonzoEraInCardanoMode
+                    $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo QueryProtocolParameters
+    dummyFee = Just $ Lovelace 0
+    tx_mode body =TxInMode ( ShelleyTx ShelleyBasedEraAlonzo body )  AlonzoEraInCardanoMode
+    handler e = putStrLn e
+    catcher e = case e of
+      DivideByZero ->Nothing
+      _            -> Just "Node error or something"
 
-    notScriptLockedTxIns :: Monad m => UTxO era -> ExceptT ShelleyTxCmdError m ()
-    notScriptLockedTxIns (UTxO utxo) = do
-      let scriptLockedTxIns =
-            filter (\(_, TxOut aInEra _ _) -> not $ isKeyAddress aInEra ) $ Map.assocs utxo
-      if null scriptLockedTxIns
-      then return ()
-      else left . ShelleyTxCmdExpectedKeyLockedTxIn $ map fst scriptLockedTxIns
+    body pp =
+              (TxBodyContent {
+                txIns=[],
+                txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
+                txOuts=[],
+                txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra $ Lovelace 100,
+                txValidityRange = (
+                    TxValidityLowerBound ValidityLowerBoundInAlonzoEra 0
+                   , TxValidityUpperBound ValidityUpperBoundInAlonzoEra 6969),
+                txMetadata=TxMetadataNone ,
+                txAuxScripts=TxAuxScriptsNone,
+                txExtraScriptData=BuildTxWith TxExtraScriptDataNone ,
+                txExtraKeyWits=TxExtraKeyWitnessesNone,
+                txProtocolParams=BuildTxWith (Just  pp),
+                txWithdrawals=TxWithdrawalsNone,
+                txCertificates=TxCertificatesNone,
+                txUpdateProposal=TxUpdateProposalNone,
+                txMintValue=TxMintNone,
+                txScriptValidity=TxScriptValidityNone
+              })
+
+putTextLn :: t0 -> IO ()
+putTextLn = error "not implemented"
