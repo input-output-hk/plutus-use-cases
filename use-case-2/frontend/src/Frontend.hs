@@ -76,7 +76,13 @@ frontend = Frontend
       return ()
   }
 
-app :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Workflow t m ()
+app
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     )
+  => Workflow t m ()
 app = Workflow $ do
   _ <- navBar Nothing
   divClass "p-5 mb-4 bg-light rounded-5" $ do
@@ -105,7 +111,14 @@ app = Workflow $ do
 data Dashboard = Dashboard_Swap | Dashboard_Portfolio | Dashboard_Pool
   deriving (Eq, Ord, Show)
 
-navBar :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m)) => Maybe Text -> m (Event t Dashboard)
+navBar
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     )
+  => Maybe Text
+  -> m (Event t Dashboard)
 navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
   divClass "container-fluid" $ do
     elAttr "a" ("class" =: "navbar-brand" <> "href" =: "#") $ text "POKE-DEX - Plutus Obelisk Koin Economy Decentralized Exchange "
@@ -148,7 +161,12 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
                 text (T.pack $ show $ fromMaybe 0 mAdaBal)
             return navSelect
 
-swapDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
+swapDashboard
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     )
   => Text
   -> Workflow t m ()
 swapDashboard wid = Workflow $ do
@@ -343,7 +361,12 @@ portfolioDashboard wid = Workflow $ do
         return never
   return ((), leftmost [swapDashboard wid <$ swapEv, poolDashboard wid <$ poolEv])
 
-poolDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
+poolDashboard
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     )
   => Text
   -> Workflow t m ()
 poolDashboard wid = Workflow $ do
@@ -672,10 +695,18 @@ poolDashboard wid = Workflow $ do
 
       return ((), leftmost [swapDashboard wid <$ swapEv, portfolioDashboard wid <$ portfolioEv])
 
-viewContracts :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe [Text])))
+viewContracts
+  :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
+     , Reflex t
+     )
+  => m (Dynamic t (Maybe (Maybe [Text])))
 viewContracts = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_ContractList . identityV
 
-viewPooledTokens :: (MonadQuery t (Vessel Q (Const SelectedCount)) m, Reflex t) => m (Dynamic t (Maybe (Maybe [PooledToken])))
+viewPooledTokens
+  :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
+     , Reflex t
+     )
+  => m (Dynamic t (Maybe (Maybe [PooledToken])))
 viewPooledTokens = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
 
 toggleBtnUsability :: Bool -> Map Text Text
