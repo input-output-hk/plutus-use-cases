@@ -1,5 +1,33 @@
-## The Plutus Application Backend (PAB) example
+## Games info rest server 
 
+1. Build the game rest server:
+```
+cabal build gameserver
+```
+2. Run the Games server:
+```
+cabal exec -- gameserver
+```
+
+### game server API 
+
+1. Games list
+curl -s http://localhost:8081/games
+
+2. Game by id 
+curl -s http://localhost:8081/games/1
+
+3. Mark game as completed
+Available statuses
+NS   - "Not Started",
+LIVE - "In Progress", 
+FT   - "Match Finished"
+curl -v -X PUT -H "Content-Type: application/json" \
+    -d '{"ugpSatus": "FT", "ugpWinnerTeamId": 55}' \
+    http://localhost:8081/games/1
+
+
+## The Plutus Application Backend (PAB) example
 We have provided an example PAB application in `./pab`. With the PAB we can serve and interact
 with contracts over a web API. You can read more about the PAB here: [PAB Architecture](https://github.com/input-output-hk/plutus/blob/master/plutus-pab/ARCHITECTURE.adoc).
 
@@ -31,22 +59,3 @@ curl -s http://localhost:9080/api/contract/instances/wallet/1 | jq '.[] | select
 1. Make a bet 
 
 export INSTANCE_ID=...
-
-## Rest server 
-
-1. Build the game rest server:
-```
-cabal build game-server
-```
-2. Run the Games server:
-```
-cabal exec -- game-server
-```
-
-### Rest server quieries 
-
-1. Games list
-curl -s http://localhost:8081/games
-
-1. Game by id 
-curl -s http://localhost:8081/games/1

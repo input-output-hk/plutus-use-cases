@@ -14,7 +14,7 @@ module Spec.Oracle
     ) where
 
 import           Control.Lens
-import           Contracts.Types     
+import           Types.Game   
 import           Control.Monad                      (void, when)
 import qualified Control.Monad.Freer                as Freer
 import qualified Control.Monad.Freer.Error          as Freer
@@ -46,13 +46,7 @@ import           Contracts.MutualBet
 import           Contracts.Oracle                   
 import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)
-import           Pab.Game                           (getGameById)
 import           Test.Tasty
-
--- import           Data.Text.Prettyprint.Doc
--- import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
-
-
 
 auctionEmulatorCfg :: Trace.EmulatorConfig
 auctionEmulatorCfg =

@@ -32,8 +32,7 @@ library
       Contracts.MutualBet.Types
       Contracts.MutualBet.OffChain
       Contracts.MutualBet.StateMachine
-      Contracts.Types
-      Pab.Game
+      Types.Game
     build-depends:
       aeson,
       base >= 4.9 && < 5,
@@ -100,6 +99,8 @@ test-suite plutus-example-projects-test
 executable bet-pab
   main-is: Main.hs
   hs-source-dirs: pab
+  other-modules:
+    GameClient
   ghc-options:
     -threaded
   build-depends:
@@ -120,20 +121,7 @@ executable bet-pab
     plutus-ledger -any,
     plutus-use-cases,
     stm -any,
-
-executable oracle-client
-  main-is: OracleClient.hs
-  hs-source-dirs: pab
-  ghc-options: -Wall
-  build-depends:       
-    aeson -any,
-    base ^>= 4.14.1.0, 
-    bytestring,
-    mutual-bet -any,
-    regex-tdfa ^>= 1.3.1.0,
-    req ^>= 3.9.0, 
-    text, 
-    uuid
+    req -any,
 
 executable gs
   main-is: GenerateOracleScript.hs
@@ -151,17 +139,34 @@ executable gs
     plutus-tx,
     bytestring
   
-executable game-server
-  main-is: GameServer.hs
-  hs-source-dirs: server
+executable gameserver
+  main-is: Server.hs
+  other-modules:
+    Service
+  hs-source-dirs: gameserver
+  ghc-options:  -threaded
+  build-depends:        
+    aeson, 
+    aeson-pretty,
+    base >= 4.9 && < 5,
+    bytestring,
+    data-default -any,
+    lens,
+    mtl,
+    mutual-bet -any,
+    servant-server -any,
+    text -any,
+    utf8-string,
+    warp,
+ 
+ executable gamesclient
+  main-is: GameClient.hs
+  hs-source-dirs: pab
   ghc-options:  -threaded
   build-depends:        
     aeson, 
     base >= 4.9 && < 5,
     bytestring,
-    mtl,
     mutual-bet -any,
-    servant-server -any,
     text -any,
-    warp,
- 
+    req

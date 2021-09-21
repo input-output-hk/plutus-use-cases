@@ -13,7 +13,7 @@ module Spec.MutualBet
     ) where
 
 import           Control.Lens
-import           Contracts.Types     
+import           Types.Game   
 import           Control.Monad                      (void, when)
 import qualified Control.Monad.Freer                as Freer
 import qualified Control.Monad.Freer.Error          as Freer
@@ -38,8 +38,7 @@ import qualified Ledger.Value                       as Value
 import           Ledger.Value                       (CurrencySymbol)
 import           Plutus.Contract.Test.ContractModel
 import           Contracts.MutualBet
-import           Contracts.Oracle                 
-import           Pab.Game                           
+import           Contracts.Oracle                                     
 import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)
 import           Test.Tasty

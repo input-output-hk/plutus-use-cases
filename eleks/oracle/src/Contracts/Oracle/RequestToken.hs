@@ -25,7 +25,7 @@ module Contracts.Oracle.RequestToken
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)
-import           Contracts.Types     
+import           Types.Game   
 import           Control.Monad             hiding (fmap)
 import           Codec.Serialise
 import           Data.Aeson                (FromJSON, ToJSON)

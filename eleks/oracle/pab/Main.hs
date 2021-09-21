@@ -13,6 +13,7 @@
 
 module Main(main) where
 
+import           Control.Lens    
 import           Control.Monad                       (void, forM, forever)
 import           Control.Monad.Freer                 (Eff, Member, interpret, type (~>))
 import           Control.Concurrent                  (threadDelay)
@@ -44,7 +45,7 @@ import           Plutus.PAB.Types                    (PABError (..))
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Contracts.MutualBet                 
 import           Contracts.Oracle
-import           Contracts.Types     
+import           Types.Game    
 import           Wallet.Emulator.Types               (Wallet (..))
 import qualified Data.ByteString.Char8               as B
 import           Ledger                              (PubKeyHash(..), pubKeyHash, CurrencySymbol(..), pubKeyAddress)
@@ -56,13 +57,13 @@ import           Wallet.Emulator.Types
 import           Wallet.Types                        (ContractInstanceId (..))
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
-import           Pab.Game                            as GameApi
+import qualified GameClient                           as GameClient
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
 initGame oracle game = do
-    let gameId  = fixtureId $ fixture game  
-        team1Id = teamId $ home $ teams game
-        team2Id = teamId $ away $ teams game
+    let gameId  = game ^. fixture . fixtureId
+        team1Id = game ^. teams . home . teamId
+        team2Id = game ^. teams . away . teamId
         
     let mutualBetParams = MutualBetParams 
                             { mbpGame   = gameId
@@ -74,7 +75,7 @@ initGame oracle game = do
     return cidStartContract
     Simulator.logString @(Builtin MutualBetContracts) $ "get thread token"
     threadToken <- waitForLastBetOuput cidStartContract
-    Simulator.logString @(Builtin MutualBetContracts) $ "game thread token" ++ show threadToken
+    Simulator.logString @(Builtin MutualBetContracts) $ "game thread token " ++ show threadToken
     void $ forM bettorWallets $ \bettorWallet -> do
         cidBettorContract <- Simulator.activateContract bettorWallet $ MutualBetBettorContract slotCfg threadToken mutualBetParams
         Simulator.waitForEndpoint cidBettorContract "bet"
@@ -97,7 +98,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
     oracle <- waitForLastOracle cidOracle
     Simulator.waitForEndpoint cidOracle "update"
-    games <- liftIO $ fromRight [] <$> GameApi.getGames
+    games <- liftIO $ fromRight [] <$> GameClient.getGames
     void $ forM games $ \game -> do
         initGame oracle game
 
@@ -107,8 +108,8 @@ main = void $ Simulator.runSimulationWith handlers $ do
         activeGamesIds <- waitForLastGameIds cidOracle   
         Simulator.logString @(Builtin MutualBetContracts) $ "loaded active games" ++ show activeGamesIds
         void $ forM activeGamesIds $ \gameId -> do
-            game <- liftIO $ GameApi.getGameById gameId
-            let winnerIdM = GameApi.getWinnerTeamId game
+            game <- liftIO $ GameClient.getGameById gameId
+            let winnerIdM = getWinnerTeamId game
             case winnerIdM of
                 Nothing -> Simulator.logString @(Builtin MutualBetContracts) $ "Game is not finished"
                 Just winnerId -> do

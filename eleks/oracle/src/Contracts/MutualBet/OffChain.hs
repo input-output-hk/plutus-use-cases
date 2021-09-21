@@ -130,6 +130,7 @@ mutualBetStart params = do
             (SM.runInitialise client (initialState self) $ Ada.toValue 0)
 
     logInfo $ MutualBetStarted params
+    logInfo ("Request oracle for game " ++ (Haskell.show $ mbpGame params))
     _ <- mapError OracleError $ requestOracleForAddress (mbpOracle params) (mbpGame params)
     (oref, o, ov) <- waitForGameEnd params
     logInfo ("Payout " ++ Haskell.show ov)
