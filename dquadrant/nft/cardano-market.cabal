@@ -155,9 +155,13 @@ executable market-cli
       cardano-cli,
       cardano-api
     , transformers
+    , ouroboros-network
     , transformers-except
+    , cardano-ledger-shelley-ma
+    , shelley-spec-ledger
     , cardano-ledger-alonzo
     , plutus-ledger
+    , strict-containers
     , plutus-ledger-api
     , bytestring
     ,  base >= 4.9 && < 5
