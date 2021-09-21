@@ -74,6 +74,10 @@ import Data.Maybe.Strict
 import Ouroboros.Network.Protocol.LocalTxSubmission.Type
 import qualified Data.Text as Text
 import GHC.Exception.Type (Exception)
+import Cardano.CLI.Run (renderClientCommandError, runClientCommand, ClientCommand (ShelleyCommand))
+import Control.Monad.Trans.Except.Exit (orDie)
+import Data.Maybe (mapMaybe)
+import Data.Set (toList)
 
 unHex ::  ToText a => a -> Maybe  ByteString
 unHex v = convertText (toText v) <&> unBase16
@@ -88,14 +92,6 @@ toHexString bs = fromText $  toText (Base16 bs )
 -- unHex input =toText test
 --   where 
 --     hexText= t  input
-
-main' :: IO ()
-main' = do
-
-  let addressIfAny = deserialiseAddress AsAddressAny "addr_test1qqfmaywyru4qjz8nyt5h05keeyktx6r4v75dh9fc9c905qlypt3rpwjn5mxm26rry0uyyymrzf22t93t5cuaefspt98qj0zw0n"
-  case addressIfAny of 
-    Nothing -> putStrLn "Error couln't desrialise address"
-    Just addr -> orDie renderClientCommandError $ runClientCommand $ ShelleyCommand $ QueryCmd $ QueryUTxO' (AnyConsensusModeParams . CardanoModeParams $ EpochSlots 21600) (QueryUTxOByAddress (Set.fromList [addr])) (Testnet  (NetworkMagic 1097911063)) Nothing
 
 
 main :: IO ()
@@ -122,8 +118,9 @@ main = do
           writePlutusScript 42 scriptname (marketScriptPlutus defaultMarket) (marketScriptBS defaultMarket)
           putStrLn $ "Script Written to : " ++ scriptname
           putStrLn $ "Market  :: " ++ ( show $ marketAddress defaultMarket )
-        "balance" -> putStrLn "Not implemented"
+        "balance" -> runBalanceCommand (map toText $ tail args)
         "connect" -> runConnectionTest
+        "pay" -> runPayCommand (tail args)
 
         _ -> printHelp
 
@@ -207,49 +204,87 @@ writePlutusScript scriptnum filename scriptSerial scriptSBS =
     Left err -> print $ displayError err
     Right () -> return ()
 
--- runTxBuild
---   :: AnyCardanoEra
---   -> AnyConsensusModeParams
---   -> NetworkId
---   -> Maybe ScriptValidity
---   -- ^ Mark script as expected to pass or fail validation
---   -> [(TxIn, Maybe (ScriptWitnessFiles WitCtxTxIn))]
---   -- ^ TxIn with potential script witness
---   -> [TxIn]
---   -- ^ TxIn for collateral
---   -> [TxOutAnyEra]
---   -- ^ Normal outputs
---   -> TxOutChangeAddress
---   -- ^ A change output
---   -> Maybe (Value, [ScriptWitnessFiles WitCtxMint])
---   -- ^ Multi-Asset value(s)
---   -> Maybe SlotNo
---   -- ^ Tx lower bound
---   -> Maybe SlotNo
---   -- ^ Tx upper bound
---   -> [(CertificateFile, Maybe (ScriptWitnessFiles WitCtxStake))]
---   -- ^ Certificate with potential script witness
---   -> [(StakeAddress, Lovelace, Maybe (ScriptWitnessFiles WitCtxStake))]
---   -> [WitnessSigningData]
---   -- ^ Required signers
---   -> TxMetadataJsonSchema
---   -> [ScriptFile]
---   -> [MetadataFile]
---   -> Maybe ProtocolParamsSourceSpec
---   -> Maybe UpdateProposalFile
---   -> TxBodyFile
---   -> Maybe Word
---   -> ExceptT ShelleyTxCmdError IO ()
-
 data SomeError = SomeError String deriving  (Show)
 
 instance Exception SomeError
 
 
+runPayCommand::[String] -> IO()
+runPayCommand [strAddr,lovelaceValue] =do
+  handleJust catcher handler ( getLocalChainTip localNodeConnInfo >>=print )
+  v<-queryNodeLocalState localNodeConnInfo Nothing protocolParamsQuery
+  addr<-case maybeAddr of
+    Nothing -> throw $ SomeError "Address unrecognized"
+    Just a  ->pure a
+  (_in,out)<-querySufficientUtxo lovelaceValue addr
+  pParam<-case v of
+    Left af -> throw $ SomeError  "Acquire Failure"
+    Right e -> case e of
+      Left em -> throw $ SomeError "Missmatched Era"
+      Right pp -> return pp
+  alonzoAddr<-case anyAddressInEra AlonzoEra addr of
+      Nothing -> throw $ SomeError "This adddress isnot in Alonzo Era"
+      Just a  -> pure a
+  let body =
+          (TxBodyContent {
+            txIns=[(_in, BuildTxWith $ KeyWitness KeyWitnessForSpending)],
+            txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
+            txOuts=[TxOut alonzoAddr (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ Lovelace 1000000)) TxOutDatumHashNone ],
+            txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra $ Lovelace 100000,
+            -- txValidityRange = (
+            --     TxValidityLowerBound ValidityLowerBoundInAlonzoEra 0
+            --     , TxValidityUpperBound ValidityUpperBoundInAlonzoEra 6969),
+            txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
+            txMetadata=TxMetadataNone ,
+            txAuxScripts=TxAuxScriptsNone,
+            txExtraScriptData=BuildTxWith TxExtraScriptDataNone ,
+            txExtraKeyWits=TxExtraKeyWitnessesNone,
+            txProtocolParams=BuildTxWith (Just  pParam),
+            txWithdrawals=TxWithdrawalsNone,
+            txCertificates=TxCertificatesNone,
+            txUpdateProposal=TxUpdateProposalNone,
+            txMintValue=TxMintNone,
+            txScriptValidity=TxScriptValidityNone
+          })
+  res <- case makeTransactionBody $ body of
+          Left tbe -> throw $ SomeError $  "Tx Body has error : " ++  (show tbe)
+          Right txBody -> do
+            let tx = makeSignedTransaction [] (txBody) -- witness and txBody
+            submitTxToNodeLocal localNodeConnInfo $  TxInMode tx AlonzoEraInCardanoMode
+  case res of
+    SubmitSuccess ->  putTextLn "Transaction successfully submitted."
+    SubmitFail reason ->
+      case reason of
+        TxValidationErrorInMode err _eraInMode ->  print err
+        TxValidationEraMismatch mismatchErr -> print mismatchErr
+
+  -- let query   = QueryInShelleyBasedEra ShelleyBasedEraAlonzo 
+  --     qInMode = QueryInEra eInMode query
+  -- result <- executeQuery
+  --             era
+  --             cModeParams
+  --             localNodeConnInfo
+  --             qInMode
+  print $ "something"
+
+  where
+    maybeAddr=deserialiseAddress AsAddressAny $ toText strAddr
+    protocolParamsQuery= QueryInEra AlonzoEraInCardanoMode
+                    $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo QueryProtocolParameters
+    dummyFee = Just $ Lovelace 0
+    tx_mode body =TxInMode ( ShelleyTx ShelleyBasedEraAlonzo body )  AlonzoEraInCardanoMode
+    handler e = putStrLn e
+    catcher e = case e of
+      DivideByZero ->Nothing
+      _            -> Just "Node error or something"
+
+runPayCommand _ = putStrLn "Invalid no of args"
+
 runConnectionTest :: IO ()
 runConnectionTest = do
   handleJust catcher handler ( getLocalChainTip localNodeConnInfo >>=print )
   v<-queryNodeLocalState localNodeConnInfo Nothing protocolParamsQuery
+
   pParam<-case v of
     Left af -> throw $ SomeError  "Acquire Failure"
     Right e -> case e of
@@ -269,8 +304,16 @@ runConnectionTest = do
         TxValidationErrorInMode err _eraInMode ->  print err
         TxValidationEraMismatch mismatchErr -> print mismatchErr
 
+  -- let query   = QueryInShelleyBasedEra ShelleyBasedEraAlonzo 
+  --     qInMode = QueryInEra eInMode query
+  -- result <- executeQuery
+  --             era
+  --             cModeParams
+  --             localNodeConnInfo
+  --             qInMode
+  print $ "something"
+
   where
-    localNodeConnInfo = LocalNodeConnectInfo (CardanoModeParams (EpochSlots 21600))  (Testnet  (NetworkMagic 1097911063))  "/home/sysadmin/.cardano/testnet/node.socket"
     protocolParamsQuery= QueryInEra AlonzoEraInCardanoMode
                     $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo QueryProtocolParameters
     dummyFee = Just $ Lovelace 0
@@ -301,5 +344,40 @@ runConnectionTest = do
                 txScriptValidity=TxScriptValidityNone
               })
 
+runBalanceCommand args =do
+  let addressIfAny = mapMaybe (\x -> deserialiseAddress AsAddressAny x) ( args)
+  v2<-case addressIfAny of
+    [] -> throw $ SomeError "Address couldn't be serialized"
+    a -> queryNodeLocalState localNodeConnInfo Nothing $ utxoQuery a
+  print v2
+
+  where
+  utxoQuery qfilter= QueryInEra AlonzoEraInCardanoMode
+                    $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo (QueryUTxO (QueryUTxOByAddress (Set.fromList qfilter)) )
+
+queryUtxos :: AddressAny -> IO (UTxO AlonzoEra)
+queryUtxos addr=do
+  a <-queryNodeLocalState localNodeConnInfo Nothing $ utxoQuery [addr]
+  case a of
+    Left af -> throw $ SomeError $ show af
+    Right e -> case e of
+      Left em -> throw $ SomeError $ show em
+      Right uto -> return uto
+
+  where
+  utxoQuery qfilter= QueryInEra AlonzoEraInCardanoMode
+                    $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo (QueryUTxO (QueryUTxOByAddress (Set.fromList qfilter)) )
+
+querySufficientUtxo :: p -> AddressAny -> IO (TxIn, TxOut AlonzoEra)
+querySufficientUtxo value addr=queryUtxos addr <&> head . toList
+  where
+    toList (UTxO m) = Map.toList m
+
+
 putTextLn :: t0 -> IO ()
 putTextLn = error "not implemented"
+
+localNodeConnInfo :: LocalNodeConnectInfo CardanoMode
+localNodeConnInfo = LocalNodeConnectInfo (CardanoModeParams (EpochSlots 21600))  (Testnet  (NetworkMagic 1097911063))  "/home/sysadmin/.cardano/testnet/node.socket"
+
+
