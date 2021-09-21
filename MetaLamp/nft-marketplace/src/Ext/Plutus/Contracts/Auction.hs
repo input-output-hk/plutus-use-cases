@@ -56,15 +56,15 @@ PlutusTx.makeLift ''AuctionParams
 PlutusTx.unstableMakeIsData ''AuctionParams
 
 {-# INLINABLE fromTuple #-}
-fromTuple :: (SM.ThreadToken, PubKeyHash, Value, Ledger.POSIXTime) -> AuctionParams
-fromTuple (_, apOwner, apAsset, apEndTime) = AuctionParams {..}
+fromTuple :: (SM.ThreadToken, PubKeyHash, Value, Integer) -> AuctionParams
+fromTuple (_, apOwner, apAsset, endTime) = AuctionParams {apEndTime = Ledger.POSIXTime endTime, ..}
 
 {-# INLINABLE toTuple #-}
-toTuple :: SM.ThreadToken -> AuctionParams -> (SM.ThreadToken, PubKeyHash, Value, Ledger.POSIXTime)
-toTuple threadToken AuctionParams {..} = (threadToken, apOwner, apAsset, apEndTime)
+toTuple :: SM.ThreadToken -> AuctionParams -> (SM.ThreadToken, PubKeyHash, Value, Integer)
+toTuple threadToken AuctionParams {..} = (threadToken, apOwner, apAsset, Ledger.getPOSIXTime apEndTime)
 
 {-# INLINABLE getStateToken #-}
-getStateToken :: (SM.ThreadToken, PubKeyHash, Value, Ledger.POSIXTime) -> SM.ThreadToken
+getStateToken :: (SM.ThreadToken, PubKeyHash, Value, Integer) -> SM.ThreadToken
 getStateToken (token, _, _, _) = token
 
 data HighestBid =

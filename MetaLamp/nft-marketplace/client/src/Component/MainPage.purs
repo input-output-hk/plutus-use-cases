@@ -1,6 +1,5 @@
 module Component.MainPage where
 
-import Data.Route (Route(..), routeCodec)
 import Prelude
 import Business.Marketplace (getMarketplaceContracts)
 import Business.MarketplaceInfo (InfoContractId, getInfoContractId)
@@ -11,7 +10,7 @@ import Capability.Navigate (class Navigate, navigate)
 import Capability.PollContract (class PollContract)
 import Component.MarketPage as Market
 import Component.UserPage as User
-import Component.Utils (runRD)
+import Component.Utils (PageInput, runRD)
 import Component.WalletSelector as WalletSelector
 import Control.Monad.Except (lift, runExceptT, throwError)
 import Control.Parallel (parTraverse)
@@ -20,6 +19,7 @@ import Data.Either (either, hush)
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Route (Route(..), routeCodec)
 import Data.Symbol (SProxy(..))
 import Data.UserInstance (UserInstance)
 import Effect.Aff.Class (class MonadAff)
@@ -166,8 +166,8 @@ pages st =
     $ case st.route of
         Nothing -> HH.h1_ [ HH.text "Loading page..." ]
         Just route -> case route of
-          UserPage -> renderUserPage $ getUserPageInput st
-          MarketPage -> HH.slot Market._marketPage unit Market.component unit absurd
+          UserPage -> renderUserPage $ getPageInput st
+          MarketPage -> renderMarketPage $ getPageInput st
 
 navbar :: forall w. HH.HTML w Action -> HH.HTML w Action
 navbar html =
@@ -191,8 +191,8 @@ navbar html =
     , html
     ]
 
-getUserPageInput :: State -> Maybe User.Input
-getUserPageInput st = do
+getPageInput :: State -> Maybe PageInput
+getPageInput st = do
   infoInstance <- st.infoInstance
   ucs <- RD.toMaybe st.userInstances
   userInstance <- case ucs of
@@ -212,7 +212,19 @@ renderUserPage ::
   MonadAff m =>
   PollContract m =>
   LogMessages m =>
-  Maybe User.Input -> H.ComponentHTML Action Slots m
+  Maybe PageInput -> H.ComponentHTML Action Slots m
 renderUserPage = case _ of
   Nothing -> HH.h1_ [ HH.text "Loading user page..." ]
-  Just ui -> HH.slot User._userPage unit User.component ui absurd
+  Just pi -> HH.slot User._userPage unit User.component pi absurd
+
+renderMarketPage ::
+  forall m.
+  IPFS.IPFS m =>
+  MonadEffect m =>
+  MonadAff m =>
+  PollContract m =>
+  LogMessages m =>
+  Maybe PageInput -> H.ComponentHTML Action Slots m
+renderMarketPage = case _ of
+  Nothing -> HH.h1_ [ HH.text "Loading market page..." ]
+  Just pi -> HH.slot Market._marketPage unit Market.component pi absurd
