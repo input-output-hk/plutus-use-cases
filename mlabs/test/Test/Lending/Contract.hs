@@ -71,21 +71,19 @@ test :: TestTree
 test =
   testGroup
     "Contract"
-    []
-  where
-    --testDeposit
-    -- , testBorrow
-    -- , testBorrowNoCollateral
-    -- , testBorrowNotEnoughCollateral
-    -- , testWithdraw
-    -- , testRepay
-    -- , testLiquidationCall
-    -- , testQueryAllLendexes
-    -- , testQuerrySupportedCurrencies
+    [ testDeposit
+    , testBorrow
+    , testBorrowNoCollateral
+    , testBorrowNotEnoughCollateral
+    , testWithdraw
+    , testRepay
+    , testLiquidationCall
+    -- , testQueryAllLendexes -- todo: fix - gets stuck in a loop
+    -- , testQuerrySupportedCurrencies -- todo: fix
     --    , testQueryCurrentBalance
-
+    ]
+  where
     check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
-
     testDeposit = check "Deposit (can mint aTokens)" depositScene depositScript
     testBorrow = check "Borrow" borrowScene borrowScript
     testBorrowNoCollateral = check "Borrow without collateral" borrowWithoutCollateralScene borrowWithoutCollateralScript
@@ -126,14 +124,13 @@ depositScript = do
       , sp'admins = [toPubKeyHash wAdmin]
       , sp'oracles = [toPubKeyHash wAdmin]
       }
-
--- wait 5
--- userAct1 $ DepositAct 50 coin1
--- next
--- userAct2 $ DepositAct 50 coin2
--- next
--- userAct3 $ DepositAct 50 coin3
--- next
+  wait 5
+  userAct1 $ DepositAct 50 coin1
+  next
+  userAct2 $ DepositAct 50 coin2
+  next
+  userAct3 $ DepositAct 50 coin3
+  next
 
 depositScene :: Scene
 depositScene =

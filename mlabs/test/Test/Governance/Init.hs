@@ -6,9 +6,9 @@
 module Test.Governance.Init (
   checkOptions,
   fstWalletWithGOV,
-  -- sndWalletWithGOV,
-  -- walletNoGOV,
-  -- adminWallet,
+  sndWalletWithGOV,
+  walletNoGOV,
+  adminWallet,
   gov,
   acGOV,
   xgov,
@@ -56,13 +56,11 @@ checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
 
 -- | Wallets that are used for testing.
-fstWalletWithGOV :: Wallet
---fstWalletWithGOV, sndWalletWithGOV, walletNoGOV, adminWallet :: Wallet
+fstWalletWithGOV, sndWalletWithGOV, walletNoGOV, adminWallet :: Wallet
 fstWalletWithGOV = walletFromNumber 1
-
--- sndWalletWithGOV = walletFromNumber 2
--- walletNoGOV = walletFromNumber 3
--- adminWallet = walletFromNumber 50
+sndWalletWithGOV = walletFromNumber 2
+walletNoGOV = walletFromNumber 3
+adminWallet = walletFromNumber 4
 
 scriptAddress :: Address
 scriptAddress = Gov.govAddress acGOV
@@ -98,9 +96,9 @@ initialDistribution :: M.Map Wallet Value
 initialDistribution =
   M.fromList
     [ (fstWalletWithGOV, ada 1000_000_000 <> gov 100)
-    -- , (sndWalletWithGOV, ada 1000_000_000 <> gov 100)
-    -- , (walletNoGOV, ada 1000_000_000)
-    -- , (adminWallet, ada 1000_000_000)
+    , (sndWalletWithGOV, ada 1000_000_000 <> gov 100)
+    , (walletNoGOV, ada 1000_000_000)
+    , (adminWallet, ada 1000_000_000)
     ]
 
 -- | Assert that contract finished excution with arbitrary error
