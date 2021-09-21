@@ -9,4 +9,5 @@
   pab = import ./pab.nix {
     inherit plutus;
   };
+  plutusShell = import ./plutus-shell.nix;
 }
