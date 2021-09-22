@@ -21,7 +21,7 @@ module Service
 import           Data.Aeson
 import           Data.Aeson.TH
 import           Data.Aeson.Encode.Pretty
-import qualified Data.ByteString.Lazy.UTF8  as U
+import qualified Data.ByteString.Lazy.UTF8   as U
 import           Data.Default               (Default (def))
 import           Data.Text                  (Text, pack)
 import           Control.Lens    
@@ -60,39 +60,34 @@ findGameById gameId games = do
 
 updateGameState :: TeamId -> FixtureStatusShort -> GameId -> IO (Maybe Game)
 updateGameState winnerId status gameId = do
-    game <- getGameById gameId
-
-    let updatedGame = updateGameWinner winnerId . updateGameStatus status $ game
+    gameM <- getGameById gameId 
+    let updatedGame = gameM >>= 
+                updateGameWinner winnerId >>=         
+                updateGameStatus status
     case updatedGame of 
         Nothing -> return Nothing
         Just game -> do 
             updateGame game
             return $ Just game
 
-updateGameStatus :: FixtureStatusShort -> Maybe Game -> Maybe Game 
-updateGameStatus  statusShort game = case game of 
-    Nothing -> Nothing
-    Just game -> Just $ game & fixture . status .~ (createFixtureStatus statusShort)
+updateGameStatus :: FixtureStatusShort -> Game -> Maybe Game 
+updateGameStatus statusShort game = Just $ game & fixture . status .~ (createFixtureStatus statusShort)
 
-updateGameWinner :: TeamId -> Maybe Game -> Maybe Game 
-updateGameWinner teamIdParam game = 
-    case game of
-        Nothing -> Nothing
-        Just game -> if game ^. teams . home . teamId == teamIdParam
-                        then Just $ game & teams . home . winner .~ True
-                        else 
-                            if game ^. teams . away . teamId == teamIdParam
-                            then Just $ game & teams . away . winner .~ True
-                            else Nothing
+updateGameWinner :: TeamId -> Game -> Maybe Game 
+updateGameWinner teamIdParam game
+    | game ^. teams . home . teamId == teamIdParam = Just $ game & teams . home . winner .~ True
+    | game ^. teams . away . teamId == teamIdParam = Just $ game & teams . away . winner .~ True
+    | otherwise = Nothing
 
-updateGame :: Game -> IO ()
+updateGame :: Game -> IO (Maybe Game)
 updateGame updatedGame = do
     games <- getGames
     case games of 
-        Left _ -> return ()
+        Left _ -> return Nothing
         Right games -> do
             let updatedGames = (flip map games) (\game -> 
                     if updatedGame == game
                     then updatedGame
                     else game ) 
             saveGames updatedGames
+            return $ Just updatedGame 
