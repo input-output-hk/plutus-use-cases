@@ -44,7 +44,6 @@ newtype Marketplace =
 
 PlutusTx.makeLift ''Marketplace
 
--- TODO (?) Prohibit for users which don't have bundled NFTs inside wallet to bundle and unbundle
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
   | PutLotRedeemer (Either InternalNftId InternalBundleId) LotLink
@@ -136,7 +135,6 @@ removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
 transition marketplace state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
-    -- TODO check that ipfsCidHash is a hash (?)
         -> Just ( mustBeSignedByIssuer nftEntry
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )
