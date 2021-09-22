@@ -24,7 +24,7 @@ const DropzoneComponent = ({ image, setImage, error, setError }) => (
               Drag 'n' drop some files here, or click to select files
             </p>
           )}
-          {image && <img className='image' src={image.preview} />}
+          {image && <img alt="content" className='image' src={image.preview} />}
         </div>
       </section>
     )}

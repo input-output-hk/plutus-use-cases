@@ -97,7 +97,7 @@ const CreateNFT = ({
 );
 
 const isAlphaNum = (string) => {
-  const reg = new RegExp('^[a-zA-Z0-9_]*$');
+  const reg = new RegExp('^[a-zA-Z0-9 _-`.,?!]*$');
   return reg.test(string);
 };
 

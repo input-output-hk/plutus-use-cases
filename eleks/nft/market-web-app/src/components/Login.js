@@ -1,7 +1,6 @@
 import { Redirect } from 'react-router-dom';
 import { compose, withState, withProps, withHandlers } from 'recompose';
 
-import { WALLETS } from '../helpers/constants';
 import { withAuth } from '../helpers/withAuth';
 
 import Loader from './Loader';
@@ -41,10 +40,7 @@ const Login = ({
         </Button>
       </Form>
       {currentUserFetching && (
-        <Loader
-          disableBackground={true}
-          text={'Login into the system...'}
-        />
+        <Loader disableBackground={true} text={'Login into the system...'} />
       )}
     </div>
   ) : (
@@ -56,7 +52,10 @@ const enhancer = compose(
   withState('wallet', 'setWallet', ''),
   withState('error', 'setError', ''),
   withProps(({ error, wallet }) => ({
-    options: WALLETS.map((wallet) => ({ value: wallet, label: wallet.name })),
+    options: JSON.parse(process.env.REACT_APP_WALLETS).map((wallet) => ({
+      value: wallet,
+      label: wallet.name,
+    })),
     errorVisibility: error && !wallet,
   })),
   withHandlers({
