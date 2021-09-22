@@ -1,0 +1,214 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE GADTs #-}
+
+module Frontend.Swap
+  ( swapDashboard
+  ) where
+
+import Prelude hiding (id, (.), filter)
+import Control.Category
+
+import Control.Applicative
+import Control.Lens
+import Control.Monad
+import Control.Monad.IO.Class (MonadIO)
+import qualified Data.Aeson as Aeson
+import Data.Aeson.Lens
+import Data.Maybe (fromMaybe)
+import qualified Data.Map as Map
+import Data.Semigroup (First(..))
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Vector as V
+import Data.Vessel
+import Data.Vessel.Identity
+import Data.Vessel.Vessel
+import Data.Vessel.ViewMorphism
+import Obelisk.Route
+import Obelisk.Route.Frontend
+import Reflex.Dom.Core
+import Rhyolite.Frontend.App
+import Safe (headMay, initMay, readMay)
+
+import Common.Api
+import Common.Route
+import Common.Plutus.Contracts.Uniswap.Types
+import Common.Plutus.Contracts.Uniswap.Estimates
+import Common.Schema
+import Frontend.NavBar
+import Frontend.WebsocketParse
+import Frontend.Widgets
+
+swapDashboard
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
+     )
+  => Text
+  -> m ()
+swapDashboard wid = do
+  navBar' $ Just wid
+  pb <- getPostBuild
+  -- recurring event used to poll for pool balance
+  pollingEvent <- tickLossyFromPostBuildTime 10
+  requesting_ $ (Api_CallPools (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
+  _ <- divClass "container" $ do
+    divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
+      elClass "h1" "display-5 fw-bold" $ text "Swap Tokens"
+      el "p" $ text "What would you like to swap?"
+    -- widget that contains the swap form
+    divClass "card-group mb-3 text-center" $ do
+      dmmPooledTokens <- viewPooledTokens
+      formEvent <- switchHold never <=< dyn $ ffor dmmPooledTokens $ \case
+        Nothing -> return never
+        Just mPoolTokens -> case mPoolTokens of
+          Nothing -> return never
+          Just poolTokens -> do
+            let dropdownList = Map.fromListWith (\_ tkName -> tkName) $ flip fmap poolTokens $ \pt ->
+                  if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
+                twoOptions = initMay $ Map.keys dropdownList
+            case twoOptions of
+              Just (fstOpt:sndOpt:_) -> do
+                divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
+                  divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
+                  divClass "card-body" $ divClass "form container" $ divClass "form-group" $ mdo
+                    -- Select first token and amount
+                    (selectionA, amountA) <- divClass "input-group row" $ do
+                      coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
+                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control") }
+                      coinAAmountInput <- inputElement $ def
+                        & inputElementConfig_elementConfig . elementConfig_initialAttributes
+                          .~ ("class" =: "form-control" <> "type" =: "number")
+                        & inputElementConfig_initialValue
+                          .~ ("0" :: Text)
+                      return (_dropdown_value coinAChoice, _inputElement_value coinAAmountInput)
+                    let noduplicateDropdownList = Map.filterWithKey (\k _ -> k /= fstOpt) dropdownList
+                    dynNonDuplicateDropdownList <- holdDyn noduplicateDropdownList $ ffor (updated selectionA)
+                      $ \choice -> Map.filterWithKey (\k _ -> k /= choice) dropdownList
+                    -- Select second token and amount
+                    (selectionB, amountB) <- divClass "input-group row mt-3" $ do
+                      coinBChoice <- dropdown sndOpt dynNonDuplicateDropdownList $ DropdownConfig
+                        { _dropdownConfig_attributes = constDyn ("class" =: "form-control")
+                        , _dropdownConfig_setValue = (ffor (updated dynNonDuplicateDropdownList) $ \opts -> fst $ Map.elemAt 0 opts)
+                        }
+                      coinBAmountInput <- inputElement $ def
+                        & inputElementConfig_elementConfig . elementConfig_initialAttributes
+                          .~ ("class" =: "form-control" <> "type" =: "number")
+                        & inputElementConfig_initialValue
+                          .~ ("0" :: Text)
+                      return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
+                    btnEnabled <- toggle True $ leftmost [swap, () <$ observableStateEv]
+                    swap <- divClass "input-group row mt-3" $ do
+                      (e,_) <- elDynAttr' "button" (toggleBtnUsability <$> btnEnabled) $ do
+                        elDynAttr "span" (toggleSpinner <$> btnEnabled) blank
+                        widgetHold_ (text "Swap") $ ffor (updated btnEnabled) $ \case
+                          True -> text "Swap"
+                          False -> text "Loading..."
+                      return $ domEvent Click e
+                    let ffor4 a b c d f = liftA3 f a b c <*> d
+                        pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
+                        toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
+                        requestLoad = ((\w c1 c2 a1 a2 -> Api_Swap w c1 c2 a1 a2)
+                          <$> (constDyn $ ContractInstanceId wid)
+                          <*> (pooledTokenToCoin <$> selectionA)
+                          <*> (pooledTokenToCoin <$> selectionB)
+                          <*> (toAmount <$> amountA)
+                          <*> (toAmount <$> amountB))
+                    -- This response returns transaction fee information, it does not return the swap response
+                    _responseVal <- requesting $ tagPromptlyDyn requestLoad swap
+                    observableStateEv <- fmap (switch . current) $ prerender (return never) $ do
+                      ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+                      let
+                          observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
+                            -> case mIncomingWebSocketData of
+                              Nothing -> False
+                              Just incomingWebSocketData -> do
+                                let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                                    swappedTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
+                                newObservableStateTag == ["NewObservableState"] && swappedTag == ["Swapped"]
+                          observableStateFailureEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
+                            -> case mIncomingWebSocketData of
+                              Nothing -> False
+                              Just incomingWebSocketData -> do
+                                let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                                    failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
+                                newObservableStateTag == ["NewObservableState"] && failureMessageTag /= []
+                      -- this event will cause the success message to disappear when it occurs
+                      vanishEvent <- delay 7 observableStateSuccessEvent
+                      -- show success message based on new observable state
+                      widgetHold_ blank $ ffor (leftmost [observableStateSuccessEvent, Nothing <$ vanishEvent]) $
+                        \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                          Nothing -> blank
+                          Just _ -> elClass "p" "text-success" $ text "Success!"
+                      widgetHold_ blank $ ffor observableStateFailureEvent $
+                        \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
+                          Nothing -> blank
+                          Just incomingWebSocketData -> do
+                            let errMsg = incomingWebSocketData ^.. key "contents" . key "Left" . _String
+                            elClass "p" "text-danger" $ text $ T.concat errMsg
+                      return $ leftmost [observableStateFailureEvent, observableStateSuccessEvent]
+                    return $ updated $ fmap Just $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> ((selA, amtA), (selB, amtB))
+              _ -> do
+                elClass "p" "text-warning" $ text "There are no tokens available to swap."
+                return never
+      -- widget that shows transaction details such as swap estimates, etc.
+      divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
+        divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Transaction Details"
+        divClass "card-body" $ do
+          poolMapEv <- fmap (switch . current) $ prerender (return never) $ do
+            ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+            -- Pools is used to get information about liquidity pools and token pairs to provide swap estimations
+            let poolsEvent = wsFilterPools $ _webSocket_recv ws
+            dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
+              let poolDetails = case mIncomingPoolsWebSocketData of
+                    Nothing -> V.empty
+                    Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
+              parseLiquidityTokensToMap poolDetails
+            return $ fmap Just $ updated dynPoolMap
+          -- combine events from from updates and smart contract pool data to perform swap estimates
+          dynPoolMap <- holdDyn Nothing poolMapEv
+          poolAndFormEvent <- holdDyn (Nothing, Nothing) $ attachPromptlyDyn dynPoolMap formEvent
+          let swapEstimate = ffor poolAndFormEvent $ \case
+                (Just poolMap, Just ((selA, amtA), (selB, amtB))) -> do
+                  let ((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) = fromMaybe (("", 0), ("", 0))
+                        $ fmap snd
+                        $ headMay
+                        $ Map.elems
+                        $ Map.filter (\(_,((tknameA,_), (tknameB, _)))
+                        -> tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB)) poolMap
+                  let amtA' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtA
+                      amtB' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtB
+                      (swapAmount, estimatedTkName) = if amtA' == 0 then (amtB',coinAName) else (amtA',coinBName)
+                  (findSwapA coinAPoolAmount coinBPoolAmount swapAmount, estimatedTkName)
+                _ -> (0, "")
+          txFeeEstimateResp <- requesting $ fmap (\sca -> Api_EstimateTransactionFee sca) $ SmartContractAction_Swap <$ formEvent
+          widgetHold_ blank $ ffor (updated swapEstimate) $ \(estimate, eTokenName) ->
+            elClass "p" "text-info" $ text
+              $ "Estimated to receive "
+              <> (T.pack $ show estimate)
+              <> " " <> (T.pack $ show $ if "" == eTokenName then "ADA" else eTokenName)
+          widgetHold_ blank $ ffor txFeeEstimateResp $ \txFeeEstimate ->
+            elClass "p" "text-warning" $ text
+              $ "Estimated transaction fee: "
+              <> (T.pack $ show $ runIdentity txFeeEstimate)
+              <> " ADA"
+  return ()
+
+viewPooledTokens
+  :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
+     , Reflex t
+     )
+  => m (Dynamic t (Maybe (Maybe [PooledToken])))
+viewPooledTokens = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
