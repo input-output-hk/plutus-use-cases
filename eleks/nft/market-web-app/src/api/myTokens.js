@@ -1,23 +1,18 @@
 import { NFTStorage } from 'nft.storage';
 import { IPFS_API_TOKEN } from '../helpers/constants';
 import { fetchStatus } from './status';
+const API_URL = process.env.REACT_APP_API_URL;
 
 export async function fetchAddToken(wallet, data) {
   const clientIPFS = new NFTStorage({ token: IPFS_API_TOKEN });
   const cpFile = await clientIPFS.storeBlob(data.cpFile);
-  console.log('ura')
-
-  console.log(cpFile)
-  const response = await fetch(
-    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/create`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-      },
-      body: JSON.stringify({ ...data, cpFile }),
-    }
-  );
+  const response = await fetch(`${API_URL}/${wallet.id}/endpoint/create`, {
+    method: 'POST',
+    headers: {
+      'Content-type': 'application/json',
+    },
+    body: JSON.stringify({ ...data, cpFile }),
+  });
 
   if (response.status === 200) {
     return await fetchStatus(wallet, 'Created');
@@ -30,7 +25,7 @@ export async function fetchAddToken(wallet, data) {
 
 export async function fetchMyTokens(wallet) {
   const response = await fetch(
-    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/userNftTokens`,
+    `${API_URL}/${wallet.id}/endpoint/userNftTokens`,
     {
       method: 'POST',
       headers: {
