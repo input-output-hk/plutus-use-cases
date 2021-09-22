@@ -13,35 +13,41 @@ module Spec.MutualBet
     ) where
 
 import           Control.Lens
-import           Types.Game   
+import           Contracts.MutualBet
+import           Contracts.Oracle      
+import qualified Control.Foldl                      as L
 import           Control.Monad                      (void, when)
 import qualified Control.Monad.Freer                as Freer
 import qualified Control.Monad.Freer.Error          as Freer
-import           Control.Monad.Freer.Extras as Extras
+import           Control.Monad.Freer.Extras         as Extras
 import           Control.Monad.Freer.Extras.Log     (LogLevel (..))
 import           Control.Monad.IO.Class             (liftIO)
+import           Data.Aeson.Encode                  (encodeToTextBuilder)
 import           Data.Default                       (Default (def))
+import           Data.Maybe                         (listToMaybe, mapMaybe)
 import           Data.Monoid                        (Last (..))
-import           Data.Text                          (Text, pack)
+import           Data.Text                          (Text, pack, isInfixOf)
+import           Data.Text.Lazy                     (toStrict)
+import           Data.Text.Lazy.Builder             (toLazyText)
 import           Ledger                             (Ada, Slot (..), Value, pubKeyHash)
 import qualified Ledger.Ada                         as Ada
-import           Ledger.Oracle             (Observation, SignedMessage, signMessage)
-import           Plutus.Contract                    hiding (currentSlot)
-import           Plutus.Contract.Test               hiding (not)
-import qualified Streaming.Prelude                  as S
-import qualified Wallet.Emulator.Folds              as Folds
-import qualified Wallet.Emulator.Stream             as Stream
-
+import           Ledger.Oracle                      (Observation, SignedMessage, signMessage)
 import           Ledger.TimeSlot                    (SlotConfig)
 import qualified Ledger.TimeSlot                    as TimeSlot
 import qualified Ledger.Value                       as Value
-import           Ledger.Value                       (CurrencySymbol)
-import           Plutus.Contract.Test.ContractModel
-import           Contracts.MutualBet
-import           Contracts.Oracle                                     
+import           Ledger.Value                       (CurrencySymbol)           
+import           Plutus.Contract.Test.ContractModel              
 import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)
+import           Plutus.Contract                    hiding (currentSlot)
+import           Plutus.Contract.Test               hiding (not)
+import           Plutus.Trace.Emulator.Types        (_ContractLog, cilMessage)
+import qualified Streaming.Prelude                  as S
 import           Test.Tasty
+import           Types.Game  
+import qualified Wallet.Emulator.Folds              as Folds
+import qualified Wallet.Emulator.Stream             as Stream
+import           Wallet.Emulator.MultiAgent         (eteEvent)
 
 slotCfg :: SlotConfig
 slotCfg = def
@@ -124,8 +130,8 @@ trace1Bettor2Bet = 10_000_000
 trace1Winner :: Integer
 trace1Winner = 1
 
-mutualBetTrace1 :: Trace.EmulatorTrace ()
-mutualBetTrace1 = do
+mutualBetSuccessTrace :: Trace.EmulatorTrace ()
+mutualBetSuccessTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betWallet mutualBetContract
@@ -135,33 +141,24 @@ mutualBetTrace1 = do
     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
     bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
     _ <- Trace.waitNSlots 1
-    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpOutcome = 1}
+    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = 1}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     _ <- Trace.waitNSlots 2
-    let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpOutcome = 0}
+    let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = 2}
     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
-    let updateParams = UpdateOracleParams{ uoGameId = 1,  uoWinnerId = 1 }
+    let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 1 }
     Trace.callEndpoint @"update" oracleHdl updateParams
     void $ Trace.waitNSlots 5
 
-trace2WinningBid :: Ada
-trace2WinningBid = 70
 
-extractAssetClass :: Trace.ContractHandle MutualBetOutput MutualBetStartSchema MutualBetError -> Trace.EmulatorTrace ThreadToken
-extractAssetClass handle = do
-    t <- mutualBetThreadToken <$> Trace.observableState handle
-    case t of
-        Last (Just currency) -> pure currency
-        _                    -> Trace.throwError (Trace.GenericError "currency not found")
-
-trace1FinalState :: MutualBetOutput
-trace1FinalState =
+mutualBetSuccessTraceFinalState :: MutualBetOutput
+mutualBetSuccessTraceFinalState =
     MutualBetOutput
         { mutualBetState = Last $ Just $ Finished $
             [
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor2Bet
                 , betBettor = pubKeyHash (walletPubKey bettor2)
-                , betTeamId = 0
+                , betTeamId = 2
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor1Bet
                 , betBettor = pubKeyHash (walletPubKey bettor1)
@@ -170,6 +167,41 @@ trace1FinalState =
             ]
         , mutualBetThreadToken = Last $ Just threadToken
         }
+
+incorrectGameBetTrace :: Trace.EmulatorTrace ()
+incorrectGameBetTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 5
+    mutualBetHdl <- Trace.activateContractWallet betWallet mutualBetContract
+    _ <- Trace.waitNSlots 5
+    threadToken <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadToken
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
+    _ <- Trace.waitNSlots 1
+    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = -1}
+    Trace.callEndpoint @"bet" bettor1Hdl bet1Params
+    void $ Trace.waitNSlots 2
+
+incorrectBetAmountTrace :: Trace.EmulatorTrace ()
+incorrectBetAmountTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 5
+    mutualBetHdl <- Trace.activateContractWallet betWallet mutualBetContract
+    _ <- Trace.waitNSlots 5
+    threadToken <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadToken
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
+    _ <- Trace.waitNSlots 1
+    let bet1Params = NewBetParams { nbpAmount = -1000, nbpWinnerId = 1}
+    Trace.callEndpoint @"bet" bettor1Hdl bet1Params
+    void $ Trace.waitNSlots 2
+
+extractAssetClass :: Trace.ContractHandle MutualBetOutput MutualBetStartSchema MutualBetError -> Trace.EmulatorTrace ThreadToken
+extractAssetClass handle = do
+    t <- mutualBetThreadToken <$> Trace.observableState handle
+    case t of
+        Last (Just currency) -> pure currency
+        _                    -> Trace.throwError (Trace.GenericError "currency not found")
 
 threadToken :: ThreadToken
 threadToken =
@@ -186,21 +218,44 @@ threadToken =
         $ Trace.runEmulatorStream (options ^. emulatorConfig)
         $ do
             void $ Trace.activateContractWallet w1 (void con)
-            Trace.waitNSlots 3
+            Trace.waitNSlots 2
 
 delay :: Integer -> Trace.EmulatorTrace ()
 delay n = void $ Trace.waitNSlots $ fromIntegral n
 
+expectContractLog expectedText logM = case logM of 
+                    Nothing -> False
+                    Just logMessage -> do
+                        let text = toStrict . toLazyText . encodeToTextBuilder $ logMessage
+                        isInfixOf expectedText text  
+
+expectStateChangeFailureLog = expectContractLog "TransitionFailed" . listToMaybe . reverse . mapMaybe (preview (eteEvent . cilMessage . _ContractLog))
+
 tests :: TestTree
 tests =
     testGroup "mutual bet"
-        [ checkPredicateOptions options "run mutual bet"
-            (assertDone mutualBetContract (Trace.walletInstanceTag w1) (const True) "mutual bet contract should be done"
-            .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
-            .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
-            .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) trace1FinalState ) "final state should be OK"
-            .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ trace1Bettor2Bet)
-            .&&. walletFundsChange bettor2 (inv (Ada.toValue . Ada.lovelaceOf $ trace1Bettor2Bet))
-            )
-            mutualBetTrace1
+        [ 
+        checkPredicateOptions options "run mutual bet"
+        (assertDone mutualBetContract (Trace.walletInstanceTag w1) (const True) "mutual bet contract should be done"
+        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
+        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
+        .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) mutualBetSuccessTraceFinalState ) "final state should be OK"
+        .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ trace1Bettor2Bet)
+        .&&. walletFundsChange bettor2 (inv (Ada.toValue . Ada.lovelaceOf $ trace1Bettor2Bet))
+        )
+        mutualBetSuccessTrace
+        ,
+        checkPredicateOptions options "fail bet if game do not exists"
+        (
+        assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
+        .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ 0)
+        )
+        incorrectGameBetTrace
+        ,
+        checkPredicateOptions options "fail bet if amount less or equal 0"
+        (
+        assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
+        .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ 0)
+        )
+        incorrectBetAmountTrace
         ]

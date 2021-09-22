@@ -62,7 +62,7 @@ curl -s http://localhost:9080/api/contract/instances/wallet/1 | jq '.[] | .cicDe
 export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"nbpAmount":1500000, "nbpOutcome": 55}' \
+  --data '{"nbpAmount":1500000, "nbpWinnerId": 55}' \
   http://localhost:9080/api/contract/instance/$INSTANCE_ID/endpoint/bet
 
 2. Get contract state

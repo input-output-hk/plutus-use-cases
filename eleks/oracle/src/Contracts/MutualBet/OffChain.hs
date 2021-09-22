@@ -69,7 +69,7 @@ import qualified Prelude                          as Haskell
 data NewBetParams = 
     NewBetParams
         { nbpAmount  :: Integer
-        , nbpOutcome :: Integer
+        , nbpWinnerId :: Integer
         }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -214,7 +214,6 @@ data BettorEvent =
 waitForChange :: SlotConfig -> MutualBetParams -> StateMachineClient MutualBetState MutualBetInput -> [Bet] -> Contract MutualBetOutput BettorSchema MutualBetError BettorEvent
 waitForChange slotCfg params client bets = do
     t <- currentTime
-    logInfo @Haskell.String "waitForChange"
     let
         makeBet = endpoint @"bet" $ \params -> do 
                                         logInfo ("last bets" ++ Haskell.show params)
@@ -258,7 +257,7 @@ handleEvent client bets change =
             self <- Ledger.pubKeyHash <$> ownPubKey
             logInfo @Haskell.String "Received pubkey"
             let betAda = Ada.lovelaceOf $ nbpAmount betParams
-                newBet = NewBet{newBet = betAda, newBettor = self, newBetTeamId = nbpOutcome betParams}
+                newBet = NewBet{newBetAmount = betAda, newBettor = self, newBetTeamId = nbpWinnerId betParams}
             r <- SM.runStep client newBet
             logInfo @Haskell.String "SM: runStep done"
             case r of
@@ -270,7 +269,6 @@ handleEvent client bets change =
             tell (mutualBetStateOut $ Ongoing s)
             continue s
         NoChange s -> do
-            logInfo @Haskell.String "SM: No Change"
             continue s
 
 mutualBetBettor :: SlotConfig -> ThreadToken -> MutualBetParams -> Contract MutualBetOutput BettorSchema MutualBetError ()
