@@ -57,17 +57,14 @@ transition Sale{..} state redeemer = case (stateData state, redeemer) of
                   Constraints.mustPayToPubKey saler val
                 , State SaleClosed mempty
                 )
-    (LotInfo saler, Buy buyer) | saleValue == (val - stateToken)
+    (LotInfo saler, Buy buyer) | saleValue == val
         -> Just ( Constraints.mustBeSignedBy buyer <>
-                  Constraints.mustPayToPubKey saler (stateToken <> Ada.lovelaceValueOf salePrice) <>
+                  Constraints.mustPayToPubKey saler (Ada.lovelaceValueOf salePrice) <>
                   Constraints.mustPayToPubKey buyer saleValue
                 , State SaleClosed mempty
                 )
     _                                        -> Nothing
   where
-    stateToken :: Value
-    stateToken = mempty -- TODO! assetClassValue saleProtocolToken 1
-
     val = stateValue state
 
 {-# INLINABLE isFinal #-}

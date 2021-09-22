@@ -175,13 +175,10 @@ transition marketplace state redeemer = case redeemer of
                 )
     _                                        -> trace "Invalid transition" Nothing
   where
-    stateToken :: Value
-    stateToken = mempty -- TODO! V.assetClassValue (marketplaceProtocolToken marketplace) 1
-
     nftStore :: MarketplaceDatum
     nftStore = stateData state
 
-    currStateValue = stateValue state - stateToken
+    currStateValue = stateValue state 
 
     mustBeSignedByIssuer entry = case niIssuer entry of
       Just pkh -> Constraints.mustBeSignedBy pkh
