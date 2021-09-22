@@ -72,12 +72,15 @@ ownerWallet = Wallet 1
 userWallets :: [Wallet]
 userWallets = [Wallet i | i <- [2 .. 4]]
 
+operatorFee :: Integer
+operatorFee = 3
+
 data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
 activateContracts :: Simulation (Builtin MarketplaceContracts) ContractIDs
 activateContracts = do
     cidStart <- Simulator.activateContract ownerWallet MarketplaceStart
-    _  <- Simulator.callEndpointOnInstance cidStart "start" ()
+    _  <- Simulator.callEndpointOnInstance cidStart "start" operatorFee
     mp <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.OwnerContractState)) of
         Success (CrSuccess (Marketplace.Started mp)) -> Just mp
         _                                            -> Nothing

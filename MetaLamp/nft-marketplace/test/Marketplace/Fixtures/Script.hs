@@ -14,8 +14,13 @@ import           Wallet.Emulator.Types                        (Wallet (..),
 
 marketplace :: Marketplace.Marketplace
 marketplace =
-  Marketplace.Marketplace $
-  pubKeyHash $ walletPubKey Fixtures.ownerWallet
+  Marketplace.Marketplace {
+    Marketplace.marketplaceOperator = pubKeyHash $ walletPubKey Fixtures.ownerWallet,
+    Marketplace.marketplaceGasFee = Marketplace.Percentage 3
+  }
+  
+percentage :: Marketplace.Percentage
+percentage = Marketplace.Percentage 3
 
 marketplaceAddress :: Address
 marketplaceAddress = Marketplace.marketplaceAddress marketplace

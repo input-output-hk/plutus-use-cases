@@ -6,7 +6,10 @@ NFT Marketplace Service enables to create NFT tokens for any file and put them o
 
 ## Monetization
 
-The marketplace operator receives a tip from NFT selling and auctioning.
+The marketplace operator receives a gas fee from:
+- NFT minting
+- NFTs bundling
+- completing NFT selling transaction on the Sale or Auction
 
 ## Glossary
 

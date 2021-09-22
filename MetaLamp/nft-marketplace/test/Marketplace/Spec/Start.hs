@@ -36,7 +36,7 @@ startTrace = do
 
 startContract ::
      Contract () Marketplace.MarketplaceOwnerSchema Text Marketplace.Marketplace
-startContract = Marketplace.start
+startContract = Marketplace.start $ Marketplace.getPercentage Fixtures.percentage
 
 datumsCheck :: TracePredicate
 datumsCheck =

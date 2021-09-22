@@ -35,9 +35,23 @@ import           PlutusTx.Prelude                                 hiding
 import           Prelude                                          (Semigroup (..))
 import qualified Prelude                                          as Haskell
 
-newtype Marketplace =
+newtype Percentage = 
+      Percentage 
+      {getPercentage :: Integer} 
+      deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+      deriving anyclass (J.ToJSON, J.FromJSON)
+
+mkPercentage :: Integer -> Haskell.Maybe Percentage
+mkPercentage x
+      | 0 <= x && x <= 100 = Just $ Percentage x
+      | otherwise = Nothing
+
+PlutusTx.makeLift ''Percentage
+
+data Marketplace =
   Marketplace
-    { marketplaceOperator :: PubKeyHash
+    { marketplaceOperator :: PubKeyHash,
+      marketplaceGasFee :: Percentage
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

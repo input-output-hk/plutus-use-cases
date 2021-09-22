@@ -6,7 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
-
+{-# LANGUAGE OverloadedStrings #-}
 module Plutus.Contracts.NftMarketplace.OffChain.Owner where
 
 import qualified Control.Lens                                 as Lens
@@ -34,10 +34,11 @@ import qualified Prelude                                      as Haskell
 import           Text.Printf                                  (printf)
 
 -- | Starts the NFT Marketplace protocol: minting protocol NFT, creating empty nft storage
-start :: Contract w s Text Core.Marketplace
-start = do
+start :: Integer -> Contract w s Text Core.Marketplace -- TODO: Rational operatorFee
+start operatorFee = do
     pkh <- pubKeyHash <$> ownPubKey
-    let marketplace = Core.Marketplace pkh
+    feePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ Core.mkPercentage operatorFee
+    let marketplace = Core.Marketplace pkh feePercentage
     let client = Core.marketplaceClient marketplace
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
 
@@ -45,7 +46,7 @@ start = do
     pure marketplace
 
 type MarketplaceOwnerSchema =
-    Endpoint "start" ()
+    Endpoint "start" Integer
 
 data OwnerContractState = Started Core.Marketplace
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -54,4 +55,4 @@ data OwnerContractState = Started Core.Marketplace
 Lens.makeClassyPrisms ''OwnerContractState
 
 ownerEndpoints :: Promise (ContractResponse Text OwnerContractState) MarketplaceOwnerSchema Void ()
-ownerEndpoints = withContractResponse (Proxy @"start") Started (const start) <> ownerEndpoints
+ownerEndpoints = withContractResponse (Proxy @"start") Started (start) <> ownerEndpoints
