@@ -62,37 +62,37 @@ type MutualBetMachine = StateMachine MutualBetState MutualBetInput
 {-# INLINABLE betsValueAmount #-}
 -- | The combined value of bets.
 betsValueAmount :: [Bet] -> Ada
-betsValueAmount = fold . map (\bet -> amount bet)
+betsValueAmount = fold . map (\bet -> betAmount bet)
 
 {-# INLINABLE winBets #-}
 -- | Get winning bets.
 winBets :: Integer -> [Bet] -> [Bet]
-winBets gameOutcome bets = filter (\bet -> outcome bet == gameOutcome) bets
+winBets winnerTeamId bets = filter (\bet -> betTeamId bet == winnerTeamId) bets
 
 {-# INLINABLE calculatePrize #-}
 calculatePrize:: Bet -> Ada -> Ada -> Ada
 calculatePrize bet totalBets totalWin =
     let 
         totalPrize = totalBets - totalWin
-        betAmount = amount bet
+        amount = betAmount bet
     in
-        bool ((Ada.divide betAmount totalWin) * totalPrize) 0 (totalWin == 0)
+        bool ((Ada.divide amount totalWin) * totalPrize) 0 (totalWin == 0)
         
 
 {-# INLINABLE calculateWinnerShare #-}
 calculateWinnerShare :: Bet -> Ada -> Ada -> Ada
 calculateWinnerShare bet totalBets totalWin = 
-    (amount bet) + calculatePrize bet totalBets totalWin
+    (betAmount bet) + calculatePrize bet totalBets totalWin
 
 {-# INLINABLE getWinners #-}
 getWinners :: Integer -> [Bet] -> [(PubKeyHash, Ada)]
-getWinners gameOutcome bets = 
+getWinners winnerTeamId bets = 
     let 
-        winnerBets = winBets gameOutcome bets
+        winnerBets = winBets winnerTeamId bets
         total = betsValueAmount bets
         totalWin = betsValueAmount $ winnerBets
     in 
-        map (\winBet -> (bettor winBet, calculateWinnerShare winBet total totalWin)) winnerBets
+        map (\winBet -> (betBettor winBet, calculateWinnerShare winBet total totalWin)) winnerBets
 
 {-# INLINABLE mkTxPayWinners #-}
 mkTxPayWinners :: (PubKeyHash, Ada)-> TxConstraints Void Void
@@ -104,9 +104,10 @@ mutualBetTransition :: MutualBetParams -> State MutualBetState -> MutualBetInput
 mutualBetTransition MutualBetParams{mbpOracle} State{stateData=oldState} input =
     case (oldState, input) of
 
-        (Ongoing bets, NewBet{newBet, newBettor, newOutcome}) ->
+        (Ongoing bets, NewBet{newBet, newBettor, newBetTeamId}) ->
             let constraints = mempty
-                newBets = Bet{amount = newBet, bettor = newBettor, outcome = newOutcome}:bets
+
+                newBets = Bet{betAmount = newBet, betBettor = newBettor, betTeamId = newBetTeamId}:bets
                 newState =
                     State
                         { stateData = Ongoing newBets
@@ -116,7 +117,7 @@ mutualBetTransition MutualBetParams{mbpOracle} State{stateData=oldState} input =
         (Ongoing bets, Payout{oracleValue, oracleRef})
           | isValueSigned oracleValue ->
             let 
-                winners = getWinners (ovWinner oracleValue) bets
+                winners = getWinners (ovWinnerTeamId oracleValue) bets
                 redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
                 constraints = foldMap mkTxPayWinners winners 
                               <> Constraints.mustSpendScriptOutput oracleRef redeemer

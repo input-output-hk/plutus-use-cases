@@ -110,7 +110,7 @@ winTeamId = 1
 requestOracleTestState :: OracleData
 requestOracleTestState = OracleData
     { ovGame = gameId
-    , ovWinner = 0
+    , ovWinnerTeamId = 0
     , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
     , ovWinnerSigned = Nothing
     }
@@ -125,7 +125,7 @@ requestOracleTrace = do
 signOracleTestState :: OracleData
 signOracleTestState = OracleData
     { ovGame = gameId
-    , ovWinner = 3
+    , ovWinnerTeamId = 3
     , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
     , ovWinnerSigned = Just $ signMessage 1 (walletPrivKey oracleWallet) 
     }

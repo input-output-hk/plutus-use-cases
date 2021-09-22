@@ -258,8 +258,7 @@ handleEvent client bets change =
             self <- Ledger.pubKeyHash <$> ownPubKey
             logInfo @Haskell.String "Received pubkey"
             let betAda = Ada.lovelaceOf $ nbpAmount betParams
-                newBet = NewBet{newBet = betAda, newBettor = self, newOutcome = nbpOutcome betParams}
-                bet1 = Bet{amount = betAda, bettor = self, outcome = nbpOutcome betParams} 
+                newBet = NewBet{newBet = betAda, newBettor = self, newBetTeamId = nbpOutcome betParams}
             r <- SM.runStep client newBet
             logInfo @Haskell.String "SM: runStep done"
             case r of

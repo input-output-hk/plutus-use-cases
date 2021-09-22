@@ -99,7 +99,7 @@ updateOracle oracle operatorPrivateKey params = do
     activeRequests <- getActiveOracleRequests oracle
     let requests = filter (isGameOracleRequest gameId) activeRequests 
     forM_ requests $ \(oref, o, oracleData) -> do
-                        let oracleData' = oracleData{ ovWinner = winnerId, ovWinnerSigned = Just $ signMessage winnerId operatorPrivateKey }
+                        let oracleData' = oracleData{ ovWinnerTeamId = winnerId, ovWinnerSigned = Just $ signMessage winnerId operatorPrivateKey }
                         let requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
                         let lookups = Constraints.unspentOutputs (Map.singleton oref o)     
                                     <> Constraints.typedValidatorLookups (typedOracleValidator oracle) 
@@ -140,7 +140,7 @@ requestOracleForAddress oracle gameId = do
         oracleData = OracleData 
             { ovRequestAddress = pkh
             , ovGame = gameId
-            , ovWinner = 0
+            , ovWinnerTeamId = 0
             , ovWinnerSigned = Nothing
             }
 

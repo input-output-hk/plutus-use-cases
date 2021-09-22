@@ -51,9 +51,9 @@ PlutusTx.makeLift ''MutualBetParams
 
 data Bet =
     Bet
-        { amount  :: Ada
-        , bettor  :: PubKeyHash
-        , outcome :: Integer
+        { betAmount  :: Ada
+        , betBettor  :: PubKeyHash
+        , betTeamId  :: Integer
         }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
@@ -93,7 +93,7 @@ PlutusTx.unstableMakeIsData ''MutualBetState
 
 -- | Transition between auction states
 data MutualBetInput
-    = NewBet { newBet :: Ada, newBettor :: PubKeyHash, newOutcome :: Integer } -- Increase the price
+    = NewBet { newBet :: Ada, newBettor :: PubKeyHash, newBetTeamId :: Integer } -- Increase the price
     | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef }
     deriving stock (Generic, Haskell.Show)
     deriving anyclass (ToJSON, FromJSON)

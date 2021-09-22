@@ -159,13 +159,13 @@ trace1FinalState =
     MutualBetOutput
         { mutualBetState = Last $ Just $ Finished $
             [
-                Bet{ amount = Ada.lovelaceOf trace1Bettor2Bet
-                , bettor = pubKeyHash (walletPubKey bettor2)
-                , outcome = 0
+                Bet{ betAmount = Ada.lovelaceOf trace1Bettor2Bet
+                , betBettor = pubKeyHash (walletPubKey bettor2)
+                , betTeamId = 0
                 },
-                Bet{ amount = Ada.lovelaceOf trace1Bettor1Bet
-                , bettor = pubKeyHash (walletPubKey bettor1)
-                , outcome = 1
+                Bet{ betAmount = Ada.lovelaceOf trace1Bettor1Bet
+                , betBettor = pubKeyHash (walletPubKey bettor1)
+                , betTeamId = 1
                 }
             ]
         , mutualBetThreadToken = Last $ Just threadToken

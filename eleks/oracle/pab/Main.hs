@@ -161,12 +161,6 @@ waitForLast cid =
         Success (Last (Just x)) -> Just x
         _                       -> Nothing
 
--- waitForLastOracle :: ContractInstanceId -> Simulator.Simulation t (Last OracleContractState)
--- waitForLastOracle cid =
---     flip Simulator.waitForState cid $ \json -> case fromJSON json of
---     Success (Last (Just state)) -> Just state
---     _                           -> Nothing
-
 waitForLastOracle :: ContractInstanceId -> Simulator.Simulation t Oracle
 waitForLastOracle cid =
     flip Simulator.waitForState cid $ \json -> case fromJSON json of

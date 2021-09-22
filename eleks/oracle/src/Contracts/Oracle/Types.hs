@@ -55,7 +55,7 @@ oracleToRequestToken oracle = OracleRequestToken
 
 data OracleData = OracleData
     { ovGame           :: Integer
-    , ovWinner         :: Integer
+    , ovWinnerTeamId         :: Integer
     , ovRequestAddress :: PubKeyHash
     , ovWinnerSigned   :: Maybe (SignedMessage Integer)
     }
@@ -67,7 +67,7 @@ PlutusTx.makeLift ''OracleData
 instance Eq OracleData where
     {-# INLINABLE (==) #-}
     l == r = (ovGame l == ovGame r) && 
-             (ovWinner l == ovWinner r) &&
+             (ovWinnerTeamId l == ovWinnerTeamId r) &&
              (ovRequestAddress l == ovRequestAddress r) &&
              (ovWinnerSigned l PlutusTx.Prelude.== ovWinnerSigned r)
 
