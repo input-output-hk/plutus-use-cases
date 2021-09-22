@@ -35,6 +35,7 @@ import           PlutusTx.Prelude             hiding (Semigroup (..))
 import           Prelude                      (Semigroup (..))
 import qualified Prelude                      as Haskell
 import qualified Schema
+import Plutus.Types.Percentage (Percentage)
 
 type Saler = PubKeyHash
 type Buyer = PubKeyHash
@@ -44,7 +45,9 @@ data Sale =
   Sale
     { saleProtocolToken :: !ThreadToken,
       salePrice         :: !LovelacePrice,
-      saleValue         :: !Value
+      saleValue         :: !Value,
+      marketplaceOperator :: !PubKeyHash,
+      marketplaceFee    :: !Percentage
       -- TODO add owner, it is needed for client, we need to hide "close sale" button from users other than owner
       -- saleOwner :: PubKeyHash
     }

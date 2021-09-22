@@ -44,6 +44,8 @@ library
       Ext.Plutus.PAB.Webserver.Server
       Ext.Plutus.Contracts.Auction
       Ext.Plutus.Ledger.Value
+      Plutus.Types.Percentage
+      Plutus.Types.Marketplace
       Plutus.Contracts.NftMarketplace.OnChain.Core
       Plutus.Contracts.NftMarketplace.OffChain.Serialization
       Plutus.Contracts.NftMarketplace.OffChain.ID

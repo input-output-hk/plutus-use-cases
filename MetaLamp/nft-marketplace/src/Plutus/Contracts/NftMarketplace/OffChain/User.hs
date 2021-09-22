@@ -51,6 +51,7 @@ import           Prelude                                                (Semigro
 import qualified Prelude                                                as Haskell
 import qualified Schema
 import           Text.Printf                                            (printf)
+import qualified Plutus.Types.Marketplace as Marketplace
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -82,7 +83,7 @@ createNft marketplace CreateNftParams {..} = do
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
            Currency.mintContract pkh [(tokenName, 1)]
-
+           -- TODO: get operatiorGasFee by minting (const fee?? We haven't a price on this step)
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
             { niCurrency          = Currency.currencySymbol nft
@@ -116,13 +117,12 @@ openSale marketplace OpenSaleParams {..} = do
         Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
       Right bundleId@(Core.InternalBundleId bundleHash cids) ->
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
-
-    sale <- Sale.openSale
-              Sale.OpenSaleParams {
+    let openSaleParams = Sale.OpenSaleParams {
                   ospSalePrice = ospSalePrice,
                   ospSaleValue = saleValue
               }
-
+    sale <- Sale.openSale openSaleParams marketplace
+            
     let client = Core.marketplaceClient marketplace
     let lot = Left sale
     void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot

@@ -32,12 +32,14 @@ import           PlutusTx.Prelude                             hiding
 import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import           Text.Printf                                  (printf)
+import Plutus.Types.Percentage (mkPercentage)
+import PlutusTx.Ratio (Ratio)
 
 -- | Starts the NFT Marketplace protocol: minting protocol NFT, creating empty nft storage
-start :: Integer -> Contract w s Text Core.Marketplace -- TODO: Rational operatorFee
+start :: Ratio Integer -> Contract w s Text Core.Marketplace
 start operatorFee = do
     pkh <- pubKeyHash <$> ownPubKey
-    feePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ Core.mkPercentage operatorFee
+    feePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage operatorFee
     let marketplace = Core.Marketplace pkh feePercentage
     let client = Core.marketplaceClient marketplace
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
@@ -46,7 +48,7 @@ start operatorFee = do
     pure marketplace
 
 type MarketplaceOwnerSchema =
-    Endpoint "start" Integer
+    Endpoint "start" (Ratio Integer)
 
 data OwnerContractState = Started Core.Marketplace
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)

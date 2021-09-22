@@ -23,6 +23,7 @@ import           PlutusTx.Prelude                                          hidin
                                                                            (Semigroup (..))
 import           Prelude                                                   (Semigroup (..))
 import qualified Prelude                                                   as Haskell
+import Plutus.Types.Marketplace as Export
 
 marketplaceValidator :: Marketplace -> Validator
 marketplaceValidator = Scripts.validatorScript . marketplaceInst

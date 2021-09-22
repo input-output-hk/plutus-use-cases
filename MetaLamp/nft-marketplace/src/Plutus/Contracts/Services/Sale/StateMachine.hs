@@ -27,9 +27,13 @@ import           Plutus.Contracts.Services.Sale.Core
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                   as AssocMap
 import           PlutusTx.Prelude                    hiding (Semigroup (..))
-import           Prelude                             (Semigroup (..))
+import           Prelude                             (Semigroup (..), (/))
 import qualified Prelude                             as Haskell
 import qualified Schema
+import Plutus.Types.Percentage (Percentage(..))
+import qualified Plutus.Types.Percentage as Percentage
+import qualified PlutusTx.Ratio as Ratio
+import PlutusTx.Ratio ((%))
 
 data SaleRedeemer
   = Buy Buyer
@@ -59,15 +63,19 @@ transition Sale{..} state redeemer = case (stateData state, redeemer) of
                 )
     (LotInfo saler, Buy buyer) | saleValue == (val - stateToken)
         -> Just ( Constraints.mustBeSignedBy buyer <>
-                  Constraints.mustPayToPubKey saler (stateToken <> Ada.lovelaceValueOf salePrice) <>
-                  Constraints.mustPayToPubKey buyer saleValue
+                  Constraints.mustPayToPubKey saler (stateToken <> (Ada.lovelaceValueOf saleProfit)) <>
+                  Constraints.mustPayToPubKey buyer saleValue <>
+                  Constraints.mustPayToPubKey marketplaceOperator (Ada.lovelaceValueOf operatorFee)
                 , State SaleClosed mempty
                 )
     _                                        -> Nothing
   where
     stateToken :: Value
     stateToken = mempty -- TODO! assetClassValue saleProtocolToken 1
-
+    saleProfit :: Integer
+    saleProfit = salePrice - operatorFee
+    operatorFee :: Integer
+    operatorFee = Ratio.round $ (salePrice % 100) * (getPercentage marketplaceFee)
     val = stateValue state
 
 {-# INLINABLE isFinal #-}

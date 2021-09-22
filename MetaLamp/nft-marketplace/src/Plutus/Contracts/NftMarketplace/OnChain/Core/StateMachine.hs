@@ -34,29 +34,8 @@ import           PlutusTx.Prelude                                 hiding
                                                                   (Semigroup (..))
 import           Prelude                                          (Semigroup (..))
 import qualified Prelude                                          as Haskell
-
-newtype Percentage = 
-      Percentage 
-      {getPercentage :: Integer} 
-      deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-      deriving anyclass (J.ToJSON, J.FromJSON)
-
-mkPercentage :: Integer -> Haskell.Maybe Percentage
-mkPercentage x
-      | 0 <= x && x <= 100 = Just $ Percentage x
-      | otherwise = Nothing
-
-PlutusTx.makeLift ''Percentage
-
-data Marketplace =
-  Marketplace
-    { marketplaceOperator :: PubKeyHash,
-      marketplaceGasFee :: Percentage
-    }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.makeLift ''Marketplace
+import Plutus.Types.Percentage (Percentage)
+import Plutus.Types.Marketplace 
 
 -- TODO (?) Prohibit for users which don't have bundled NFTs inside wallet to bundle and unbundle
 -- TODO make sum types for eithers (?)

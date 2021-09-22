@@ -16,6 +16,7 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Trace                                 as Trace
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
+import Plutus.Types.Percentage (getPercentage)
 
 tests :: TestTree
 tests =
@@ -36,7 +37,7 @@ startTrace = do
 
 startContract ::
      Contract () Marketplace.MarketplaceOwnerSchema Text Marketplace.Marketplace
-startContract = Marketplace.start $ Marketplace.getPercentage Fixtures.percentage
+startContract = Marketplace.start $ getPercentage Fixtures.percentage
 
 datumsCheck :: TracePredicate
 datumsCheck =

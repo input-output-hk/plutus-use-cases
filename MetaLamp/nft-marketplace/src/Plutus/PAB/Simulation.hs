@@ -65,6 +65,7 @@ import           Prelude                                      hiding (init)
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
 import           Wallet.Types                                 (ContractInstanceId)
+import PlutusTx.Ratio ((%), Ratio)
 
 ownerWallet :: Wallet
 ownerWallet = Wallet 1
@@ -72,8 +73,8 @@ ownerWallet = Wallet 1
 userWallets :: [Wallet]
 userWallets = [Wallet i | i <- [2 .. 4]]
 
-operatorFee :: Integer
-operatorFee = 3
+operatorFee :: Ratio Integer
+operatorFee = 5 % 2
 
 data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
