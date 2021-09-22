@@ -35,6 +35,7 @@ import Data.Vessel.ViewMorphism
 import Language.Javascript.JSaddle (eval, liftJSM)
 import Obelisk.Frontend
 import Obelisk.Route
+import Obelisk.Route.Frontend
 import Obelisk.Generated.Static
 import Reflex.Dom.Core
 import Rhyolite.Frontend.App
@@ -72,7 +73,7 @@ frontend = Frontend
             Left _ -> error "runFrontend: Unexpected non-app ObeliskRoute reached the frontend. This shouldn't happen."
             Right x -> x
       let validFullEncoder = errorLeft $ checkEncoder fullRouteEncoder
-      _ <- runObeliskRhyoliteWidget vesselToWire "common/route" validFullEncoder (BackendRoute_Listen :/ ()) $ workflow $ app
+      _ <- runObeliskRhyoliteWidget vesselToWire "common/route" validFullEncoder (BackendRoute_Listen :/ ()) app
       return ()
   }
 
@@ -81,10 +82,28 @@ app
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
      , Prerender js t m
      , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
      )
-  => Workflow t m ()
-app = Workflow $ do
-  _ <- navBar Nothing
+  => RoutedT t (R FrontendRoute) m ()
+app = subRoute_ $ \case
+  FrontendRoute_ChooseWallet -> chooseWallet
+  FrontendRoute_WalletRoute -> do
+    dAddr <- fmap fst <$> askRoute
+    withRoutedT (fmap $ view _2) $ subRoute_ $ \case
+      WalletRoute_Swap -> dyn_ $ swapDashboard <$> dAddr
+      WalletRoute_Portfolio -> dyn_ $ portfolioDashboard <$> dAddr
+      WalletRoute_Pool -> dyn_ $ poolDashboard <$> dAddr
+
+chooseWallet
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
+     )
+  => m ()
+chooseWallet = do
+  navBar' Nothing
   divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container-fluid py-5" $ do
       elClass "h2" "display-5 fw-bold" $ text "Welcome to POKE-DEX!"
@@ -106,10 +125,20 @@ app = Workflow $ do
                 (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
                 return $ wid <$ domEvent Click e
             return $ leftmost walletIdEvents
-      return ((), swapDashboard <$> walletEv)
+      setRoute $ (\e -> FrontendRoute_WalletRoute :/ (e, WalletRoute_Swap :/ ())) <$> walletEv
 
-data Dashboard = Dashboard_Swap | Dashboard_Portfolio | Dashboard_Pool
-  deriving (Eq, Ord, Show)
+navBar'
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
+     )
+  => Maybe Text
+  -> m ()
+navBar' mWid = do
+  e <- navBar mWid
+  setRoute $ e
 
 navBar
   :: forall t m js
@@ -118,13 +147,13 @@ navBar
      , MonadIO (Performable m)
      )
   => Maybe Text
-  -> m (Event t Dashboard)
+  -> m (Event t (R FrontendRoute))
 navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
   divClass "container-fluid" $ do
     elAttr "a" ("class" =: "navbar-brand" <> "href" =: "#") $ text "POKE-DEX - Plutus Obelisk Koin Economy Decentralized Exchange "
     -- Note: This websocket keeps track of Slot number
     -- ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-    -- _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show a
+    -- _ <- widgetHold blank $ ffor (_webSocket_recv ws) $ \(a :: Maybe Aeson.Value) -> el "p" $ text $ T.pack $ show aWalletRoute_Portfolio
     case mWid of
       Nothing -> return never
       Just wid -> do
@@ -132,14 +161,14 @@ navBar mWid = divClass "navbar navbar-expand-md navbar-dark bg-dark" $ do
         navSelect <- elClass "ul" "nav navbar-nav" $ do
           swapEv <- do
             (e,_) <- elAttr' "li" ("class" =: "text-white nav-item ms-5" <> "style" =: "cursor: pointer;") $ text "Swap"
-            return $ Dashboard_Swap  <$ domEvent Click e
+            return $ (WalletRoute_Swap :/ ()) <$ domEvent Click e
           portfolioEv <- do
             (e,_) <- elAttr' "li" ("class" =: "text-white nav-item ms-5" <> "style" =: "cursor: pointer;") $ text "Portfolio"
-            return $ Dashboard_Portfolio  <$ domEvent Click e
+            return $ (WalletRoute_Portfolio :/ ()) <$ domEvent Click e
           poolEv <- do
             (e,_) <- elAttr' "li" ("class" =: "text-white nav-item ms-5" <> "style" =: "cursor: pointer;") $ text "Pool"
-            return $ Dashboard_Pool  <$ domEvent Click e
-          return $ leftmost [swapEv, portfolioEv, poolEv]
+            return $ (WalletRoute_Pool :/ ()) <$ domEvent Click e
+          return $ (\r -> FrontendRoute_WalletRoute :/ (wid, r)) <$> leftmost [swapEv, portfolioEv, poolEv]
         -- event that fires once the page has finished loading
         pb <- getPostBuild
         -- recurring event used to poll for wallet balance
@@ -166,17 +195,16 @@ swapDashboard
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
      , Prerender js t m
      , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
      )
   => Text
-  -> Workflow t m ()
-swapDashboard wid = Workflow $ do
-  navEvent <- navBar $ Just wid
+  -> m ()
+swapDashboard wid = do
+  navBar' $ Just wid
   pb <- getPostBuild
   -- recurring event used to poll for pool balance
   pollingEvent <- tickLossyFromPostBuildTime 10
   requesting_ $ (Api_CallPools (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
-  let portfolioEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Portfolio
-      poolEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Pool
   _ <- divClass "container" $ do
     divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h1" "display-5 fw-bold" $ text "Swap Tokens"
@@ -317,15 +345,19 @@ swapDashboard wid = Workflow $ do
               $ "Estimated transaction fee: "
               <> (T.pack $ show $ runIdentity txFeeEstimate)
               <> " ADA"
-  return ((), leftmost [(portfolioDashboard wid) <$ portfolioEv, poolDashboard wid <$ poolEv])
+  return ()
 
-portfolioDashboard :: forall t m js. (MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m, Prerender js t m, MonadIO (Performable m))
+portfolioDashboard
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
+     )
   => Text
-  -> Workflow t m ()
-portfolioDashboard wid = Workflow $ do
-  navEvent <- navBar $ Just wid
-  let swapEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Swap
-      poolEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Pool
+  -> m ()
+portfolioDashboard wid = do
+  navBar' $ Just wid
   _ <- divClass "container" $ do
     divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h1" "display-5 fw-bold" $ text "Portfolio"
@@ -359,20 +391,19 @@ portfolioDashboard wid = Workflow $ do
               return ()
             return ()
         return never
-  return ((), leftmost [swapDashboard wid <$ swapEv, poolDashboard wid <$ poolEv])
+  return ()
 
 poolDashboard
   :: forall t m js
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
      , Prerender js t m
      , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
      )
   => Text
-  -> Workflow t m ()
-poolDashboard wid = Workflow $ do
-  navEvent <- navBar $ Just wid
-  let portfolioEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Portfolio
-      swapEv  = flip ffilter navEvent $ \navEv -> navEv == Dashboard_Swap
+  -> m ()
+poolDashboard wid = do
+  navBar' $ Just wid
   -- Widget to show liquidity pool blanance
   pb <- getPostBuild
   -- recurring event used to poll for pool balance
@@ -693,7 +724,7 @@ poolDashboard wid = Workflow $ do
               <> (T.pack $ show liqEst)
               <> " Liquidity Tokens"
 
-      return ((), leftmost [swapDashboard wid <$ swapEv, portfolioDashboard wid <$ portfolioEv])
+      return ()
 
 viewContracts
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
