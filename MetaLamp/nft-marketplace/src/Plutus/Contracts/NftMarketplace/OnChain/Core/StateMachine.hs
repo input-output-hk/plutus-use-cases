@@ -45,7 +45,6 @@ newtype Marketplace =
 PlutusTx.makeLift ''Marketplace
 
 -- TODO (?) Prohibit for users which don't have bundled NFTs inside wallet to bundle and unbundle
--- TODO make sum types for eithers (?)
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
   | PutLotRedeemer (Either InternalNftId InternalBundleId) LotLink
@@ -178,7 +177,7 @@ transition marketplace state redeemer = case redeemer of
     nftStore :: MarketplaceDatum
     nftStore = stateData state
 
-    currStateValue = stateValue state 
+    currStateValue = stateValue state
 
     mustBeSignedByIssuer entry = case niIssuer entry of
       Just pkh -> Constraints.mustBeSignedBy pkh

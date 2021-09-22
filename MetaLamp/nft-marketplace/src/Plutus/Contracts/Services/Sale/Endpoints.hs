@@ -57,10 +57,11 @@ openSale OpenSaleParams {..}  = do
     let sale = Core.Sale
                 { saleProtocolToken = saleToken,
                   salePrice         = ospSalePrice,
-                  saleValue         = ospSaleValue
+                  saleValue         = ospSaleValue,
+                  saleOwner         = pkh
                 }
     let client = Core.saleClient sale
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.LotInfo pkh) ospSaleValue
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing ospSaleValue
 
     logInfo @Haskell.String $ printf "Opened Sale %s at address %s" (Haskell.show sale) (Haskell.show $ Core.saleAddress sale)
     pure sale
