@@ -20,8 +20,9 @@ import Control.Monad (forever, guard)
 import Control.Monad.State.Strict (runStateT)
 
 import Data.List.Extra (firstJust)
-import Data.Map qualified as Map (elems)
+import Data.Map qualified as Map 
 import Data.Semigroup (Last (..))
+import Data.Bifunctor (second)
 
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
 import Ledger.Crypto (pubKeyHash)
@@ -42,12 +43,14 @@ import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
 import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
 import Mlabs.Lending.Logic.React qualified as React
 import Mlabs.Lending.Logic.Types qualified as Types
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, readDatum', selectForever)
+import Mlabs.Plutus.Contract (getEndpoint, readDatum, readDatum', readChainIndexTxDatum, selectForever)
 import Plutus.Contract.Types (Promise (..), promiseMap, selectList)
+import qualified Plutus.Contract.Request as Request 
 
 import Playground.Types (PlaygroundError (input))
 import PlutusTx.Prelude
 import Prelude qualified as Hask
+import Extra (firstJust)
 
 -- | User contract monad
 type UserContract a = Contract.Contract () Api.UserSchema StateMachine.LendexError a
@@ -111,6 +114,7 @@ queryEndpoints lid =
     [ getEndpoint @Api.QueryAllLendexes $ queryAllLendexes lid
     , getEndpoint @Api.QuerySupportedCurrencies $ \_ -> querySupportedCurrencies lid
     , getEndpoint @Api.QueryCurrentBalance $ queryAction lid
+    , getEndpoint @Api.QueryInsolventAccounts $ queryAction lid
     ]
 
 -- user actions
@@ -230,3 +234,26 @@ findInputStateData lid = do
   maybe err pure $ firstJust readDatum' txOuts
   where
     err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
+
+-- | Find datum, is not the best way to find the datum. The logic is not neccesarily correct 
+-- as many datum can be sitting at App address, and there is no way of enforcing which one is
+-- correct. 
+-- todo: review logic
+findDatum :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError d
+findDatum lid = do
+  txOuts <- Request.utxosTxOutTxAt (StateMachine.lendexAddress lid)
+  let txOuts' = fmap (second readChainIndexTxDatum). fmap (second snd) $ Map.toList txOuts  
+  let txOuts'' = filter ( (==1) . length . filter(notNothing) . snd) txOuts'
+  case length txOuts'' of
+    1 -> do 
+      let res = snd $ head txOuts''
+      case length res of 
+        1 -> maybe err1 return $ head res 
+        _ -> err2 
+    _ -> err1
+  where
+    err1 = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
+    err2 = Contract.throwError $ StateMachine.toLendexError "Too Many Lending app instances"
+    notNothing = \case 
+      Nothing -> False
+      Just _ -> True

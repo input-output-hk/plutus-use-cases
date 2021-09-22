@@ -55,6 +55,7 @@ qReact input = do
   where
     queryAct uid time = \case
       Types.QueryCurrentBalanceAct () -> queryCurrentBalance uid time
+      Types.QueryInsolventAccountsAct () -> queryInsolventAccounts uid time
 
     ---------------------------------------------------------------------------------------------------------
     -- Current Balance Query
@@ -75,6 +76,14 @@ qReact input = do
           , ub'cumulativeBalance = tWalletCumulativeBalance
           , ub'funds = tWallet
           }
+
+    ---------------------------------------------------------------------------------------------------------
+    -- Insolvent Accounts Query    
+    queryInsolventAccounts :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
+    queryInsolventAccounts uid _cTime = do
+      pure . Just . Last . Types.QueryResInsolventAccounts $
+        uncurry Types.InsolventAccount <$> []
+
 
 {-# INLINEABLE react #-}
 
