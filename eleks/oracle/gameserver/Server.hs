@@ -8,10 +8,11 @@ module Main(main) where
 import Data.Aeson
 import Data.Text
 import Data.String (fromString)
+import Control.Monad.Except
+import Control.Monad.Reader
 import GHC.Generics (Generic)
 import Servant
 import Service as GamesService
-import Control.Monad.Reader
 import qualified Data.ByteString.Char8 as B
 import Network.Wai.Handler.Warp
 import Types.Game
@@ -37,27 +38,27 @@ gamesServer = games
   where 
     games:: Handler [Game]
     games = do
-      gamesE <- liftIO $ GamesService.getGames
+      gamesE <- liftIO $ runExceptT $ GamesService.getGames
       case gamesE of 
           Left e -> throwError err500{errBody=fromString  e}
           Right games -> return games
     gameById:: GameId -> Handler Game
     gameById id = do
-      gameM <- liftIO (GamesService.getGameById id)
+      gameM <- liftIO $ runExceptT (GamesService.getGameById id)
       case gameM of 
-        Nothing -> throwError err404{errBody=fromString $ "Game not found " ++ show id}
-        Just game -> return game
+        Left e -> throwError err404{errBody=fromString e}
+        Right game -> return game
     сhangeGameState:: GameId -> UpdateGameParams -> Handler Game
     сhangeGameState gameId updateParams = do
-      game <- liftIO $ updateGameState (ugpWinnerTeamId updateParams) (ugpSatus updateParams) gameId
+      game <- liftIO $ runExceptT $ updateGameState (ugpWinnerTeamId updateParams) (ugpSatus updateParams) gameId
       case game of 
-        Nothing -> throwError err404{errBody=fromString $ "Game update error " ++ show gameId}
-        Just game -> return game 
+        Left e -> throwError err500{errBody=fromString e}
+        Right game -> return game 
 
 gamesApp :: Application
 gamesApp = serve gamesAPI gamesServer
 
 main :: IO ()
 main = do
-  createInitialGames
+  runExceptT $ createInitialGames
   run 8081 gamesApp

@@ -152,6 +152,7 @@ executable gameserver
     base >= 4.9 && < 5,
     bytestring,
     data-default -any,
+    either,
     lens,
     mtl,
     mutual-bet -any,
