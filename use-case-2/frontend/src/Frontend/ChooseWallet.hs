@@ -54,21 +54,17 @@ chooseWallet = do
       elClass "h3" "display-5 fw-bold" $ text "Wallet Accounts"
       elClass "p" "lead" $ text "Choose one of the avaiable wallets below: "
       dmmWalletIds <- viewContracts
-      walletEv <- switchHold never <=< dyn $ ffor dmmWalletIds $ \case
+      dyn_ $ ffor dmmWalletIds $ \case
         Nothing -> do
           text "There are no wallets avaiable"
-          return never
         Just mWalletIds -> case mWalletIds of
           Nothing -> do
             text "There are no wallets avaiable"
-            return never
           Just walletIds -> do
-            walletIdEvents <- elClass "ul" "list-group" $ do
-              forM walletIds $ \wid -> fmap (switch . current) $ prerender (return never) $ do
+            elClass "ul" "list-group" $ do
+              forM_ walletIds $ \wid -> do
                 (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
-                return $ wid <$ domEvent Click e
-            return $ leftmost walletIdEvents
-      setRoute $ (\e -> FrontendRoute_WalletRoute :/ (e, WalletRoute_Swap :/ ())) <$> walletEv
+                setRoute $ (FrontendRoute_WalletRoute :/ (wid, WalletRoute_Swap :/ ())) <$ domEvent Click e
 
 viewContracts
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
