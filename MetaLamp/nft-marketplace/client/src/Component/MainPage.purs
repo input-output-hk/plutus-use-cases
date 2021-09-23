@@ -112,8 +112,6 @@ component =
     Initialize -> do
       initialRoute <- hush <<< (Routing.parse routeCodec) <$> H.liftEffect Routing.getHash
       navigate $ fromMaybe UserPage initialRoute
-      res <- IPFS.catFile "QmTxda1tn2ourkdKYhTwMfLScLCLxJUXMX3q4ScLyVFy8n"
-      logInfo $ show res
       handleAction GetContracts
       handleAction GetInstances
     GoTo route e -> do

@@ -45,7 +45,7 @@ PlutusTx.unstableMakeIsData ''SaleRedeemer
 PlutusTx.makeLift ''SaleRedeemer
 
 data SaleDatum =
-    LotInfo Saler
+    SaleOngoing
   | SaleClosed
   deriving  (Haskell.Show)
 
@@ -56,22 +56,20 @@ PlutusTx.makeLift ''SaleDatum
 {-# INLINABLE transition #-}
 transition :: Sale -> State SaleDatum -> SaleRedeemer -> Maybe (TxConstraints Void Void, State SaleDatum)
 transition Sale{..} state redeemer = case (stateData state, redeemer) of
-    (LotInfo saler, Redeem)
-        -> Just ( Constraints.mustBeSignedBy saler <>
-                  Constraints.mustPayToPubKey saler val
+    (SaleOngoing, Redeem)
+        -> Just ( Constraints.mustBeSignedBy saleOwner <>
+                  Constraints.mustPayToPubKey saleOwner val
                 , State SaleClosed mempty
                 )
-    (LotInfo saler, Buy buyer) | saleValue == (val - stateToken)
+    (SaleOngoing, Buy buyer) | saleValue == val
         -> Just ( Constraints.mustBeSignedBy buyer <>
-                  Constraints.mustPayToPubKey saler (stateToken <> (Ada.lovelaceValueOf saleProfit)) <>
+                  Constraints.mustPayToPubKey saleOwner (Ada.lovelaceValueOf saleProfit) <>
                   Constraints.mustPayToPubKey buyer saleValue <>
                   Constraints.mustPayToPubKey marketplaceOperator (Ada.lovelaceValueOf operatorFee)
                 , State SaleClosed mempty
                 )
     _                                        -> Nothing
   where
-    stateToken :: Value
-    stateToken = mempty -- TODO! assetClassValue saleProtocolToken 1
     saleProfit :: Integer
     saleProfit = salePrice - operatorFee
     operatorFee :: Integer

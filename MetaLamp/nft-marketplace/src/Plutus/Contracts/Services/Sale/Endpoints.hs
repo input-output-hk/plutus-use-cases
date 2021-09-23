@@ -61,11 +61,12 @@ openSale OpenSaleParams {..}  Marketplace.Marketplace {..} = do
                 { saleProtocolToken = saleToken,
                   salePrice         = ospSalePrice,
                   saleValue         = ospSaleValue,
+                  saleOwner         = pkh,
                   marketplaceOperator = marketplaceOperator,
                   marketplaceFee    = marketplaceGasFee
                 }
     let client = Core.saleClient sale
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.LotInfo pkh) ospSaleValue
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing ospSaleValue
 
     logInfo @Haskell.String $ printf "Opened Sale %s at address %s" (Haskell.show sale) (Haskell.show $ Core.saleAddress sale)
     pure sale

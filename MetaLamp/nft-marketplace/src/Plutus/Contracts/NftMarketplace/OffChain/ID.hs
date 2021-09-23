@@ -43,6 +43,7 @@ data UserItemId = UserNftId Text | UserBundleId [Text]
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
+-- TODO remove ToSchema instances when constraint is removed from PAB
 instance Schema.ToSchema UserItemId where
   toSchema = Schema.FormSchemaUnsupported "TODO how to make these instances for sum types?"
 

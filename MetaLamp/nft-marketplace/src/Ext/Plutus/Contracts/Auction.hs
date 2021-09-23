@@ -14,7 +14,6 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
 
--- TODO add initial price option
 module Ext.Plutus.Contracts.Auction where
 
 import           Control.Lens                     (makeClassyPrisms)

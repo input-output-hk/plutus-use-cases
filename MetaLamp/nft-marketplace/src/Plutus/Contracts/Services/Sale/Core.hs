@@ -46,10 +46,9 @@ data Sale =
     { saleProtocolToken :: !ThreadToken,
       salePrice         :: !LovelacePrice,
       saleValue         :: !Value,
+      saleOwner         :: !Saler,
       marketplaceOperator :: !PubKeyHash,
       marketplaceFee    :: !Percentage
-      -- TODO add owner, it is needed for client, we need to hide "close sale" button from users other than owner
-      -- saleOwner :: PubKeyHash
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

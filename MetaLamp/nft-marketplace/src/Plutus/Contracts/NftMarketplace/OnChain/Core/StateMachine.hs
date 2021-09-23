@@ -37,8 +37,6 @@ import qualified Prelude                                          as Haskell
 import Plutus.Types.Percentage (Percentage)
 import Plutus.Types.Marketplace 
 
--- TODO (?) Prohibit for users which don't have bundled NFTs inside wallet to bundle and unbundle
--- TODO make sum types for eithers (?)
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
   | PutLotRedeemer (Either InternalNftId InternalBundleId) LotLink
@@ -130,7 +128,6 @@ removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
 transition marketplace state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
-    -- TODO check that ipfsCidHash is a hash (?)
         -> Just ( mustBeSignedByIssuer nftEntry
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )
@@ -168,13 +165,10 @@ transition marketplace state redeemer = case redeemer of
                 )
     _                                        -> trace "Invalid transition" Nothing
   where
-    stateToken :: Value
-    stateToken = mempty -- TODO! V.assetClassValue (marketplaceProtocolToken marketplace) 1
-
     nftStore :: MarketplaceDatum
     nftStore = stateData state
 
-    currStateValue = stateValue state - stateToken
+    currStateValue = stateValue state
 
     mustBeSignedByIssuer entry = case niIssuer entry of
       Just pkh -> Constraints.mustBeSignedBy pkh
