@@ -126,7 +126,7 @@ mkOracleValidator oracle oracleData r ctx =
         inVal  = txOutValue ownInput
         outVal = txOutValue ownOutput
       in
-        outVal `geq` (inVal <> Ada.lovelaceValueOf (oFee oracle))
+        outVal `geq` (inVal <> Ada.toValue (oFee oracle))
 
 {-# INLINABLE verifyOracleValueSigned #-}
 verifyOracleValueSigned :: Maybe (SignedMessage Integer) -> PubKey -> Maybe Integer

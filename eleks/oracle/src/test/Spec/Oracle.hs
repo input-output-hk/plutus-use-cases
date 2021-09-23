@@ -208,8 +208,8 @@ tests =
         .&&. valueAtAddress (oracleAddress oracle)
             (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
             )
-        .&&. walletFundsChange oracleWallet ((Ada.toValue . Ada.lovelaceOf $ (oFee oracle)))
-        .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue . Ada.lovelaceOf $ (oFee oracle)))
+        .&&. walletFundsChange oracleWallet ((Ada.toValue (oFee oracle)))
+        .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle)))
         .&&. dataAtAddress (oracleAddress oracle) (== requestOracleTestState)
         )
         requestOracleTrace
@@ -219,7 +219,7 @@ tests =
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
                 (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1))
-            .&&. walletFundsChange oracleWallet (Ada.toValue . Ada.lovelaceOf $ (oFee oracle))
+            .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
             -- .&&. dataAtAddress (oracleAddress oracle) (== signOracleTestState)
         )
         signOracleTrace
@@ -231,7 +231,7 @@ tests =
                 (Trace.walletInstanceTag oracleClientWallet)
                 "use contract should not fail"
             .&&. walletFundsChange oracleClientWallet (
-                inv (Ada.toValue . Ada.lovelaceOf $ (oFee oracle))
+                inv (Ada.toValue $ oFee oracle)
                 <> (Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
                 )
         )

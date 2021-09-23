@@ -56,21 +56,12 @@ oracleCurrency :: CurrencySymbol
 oracleCurrency = "aa"
 
 oracleParams :: OracleParams 
-oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 1_000_000, opSigner = walletPrivKey oracleWallet } 
+oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 1_500_000, opSigner = walletPrivKey oracleWallet } 
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
     { ortOperator = pubKeyHash $ walletPubKey oracleWallet
     , ortFee = opFees oracleParams
-    }
-
-oracleData ::  Oracle
-oracleData = Oracle
-    { --oSymbol = opSymbol oracleParams
-      oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
-    , oOperator = pubKeyHash $ walletPubKey oracleWallet
-    , oOperatorKey = walletPubKey oracleWallet
-    , oFee = opFees oracleParams
     }
 
 oracle ::  Oracle
@@ -86,9 +77,12 @@ mutualBetParams :: MutualBetParams
 mutualBetParams =
     MutualBetParams
         { mbpGame = 1
-        , mbpOracle = oracleData
+        , mbpOracle = oracle
+        , mbpOwner = pubKeyHash $ walletPubKey betOwnerWallet
         , mbpTeam1 = 1
         , mbpTeam2 = 2
+        , mbpMinBet = 3_000_000
+        , mbpBetFee = 2_000_000
         }
 
 -- | 'EmulatorConfig' that includes 'theToken' in the initial distribution of Wallet 1.
@@ -116,7 +110,7 @@ w2 = Wallet 2
 w3 = Wallet 3
 w4 = Wallet 4
 w5 = Wallet 5
-betWallet = w1
+betOwnerWallet = w1
 bettor1 = w2
 bettor2 = w3
 oracleWallet = w5
@@ -134,7 +128,7 @@ mutualBetSuccessTrace :: Trace.EmulatorTrace ()
 mutualBetSuccessTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
-    mutualBetHdl <- Trace.activateContractWallet betWallet mutualBetContract
+    mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
     threadToken <- extractAssetClass mutualBetHdl
     Extras.logInfo $ "Trace thread token " ++ show threadToken
@@ -172,7 +166,7 @@ incorrectGameBetTrace :: Trace.EmulatorTrace ()
 incorrectGameBetTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
-    mutualBetHdl <- Trace.activateContractWallet betWallet mutualBetContract
+    mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
     threadToken <- extractAssetClass mutualBetHdl
     Extras.logInfo $ "Trace thread token " ++ show threadToken
@@ -186,7 +180,7 @@ incorrectBetAmountTrace :: Trace.EmulatorTrace ()
 incorrectBetAmountTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
-    mutualBetHdl <- Trace.activateContractWallet betWallet mutualBetContract
+    mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
     threadToken <- extractAssetClass mutualBetHdl
     Extras.logInfo $ "Trace thread token " ++ show threadToken
@@ -231,6 +225,9 @@ expectContractLog expectedText logM = case logM of
 
 expectStateChangeFailureLog = expectContractLog "TransitionFailed" . listToMaybe . reverse . mapMaybe (preview (eteEvent . cilMessage . _ContractLog))
 
+adaValueOf :: Integer -> Value
+adaValueOf = Ada.toValue . Ada.lovelaceOf
+
 tests :: TestTree
 tests =
     testGroup "mutual bet"
@@ -240,8 +237,10 @@ tests =
         .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
         .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
         .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) mutualBetSuccessTraceFinalState ) "final state should be OK"
-        .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ trace1Bettor2Bet)
-        .&&. walletFundsChange bettor2 (inv (Ada.toValue . Ada.lovelaceOf $ trace1Bettor2Bet))
+        .&&. walletFundsChange bettor1 (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet - (mbpBetFee mutualBetParams))
+        .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet + (mbpBetFee mutualBetParams)))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams) 
+                                              <> Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
         )
         mutualBetSuccessTrace
         ,

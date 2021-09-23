@@ -66,7 +66,7 @@ checkRequesTokenPolicy requestToken _ ctx@ScriptContext{scriptContextTxInfo=TxIn
         forged = txInfoMint info
         forgedSymbolsCount = length $ symbols forged
         forgedCount = valueOf forged ownSymbol oracleTokenName
-        feeValue = Ada.toValue . Ada.lovelaceOf $ ortFee requestToken
+        feeValue = Ada.toValue $ ortFee requestToken
         isFeePaid :: Maybe PubKeyHash -> Bool
         isFeePaid feeAddr = isJust . find (\o ->
             txOutValue o == feeValue &&

@@ -41,8 +41,11 @@ data MutualBetParams
     = MutualBetParams
         { mbpGame   :: Integer -- ^ Game id
         , mbpOracle :: Oracle
-        , mbpTeam1 :: Integer
-        , mbpTeam2 :: Integer
+        , mbpOwner  :: PubKeyHash
+        , mbpTeam1  :: Integer
+        , mbpTeam2  :: Integer
+        , mbpMinBet :: Ada
+        , mbpBetFee :: Ada
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON, ToSchema)

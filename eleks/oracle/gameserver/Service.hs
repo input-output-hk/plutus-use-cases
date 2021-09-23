@@ -31,8 +31,6 @@ import           Data.List                  (find)
 import           GHC.Generics               (Generic)
 import           Types.Game
 
-
-
 createInitialGames :: ExceptT String IO [Game]
 createInitialGames = do
     games <- lift $ (eitherDecodeFileStrict "gameserver/fixture-template.json" :: IO (Either String [Game]))

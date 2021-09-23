@@ -177,7 +177,7 @@ Updates to the user are provided via 'tell'.
 
 isGameCompleted :: Ledger.PubKey -> MutualBetParams -> OracleData -> Either Haskell.String OracleData
 isGameCompleted pk params oracleData
-    | (pubKeyHash pk) /= (ovRequestAddress oracleData) = Left "Not signed by current script"
+    | (pubKeyHash pk) /= (ovRequestAddress oracleData) = Left "Not signed by owner wallet"
     | (mbpGame params) /= (ovGame oracleData) = Left "Not current game"
     | isNothing (ovWinnerSigned oracleData) = Left "Not signed"
     | otherwise = case Oracle.verifySignedMessageOffChain 

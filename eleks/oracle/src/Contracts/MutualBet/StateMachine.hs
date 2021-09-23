@@ -107,11 +107,11 @@ isValidBet MutualBetParams{mbpTeam1, mbpTeam2} NewBet{newBetAmount, newBetTeamId
 {-# INLINABLE mutualBetTransition #-}
 -- | The transitions of the mutual bet state machine.
 mutualBetTransition :: MutualBetParams -> State MutualBetState -> MutualBetInput -> Maybe (TxConstraints Void Void, State MutualBetState)
-mutualBetTransition params@MutualBetParams{mbpOracle} State{stateData=oldState} input =
+mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State{stateData=oldState} input =
     case (oldState, input) of
         (Ongoing bets, newBet@NewBet{newBetAmount, newBettor, newBetTeamId}) 
             | isValidBet params newBet ->
-                let constraints = mempty
+                let constraints = Constraints.mustPayToPubKey mbpOwner $ Ada.toValue mbpBetFee
                     newBets = Bet{betAmount = newBetAmount, betBettor = newBettor, betTeamId = newBetTeamId}:bets
                     newState =
                         State

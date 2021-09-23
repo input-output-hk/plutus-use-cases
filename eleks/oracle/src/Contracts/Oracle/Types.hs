@@ -35,14 +35,14 @@ data Oracle = Oracle
       oRequestTokenSymbol   :: !CurrencySymbol
     , oOperator :: !PubKeyHash
     , oOperatorKey :: !PubKey
-    , oFee      :: !Integer
+    , oFee      :: !Ada
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
 PlutusTx.makeLift ''Oracle
 
 data OracleRequestToken = OracleRequestToken
     { ortOperator :: !PubKeyHash
-    , ortFee      :: !Integer
+    , ortFee      :: !Ada
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
 PlutusTx.makeLift ''OracleRequestToken

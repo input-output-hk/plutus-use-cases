@@ -9,19 +9,20 @@ import           Data.Aeson
 import           Cardano.Api
 import           Cardano.Api.Shelley
 
-import qualified Cardano.Ledger.Alonzo.Data as Alonzo
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Cardano.Ledger.Alonzo.Data     as Alonzo
+import qualified Plutus.V1.Ledger.Api           as Plutus
 
-import qualified Data.ByteString.Short as SBS
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Short          as SBS
+import qualified Data.ByteString                as B
 
-import qualified  Data.ByteString.Lazy.Char8 as LB8
+import qualified  Data.ByteString.Lazy.Char8    as LB8
 import           Contracts.Oracle.RequestToken
 import           Contracts.Oracle.Types
 import           Contracts.Oracle.OnChain
 import           Ledger
+import           Ledger.Ada                     as Ada
 
-import           Wallet.Emulator.Types               (Wallet (..), walletPubKey)
+import           Wallet.Emulator.Types          (Wallet (..), walletPubKey)
 
 -- cabal exec -- gs 42 1500000 "payment.vkey"
 main :: IO ()
@@ -29,7 +30,8 @@ main = do
     args <- getArgs
     let nargs = length args
     let scriptnum = if nargs > 0 then read (args!!0) else 42
-    let fee = if nargs > 1 then read(args!!1) else  1000000
+    let feeInt = if nargs > 1 then read(args!!1) else 1000000
+        fee = Ada.lovelaceOf feeInt
     let oracleScriptFile = "oracle.plutus"
         requestTokenScriptFile = "requesttoken.plutus"
   

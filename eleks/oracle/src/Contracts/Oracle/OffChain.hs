@@ -69,7 +69,7 @@ import Contracts.Oracle.OnChain
 
 data OracleParams = OracleParams
     { opSymbol :: !CurrencySymbol
-    , opFees   :: !Integer
+    , opFees   :: !Ada
     , opSigner :: !PrivateKey
     } deriving (Haskell.Eq, Haskell.Show, Generic, FromJSON, ToJSON)
 
@@ -79,7 +79,7 @@ startOracle op = do
     pkh <- pubKeyHash <$> Contract.ownPubKey
     let oracleRequestTokenInfo = OracleRequestToken
             { ortOperator = pkh
-            , ortFee =opFees op
+            , ortFee = opFees op
             }
     let oracle = Oracle
             { --oSymbol = opSymbol op
@@ -136,7 +136,7 @@ requestOracleForAddress oracle gameId = do
         tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
         forgedToken = assetClassValue (requestTokenClassFromOracle oracle) 1
         oracleFee = oFee oracle 
-        feeVal = Ada.toValue . Ada.lovelaceOf $ oracleFee
+        feeVal = Ada.toValue oracleFee
         oracleData = OracleData 
             { ovRequestAddress = pkh
             , ovGame = gameId
