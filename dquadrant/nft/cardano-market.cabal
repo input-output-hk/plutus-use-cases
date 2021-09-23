@@ -155,7 +155,8 @@ executable market-cli
       cardano-cli,
       cardano-api,
       filepath,
-      directory
+      directory,
+      containers
     , transformers
     , ouroboros-network
     , transformers-except
