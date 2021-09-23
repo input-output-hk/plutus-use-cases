@@ -16,6 +16,7 @@ import Data.Either (Either(..))
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.Symbol (SProxy(..))
 import Data.UserInstance (UserInstance)
 import Effect.Aff.Class (class MonadAff)
@@ -90,9 +91,9 @@ component =
   render st =
     HH.div_
       [ HH.h3_ [ HH.text "Market NFT singletons: " ]
-      , renderNftSingletonLots st.marketplaceState (renderLot <<< Left)
+      , renderNftSingletonLots st.marketplaceState (renderLot st <<< Left)
       , HH.h3_ [ HH.text "Market NFT bundles: " ]
-      , renderNftBundleLots st.marketplaceState (renderLot <<< Right)
+      , renderNftBundleLots st.marketplaceState (renderLot st <<< Right)
       ]
 
   handleAction :: Action -> H.HalogenM State Action Slots output m Unit
@@ -149,8 +150,8 @@ component =
 renderLot ::
   forall m.
   MonadAff m =>
-  Datum.ItemLot -> H.ComponentHTML Action Slots m
-renderLot r = case Datum.getLot r of
+  State -> Datum.ItemLot -> H.ComponentHTML Action Slots m
+renderLot st r = case Datum.getLot r of
   Right auction ->
     HH.div_
       [ renderAuction auction
@@ -162,10 +163,12 @@ renderLot r = case Datum.getLot r of
   Left sale ->
     HH.div_
       [ renderSale sale
-      , HH.button
-          [ HE.onClick \_ -> Just (CloseSale r) ]
-          [ HH.text "Close Sale" ]
-      , HH.button
-          [ HE.onClick \_ -> Just (BuyItem r) ]
-          [ HH.text "Buy Item" ]
+      , if (unwrap sale).saleOwner == st.userInstance.userPubKey then
+          HH.button
+            [ HE.onClick \_ -> Just (CloseSale r) ]
+            [ HH.text "Close Sale" ]
+        else
+          HH.button
+            [ HE.onClick \_ -> Just (BuyItem r) ]
+            [ HH.text "Buy Item" ]
       ]

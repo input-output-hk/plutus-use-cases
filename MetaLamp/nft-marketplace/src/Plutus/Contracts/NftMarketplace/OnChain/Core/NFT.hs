@@ -42,7 +42,9 @@ import qualified Prelude                        as Haskell
 -- generated purescript type has generic instances
 type POSIXTimeT = Integer
 
--- TODO (?) add tags
+-- Category = [BuiltinByteString]
+-- 1. acts as a list of category with nested subcategories
+-- 2. acts as a list of tags
 type IpfsCid = BuiltinByteString
 type IpfsCidHash = BuiltinByteString
 type Auction = (ThreadToken, PubKeyHash, Value, POSIXTimeT)
