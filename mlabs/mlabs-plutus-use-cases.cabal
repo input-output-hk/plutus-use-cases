@@ -24,6 +24,7 @@ common common-imports
     , plutus-ledger
     , plutus-tx
     , plutus-ledger-api
+    , plutus-chain-index
     , plutus-tx-plugin
     , plutus-pab
     , plutus-use-cases

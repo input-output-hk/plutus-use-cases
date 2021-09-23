@@ -81,6 +81,7 @@ test =
     -- , testQueryAllLendexes -- todo: fix - gets stuck in a loop
     -- , testQuerrySupportedCurrencies -- todo: fix
     --    , testQueryCurrentBalance
+    -- , testQueryInsolventAccounts -- todo
     ]
   where
     check msg scene = checkPredicateOptions checkOptions msg (checkScene scene)
@@ -99,7 +100,7 @@ test =
     testQueryAllLendexes = check "QueryAllLendexes works" queryAllLendexesScene queryAllLendexesScript
 
 -- testQueryCurrentBalance = check "QeuryCurrentBalance works" queryCurrentBalanceScene queryCurrentBalanceScript
-
+-- testQueryInsolventAccounts =
 --------------------------------------------------------------------------------
 -- deposit test
 

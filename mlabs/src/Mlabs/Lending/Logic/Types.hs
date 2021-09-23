@@ -52,6 +52,7 @@ module Mlabs.Lending.Logic.Types (
   QueryRes (..),
   SupportedCurrency (..),
   UserBalance (..),
+  InsolventAccount (..),
 ) where
 
 import PlutusTx.Prelude hiding ((%))
@@ -377,9 +378,11 @@ data UserAct
   deriving anyclass (FromJSON, ToJSON)
 
 -- | Query Actions.
-newtype QueryAct
+data QueryAct
   = -- | Query current balance
     QueryCurrentBalanceAct ()
+  | -- |  Query insolvent accounts
+    QueryInsolventAccountsAct ()
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -444,21 +447,19 @@ data UserBalance = UserBalance
   , -- | User Funds
     ub'funds :: Map Coin Wallet
   }
+  deriving (Eq)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
--- data Funds = Funds
---   { -- | Coin
---     funds'coin :: Coin
---   , -- | Deposit Balance
---     funds'deposit :: Integer
---   , -- | Collateral Balance
---     funds'collateral :: Integer
---   , -- | Borrow Balance
---     funds'borrow :: Integer
---   }
---   deriving stock (Hask.Show, Generic, Hask.Eq)
---   deriving anyclass (FromJSON, ToJSON)
+data InsolventAccount = InsolventAccount
+  { -- | User Id
+    ia'id :: !UserId
+  , -- | Insolvent Currencies, with their Current health.
+    ia'ic :: [(Coin, Rational)]
+  }
+  deriving (Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- If another query is added, extend this data type
 
@@ -467,6 +468,7 @@ data QueryRes
   = QueryResAllLendexes [(Address, LendingPool)]
   | QueryResSupportedCurrencies {getSupported :: [SupportedCurrency]}
   | QueryResCurrentBalance UserBalance
+  | QueryResInsolventAccounts [InsolventAccount]
   deriving (Eq)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)

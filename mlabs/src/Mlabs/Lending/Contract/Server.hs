@@ -19,8 +19,9 @@ import Control.Lens ((^.), (^?))
 import Control.Monad (forever, guard)
 import Control.Monad.State.Strict (runStateT)
 
+import Data.Bifunctor (second)
 import Data.List.Extra (firstJust)
-import Data.Map qualified as Map (elems)
+import Data.Map qualified as Map
 import Data.Semigroup (Last (..))
 
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
@@ -42,9 +43,11 @@ import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
 import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
 import Mlabs.Lending.Logic.React qualified as React
 import Mlabs.Lending.Logic.Types qualified as Types
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, readDatum', selectForever)
+import Mlabs.Plutus.Contract (getEndpoint, readChainIndexTxDatum, readDatum, readDatum', selectForever)
+import Plutus.Contract.Request qualified as Request
 import Plutus.Contract.Types (Promise (..), promiseMap, selectList)
 
+import Extra (firstJust)
 import Playground.Types (PlaygroundError (input))
 import PlutusTx.Prelude
 import Prelude qualified as Hask
@@ -111,6 +114,7 @@ queryEndpoints lid =
     [ getEndpoint @Api.QueryAllLendexes $ queryAllLendexes lid
     , getEndpoint @Api.QuerySupportedCurrencies $ \_ -> querySupportedCurrencies lid
     , getEndpoint @Api.QueryCurrentBalance $ queryAction lid
+    , getEndpoint @Api.QueryInsolventAccounts $ queryAction lid
     ]
 
 -- user actions
@@ -144,7 +148,7 @@ startLendex lid (Api.StartLendex Types.StartParams {..}) =
 
 queryAction :: Api.IsQueryAct a => Types.LendexId -> a -> QueryContract ()
 queryAction lid input = do
-  (_, pool) <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
+  (_, pool) <- findDatum lid :: QueryContract (Types.LendexId, Types.LendingPool)
   qAction pool =<< getQueryAct input
   where
     qAction :: Types.LendingPool -> Types.Act -> QueryContract ()
@@ -230,3 +234,17 @@ findInputStateData lid = do
   maybe err pure $ firstJust readDatum' txOuts
   where
     err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
+
+-- | todo: add a unique NFT to distinguish between utxos / review logic.
+findDatum :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError (Types.LendexId, d)
+findDatum lid = do
+  txOuts <- filterTxOuts . Map.toList <$> Request.utxosTxOutTxAt (StateMachine.lendexAddress lid)
+  case txOuts of
+    [(_, [x])] -> maybe err return $ (lid,) <$> x -- only passes if there is only 1 datum instance.
+    _ -> err
+  where
+    err = Contract.throwError . StateMachine.toLendexError $ "Cannot establish correct Lending app instance."
+    filterTxOuts = filter ((== 1) . length . filter isNotNothing . snd) . fmap (second $ readChainIndexTxDatum . snd)
+    isNotNothing = \case
+      Nothing -> False
+      Just _ -> True
