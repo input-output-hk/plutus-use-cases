@@ -71,7 +71,7 @@ initGame oracle game = do
                             , mbpOwner = pubKeyHash $ walletPubKey mutualBetOwnerWallet
                             , mbpTeam1  = team1Id
                             , mbpTeam2  = team2Id 
-                            , mbpMinBet = 3_000_000
+                            , mbpMinBet = 2_000_000
                             , mbpBetFee = 2_000_000 }
     Simulator.logString @(Builtin MutualBetContracts) $ "activate mutual bet contract for wallet " ++ show mutualBetOwnerWallet ++ " gameId " ++ show gameId
     Simulator.logString @(Builtin MutualBetContracts) $ "params" ++ show mutualBetParams

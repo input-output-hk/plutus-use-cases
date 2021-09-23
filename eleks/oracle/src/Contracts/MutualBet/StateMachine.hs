@@ -99,8 +99,8 @@ mkTxPayWinners (winnerAddressHash, winnerPrize) = Constraints.mustPayToPubKey wi
 
 {-# INLINABLE isValidBet #-}
 isValidBet ::  MutualBetParams -> MutualBetInput -> Bool 
-isValidBet MutualBetParams{mbpTeam1, mbpTeam2} NewBet{newBetAmount, newBetTeamId}
-    | newBetAmount <= 0 = False
+isValidBet MutualBetParams{mbpTeam1, mbpTeam2, mbpMinBet} NewBet{newBetAmount, newBetTeamId}
+    | newBetAmount < mbpMinBet = False
     | mbpTeam1 /= newBetTeamId && mbpTeam2 /= newBetTeamId = False
     | otherwise = True
 

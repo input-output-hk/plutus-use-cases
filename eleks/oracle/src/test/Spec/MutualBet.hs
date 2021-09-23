@@ -81,7 +81,7 @@ mutualBetParams =
         , mbpOwner = pubKeyHash $ walletPubKey betOwnerWallet
         , mbpTeam1 = 1
         , mbpTeam2 = 2
-        , mbpMinBet = 3_000_000
+        , mbpMinBet = 2_000_000
         , mbpBetFee = 2_000_000
         }
 
@@ -186,7 +186,7 @@ incorrectBetAmountTrace = do
     Extras.logInfo $ "Trace thread token " ++ show threadToken
     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
     _ <- Trace.waitNSlots 1
-    let bet1Params = NewBetParams { nbpAmount = -1000, nbpWinnerId = 1}
+    let bet1Params = NewBetParams { nbpAmount = (Ada.getLovelace $ mbpMinBet mutualBetParams) - 1, nbpWinnerId = 1}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     void $ Trace.waitNSlots 2
 
@@ -251,7 +251,7 @@ tests =
         )
         incorrectGameBetTrace
         ,
-        checkPredicateOptions options "fail bet if amount less or equal 0"
+        checkPredicateOptions options "fail bet if amount less than min fee"
         (
         assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
         .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ 0)
