@@ -103,15 +103,13 @@ instance ToJSON Game where
 instance Eq Game where
     a == b = (a ^. fixture . fixtureId == b ^. fixture . fixtureId)
 
-getWinnerTeamId :: Either String  Game -> Maybe Integer
+getWinnerTeamId :: Either String Game -> Either String Integer
 getWinnerTeamId gameE = case gameE of
-    Left _ -> Nothing
-    Right game -> do
-        if ( (game ^. fixture . status . short) == FT)
-        then do
-            let team1 = game ^. teams . home
-            let team2 = game ^. teams . away
-            if (team1 ^. winner) 
-            then return (team1 ^. teamId ) 
-            else return (team2 ^. teamId) 
-        else Nothing
+    Right game | game ^. fixture . status . short /= FT -> Left "Game not finished"
+    Right game | game ^. fixture . status . short == FT -> do
+        let team1 = game ^. teams . home
+        let team2 = game ^. teams . away
+        if (team1 ^. winner) 
+            then Right (team1 ^. teamId ) 
+            else Right (team2 ^. teamId) 
+    Left e -> Left e
