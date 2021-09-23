@@ -89,13 +89,13 @@ qReact input = do
     queryInsolventAccounts :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
     queryInsolventAccounts uid _cTime = do
       State.isAdmin uid -- check user is admin
-      allUsersIds :: [UserId] <- fmap fst . M.toList <$> State.getAllUsers
-      allUsers :: [User] <- fmap snd . M.toList <$> State.getAllUsers
+      allUsersIds :: [UserId] <- M.keys <$> State.getAllUsers
+      allUsers :: [User] <- M.elems <$> State.getAllUsers
       userWCoins :: [(UserId, (User, [Types.Coin]))] <-
         fmap (zip allUsersIds . zip allUsers) $
           sequence $ flip State.getsAllWallets M.keys <$> allUsersIds
       insolventUsers :: [(UserId, [(Types.Coin, Rational)])] <- sequence $ fmap aux userWCoins
-      let onlyInsolventUsers = filter ((/= 0) . length . snd) insolventUsers -- Remove the users with no insolvent coins.
+      let onlyInsolventUsers = filter (not . null . snd) insolventUsers -- Remove the users with no insolvent coins.
       pure . wrap $ uncurry Types.InsolventAccount <$> onlyInsolventUsers
       where
         aux :: (UserId, (User, [Types.Coin])) -> State.St (UserId, [(Types.Coin, Rational)])

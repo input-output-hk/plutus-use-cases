@@ -235,26 +235,16 @@ findInputStateData lid = do
   where
     err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
 
-{- | Find datum, is not the best way to find the datum. The logic is not neccesarily correct
- as many datum can be sitting at App address, and there is no way of enforcing which one is
- correct.
- todo: review logic
--}
+-- | todo: add a unique NFT to distinguish between utxos / review logic.
 findDatum :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError (Types.LendexId, d)
 findDatum lid = do
-  txOuts <- Request.utxosTxOutTxAt (StateMachine.lendexAddress lid)
-  let txOuts' = fmap (second readChainIndexTxDatum) . fmap (second snd) $ Map.toList txOuts
-  let txOuts'' = filter ((== 1) . length . filter notNothing . snd) txOuts'
-  case length txOuts'' of
-    1 -> do
-      let res = snd $ head txOuts''
-      case res of
-        [x] -> maybe err1 return $ (lid,) <$> x
-        _ -> err2
-    _ -> err1
+  txOuts <- filterTxOuts . Map.toList <$> Request.utxosTxOutTxAt (StateMachine.lendexAddress lid)
+  case txOuts of
+    [(_, [x])] -> maybe err return $ (lid,) <$> x -- only passes if there is only 1 datum instance.
+    _ -> err
   where
-    err1 = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
-    err2 = Contract.throwError $ StateMachine.toLendexError "Too Many Lending app instances"
-    notNothing = \case
+    err = Contract.throwError . StateMachine.toLendexError $ "Cannot establish correct Lending app instance."
+    filterTxOuts = filter ((== 1) . length . filter isNotNothing . snd) . fmap (second $ readChainIndexTxDatum . snd)
+    isNotNothing = \case
       Nothing -> False
       Just _ -> True
