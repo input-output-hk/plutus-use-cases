@@ -19,10 +19,10 @@ import Control.Lens ((^.), (^?))
 import Control.Monad (forever, guard)
 import Control.Monad.State.Strict (runStateT)
 
-import Data.List.Extra (firstJust)
-import Data.Map qualified as Map 
-import Data.Semigroup (Last (..))
 import Data.Bifunctor (second)
+import Data.List.Extra (firstJust)
+import Data.Map qualified as Map
+import Data.Semigroup (Last (..))
 
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
 import Ledger.Crypto (pubKeyHash)
@@ -43,14 +43,14 @@ import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
 import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
 import Mlabs.Lending.Logic.React qualified as React
 import Mlabs.Lending.Logic.Types qualified as Types
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, readDatum', readChainIndexTxDatum, selectForever)
+import Mlabs.Plutus.Contract (getEndpoint, readChainIndexTxDatum, readDatum, readDatum', selectForever)
+import Plutus.Contract.Request qualified as Request
 import Plutus.Contract.Types (Promise (..), promiseMap, selectList)
-import qualified Plutus.Contract.Request as Request 
 
+import Extra (firstJust)
 import Playground.Types (PlaygroundError (input))
 import PlutusTx.Prelude
 import Prelude qualified as Hask
-import Extra (firstJust)
 
 -- | User contract monad
 type UserContract a = Contract.Contract () Api.UserSchema StateMachine.LendexError a
@@ -148,7 +148,7 @@ startLendex lid (Api.StartLendex Types.StartParams {..}) =
 
 queryAction :: Api.IsQueryAct a => Types.LendexId -> a -> QueryContract ()
 queryAction lid input = do
-  (_, pool) <- findInputStateData lid :: QueryContract (Types.LendexId, Types.LendingPool)
+  (_, pool) <- findDatum lid :: QueryContract (Types.LendexId, Types.LendingPool)
   qAction pool =<< getQueryAct input
   where
     qAction :: Types.LendingPool -> Types.Act -> QueryContract ()
@@ -235,25 +235,26 @@ findInputStateData lid = do
   where
     err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
 
--- | Find datum, is not the best way to find the datum. The logic is not neccesarily correct 
--- as many datum can be sitting at App address, and there is no way of enforcing which one is
--- correct. 
--- todo: review logic
-findDatum :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError d
+{- | Find datum, is not the best way to find the datum. The logic is not neccesarily correct
+ as many datum can be sitting at App address, and there is no way of enforcing which one is
+ correct.
+ todo: review logic
+-}
+findDatum :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError (Types.LendexId, d)
 findDatum lid = do
   txOuts <- Request.utxosTxOutTxAt (StateMachine.lendexAddress lid)
-  let txOuts' = fmap (second readChainIndexTxDatum). fmap (second snd) $ Map.toList txOuts  
-  let txOuts'' = filter ( (==1) . length . filter(notNothing) . snd) txOuts'
+  let txOuts' = fmap (second readChainIndexTxDatum) . fmap (second snd) $ Map.toList txOuts
+  let txOuts'' = filter ((== 1) . length . filter notNothing . snd) txOuts'
   case length txOuts'' of
-    1 -> do 
+    1 -> do
       let res = snd $ head txOuts''
-      case length res of 
-        1 -> maybe err1 return $ head res 
-        _ -> err2 
+      case res of
+        [x] -> maybe err1 return $ (lid,) <$> x
+        _ -> err2
     _ -> err1
   where
     err1 = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
     err2 = Contract.throwError $ StateMachine.toLendexError "Too Many Lending app instances"
-    notNothing = \case 
+    notNothing = \case
       Nothing -> False
       Just _ -> True

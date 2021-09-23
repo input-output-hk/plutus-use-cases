@@ -39,7 +39,6 @@ import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Plutus.V1.Ledger.Value (TokenName, Value)
 import Plutus.V1.Ledger.Value qualified as Value
-import Wallet.Emulator.Wallet (WalletNumber, fromWalletNumber)
 
 import Mlabs.Lending.Contract.Emulator.Client qualified as L
 import Mlabs.Lending.Contract.Forge (currencySymbol)

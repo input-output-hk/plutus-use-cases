@@ -28,14 +28,16 @@ import Mlabs.Lending.Logic.Types (
   BadBorrow (BadBorrow, badBorrow'userId),
   CoinCfg (coinCfg'aToken, coinCfg'coin, coinCfg'interestModel, coinCfg'liquidationBonus, coinCfg'rate),
   CoinRate (CoinRate, coinRate'lastUpdateTime),
+  -- UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
+  --         act'amount, act'receiveAToken, act'debtToCover, act'debt,
+  --         act'collateral),
+
+  InsolventAccount (ia'ic),
   InterestModel (im'optimalUtilisation, im'slope1, im'slope2),
   LendingPool (lp'coinMap, lp'healthReport, lp'reserves, lp'users),
   Reserve (reserve'rate, reserve'wallet),
   User (user'health, user'lastUpdateTime, user'wallets),
   UserAct (..),
-  -- UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
-  --         act'amount, act'receiveAToken, act'debtToCover, act'debt,
-  --         act'collateral),
   UserId (Self),
   Wallet (wallet'borrow, wallet'collateral, wallet'deposit),
   adaCoin,
@@ -43,6 +45,9 @@ import Mlabs.Lending.Logic.Types (
  )
 import Mlabs.Lending.Logic.Types qualified as Types
 import PlutusTx.Ratio qualified as R
+
+-- import qualified Control.Monad.RWS.Strict as State
+-- import PlutusCore.Name (isEmpty)
 
 {-# INLINEABLE qReact #-}
 
@@ -62,7 +67,7 @@ qReact input = do
     queryCurrentBalance :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
     queryCurrentBalance uid _cTime = do
       user <- State.getUser uid
-      tWallet <- State.getWallet' uid
+      tWallet <- State.getAllWallets uid
       tDeposit <- State.getTotalDeposit user
       tCollateral <- State.getTotalCollateral user
       tBorrow <- State.getTotalBorrow user
@@ -78,12 +83,30 @@ qReact input = do
           }
 
     ---------------------------------------------------------------------------------------------------------
-    -- Insolvent Accounts Query    
+    -- Insolvent Accounts Query
+    -- Returns a list of users where the health of a coin is under 1, together
+    -- with the health of the coin. Only admins can use.
     queryInsolventAccounts :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
     queryInsolventAccounts uid _cTime = do
-      pure . Just . Last . Types.QueryResInsolventAccounts $
-        uncurry Types.InsolventAccount <$> []
+      State.isAdmin uid -- check user is admin
+      allUsersIds :: [UserId] <- fmap fst . M.toList <$> State.getAllUsers
+      allUsers :: [User] <- fmap snd . M.toList <$> State.getAllUsers
+      userWCoins :: [(UserId, (User, [Types.Coin]))] <-
+        fmap (zip allUsersIds . zip allUsers) $
+          sequence $ flip State.getsAllWallets M.keys <$> allUsersIds
+      insolventUsers :: [(UserId, [(Types.Coin, Rational)])] <- sequence $ fmap aux userWCoins
+      let onlyInsolventUsers = filter ((/= 0) . length . snd) insolventUsers -- Remove the users with no insolvent coins.
+      pure . wrap $ uncurry Types.InsolventAccount <$> onlyInsolventUsers
+      where
+        aux :: (UserId, (User, [Types.Coin])) -> State.St (UserId, [(Types.Coin, Rational)])
+        aux = \(uId, (user, coins)) -> do
+          y <- sequence $ flip State.getCurrentHealthCheck user <$> coins
+          let coins' = fst <$> filter snd (zip coins y)
+          y' <- sequence $ flip State.getCurrentHealth user <$> coins'
+          let coins'' = zip coins' y'
+          pure $ (,) uId coins''
 
+        wrap = Just . Last . Types.QueryResInsolventAccounts
 
 {-# INLINEABLE react #-}
 

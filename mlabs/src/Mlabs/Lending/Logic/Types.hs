@@ -381,8 +381,8 @@ data UserAct
 data QueryAct
   = -- | Query current balance
     QueryCurrentBalanceAct ()
-    -- |  Query insolvent accounts
-  | QueryInsolventAccountsAct ()
+  | -- |  Query insolvent accounts
+    QueryInsolventAccountsAct ()
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -447,17 +447,17 @@ data UserBalance = UserBalance
   , -- | User Funds
     ub'funds :: Map Coin Wallet
   }
-  deriving Eq
+  deriving (Eq)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
 data InsolventAccount = InsolventAccount
   { -- | User Id
     ia'id :: !UserId
-  , -- | Liquidation Rate
-    ia'rate :: !Integer
+  , -- | Insolvent Currencies, with their Current health.
+    ia'ic :: [(Coin, Rational)]
   }
-  deriving Eq
+  deriving (Eq)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
@@ -469,7 +469,7 @@ data QueryRes
   | QueryResSupportedCurrencies {getSupported :: [SupportedCurrency]}
   | QueryResCurrentBalance UserBalance
   | QueryResInsolventAccounts [InsolventAccount]
-  deriving Eq
+  deriving (Eq)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 

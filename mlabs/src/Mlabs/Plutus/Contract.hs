@@ -17,12 +17,14 @@ module Mlabs.Plutus.Contract (
 import PlutusTx.Prelude
 import Prelude (String, foldl1)
 
-import Control.Lens (review, (^?), (^.), view)
+import Control.Lens (review, view, (^.), (^?))
 import Control.Monad (forever)
 import Control.Monad.Freer (Eff)
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Bifunctor (second)
 import Data.Functor (void)
 import Data.Kind (Type)
+import Data.Map qualified as M
 import Data.OpenUnion (Member)
 import Data.Proxy (Proxy (..))
 import Data.Row (KnownSymbol, Row)
@@ -31,15 +33,13 @@ import Ledger (Datum (Datum), DatumHash, TxOut (txOutDatumHash), TxOutTx (txOutT
 import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress, ciTxOutDatum, toTxOut, txOutAddress)
 import Mlabs.Data.List (maybeRight)
 import Playground.Contract (Contract, ToSchema)
+import Plutus.ChainIndex.Tx (ChainIndexTx, citxData)
 import Plutus.Contract qualified as Contract
 import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator (Simulation, callEndpointOnInstance, waitNSlots)
 import Plutus.Trace.Effects.RunContract (RunContract, callEndpoint)
 import Plutus.Trace.Emulator.Types (ContractConstraints, ContractHandle)
 import PlutusTx (FromData, fromBuiltinData)
-import Plutus.ChainIndex.Tx (ChainIndexTx, citxData)
-import qualified Data.Map as M
-import Data.Bifunctor (second)
 
 -- | For off-chain code
 readDatum :: FromData a => TxOutTx -> Maybe a
@@ -48,18 +48,20 @@ readDatum txOut = do
   Datum e <- lookupDatum (txOutTxTx txOut) h
   PlutusTx.fromBuiltinData e
 
--- | For off-chain code - from querying the chain
--- Using ChainIndexTxOut returned by `utxosAt`
+{- | For off-chain code - from querying the chain
+ Using ChainIndexTxOut returned by `utxosAt`
+-}
 readDatum' :: FromData a => ChainIndexTxOut -> Maybe a
 readDatum' txOut = do
   d <- txOut ^? ciTxOutDatum
   Datum e <- maybeRight d
   PlutusTx.fromBuiltinData e
 
--- | For off-chain code - from querying the chain
--- Using the ChainIndexTx returned by `utxosTxOutTxAt`
+{- | For off-chain code - from querying the chain
+ Using the ChainIndexTx returned by `utxosTxOutTxAt`
+-}
 readChainIndexTxDatum :: FromData a => ChainIndexTx -> [Maybe a]
-readChainIndexTxDatum =  fmap (snd . second (\(Datum e) -> PlutusTx.fromBuiltinData e)) . M.toList . view citxData  
+readChainIndexTxDatum = fmap (snd . second (\(Datum e) -> PlutusTx.fromBuiltinData e)) . M.toList . view citxData
 
 type Call a = Contract.Endpoint (EndpointSymbol a) a
 
