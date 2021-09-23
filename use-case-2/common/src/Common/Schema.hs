@@ -19,6 +19,7 @@ data Db f = Db
   { _db_contracts :: f (TableEntity ContractT)
   , _db_pooledTokens :: f (TableEntity PooledTokenT)
   , _db_txFeeDataSet :: f (TableEntity TxFeeDataSetT)
+  , _db_pools :: f (TableEntity PoolT)
   }
   deriving (Generic, Database be)
 
@@ -46,9 +47,21 @@ data TxFeeDataSetT f = TxFeeDataSet
   }
   deriving (Generic)
 
+-- Liquidity Pool
+data PoolT f = Pool
+  { _pool_tokenASymbol :: Columnar f Text
+  , _pool_tokenBSymbol :: Columnar f Text
+  , _pool_tokenAAmount :: Columnar f Int32
+  , _pool_tokenBAmount :: Columnar f Int32
+  , _pool_liquiditySymbol :: Columnar f Text
+  , _pool_liquidityAmount :: Columnar f Int32
+  }
+  deriving (Generic)
+
 instance Beamable ContractT
 instance Beamable PooledTokenT
 instance Beamable TxFeeDataSetT
+instance Beamable PoolT
 
 instance Table ContractT where
   newtype PrimaryKey ContractT f = ContractId { _contractId_id :: Columnar f Int32 }
@@ -65,13 +78,20 @@ instance Table TxFeeDataSetT where
     deriving (Generic)
   primaryKey = TxFeeDataSetId . _txFeeDataSet_id
 
+instance Table PoolT where
+  newtype PrimaryKey PoolT f = LiquiditySymbol { _liquiditySymbol_id :: Columnar f Text }
+    deriving (Generic)
+  primaryKey = LiquiditySymbol . _pool_liquiditySymbol
+
 instance Beamable (PrimaryKey ContractT)
 instance Beamable (PrimaryKey PooledTokenT)
 instance Beamable (PrimaryKey TxFeeDataSetT)
+instance Beamable (PrimaryKey PoolT)
 
 type Contract = ContractT Identity
 type PooledToken = PooledTokenT Identity
 type TxFeeData = TxFeeDataSetT Identity
+type LPool = PoolT Identity
 
 deriving instance Show Contract
 deriving instance Eq Contract
@@ -88,3 +108,8 @@ deriving instance Show TxFeeData
 deriving instance Eq TxFeeData
 deriving instance FromJSON TxFeeData
 deriving instance ToJSON TxFeeData
+
+deriving instance Show LPool
+deriving instance Eq LPool
+deriving instance FromJSON LPool
+deriving instance ToJSON LPool

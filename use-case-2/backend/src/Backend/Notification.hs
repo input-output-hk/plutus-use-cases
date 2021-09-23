@@ -17,6 +17,7 @@ import Common.Schema
 
 data Notification :: * -> * where
   Notification_Contract :: Notification Contract
+  Notification_Pool :: Notification LPool
 
 deriveJSONGADT ''Notification
 deriveArgDict ''Notification
