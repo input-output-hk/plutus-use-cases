@@ -107,15 +107,18 @@ getWallets httpManager pool = do
   initReq <- parseRequest "http://localhost:8080/api/new/contract/instances"
   let req = initReq { method = "GET" }
   resp <- httpLbs req httpManager
-  let val = Aeson.eitherDecode (responseBody resp) :: Either String Aeson.Value
+  let val = Aeson.eitherDecode (responseBody resp) :: Either String [Aeson.Value]
   case val of
     Left err -> do
       print $ "getWallets: failed to decode response body: " ++ err
       return ()
-    Right obj -> do
-      let contractInstanceIds = obj ^.. values . key "cicContract". key "unContractInstanceId" . _String
-          walletIds = obj ^.. values . key "cicWallet". key "getWallet" . _Integer
-          walletContracts = zipWith (\a b -> Contract a (fromIntegral b)) contractInstanceIds walletIds
+    Right objs -> do
+      let walletContracts = flip mapMaybe objs $ \obj -> do
+            contractInstanceId <- obj ^? key "cicContract". key "unContractInstanceId" . _String
+            walletId <- obj ^? key "cicWallet". key "getWallet" . _Integer
+            definition <- obj ^? key "cicDefintion". key "tag" . _String
+            guard $ definition == "UniswapUser"
+            return $ Contract contractInstanceId (fromIntegral walletId)
       print $ "Wallet Ids persisted: " ++ show walletContracts -- DEBUG: Logging incoming wallets/contract ids
       -- Persist participating wallet addresses to Postgresql
       runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
