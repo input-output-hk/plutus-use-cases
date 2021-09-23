@@ -51,9 +51,9 @@ instance Beamable PooledTokenT
 instance Beamable TxFeeDataSetT
 
 instance Table ContractT where
-  newtype PrimaryKey ContractT f = ContractId { _contractId_id :: Columnar f Text }
+  newtype PrimaryKey ContractT f = ContractId { _contractId_id :: Columnar f Int32 }
     deriving (Generic)
-  primaryKey = ContractId . _contract_id
+  primaryKey = ContractId . _contract_walletId
 
 instance Table PooledTokenT where
   data PrimaryKey PooledTokenT f = PooledTokenId { _pooledTokenId_symbol :: Columnar f Text, _pooledTokenId_name :: Columnar f Text }

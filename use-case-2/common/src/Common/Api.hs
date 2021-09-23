@@ -13,6 +13,8 @@ import Data.Aeson.GADT.TH
 import Data.Constraint.Extras.TH
 import Data.GADT.Compare.TH
 import Data.GADT.Show.TH
+import Data.Int
+import Data.Map (Map)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import Data.Vessel
@@ -34,7 +36,7 @@ type DexV = Vessel Q
 
 -- Note: This is view
 data Q (v :: (* -> *) -> *) where
-  Q_ContractList :: Q (IdentityV (First (Maybe [Text])))
+  Q_ContractList :: Q (IdentityV (Map Int32 (First (Maybe Text))))
   Q_PooledTokens :: Q (IdentityV (First (Maybe [PooledToken])))
 
 data Api :: * -> * where

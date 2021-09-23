@@ -12,12 +12,11 @@ import Data.Aeson
 import Data.Aeson.GADT.TH
 import Data.Constraint.Extras.TH
 import Data.GADT.Show.TH
-import Data.Int
 
--- import Common.Schema
+import Common.Schema
 
 data Notification :: * -> * where
-  Notification_Counter :: Notification Int32
+  Notification_Contract :: Notification Contract
 
 deriveJSONGADT ''Notification
 deriveArgDict ''Notification

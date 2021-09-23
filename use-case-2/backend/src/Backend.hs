@@ -17,7 +17,9 @@ import Data.Aeson.Lens
 import qualified Data.Aeson as Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy.Char8 as BS
+import Data.Dependent.Sum
 import Data.Int (Int32)
+import qualified Data.Map as Map
 import Data.Maybe
 import Data.Pool
 import Data.Proxy
@@ -42,6 +44,7 @@ import Rhyolite.Backend.App
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.Serializable
 import Rhyolite.Backend.Listen
+import Rhyolite.Concurrent
 import Safe (lastMay)
 import Statistics.Regression
 
@@ -62,7 +65,7 @@ backend = Backend
       httpManager <- newManager defaultManagerSettings
       withDb "db" $ \pool -> do
         withResource pool runMigrations
-        getWallets httpManager pool
+        stopSyncUniswapUsers <- worker (1000 * 1000 * 5) $ syncUniswapUsers httpManager pool
         getPooledTokens httpManager pool
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
@@ -71,7 +74,7 @@ backend = Backend
           (QueryHandler $ \q -> fmap (fromMaybe emptyV) $ mapDecomposedV (queryHandler pool) q)
           vesselFromWire
           vesselPipeline -- (tracePipeline "==> " . vesselPipeline)
-        flip finally finalizeServeDb $ serve $ \case
+        flip finally (stopSyncUniswapUsers >> finalizeServeDb) $ serve $ \case
           BackendRoute_Listen :/ () -> handleListen
           _ -> return ()
   , _backend_routeEncoder = fullRouteEncoder
@@ -90,28 +93,32 @@ requestHandler httpManager pool = RequestHandler $ \case
   Api_EstimateTransactionFee action -> estimateTransactionFee pool action
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
-notifyHandler _ _ = return mempty
+notifyHandler dbNotification _ = case _dbNotification_message dbNotification of
+  Notification_Contract :=> Identity contract -> do
+    return $ singletonV Q_ContractList $ IdentityV $ Identity $
+      Map.singleton (_contract_walletId contract) $ First $ Just $ _contract_id contract
 
 queryHandler :: Pool Pg.Connection -> DexV Proxy -> IO (DexV Identity)
 queryHandler pool v = buildV v $ \case
   -- Handle View to see list of available wallet contracts
   Q_ContractList -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
     contracts <- runSelectReturningList $ select $ all_ (_db_contracts db)
-    return $ IdentityV $ Identity $ First $ Just $ _contract_id <$> contracts
+    return $ IdentityV $ Identity $ Map.fromList $
+      fmap (\c -> (_contract_walletId c, First $ Just $ _contract_id c)) contracts
   Q_PooledTokens -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
     pooledTokens <- runSelectReturningList $ select $ all_ (_db_pooledTokens db)
     return $ IdentityV $ Identity $ First $ Just $ pooledTokens
 
-getWallets :: Manager -> Pool Pg.Connection -> IO ()
-getWallets httpManager pool = do
+-- Query for active instances from the PAB and upsert new UniswapUser instance ids.
+syncUniswapUsers :: Manager -> Pool Pg.Connection -> IO ()
+syncUniswapUsers httpManager pool = do
   initReq <- parseRequest "http://localhost:8080/api/new/contract/instances"
   let req = initReq { method = "GET" }
   resp <- httpLbs req httpManager
   let val = Aeson.eitherDecode (responseBody resp) :: Either String [Aeson.Value]
   case val of
     Left err -> do
-      print $ "getWallets: failed to decode response body: " ++ err
-      return ()
+      putStrLn $ "getWallets: failed to decode response body: " ++ err
     Right objs -> do
       let walletContracts = flip mapMaybe objs $ \obj -> do
             contractInstanceId <- obj ^? key "cicContract". key "unContractInstanceId" . _String
@@ -121,11 +128,11 @@ getWallets httpManager pool = do
             return $ Contract contractInstanceId (fromIntegral walletId)
       print $ "Wallet Ids persisted: " ++ show walletContracts -- DEBUG: Logging incoming wallets/contract ids
       -- Persist participating wallet addresses to Postgresql
-      runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
-        runInsert $ insertOnConflict (_db_contracts db) (insertValues walletContracts)
-          (conflictingFields _contract_id)
-          onConflictDoNothing
-  return ()
+      runNoLoggingT $ runDb (Identity pool) $ do
+        rows <- runBeamSerializable $ runInsertReturningList $ insertOnConflict (_db_contracts db) (insertValues walletContracts)
+          (conflictingFields primaryKey)
+          onConflictUpdateAll
+        mapM_ (notify NotificationType_Insert Notification_Contract) rows
 
 getPooledTokens :: Manager -> Pool Pg.Connection -> IO ()
 getPooledTokens httpManager pool = do
