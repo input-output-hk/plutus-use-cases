@@ -70,16 +70,17 @@ initGame oracle game = do
                             , mbpOracle = oracle
                             , mbpTeam1  = team1Id
                             , mbpTeam2  = team2Id }
+    Simulator.logString @(Builtin MutualBetContracts) $ "activate mutual bet contract for wallet " ++ show mutualBetOwnerWallet ++ " gameId " ++ show gameId
     Simulator.logString @(Builtin MutualBetContracts) $ "params" ++ show mutualBetParams
     cidStartContract <- Simulator.activateContract mutualBetOwnerWallet $ MutualBetStartContract mutualBetParams
-    return cidStartContract
     Simulator.logString @(Builtin MutualBetContracts) $ "get thread token"
     threadToken <- waitForLastBetOuput cidStartContract
     Simulator.logString @(Builtin MutualBetContracts) $ "game thread token " ++ show threadToken
     void $ forM bettorWallets $ \bettorWallet -> do
+        Simulator.logString @(Builtin MutualBetContracts) $ "activate bettor contract for wallet " ++ show bettorWallet ++ " gameId " ++ show gameId
         cidBettorContract <- Simulator.activateContract bettorWallet $ MutualBetBettorContract slotCfg threadToken mutualBetParams
         Simulator.waitForEndpoint cidBettorContract "bet"
-        Simulator.logString @(Builtin MutualBetContracts) "bettor endpoint started for wallet"
+        Simulator.logString @(Builtin MutualBetContracts) $ "bettor endpoint started for wallet " ++ show bettorWallet ++ " gameId " ++ show gameId
         return ()
     return ()
 
@@ -100,6 +101,8 @@ main = void $ Simulator.runSimulationWith handlers $ do
     Simulator.waitForEndpoint cidOracle "update"
     games <- liftIO $ fromRight [] <$> GameClient.getGames
     void $ forM games $ \game -> do
+        -- creates oracle request only for one item without this
+        Simulator.waitNSlots 1
         initGame oracle game
 
     forever $ do
@@ -111,8 +114,8 @@ main = void $ Simulator.runSimulationWith handlers $ do
             game <- liftIO $ GameClient.getGameById gameId
             let winnerIdM = getWinnerTeamId game
             case winnerIdM of
-                Nothing -> Simulator.logString @(Builtin MutualBetContracts) $ "Game is not finished"
-                Just winnerId -> do
+                Left e -> Simulator.logString @(Builtin MutualBetContracts) $ e
+                Right winnerId -> do
                     let updateParams = UpdateOracleParams 
                                         { uoGameId   = gameId
                                         , uoWinnerId = winnerId
