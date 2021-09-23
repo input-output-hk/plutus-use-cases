@@ -119,18 +119,17 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                             , stateValue = Ada.toValue $ betsValueAmount newBets
                             }
                 in Just (constraints, newState)
-        (Ongoing bets, Payout{oracleValue, oracleRef})
-            | isValueSigned oracleValue ->
+        (Ongoing bets, Payout{oracleValue, oracleRef, oracleWinnerSigned})
+            | Just (winnerId, signConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleWinnerSigned ->
                 let 
-                    winners = getWinners (ovWinnerTeamId oracleValue) bets
+                    winners = getWinners winnerId bets
                     redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
                     constraints = foldMap mkTxPayWinners winners 
                                 <> Constraints.mustSpendScriptOutput oracleRef redeemer
+                                <> signConstraints
                     newState = State { stateData = Finished bets, stateValue = mempty }
                 in Just (constraints, newState)
         _ -> Nothing
-    where isValueSigned oracleValue = isJust $ verifyOracleValueSigned (ovWinnerSigned oracleValue) (oOperatorKey mbpOracle)
-
 
 {-# INLINABLE mutualBetStateMachine #-}
 mutualBetStateMachine :: (ThreadToken, MutualBetParams) -> MutualBetMachine

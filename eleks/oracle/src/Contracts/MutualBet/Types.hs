@@ -97,7 +97,7 @@ PlutusTx.unstableMakeIsData ''MutualBetState
 -- | Transition between auction states
 data MutualBetInput
     = NewBet { newBetAmount :: Ada, newBettor :: PubKeyHash, newBetTeamId :: Integer } -- Increase the price
-    | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef }
+    | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef, oracleWinnerSigned :: SignedMessage Integer  }
     deriving stock (Generic, Haskell.Show)
     deriving anyclass (ToJSON, FromJSON)
 

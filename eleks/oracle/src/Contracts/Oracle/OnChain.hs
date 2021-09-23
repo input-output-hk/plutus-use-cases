@@ -33,6 +33,7 @@ import qualified Data.ByteString.Lazy      as LBS
 import qualified Data.Map                  as Map
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               (Last (..))
+import           Data.Void                 (Void)
 import           Data.Text                 (Text, pack)
 import qualified Data.List.NonEmpty        as NonEmpty
 import           GHC.Generics              (Generic)
@@ -44,7 +45,7 @@ import qualified Ledger.Scripts            as LedgerScripts
 import qualified Ledger.Tx                 as LedgerScripts
 import           Ledger.Constraints        as Constraints
 import qualified Ledger.Contexts           as Validation
-import           Ledger.Oracle             (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), checkSignature)
+import           Ledger.Oracle             (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), verifySignedMessageConstraints)
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
@@ -118,7 +119,9 @@ mkOracleValidator oracle oracleData r ctx =
         Nothing -> traceError "Input data is invalid"
         Just h  -> h
 
-    isValueSigned = isJust $ verifyOracleValueSigned (ovWinnerSigned oracleData) (oOperatorKey oracle)
+    isValueSigned = isJust $ case (ovWinnerSigned oracleData) of 
+                                Nothing     -> Nothing
+                                Just signed -> verifyOracleValueSigned (oOperatorKey oracle) signed
 
     feesPaid :: Bool
     feesPaid =
@@ -129,14 +132,10 @@ mkOracleValidator oracle oracleData r ctx =
         outVal `geq` (inVal <> Ada.toValue (oFee oracle))
 
 {-# INLINABLE verifyOracleValueSigned #-}
-verifyOracleValueSigned :: Maybe (SignedMessage Integer) -> PubKey -> Maybe Integer
-verifyOracleValueSigned smMaybe pk =
-    case smMaybe of
-        Nothing -> Nothing
-        Just sm@SignedMessage{osmMessageHash, osmSignature, osmDatum=Datum dv} -> do
-            case checkSignature osmMessageHash pk osmSignature of
-                Left err -> Nothing
-                Right _  -> maybe (Nothing) pure (PlutusTx.fromBuiltinData dv) 
+verifyOracleValueSigned :: PubKey -> SignedMessage Integer -> Maybe (Integer, TxConstraints Void Void)
+verifyOracleValueSigned pubKey sm = case verifySignedMessageConstraints pubKey sm of
+    Left _                        -> Nothing
+    Right (winnerId, constraints) -> Just (winnerId, constraints)
 
 
 data Oracling

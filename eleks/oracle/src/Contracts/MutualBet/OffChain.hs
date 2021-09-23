@@ -38,7 +38,7 @@ import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Default                     (Default (def))
 import           Data.Either                      (fromRight)
 import qualified Data.Map                          as Map
-import           Data.Maybe                       (fromJust)
+import           Data.Maybe                       (catMaybes)
 import           Data.Monoid                      (Last (..))
 import           Data.Text                        (Text, pack)
 import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
@@ -132,7 +132,7 @@ mutualBetStart params = do
     logInfo $ MutualBetStarted params
     logInfo ("Request oracle for game " ++ (Haskell.show $ mbpGame params))
     _ <- mapError OracleError $ requestOracleForAddress (mbpOracle params) (mbpGame params)
-    (oref, o, ov) <- waitForGameEnd params
+    (oref, o, ov, signed) <- waitForGameEnd params
     logInfo ("Payout " ++ Haskell.show ov)
     let lookups = ScriptLookups
                 { slMPS = Map.empty
@@ -142,7 +142,7 @@ mutualBetStart params = do
                 , slTypedValidator = Nothing
                 , slOwnPubkey = Nothing
                 }
-    r <- SM.runStepWith lookups mempty client Payout{oracleValue = ov, oracleRef = oref}
+    r <- SM.runStepWith lookups mempty client Payout{oracleValue = ov, oracleRef = oref, oracleWinnerSigned = signed}
     case r of
         SM.TransitionFailure i            -> logError (TransitionFailed i) -- TODO: Add an endpoint "retry" to the seller?
         SM.TransitionSuccess (Finished h) -> logInfo $ MutualBetEnded h
@@ -175,36 +175,39 @@ Updates to the user are provided via 'tell'.
 
 -}
 
-isGameCompleted :: Ledger.PubKey -> MutualBetParams -> OracleData -> Either Haskell.String OracleData
-isGameCompleted pk params oracleData
+isGameCompleted :: Ledger.PubKey -> MutualBetParams -> OracleData -> Oracle.SignedMessage Integer -> Either Haskell.String OracleData
+isGameCompleted pk params oracleData signedMessage
     | (pubKeyHash pk) /= (ovRequestAddress oracleData) = Left "Not signed by owner wallet"
     | (mbpGame params) /= (ovGame oracleData) = Left "Not current game"
-    | isNothing (ovWinnerSigned oracleData) = Left "Not signed"
     | otherwise = case Oracle.verifySignedMessageOffChain 
-            (oOperatorKey $ mbpOracle params) (fromJust $ ovWinnerSigned oracleData) of
+            (oOperatorKey $ mbpOracle params) signedMessage of
                 Left err       -> Left "Sign error"
                 Right winnerId -> 
                     if winnerId > 0 
                     then Right oracleData
                     else Left "Winner is empty"
 
+mapSignedMessage :: (TxOutRef, TxOutTx, OracleData) -> Maybe (TxOutRef, TxOutTx, OracleData, Oracle.SignedMessage Integer)
+mapSignedMessage (oref, o, od) = case ovWinnerSigned od of
+    Just signed -> Just (oref, o, od, signed)
+    Nothing -> Nothing
+
 waitForGameEnd ::
     MutualBetParams
-    -> Contract w s MutualBetError (TxOutRef, TxOutTx, OracleData)
+    -> Contract w s MutualBetError (TxOutRef, TxOutTx, OracleData, Oracle.SignedMessage Integer)
 waitForGameEnd params = do
         waitEnd
-    where 
+    where
+        isCompleted pk params(_, _, oracleData, signed) = isRight $ isGameCompleted pk params oracleData signed
         waitEnd = do  
             txs <- mapError OracleError $ awaitNextOracleRequest (mbpOracle params)
             pk <- ownPubKey
             logInfo @Haskell.String "Await next"
-
-            let currentGameSignedTx = find (\(_, _, oracleData) -> isRight $ isGameCompleted pk params oracleData) txs
+            let currentGameSignedTx = find (isCompleted pk params) . catMaybes . map mapSignedMessage $ txs 
             case currentGameSignedTx of
                 Nothing -> do { logInfo @Haskell.String "Not completed"; waitEnd; }
                 Just d -> return d
 
-     
 data BettorEvent =
         MutualBetIsOver [Bet] -- ^ The mutual bet is over
         | MakeBet NewBetParams -- ^ make a bet bet
