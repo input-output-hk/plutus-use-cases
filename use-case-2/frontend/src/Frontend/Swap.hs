@@ -190,33 +190,56 @@ transactionDetails pabEMV formDMD = do
                     Nothing -> V.empty
                     Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
               parseLiquidityTokensToMap poolDetails
-          let swapEstimate = ffor ((,) <$> dynPoolMap <*> formD) $
-                \(poolMap, ((selA, amtA), (selB, amtB))) -> do
-                  let ((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) = fromMaybe (("", 0), ("", 0))
-                        $ fmap snd
-                        $ headMay
-                        $ Map.elems
-                        $ Map.filter (\(_,((tknameA,_), (tknameB, _)))
-                        -> tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB)) poolMap
-                  let amtA' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtA
-                      amtB' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtB
-                  if amtA' == 0
-                    then (findSwapA coinBPoolAmount coinAPoolAmount amtB', coinAName)
-                    else (findSwapA coinAPoolAmount coinBPoolAmount amtA', coinBName)
-          dyn_ $ ffor swapEstimate $ \(estimate, eTokenName) ->
-            elClass "p" "text-info" $ text
-              $ "Estimated to receive "
-              <> (T.pack $ show estimate)
-              <> " " <> (T.pack $ show $ if "" == eTokenName then "ADA" else eTokenName)
-          txFeeEstimateResp <- do
-            pb <- getPostBuild
-            requesting $
-              Api_EstimateTransactionFee SmartContractAction_Swap <$ leftmost [pb, void $ updated formD]
-          widgetHold_ blank $ ffor txFeeEstimateResp $ \txFeeEstimate ->
-            elClass "p" "text-warning" $ text
-              $ "Estimated transaction fee: "
-              <> (T.pack $ show $ runIdentity txFeeEstimate)
-              <> " ADA"
+          dyn_ $ ffor ((,) <$> dynPoolMap <*> formD) $ \(poolMap, ((selA, amtAText), (selB, amtBText))) -> do
+            let amtA :: Integer = fromMaybe 0 $ readMay $ T.unpack amtAText
+                amtB :: Integer = fromMaybe 0 $ readMay $ T.unpack amtBText
+            let info = fmap snd
+                  $ headMay
+                  $ Map.elems
+                  $ Map.filter
+                      (\(_,((tknameA,_), (tknameB, _))) ->
+                        tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB))
+                      poolMap
+                swapEstimate = ffor info $ \((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) -> do
+                  if amtA == 0
+                    then (findSwapA coinBPoolAmount coinAPoolAmount amtB, coinAName)
+                    else (findSwapA coinAPoolAmount coinBPoolAmount amtA, coinBName)
+                mkTokenName :: Text -> Text
+                mkTokenName = \case
+                  "" -> "ADA"
+                  tn -> T.pack $ show tn
+                oneNonZero = elClass "p" "text-warning" $
+                  text "Exactly 1 amount must not be zero or the smart contract will reject."
+            case swapEstimate of
+              Nothing -> do
+                elClass "p" "text-warning" $ text $ T.unwords
+                  [ "No pool for"
+                  , mkTokenName (_pooledToken_name selA)
+                  , "and"
+                  , mkTokenName (_pooledToken_name selB)
+                  ]
+                elClass "p" "text-info" $ text "N.B. the order matters, so try flipping."
+              Just (estimate, eTokenName) -> do
+                let doEst = elClass "p" "text-info"
+                      $ text
+                      $ "Estimated to receive "
+                      <> (T.pack $ show estimate)
+                      <> " " <> (mkTokenName eTokenName)
+                case (amtA, amtB) of
+                  (0, 0) -> oneNonZero
+                  (0, _) -> doEst
+                  (_, 0) -> doEst
+                  (_, _) -> oneNonZero
+          do
+            txFeeEstimateResp <- do
+              pb <- getPostBuild
+              requesting $
+                Api_EstimateTransactionFee SmartContractAction_Swap <$ leftmost [pb, void $ updated formD]
+            widgetHold_ blank $ ffor txFeeEstimateResp $ \txFeeEstimate ->
+              elClass "p" "text-warning" $ text
+                $ "Estimated transaction fee: "
+                <> (T.pack $ show $ runIdentity txFeeEstimate)
+                <> " ADA"
 
 viewPooledTokens
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
