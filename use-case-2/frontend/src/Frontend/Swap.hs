@@ -69,34 +69,39 @@ swapDashboard wid = do
       el "p" $ text "What would you like to swap?"
     -- widget that contains the swap form
     divClass "card-group mb-3 text-center" $ do
-      formEvent <- selectCoins wid pabEV
-      transactionDetails wid pabEV formEvent
+      formDyn <- selectCoins wid pabEV
+      transactionDetails pabEV formDyn
 
 selectCoins
-  :: forall t m js
+  :: forall t m
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
-     , Prerender js t m
      , MonadIO (Performable m)
-     , SetRoute t (R FrontendRoute) m
      )
   => Text
   -> Event t (Maybe Aeson.Value)
-  -> m (Event t (Maybe ((PooledToken, Text), (PooledToken, Text))))
+  -> m (Dynamic t (Maybe ((PooledToken, Text), (PooledToken, Text))))
 selectCoins wid pabEV = do
+  divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
+    divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
+    divClass "card-body" $ divClass "form container" $ divClass "form-group" $ do
       dmmPooledTokens <- viewPooledTokens
-      switchHold never <=< dyn $ ffor dmmPooledTokens $ \case
-        Nothing -> return never
+      let asdf :: Event t (Dynamic t (Maybe a))
+               -> m (Dynamic t (Maybe a))
+          asdf = fmap join . holdDyn (pure Nothing) -- TODO too prompt
+      (=<<) asdf $ dyn $ ffor dmmPooledTokens $ \case
+        Nothing -> do
+          text "loading pool tokens..."
+          return $ pure Nothing
         Just mPoolTokens -> case mPoolTokens of
-          Nothing -> return never
+          Nothing -> do
+            text "no pool tokens"
+            return $ pure Nothing
           Just poolTokens -> do
             let dropdownList = Map.fromListWith (\_ tkName -> tkName) $ flip fmap poolTokens $ \pt ->
                   if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
                 twoOptions = initMay $ Map.keys dropdownList
             case twoOptions of
-              Just (fstOpt:sndOpt:_) -> do
-                divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
-                  divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
-                  divClass "card-body" $ divClass "form container" $ divClass "form-group" $ mdo
+              Just (fstOpt:sndOpt:_) -> mdo
                     -- Select first token and amount
                     (selectionA, amountA) <- divClass "input-group row" $ do
                       coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
@@ -172,23 +177,18 @@ selectCoins wid pabEV = do
                             let errMsg = incomingWebSocketData ^.. key "Left" . _String
                             elClass "p" "text-danger" $ text $ T.concat errMsg
                       return $ leftmost [observableStateFailureEvent, observableStateSuccessEvent]
-                    return $ updated $ fmap Just $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> ((selA, amtA), (selB, amtB))
+                    return $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> Just ((selA, amtA), (selB, amtB))
               _ -> do
                 elClass "p" "text-warning" $ text "There are no tokens available to swap."
-                return never
+                pure $ pure Nothing
 
 transactionDetails
-  :: forall t m js
-  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
-     , Prerender js t m
-     , MonadIO (Performable m)
-     , SetRoute t (R FrontendRoute) m
-     )
-  => Text
-  -> Event t (Maybe Aeson.Value)
-  -> Event t (Maybe ((PooledToken, Text), (PooledToken, Text)))
+  :: forall t m
+  .  MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+  => Event t (Maybe Aeson.Value)
+  -> Dynamic t (Maybe ((PooledToken, Text), (PooledToken, Text)))
   -> m ()
-transactionDetails wid pabEV formEvent = do
+transactionDetails pabEV formDyn = do
       -- widget that shows transaction details such as swap estimates, etc.
       divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
         divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Transaction Details"
@@ -204,8 +204,7 @@ transactionDetails wid pabEV formEvent = do
           -- combine events from from updates and smart contract pool data to perform swap estimates
           dynPoolMap :: Dynamic t (Maybe (Map.Map Text (Integer, ((Text, Integer), (Text, Integer)))))
             <- holdDyn Nothing poolMapEv
-          poolAndFormEvent <- holdDyn (Nothing, Nothing) $ attachPromptlyDyn dynPoolMap formEvent
-          let swapEstimate = ffor poolAndFormEvent $ \case
+          let swapEstimate = ffor ((,) <$> dynPoolMap <*> formDyn) $ \case
                 (Just poolMap, Just ((selA, amtA), (selB, amtB))) -> do
                   let ((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) = fromMaybe (("", 0), ("", 0))
                         $ fmap snd
@@ -216,10 +215,10 @@ transactionDetails wid pabEV formEvent = do
                   let amtA' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtA
                       amtB' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtB
                       (swapAmount, estimatedTkName) = if amtA' == 0 then (amtB',coinAName) else (amtA',coinBName)
-                  (findSwapA coinAPoolAmount coinBPoolAmount swapAmount, estimatedTkName)
-                _ -> (0, "")
-          txFeeEstimateResp <- requesting $ fmap (\sca -> Api_EstimateTransactionFee sca) $ SmartContractAction_Swap <$ formEvent
-          widgetHold_ blank $ ffor (updated swapEstimate) $ \(estimate, eTokenName) ->
+                  Just (findSwapA coinAPoolAmount coinBPoolAmount swapAmount, estimatedTkName)
+                _ -> Nothing
+          txFeeEstimateResp <- requesting $ fmap (\sca -> Api_EstimateTransactionFee sca) $ SmartContractAction_Swap <$ updated formDyn
+          widgetHold_ blank $ ffor (fmapMaybe id $ updated swapEstimate) $ \(estimate, eTokenName) ->
             elClass "p" "text-info" $ text
               $ "Estimated to receive "
               <> (T.pack $ show estimate)
