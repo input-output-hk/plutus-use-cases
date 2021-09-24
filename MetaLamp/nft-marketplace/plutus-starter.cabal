@@ -41,7 +41,7 @@ common lang
 library
     import: lang
     exposed-modules:
-      Plutus.Contracts.NftMarketplace.OnChain.Core Plutus.Contracts.NftMarketplace.OffChain.Serialization Ext.Plutus.PAB.Webserver.Server Plutus.Contracts.NftMarketplace.OffChain.ID Plutus.Contracts.NftMarketplace.OnChain.Core.ID Plutus.Contracts.Services.Sale.Core Plutus.Contracts.NftMarketplace.OnChain.Core.NFT Ext.Plutus.Contracts.Auction Plutus.Contracts.Services.Sale Plutus.Contracts.Services.Sale.Endpoints Plutus.Contracts.Services.Sale.StateMachine Plutus.Contracts.NftMarketplace.OffChain.Info Ext.Plutus.Ledger.Value Plutus.Contracts.NftMarketplace.OffChain.User Plutus.Abstract.ContractResponse Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation
+      Plutus.Contracts.NftMarketplace.OnChain.Core Plutus.Abstract.RemoteData Plutus.Abstract.ContractResp Plutus.Contracts.NftMarketplace.OffChain.Serialization Ext.Plutus.PAB.Webserver.Server Plutus.Contracts.NftMarketplace.OffChain.ID Plutus.Contracts.NftMarketplace.OnChain.Core.ID Plutus.Contracts.Services.Sale.Core Plutus.Contracts.NftMarketplace.OnChain.Core.NFT Ext.Plutus.Contracts.Auction Plutus.Contracts.Services.Sale Plutus.Contracts.Services.Sale.Endpoints Plutus.Contracts.Services.Sale.StateMachine Plutus.Contracts.NftMarketplace.OffChain.Info Ext.Plutus.Ledger.Value Plutus.Contracts.NftMarketplace.OffChain.User Plutus.Abstract.ContractResponse Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation
     build-depends:
       base >= 4.9 && < 5,
       aeson,
