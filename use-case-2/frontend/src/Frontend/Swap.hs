@@ -21,6 +21,7 @@ import Control.Category
 import Control.Applicative
 import Control.Lens
 import Control.Monad
+import Control.Monad.Fix
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
@@ -138,12 +139,12 @@ selectCoins wid pabEV = do
                     let ffor4 a b c d f = liftA3 f a b c <*> d
                         pooledTokenToCoin pt = Coin $ AssetClass (CurrencySymbol (_pooledToken_symbol pt), TokenName (_pooledToken_name pt))
                         toAmount amt = Amount $ (read (T.unpack amt) :: Integer)
-                        requestLoad = ((\w c1 c2 a1 a2 -> Api_Swap w c1 c2 a1 a2)
+                        requestLoad = Api_Swap
                           <$> (constDyn $ ContractInstanceId wid)
                           <*> (pooledTokenToCoin <$> selectionA)
                           <*> (pooledTokenToCoin <$> selectionB)
                           <*> (toAmount <$> amountA)
-                          <*> (toAmount <$> amountB))
+                          <*> (toAmount <$> amountB)
                     -- This response returns transaction fee information, it does not return the swap response
                     -- TODO still, do *something* with it, to handle failure cases?
                     _responseVal  <- requesting $ tagPromptlyDyn requestLoad swap
@@ -214,8 +215,9 @@ transactionDetails pabEV formDyn = do
                         -> tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB)) poolMap
                   let amtA' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtA
                       amtB' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtB
-                      (swapAmount, estimatedTkName) = if amtA' == 0 then (amtB',coinAName) else (amtA',coinBName)
-                  Just (findSwapA coinAPoolAmount coinBPoolAmount swapAmount, estimatedTkName)
+                  Just $ if amtA' == 0
+                    then (findSwapA coinBPoolAmount coinAPoolAmount amtB', coinAName)
+                    else (findSwapA coinAPoolAmount coinBPoolAmount amtA', coinBName)
                 _ -> Nothing
           txFeeEstimateResp <- requesting $ fmap (\sca -> Api_EstimateTransactionFee sca) $ SmartContractAction_Swap <$ updated formDyn
           widgetHold_ blank $ ffor (fmapMaybe id $ updated swapEstimate) $ \(estimate, eTokenName) ->
@@ -231,10 +233,14 @@ transactionDetails pabEV formDyn = do
 
 viewPooledTokens
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
+     , MonadHold t m
+     , MonadFix m
      , Reflex t
      )
   => m (Dynamic t (Maybe (Maybe [PooledToken])))
-viewPooledTokens = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
+viewPooledTokens = do
+  v <- (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
+  holdUniqDyn v
 
 -- | Nothing is returned, because this is just a command to tell the backend to
 -- poll the PAB for new data to *push* to our live queries.
@@ -250,3 +256,4 @@ pollRefreshPoolBalance wid = do
   -- recurring event used to poll for pool balance
   pollingEvent <- tickLossyFromPostBuildTime 10
   requesting_ $ (Api_CallPools (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
+

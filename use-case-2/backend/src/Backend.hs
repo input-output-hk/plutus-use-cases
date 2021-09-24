@@ -268,7 +268,7 @@ curl \
 executeSwap :: Manager
   -> Pool Pg.Connection
   -> String
-  -> (Coin AssetClass , Amount Integer)
+  -> (Coin AssetClass, Amount Integer)
   -> (Coin AssetClass, Amount Integer)
   -> IO (Either String Aeson.Value)
 executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do

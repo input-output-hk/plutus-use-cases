@@ -21,6 +21,7 @@ import Control.Category
 import Control.Applicative
 import Control.Lens
 import Control.Monad
+import Control.Monad.Fix
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
@@ -384,7 +385,11 @@ poolDashboard wid = do
 
 viewPooledTokens
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
+     , MonadHold t m
+     , MonadFix m
      , Reflex t
      )
   => m (Dynamic t (Maybe (Maybe [PooledToken])))
-viewPooledTokens = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
+viewPooledTokens = do
+  v <- (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
+  holdUniqDyn v
