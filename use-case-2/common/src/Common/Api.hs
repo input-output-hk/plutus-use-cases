@@ -40,6 +40,10 @@ data Q (v :: (* -> *) -> *) where
   Q_PooledTokens :: Q (IdentityV (First (Maybe [PooledToken])))
   Q_Pools :: Q (IdentityV (Map Text (First (Maybe LPool))))
 
+-- | In Obelisk apps, we follow CQRS such that only these should have side
+-- effects, and only return ephemeral data like failure/sucess related to the
+-- command. The (live) queries defined elsewhere should return actual persisted
+-- application data.
 data Api :: * -> * where
   Api_Swap :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String Aeson.Value)
   Api_Stake :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String Aeson.Value)

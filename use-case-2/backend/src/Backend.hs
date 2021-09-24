@@ -80,6 +80,7 @@ backend = Backend
   , _backend_routeEncoder = fullRouteEncoder
   }
 
+-- | Handle requests / commands, a standard part of Obelisk apps.
 requestHandler :: Manager -> Pool Pg.Connection -> RequestHandler Api IO
 requestHandler httpManager pool = RequestHandler $ \case
   Api_Swap contractId coinA coinB amountA amountB ->
@@ -292,7 +293,12 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"apAmountA":4500,"apAmountB":9000,"apCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"apCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/3b0bafe2-14f4-4d34-a4d8-633afb8e52eb/endpoint/add
 -}
-executeStake :: Manager -> String -> (Coin AssetClass , Amount Integer) -> (Coin AssetClass, Amount Integer) -> IO (Either String Aeson.Value)
+executeStake
+  :: Manager
+  -> String
+  -> (Coin AssetClass , Amount Integer)
+  -> (Coin AssetClass, Amount Integer)
+  -> IO (Either String Aeson.Value)
 executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/add"
       reqBody = AddParams {
@@ -317,7 +323,13 @@ executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
 {-
 curl -H "Content-Type: application/json"      --request POST   --data '{"rpDiff":2461,"rpCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"rpCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/9079d01a-342b-4d4d-88b5-7525ff1118d6/endpoint/remove
 -}
-executeRemove :: Manager -> String -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> IO (Either String Aeson.Value)
+executeRemove
+  :: Manager
+  -> String
+  -> Coin AssetClass
+  -> Coin AssetClass
+  -> Amount Integer
+  -> IO (Either String Aeson.Value)
 executeRemove httpManager contractId coinA coinB amount = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/remove"
       reqBody = RemoveParams {
@@ -339,7 +351,10 @@ executeRemove httpManager contractId coinA coinB amount = do
   (either (\a -> return $ Left a) (\a -> return $ Right $ fst a)) =<< fetchObservableStateFees httpManager contractId
 
 -- Grabs transaction fees from `observaleState` field from the contract instance status endpoint.
-fetchObservableStateFees :: Manager -> String -> IO (Either String (Aeson.Value, Aeson.Value)) -- (TransactionFees, ScriptSize)
+fetchObservableStateFees
+  :: Manager
+  -> String
+  -> IO (Either String (Aeson.Value, Aeson.Value)) -- (TransactionFees, ScriptSize)
 fetchObservableStateFees httpManager contractId = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/status"
   initReq <- parseRequest requestUrl
@@ -359,7 +374,10 @@ fetchObservableStateFees httpManager contractId = do
       return $ Right $ (Aeson.Array txFeeDetails, scrSize)
 
 -- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
-callFunds :: Manager -> ContractInstanceId Text -> IO ()
+callFunds
+  :: Manager
+  -> ContractInstanceId Text
+  -> IO ()
 callFunds httpManager contractId = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" <> (unContractInstanceId contractId) <> "/endpoint/funds"
       reqBody = "[]"
@@ -373,7 +391,10 @@ callFunds httpManager contractId = do
   return ()
 
 -- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
-callPools :: Manager -> ContractInstanceId Text -> IO ()
+callPools
+  :: Manager
+  -> ContractInstanceId Text
+  -> IO ()
 callPools httpManager contractId = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" <> (unContractInstanceId contractId) <> "/endpoint/pools"
       reqBody = "[]"
@@ -386,7 +407,11 @@ callPools httpManager contractId = do
   _ <- httpLbs req httpManager
   return ()
 
-estimateTransactionFee :: MonadIO m => Pool Pg.Connection -> SmartContractAction -> m Integer
+estimateTransactionFee
+  :: MonadIO m
+  => Pool Pg.Connection
+  -> SmartContractAction
+  -> m Integer
 estimateTransactionFee pool action = case action of
   SmartContractAction_Swap -> do
     -- Perform Multiple regression on data set to estimate transaction fee
@@ -412,5 +437,13 @@ estimateTransactionFee pool action = case action of
 
 -- | Run a 'MonadBeam' action inside a 'Serializable' transaction. This ensures only safe
 -- actions happen inside the 'Serializable'
-runBeamSerializable :: (forall m. (MonadBeam Postgres m, MonadBeamInsertReturning Postgres m, MonadBeamUpdateReturning Postgres m, MonadBeamDeleteReturning Postgres m) => m a) -> Serializable a
+runBeamSerializable
+  :: (forall m
+      . ( MonadBeam Postgres m
+        , MonadBeamInsertReturning Postgres m
+        , MonadBeamUpdateReturning Postgres m
+        , MonadBeamDeleteReturning Postgres m
+        )
+      => m a)
+  -> Serializable a
 runBeamSerializable action = unsafeMkSerializable $ liftIO . flip runBeamPostgres action =<< ask
