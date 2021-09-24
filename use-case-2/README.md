@@ -17,13 +17,27 @@ By the end of this README you will be able to run the POKE-DEX on your machine l
 
 1. **Install Obelisk** by following the instructions [here](https://github.com/obsidiansystems/obelisk#installing-obelisk).
 
-2. **Make sure you don't have anything running using port 8080**.  You can check by running `netstat -nltp | grep ':8080'`; if you see something like `tcp        0      0 0.0.0.0:8080            0.0.0.0:*               LISTEN      1234/some-server-process`, that means the port is in use by `some-server-process`, and you will need to stop that process.
+1. **Optional: Add Nix caches**.  Otherwise you will have to spend a very long time compiling things from source.  The following includes both Obelisk and Cardano (IOHK) caches:
+    ```nix
+        binaryCaches = [
+          "https://nixcache.reflex-frp.org"
+          "https://hydra.iohk.io"
+          "https://iohk.cachix.org"
+        ];
+        binaryCachePublicKeys = [
+          "ryantrinkle.com-1:JJiAKaRv9mWgpVAz8dwewnZe0AzzEAzPkagE9SP5NWI="
+          "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
+          "iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo="
+        ];
+    ```
 
-3. **Run PAB** in its own terminal window by `cd`ing to this directory and runing `./scripts/run-pab.sh`.  Once it has started running, it will output something like `[INFO] Starting PAB backend server on port: 8080`, followed by many additional lines starting with `[INFO]`.  You will need to leave the PAB running for as long as you are using the app; if the PAB shuts down for any reason, all chain data will be lost, and you will need to `rm -rf db` to clear the app state and then restart from this step.
+1. **Make sure you don't have anything running using port 8080**.  You can check by running `netstat -nltp | grep ':8080'`; if you see something like `tcp        0      0 0.0.0.0:8080            0.0.0.0:*               LISTEN      1234/some-server-process`, that means the port is in use by `some-server-process`, and you will need to stop that process.
 
-4. **Run this App** in a separate terminal window by `cd`ing to this directory and running `ob run`.  After a while, it will output lines starting with `"Pool tokens persisted:`, at which point the app is fully functional.
+1. **Run PAB** in its own terminal window by `cd`ing to this directory and runing `./scripts/run-pab.sh`.  Once it has started running, it will output something like `[INFO] Starting PAB backend server on port: 8080`, followed by many additional lines starting with `[INFO]`.  You will need to leave the PAB running for as long as you are using the app; if the PAB shuts down for any reason, all chain data will be lost, and you will need to `rm -rf db` to clear the app state and then restart from this step.
 
-5. **Open the App** in a Chrome or Chromium window (**not** Firefox, see [below](#development-mode-supported-browsers)), navigate to [http://localhost:8000](http://localhost:8000).
+1. **Run this App** in a separate terminal window by `cd`ing to this directory and running `ob run`.  After a while, it will output lines starting with `"Pool tokens persisted:`, at which point the app is fully functional.
+
+1. **Open the App** in a Chrome or Chromium window (**not** Firefox, see [below](#development-mode-supported-browsers)), navigate to [http://localhost:8000](http://localhost:8000).
 
 ##  Development Mode Supported Browsers
 `ob run` uses a lot of tricks to make development fast.  Currently, it is only tested with Chrome-based browsers, such as Google Chrome and Chromium.  Firefox does **not** work - typically the app will load, but then hang.
