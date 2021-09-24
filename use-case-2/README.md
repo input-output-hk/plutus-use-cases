@@ -32,7 +32,8 @@ By the end of this README you will be able to run the POKE-DEX on your machine l
   1. Google Chrome
   1. Chromium
 
-  Note: Firefox can not run the app given that `ob run`(the only instructions provided to see the fronted) does not currently support this browser, app may appear to be broken.
+  Note: Firefox can not run the app given that `ob run`(the only instructions provided to see the fronted) does *not* currently support this browser, app may appear to be broken.
+  Production deploys where the frontend is compiled to JavaScript, rather than puppetteered from the backend for a quick dev debug cycle, do work in firefox.
 
 ##  Developing this Plutus Obelisk Dapp
 
