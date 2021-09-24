@@ -31,12 +31,12 @@ import qualified Ledger.Value                   as V
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import qualified Plutus.Contracts.Services.Sale as Sale
+import           Plutus.Types.Percentage        (Percentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap              as AssocMap
 import           PlutusTx.Prelude               hiding (Semigroup (..))
 import           Prelude                        (Semigroup (..))
 import qualified Prelude                        as Haskell
-import Plutus.Types.Percentage (Percentage)
 
 -- TODO can't use POSIXTime directly because of custom JSON instances defined in Plutus:
 -- generated purescript type has generic instances
@@ -53,13 +53,13 @@ type LotLink = Either Sale.Sale Auction
 type BundleId = BuiltinByteString
 
 data Auction = Auction {
-    aThreadToken :: ThreadToken,
-    aOwner :: PubKeyHash,
-    aAsset :: Value,
-    aInitialPrice :: Value,
-    aEndTime :: POSIXTimeT,
+    aThreadToken         :: ThreadToken,
+    aOwner               :: PubKeyHash,
+    aAsset               :: Value,
+    aInitialPrice        :: Value,
+    aEndTime             :: POSIXTimeT,
     aMarketplaceOperator :: PubKeyHash,
-    aMarketplaceSaleFee :: Percentage
+    aMarketplaceSaleFee  :: Percentage
   }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

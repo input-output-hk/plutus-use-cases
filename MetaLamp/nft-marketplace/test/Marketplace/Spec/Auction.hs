@@ -16,6 +16,7 @@ import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
 import qualified Ext.Plutus.Contracts.Auction                 as Auction
 import           Ledger                                       (Value)
+import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Bundles                     as Bundles
@@ -30,7 +31,6 @@ import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress)
-import           Ledger.Ada                                   (lovelaceValueOf)
 
 tests :: TestTree
 tests =

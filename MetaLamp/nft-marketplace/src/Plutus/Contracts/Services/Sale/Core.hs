@@ -29,13 +29,13 @@ import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Value
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
+import           Plutus.Types.Percentage      (Percentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap            as AssocMap
 import           PlutusTx.Prelude             hiding (Semigroup (..))
 import           Prelude                      (Semigroup (..))
 import qualified Prelude                      as Haskell
 import qualified Schema
-import Plutus.Types.Percentage (Percentage)
 
 type Saler = PubKeyHash
 type Buyer = PubKeyHash
@@ -43,12 +43,12 @@ type LovelacePrice = Integer
 
 data Sale =
   Sale
-    { saleProtocolToken :: !ThreadToken,
-      salePrice         :: !LovelacePrice,
-      saleValue         :: !Value,
-      saleOwner         :: !Saler,
+    { saleProtocolToken   :: !ThreadToken,
+      salePrice           :: !LovelacePrice,
+      saleValue           :: !Value,
+      saleOwner           :: !Saler,
       marketplaceOperator :: !PubKeyHash,
-      marketplaceSaleFee    :: !Percentage
+      marketplaceSaleFee  :: !Percentage
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

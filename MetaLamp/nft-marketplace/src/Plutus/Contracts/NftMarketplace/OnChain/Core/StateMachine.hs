@@ -28,14 +28,14 @@ import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
 import qualified Plutus.Contracts.Services.Sale                   as Sale
+import           Plutus.Types.Marketplace
+import           Plutus.Types.Percentage                          (Percentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                as AssocMap
 import           PlutusTx.Prelude                                 hiding
                                                                   (Semigroup (..))
 import           Prelude                                          (Semigroup (..))
 import qualified Prelude                                          as Haskell
-import Plutus.Types.Percentage (Percentage)
-import Plutus.Types.Marketplace 
 
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
@@ -128,7 +128,7 @@ removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
 transition marketplace@Marketplace{..} state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
-        -> Just ( mustBeSignedByIssuer nftEntry <> 
+        -> Just ( mustBeSignedByIssuer nftEntry <>
                   Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )

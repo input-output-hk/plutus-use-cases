@@ -16,42 +16,46 @@
 
 module Ext.Plutus.Contracts.Auction where
 
-import           Control.Lens                     (makeClassyPrisms)
-import           Data.Aeson                       (FromJSON, ToJSON)
-import           Data.Monoid                      (Last (..))
-import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
-import           GHC.Generics                     (Generic)
-import           Ledger                           (Ada, PubKeyHash, Slot, Value)
+import           Control.Lens                                     (makeClassyPrisms)
+import           Data.Aeson                                       (FromJSON,
+                                                                   ToJSON)
+import           Data.Monoid                                      (Last (..))
+import           Data.Semigroup.Generic                           (GenericSemigroupMonoid (..))
+import           GHC.Generics                                     (Generic)
+import           Ledger                                           (Ada,
+                                                                   PubKeyHash,
+                                                                   Slot, Value)
 import qualified Ledger
-import qualified Ledger.Ada                       as Ada
-import qualified Ledger.Constraints               as Constraints
-import           Ledger.Constraints.TxConstraints (TxConstraints)
-import qualified Ledger.Interval                  as Interval
-import qualified Ledger.Typed.Scripts             as Scripts
-import           Ledger.Typed.Tx                  (TypedScriptTxOut (..))
-import           Ledger.Value                     (AssetClass)
+import qualified Ledger.Ada                                       as Ada
+import qualified Ledger.Constraints                               as Constraints
+import           Ledger.Constraints.TxConstraints                 (TxConstraints)
+import qualified Ledger.Interval                                  as Interval
+import qualified Ledger.Typed.Scripts                             as Scripts
+import           Ledger.Typed.Tx                                  (TypedScriptTxOut (..))
+import           Ledger.Value                                     (AssetClass)
 import           Plutus.Contract
-import           Plutus.Contract.StateMachine     hiding (mkValidator,
-                                                   typedValidator)
-import qualified Plutus.Contract.StateMachine     as SM
-import           Plutus.Contract.Util             (loopM)
-import qualified Plutus.Contracts.Currency        as Currency
+import           Plutus.Contract.StateMachine                     hiding
+                                                                  (mkValidator,
+                                                                   typedValidator)
+import qualified Plutus.Contract.StateMachine                     as SM
+import           Plutus.Contract.Util                             (loopM)
+import qualified Plutus.Contracts.Currency                        as Currency
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as Core
+import           Plutus.Types.Percentage                          (Percentage (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
-import qualified Prelude                          as Haskell
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as Core
-import Plutus.Types.Percentage (Percentage(..))
-import qualified PlutusTx.Ratio as Ratio
+import qualified PlutusTx.Ratio                                   as Ratio
+import qualified Prelude                                          as Haskell
 
 -- | Definition of an auction
 data AuctionParams
     = AuctionParams
-        { apOwner   :: PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
-        , apAsset   :: Value -- ^ The asset itself. This value is going to be locked by the auction script output.
-        , apEndTime :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
-        , apInitialPrice :: Value
+        { apOwner               :: PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
+        , apAsset               :: Value -- ^ The asset itself. This value is going to be locked by the auction script output.
+        , apEndTime             :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
+        , apInitialPrice        :: Value
         , apMarketplaceOperator :: PubKeyHash
-        , apMarketplaceSaleFee    :: Percentage
+        , apMarketplaceSaleFee  :: Percentage
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON)
@@ -73,7 +77,7 @@ fromAuction Core.Auction {..} = AuctionParams {
 
 {-# INLINABLE toAuction #-}
 toAuction :: SM.ThreadToken -> AuctionParams -> Core.Auction
-toAuction threadToken AuctionParams {..} = 
+toAuction threadToken AuctionParams {..} =
     Core.Auction {
         aThreadToken = threadToken
         , aOwner = apOwner

@@ -24,16 +24,16 @@ import           Ledger.Value
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Services.Sale.Core
+import           Plutus.Types.Percentage             (Percentage (..))
+import qualified Plutus.Types.Percentage             as Percentage
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                   as AssocMap
 import           PlutusTx.Prelude                    hiding (Semigroup (..))
+import           PlutusTx.Ratio                      ((%))
+import qualified PlutusTx.Ratio                      as Ratio
 import           Prelude                             (Semigroup (..), (/))
 import qualified Prelude                             as Haskell
 import qualified Schema
-import Plutus.Types.Percentage (Percentage(..))
-import qualified Plutus.Types.Percentage as Percentage
-import qualified PlutusTx.Ratio as Ratio
-import PlutusTx.Ratio ((%))
 
 data SaleRedeemer
   = Buy Buyer

@@ -13,61 +13,60 @@
 
 module Plutus.PAB.Simulation where
 
-import           Control.Monad                                (forM, forM_,
-                                                               void, when)
-import           Control.Monad.Freer                          (Eff, Member,
-                                                               interpret,
-                                                               type (~>))
-import           Control.Monad.Freer.Error                    (Error)
-import           Control.Monad.Freer.Extras.Log               (LogMsg)
-import           Control.Monad.IO.Class                       (MonadIO (..))
-import           Data.Aeson                                   (FromJSON,
-                                                               Result (..),
-                                                               ToJSON, encode,
-                                                               fromJSON)
-import           Data.Default                                 (Default (def))
-import qualified Data.Map.Strict                              as Map
-import qualified Data.Monoid                                  as Monoid
-import qualified Data.Semigroup                               as Semigroup
-import           Data.Text                                    (Text)
-import           Data.Text.Prettyprint.Doc                    (Pretty (..),
-                                                               viaShow)
-import qualified Ext.Plutus.PAB.Webserver.Server              as Ext.Plutus.PAB
-import           GHC.Generics                                 (Generic)
+import           Control.Monad                                  (forM, forM_,
+                                                                 void, when)
+import           Control.Monad.Freer                            (Eff, Member,
+                                                                 interpret,
+                                                                 type (~>))
+import           Control.Monad.Freer.Error                      (Error)
+import           Control.Monad.Freer.Extras.Log                 (LogMsg)
+import           Control.Monad.IO.Class                         (MonadIO (..))
+import           Data.Aeson                                     (FromJSON,
+                                                                 Result (..),
+                                                                 ToJSON, encode,
+                                                                 fromJSON)
+import           Data.Default                                   (Default (def))
+import qualified Data.Map.Strict                                as Map
+import qualified Data.Monoid                                    as Monoid
+import qualified Data.Semigroup                                 as Semigroup
+import           Data.Text                                      (Text)
+import           Data.Text.Prettyprint.Doc                      (Pretty (..),
+                                                                 viaShow)
+import qualified Ext.Plutus.PAB.Webserver.Server                as Ext.Plutus.PAB
+import           GHC.Generics                                   (Generic)
 import           Ledger
-import           Ledger.Ada                                   (adaSymbol,
-                                                               adaToken,
-                                                               adaValueOf,
-                                                               lovelaceValueOf
-                                                               )
+import           Ledger.Ada                                     (adaSymbol,
+                                                                 adaToken,
+                                                                 adaValueOf,
+                                                                 lovelaceValueOf)
 import           Ledger.Constraints
-import qualified Ledger.Constraints.OffChain                  as Constraints
-import qualified Ledger.Typed.Scripts                         as Scripts
-import           Ledger.Value                                 as Value
-import           Plutus.Abstract.ContractResponse             (ContractResponse (..))
-import           Plutus.Contract                              hiding (when)
-import           Plutus.Contracts.Currency                    as Currency
-import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
-import qualified Plutus.Contracts.Services.Sale               as Sale
-import           Plutus.PAB.Effects.Contract                  (ContractEffect (..))
-import           Plutus.PAB.Effects.Contract.Builtin          (Builtin,
-                                                               SomeBuiltin (..),
-                                                               type (.\\))
-import qualified Plutus.PAB.Effects.Contract.Builtin          as Builtin
-import           Plutus.PAB.Monitoring.PABLogMsg              (PABMultiAgentMsg)
-import           Plutus.PAB.Simulator                         (Simulation,
-                                                               SimulatorEffectHandlers)
-import qualified Plutus.PAB.Simulator                         as Simulator
-import           Plutus.PAB.Types                             (PABError (..))
-import qualified Plutus.PAB.Types                             as PAB
-import qualified Plutus.PAB.Webserver.Server                  as PAB
-import           Prelude                                      hiding (init)
-import           Wallet.Emulator.Types                        (Wallet (..),
-                                                               walletPubKey)
-import           Wallet.Types                                 (ContractInstanceId)
-import PlutusTx.Ratio ((%), Ratio)
+import qualified Ledger.Constraints.OffChain                    as Constraints
+import qualified Ledger.Typed.Scripts                           as Scripts
+import           Ledger.Value                                   as Value
+import           Plutus.Abstract.ContractResponse               (ContractResponse (..))
+import           Plutus.Contract                                hiding (when)
+import           Plutus.Contracts.Currency                      as Currency
+import qualified Plutus.Contracts.NftMarketplace.Endpoints      as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OffChain.Owner as Owner
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
+import qualified Plutus.Contracts.Services.Sale                 as Sale
+import           Plutus.PAB.Effects.Contract                    (ContractEffect (..))
+import           Plutus.PAB.Effects.Contract.Builtin            (Builtin,
+                                                                 SomeBuiltin (..),
+                                                                 type (.\\))
+import qualified Plutus.PAB.Effects.Contract.Builtin            as Builtin
+import           Plutus.PAB.Monitoring.PABLogMsg                (PABMultiAgentMsg)
+import           Plutus.PAB.Simulator                           (Simulation,
+                                                                 SimulatorEffectHandlers)
+import qualified Plutus.PAB.Simulator                           as Simulator
+import           Plutus.PAB.Types                               (PABError (..))
+import qualified Plutus.PAB.Types                               as PAB
+import qualified Plutus.PAB.Webserver.Server                    as PAB
+import           PlutusTx.Ratio                                 (Ratio, (%))
+import           Prelude                                        hiding (init)
+import           Wallet.Emulator.Types                          (Wallet (..),
+                                                                 walletPubKey)
+import           Wallet.Types                                   (ContractInstanceId)
 
 ownerWallet :: Wallet
 ownerWallet = Wallet 1

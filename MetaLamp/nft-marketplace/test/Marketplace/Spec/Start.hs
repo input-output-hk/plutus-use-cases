@@ -5,19 +5,19 @@ module Marketplace.Spec.Start
   ( tests, startTrace
   ) where
 
-import           Control.Monad                                (void)
-import           Data.Text                                    (Text)
-import qualified Ledger.Value                                 as V
-import qualified Marketplace.Fixtures                         as Fixtures
-import           Plutus.Contract                              (Contract)
+import           Control.Monad                                  (void)
+import           Data.Text                                      (Text)
+import qualified Ledger.Value                                   as V
+import qualified Marketplace.Fixtures                           as Fixtures
+import           Plutus.Contract                                (Contract)
 import           Plutus.Contract.Test
-import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
-import qualified Plutus.Trace                                 as Trace
-import qualified PlutusTx.AssocMap                            as AssocMap
+import qualified Plutus.Contracts.NftMarketplace.Endpoints      as Marketplace
+import           Plutus.Contracts.NftMarketplace.OffChain.Owner (StartMarketplaceParams (..))
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
+import qualified Plutus.Trace                                   as Trace
+import           Plutus.Types.Percentage                        (getPercentage)
+import qualified PlutusTx.AssocMap                              as AssocMap
 import           Test.Tasty
-import Plutus.Types.Percentage (getPercentage)
-import Plutus.Contracts.NftMarketplace.OffChain.Owner (StartMarketplaceParams(..))
 
 tests :: TestTree
 tests =

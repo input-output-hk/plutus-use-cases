@@ -43,6 +43,7 @@ import           Plutus.Contracts.NftMarketplace.OffChain.Info
 import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Core
 import qualified Plutus.Contracts.Services.Sale                         as Sale
+import qualified Plutus.Types.Marketplace                               as Marketplace
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                      as AssocMap
 import           PlutusTx.Prelude                                       hiding
@@ -51,7 +52,6 @@ import           Prelude                                                (Semigro
 import qualified Prelude                                                as Haskell
 import qualified Schema
 import           Text.Printf                                            (printf)
-import qualified Plutus.Types.Marketplace as Marketplace
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -122,7 +122,7 @@ openSale marketplace OpenSaleParams {..} = do
                   ospSaleValue = saleValue
               }
     sale <- Sale.openSale openSaleParams marketplace
-            
+
     let client = Core.marketplaceClient marketplace
     let lot = Left sale
     void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
@@ -191,8 +191,8 @@ deriving newtype instance Schema.ToSchema DiffMilliSeconds
 
 data StartAnAuctionParams =
   StartAnAuctionParams {
-    saapItemId   :: UserItemId,
-    saapDuration :: DiffMilliSeconds,
+    saapItemId       :: UserItemId,
+    saapDuration     :: DiffMilliSeconds,
     saapInitialPrice :: Value
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)

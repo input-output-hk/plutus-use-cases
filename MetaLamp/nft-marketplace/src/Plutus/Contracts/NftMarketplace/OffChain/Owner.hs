@@ -3,11 +3,11 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE NoImplicitPrelude   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 module Plutus.Contracts.NftMarketplace.OffChain.Owner where
 
 import qualified Control.Lens                                 as Lens
@@ -18,6 +18,7 @@ import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
 import qualified GHC.Generics                                 as Haskell
 import           Ledger
+import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Typed.Scripts                         as Scripts
 import           Ledger.Value
 import           Plutus.Abstract.ContractResponse             (ContractResponse,
@@ -26,20 +27,19 @@ import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
+import           Plutus.Types.Percentage                      (mkPercentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           PlutusTx.Prelude                             hiding
                                                               (Semigroup (..))
+import           PlutusTx.Ratio                               (Ratio)
 import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
-import           Text.Printf                                  (printf)
 import qualified Schema
-import Plutus.Types.Percentage (mkPercentage)
-import PlutusTx.Ratio (Ratio)
-import Ledger.Ada  (lovelaceValueOf)
- 
+import           Text.Printf                                  (printf)
+
 data StartMarketplaceParams = StartMarketplaceParams {
-    nftFee :: Integer,
+    nftFee  :: Integer,
     saleFee :: Ratio Integer
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)

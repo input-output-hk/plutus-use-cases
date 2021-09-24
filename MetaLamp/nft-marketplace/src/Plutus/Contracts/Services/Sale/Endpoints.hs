@@ -29,8 +29,8 @@ import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                   as Currency
 import qualified Plutus.Contracts.Services.Sale.Core         as Core
 import qualified Plutus.Contracts.Services.Sale.StateMachine as Core
-import qualified Plutus.Types.Marketplace as Marketplace
-import qualified Plutus.Types.Percentage as Percentage
+import qualified Plutus.Types.Marketplace                    as Marketplace
+import qualified Plutus.Types.Percentage                     as Percentage
 
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                           as AssocMap
@@ -75,7 +75,7 @@ openSale OpenSaleParams {..}  Marketplace.Marketplace {..} = do
 buyLot :: Core.Sale -> Contract w s Text ()
 buyLot sale = do
     pkh <- getOwnPubKey
-    let client = Core.saleClient sale 
+    let client = Core.saleClient sale
     void $ mapError' $ runStep client $ Core.Buy pkh
 
     logInfo @Haskell.String $ printf "User %s bought lot from sale %s" (Haskell.show pkh) (Haskell.show sale)

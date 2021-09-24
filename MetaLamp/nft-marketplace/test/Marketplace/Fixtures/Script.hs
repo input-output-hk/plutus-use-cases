@@ -6,14 +6,14 @@ module Marketplace.Fixtures.Script where
 import           Ledger                                       (Address,
                                                                CurrencySymbol,
                                                                pubKeyHash)
+import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures.Wallet                  as Fixtures
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
+import           Plutus.Types.Percentage                      (Percentage (..))
+import           PlutusTx.Ratio
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
-import Plutus.Types.Percentage (Percentage(..))
-import PlutusTx.Ratio 
-import Ledger.Ada  (lovelaceValueOf)
 
 marketplace :: Marketplace.Marketplace
 marketplace =
@@ -22,7 +22,7 @@ marketplace =
     Marketplace.marketplaceSaleFee = percentage,
     Marketplace.marketplaceNFTFee = lovelaceValueOf 100000  -- 0.1 ADA
   }
-  
+
 percentage :: Percentage
 percentage = Percentage $ 5 % 2
 
