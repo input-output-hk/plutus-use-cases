@@ -43,6 +43,7 @@ common common-imports
     , serialise
     , cardano-api
     , cardano-ledger-alonzo
+    , plutus-extra
 
 common common-language
     default-extensions:
