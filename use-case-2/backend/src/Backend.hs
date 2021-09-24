@@ -70,7 +70,8 @@ backend = Backend
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
           (requestHandler httpManager pool)
-          (\(nm :: DbNotification Notification) q -> fmap (fromMaybe emptyV) $ mapDecomposedV (notifyHandler nm) q)
+          (\(nm :: DbNotification Notification) q ->
+             fmap (fromMaybe emptyV) $ mapDecomposedV (notifyHandler nm) q)
           (QueryHandler $ \q -> fmap (fromMaybe emptyV) $ mapDecomposedV (queryHandler pool) q)
           vesselFromWire
           vesselPipeline -- (tracePipeline "==> " . vesselPipeline)
@@ -114,9 +115,10 @@ queryHandler pool v = buildV v $ \case
     return $ IdentityV $ Identity $ First $ Just $ pooledTokens
   Q_Pools -> \_ -> runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $ do
     pools <- runSelectReturningList $ select $ all_ (_db_pools db)
-    return $ IdentityV $ Identity $ Map.fromList $ flip fmap pools $ \p -> (_pool_liquiditySymbol p, First $ Just p)
+    return $ IdentityV $ Identity $ Map.fromList $ flip fmap pools $ \p ->
+      (_pool_liquiditySymbol p, First $ Just p)
 
--- Query for active instances from the PAB and upsert new UniswapUser instance ids.
+-- | Query for active instances from the PAB and upsert new UniswapUser instance ids.
 syncUniswapUsers :: Manager -> Pool Pg.Connection -> IO ()
 syncUniswapUsers httpManager pool = do
   initReq <- parseRequest "http://localhost:8080/api/new/contract/instances"
@@ -136,7 +138,9 @@ syncUniswapUsers httpManager pool = do
       print $ "Wallet Ids persisted: " ++ show walletContracts -- DEBUG: Logging incoming wallets/contract ids
       -- Persist participating wallet addresses to Postgresql
       runNoLoggingT $ runDb (Identity pool) $ do
-        rows <- runBeamSerializable $ runInsertReturningList $ insertOnConflict (_db_contracts db) (insertValues walletContracts)
+        rows <- runBeamSerializable $ runInsertReturningList $ insertOnConflict
+          (_db_contracts db)
+          (insertValues walletContracts)
           (conflictingFields primaryKey)
           onConflictUpdateAll
         mapM_ (notify NotificationType_Insert Notification_Contract) rows
@@ -146,7 +150,10 @@ syncPooledTokens httpManager pool = do
   -- use admin wallet id to populate db with current pool tokens available
   mAdminWallet <- runNoLoggingT $ runDb (Identity pool) $ runBeamSerializable $
     -- SELECT _contract_id FROM _db_contracts WHERE _contract_walletId =1;
-    runSelectReturningOne $ select $ filter_ (\ct -> _contract_walletId ct ==. val_ 1) $ all_ (_db_contracts db)
+    runSelectReturningOne $
+      select $
+      filter_ (\ct -> _contract_walletId ct ==. val_ 1) $
+      all_ (_db_contracts db)
   wid <- case mAdminWallet of
     Nothing -> fail "getPooledTokens: Admin user wallet not found"
     Just wid -> return wid
@@ -167,8 +174,13 @@ syncPooledTokens httpManager pool = do
 
   -- This delay is necessary to give the chain 1 second to process the previous request and update the observable state
   threadDelay 1000000
-  putStrLn $ "http://localhost:8080/api/new/contract/instance/" <> contractInstanceId <> "/status"
-  initReq <- parseRequest $ "http://localhost:8080/api/new/contract/instance/" <> contractInstanceId <> "/status"
+  initReq <- do
+    let req =
+          "http://localhost:8080/api/new/contract/instance/" <>
+          contractInstanceId <>
+          "/status"
+    putStrLn req
+    parseRequest $ req
 
 
   let req = initReq { method = "GET" }
@@ -215,10 +227,37 @@ syncPooledTokens httpManager pool = do
         mapM_ (notify NotificationType_Insert Notification_Pool) rows
   return ()
 
-  -- This function's is modeled after the following curl that submits a request to perform a swap against PAB.
-  {-
-  curl -H "Content-Type: application/json"      --request POST   --data '{"spAmountA":112,"spAmountB":0,"spCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"spCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/36951109-aacc-4504-89cc-6002cde36e04/endpoint/swap
-  -}
+-- This function's is modeled after the following curl that submits a request to perform a swap against PAB.
+{-
+curl \
+  -H "Content-Type: application/json" \
+  --request POST \
+  --data '{
+    "spAmountA": 112,
+    "spAmountB": 0,
+    "spCoinB": {
+      "unAssetClass": [
+        {
+          "unCurrencySymbol": "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"
+        },
+        {
+          "unTokenName": "A"
+        }
+      ]
+    },
+    "spCoinA": {
+      "unAssetClass": [
+        {
+          "unCurrencySymbol": ""
+        },
+        {
+          "unTokenName": ""
+        }
+      ]
+    }
+  }' \
+  http://localhost:8080/api/new/contract/instance/36951109-aacc-4504-89cc-6002cde36e04/endpoint/swap
+-}
 executeSwap :: Manager
   -> Pool Pg.Connection
   -> String
@@ -291,7 +330,34 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
     Right (_txFeeDetails, _) -> return $ Left "Unexpected script size data type"
 
 {-
-curl -H "Content-Type: application/json"      --request POST   --data '{"apAmountA":4500,"apAmountB":9000,"apCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"apCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/3b0bafe2-14f4-4d34-a4d8-633afb8e52eb/endpoint/add
+curl \
+  -H "Content-Type: application/json" \
+  --request POST \
+  --data '{
+  "apAmountA": 4500,
+  "apAmountB": 9000,
+  "apCoinB": {
+      "unAssetClass": [
+        {
+          "unCurrencySymbol": "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"
+        },
+        {
+          "unTokenName": "A"
+        }
+      ]
+    },
+    "apCoinA": {
+      "unAssetClass": [
+        {
+          "unCurrencySymbol": ""
+        },
+        {
+          "unTokenName": ""
+        }
+      ]
+    }
+  }' \
+  http://localhost:8080/api/new/contract/instance/3b0bafe2-14f4-4d34-a4d8-633afb8e52eb/endpoint/add
 -}
 executeStake
   :: Manager
@@ -321,7 +387,33 @@ executeStake httpManager contractId (coinA, amountA) (coinB, amountB) = do
   (either (\a -> return $ Left a) (\a -> return $ Right $ fst a)) =<< fetchObservableStateFees httpManager contractId
 
 {-
-curl -H "Content-Type: application/json"      --request POST   --data '{"rpDiff":2461,"rpCoinB":{"unAssetClass":[{"unCurrencySymbol":"7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"},{"unTokenName":"A"}]},"rpCoinA":{"unAssetClass":[{"unCurrencySymbol":""},{"unTokenName":""}]}}'      http://localhost:8080/api/new/contract/instance/9079d01a-342b-4d4d-88b5-7525ff1118d6/endpoint/remove
+curl \
+  -H "Content-Type: application/json" \
+  --request POST \
+  --data '{
+    "rpDiff": 2461,
+    "rpCoinB": {
+      "unAssetClass": [
+        {
+          "unCurrencySymbol": "7c7d03e6ac521856b75b00f96d3b91de57a82a82f2ef9e544048b13c3583487e"
+        },
+        {
+          "unTokenName": "A"
+        }
+      ]
+    },
+    "rpCoinA": {
+      "unAssetClass": [
+        {
+          "unCurrencySymbol": ""
+        },
+        {
+          "unTokenName": ""
+        }
+      ]
+    }
+  }'\
+  http://localhost:8080/api/new/contract/instance/9079d01a-342b-4d4d-88b5-7525ff1118d6/endpoint/remove
 -}
 executeRemove
   :: Manager
@@ -350,7 +442,8 @@ executeRemove httpManager contractId coinA coinB amount = do
   print $ ("executeRemove: request sent." :: String)
   (either (\a -> return $ Left a) (\a -> return $ Right $ fst a)) =<< fetchObservableStateFees httpManager contractId
 
--- Grabs transaction fees from `observaleState` field from the contract instance status endpoint.
+-- | Grabs transaction fees from `observaleState` field from the contract
+-- instance status endpoint.
 fetchObservableStateFees
   :: Manager
   -> String
@@ -373,7 +466,8 @@ fetchObservableStateFees httpManager contractId = do
       print $ "fetchObservableStateFees: the value of txFeeDetails is: " ++ (show txFeeDetails)
       return $ Right $ (Aeson.Array txFeeDetails, scrSize)
 
--- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
+-- | Grabs `observableState` field from the contract instance status endpoint.
+-- This is used to see smart contract's response to latest request processed.
 callFunds
   :: Manager
   -> ContractInstanceId Text
@@ -390,7 +484,8 @@ callFunds httpManager contractId = do
   _ <- httpLbs req httpManager
   return ()
 
--- Grabs `observableState` field from the contract instance status endpoint. This is used to see smart contract's response to latest request processed.
+-- | Grabs `observableState` field from the contract instance status endpoint.
+-- This is used to see smart contract's response to latest request processed.
 callPools
   :: Manager
   -> ContractInstanceId Text
