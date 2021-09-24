@@ -106,7 +106,7 @@ selectCoins wid pabEV = do
                     -- Select first token and amount
                     (selectionA, amountA) <- divClass "input-group row" $ do
                       coinAChoice <- dropdown fstOpt (constDyn $ dropdownList) $
-                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-control") }
+                        def { _dropdownConfig_attributes = constDyn ("class" =: "form-select") }
                       coinAAmountInput <- inputElement $ def
                         & inputElementConfig_elementConfig . elementConfig_initialAttributes
                           .~ ("class" =: "form-control" <> "type" =: "number")
@@ -119,7 +119,7 @@ selectCoins wid pabEV = do
                     -- Select second token and amount
                     (selectionB, amountB) <- divClass "input-group row mt-3" $ do
                       coinBChoice <- dropdown sndOpt dynNonDuplicateDropdownList $ DropdownConfig
-                        { _dropdownConfig_attributes = constDyn ("class" =: "form-control")
+                        { _dropdownConfig_attributes = constDyn ("class" =: "form-select")
                         , _dropdownConfig_setValue = (ffor (updated dynNonDuplicateDropdownList) $ \opts -> fst $ Map.elemAt 0 opts)
                         }
                       coinBAmountInput <- inputElement $ def
