@@ -7,6 +7,7 @@
 
 module Backend where
 
+import Control.Applicative
 import Control.Concurrent
 import Control.Exception
 import Control.Monad.Identity
@@ -270,7 +271,7 @@ executeSwap :: Manager
   -> String
   -> (Coin AssetClass, Amount Integer)
   -> (Coin AssetClass, Amount Integer)
-  -> IO (Either String Aeson.Value)
+  -> IO (Either Aeson.Value Aeson.Value)
 executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
   let requestUrl = "http://localhost:8080/api/new/contract/instance/" ++ contractId ++ "/endpoint/swap"
       reqBody = SwapParams {
@@ -300,15 +301,28 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
           incomingData :: ByteString <- WS.receiveData conn
           let val :: Either String Aeson.Value = Aeson.eitherDecode' $ BS.fromStrict incomingData
           case val of
-            Left err -> putMVar eitherObState $ Left err
-            Right obj -> do
-              let swapTag = obj ^. key "contents" . key "Right" . key "tag" . _String
-                  txFeeDetails = obj ^. key "contents" . key "Right"
-                    . key "contents" . nth 0 . key "txFee" . key "getValue" . nth 0 . nth 1 . nth 0 . _Array
-                  aesArr = obj ^. key "contents" . key "Right"
-                    . key "contents" . _Array
-                  scrSize = fromMaybe (Aeson.Number 0) $ lastMay $ V.toList aesArr
-              if swapTag == "Swapped" then putMVar eitherObState $ Right $ (Aeson.Array txFeeDetails, scrSize) else processData
+            Left err -> do
+              putStrLn $ "executeSwap: failed to decode response body: " ++ err
+              processData
+            Right obj0 ->
+              case do
+                obj :: Aeson.Value <- obj0 ^? key "contents"
+                newObservableStateTag <- incomingData ^? key "tag" . _String
+                guard $ newObservableStateTag == "NewObservableState"
+                (<|>)
+                  (fmap Left $ obj ^? key "Left")
+                  (do
+                    let swapTag = obj ^. key "Right" . key "tag" . _String
+                        txFeeDetails = obj ^. key "Right"
+                          . key "contents" . nth 0 . key "txFee" . key "getValue" . nth 0 . nth 1 . nth 0 . _Array
+                        aesArr = obj ^. key "Right"
+                          . key "contents" . _Array
+                        scrSize = fromMaybe (Aeson.Number 0) $ lastMay $ V.toList aesArr
+                    guard $ swapTag == "Swapped"
+                    Just $ Right (Aeson.Array txFeeDetails, scrSize))
+              of
+                Just x -> putMVar eitherObState x
+                Nothing -> processData
     fid <- forkIO processData
     flip onException (killThread fid) $ do
       -- retreive observable state response from result of forked thread

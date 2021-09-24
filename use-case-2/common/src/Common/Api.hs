@@ -46,7 +46,7 @@ data Api :: * -> * where
     -> Coin AssetClass
     -> Amount Integer
     -> Amount Integer
-    -> Api (Either String Aeson.Value)
+    -> Api (Either Aeson.Value Aeson.Value)
 
   Api_Stake
     :: ContractInstanceId Text
