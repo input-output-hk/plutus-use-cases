@@ -57,6 +57,8 @@ chooseWallet = do
       dmmWalletIds <- viewContracts
       dyn_ $ ffor dmmWalletIds $ \case
         Nothing -> do
+          el "p" $ text "Loading..."
+        Just [] -> do
           el "p" $ text "There are no wallets yet available."
           el "p" $ text "If the contract is still initializing, just wait. They will appear here once created."
         Just walletIds -> do
@@ -69,5 +71,5 @@ viewContracts
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
      , Reflex t
      )
-  => m (Dynamic t (Maybe ([Text])))
+  => m (Dynamic t (Maybe [Text]))
 viewContracts = (fmap.fmap.fmap) (Map.elems . Map.mapMaybe getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_ContractList . identityV
