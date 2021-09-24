@@ -60,18 +60,31 @@ swapDashboard
   -> m ()
 swapDashboard wid = do
   navBar' $ Just wid
-  pb <- getPostBuild
-  -- recurring event used to poll for pool balance
-  pollingEvent <- tickLossyFromPostBuildTime 10
-  requesting_ $ (Api_CallPools (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
-  _ <- divClass "container" $ do
+  pollRefreshPoolBalance wid
+  pabEV :: Event t (Maybe Aeson.Value) <- fmap (switch . current) $ prerender (return never) $ do
+    _webSocket_recv <$> jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+  divClass "container" $ do
     divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h1" "display-5 fw-bold" $ text "Swap Tokens"
       el "p" $ text "What would you like to swap?"
     -- widget that contains the swap form
     divClass "card-group mb-3 text-center" $ do
+      formEvent <- selectCoins wid pabEV
+      transactionDetails wid pabEV formEvent
+
+selectCoins
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
+     )
+  => Text
+  -> Event t (Maybe Aeson.Value)
+  -> m (Event t (Maybe ((PooledToken, Text), (PooledToken, Text))))
+selectCoins wid pabEV = do
       dmmPooledTokens <- viewPooledTokens
-      formEvent <- switchHold never <=< dyn $ ffor dmmPooledTokens $ \case
+      switchHold never <=< dyn $ ffor dmmPooledTokens $ \case
         Nothing -> return never
         Just mPoolTokens -> case mPoolTokens of
           Nothing -> return never
@@ -127,50 +140,61 @@ swapDashboard wid = do
                           <*> (toAmount <$> amountA)
                           <*> (toAmount <$> amountB))
                     -- This response returns transaction fee information, it does not return the swap response
-                    _responseVal <- requesting $ tagPromptlyDyn requestLoad swap
-                    observableStateEv <- fmap (switch . current) $ prerender (return never) $ do
-                      ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+                    -- TODO still, do *something* with it, to handle failure cases?
+                    _responseVal  <- requesting $ tagPromptlyDyn requestLoad swap
+                    observableStateEv <- do
                       let
-                          observableStateSuccessEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
+                          observableStateEvent :: Event t Aeson.Value
+                          observableStateEvent = flip fmapMaybe pabEV $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
                             -> case mIncomingWebSocketData of
-                              Nothing -> False
+                              Nothing -> Nothing
                               Just incomingWebSocketData -> do
                                 let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
-                                    swappedTag = incomingWebSocketData ^.. key "contents" . key "Right" . key "tag" . _String
-                                newObservableStateTag == ["NewObservableState"] && swappedTag == ["Swapped"]
-                          observableStateFailureEvent = flip ffilter (_webSocket_recv ws) $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
-                            -> case mIncomingWebSocketData of
-                              Nothing -> False
-                              Just incomingWebSocketData -> do
-                                let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
-                                    failureMessageTag = incomingWebSocketData ^.. key "contents" . key "Left" . _String
-                                newObservableStateTag == ["NewObservableState"] && failureMessageTag /= []
+                                guard $ newObservableStateTag == ["NewObservableState"]
+                                incomingWebSocketData ^? key "contents"
+                          observableStateSuccessEvent = flip ffilter observableStateEvent $ \(incomingWebSocketData :: Aeson.Value )
+                            -> do
+                              let swappedTag = incomingWebSocketData ^.. key "Right" . key "tag" . _String
+                              swappedTag == ["Swapped"]
+                          observableStateFailureEvent = flip ffilter observableStateEvent $ \(incomingWebSocketData :: Aeson.Value )
+                            -> do
+                              let failureMessageTag = incomingWebSocketData ^.. key "Left" . _String
+                              failureMessageTag /= []
                       -- this event will cause the success message to disappear when it occurs
                       vanishEvent <- delay 7 observableStateSuccessEvent
                       -- show success message based on new observable state
-                      widgetHold_ blank $ ffor (leftmost [observableStateSuccessEvent, Nothing <$ vanishEvent]) $
+                      widgetHold_ blank $ ffor (leftmost [Just <$> observableStateSuccessEvent, Nothing <$ vanishEvent]) $
                         \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
                           Nothing -> blank
                           Just _ -> elClass "p" "text-success" $ text "Success!"
                       widgetHold_ blank $ ffor observableStateFailureEvent $
-                        \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
-                          Nothing -> blank
-                          Just incomingWebSocketData -> do
-                            let errMsg = incomingWebSocketData ^.. key "contents" . key "Left" . _String
+                        \(incomingWebSocketData :: Aeson.Value) -> do
+                            let errMsg = incomingWebSocketData ^.. key "Left" . _String
                             elClass "p" "text-danger" $ text $ T.concat errMsg
                       return $ leftmost [observableStateFailureEvent, observableStateSuccessEvent]
                     return $ updated $ fmap Just $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> ((selA, amtA), (selB, amtB))
               _ -> do
                 elClass "p" "text-warning" $ text "There are no tokens available to swap."
                 return never
+
+transactionDetails
+  :: forall t m js
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , Prerender js t m
+     , MonadIO (Performable m)
+     , SetRoute t (R FrontendRoute) m
+     )
+  => Text
+  -> Event t (Maybe Aeson.Value)
+  -> Event t (Maybe ((PooledToken, Text), (PooledToken, Text)))
+  -> m ()
+transactionDetails wid pabEV formEvent = do
       -- widget that shows transaction details such as swap estimates, etc.
       divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
         divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Transaction Details"
         divClass "card-body" $ do
-          poolMapEv <- fmap (switch . current) $ prerender (return never) $ do
-            ws <- jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-            -- Pools is used to get information about liquidity pools and token pairs to provide swap estimations
-            let poolsEvent = wsFilterPools $ _webSocket_recv ws
+          poolMapEv <- do
+            let poolsEvent = wsFilterPools $ pabEV
             dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
               let poolDetails = case mIncomingPoolsWebSocketData of
                     Nothing -> V.empty
@@ -178,7 +202,8 @@ swapDashboard wid = do
               parseLiquidityTokensToMap poolDetails
             return $ fmap Just $ updated dynPoolMap
           -- combine events from from updates and smart contract pool data to perform swap estimates
-          dynPoolMap <- holdDyn Nothing poolMapEv
+          dynPoolMap :: Dynamic t (Maybe (Map.Map Text (Integer, ((Text, Integer), (Text, Integer)))))
+            <- holdDyn Nothing poolMapEv
           poolAndFormEvent <- holdDyn (Nothing, Nothing) $ attachPromptlyDyn dynPoolMap formEvent
           let swapEstimate = ffor poolAndFormEvent $ \case
                 (Just poolMap, Just ((selA, amtA), (selB, amtB))) -> do
@@ -204,7 +229,6 @@ swapDashboard wid = do
               $ "Estimated transaction fee: "
               <> (T.pack $ show $ runIdentity txFeeEstimate)
               <> " ADA"
-  return ()
 
 viewPooledTokens
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
@@ -212,3 +236,18 @@ viewPooledTokens
      )
   => m (Dynamic t (Maybe (Maybe [PooledToken])))
 viewPooledTokens = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_PooledTokens . identityV
+
+-- | Nothing is returned, because this is just a command to tell the backend to
+-- poll the PAB for new data to *push* to our live queries.
+pollRefreshPoolBalance
+  :: forall t m
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , MonadIO (Performable m)
+     )
+  => Text
+  -> m ()
+pollRefreshPoolBalance wid = do
+  pb <- getPostBuild
+  -- recurring event used to poll for pool balance
+  pollingEvent <- tickLossyFromPostBuildTime 10
+  requesting_ $ (Api_CallPools (ContractInstanceId wid)) <$ (leftmost [pb, () <$ pollingEvent])
