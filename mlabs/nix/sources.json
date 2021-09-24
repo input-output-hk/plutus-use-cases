@@ -204,6 +204,18 @@
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz",
         "version": "926a49d16439b693648b68b7e6eb7877a5e622e4"
     },
+    "plutus-extra": {
+        "branch": "master",
+        "description": "Helper library of Plutus functions.",
+        "homepage": "",
+        "owner": "Liqwid-Labs",
+        "repo": "plutus-extra",
+        "rev": "8d6f921069e93853284920d39e539ecc15bf2cde",
+        "sha256": "1148xmws1s99n3m7wngigshdwlllky8yy2c0fcyskgnrgf1r9rm4",
+        "type": "tarball",
+        "url": "https://github.com/Liqwid-Labs/plutus-extra/archive/8d6f921069e93853284920d39e539ecc15bf2cde.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "plutus-latest": {
         "branch": "master",
         "description": "The Plutus language implementation and tools",
