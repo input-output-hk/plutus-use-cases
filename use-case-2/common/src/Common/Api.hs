@@ -23,15 +23,13 @@ import GHC.Generics
 import Common.Plutus.Contracts.Uniswap.Types
 import Common.Schema
 
-data SmartContractAction = SmartContractAction_Swap
-  deriving (Eq, Ord, Show, Generic)
-
-instance ToJSON SmartContractAction
-instance FromJSON SmartContractAction
-
+-- | These is the "view" of all live queries, created using Vessel
+-- (https://hackage.haskell.org/package/vessel). See
+-- https://github.com/obsidiansystems/vessel/blob/develop/tutorial/Tutorial.md
+-- for a nice step-by-step introduction.
 type DexV = Vessel Q
 
--- Note: This is view
+-- | GADT plugged into the Vessel map type, see above.
 data Q (v :: (* -> *) -> *) where
   Q_ContractList :: Q (IdentityV (Map Int32 (First (Maybe Text))))
   Q_PooledTokens :: Q (IdentityV (First (Maybe [PooledToken])))
@@ -42,12 +40,46 @@ data Q (v :: (* -> *) -> *) where
 -- command. The (live) queries defined elsewhere should return actual persisted
 -- application data.
 data Api :: * -> * where
-  Api_Swap :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String Aeson.Value)
-  Api_Stake :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String Aeson.Value)
-  Api_RedeemLiquidity :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Api (Either String Aeson.Value)
-  Api_CallFunds :: ContractInstanceId Text -> Api ()
-  Api_CallPools :: ContractInstanceId Text -> Api ()
-  Api_EstimateTransactionFee :: SmartContractAction -> Api Integer
+  Api_Swap
+    :: ContractInstanceId Text
+    -> Coin AssetClass
+    -> Coin AssetClass
+    -> Amount Integer
+    -> Amount Integer
+    -> Api (Either String Aeson.Value)
+
+  Api_Stake
+    :: ContractInstanceId Text
+    -> Coin AssetClass
+    -> Coin AssetClass
+    -> Amount Integer
+    -> Amount Integer
+    -> Api (Either String Aeson.Value)
+
+  Api_RedeemLiquidity
+    :: ContractInstanceId Text
+    -> Coin AssetClass
+    -> Coin AssetClass
+    -> Amount Integer
+    -> Api (Either String Aeson.Value)
+
+  Api_CallFunds
+    :: ContractInstanceId Text
+    -> Api ()
+
+  Api_CallPools
+    :: ContractInstanceId Text
+    -> Api ()
+
+  Api_EstimateTransactionFee
+    :: SmartContractAction
+    -> Api Integer
+
+data SmartContractAction = SmartContractAction_Swap
+  deriving (Eq, Ord, Show, Generic)
+
+instance ToJSON SmartContractAction
+instance FromJSON SmartContractAction
 
 deriveJSONGADT ''Api
 deriveArgDict ''Api
