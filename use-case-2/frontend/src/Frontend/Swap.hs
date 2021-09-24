@@ -62,17 +62,17 @@ swapDashboard
 swapDashboard wid = do
   navBar' $ Just wid
   pollRefreshPoolBalance wid
-  pabDEV :: Dynamic t (Event t (Maybe Aeson.Value)) <- prerender (return never) $
+  pabDEMV :: Dynamic t (Event t (Maybe Aeson.Value)) <- prerender (return never) $
     _webSocket_recv <$> jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
-  pabDMMV :: Dynamic t (Maybe (Maybe Aeson.Value)) <- holdDyn Nothing $ fmap Just $ switch $ current pabDEV
+  let pabEMV :: Event t (Maybe Aeson.Value) = switch $ current pabDEMV
   divClass "container" $ do
     divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h1" "display-5 fw-bold" $ text "Swap Tokens"
       el "p" $ text "What would you like to swap?"
     -- widget that contains the swap form
     divClass "card-group mb-3 text-center" $ do
-      formDyn <- selectCoins wid
-      transactionDetails pabDMMV formDyn
+      formDMD <- selectCoins wid
+      transactionDetails pabEMV formDMD
 
 selectCoins
   :: forall t m
@@ -80,23 +80,20 @@ selectCoins
      , MonadIO (Performable m)
      )
   => Text
-  -> m (Dynamic t (Maybe ((PooledToken, Text), (PooledToken, Text))))
+  -> m (Dynamic t (Maybe (Dynamic t ((PooledToken, Text), (PooledToken, Text)))))
 selectCoins wid = do
   divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
     divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
     divClass "card-body" $ divClass "form container" $ divClass "form-group" $ do
       dmmPooledTokens <- viewPooledTokens
-      let asdf :: Event t (Dynamic t (Maybe a))
-               -> m (Dynamic t (Maybe a))
-          asdf = fmap join . holdDyn (pure Nothing) -- TODO too prompt
-      (=<<) asdf $ dyn $ ffor dmmPooledTokens $ \case
+      (=<<) (holdDyn Nothing) $ dyn $ ffor dmmPooledTokens $ \case
         Nothing -> do
           text "loading pool tokens..."
-          return $ pure Nothing
+          return $ Nothing
         Just mPoolTokens -> case mPoolTokens of
           Nothing -> do
             text "no pool tokens"
-            return $ pure Nothing
+            return $ Nothing
           Just poolTokens -> do
             let dropdownList = Map.fromListWith (\_ tkName -> tkName) $ flip fmap poolTokens $ \pt ->
                   if _pooledToken_name pt == "" then (pt, "ADA") else (pt, _pooledToken_name pt)
@@ -166,35 +163,35 @@ selectCoins wid = do
                             Just errMsg -> errMsg
                             Nothing -> T.pack $ show errJson
                     let readyForRequest = () <$ responseVal
-                    return $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> Just ((selA, amtA), (selB, amtB))
+                    return $ Just $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> ((selA, amtA), (selB, amtB))
               _ -> do
                 elClass "p" "text-warning" $ text "There are no tokens available to swap."
-                pure $ pure Nothing
+                pure $ Nothing
 
 transactionDetails
   :: forall t m
   .  MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
-  => Dynamic t (Maybe (Maybe Aeson.Value))
-  -> Dynamic t (Maybe ((PooledToken, Text), (PooledToken, Text)))
+  => Event t (Maybe Aeson.Value)
+  -> Dynamic t (Maybe (Dynamic t ((PooledToken, Text), (PooledToken, Text))))
   -> m ()
-transactionDetails pabDMMV formDyn = do
-      -- widget that shows transaction details such as swap estimates, etc.
-      divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
-        divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Transaction Details"
-        divClass "card-body" $ do
-          poolMapEv <- do
-            let poolsEvent = wsFilterPools $ fmap join $ updated $ pabDMMV
-            dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
+transactionDetails pabEMV formDMD = do
+  -- widget that shows transaction details such as swap estimates, etc.
+  divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
+    divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Transaction Details"
+    divClass "card-body" $ do
+      dyn_ $ ffor formDMD $ \case
+        Nothing -> do
+          text "loading swap form..."
+        Just formD -> do
+          -- combine events from from updates and smart contract pool data to perform swap estimates
+          dynPoolMap :: Dynamic t (Map.Map Text (Integer, ((Text, Integer), (Text, Integer))))
+            <- holdDyn Map.empty $ ffor (wsFilterPools pabEMV) $ \mIncomingPoolsWebSocketData -> do
               let poolDetails = case mIncomingPoolsWebSocketData of
                     Nothing -> V.empty
                     Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
               parseLiquidityTokensToMap poolDetails
-            return $ fmap Just $ updated dynPoolMap
-          -- combine events from from updates and smart contract pool data to perform swap estimates
-          dynPoolMap :: Dynamic t (Maybe (Map.Map Text (Integer, ((Text, Integer), (Text, Integer)))))
-            <- holdDyn Nothing poolMapEv
-          let swapEstimate = ffor ((,) <$> dynPoolMap <*> formDyn) $ \case
-                (Just poolMap, Just ((selA, amtA), (selB, amtB))) -> do
+          let swapEstimate = ffor ((,) <$> dynPoolMap <*> formD) $
+                \(poolMap, ((selA, amtA), (selB, amtB))) -> do
                   let ((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) = fromMaybe (("", 0), ("", 0))
                         $ fmap snd
                         $ headMay
@@ -203,18 +200,18 @@ transactionDetails pabDMMV formDyn = do
                         -> tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB)) poolMap
                   let amtA' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtA
                       amtB' :: Integer = fromMaybe 0 $ readMay $ T.unpack amtB
-                  Just $ if amtA' == 0
+                  if amtA' == 0
                     then (findSwapA coinBPoolAmount coinAPoolAmount amtB', coinAName)
                     else (findSwapA coinAPoolAmount coinBPoolAmount amtA', coinBName)
-                _ -> Nothing
-          txFeeEstimateResp <- requesting $ fmap (\sca -> Api_EstimateTransactionFee sca) $ SmartContractAction_Swap <$ updated formDyn
-          dyn_ $ ffor swapEstimate $ \case
-           Nothing -> blank
-           Just (estimate, eTokenName) ->
+          dyn_ $ ffor swapEstimate $ \(estimate, eTokenName) ->
             elClass "p" "text-info" $ text
               $ "Estimated to receive "
               <> (T.pack $ show estimate)
               <> " " <> (T.pack $ show $ if "" == eTokenName then "ADA" else eTokenName)
+          txFeeEstimateResp <- do
+            pb <- getPostBuild
+            requesting $
+              Api_EstimateTransactionFee SmartContractAction_Swap <$ leftmost [pb, void $ updated formD]
           widgetHold_ blank $ ffor txFeeEstimateResp $ \txFeeEstimate ->
             elClass "p" "text-warning" $ text
               $ "Estimated transaction fee: "
