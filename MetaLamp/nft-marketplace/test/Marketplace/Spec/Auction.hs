@@ -73,6 +73,11 @@ tests =
         Fixtures.options
         "Should close auction and pay locked NFT to the highest bidder"
         (buyOnAuctionValueCheck .&&. completeAuctionDatumsCheck)
+        buyOnAuctionTrace,
+      checkPredicateOptions
+        Fixtures.options
+        "Should close auction and pay pay marketplace operator a saleFee"
+        marketplaceOperatorFeeCheck
         buyOnAuctionTrace
     ],
   testGroup
@@ -102,6 +107,11 @@ tests =
         Fixtures.options
         "Should close auction and pay locked bundle value to the highest bidder"
         (buyOnAuctionValueCheckB .&&. completeAuctionDatumsCheckB)
+        buyOnAuctionTraceB,
+      checkPredicateOptions
+        Fixtures.options
+        "Should close bundle auction and pay marketplace operator a saleFee"
+        marketplaceOperatorFeeCheckB
         buyOnAuctionTraceB
     ]]
 
@@ -354,3 +364,17 @@ buyOnAuctionValueCheckB =
     where
       hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
       hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCidBs
+
+marketplaceOperatorFeeCheck :: TracePredicate
+marketplaceOperatorFeeCheck =
+  walletFundsChange Fixtures.ownerWallet $ lovelaceValueOf 725000
+  -- 25000000 * 2.5 /100 = 625000 - fee by complete auction
+  -- 100000 - fee by minting token
+
+marketplaceOperatorFeeCheckB :: TracePredicate
+marketplaceOperatorFeeCheckB =
+  walletFundsChange Fixtures.ownerWallet $ lovelaceValueOf 1175000
+  -- 35000000 * 2.5 /100 = 875000 - fee by complete auction
+  -- 100000 * 2 = 200000 - fee by minting 2 tokens
+  -- 100000 - fee by bundling
+

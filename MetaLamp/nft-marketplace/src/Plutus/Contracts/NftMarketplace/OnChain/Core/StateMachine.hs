@@ -12,30 +12,32 @@
 
 module Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine where
 
-import           Control.Lens                                     ((&), (.~),
-                                                                   (?~), (^.))
-import qualified Control.Lens                                     as Lens
-import qualified Data.Aeson                                       as J
-import qualified Data.Text                                        as T
-import qualified Ext.Plutus.Contracts.Auction                     as Auction
-import qualified GHC.Generics                                     as Haskell
+import           Control.Lens                                             ((&),
+                                                                           (.~),
+                                                                           (?~),
+                                                                           (^.))
+import qualified Control.Lens                                             as Lens
+import qualified Data.Aeson                                               as J
+import qualified Data.Text                                                as T
+import qualified Ext.Plutus.Contracts.Auction                             as Auction
+import qualified GHC.Generics                                             as Haskell
 import           Ledger
-import qualified Ledger.Constraints                               as Constraints
-import qualified Ledger.Typed.Scripts                             as Scripts
-import qualified Ledger.Value                                     as V
+import qualified Ledger.Constraints                                       as Constraints
+import qualified Ledger.Typed.Scripts                                     as Scripts
+import qualified Ledger.Value                                             as V
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
-import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
-import qualified Plutus.Contracts.Services.Sale                   as Sale
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
-import           Plutus.Types.Percentage                          (Percentage)
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
+import qualified Plutus.Contracts.Services.Sale                           as Sale
+import           Plutus.Types.Percentage                                  (Percentage)
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                                as AssocMap
-import           PlutusTx.Prelude                                 hiding
-                                                                  (Semigroup (..))
-import           Prelude                                          (Semigroup (..))
-import qualified Prelude                                          as Haskell
+import qualified PlutusTx.AssocMap                                        as AssocMap
+import           PlutusTx.Prelude                                         hiding
+                                                                          (Semigroup (..))
+import           Prelude                                                  (Semigroup (..))
+import qualified Prelude                                                  as Haskell
 
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo

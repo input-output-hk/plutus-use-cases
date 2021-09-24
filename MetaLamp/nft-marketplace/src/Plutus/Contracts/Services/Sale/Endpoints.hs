@@ -13,33 +13,34 @@
 
 module Plutus.Contracts.Services.Sale.Endpoints where
 
-import           Control.Monad                               hiding (fmap)
-import qualified Data.Aeson                                  as J
-import           Data.Proxy                                  (Proxy (..))
-import           Data.Text                                   (Text)
-import qualified Data.Text                                   as T
-import qualified GHC.Generics                                as Haskell
+import           Control.Monad                                            hiding
+                                                                          (fmap)
+import qualified Data.Aeson                                               as J
+import           Data.Proxy                                               (Proxy (..))
+import           Data.Text                                                (Text)
+import qualified Data.Text                                                as T
+import qualified GHC.Generics                                             as Haskell
 import           Ledger
-import qualified Ledger.Typed.Scripts                        as Scripts
+import qualified Ledger.Typed.Scripts                                     as Scripts
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse            (ContractResponse,
-                                                              withContractResponse)
+import           Plutus.Abstract.ContractResponse                         (ContractResponse,
+                                                                           withContractResponse)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                   as Currency
-import qualified Plutus.Contracts.Services.Sale.Core         as Core
-import qualified Plutus.Contracts.Services.Sale.StateMachine as Core
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace                    as Marketplace
-import qualified Plutus.Types.Percentage                     as Percentage
+import           Plutus.Contracts.Currency                                as Currency
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
+import qualified Plutus.Contracts.Services.Sale.Core                      as Core
+import qualified Plutus.Contracts.Services.Sale.StateMachine              as Core
+import qualified Plutus.Types.Percentage                                  as Percentage
 
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                           as AssocMap
-import           PlutusTx.Prelude                            hiding
-                                                             (Semigroup (..))
-import           Prelude                                     (Semigroup (..))
-import qualified Prelude                                     as Haskell
+import qualified PlutusTx.AssocMap                                        as AssocMap
+import           PlutusTx.Prelude                                         hiding
+                                                                          (Semigroup (..))
+import           Prelude                                                  (Semigroup (..))
+import qualified Prelude                                                  as Haskell
 import qualified Schema
-import           Text.Printf                                 (printf)
+import           Text.Printf                                              (printf)
 
 data OpenSaleParams =
   OpenSaleParams {

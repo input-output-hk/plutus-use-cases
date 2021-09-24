@@ -15,9 +15,9 @@ import           Ledger.Value
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID           as Export
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace  as Export
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT          as Export
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine as Export
-import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace                                  as Export
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                         as AssocMap
 import           PlutusTx.Prelude                                          hiding

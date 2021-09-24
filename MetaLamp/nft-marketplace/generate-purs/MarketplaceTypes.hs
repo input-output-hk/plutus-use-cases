@@ -11,33 +11,35 @@
 
 module MarketplaceTypes where
 
-import           Control.Monad.Reader                         (MonadReader)
-import           Data.Proxy                                   (Proxy (Proxy))
-import qualified Ext.Plutus.Contracts.Auction                 as Auction
-import           Language.PureScript.Bridge                   (BridgePart,
-                                                               Language (Haskell),
-                                                               PSType, SumType,
-                                                               TypeInfo (TypeInfo),
-                                                               buildBridge,
-                                                               equal,
-                                                               genericShow,
-                                                               haskType,
-                                                               mkSumType, order,
-                                                               psTypeParameters,
-                                                               typeModule,
-                                                               typeName,
-                                                               writePSTypesWith,
-                                                               (^==))
-import           Language.PureScript.Bridge.Builder           (BridgeData)
-import           Language.PureScript.Bridge.TypeParameters    (A, E)
-import           Plutus.Abstract.ContractResponse             (ContractResponse)
-import           Plutus.Contract.StateMachine.ThreadToken     (ThreadToken)
-import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
-import qualified Plutus.Contracts.Services.Sale               as Sale
-import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
-import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace                     as Marketplace
-import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds)
+import           Control.Monad.Reader                                     (MonadReader)
+import           Data.Proxy                                               (Proxy (Proxy))
+import qualified Ext.Plutus.Contracts.Auction                             as Auction
+import           Language.PureScript.Bridge                               (BridgePart,
+                                                                           Language (Haskell),
+                                                                           PSType,
+                                                                           SumType,
+                                                                           TypeInfo (TypeInfo),
+                                                                           buildBridge,
+                                                                           equal,
+                                                                           genericShow,
+                                                                           haskType,
+                                                                           mkSumType,
+                                                                           order,
+                                                                           psTypeParameters,
+                                                                           typeModule,
+                                                                           typeName,
+                                                                           writePSTypesWith,
+                                                                           (^==))
+import           Language.PureScript.Bridge.Builder                       (BridgeData)
+import           Language.PureScript.Bridge.TypeParameters                (A, E)
+import           Plutus.Abstract.ContractResponse                         (ContractResponse)
+import           Plutus.Contract.StateMachine.ThreadToken                 (ThreadToken)
+import qualified Plutus.Contracts.NftMarketplace.Endpoints                as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Marketplace
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
+import qualified Plutus.Contracts.Services.Sale                           as Sale
+import           Plutus.PAB.Simulation                                    (MarketplaceContracts (..))
+import           Plutus.V1.Ledger.Time                                    (DiffMilliSeconds)
 
 ratioBridge :: BridgePart
 ratioBridge = do

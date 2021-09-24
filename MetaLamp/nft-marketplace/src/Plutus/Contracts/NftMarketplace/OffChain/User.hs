@@ -15,43 +15,43 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.User where
 
-import           Control.Lens                                           (_2,
-                                                                         _Left,
-                                                                         _Right,
-                                                                         (^.),
-                                                                         (^?))
-import qualified Control.Lens                                           as Lens
-import           Control.Monad                                          hiding
-                                                                        (fmap)
-import qualified Data.Aeson                                             as J
-import           Data.Proxy                                             (Proxy (..))
-import           Data.Text                                              (Text)
-import qualified Data.Text                                              as T
-import qualified Ext.Plutus.Contracts.Auction                           as Auction
-import           Ext.Plutus.Ledger.Value                                (utxoValue)
-import qualified GHC.Generics                                           as Haskell
+import           Control.Lens                                             (_2,
+                                                                           _Left,
+                                                                           _Right,
+                                                                           (^.),
+                                                                           (^?))
+import qualified Control.Lens                                             as Lens
+import           Control.Monad                                            hiding
+                                                                          (fmap)
+import qualified Data.Aeson                                               as J
+import           Data.Proxy                                               (Proxy (..))
+import           Data.Text                                                (Text)
+import qualified Data.Text                                                as T
+import qualified Ext.Plutus.Contracts.Auction                             as Auction
+import           Ext.Plutus.Ledger.Value                                  (utxoValue)
+import qualified GHC.Generics                                             as Haskell
 import           Ledger
-import qualified Ledger.Typed.Scripts                                   as Scripts
+import qualified Ledger.Typed.Scripts                                     as Scripts
 import           Ledger.Typed.Tx
-import qualified Ledger.Value                                           as V
+import qualified Ledger.Value                                             as V
 import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                              as Currency
+import           Plutus.Contracts.Currency                                as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID
 import           Plutus.Contracts.NftMarketplace.OffChain.Info
-import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Core
-import qualified Plutus.Contracts.Services.Sale                         as Sale
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace                               as Marketplace
+import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString)
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Core
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
+import qualified Plutus.Contracts.Services.Sale                           as Sale
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                                      as AssocMap
-import           PlutusTx.Prelude                                       hiding
-                                                                        (Semigroup (..))
-import           Prelude                                                (Semigroup (..))
-import qualified Prelude                                                as Haskell
+import qualified PlutusTx.AssocMap                                        as AssocMap
+import           PlutusTx.Prelude                                         hiding
+                                                                          (Semigroup (..))
+import           Prelude                                                  (Semigroup (..))
+import qualified Prelude                                                  as Haskell
 import qualified Schema
-import           Text.Printf                                            (printf)
+import           Text.Printf                                              (printf)
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
