@@ -57,7 +57,8 @@ chooseWallet = do
       dmmWalletIds <- viewContracts
       dyn_ $ ffor dmmWalletIds $ \case
         Nothing -> do
-          text "There are no wallets avaiable"
+          el "p" $ text "There are no wallets yet available."
+          el "p" $ text "If the contract is still initializing, just wait. They will appear here once created."
         Just walletIds -> do
             elClass "ul" "list-group" $ do
               forM_ walletIds $ \wid -> do
