@@ -22,6 +22,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO)
+import qualified Data.Map as Map
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import Data.Vessel
@@ -57,10 +58,7 @@ chooseWallet = do
       dyn_ $ ffor dmmWalletIds $ \case
         Nothing -> do
           text "There are no wallets avaiable"
-        Just mWalletIds -> case mWalletIds of
-          Nothing -> do
-            text "There are no wallets avaiable"
-          Just walletIds -> do
+        Just walletIds -> do
             elClass "ul" "list-group" $ do
               forM_ walletIds $ \wid -> do
                 (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
@@ -70,5 +68,5 @@ viewContracts
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m
      , Reflex t
      )
-  => m (Dynamic t (Maybe (Maybe [Text])))
-viewContracts = (fmap.fmap.fmap) (getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_ContractList . identityV
+  => m (Dynamic t (Maybe ([Text])))
+viewContracts = (fmap.fmap.fmap) (Map.elems . Map.mapMaybe getFirst . runIdentity) $ queryViewMorphism 1 $ constDyn $ vessel Q_ContractList . identityV
