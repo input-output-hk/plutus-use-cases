@@ -19,7 +19,9 @@ By the end of this README you will be able to run the POKE-DEX on your machine l
 
 ##  Running Plutus Application Backend (PAB)
 
-1. [Run PAB] After installing Obelisk, use `./scripts/run-pab.sh` to launch the PAB and have it listen on port 8080
+1. Make sure you don't have anything running using port 8080.
+
+2. [Run PAB] After installing Obelisk, use `./scripts/run-pab.sh` to launch the PAB and have it listen on port 8080.
 
 ##  Starting Obelisk Frontend
 
