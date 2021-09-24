@@ -7,6 +7,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Plutus.Contracts.NftMarketplace.OffChain.Owner where
 
 import qualified Control.Lens                                 as Lens
@@ -32,15 +33,24 @@ import           PlutusTx.Prelude                             hiding
 import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import           Text.Printf                                  (printf)
+import qualified Schema
 import Plutus.Types.Percentage (mkPercentage)
 import PlutusTx.Ratio (Ratio)
+import Ledger.Ada  (lovelaceValueOf)
+ 
+data StartMarketplaceParams = StartMarketplaceParams {
+    nftFee :: Integer,
+    saleFee :: Ratio Integer
+}
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
 -- | Starts the NFT Marketplace protocol: minting protocol NFT, creating empty nft storage
-start :: Ratio Integer -> Contract w s Text Core.Marketplace
-start operatorFee = do
+start :: StartMarketplaceParams -> Contract w s Text Core.Marketplace
+start StartMarketplaceParams {..} = do
     pkh <- pubKeyHash <$> ownPubKey
-    feePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage operatorFee
-    let marketplace = Core.Marketplace pkh feePercentage
+    saleFeePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage saleFee
+    let marketplace = Core.Marketplace pkh (lovelaceValueOf nftFee) saleFeePercentage
     let client = Core.marketplaceClient marketplace
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
 
@@ -48,7 +58,7 @@ start operatorFee = do
     pure marketplace
 
 type MarketplaceOwnerSchema =
-    Endpoint "start" (Ratio Integer)
+    Endpoint "start" StartMarketplaceParams
 
 data OwnerContractState = Started Core.Marketplace
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)

@@ -48,7 +48,7 @@ data Sale =
       saleValue         :: !Value,
       saleOwner         :: !Saler,
       marketplaceOperator :: !PubKeyHash,
-      marketplaceFee    :: !Percentage
+      marketplaceSaleFee    :: !Percentage
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

@@ -13,12 +13,14 @@ import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
 import Plutus.Types.Percentage (Percentage(..))
 import PlutusTx.Ratio 
+import Ledger.Ada  (lovelaceValueOf)
 
 marketplace :: Marketplace.Marketplace
 marketplace =
   Marketplace.Marketplace {
     Marketplace.marketplaceOperator = pubKeyHash $ walletPubKey Fixtures.ownerWallet,
-    Marketplace.marketplaceFee = percentage
+    Marketplace.marketplaceSaleFee = percentage,
+    Marketplace.marketplaceNFTFee = lovelaceValueOf 100000  -- 0.1 ADA
   }
   
 percentage :: Percentage

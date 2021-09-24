@@ -17,7 +17,8 @@ import           Ledger
 data Marketplace =
   Marketplace
     { marketplaceOperator :: PubKeyHash,
-      marketplaceFee :: Percentage
+      marketplaceNFTFee :: Value,  -- fixed fee by minting and bundling
+      marketplaceSaleFee :: Percentage -- percentage by selling on the Sale or Auction
     }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

@@ -126,9 +126,10 @@ removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
 
 {-# INLINABLE transition #-}
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
-transition marketplace state redeemer = case redeemer of
+transition marketplace@Marketplace{..} state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
-        -> Just ( mustBeSignedByIssuer nftEntry
+        -> Just ( mustBeSignedByIssuer nftEntry <> 
+                  Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )
     PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot
@@ -156,7 +157,7 @@ transition marketplace state redeemer = case redeemer of
                     , State (insertBundle bundleId newEntry nftStore) currStateValue
                     )
     BundleUpRedeemer nftIds bundleId bundleInfo
-        -> Just ( mempty
+        -> Just ( Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
                 , State (bundleUpDatum nftIds bundleId bundleInfo nftStore) currStateValue
                 )
     UnbundleRedeemer bundleId

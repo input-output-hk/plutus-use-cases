@@ -67,6 +67,7 @@ import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
 import           Wallet.Types                                 (ContractInstanceId)
 import PlutusTx.Ratio ((%), Ratio)
+import qualified Plutus.Contracts.NftMarketplace.OffChain.Owner as Owner
 
 ownerWallet :: Wallet
 ownerWallet = Wallet 1
@@ -74,8 +75,11 @@ ownerWallet = Wallet 1
 userWallets :: [Wallet]
 userWallets = [Wallet i | i <- [2 .. 4]]
 
-operatorFee :: Ratio Integer
-operatorFee = 5 % 2
+startMarketplaceParams :: Owner.StartMarketplaceParams
+startMarketplaceParams = Owner.StartMarketplaceParams {
+    nftFee = 100000,  -- 0.1 ADA
+    saleFee = 5 % 2
+}
 
 initialLotPrice :: Value.Value
 initialLotPrice = lovelaceValueOf 100000000 -- 100 ADA
@@ -85,7 +89,7 @@ data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, c
 activateContracts :: Simulation (Builtin MarketplaceContracts) ContractIDs
 activateContracts = do
     cidStart <- Simulator.activateContract ownerWallet MarketplaceStart
-    _  <- Simulator.callEndpointOnInstance cidStart "start" operatorFee
+    _  <- Simulator.callEndpointOnInstance cidStart "start" startMarketplaceParams
     mp <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (ContractResponse Text Marketplace.OwnerContractState)) of
         Success (CrSuccess (Marketplace.Started mp)) -> Just mp
         _                                            -> Nothing

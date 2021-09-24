@@ -51,7 +51,7 @@ data AuctionParams
         , apEndTime :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
         , apInitialPrice :: Value
         , apMarketplaceOperator :: PubKeyHash
-        , apMarketplaceFee    :: Percentage
+        , apMarketplaceSaleFee    :: Percentage
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON)
@@ -68,7 +68,7 @@ fromAuction Core.Auction {..} = AuctionParams {
     apEndTime = Ledger.POSIXTime aEndTime,
     apInitialPrice = aInitialPrice,
     apMarketplaceOperator = aMarketplaceOperator,
-    apMarketplaceFee = aMarketplaceFee
+    apMarketplaceSaleFee = aMarketplaceSaleFee
     }
 
 {-# INLINABLE toAuction #-}
@@ -81,7 +81,7 @@ toAuction threadToken AuctionParams {..} =
         , aInitialPrice = apInitialPrice
         , aEndTime = Ledger.getPOSIXTime apEndTime
         , aMarketplaceOperator = apMarketplaceOperator
-        , aMarketplaceFee = apMarketplaceFee
+        , aMarketplaceSaleFee = apMarketplaceSaleFee
     }
 
 {-# INLINABLE getStateToken #-}
@@ -168,7 +168,7 @@ auctionTransition AuctionParams{..} State{stateData=oldState} input =
                 newState = State { stateData = Finished h, stateValue = mempty }
                 highestBidInLovelace = Ada.getLovelace highestBid
                 saleProfit = highestBidInLovelace - operatorFee
-                operatorFee = Ratio.round $ (highestBidInLovelace % 100) * (getPercentage apMarketplaceFee)
+                operatorFee = Ratio.round $ (highestBidInLovelace % 100) * (getPercentage apMarketplaceSaleFee)
             in Just (constraints, newState)
 
         -- Any other combination of 'AuctionState' and 'AuctionInput' is disallowed.

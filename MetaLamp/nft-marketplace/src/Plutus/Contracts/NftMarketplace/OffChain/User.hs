@@ -220,7 +220,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
       apEndTime = endTime,
       apInitialPrice = saapInitialPrice,
       apMarketplaceOperator = marketplaceOperator,
-      apMarketplaceFee = marketplaceFee
+      apMarketplaceSaleFee = marketplaceSaleFee
     }
     auctionToken <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionParams
 

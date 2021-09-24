@@ -59,7 +59,7 @@ data Auction = Auction {
     aInitialPrice :: Value,
     aEndTime :: POSIXTimeT,
     aMarketplaceOperator :: PubKeyHash,
-    aMarketplaceFee :: Percentage
+    aMarketplaceSaleFee :: Percentage
   }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

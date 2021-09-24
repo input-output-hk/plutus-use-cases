@@ -73,7 +73,7 @@ transition Sale{..} state redeemer = case (stateData state, redeemer) of
     saleProfit :: Integer
     saleProfit = salePrice - operatorFee
     operatorFee :: Integer
-    operatorFee = Ratio.round $ (salePrice % 100) * (getPercentage marketplaceFee)
+    operatorFee = Ratio.round $ (salePrice % 100) * (getPercentage marketplaceSaleFee)
     val = stateValue state
 
 {-# INLINABLE isFinal #-}
