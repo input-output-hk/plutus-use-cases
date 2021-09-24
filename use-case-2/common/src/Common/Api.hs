@@ -13,6 +13,8 @@ import Data.Aeson.GADT.TH
 import Data.Constraint.Extras.TH
 import Data.GADT.Compare.TH
 import Data.GADT.Show.TH
+import Data.Int
+import Data.Map (Map)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import Data.Vessel
@@ -21,29 +23,63 @@ import GHC.Generics
 import Common.Plutus.Contracts.Uniswap.Types
 import Common.Schema
 
-commonStuff :: String
-commonStuff = "Here is a string defined in Common.Api"
+-- | These is the "view" of all live queries, created using Vessel
+-- (https://hackage.haskell.org/package/vessel). See
+-- https://github.com/obsidiansystems/vessel/blob/develop/tutorial/Tutorial.md
+-- for a nice step-by-step introduction.
+type DexV = Vessel Q
+
+-- | GADT plugged into the Vessel map type, see above.
+data Q (v :: (* -> *) -> *) where
+  Q_ContractList :: Q (IdentityV (Map Int32 (First (Maybe Text))))
+  Q_PooledTokens :: Q (IdentityV (First (Maybe [PooledToken])))
+  Q_Pools :: Q (IdentityV (Map Text (First (Maybe LPool))))
+
+-- | In Obelisk apps, we follow CQRS such that only these should have side
+-- effects, and only return ephemeral data like failure/sucess related to the
+-- command. The (live) queries defined elsewhere should return actual persisted
+-- application data.
+data Api :: * -> * where
+  Api_Swap
+    :: ContractInstanceId Text
+    -> Coin AssetClass
+    -> Coin AssetClass
+    -> Amount Integer
+    -> Amount Integer
+    -> Api (Either Aeson.Value Aeson.Value)
+
+  Api_Stake
+    :: ContractInstanceId Text
+    -> Coin AssetClass
+    -> Coin AssetClass
+    -> Amount Integer
+    -> Amount Integer
+    -> Api (Either String Aeson.Value)
+
+  Api_RedeemLiquidity
+    :: ContractInstanceId Text
+    -> Coin AssetClass
+    -> Coin AssetClass
+    -> Amount Integer
+    -> Api (Either String Aeson.Value)
+
+  Api_CallFunds
+    :: ContractInstanceId Text
+    -> Api ()
+
+  Api_CallPools
+    :: ContractInstanceId Text
+    -> Api ()
+
+  Api_EstimateTransactionFee
+    :: SmartContractAction
+    -> Api Integer
 
 data SmartContractAction = SmartContractAction_Swap
   deriving (Eq, Ord, Show, Generic)
 
 instance ToJSON SmartContractAction
 instance FromJSON SmartContractAction
-
-type DexV = Vessel Q
-
--- Note: This is view
-data Q (v :: (* -> *) -> *) where
-  Q_ContractList :: Q (IdentityV (First (Maybe [Text])))
-  Q_PooledTokens :: Q (IdentityV (First (Maybe [PooledToken])))
-
-data Api :: * -> * where
-  Api_Swap :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String Aeson.Value)
-  Api_Stake :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Amount Integer -> Api (Either String Aeson.Value)
-  Api_RedeemLiquidity :: ContractInstanceId Text -> Coin AssetClass -> Coin AssetClass -> Amount Integer -> Api (Either String Aeson.Value)
-  Api_CallFunds :: ContractInstanceId Text -> Api ()
-  Api_CallPools :: ContractInstanceId Text -> Api ()
-  Api_EstimateTransactionFee :: SmartContractAction -> Api Integer
 
 deriveJSONGADT ''Api
 deriveArgDict ''Api

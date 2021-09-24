@@ -9,6 +9,8 @@ library
                , aeson-gadt-th
                , base
                , beam-core
+               , categories
+               , containers
                , constraints-extras
                , dependent-sum-template
                , mtl
