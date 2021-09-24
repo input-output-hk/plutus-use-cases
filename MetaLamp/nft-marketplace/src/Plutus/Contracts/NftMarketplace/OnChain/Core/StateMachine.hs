@@ -28,7 +28,7 @@ import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
 import qualified Plutus.Contracts.Services.Sale                   as Sale
-import           Plutus.Types.Marketplace
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
 import           Plutus.Types.Percentage                          (Percentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                as AssocMap

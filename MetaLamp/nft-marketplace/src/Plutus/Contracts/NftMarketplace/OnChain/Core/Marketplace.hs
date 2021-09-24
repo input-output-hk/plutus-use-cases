@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
-module Plutus.Types.Marketplace where
+module Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace where
 import qualified Data.Aeson              as J
 import           GHC.Generics            (Generic)
 import           Ledger

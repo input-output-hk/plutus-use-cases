@@ -43,7 +43,7 @@ import           Plutus.Contracts.NftMarketplace.OffChain.Info
 import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Core
 import qualified Plutus.Contracts.Services.Sale                         as Sale
-import qualified Plutus.Types.Marketplace                               as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace                               as Marketplace
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                      as AssocMap
 import           PlutusTx.Prelude                                       hiding

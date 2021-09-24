@@ -36,7 +36,7 @@ import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Contracts.Services.Sale               as Sale
 import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
-import           Plutus.Types.Marketplace                     as Marketplace
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace                     as Marketplace
 import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds)
 
 ratioBridge :: BridgePart
