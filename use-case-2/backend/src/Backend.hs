@@ -194,20 +194,27 @@ syncPooledTokens httpManager pool = do
       -- aeson-lens happened here in order to get currency symbols and token names from json
       let tokenInfo :: Maybe [((Aeson.Value, Int32), (Aeson.Value, Int32), (Aeson.Value, Int32))]
           tokenInfo = obj ^? key "cicCurrentState". key "observableState" . key "Right" . key "contents" . _Value . _JSON
-          -- currencySymbols = tokenInfo ^.. traverse . key "unAssetClass" . values . key "unCurrencySymbol" . _String
-          -- tokenNames = tokenInfo ^.. traverse . key "unAssetClass" . values . key "unTokenName" . _String
+
           pooledTokens :: [PooledToken]
-          pooledTokens = []
+          pooledTokens = flip foldMap pools $ \p ->
+            [ PooledToken (_pool_tokenASymbol p) (_pool_tokenAName p)
+            , PooledToken (_pool_tokenBSymbol p) (_pool_tokenBName p)
+            ]
 
           pools :: [LPool]
           pools = flip mapMaybe (fromMaybe mempty tokenInfo) $ \((tokenA, amountA), (tokenB, amountB), (lp, amountLp)) -> do
             let curSymbol = key "unAssetClass" . nth 0 . key "unCurrencySymbol" . _String
+                curName = key "unAssetClass" . nth 1 . key "unTokenName" . _String
             tokenASymbol <- tokenA ^? curSymbol
+            tokenAName <- tokenA ^? curName
             tokenBSymbol <- tokenB ^? curSymbol
+            tokenBName <- tokenB ^? curName
             lpSymbol <- lp ^? key "unTokenName" . _String
             return $ Pool
               { _pool_tokenASymbol = tokenASymbol
+              , _pool_tokenAName = tokenAName
               , _pool_tokenBSymbol = tokenBSymbol
+              , _pool_tokenBName = tokenBName
               , _pool_tokenAAmount = amountA
               , _pool_tokenBAmount = amountB
               , _pool_liquiditySymbol = lpSymbol

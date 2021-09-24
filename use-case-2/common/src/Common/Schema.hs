@@ -50,7 +50,9 @@ data TxFeeDataSetT f = TxFeeDataSet
 -- Liquidity Pool
 data PoolT f = Pool
   { _pool_tokenASymbol :: Columnar f Text
+  , _pool_tokenAName :: Columnar f Text
   , _pool_tokenBSymbol :: Columnar f Text
+  , _pool_tokenBName :: Columnar f Text
   , _pool_tokenAAmount :: Columnar f Int32
   , _pool_tokenBAmount :: Columnar f Int32
   , _pool_liquiditySymbol :: Columnar f Text
