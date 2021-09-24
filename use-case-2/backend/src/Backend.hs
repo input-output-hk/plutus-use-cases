@@ -287,7 +287,7 @@ executeSwap httpManager pool contractId (coinA, amountA) (coinB, amountB) = do
   -- MVar that will hold response to swap request sent
   eitherObState <- newEmptyMVar
   -- Use websocket connection to fetch observable state response
-  (eitherObState', endTime) <- WS.runClient "localhost" 8080 ("/ws/" ++ contractId) $ \conn -> do
+  (eitherObState', endTime) <- WS.runClient "127.0.0.1" 8080 ("/ws/" ++ contractId) $ \conn -> do
     -- Allow enough time to pass for observable state to be updated (10 secs)
     let processData = do
           incomingData :: ByteString <- WS.receiveData conn
