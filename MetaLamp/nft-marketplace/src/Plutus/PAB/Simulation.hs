@@ -38,7 +38,8 @@ import           Ledger
 import           Ledger.Ada                                   (adaSymbol,
                                                                adaToken,
                                                                adaValueOf,
-                                                               lovelaceValueOf)
+                                                               lovelaceValueOf
+                                                               )
 import           Ledger.Constraints
 import qualified Ledger.Constraints.OffChain                  as Constraints
 import qualified Ledger.Typed.Scripts                         as Scripts
@@ -75,6 +76,9 @@ userWallets = [Wallet i | i <- [2 .. 4]]
 
 operatorFee :: Ratio Integer
 operatorFee = 5 % 2
+
+initialLotPrice :: Value.Value
+initialLotPrice = lovelaceValueOf 100000000 -- 100 ADA
 
 data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
@@ -190,7 +194,8 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapDuration = 80 * 1000
+                        saapDuration = 80 * 1000,
+                        saapInitialPrice = initialLotPrice
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction

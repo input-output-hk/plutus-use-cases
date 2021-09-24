@@ -18,7 +18,7 @@ marketplace :: Marketplace.Marketplace
 marketplace =
   Marketplace.Marketplace {
     Marketplace.marketplaceOperator = pubKeyHash $ walletPubKey Fixtures.ownerWallet,
-    Marketplace.marketplaceGasFee = percentage
+    Marketplace.marketplaceFee = percentage
   }
   
 percentage :: Percentage

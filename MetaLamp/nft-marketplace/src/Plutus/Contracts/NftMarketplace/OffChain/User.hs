@@ -83,7 +83,7 @@ createNft marketplace CreateNftParams {..} = do
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
            Currency.mintContract pkh [(tokenName, 1)]
-           -- TODO: get operatiorGasFee by minting (const fee?? We haven't a price on this step)
+           -- TODO: get operatiorFee by minting (const fee?? We haven't a price on this step)
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
             { niCurrency          = Currency.currencySymbol nft
@@ -192,7 +192,8 @@ deriving newtype instance Schema.ToSchema DiffMilliSeconds
 data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId   :: UserItemId,
-    saapDuration :: DiffMilliSeconds
+    saapDuration :: DiffMilliSeconds,
+    saapInitialPrice :: Value
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -201,7 +202,7 @@ Lens.makeClassy_ ''StartAnAuctionParams
 
 -- | The user starts an auction for specified NFT
 startAnAuction :: Core.Marketplace -> StartAnAuctionParams -> Contract w s Text ()
-startAnAuction marketplace StartAnAuctionParams {..} = do
+startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
     let internalId = toInternalId saapItemId
     nftStore <- marketplaceStore marketplace
     auctionValue <- case internalId of
@@ -212,10 +213,19 @@ startAnAuction marketplace StartAnAuctionParams {..} = do
 
     currTime <- currentTime
     let endTime = currTime + fromMilliSeconds saapDuration
-    (auctionToken, auctionParams) <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionValue endTime
+    self <- Ledger.pubKeyHash <$> ownPubKey
+    let auctionParams = Auction.AuctionParams {
+      apOwner = self,
+      apAsset = auctionValue,
+      apEndTime = endTime,
+      apInitialPrice = saapInitialPrice,
+      apMarketplaceOperator = marketplaceOperator,
+      apMarketplaceFee = marketplaceFee
+    }
+    auctionToken <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionParams
 
     let client = Core.marketplaceClient marketplace
-    let lot = Right $ Auction.toTuple auctionToken auctionParams
+    let lot = Right $ Auction.toAuction auctionToken auctionParams
     void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auctionParams)
@@ -237,7 +247,7 @@ completeAnAuction marketplace CloseLotParams {..} = do
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
     let auctionToken = Auction.getStateToken auction
-    let auctionParams = Auction.fromTuple auction
+    let auctionParams = Auction.fromAuction auction
     _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auctionToken auctionParams
 
     let client = Core.marketplaceClient marketplace
@@ -273,7 +283,7 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
     let auctionToken = Auction.getStateToken auction
-    let auctionParams = Auction.fromTuple auction
+    let auctionParams = Auction.fromAuction auction
     _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auctionToken auctionParams boapBid
 
     logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)

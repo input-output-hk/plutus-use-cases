@@ -39,6 +39,9 @@ import qualified Plutus.Contracts.Currency        as Currency
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                          as Haskell
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as Core
+import Plutus.Types.Percentage (Percentage(..))
+import qualified PlutusTx.Ratio as Ratio
 
 -- | Definition of an auction
 data AuctionParams
@@ -46,6 +49,9 @@ data AuctionParams
         { apOwner   :: PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
         , apAsset   :: Value -- ^ The asset itself. This value is going to be locked by the auction script output.
         , apEndTime :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
+        , apInitialPrice :: Value
+        , apMarketplaceOperator :: PubKeyHash
+        , apMarketplaceFee    :: Percentage
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON)
@@ -54,17 +60,33 @@ PlutusTx.makeLift ''AuctionParams
 
 PlutusTx.unstableMakeIsData ''AuctionParams
 
-{-# INLINABLE fromTuple #-}
-fromTuple :: (SM.ThreadToken, PubKeyHash, Value, Integer) -> AuctionParams
-fromTuple (_, apOwner, apAsset, endTime) = AuctionParams {apEndTime = Ledger.POSIXTime endTime, ..}
+{-# INLINABLE fromAuction #-}
+fromAuction :: Core.Auction -> AuctionParams
+fromAuction Core.Auction {..} = AuctionParams {
+    apOwner = aOwner,
+    apAsset = aAsset,
+    apEndTime = Ledger.POSIXTime aEndTime,
+    apInitialPrice = aInitialPrice,
+    apMarketplaceOperator = aMarketplaceOperator,
+    apMarketplaceFee = aMarketplaceFee
+    }
 
-{-# INLINABLE toTuple #-}
-toTuple :: SM.ThreadToken -> AuctionParams -> (SM.ThreadToken, PubKeyHash, Value, Integer)
-toTuple threadToken AuctionParams {..} = (threadToken, apOwner, apAsset, Ledger.getPOSIXTime apEndTime)
+{-# INLINABLE toAuction #-}
+toAuction :: SM.ThreadToken -> AuctionParams -> Core.Auction
+toAuction threadToken AuctionParams {..} = 
+    Core.Auction {
+        aThreadToken = threadToken
+        , aOwner = apOwner
+        , aAsset = apAsset
+        , aInitialPrice = apInitialPrice
+        , aEndTime = Ledger.getPOSIXTime apEndTime
+        , aMarketplaceOperator = apMarketplaceOperator
+        , aMarketplaceFee = apMarketplaceFee
+    }
 
 {-# INLINABLE getStateToken #-}
-getStateToken :: (SM.ThreadToken, PubKeyHash, Value, Integer) -> SM.ThreadToken
-getStateToken (token, _, _, _) = token
+getStateToken :: Core.Auction -> SM.ThreadToken
+getStateToken auction = Core.aThreadToken auction
 
 data HighestBid =
     HighestBid
@@ -123,7 +145,7 @@ type AuctionMachine = StateMachine AuctionState AuctionInput
 {-# INLINABLE auctionTransition #-}
 -- | The transitions of the auction state machine.
 auctionTransition :: AuctionParams -> State AuctionState -> AuctionInput -> Maybe (TxConstraints Void Void, State AuctionState)
-auctionTransition AuctionParams{apOwner, apAsset, apEndTime} State{stateData=oldState} input =
+auctionTransition AuctionParams{..} State{stateData=oldState} input =
     case (oldState, input) of
 
         (Ongoing HighestBid{highestBid, highestBidder}, Bid{newBid, newBidder}) | newBid > highestBid -> -- if the new bid is higher,
@@ -140,9 +162,13 @@ auctionTransition AuctionParams{apOwner, apAsset, apEndTime} State{stateData=old
         (Ongoing h@HighestBid{highestBidder, highestBid}, Payout) ->
             let constraints =
                     Constraints.mustValidateIn (Interval.from apEndTime) -- When the auction has ended,
-                    <> Constraints.mustPayToPubKey apOwner (Ada.toValue highestBid) -- the owner receives the payment
+                    <> Constraints.mustPayToPubKey apOwner (Ada.lovelaceValueOf saleProfit) -- the owner receives the payment
                     <> Constraints.mustPayToPubKey highestBidder apAsset -- and the highest bidder the asset
+                    <> Constraints.mustPayToPubKey apMarketplaceOperator (Ada.lovelaceValueOf operatorFee)
                 newState = State { stateData = Finished h, stateValue = mempty }
+                highestBidInLovelace = Ada.getLovelace highestBid
+                saleProfit = highestBidInLovelace - operatorFee
+                operatorFee = Ratio.round $ (highestBidInLovelace % 100) * (getPercentage apMarketplaceFee)
             in Just (constraints, newState)
 
         -- Any other combination of 'AuctionState' and 'AuctionInput' is disallowed.
@@ -209,21 +235,19 @@ instance SM.AsSMContractError AuctionError where
     _SMContractError = _StateMachineContractError . SM._SMContractError
 
 -- | Client code for the seller
-startAuction :: Value -> Ledger.POSIXTime -> Contract w s AuctionError (SM.ThreadToken, AuctionParams)
-startAuction value time = do
+startAuction :: AuctionParams -> Contract w s AuctionError SM.ThreadToken
+startAuction auctionParams@AuctionParams{..} = do
     threadToken <- SM.getThreadToken
     logInfo $ "Obtained thread token: " <> Haskell.show threadToken
-    self <- Ledger.pubKeyHash <$> ownPubKey
-    let params       = AuctionParams{apOwner = self, apAsset = value, apEndTime = time }
-        inst         = typedValidator (threadToken, params)
-        client       = machineClient inst threadToken params
+    let inst         = typedValidator (threadToken, auctionParams)
+        client       = machineClient inst threadToken auctionParams
 
     _ <- handleError
             (\e -> do { logError (AuctionFailed e); throwError (StateMachineContractError e) })
-            (SM.runInitialise client (initialState self) value)
+            (SM.runInitialise client (initialState apOwner) apAsset)
 
-    logInfo $ AuctionStarted params
-    pure (threadToken, params)
+    logInfo $ AuctionStarted auctionParams
+    pure threadToken
 
 -- | Client code for the seller
 payoutAuction :: SM.ThreadToken -> AuctionParams -> Contract w s AuctionError ()

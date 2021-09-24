@@ -23,7 +23,6 @@ import qualified Data.Aeson                     as J
 import qualified Data.ByteArray                 as BA
 import qualified Data.List                      as HL
 import qualified Data.Text                      as T
-import qualified Ext.Plutus.Contracts.Auction   as Auction
 import qualified GHC.Generics                   as Haskell
 import           Ledger
 import qualified Ledger.Constraints             as Constraints
@@ -37,6 +36,7 @@ import qualified PlutusTx.AssocMap              as AssocMap
 import           PlutusTx.Prelude               hiding (Semigroup (..))
 import           Prelude                        (Semigroup (..))
 import qualified Prelude                        as Haskell
+import Plutus.Types.Percentage (Percentage)
 
 -- TODO can't use POSIXTime directly because of custom JSON instances defined in Plutus:
 -- generated purescript type has generic instances
@@ -47,10 +47,28 @@ type POSIXTimeT = Integer
 -- 2. acts as a list of tags
 type IpfsCid = BuiltinByteString
 type IpfsCidHash = BuiltinByteString
-type Auction = (ThreadToken, PubKeyHash, Value, POSIXTimeT)
+-- type Auction = (ThreadToken, PubKeyHash, Value, POSIXTimeT)
 type Category = [BuiltinByteString]
 type LotLink = Either Sale.Sale Auction
 type BundleId = BuiltinByteString
+
+data Auction = Auction {
+    aThreadToken :: ThreadToken,
+    aOwner :: PubKeyHash,
+    aAsset :: Value,
+    aInitialPrice :: Value,
+    aEndTime :: POSIXTimeT,
+    aMarketplaceOperator :: PubKeyHash,
+    aMarketplaceFee :: Percentage
+  }
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''Auction
+
+PlutusTx.makeLift ''Auction
+
+Lens.makeClassy_ ''Auction
 
 data NftInfo =
   NftInfo

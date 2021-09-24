@@ -87,7 +87,7 @@ getAuctionState marketplace itemId = do
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
     let auctionToken = Auction.getStateToken auction
-    let auctionParams = Auction.fromTuple auction
+    let auctionParams = Auction.fromAuction auction
     auctionState <- do
         st <- mapError (T.pack . Haskell.show) $ Auction.currentState auctionToken auctionParams
         maybe (throwError "Auction state not found") pure st

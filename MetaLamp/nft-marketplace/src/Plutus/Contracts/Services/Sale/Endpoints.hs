@@ -63,7 +63,7 @@ openSale OpenSaleParams {..}  Marketplace.Marketplace {..} = do
                   saleValue         = ospSaleValue,
                   saleOwner         = pkh,
                   marketplaceOperator = marketplaceOperator,
-                  marketplaceFee    = marketplaceGasFee
+                  marketplaceFee    = marketplaceFee
                 }
     let client = Core.saleClient sale
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing ospSaleValue

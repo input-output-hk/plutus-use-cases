@@ -30,6 +30,7 @@ import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress)
+import           Ledger.Ada                                   (lovelaceValueOf)
 
 tests :: TestTree
 tests =
@@ -105,14 +106,15 @@ tests =
     ]]
 
 auctionValue :: Marketplace.Auction -> Value
-auctionValue = Auction.apAsset . Auction.fromTuple
+auctionValue = Auction.apAsset . Auction.fromAuction
 
 -- \/\/\/ "NFT singletons"
 startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    Marketplace.saapDuration = 155 * 1000
+    Marketplace.saapDuration = 155 * 1000,
+    Marketplace.saapInitialPrice = lovelaceValueOf 100000000
   }
 
 closeLotParams ::        Marketplace.CloseLotParams
@@ -245,7 +247,8 @@ startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    Marketplace.saapDuration = 142 * 1000
+    Marketplace.saapDuration = 142 * 1000,
+    Marketplace.saapInitialPrice = lovelaceValueOf 100000000
   }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
