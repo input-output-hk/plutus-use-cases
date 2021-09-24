@@ -23,9 +23,6 @@ import GHC.Generics
 import Common.Plutus.Contracts.Uniswap.Types
 import Common.Schema
 
-commonStuff :: String
-commonStuff = "Here is a string defined in Common.Api"
-
 data SmartContractAction = SmartContractAction_Swap
   deriving (Eq, Ord, Show, Generic)
 
