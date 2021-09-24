@@ -26,6 +26,21 @@ curl -v -X PUT -H "Content-Type: application/json" \
     -d '{"ugpSatus": "FT", "ugpWinnerTeamId": 55}' \
     http://localhost:8081/games/1
 
+## Mutual bet rest server 
+
+1. Build the game rest server:
+```
+cabal build mutualbetserver
+```
+2. Run the Games server:
+```
+cabal exec -- mutualbetserver
+```
+
+### game server API 
+
+1. Wallet info
+curl -s http://localhost:8082/wallet/1
 
 ## The Plutus Application Backend (PAB) example
 We have provided an example PAB application in `./pab`. With the PAB we can serve and interact

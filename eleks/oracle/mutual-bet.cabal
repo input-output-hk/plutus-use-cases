@@ -114,7 +114,7 @@ executable bet-pab
     lens -any,
     plutus-contract -any,
     plutus-pab -any,
-    mutual-bet -any,
+    mutual-bet,
     aeson -any,
     freer-simple -any,
     prettyprinter -any,
@@ -133,7 +133,7 @@ executable gs
     base >= 4.9 && < 5,
     cardano-api, 
     cardano-ledger-alonzo,
-    mutual-bet -any,
+    mutual-bet,
     plutus-contract,
     plutus-ledger,
     plutus-ledger-api,
@@ -155,20 +155,42 @@ executable gameserver
     either,
     lens,
     mtl,
-    mutual-bet -any,
+    mutual-bet,
     servant-server -any,
     text -any,
     utf8-string,
-    warp,
+    warp
  
- executable gamesclient
-  main-is: GameClient.hs
+-- executable gamesclient
+--   main-is: GameClient.hs
+--   hs-source-dirs: pab
+--   ghc-options:  -threaded
+--   build-depends:        
+--     aeson, 
+--     base >= 4.9 && < 5,
+--     bytestring,
+--     mutual-bet,
+--     text -any,
+--     req
+
+executable mutualbetserver
+  main-is: MutualBetServer.hs
   hs-source-dirs: pab
   ghc-options:  -threaded
   build-depends:        
     aeson, 
+    aeson-pretty,
     base >= 4.9 && < 5,
     bytestring,
-    mutual-bet -any,
+    data-default -any,
+    either,
+    lens,
+    mtl,
+    mutual-bet,
+    servant-server -any,
+    plutus-contract,
+    plutus-ledger,
+    plutus-tx,
     text -any,
-    req
+    utf8-string,
+    warp,

@@ -5,17 +5,17 @@
 
 module Main(main) where
 
-import Data.Aeson
-import Data.Text
-import Data.String (fromString)
-import Control.Monad.Except
-import Control.Monad.Reader
-import GHC.Generics (Generic)
-import Servant
-import Service as GamesService
+import           Data.Aeson
+import           Data.Text
+import           Data.String          (fromString)
+import           Control.Monad.Except
+import           Control.Monad.Reader
+import           GHC.Generics         (Generic)
+import           Servant
+import           Service               as GamesService
 import qualified Data.ByteString.Char8 as B
-import Network.Wai.Handler.Warp
-import Types.Game
+import           Network.Wai.Handler.Warp
+import           Types.Game
 
 type GamesAPI = "games" :> Get '[JSON] [Game]
             :<|> "games" :> Capture "id" GameId :> Get '[JSON] Game
