@@ -483,20 +483,23 @@ runConnectionTest  conn = do
 
 runBalanceCommand :: LocalNodeConnectInfo CardanoMode -> [Text] -> IO ()
 runBalanceCommand conn args =do
+  skey <-getDefaultSignKey
+  let paymentCredential =   PaymentCredentialByKey  $ verificationKeyHash   $ getVerificationKey  skey
   addrs <- (case args of
       [] ->  do
-          skey <-getDefaultSignKey
-          let paymentCredential =   PaymentCredentialByKey  $ verificationKeyHash   $ getVerificationKey  skey
           pure  [ toAddressAny   $ makeShelleyAddress (Testnet  (NetworkMagic 1097911063))  paymentCredential NoStakeAddress]
       as -> case mapMaybe (\x -> deserialiseAddress AsAddressAny x) ( as) of
           [] -> throw $ SomeError "Address couldn't be serialized"
           v  -> pure v)
   v2 <- queryNodeLocalState conn Nothing $ utxoQuery addrs
-  balance <-case v2 of
+  balances <-case v2 of
     Left af -> throw $ SomeError $ "Acquire Failure "++ show af
     Right e -> case e of
       Left em  -> throw $ SomeError $  "Era missmatch thing just happened, has the time started running backwards!"
-      Right uto -> pure $ foldMap toValue $ toTxOut uto
+      Right uto -> pure $  uto
+  let balance =  foldMap toValue $ toTxOut balances
+  putStrLn $ "Wallet Address: "++( fromText $  serialiseToBech32 $ makeShelleyAddress (Testnet  (NetworkMagic 1097911063))  paymentCredential NoStakeAddress)
+  putStrLn $ "Utxo Count :" ++(show $ length  $ toTxOut balances) 
   putTextLn $ renderValuePretty balance
   where
 
