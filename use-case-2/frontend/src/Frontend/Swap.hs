@@ -62,16 +62,17 @@ swapDashboard
 swapDashboard wid = do
   navBar' $ Just wid
   pollRefreshPoolBalance wid
-  pabEV :: Event t (Maybe Aeson.Value) <- fmap (switch . current) $ prerender (return never) $ do
+  pabDEV :: Dynamic t (Event t (Maybe Aeson.Value)) <- prerender (return never) $
     _webSocket_recv <$> jsonWebSocket ("ws://localhost:8080/ws/" <> wid) (def :: WebSocketConfig t Aeson.Value)
+  pabDMMV :: Dynamic t (Maybe (Maybe Aeson.Value)) <- holdDyn Nothing $ fmap Just $ switch $ current pabDEV
   divClass "container" $ do
     divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h1" "display-5 fw-bold" $ text "Swap Tokens"
       el "p" $ text "What would you like to swap?"
     -- widget that contains the swap form
     divClass "card-group mb-3 text-center" $ do
-      formDyn <- selectCoins wid pabEV
-      transactionDetails pabEV formDyn
+      formDyn <- selectCoins wid pabDMMV
+      transactionDetails pabDMMV formDyn
 
 selectCoins
   :: forall t m
@@ -79,9 +80,9 @@ selectCoins
      , MonadIO (Performable m)
      )
   => Text
-  -> Event t (Maybe Aeson.Value)
+  -> Dynamic t (Maybe (Maybe Aeson.Value))
   -> m (Dynamic t (Maybe ((PooledToken, Text), (PooledToken, Text))))
-selectCoins wid pabEV = do
+selectCoins wid pabDMMV = do
   divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
     divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Select Coins"
     divClass "card-body" $ divClass "form container" $ divClass "form-group" $ do
@@ -128,11 +129,11 @@ selectCoins wid pabEV = do
                         & inputElementConfig_initialValue
                           .~ ("0" :: Text)
                       return (_dropdown_value coinBChoice, _inputElement_value coinBAmountInput)
-                    btnEnabled <- toggle True $ leftmost [swap, () <$ observableStateEv]
+                    btnEnabled <- holdDyn True $ leftmost [False <$ swap, True <$ readyForRequest]
                     swap <- divClass "input-group row mt-3" $ do
                       (e,_) <- elDynAttr' "button" (toggleBtnUsability <$> btnEnabled) $ do
                         elDynAttr "span" (toggleSpinner <$> btnEnabled) blank
-                        widgetHold_ (text "Swap") $ ffor (updated btnEnabled) $ \case
+                        dyn_ $ ffor btnEnabled $ \case
                           True -> text "Swap"
                           False -> text "Loading..."
                       return $ domEvent Click e
@@ -148,36 +149,41 @@ selectCoins wid pabEV = do
                     -- This response returns transaction fee information, it does not return the swap response
                     -- TODO still, do *something* with it, to handle failure cases?
                     _responseVal  <- requesting $ tagPromptlyDyn requestLoad swap
-                    observableStateEv <- do
-                      let
+                    readyForRequestEE :: Event t (Event t ()) <- dyn $ ffor btnEnabled $ \case
+                      True -> pure never -- waiting for request
+                      False -> do
+                        let
                           observableStateEvent :: Event t Aeson.Value
-                          observableStateEvent = flip fmapMaybe pabEV $ \(mIncomingWebSocketData :: Maybe Aeson.Value )
-                            -> case mIncomingWebSocketData of
-                              Nothing -> Nothing
-                              Just incomingWebSocketData -> do
-                                let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
-                                guard $ newObservableStateTag == ["NewObservableState"]
-                                incomingWebSocketData ^? key "contents"
-                          observableStateSuccessEvent = flip ffilter observableStateEvent $ \(incomingWebSocketData :: Aeson.Value )
+                          -- TODO replace join with invalid resp error?
+                          observableStateEvent = flip fmapMaybe (join <$> updated pabDMMV) $
+                            \(mIncomingWebSocketData :: Maybe Aeson.Value) -> do
+                              incomingWebSocketData <- mIncomingWebSocketData
+                              let newObservableStateTag = incomingWebSocketData ^.. key "tag" . _String
+                              guard $ newObservableStateTag == ["NewObservableState"]
+                              incomingWebSocketData ^? key "contents"
+                          observableStateSuccessEvent :: Event t ()
+                          observableStateSuccessEvent = flip fmapMaybe observableStateEvent $ \(incomingWebSocketData :: Aeson.Value)
                             -> do
                               let swappedTag = incomingWebSocketData ^.. key "Right" . key "tag" . _String
-                              swappedTag == ["Swapped"]
-                          observableStateFailureEvent = flip ffilter observableStateEvent $ \(incomingWebSocketData :: Aeson.Value )
-                            -> do
-                              let failureMessageTag = incomingWebSocketData ^.. key "Left" . _String
-                              failureMessageTag /= []
-                      -- this event will cause the success message to disappear when it occurs
-                      vanishEvent <- delay 7 observableStateSuccessEvent
-                      -- show success message based on new observable state
-                      widgetHold_ blank $ ffor (leftmost [Just <$> observableStateSuccessEvent, Nothing <$ vanishEvent]) $
-                        \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
-                          Nothing -> blank
-                          Just _ -> elClass "p" "text-success" $ text "Success!"
-                      widgetHold_ blank $ ffor observableStateFailureEvent $
-                        \(incomingWebSocketData :: Aeson.Value) -> do
-                            let errMsg = incomingWebSocketData ^.. key "Left" . _String
-                            elClass "p" "text-danger" $ text $ T.concat errMsg
-                      return $ leftmost [observableStateFailureEvent, observableStateSuccessEvent]
+                              guard $ swappedTag == ["Swapped"]
+                              pure ()
+                          observableStateFailureEvent :: Event t Aeson.Value
+                          observableStateFailureEvent = flip fmapMaybe observableStateEvent $ \(incomingWebSocketData :: Aeson.Value)
+                            -> incomingWebSocketData ^? key "Left"
+                        -- this event will cause the success message to disappear when it occurs
+                        vanishEvent <- delay 7 observableStateSuccessEvent
+                        -- show success message based on new observable state
+                        widgetHold_ blank $ ffor
+                          (leftmost [True <$ observableStateSuccessEvent, False <$ vanishEvent]) $
+                          \case
+                            False -> blank
+                            True -> elClass "p" "text-success" $ text "Success!"
+                        widgetHold_ blank $ ffor observableStateFailureEvent $ \(errMsg :: Aeson.Value) ->
+                          elClass "p" "text-danger" $ text $ case errMsg ^? _String of
+                            Just t -> t
+                            Nothing -> T.pack $ show errMsg
+                        return $ leftmost [() <$ observableStateFailureEvent, observableStateSuccessEvent]
+                    readyForRequest :: Event t () <- switchHold never readyForRequestEE
                     return $ ffor4 selectionA amountA selectionB amountB $ \selA amtA selB amtB -> Just ((selA, amtA), (selB, amtB))
               _ -> do
                 elClass "p" "text-warning" $ text "There are no tokens available to swap."
@@ -186,16 +192,16 @@ selectCoins wid pabEV = do
 transactionDetails
   :: forall t m
   .  MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
-  => Event t (Maybe Aeson.Value)
+  => Dynamic t (Maybe (Maybe Aeson.Value))
   -> Dynamic t (Maybe ((PooledToken, Text), (PooledToken, Text)))
   -> m ()
-transactionDetails pabEV formDyn = do
+transactionDetails pabDMMV formDyn = do
       -- widget that shows transaction details such as swap estimates, etc.
       divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
         divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Transaction Details"
         divClass "card-body" $ do
           poolMapEv <- do
-            let poolsEvent = wsFilterPools $ pabEV
+            let poolsEvent = wsFilterPools $ fmap join $ updated $ pabDMMV
             dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
               let poolDetails = case mIncomingPoolsWebSocketData of
                     Nothing -> V.empty

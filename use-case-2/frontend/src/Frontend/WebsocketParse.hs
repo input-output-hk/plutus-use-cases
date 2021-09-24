@@ -7,9 +7,10 @@ module Frontend.WebsocketParse where
 import Control.Lens
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
+import Data.Witherable
 import qualified Data.HashMap.Lazy as HMap
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Vector as V
 import Reflex.Dom.Core
@@ -59,7 +60,7 @@ wsFilterFunds recv = flip ffilter recv $ \(mIncomingWebSocketData :: Maybe Aeson
     observableStateTag == ["NewObservableState"] && fundsTag == ["Funds"]
 
 -- filter websocket events for "Pools" related events
-wsFilterPools :: Reflex t => Event t (Maybe Aeson.Value) -> Event t (Maybe Aeson.Value)
+wsFilterPools :: Filterable f => f (Maybe Aeson.Value) -> f (Maybe Aeson.Value)
 wsFilterPools recv = flip ffilter recv $ \(mIncomingWebSocketData :: Maybe Aeson.Value) -> case mIncomingWebSocketData of
   Nothing -> False
   Just incomingWebSocketData -> do
