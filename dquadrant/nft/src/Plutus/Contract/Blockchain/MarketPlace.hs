@@ -488,6 +488,8 @@ marketValidator :: Market -> Validator
 marketValidator market = Scripts.validatorScript (typedMarketValidator market)
 
 
+marketScript market=Scripts.validatorScript (typedMarketValidator market)
+
 marketAddress :: Market -> Ledger.Address
 marketAddress = Scripts.validatorAddress  . typedMarketValidator
 

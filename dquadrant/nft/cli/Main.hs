@@ -40,6 +40,7 @@ import PlutusTx.Builtins (sha2_256, sha3_256, addInteger)
 import Data.ByteString.Lazy (toStrict, fromStrict)
 import Data.Aeson (ToJSON(toJSON), encode)
 import Codec.Serialise (serialise)
+import Plutus.V1.Ledger.Address (Address(Address))
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as Seq
@@ -150,7 +151,7 @@ main = do
     0 -> printHelp
     _ ->
       case  head args of
-        "sell"-> if length args /= 3 then putStrLn  "Usage \n\tmarket-cli datum sell SellerPubKeyHash CurrencySymbol:TokenName CostInAda" else printSellDatum conn  $ tail args
+        "sell"-> if length args /= 3 then putStrLn  "Usage \n\tmarket-cli datum sell SellerPubKeyHash CurrencySymbol:TokenName CostInAda" else printSellDatum conn $ tail args
         "compile" -> do
           writePlutusScript 42 scriptname (marketScriptPlutus defaultMarket) (marketScriptBS defaultMarket)
           putStrLn $ "Script Written to : " ++ scriptname
@@ -168,7 +169,7 @@ main = do
       args <- getArgs
       putStrLn $ "Unknown options " ++show args
 
--- printSellDatum :: [String] -> IO ()
+
 printSellDatum conn [tokenStr,costStr] =do
         lockedValue <- unEither   eitherLockedValue
         sKey <-getDefaultSignKey
@@ -571,7 +572,7 @@ readSignKey file = do
 getDefaultSignKey :: IO (SigningKey PaymentKey)
 getDefaultSignKey= getWorkPath ["default.skey"] >>= readSignKey
 
-skeyToAddr:: SigningKey PaymentKey -> Address ShelleyAddr
+skeyToAddr:: SigningKey PaymentKey -> Cardano.Api.Shelley.Address ShelleyAddr
 skeyToAddr skey =
   makeShelleyAddress (Testnet  (NetworkMagic 1097911063))  credential NoStakeAddress
   where
