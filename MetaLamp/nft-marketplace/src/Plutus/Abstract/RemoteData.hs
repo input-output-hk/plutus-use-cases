@@ -42,6 +42,14 @@ data RemoteData e a
 
 Lens.makeClassyPrisms ''RemoteData
 
+instance Semigroup (RemoteData e a) where
+  NotAsked <> x = x
+  x <> NotAsked = x
+  x <> y        = y
+
+instance Monoid (RemoteData e a) where
+  mempty = NotAsked
+
 ------------------------------------------------------------
 
 -- | Convert a `RemoteData` to a `Maybe`.

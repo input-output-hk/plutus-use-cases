@@ -1,7 +1,8 @@
 module Main
-    ( main
-    ) where
+  ( main
+  ) where
 
+import qualified Abstract.RemoteDataSpec    as RemoteData
 import qualified Marketplace.Spec.Auction   as Auction
 import qualified Marketplace.Spec.Bundles   as Bundles
 import qualified Marketplace.Spec.CreateNft as CreateNft
@@ -13,10 +14,11 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "NFT Marketplace"
-    [ Start.tests
-    , CreateNft.tests
-    , Bundles.tests
-    , Sale.tests
-    , Auction.tests
+tests =
+  testGroup
+    "All tests"
+    [ testGroup
+        "NFT Marketplace"
+        [Start.tests, CreateNft.tests, Bundles.tests, Sale.tests, Auction.tests]
+    , testGroup "Abstract" [RemoteData.tests]
     ]

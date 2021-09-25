@@ -116,7 +116,7 @@ test-suite test
     main-is: Main.hs
     hs-source-dirs: test
     other-modules:
-      Marketplace.Spec.Start Utils.Data Marketplace.Spec.Auction Marketplace.Fixtures.NFT Marketplace.Spec.Bundles Marketplace.Spec.Sale Utils.Trace Utils Marketplace.Fixtures.Wallet Marketplace.Fixtures Marketplace.Fixtures.CheckOptions Marketplace.Fixtures.Script Marketplace.Spec.CreateNft
+      Marketplace.Spec.Start Abstract.RemoteDataSpec Utils.Data Marketplace.Spec.Auction Marketplace.Fixtures.NFT Marketplace.Spec.Bundles Marketplace.Spec.Sale Utils.Trace Utils Marketplace.Fixtures.Wallet Marketplace.Fixtures Marketplace.Fixtures.CheckOptions Marketplace.Fixtures.Script Marketplace.Spec.CreateNft
     build-depends:
         plutus-core -any,
         plutus-tx -any,
@@ -144,6 +144,7 @@ test-suite test
         mtl -any,
         row-types -any,
         QuickCheck -any,
+        quickcheck-properties -any,
         freer-simple -any,
         foldl -any,
         streaming -any
