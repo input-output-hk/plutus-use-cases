@@ -7,7 +7,7 @@ module Abstract.ContractRespSpec
   ( tests
   ) where
 
-import           Plutus.Abstract.ContractResp      (ContractResp (..))
+import           Plutus.Abstract.ContractResp    (ContractResp (..))
 import qualified Test.QuickCheck.Property.Common as Q
 import qualified Test.QuickCheck.Property.Monoid as Q
 import           Test.Tasty

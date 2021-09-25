@@ -19,7 +19,7 @@ import qualified Control.Lens.Extras as Lens
 import qualified Data.Aeson          as J
 import           GHC.Generics        (Generic)
 import           Prelude             hiding (maybe)
-import qualified Test.QuickCheck           as Q
+import qualified Test.QuickCheck     as Q
 
 -- | A datatype representing fetched data.
 -- |

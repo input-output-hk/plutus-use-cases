@@ -2,8 +2,8 @@ module Main
   ( main
   ) where
 
+import qualified Abstract.ContractRespSpec  as ContractResp
 import qualified Abstract.RemoteDataSpec    as RemoteData
-import qualified Abstract.ContractRespSpec    as ContractResp
 import qualified Marketplace.Spec.Auction   as Auction
 import qualified Marketplace.Spec.Bundles   as Bundles
 import qualified Marketplace.Spec.CreateNft as CreateNft
