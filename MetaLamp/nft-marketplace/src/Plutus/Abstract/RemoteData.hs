@@ -19,6 +19,7 @@ import qualified Control.Lens.Extras as Lens
 import qualified Data.Aeson          as J
 import           GHC.Generics        (Generic)
 import           Prelude             hiding (maybe)
+import qualified Test.QuickCheck           as Q
 
 -- | A datatype representing fetched data.
 -- |
@@ -49,6 +50,15 @@ instance Semigroup (RemoteData e a) where
 
 instance Monoid (RemoteData e a) where
   mempty = NotAsked
+
+instance (Q.Arbitrary e, Q.Arbitrary a) => Q.Arbitrary (RemoteData e a) where
+  arbitrary = do
+    err <- Q.arbitrary
+    res <- Q.arbitrary
+    Q.elements [ NotAsked
+               , Loading
+               , Failure err
+               , Success res]
 
 ------------------------------------------------------------
 
