@@ -58,7 +58,6 @@ main = do
                 }
         let oracleData = OracleData
               { ovGame = 1
-              , ovWinnerTeamId = 1
               , ovRequestAddress = pkh
               , ovWinnerSigned = Nothing
               }

@@ -22,6 +22,7 @@ import           Data.Aeson
 import           Data.Aeson.TH        
 import           Data.Text            (Text)
 import           GHC.Generics         (Generic)
+import           Schema               (ToSchema)
 
 type GameId = Integer
 type TeamId = Integer
@@ -55,7 +56,7 @@ instance ToJSON GameTeams where
 makeLenses ''GameTeams
 
 data FixtureStatusShort = NS | LIVE | FT 
-    deriving (Generic, Show, Enum, Eq, Ord)
+    deriving (Generic, Show, Enum, Eq, Ord, ToSchema)
 instance FromJSON FixtureStatusShort
 instance ToJSON FixtureStatusShort 
 
@@ -103,13 +104,22 @@ instance ToJSON Game where
 instance Eq Game where
     a == b = (a ^. fixture . fixtureId == b ^. fixture . fixtureId)
 
-getWinnerTeamId :: Either String Game -> Either String Integer
-getWinnerTeamId gameE = case gameE of
-    Right game | game ^. fixture . status . short /= FT -> Left "Game not finished"
-    Right game | game ^. fixture . status . short == FT -> do
-        let team1 = game ^. teams . home
-        let team2 = game ^. teams . away
-        if (team1 ^. winner) 
-            then Right (team1 ^. teamId ) 
-            else Right (team2 ^. teamId) 
-    Left e -> Left e
+getWinnerTeamId :: Game -> Either String Integer
+getWinnerTeamId game =
+    if game ^. fixture . status . short /= FT
+        then Left "Game not finished"
+        else do
+            let team1 = game ^. teams . home
+            let team2 = game ^. teams . away
+            if (team1 ^. winner) 
+                then Right (team1 ^. teamId ) 
+                else Right (team2 ^. teamId) 
+
+isGameClosed :: FixtureStatusShort -> Bool
+isGameClosed FT = True
+
+{-# INLINABLE validateGameStatusChanges #-}
+validateGameStatusChanges:: FixtureStatusShort -> FixtureStatusShort -> Maybe Bool
+validateGameStatusChanges NS LIVE = return True
+validateGameStatusChanges LIVE FT = return True
+validateGameStatusChanges _ _ = Nothing

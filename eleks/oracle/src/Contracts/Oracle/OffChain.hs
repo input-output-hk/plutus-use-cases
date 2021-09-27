@@ -33,9 +33,11 @@ module Contracts.Oracle.OffChain
     , useOracle
     ) where
 
-import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)
-import           Types.Game    
+import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1) 
 import           Control.Monad             hiding (fmap)
+import           Contracts.Oracle.Types
+import           Contracts.Oracle.RequestToken
+import           Contracts.Oracle.OnChain
 import           Codec.Serialise
 import           Data.Aeson                (FromJSON, ToJSON)
 import qualified Data.ByteString.Short     as SBS
@@ -58,14 +60,12 @@ import           Ledger.Oracle             (Observation, SignedMessage(..), sign
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
+import           Types.Game
 import           Plutus.Contracts.Currency as Currency
 import           Plutus.Contract.Types     (Promise (..))
 import           Prelude                   (Semigroup (..), Show (..), String)
 import qualified Prelude                   as Haskell
 import           Schema                    (ToSchema)
-import Contracts.Oracle.Types
-import Contracts.Oracle.RequestToken
-import Contracts.Oracle.OnChain
 
 data OracleParams = OracleParams
     { opSymbol :: !CurrencySymbol
@@ -95,28 +95,36 @@ updateOracle :: forall w s. Oracle -> PrivateKey -> UpdateOracleParams -> Contra
 updateOracle oracle operatorPrivateKey params = do
     let gameId = uoGameId params
         winnerId = uoWinnerId params
+        gameStatus = uoGameStatus params
 
     activeRequests <- getActiveOracleRequests oracle
     let requests = filter (isGameOracleRequest gameId) activeRequests 
     forM_ requests $ \(oref, o, oracleData) -> do
-                        let oracleData' = oracleData{ ovWinnerTeamId = winnerId, ovWinnerSigned = Just $ signMessage winnerId operatorPrivateKey }
-                        let requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
-                        let lookups = Constraints.unspentOutputs (Map.singleton oref o)     
-                                    <> Constraints.typedValidatorLookups (typedOracleValidator oracle) 
-                                    <> Constraints.otherScript (oracleValidator oracle)
-                            tx      = Constraints.mustPayToTheScript oracleData' requestTokenVal 
-                                    <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
+                        let oracleSignMessage = OracleSignedMessage 
+                                    { osmWinnerId = winnerId
+                                    , osmGameId = gameId
+                                    , osmGameStatus = gameStatus
+                                    }
+                        let oracleData' = oracleData{ ovWinnerSigned = Just $ signMessage oracleSignMessage operatorPrivateKey }
+                        when (oracleData' /= oracleData) $ do
+                            let requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
+                            let lookups = Constraints.unspentOutputs (Map.singleton oref o)     
+                                        <> Constraints.typedValidatorLookups (typedOracleValidator oracle) 
+                                        <> Constraints.otherScript (oracleValidator oracle)
+                                tx      = Constraints.mustPayToTheScript oracleData' requestTokenVal 
+                                        <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
 
-                        logInfo ("submit transaction " ++ (show $ oracleData'))
-                        ledgerTx <- submitTxConstraintsWith lookups tx
-                        awaitTxConfirmed $ txId ledgerTx
+                            logInfo ("submit transaction " ++ (show $ oracleData'))
+                            ledgerTx <- submitTxConstraintsWith lookups tx
+                            awaitTxConfirmed $ txId ledgerTx
 
 oracleValueFromTxOutTx :: TxOutTx -> Maybe OracleData
 oracleValueFromTxOutTx o = oracleValue (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
 
 data UpdateOracleParams = UpdateOracleParams
-    { uoGameId     :: Integer   -- ^ Game
-    , uoWinnerId  ::  Integer  --  ^ Winner team id
+    { uoGameId      :: !GameId              -- ^ Game
+    , uoWinnerId    :: !TeamId              -- ^ Winner team id
+    , uoGameStatus  :: !FixtureStatusShort  -- ^ Game state
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 data OracleContractState =
@@ -140,7 +148,6 @@ requestOracleForAddress oracle gameId = do
         oracleData = OracleData 
             { ovRequestAddress = pkh
             , ovGame = gameId
-            , ovWinnerTeamId = 0
             , ovWinnerSigned = Nothing
             }
 
@@ -159,7 +166,7 @@ requestOracleForAddress oracle gameId = do
 getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, TxOutTx, OracleData)]
 getActiveOracleRequests oracle = do
     xs <- utxoAt (oracleAddress oracle)
-    let requests = filter (isActiveRequest) . filterOracleRequest oracle . Map.toList $ xs
+    let requests = filter (isActiveRequest oracle) . filterOracleRequest oracle . Map.toList $ xs
     return requests 
 
 getActiveGames:: Oracle -> Contract w s Text ([GameId])
@@ -216,11 +223,20 @@ mapDatum (oref, o) = case oracleValueFromTxOutTx o of
 isGameOracleRequest :: GameId -> (TxOutRef, TxOutTx, OracleData) -> Bool
 isGameOracleRequest gameId (_, _, od) = gameId == (ovGame od) 
 
-isOwnerOracleRequest:: PubKeyHash -> (TxOutRef, TxOutTx, OracleData) -> Bool
+isOwnerOracleRequest :: PubKeyHash -> (TxOutRef, TxOutTx, OracleData) -> Bool
 isOwnerOracleRequest owner (_, _, od) = owner == (ovRequestAddress od)
 
-isActiveRequest:: (TxOutRef, TxOutTx, OracleData) -> Bool
-isActiveRequest (_, _, od) = isNothing (ovWinnerSigned od)
+isActiveSignedMessage :: OracleSignedMessage -> Bool
+isActiveSignedMessage message = osmGameStatus message /= FT
+
+isActiveRequest:: Oracle -> (TxOutRef, TxOutTx, OracleData) -> Bool
+isActiveRequest oracle (_, _, od) = case ovWinnerSigned od of
+                                -- not processed
+                                Nothing -> True
+                                Just message -> case verifyOracleValueSigned (oOperatorKey oracle) message of
+                                    --oracle cannot parse signed message
+                                    Nothing -> False
+                                    Just (oracleMessage, _) -> isActiveSignedMessage oracleMessage
 
 findOracleRequest :: 
     forall w s. Oracle

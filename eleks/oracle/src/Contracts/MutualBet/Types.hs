@@ -33,8 +33,7 @@ import           Plutus.Contract.StateMachine (ThreadToken)
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude              as Haskell
-
-
+import           Types.Game
 
 -- | Definition of an mutual bet
 data MutualBetParams
@@ -65,7 +64,8 @@ PlutusTx.unstableMakeIsData ''Bet
 
 -- | The states of the auction
 data MutualBetState
-    = Ongoing [Bet] -- Bids can be submitted.
+    = Ongoing  [Bet] -- Bids can be submitted.
+    | BettingClosed  [Bet]
     | Finished [Bet] -- The auction is finished
     deriving stock (Generic, Haskell.Show, Haskell.Eq)
     deriving anyclass (ToJSON, FromJSON)
@@ -97,8 +97,19 @@ PlutusTx.unstableMakeIsData ''MutualBetState
 -- | Transition between auction states
 data MutualBetInput
     = NewBet { newBetAmount :: Ada, newBettor :: PubKeyHash, newBetTeamId :: Integer } -- Increase the price
-    | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef, oracleWinnerSigned :: SignedMessage Integer  }
+    | FinishBetting { oracleSigned :: SignedMessage OracleSignedMessage }
+    | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef, oracleSigned :: SignedMessage OracleSignedMessage }
     deriving stock (Generic, Haskell.Show)
     deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''MutualBetInput
+
+data GameStateChange 
+    = GameStateChange 
+        { gmsOutRef :: TxOutRef
+        , gmsOutTx  :: TxOutTx
+        , gmsOracleData :: OracleData
+        , gmsSignedMessage :: SignedMessage OracleSignedMessage
+        , gmsSignedMessageData :: OracleSignedMessage
+        }
+        deriving stock (Haskell.Show)

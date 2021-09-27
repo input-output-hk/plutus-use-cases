@@ -29,13 +29,14 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude              as Haskell
 import           Text.Printf         (PrintfArg)
+import           Types.Game          (GameId, TeamId, FixtureStatusShort (..))
 
 data Oracle = Oracle
     { --oSymbol   :: !CurrencySymbol
-      oRequestTokenSymbol   :: !CurrencySymbol
-    , oOperator :: !PubKeyHash
-    , oOperatorKey :: !PubKey
-    , oFee      :: !Ada
+      oRequestTokenSymbol :: !CurrencySymbol
+    , oOperator           :: !PubKeyHash
+    , oOperatorKey        :: !PubKey
+    , oFee                :: !Ada
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
 PlutusTx.makeLift ''Oracle
@@ -53,11 +54,33 @@ oracleToRequestToken oracle = OracleRequestToken
     , ortFee = oFee oracle
     }
 
+PlutusTx.makeLift ''FixtureStatusShort
+PlutusTx.makeIsDataIndexed ''FixtureStatusShort [('NS, 0), ('LIVE, 1), ('FT, 2)]
+instance Eq FixtureStatusShort where
+    {-# INLINABLE (==) #-}
+    (NS)   == (NS)   = True
+    (LIVE) == (LIVE) = True
+    (FT)   == (FT)   = True
+    _        == _        = False 
+
+data OracleSignedMessage = OracleSignedMessage
+    { osmWinnerId   :: TeamId
+    , osmGameId     :: GameId
+    , osmGameStatus :: FixtureStatusShort
+    } deriving (Show, Haskell.Eq)
+PlutusTx.makeIsDataIndexed ''OracleSignedMessage [('OracleSignedMessage, 0)]
+PlutusTx.makeLift ''OracleSignedMessage
+
+instance Eq OracleSignedMessage where
+    {-# INLINABLE (==) #-}
+    l == r = (osmGameId l == osmGameId r) && 
+             (osmWinnerId l == osmWinnerId r) && 
+             (osmGameStatus l == osmGameStatus r)
+
 data OracleData = OracleData
     { ovGame           :: Integer
-    , ovWinnerTeamId         :: Integer
     , ovRequestAddress :: PubKeyHash
-    , ovWinnerSigned   :: Maybe (SignedMessage Integer)
+    , ovWinnerSigned   :: Maybe (SignedMessage OracleSignedMessage)
     }
     deriving (Show, Generic, FromJSON, ToJSON, Haskell.Eq)
 
@@ -67,7 +90,6 @@ PlutusTx.makeLift ''OracleData
 instance Eq OracleData where
     {-# INLINABLE (==) #-}
     l == r = (ovGame l == ovGame r) && 
-             (ovWinnerTeamId l == ovWinnerTeamId r) &&
              (ovRequestAddress l == ovRequestAddress r) &&
              (ovWinnerSigned l PlutusTx.Prelude.== ovWinnerSigned r)
 

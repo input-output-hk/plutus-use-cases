@@ -132,11 +132,10 @@ mkOracleValidator oracle oracleData r ctx =
         outVal `geq` (inVal <> Ada.toValue (oFee oracle))
 
 {-# INLINABLE verifyOracleValueSigned #-}
-verifyOracleValueSigned :: PubKey -> SignedMessage Integer -> Maybe (Integer, TxConstraints Void Void)
+verifyOracleValueSigned :: PubKey -> SignedMessage OracleSignedMessage -> Maybe (OracleSignedMessage, TxConstraints Void Void)
 verifyOracleValueSigned pubKey sm = case verifySignedMessageConstraints pubKey sm of
-    Left _                        -> Nothing
-    Right (winnerId, constraints) -> Just (winnerId, constraints)
-
+    Left _                   -> Nothing
+    Right (osm, constraints) -> Just (osm, constraints)
 
 data Oracling
 instance Scripts.ValidatorTypes Oracling where

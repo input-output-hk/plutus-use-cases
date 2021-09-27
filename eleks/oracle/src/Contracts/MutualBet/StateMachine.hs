@@ -77,7 +77,6 @@ calculatePrize bet totalBets totalWin =
     in
         bool ((Ada.divide amount totalWin) * totalPrize) 0 (totalWin == 0)
         
-
 {-# INLINABLE calculateWinnerShare #-}
 calculateWinnerShare :: Bet -> Ada -> Ada -> Ada
 calculateWinnerShare bet totalBets totalWin = 
@@ -119,14 +118,23 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                             , stateValue = Ada.toValue $ betsValueAmount newBets
                             }
                 in Just (constraints, newState)
-        (Ongoing bets, Payout{oracleValue, oracleRef, oracleWinnerSigned})
-            | Just (winnerId, signConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleWinnerSigned ->
+        (Ongoing bets, FinishBetting{oracleSigned})
+            | Just (OracleSignedMessage{osmWinnerId}, oracleSignConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
+                let constraints = mempty
+                    newState =
+                        State
+                            { stateData = BettingClosed bets
+                            , stateValue = Ada.toValue $ betsValueAmount bets
+                            }
+                in Just (constraints, newState)
+        (Ongoing bets, Payout{oracleValue, oracleRef, oracleSigned})
+            | Just (OracleSignedMessage{osmWinnerId}, oracleSignConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
                 let 
-                    winners = getWinners winnerId bets
+                    winners = getWinners osmWinnerId bets
                     redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
                     constraints = foldMap mkTxPayWinners winners 
                                 <> Constraints.mustSpendScriptOutput oracleRef redeemer
-                                <> signConstraints
+                                <> oracleSignConstraints
                     newState = State { stateData = Finished bets, stateValue = mempty }
                 in Just (constraints, newState)
         _ -> Nothing

@@ -104,7 +104,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     Simulator.waitForEndpoint cidOracle "update"
     games <- liftIO $ fromRight [] <$> GameClient.getGames
     void $ forM games $ \game -> do
-        -- creates oracle request only for one item without this
+        -- creates oracle request only for one last game without waitNSlots 1
         Simulator.waitNSlots 1
         initGame oracle game
 
@@ -114,14 +114,17 @@ main = void $ Simulator.runSimulationWith handlers $ do
         activeGamesIds <- waitForLastGameIds cidOracle   
         Simulator.logString @(Builtin MutualBetContracts) $ "loaded active games" ++ show activeGamesIds
         void $ forM activeGamesIds $ \gameId -> do
-            game <- liftIO $ GameClient.getGameById gameId
-            let winnerIdM = getWinnerTeamId game
-            case winnerIdM of
-                Left e -> Simulator.logString @(Builtin MutualBetContracts) $ e
-                Right winnerId -> do
+            gameM <- liftIO $ GameClient.getGameById gameId
+            case gameM of 
+                Left err -> do
+                    Simulator.logString @(Builtin MutualBetContracts) $ "Game not found " ++ show err
+                Right game -> do
+                    let winnerId = fromRight 0 $ getWinnerTeamId game
+                    let gameStatus = game ^. fixture . status . short 
                     let updateParams = UpdateOracleParams 
                                         { uoGameId   = gameId
                                         , uoWinnerId = winnerId
+                                        , uoGameStatus = gameStatus
                                         }     
                     void $ Simulator.callEndpointOnInstance cidOracle "update" updateParams
                     updatedGameId <- waitForOracleUpdated cidOracle   
