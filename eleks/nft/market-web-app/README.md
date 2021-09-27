@@ -61,7 +61,8 @@ W4.cid
 The insert properly ids in file with directory:
 
 ```bash
-./eleks/nft/market-web-app/src/helpers/constants.js
+./eleks/nft/market-web-app/.env 
+id field of REACT_APP_WALLETS
 ```
 ## App usage
 
