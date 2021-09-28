@@ -7,9 +7,11 @@ NFT Marketplace Service enables to create NFT tokens for any file and put them o
 ## Monetization
 
 The marketplace operator receives a gas fee from:
-- NFT minting
-- NFTs bundling
-- completing NFT selling transaction on the Sale or Auction
+
+- Fixed gas fee by NFT minting
+- Fixed gas fee by NFTs bundling
+- Percentage by NFT price on the Sale
+- Percentage by final bid on the Auction
 
 ## Glossary
 

@@ -83,7 +83,6 @@ createNft marketplace CreateNftParams {..} = do
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
            Currency.mintContract pkh [(tokenName, 1)]
-           -- TODO: get operatiorFee by minting (const fee?? We haven't a price on this step)
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
             { niCurrency          = Currency.currencySymbol nft
