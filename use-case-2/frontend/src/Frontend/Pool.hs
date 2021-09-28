@@ -79,13 +79,10 @@ poolDashboard wid = do
       el "p" $ text "View your token pool liquidity balances, stake tokens, or redeem liquidity"
       -- incorporate the use of PAB's websockets to display the wallet's current Pool Balance
       -- filter for websocket events relevent to funds that contain the "Funds" tag and "NewObservableState" tag
-      let fundsEvent = wsFilterFunds walletStateUpdated
-          poolsEvent = wsFilterPools walletStateUpdated
-      dFunds <- holdDyn Nothing fundsEvent
-      dPools <- holdDyn Nothing poolsEvent
-      let fundsAndPools = ffor2 dFunds dPools $ \f p -> (f,p)
-      widgetHold_ blank $ ffor (updated fundsAndPools) $
-        \(mIncomingFundsWebSocketData :: Maybe Aeson.Value, mIncomingPoolsWebSocketData :: Maybe Aeson.Value) ->
+      dFunds <- holdDyn Nothing $ wsFilterFunds walletStateUpdated
+      dPools <- holdDyn Nothing $ wsFilterPools walletStateUpdated
+      dyn_ $ ffor2 dFunds dPools $
+        \(mIncomingFundsWebSocketData :: Maybe Aeson.Value) (mIncomingPoolsWebSocketData :: Maybe Aeson.Value) ->
           case mIncomingFundsWebSocketData of
             Nothing -> el "p" $ text "Stake Tokens to a Stake Pool in order to gain Liquidity"
             Just fundsWebSocketData -> do
