@@ -28,8 +28,8 @@ import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
 import           Ledger
 import           Ledger.Oracle
 import           Ledger.Value     
-import           Playground.Contract (Show, FromJSON, Generic, ToJSON, ToSchema)
-import           Plutus.Contract.StateMachine (ThreadToken)
+import           Playground.Contract              (Show, FromJSON, Generic, ToJSON, ToSchema)
+import qualified Plutus.Contract.StateMachine     as SM
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude              as Haskell
@@ -74,7 +74,7 @@ data MutualBetState
 data MutualBetOutput =
     MutualBetOutput
         { mutualBetState       :: Last MutualBetState
-        , mutualBetThreadToken :: Last ThreadToken
+        , mutualBetThreadToken :: Last SM.ThreadToken
         }
         deriving stock (Generic, Haskell.Show, Haskell.Eq)
         deriving anyclass (ToJSON, FromJSON)
@@ -85,7 +85,7 @@ deriving via (GenericSemigroupMonoid MutualBetOutput) instance (Haskell.Monoid M
 mutualBetStateOut :: MutualBetState -> MutualBetOutput
 mutualBetStateOut s = Haskell.mempty { mutualBetState = Last (Just s) }
 
-threadTokenOut :: ThreadToken -> MutualBetOutput
+threadTokenOut :: SM.ThreadToken -> MutualBetOutput
 threadTokenOut t = Haskell.mempty { mutualBetThreadToken = Last (Just t) }
 
 -- | Initial 'MutualBetState'. In the beginning there are no bets
@@ -99,6 +99,7 @@ data MutualBetInput
     = NewBet { newBetAmount :: Ada, newBettor :: PubKeyHash, newBetTeamId :: Integer } -- Increase the price
     | FinishBetting { oracleSigned :: SignedMessage OracleSignedMessage }
     | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef, oracleSigned :: SignedMessage OracleSignedMessage }
+    | CancelGame
     deriving stock (Generic, Haskell.Show)
     deriving anyclass (ToJSON, FromJSON)
 
@@ -113,3 +114,15 @@ data GameStateChange
         , gmsSignedMessageData :: OracleSignedMessage
         }
         deriving stock (Haskell.Show)
+
+data MutualBetLog =
+    MutualBetStarted MutualBetParams
+    | MutualBetFailed SM.SMContractError
+    | BetSubmitted [Bet]
+    | MutualBetBettingClosed [Bet]
+    | MutualBetCancelled [Bet]
+    | MutualBetGameEnded [Bet]
+    | CurrentStateNotFound
+    | TransitionFailed (SM.InvalidTransition MutualBetState MutualBetInput)
+    deriving stock (Haskell.Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)

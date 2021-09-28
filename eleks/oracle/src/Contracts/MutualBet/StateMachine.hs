@@ -127,7 +127,11 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                             , stateValue = Ada.toValue $ betsValueAmount bets
                             }
                 in Just (constraints, newState)
-        (Ongoing bets, Payout{oracleValue, oracleRef, oracleSigned})
+        (Ongoing bets, CancelGame) ->
+                let constraints = flip foldMap bets (\bet -> Constraints.mustPayToPubKey (betBettor bet) $ Ada.toValue (betAmount bet))
+                    newState = State{ stateData = Finished bets, stateValue = mempty }
+                in Just (constraints, newState)
+        (BettingClosed bets, Payout{oracleValue, oracleRef, oracleSigned})
             | Just (OracleSignedMessage{osmWinnerId}, oracleSignConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
                 let 
                     winners = getWinners osmWinnerId bets

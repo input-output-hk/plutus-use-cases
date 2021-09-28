@@ -78,17 +78,6 @@ data NewBetParams =
 type BettorSchema = Endpoint "bet" NewBetParams
 type MutualBetStartSchema = EmptySchema -- Don't need any endpoints: the contract runs automatically until the auction is finished.
 
-data MutualBetLog =
-    MutualBetStarted MutualBetParams
-    | MutualBetFailed SM.SMContractError
-    | BetSubmitted [Bet]
-    | MutualBetBettingClosed [Bet]
-    | MutualBetGameEnded [Bet]
-    | CurrentStateNotFound
-    | TransitionFailed (SM.InvalidTransition MutualBetState MutualBetInput)
-    deriving stock (Haskell.Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
-
 data MutualBetError =
     StateMachineContractError SM.SMContractError -- ^ State machine operation failed
     | MutualBetContractError ContractError -- ^ Endpoint, coin selection, etc. failed
@@ -142,9 +131,9 @@ mutualBetStart params = do
                 FT -> payout params client gameState 
                 LIVE -> do
                     logInfo @Haskell.String "Make bet over"
-                    markBettingOver params client gameState 
+                    markBettingClosed params client gameState 
                     waitGameStateChange client
-                _ -> waitGameStateChange client
+                CANC -> cancelGame client
 
 payout :: 
     MutualBetParams -> 
@@ -164,22 +153,33 @@ payout params client GameStateChange{gmsOutRef, gmsOutTx, gmsOracleData, gmsSign
                 }
     r <- SM.runStepWith lookups mempty client Payout{oracleValue = gmsOracleData, oracleRef = gmsOutRef, oracleSigned = gmsSignedMessage}
     case r of
-        SM.TransitionFailure i            -> logError (TransitionFailed i) -- TODO: Add an endpoint "retry" to the seller?
+        SM.TransitionFailure i            -> logError (TransitionFailed i)
         SM.TransitionSuccess (Finished h) -> logInfo $ MutualBetGameEnded h
         SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
 
-markBettingOver :: 
+markBettingClosed :: 
     MutualBetParams -> 
     StateMachineClient MutualBetState MutualBetInput -> 
     GameStateChange -> 
     Contract MutualBetOutput MutualBetStartSchema MutualBetError ()
-markBettingOver params client GameStateChange{gmsSignedMessage, gmsOracleData} = do
+markBettingClosed params client GameStateChange{gmsSignedMessage, gmsOracleData} = do
     logInfo ("Stop betting for in progress game " ++ Haskell.show gmsOracleData)
     r <- SM.runStep client FinishBetting{oracleSigned = gmsSignedMessage}
     case r of
-        SM.TransitionFailure i            -> logError (TransitionFailed i) -- TODO: Add an endpoint "retry" to the seller?
+        SM.TransitionFailure i                  -> logError (TransitionFailed i)
         SM.TransitionSuccess (BettingClosed h)  -> logInfo $ MutualBetBettingClosed h
-        SM.TransitionSuccess s            -> logWarn ("Unexpected state after BettingClosed transition: " <> Haskell.show s)
+        SM.TransitionSuccess s                  -> logWarn ("Unexpected state after BettingClosed transition: " <> Haskell.show s)
+
+cancelGame :: 
+    StateMachineClient MutualBetState MutualBetInput -> 
+    Contract MutualBetOutput MutualBetStartSchema MutualBetError ()
+cancelGame client = do
+    logInfo @Haskell.String "Cancel game"
+    r <- SM.runStep client CancelGame
+    case r of
+        SM.TransitionFailure i              -> logError (TransitionFailed i)
+        SM.TransitionSuccess (Finished h)   -> logInfo $ MutualBetCancelled h
+        SM.TransitionSuccess s              -> logWarn ("Unexpected state after Cancel transition: " <> Haskell.show s)
 
 -- | Get the current state of the contract and log it.
 currentState :: StateMachineClient MutualBetState MutualBetInput -> Contract MutualBetOutput BettorSchema MutualBetError (Maybe MutualBetState)

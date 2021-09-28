@@ -55,13 +55,13 @@ instance ToJSON GameTeams where
    toJSON = genericToJSON defaultOptions{fieldLabelModifier = skipUnderscore}
 makeLenses ''GameTeams
 
-data FixtureStatusShort = NS | LIVE | FT 
+data FixtureStatusShort = NS | LIVE | FT | CANC
     deriving (Generic, Show, Enum, Eq, Ord, ToSchema)
 instance FromJSON FixtureStatusShort
 instance ToJSON FixtureStatusShort 
 
 fixureStatusLong :: Map.Map FixtureStatusShort Text
-fixureStatusLong = fromList [(NS,"Not Started"), (LIVE,"In Progress"), (FT, "Match Finished")]
+fixureStatusLong = fromList [(NS,"Not Started"), (LIVE,"In Progress"), (FT, "Match Finished"), (CANC, "Match Cancelled")]
 
 createFixtureStatus :: FixtureStatusShort -> FixtureStatus 
 createFixtureStatus status = FixtureStatus
@@ -121,5 +121,6 @@ isGameClosed FT = True
 {-# INLINABLE validateGameStatusChanges #-}
 validateGameStatusChanges:: FixtureStatusShort -> FixtureStatusShort -> Maybe Bool
 validateGameStatusChanges NS LIVE = return True
+validateGameStatusChanges NS CANC = return True
 validateGameStatusChanges LIVE FT = return True
-validateGameStatusChanges _ _ = Nothing
+validateGameStatusChanges _ _     = Nothing

@@ -55,13 +55,14 @@ oracleToRequestToken oracle = OracleRequestToken
     }
 
 PlutusTx.makeLift ''FixtureStatusShort
-PlutusTx.makeIsDataIndexed ''FixtureStatusShort [('NS, 0), ('LIVE, 1), ('FT, 2)]
+PlutusTx.makeIsDataIndexed ''FixtureStatusShort [('NS, 0), ('LIVE, 1), ('FT, 2), ('CANC, 3)]
 instance Eq FixtureStatusShort where
     {-# INLINABLE (==) #-}
-    (NS)   == (NS)   = True
-    (LIVE) == (LIVE) = True
-    (FT)   == (FT)   = True
-    _        == _        = False 
+    NS   == NS   = True
+    LIVE == LIVE = True
+    FT   == FT   = True
+    CANC == CANC = True
+    _    == _    = False 
 
 data OracleSignedMessage = OracleSignedMessage
     { osmWinnerId   :: TeamId

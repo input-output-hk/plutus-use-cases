@@ -22,6 +22,7 @@ Available statuses
 NS   - "Not Started",
 LIVE - "In Progress", 
 FT   - "Match Finished"
+CANC - "Match Cancelled"
 curl -v -X PUT -H "Content-Type: application/json" \
     -d '{"ugpSatus": "FT", "ugpWinnerTeamId": 55}' \
     http://localhost:8081/games/1
