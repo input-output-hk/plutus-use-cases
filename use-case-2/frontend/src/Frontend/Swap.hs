@@ -193,24 +193,18 @@ transactionDetails pabEMV formDMD = do
           dyn_ $ ffor ((,) <$> dynPoolMap <*> formD) $ \(poolMap, ((selA, amtAText), (selB, amtBText))) -> do
             let amtA :: Integer = fromMaybe 0 $ readMay $ T.unpack amtAText
                 amtB :: Integer = fromMaybe 0 $ readMay $ T.unpack amtBText
-            let info = fmap snd
+                info = fmap snd
                   $ headMay
                   $ Map.elems
                   $ Map.filter
                       (\(_,((tknameA,_), (tknameB, _))) ->
                         tknameA == (_pooledToken_name selA) && tknameB == (_pooledToken_name selB))
                       poolMap
-                swapEstimate = ffor info $ \((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) -> do
-                  if amtA == 0
-                    then (findSwapA coinBPoolAmount coinAPoolAmount amtB, coinAName)
-                    else (findSwapA coinAPoolAmount coinBPoolAmount amtA, coinBName)
                 mkTokenName :: Text -> Text
                 mkTokenName = \case
                   "" -> "ADA"
                   tn -> T.pack $ show tn
-                oneNonZero = elClass "p" "text-warning" $
-                  text "Exactly 1 amount must not be zero or the smart contract will reject."
-            case swapEstimate of
+            case info of
               Nothing -> do
                 elClass "p" "text-warning" $ text $ T.unwords
                   [ "No pool for"
@@ -219,16 +213,18 @@ transactionDetails pabEMV formDMD = do
                   , mkTokenName (_pooledToken_name selB)
                   ]
                 elClass "p" "text-info" $ text "N.B. the order matters, so try flipping."
-              Just (estimate, eTokenName) -> do
-                let doEst = elClass "p" "text-info"
+              Just ((coinAName, coinAPoolAmount), (coinBName, coinBPoolAmount)) -> do
+                let doEst estimate eTokenName = elClass "p" "text-info"
                       $ text
                       $ "Estimated to receive "
                       <> (T.pack $ show estimate)
                       <> " " <> (mkTokenName eTokenName)
+                    oneNonZero = elClass "p" "text-warning" $
+                      text "Exactly 1 amount must not be zero or the smart contract will reject."
                 case (amtA, amtB) of
                   (0, 0) -> oneNonZero
-                  (0, _) -> doEst
-                  (_, 0) -> doEst
+                  (0, _) -> doEst (findSwapA coinBPoolAmount coinAPoolAmount amtB) coinAName
+                  (_, 0) -> doEst (findSwapA coinAPoolAmount coinBPoolAmount amtA) coinBName
                   (_, _) -> oneNonZero
           do
             txFeeEstimateResp <- do
