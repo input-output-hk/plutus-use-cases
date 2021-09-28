@@ -224,7 +224,7 @@ transactionDetails pabEMV formDMD = do
                 case (amtA, amtB) of
                   (0, 0) -> oneNonZero
                   (0, _) -> doEst (findSwapA coinBPoolAmount coinAPoolAmount amtB) coinAName
-                  (_, 0) -> doEst (findSwapA coinAPoolAmount coinAPoolAmount amtA) coinAName
+                  (_, 0) -> doEst (findSwapA coinAPoolAmount coinBPoolAmount amtA) coinBName
                   (_, _) -> oneNonZero
           do
             txFeeEstimateResp <- do
