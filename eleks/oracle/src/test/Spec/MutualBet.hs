@@ -73,14 +73,23 @@ oracle = Oracle
     , oFee = opFees oracleParams
     }
 
+gameId :: GameId
+gameId = 1
+
+team1Id :: TeamId
+team1Id = 1
+
+team2Id :: TeamId
+team2Id = 2
+
 mutualBetParams :: MutualBetParams
 mutualBetParams =
     MutualBetParams
-        { mbpGame = 1
+        { mbpGame = gameId
         , mbpOracle = oracle
         , mbpOwner = pubKeyHash $ walletPubKey betOwnerWallet
-        , mbpTeam1 = 1
-        , mbpTeam2 = 2
+        , mbpTeam1 = team1Id
+        , mbpTeam2 = team2Id
         , mbpMinBet = 2_000_000
         , mbpBetFee = 2_000_000
         }
@@ -121,8 +130,8 @@ trace1Bettor1Bet = 10_000_000
 trace1Bettor2Bet :: Integer
 trace1Bettor2Bet = 10_000_000
 
-trace1Winner :: Integer
-trace1Winner = 1
+trace1Winner :: TeamId
+trace1Winner = team1Id
 
 mutualBetSuccessTrace :: Trace.EmulatorTrace ()
 mutualBetSuccessTrace = do
@@ -135,15 +144,15 @@ mutualBetSuccessTrace = do
     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
     bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
     _ <- Trace.waitNSlots 1
-    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = 1}
+    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     _ <- Trace.waitNSlots 2
-    let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = 2}
+    let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = team2Id}
     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
-    let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 0, uoGameStatus = LIVE }
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
     void $ Trace.waitNSlots 5
-    let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 1, uoGameStatus = FT }
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParams
     void $ Trace.waitNSlots 5
 
@@ -155,15 +164,38 @@ mutualBetSuccessTraceFinalState =
             [
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor2Bet
                 , betBettor = pubKeyHash (walletPubKey bettor2)
-                , betTeamId = 2
+                , betTeamId = team2Id
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor1Bet
                 , betBettor = pubKeyHash (walletPubKey bettor1)
-                , betTeamId = 1
+                , betTeamId = team1Id
                 }
             ]
         , mutualBetThreadToken = Last $ Just threadToken
         }
+
+-- returnBetIfAllLostTrace :: Trace.EmulatorTrace ()
+-- returnBetIfAllLostTrace = do
+--     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+--     _ <- Trace.waitNSlots 5
+--     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
+--     _ <- Trace.waitNSlots 5
+--     threadToken <- extractAssetClass mutualBetHdl
+--     Extras.logInfo $ "Trace thread token " ++ show threadToken
+--     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
+--     bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+--     _ <- Trace.waitNSlots 1
+--     let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = 2}
+--     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
+--     _ <- Trace.waitNSlots 2
+--     let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = 2}
+--     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
+--     let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 0, uoGameStatus = LIVE }
+--     Trace.callEndpoint @"update" oracleHdl updateParams
+--     void $ Trace.waitNSlots 5
+--     let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 1, uoGameStatus = FT }
+--     Trace.callEndpoint @"update" oracleHdl updateParams
+--     void $ Trace.waitNSlots 5
 
 inProgressBetFailTrace :: Trace.EmulatorTrace ()
 inProgressBetFailTrace = do
@@ -175,11 +207,11 @@ inProgressBetFailTrace = do
     Extras.logInfo $ "Trace thread token " ++ show threadToken
     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
 
-    let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 0, uoGameStatus = LIVE }
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
     _ <- Trace.waitNSlots 5
     Extras.logInfo @String "Make bet"
-    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = 1}
+    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     void $ Trace.waitNSlots 1
 
@@ -207,7 +239,7 @@ incorrectBetAmountTrace = do
     Extras.logInfo $ "Trace thread token " ++ show threadToken
     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
     _ <- Trace.waitNSlots 1
-    let bet1Params = NewBetParams { nbpAmount = (Ada.getLovelace $ mbpMinBet mutualBetParams) - 1, nbpWinnerId = 1}
+    let bet1Params = NewBetParams { nbpAmount = (Ada.getLovelace $ mbpMinBet mutualBetParams) - 1, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     void $ Trace.waitNSlots 2
 
@@ -222,12 +254,12 @@ cancelGameTrace = do
     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
     bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
     _ <- Trace.waitNSlots 1
-    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = 1}
+    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     _ <- Trace.waitNSlots 2
-    let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = 2}
+    let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = team2Id}
     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
-    let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 0, uoGameStatus = CANC }
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = CANC }
     Trace.callEndpoint @"update" oracleHdl updateParams
     void $ Trace.waitNSlots 5
 
@@ -238,11 +270,11 @@ cancelGameTraceState =
             [
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor2Bet
                 , betBettor = pubKeyHash (walletPubKey bettor2)
-                , betTeamId = 2
+                , betTeamId = team2Id
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor1Bet
                 , betBettor = pubKeyHash (walletPubKey bettor1)
-                , betTeamId = 1
+                , betTeamId = team1Id
                 }
             ]
         , mutualBetThreadToken = Last $ Just threadToken
