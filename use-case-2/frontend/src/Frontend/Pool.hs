@@ -225,19 +225,17 @@ redeemDashboard wid walletStateUpdated = do
         divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
           divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Redeem Transaction Details"
           divClass "card-body" $ do
-            poolMapEv <- do
+            dynPoolMap <- do
               let poolsEvent = wsFilterPools walletStateUpdated
               -- use pool map to calculate and display tokens to be redeemed when removing liquidity
-              dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
+              holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
                 let poolDetails = case mIncomingPoolsWebSocketData of
                       Nothing -> V.empty
                       Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
                 parseLiquidityTokensToMap poolDetails
-              return $ fmap Just $ updated dynPoolMap
-            dynPoolMap <- holdDyn Nothing poolMapEv
-            poolAndRedeemForm <- holdDyn (Nothing, Nothing) $ attachPromptlyDyn dynPoolMap redeemFormEvent
-            let redeemEstimate = ffor poolAndRedeemForm $ \case
-                  (Just poolMap, Just (selA, selB, amt)) -> do
+            redeemFormDyn <- holdDyn Nothing redeemFormEvent
+            let redeemEstimate = ffor2 dynPoolMap redeemFormDyn $ \poolMap -> \case
+                  Just (selA, selB, amt) -> do
                     let (liquidityPoolAmount, ((tknameA, coinAPoolAmount), (tknameB, coinBPoolAmount))) = fromMaybe (1,(("",0),("",0)))
                           $ headMay
                           $ Map.elems
@@ -246,7 +244,7 @@ redeemDashboard wid walletStateUpdated = do
                         redeemAmount :: Integer = fromMaybe 0 $ readMay $ T.unpack amt
                         (remainingLiqA, remainingLiqB) = calculateRemoval coinAPoolAmount coinBPoolAmount liquidityPoolAmount redeemAmount
                     ((tknameA, coinAPoolAmount - remainingLiqA), (tknameB, coinBPoolAmount - remainingLiqB))
-                  _ -> (("",0),("", 0))
+                  Nothing -> (("",0),("", 0))
                 tdPlaceholder = el "p" $ text "See liquidity redemption details here after selecting a pool and amount to redeem."
             divClass "p-3 mt-2" $ widgetHold_ tdPlaceholder $ ffor (updated redeemEstimate) $ \((tna, redeemableAmountA), (tnb, redeemableAmountB)) ->
               elClass "p" "text-info" $ text
@@ -371,14 +369,14 @@ stakeDashboard wid walletStateUpdated = do
         divClass "card-body" $ do
           let poolsEvent = wsFilterPools walletStateUpdated
           -- use pool map to calculate and display tokens to be redeemed when removing liquidity
-          dynPoolMap <- holdDyn Nothing $ fmap Just $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
+          dynPoolMap <- holdDyn Map.empty $ ffor poolsEvent $ \mIncomingPoolsWebSocketData -> do
             let poolDetails = case mIncomingPoolsWebSocketData of
                   Nothing -> V.empty
                   Just poolsWebSocketData -> poolsWebSocketData ^. key "contents" . key "Right" . key "contents" . _Array
             parseLiquidityTokensToMap poolDetails
-          dynPoolAndForm <- holdDyn (Nothing, Nothing) $ attachPromptlyDyn dynPoolMap stakeFormEvent
-          let liquidityEstimate = ffor dynPoolAndForm $ \case
-                (Just poolMap, Just ((selA,amtA) ,(selB, amtB))) -> do
+          stakeFormDyn <- holdDyn Nothing stakeFormEvent
+          let liquidityEstimate = ffor2 dynPoolMap stakeFormDyn $ \poolMap -> \case
+                Just ((selA,amtA), (selB, amtB)) -> do
                   let (liquidityPoolAmount, ((_, coinAPoolAmount), (_, coinBPoolAmount))) = fromMaybe (1,(("",1),("",1)))
                         $ headMay
                         $ Map.elems
@@ -387,7 +385,7 @@ stakeDashboard wid walletStateUpdated = do
                       stakeAmountA :: Integer = fromMaybe 0 $ readMay $ T.unpack amtA
                       stakeAmountB :: Integer = fromMaybe 0 $ readMay $ T.unpack amtB
                   calculateAdditionalLiquidity coinAPoolAmount coinBPoolAmount liquidityPoolAmount stakeAmountA stakeAmountB
-                _ -> 0
+                Nothing -> 0
               tdPlaceholder = el "p" $ text "See staking details here after selecting and specifying the amount of tokens to be staked."
           divClass "p-3 mt-2" $ widgetHold_ tdPlaceholder $ ffor (updated liquidityEstimate) $ \liqEst ->
             elClass "p" "text-info" $ text
