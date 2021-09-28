@@ -130,7 +130,7 @@ redeemDashboard
   -> m ()
 redeemDashboard wid walletStateUpdated = do
       divClass "row row-cols-1 row-cols-md-2 g-4 mb-3" $ do
-        redeemFormEvent <- divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
+        redeemFormEvent <- divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
           divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Redeem Liquidity"
           divClass "card-body" $ do
             el "p" $ text "Which liquidity pool would you like to redeem and how much?"
@@ -269,8 +269,9 @@ stakeDashboard
   -> Event t (Maybe Aeson.Value)
   -> m ()
 stakeDashboard wid walletStateUpdated = do
+    divClass "row row-cols-1 row-cols-md-2 g-4 mb-3" $ do
       -- Widget with form to allow user to stake/add to pool
-      stakeFormEvent <- divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
+      stakeFormEvent <- divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
           divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Stake Tokens"
           divClass "card-body" $ do
             el "p" $ text "What would you like to stake?"
@@ -365,7 +366,7 @@ stakeDashboard wid walletStateUpdated = do
                     _ -> do
                       elClass "p" "text-warning" $ text "There are no tokens available to stake."
                       return never
-      divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
+      divClass "col" $ divClass "card mb-4 box-shadow h-100" $ do
         divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Stake Transaction Details"
         divClass "card-body" $ do
           let poolsEvent = wsFilterPools walletStateUpdated
