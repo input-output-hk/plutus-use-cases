@@ -93,8 +93,12 @@ getWinners winnerTeamId bets =
         map (\winBet -> (betBettor winBet, calculateWinnerShare winBet total totalWin)) winnerBets
 
 {-# INLINABLE mkTxPayWinners #-}
-mkTxPayWinners :: (PubKeyHash, Ada)-> TxConstraints Void Void
-mkTxPayWinners (winnerAddressHash, winnerPrize) = Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue winnerPrize
+mkTxPayWinners :: [(PubKeyHash, Ada)]-> TxConstraints Void Void
+mkTxPayWinners = foldMap (\(winnerAddressHash, winnerPrize) -> Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue winnerPrize)
+
+{-# INLINABLE mkTxReturnBets #-}
+mkTxReturnBets :: [Bet] -> TxConstraints Void Void
+mkTxReturnBets = foldMap (\bet -> Constraints.mustPayToPubKey (betBettor bet) $ Ada.toValue (betAmount bet))
 
 {-# INLINABLE isValidBet #-}
 isValidBet ::  MutualBetParams -> MutualBetInput -> Bool 
@@ -128,15 +132,18 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                             }
                 in Just (constraints, newState)
         (Ongoing bets, CancelGame) ->
-                let constraints = flip foldMap bets (\bet -> Constraints.mustPayToPubKey (betBettor bet) $ Ada.toValue (betAmount bet))
+                let constraints = mkTxReturnBets bets
                     newState = State{ stateData = Finished bets, stateValue = mempty }
                 in Just (constraints, newState)
         (BettingClosed bets, Payout{oracleValue, oracleRef, oracleSigned})
             | Just (OracleSignedMessage{osmWinnerId}, oracleSignConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
                 let 
                     winners = getWinners osmWinnerId bets
+                    payConstraints = if null winners
+                        then mkTxReturnBets bets
+                        else mkTxPayWinners winners 
                     redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
-                    constraints = foldMap mkTxPayWinners winners 
+                    constraints = payConstraints
                                 <> Constraints.mustSpendScriptOutput oracleRef redeemer
                                 <> oracleSignConstraints
                     newState = State { stateData = Finished bets, stateValue = mempty }

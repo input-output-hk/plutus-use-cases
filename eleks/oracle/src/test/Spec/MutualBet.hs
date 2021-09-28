@@ -174,28 +174,28 @@ mutualBetSuccessTraceFinalState =
         , mutualBetThreadToken = Last $ Just threadToken
         }
 
--- returnBetIfAllLostTrace :: Trace.EmulatorTrace ()
--- returnBetIfAllLostTrace = do
---     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
---     _ <- Trace.waitNSlots 5
---     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
---     _ <- Trace.waitNSlots 5
---     threadToken <- extractAssetClass mutualBetHdl
---     Extras.logInfo $ "Trace thread token " ++ show threadToken
---     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
---     bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
---     _ <- Trace.waitNSlots 1
---     let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = 2}
---     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
---     _ <- Trace.waitNSlots 2
---     let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = 2}
---     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
---     let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 0, uoGameStatus = LIVE }
---     Trace.callEndpoint @"update" oracleHdl updateParams
---     void $ Trace.waitNSlots 5
---     let updateParams = UpdateOracleParams{ uoGameId = 1, uoWinnerId = 1, uoGameStatus = FT }
---     Trace.callEndpoint @"update" oracleHdl updateParams
---     void $ Trace.waitNSlots 5
+returnBetsIfAllLostTrace :: Trace.EmulatorTrace ()
+returnBetsIfAllLostTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 5
+    mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
+    _ <- Trace.waitNSlots 5
+    threadToken <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadToken
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+    _ <- Trace.waitNSlots 1
+    let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
+    Trace.callEndpoint @"bet" bettor1Hdl bet1Params
+    _ <- Trace.waitNSlots 2
+    let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = team1Id}
+    Trace.callEndpoint @"bet" bettor2Hdl bet2Params
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team2Id, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
 
 inProgressBetFailTrace :: Trace.EmulatorTrace ()
 inProgressBetFailTrace = do
@@ -333,6 +333,17 @@ tests =
                                               <> Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
         )
         mutualBetSuccessTrace
+        ,
+        checkPredicateOptions options "return bets if everyone lost"
+        (assertDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) (const True) "mutual bet contract should be done"
+        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
+        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
+        .&&. walletFundsChange bettor1 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
+        .&&. walletFundsChange bettor2 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams) 
+                                              <> Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
+        )
+        returnBetsIfAllLostTrace
         ,
         checkPredicateOptions options "cancel trace"
         (assertDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) (const True) "mutual bet contract should be done"
