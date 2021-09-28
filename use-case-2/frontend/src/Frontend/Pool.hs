@@ -117,6 +117,18 @@ poolDashboard wid = do
                               el "td" $ text $ T.pack $ show lqPercentage <> "%"
     -- Widget to redeem liquidity pool blanance
     divClass "card-group mb-3 text-center" $ do
+      redeemDashboard wid walletStateUpdated
+      stakeDashboard wid walletStateUpdated
+
+redeemDashboard
+  :: forall t m
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , MonadIO (Performable m)
+     )
+  => Text
+  -> Event t (Maybe Aeson.Value)
+  -> m ()
+redeemDashboard wid walletStateUpdated = do
       divClass "row row-cols-1 row-cols-md-2 g-4 mb-3" $ do
         redeemFormEvent <- divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
           divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Redeem Liquidity"
@@ -246,6 +258,17 @@ poolDashboard wid = do
                 <> (T.pack $ show redeemableAmountB)
                 <> " "
                 <> (T.pack $ show $ if tnb == "" then "ADA" else tnb)
+
+
+stakeDashboard
+  :: forall t m
+  .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
+     , MonadIO (Performable m)
+     )
+  => Text
+  -> Event t (Maybe Aeson.Value)
+  -> m ()
+stakeDashboard wid walletStateUpdated = do
       -- Widget with form to allow user to stake/add to pool
       stakeFormEvent <- divClass "col" $ divClass "card mb-4 box-shadow h-100 mx-3" $ do
           divClass "card-header" $ elClass "h4" "my-0 font-weight-normal" $ text "Stake Tokens"
