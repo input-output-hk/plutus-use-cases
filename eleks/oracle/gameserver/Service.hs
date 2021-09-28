@@ -64,8 +64,7 @@ updateGameState winnerId status gameId =
 updateGameStatus :: FixtureStatusShort -> Game -> Either String Game 
 updateGameStatus newStatus game = do
     let currentStatus =  game ^. fixture . status . short
-    maybeToRight ("Invalid state change from " ++ show currentStatus ++ " to new " ++ show newStatus) $
-            validateGameStatusChanges currentStatus newStatus
+    guard validateGameStatusChanges currentStatus newStatus $ ("Invalid state change from " ++ show currentStatus ++ " to new " ++ show newStatus)
     return $ game & fixture . status .~ (createFixtureStatus newStatus)
 
 updateGameWinner :: TeamId -> Game -> Either String Game 

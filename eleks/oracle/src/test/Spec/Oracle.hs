@@ -112,7 +112,7 @@ requestOracleTestState :: OracleData
 requestOracleTestState = OracleData
     { ovGame = gameId
     , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
-    , ovWinnerSigned = Nothing
+    , ovSignedMessage = Nothing
     }
 
 requestOracleTrace :: Trace.EmulatorTrace ()
@@ -126,15 +126,46 @@ signOracleTestState :: OracleData
 signOracleTestState = OracleData
     { ovGame = gameId
     , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
-    , ovWinnerSigned = Just $ signMessage OracleSignedMessage{ osmGameId = gameId, osmWinnerId = 1, osmGameStatus = FT } (walletPrivKey oracleWallet) 
+    , ovSignedMessage = Just $ signMessage OracleSignedMessage{ osmGameId = gameId, osmWinnerId = 0, osmGameStatus = NS } (walletPrivKey oracleWallet) 
     }
 
-signOracleTrace :: Trace.EmulatorTrace ()
-signOracleTrace = do
+updateOracleTrace :: Trace.EmulatorTrace ()
+updateOracleTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 20
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
     void $ Trace.waitNSlots 3
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = NS }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 1
+
+invalidUpdateOracleTrace :: Trace.EmulatorTrace ()
+invalidUpdateOracleTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 20
+    requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
+    void $ Trace.waitNSlots 3
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = NS }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
+    --cannot complete game without in progress state
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 1, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
+
+updateOracleFromNotStartedToLiveTrace :: Trace.EmulatorTrace ()
+updateOracleFromNotStartedToLiveTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 20
+    requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
+    void $ Trace.waitNSlots 3
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
+    --cannot complete game without in progress state
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 1, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
 
 useOracleTrace :: Trace.EmulatorTrace ()
 useOracleTrace = do
@@ -225,7 +256,7 @@ tests =
         )
         requestOracleTrace
         ,
-        checkPredicateOptions options "Should sign oracle data"
+        checkPredicateOptions options "Should update oracle data"
         ( 
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
@@ -233,7 +264,22 @@ tests =
             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
             -- .&&. dataAtAddress (oracleAddress oracle) (== signOracleTestState)
         )
-        signOracleTrace
+        updateOracleTrace
+        ,
+        checkPredicateOptions options "Should update oracle data from NS to LIVE"
+        ( 
+            assertNoFailedTransactions
+            .&&. valueAtAddress (oracleAddress oracle)
+                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1))
+            .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
+        )
+        updateOracleFromNotStartedToLiveTrace
+        ,
+        checkPredicateOptions options "Should fail on incorrect update oracle data"
+        ( 
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["update data is invalid", "Pd"] _) -> True; _ -> False  })
+        )
+        invalidUpdateOracleTrace
         ,
         checkPredicateOptions options "Should use oracle data"
         ( 

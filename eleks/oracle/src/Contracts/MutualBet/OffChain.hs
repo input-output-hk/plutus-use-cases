@@ -163,7 +163,7 @@ markBettingClosed ::
     GameStateChange -> 
     Contract MutualBetOutput MutualBetStartSchema MutualBetError ()
 markBettingClosed params client GameStateChange{gmsSignedMessage, gmsOracleData} = do
-    logInfo ("Stop betting for in progress game " ++ Haskell.show gmsOracleData)
+    logInfo ("Close betting for in progress game " ++ Haskell.show gmsOracleData)
     r <- SM.runStep client FinishBetting{oracleSigned = gmsSignedMessage}
     case r of
         SM.TransitionFailure i                  -> logError (TransitionFailed i)
@@ -217,7 +217,7 @@ isCurrentGame pk params oracleData
     | otherwise = Right oracleData
 
 mapSignedMessage :: MutualBetParams -> (TxOutRef, TxOutTx, OracleData) -> Maybe GameStateChange
-mapSignedMessage params (oref, o, od) = case ovWinnerSigned od of
+mapSignedMessage params (oref, o, od) = case ovSignedMessage od of
     Just signed -> case Oracle.verifySignedMessageOffChain (oOperatorKey $ mbpOracle params) signed of
         Left err       -> Nothing
         Right message  -> Just $ GameStateChange{

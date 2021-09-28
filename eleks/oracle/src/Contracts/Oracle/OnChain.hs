@@ -63,11 +63,12 @@ mkOracleValidator oracle oracleData r ctx =
     traceIfFalse "request token missing from input" inputHasRequestToken  &&
     case r of
         Use    -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
-                  && traceIfFalse "value signed by oracle" (isValueSigned)
+                  && traceIfFalse "value signed by oracle" (isCurrentValueSigned)
                   && traceIfFalse "expected requester to get oracle token" 
                      (sentToAddress (Just $ ovRequestAddress oracleData) $ requestTokenExpectedVal)
         Update -> traceIfFalse "operator signature missing" (txSignedBy info $ oOperator oracle) 
                   && traceIfFalse "invalid output datum" validOutputDatum
+                  && traceIfFalse "update data is invalid" isUpdateValid
 
   where
     info :: TxInfo
@@ -119,9 +120,19 @@ mkOracleValidator oracle oracleData r ctx =
         Nothing -> traceError "Input data is invalid"
         Just h  -> h
 
-    isValueSigned = isJust $ case (ovWinnerSigned oracleData) of 
-                                Nothing     -> Nothing
-                                Just signed -> verifyOracleValueSigned (oOperatorKey oracle) signed
+    outputSignedMessage = outputDatumMaybe >>= ovSignedMessage
+
+    isCurrentValueSigned = isJust $ ovSignedMessage oracleData >>= verifyOracleValueSigned (oOperatorKey oracle)
+
+    extractSigendMessage :: Maybe (SignedMessage OracleSignedMessage) -> Maybe OracleSignedMessage
+    extractSigendMessage signedMessage = signedMessage
+                                            >>= verifyOracleValueSigned (oOperatorKey oracle) 
+                                            >>= (\(message, _) -> Just message)
+
+    isUpdateValid = (not isCurrentValueSigned) || 
+        (fromMaybe False $ validateGameStatusChanges <$> 
+        (osmGameStatus <$> extractSigendMessage (ovSignedMessage oracleData)) <*> 
+        (osmGameStatus <$> extractSigendMessage outputSignedMessage))
 
     feesPaid :: Bool
     feesPaid =

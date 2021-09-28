@@ -81,7 +81,7 @@ instance Eq OracleSignedMessage where
 data OracleData = OracleData
     { ovGame           :: Integer
     , ovRequestAddress :: PubKeyHash
-    , ovWinnerSigned   :: Maybe (SignedMessage OracleSignedMessage)
+    , ovSignedMessage  :: Maybe (SignedMessage OracleSignedMessage)
     }
     deriving (Show, Generic, FromJSON, ToJSON, Haskell.Eq)
 
@@ -92,7 +92,7 @@ instance Eq OracleData where
     {-# INLINABLE (==) #-}
     l == r = (ovGame l == ovGame r) && 
              (ovRequestAddress l == ovRequestAddress r) &&
-             (ovWinnerSigned l PlutusTx.Prelude.== ovWinnerSigned r)
+             (ovSignedMessage l PlutusTx.Prelude.== ovSignedMessage r)
 
 instance Eq a => Eq (SignedMessage a) where
     l == r =

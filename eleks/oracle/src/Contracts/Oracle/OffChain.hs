@@ -105,7 +105,7 @@ updateOracle oracle operatorPrivateKey params = do
                                     , osmGameId = gameId
                                     , osmGameStatus = gameStatus
                                     }
-                        let oracleData' = oracleData{ ovWinnerSigned = Just $ signMessage oracleSignMessage operatorPrivateKey }
+                        let oracleData' = oracleData{ ovSignedMessage = Just $ signMessage oracleSignMessage operatorPrivateKey }
                         when (oracleData' /= oracleData) $ do
                             let requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
                             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     
@@ -148,7 +148,7 @@ requestOracleForAddress oracle gameId = do
         oracleData = OracleData 
             { ovRequestAddress = pkh
             , ovGame = gameId
-            , ovWinnerSigned = Nothing
+            , ovSignedMessage = Nothing
             }
 
     let red = Ledger.Redeemer (PlutusTx.toBuiltinData (0 :: Integer))
@@ -230,7 +230,7 @@ isActiveSignedMessage :: OracleSignedMessage -> Bool
 isActiveSignedMessage message = osmGameStatus message /= FT
 
 isActiveRequest:: Oracle -> (TxOutRef, TxOutTx, OracleData) -> Bool
-isActiveRequest oracle (_, _, od) = case ovWinnerSigned od of
+isActiveRequest oracle (_, _, od) = case ovSignedMessage od of
                                 -- not processed
                                 Nothing -> True
                                 Just message -> case verifyOracleValueSigned (oOperatorKey oracle) message of

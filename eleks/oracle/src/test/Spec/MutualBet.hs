@@ -290,7 +290,7 @@ tests :: TestTree
 tests =
     testGroup "mutual bet"
         [ 
-        checkPredicateOptions options "run mutual bet"
+        checkPredicateOptions options "success games 1 winner 1 lost"
         (assertDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) (const True) "mutual bet contract should be done"
         .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
         .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"

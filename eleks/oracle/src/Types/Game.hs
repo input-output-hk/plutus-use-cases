@@ -119,8 +119,8 @@ isGameClosed :: FixtureStatusShort -> Bool
 isGameClosed FT = True
 
 {-# INLINABLE validateGameStatusChanges #-}
-validateGameStatusChanges:: FixtureStatusShort -> FixtureStatusShort -> Maybe Bool
-validateGameStatusChanges NS LIVE = return True
-validateGameStatusChanges NS CANC = return True
-validateGameStatusChanges LIVE FT = return True
-validateGameStatusChanges _ _     = Nothing
+validateGameStatusChanges:: FixtureStatusShort -> FixtureStatusShort -> Bool
+validateGameStatusChanges NS LIVE = True
+validateGameStatusChanges NS CANC = True
+validateGameStatusChanges LIVE FT = True
+validateGameStatusChanges _ _     = False

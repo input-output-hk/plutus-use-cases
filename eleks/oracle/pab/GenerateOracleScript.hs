@@ -59,7 +59,7 @@ main = do
         let oracleData = OracleData
               { ovGame = 1
               , ovRequestAddress = pkh
-              , ovWinnerSigned = Nothing
+              , ovSignedMessage = Nothing
               }
 
         writePlutusScript scriptnum oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
