@@ -38,13 +38,13 @@ import           Types.Game
 -- | Definition of an mutual bet
 data MutualBetParams
     = MutualBetParams
-        { mbpGame   :: Integer -- ^ Game id
-        , mbpOracle :: Oracle
-        , mbpOwner  :: PubKeyHash
-        , mbpTeam1  :: Integer
-        , mbpTeam2  :: Integer
-        , mbpMinBet :: Ada
-        , mbpBetFee :: Ada
+        { mbpGame   :: Integer -- Game id
+        , mbpOracle :: Oracle -- Oracle data
+        , mbpOwner  :: PubKeyHash -- Owner of the platform , used for fee sending
+        , mbpTeam1  :: Integer -- Team 1 id
+        , mbpTeam2  :: Integer -- Team 2 id
+        , mbpMinBet :: Ada -- Minimum bet allowed
+        , mbpBetFee :: Ada -- Platform fee, for each bet you need additionally to pay the fee, fee is no returned if game in case game cancelled or no one wins
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -65,7 +65,7 @@ PlutusTx.unstableMakeIsData ''Bet
 -- | The states of the auction
 data MutualBetState
     = Ongoing  [Bet] -- Bids can be submitted.
-    | BettingClosed  [Bet]
+    | BettingClosed  [Bet] -- Bids can not be submitted
     | Finished [Bet] -- The auction is finished
     deriving stock (Generic, Haskell.Show, Haskell.Eq)
     deriving anyclass (ToJSON, FromJSON)
@@ -116,13 +116,13 @@ data GameStateChange
         deriving stock (Haskell.Show)
 
 data MutualBetLog =
-    MutualBetStarted MutualBetParams
-    | MutualBetFailed SM.SMContractError
-    | BetSubmitted [Bet]
-    | MutualBetBettingClosed [Bet]
-    | MutualBetCancelled [Bet]
-    | MutualBetGameEnded [Bet]
-    | CurrentStateNotFound
+    MutualBetStarted MutualBetParams -- Contract started
+    | MutualBetFailed SM.SMContractError -- Contract start erro
+    | BetSubmitted [Bet] -- bet submitted
+    | MutualBetBettingClosed [Bet] -- Betting not allowed
+    | MutualBetCancelled [Bet] -- Game cancelled
+    | MutualBetGameEnded [Bet] -- Game completed
+    | CurrentStateNotFound -- Contract state not found
     | TransitionFailed (SM.InvalidTransition MutualBetState MutualBetInput)
     deriving stock (Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)

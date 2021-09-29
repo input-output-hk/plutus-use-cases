@@ -33,17 +33,19 @@ import           Types.Game          (GameId, TeamId, FixtureStatusShort (..))
 
 data Oracle = Oracle
     { --oSymbol   :: !CurrencySymbol
-      oRequestTokenSymbol :: !CurrencySymbol
-    , oOperator           :: !PubKeyHash
-    , oOperatorKey        :: !PubKey
-    , oFee                :: !Ada
+      oRequestTokenSymbol :: !CurrencySymbol -- Oracle request token currency symbol
+    , oOperator           :: !PubKeyHash -- Oracle owner
+    , oOperatorKey        :: !PubKey -- Oracle owner key used to verify signed data
+    , oFee                :: !Ada -- Oracle fee amount
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
 PlutusTx.makeLift ''Oracle
 
+-- Token used for Oracle service monterization, 
+-- One buy this token to pay for oracle service
 data OracleRequestToken = OracleRequestToken
-    { ortOperator :: !PubKeyHash
-    , ortFee      :: !Ada
+    { ortOperator :: !PubKeyHash -- Oracle operator, address to send fee 
+    , ortFee      :: !Ada -- token price
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
 PlutusTx.makeLift ''OracleRequestToken
@@ -105,13 +107,9 @@ data OracleRedeemer = Update | Use
 
 PlutusTx.unstableMakeIsData ''OracleRedeemer
 
-{-# INLINABLE oracleTokenName #-}
-oracleTokenName :: TokenName
-oracleTokenName = TokenName "oracleTokenName"
-
--- {-# INLINABLE oracleAsset #-}
--- oracleAsset :: Oracle -> AssetClass
--- oracleAsset oracle = AssetClass (oSymbol oracle, oracleTokenName)
+{-# INLINABLE oracleRequestTokenName #-}
+oracleRequestTokenName :: TokenName
+oracleRequestTokenName = TokenName "oracleRequestTokenName"
 
 {-# INLINABLE oracleValue #-}
 oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe OracleData

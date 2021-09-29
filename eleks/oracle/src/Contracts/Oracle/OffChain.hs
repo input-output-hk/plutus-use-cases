@@ -18,7 +18,7 @@ module Contracts.Oracle.OffChain
     ( OracleSchema
     , OracleParams (..)
     , runOracle
-    , oracleTokenName
+    , oracleRequestTokenName
     , requestOracleForAddress
     , findOracleRequest
     , awaitNextOracleRequest
@@ -163,6 +163,7 @@ requestOracleForAddress oracle gameId = do
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
 
+--get active request lists for oracle to process
 getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, TxOutTx, OracleData)]
 getActiveOracleRequests oracle = do
     xs <- utxoAt (oracleAddress oracle)
@@ -250,13 +251,14 @@ findOracleRequest oracle gameId owner = do
     pure request 
 
 data UseOracleParams = UseOracleParams
-    { uoGame           :: Integer
+    { uoGame           :: Integer -- use owned oracle request
     }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
     
 type UseOracleSchema = Endpoint "use" UseOracleParams
 
+-- example endpoint how to consume oracle request owned by user
 useOracle :: Oracle -> Contract Text UseOracleSchema Text ()
 useOracle oracle =
     selectList[(use oracle)]

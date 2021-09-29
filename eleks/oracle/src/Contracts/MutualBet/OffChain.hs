@@ -69,19 +69,19 @@ import           Types.Game
 
 data NewBetParams = 
     NewBetParams
-        { nbpAmount  :: Integer
-        , nbpWinnerId :: Integer
+        { nbpAmount  :: Integer -- Bet lovelace amount 
+        , nbpWinnerId :: Integer -- Bet on this team to win
         }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 type BettorSchema = Endpoint "bet" NewBetParams
-type MutualBetStartSchema = EmptySchema -- Don't need any endpoints: the contract runs automatically until the auction is finished.
+type MutualBetStartSchema = EmptySchema -- Don't need any endpoints: the contract runs automatically until the mutual bet is finished.
 
 data MutualBetError =
-    StateMachineContractError SM.SMContractError -- ^ State machine operation failed
-    | MutualBetContractError ContractError -- ^ Endpoint, coin selection, etc. failed
-    | OracleError Text
+    StateMachineContractError SM.SMContractError -- State machine operation failed
+    | MutualBetContractError ContractError -- Endpoint, coin selection, etc. failed
+    | OracleError Text -- Oracle request Error
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
@@ -248,7 +248,7 @@ waitForGameStateChange params = do
 data BettorEvent =
         MutualBetIsOver [Bet] -- ^ The mutual bet is over
         | MakeBet NewBetParams -- ^ make a bet bet
-        | BettingHasСlosed [Bet]
+        | BettingHasСlosed [Bet] -- ^ no one can place more bets
         | OtherBet [Bet] -- ^ Another bettor make a bet
         | NoChange [Bet] -- ^ Nothing has changed
         deriving (Haskell.Show)
@@ -293,7 +293,7 @@ handleEvent :: StateMachineClient MutualBetState MutualBetInput -> [Bet] -> Bett
 handleEvent client bets change =
     let continue = pure . Left
         stop     = pure (Right ())
-    -- see note [Buyer client]
+    -- see note [Bettor client]
     in case change of
         MutualBetIsOver s -> do
             logInfo @Haskell.String "Mutual bet over"  

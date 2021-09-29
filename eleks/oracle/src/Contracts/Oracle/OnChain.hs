@@ -78,10 +78,10 @@ mkOracleValidator oracle oracleData r ctx =
     forged = txInfoMint $ scriptContextTxInfo ctx
 
     requestTokenExpectedVal:: Value
-    requestTokenExpectedVal = Value.singleton (oRequestTokenSymbol oracle) oracleTokenName 1
+    requestTokenExpectedVal = Value.singleton (oRequestTokenSymbol oracle) oracleRequestTokenName 1
 
     requestTokenValOf:: Value -> Integer 
-    requestTokenValOf value = valueOf (txOutValue ownInput) (oRequestTokenSymbol oracle) oracleTokenName
+    requestTokenValOf value = valueOf (txOutValue ownInput) (oRequestTokenSymbol oracle) oracleRequestTokenName
 
     sentToAddress :: Maybe PubKeyHash -> Value -> Bool
     sentToAddress h v =
@@ -105,9 +105,6 @@ mkOracleValidator oracle oracleData r ctx =
     ownOutput = case getContinuingOutputs ctx of
         [o] -> o
         _   -> traceError "expected exactly one oracle request output"
-
-    -- outputHasToken :: Bool
-    -- outputHasToken = assetClassValueOf (txOutValue ownOutput) (oracleAsset oracle) == 1
 
     outputDatumMaybe :: Maybe OracleData
     outputDatumMaybe = oracleValue ownOutput (`findDatum` info)

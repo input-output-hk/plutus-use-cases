@@ -65,7 +65,7 @@ checkRequesTokenPolicy requestToken _ ctx@ScriptContext{scriptContextTxInfo=TxIn
         info = scriptContextTxInfo ctx
         forged = txInfoMint info
         forgedSymbolsCount = length $ symbols forged
-        forgedCount = valueOf forged ownSymbol oracleTokenName
+        forgedCount = valueOf forged ownSymbol oracleRequestTokenName
         feeValue = Ada.toValue $ ortFee requestToken
         isFeePaid :: Maybe PubKeyHash -> Bool
         isFeePaid feeAddr = isJust . find (\o ->
@@ -85,7 +85,7 @@ requestTokenSymbol :: OracleRequestToken -> CurrencySymbol
 requestTokenSymbol = Value.mpsSymbol . oracleRequestMintPolicyHash
 
 requestTokenClass :: OracleRequestToken -> AssetClass
-requestTokenClass oracleRequest = AssetClass (requestTokenSymbol oracleRequest, oracleTokenName)
+requestTokenClass oracleRequest = AssetClass (requestTokenSymbol oracleRequest, oracleRequestTokenName)
 
 requestTokenClassFromOracle :: Oracle -> AssetClass
 requestTokenClassFromOracle = requestTokenClass . oracleToRequestToken

@@ -148,7 +148,7 @@ invalidUpdateOracleTrace = do
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = NS }
     Trace.callEndpoint @"update" oracleHdl updateParams
     void $ Trace.waitNSlots 5
-    --cannot complete game without in progress state
+    --cannot complete finish game if it was not started
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 1, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParams
     void $ Trace.waitNSlots 5
