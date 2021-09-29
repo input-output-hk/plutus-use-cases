@@ -51,6 +51,7 @@ import           Prelude                                                (Semigro
 import qualified Prelude                                                as Haskell
 import qualified Schema
 import           Text.Printf                                            (printf)
+import qualified Plutus.Abstract.ContractResp as S
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -339,18 +340,20 @@ balanceAt pkh asset = flip V.assetClassValueOf asset <$> fundsAt pkh
 ownPubKeyBalance :: Contract w s Text Value
 ownPubKeyBalance = getOwnPubKey >>= fundsAt
 
-type MarketplaceUserSchema =
-    Endpoint "createNft" CreateNftParams
-    .\/ Endpoint "openSale" OpenSaleParams
-    .\/ Endpoint "buyItem" CloseLotParams
-    .\/ Endpoint "closeSale" CloseLotParams
-    .\/ Endpoint "startAnAuction" StartAnAuctionParams
-    .\/ Endpoint "completeAnAuction" CloseLotParams
-    .\/ Endpoint "bidOnAuction" BidOnAuctionParams
-    .\/ Endpoint "bundleUp" BundleUpParams
-    .\/ Endpoint "unbundle" UnbundleParams
-    .\/ Endpoint "ownPubKey" ()
-    .\/ Endpoint "ownPubKeyBalance" ()
+type MarketplaceUserSchemaR =
+    S.EndpointReturning "createNft" CreateNftParams ()
+    .\/ S.EndpointReturning "openSale" OpenSaleParams ()
+    .\/ S.EndpointReturning "buyItem" CloseLotParams ()
+    .\/ S.EndpointReturning "closeSale" CloseLotParams ()
+    .\/ S.EndpointReturning "startAnAuction" StartAnAuctionParams ()
+    .\/ S.EndpointReturning "completeAnAuction" CloseLotParams ()
+    .\/ S.EndpointReturning "bidOnAuction" BidOnAuctionParams ()
+    .\/ S.EndpointReturning "bundleUp" BundleUpParams ()
+    .\/ S.EndpointReturning "unbundle" UnbundleParams ()
+    .\/ S.EndpointReturning "ownPubKey" () ()
+    .\/ S.EndpointReturning "ownPubKeyBalance" () ()
+
+type MarketplaceUserSchema = S.GetEndpoints MarketplaceUserSchemaR
 
 data UserContractState =
     NftCreated

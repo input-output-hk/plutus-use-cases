@@ -61,6 +61,7 @@ library
       servant-options,
       QuickCheck,
       quickcheck-instances,
+      row-types,
       -- Plutus:
       playground-common,
       plutus-contract,

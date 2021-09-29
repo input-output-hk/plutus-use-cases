@@ -10,6 +10,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Plutus.Abstract.ContractResp where
 
@@ -20,6 +21,10 @@ import           GHC.Generics               (Generic)
 import           Plutus.Abstract.RemoteData (RemoteData)
 import qualified Test.QuickCheck           as Q
 import qualified Test.QuickCheck.Instances           as Q
+import qualified Plutus.Contract.Schema as Schema
+import           Plutus.Contract.Effects     (ActiveEndpoint (..))
+import           Wallet.Types (EndpointValue)
+import Data.Row
 
 newtype ContractResp a =
   ContractResp
@@ -33,3 +38,9 @@ instance Semigroup (ContractResp a) where
 
 instance Monoid (ContractResp a) where
   mempty = ContractResp mempty
+
+type EndpointReturning label input output = label .== ((EndpointValue input, ActiveEndpoint), output)
+
+type GetEndpoints s = Schema.Input s
+
+type GetResults s = Schema.Output s
