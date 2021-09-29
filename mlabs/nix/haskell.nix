@@ -6,9 +6,12 @@
 , doCoverage ? false }:
 let inherit (plutus) pkgs;
 in pkgs.haskell-nix.cabalProject rec {
+  name = "mlabs-plutus-use-cases";
+
   src = pkgs.haskell-nix.haskellLib.cleanGit {
     name = "mlabs-plutus-use-cases";
-    src = ./..;
+    src = ../..;
+    subDir = "mlabs";
   };
 
   # Plutus uses a patched GHC. And so shall we.
@@ -18,7 +21,7 @@ in pkgs.haskell-nix.cabalProject rec {
   # See https://input-output-hk.github.io/haskell.nix/tutorials/materialization/:
   # Update using:
   #   nix-build default.nix 2>&1 | grep -om1 '/nix/store/.*-updateMaterialized' | bash
-  # plan-sha256 = "0m56bhk9w3v1zqpig84f9krrp6sqg21w0vxbjiqcxz8n7c39aw54";
+  # plan-sha256 = "0000000000000000000000000000000000000000000000000000";
   # materialized = ./materialization/mlabs-plutus-use-cases.materialized;
 
   modules = [{
