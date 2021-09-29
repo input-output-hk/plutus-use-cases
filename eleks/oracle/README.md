@@ -20,15 +20,15 @@ Finished - Contract finished, either game completed or cancelled
 ### Place a bet
 User can place a bet on a specific game. There is a minimum bet ammount.
 User pays a fee to the contract owner.
-![Place a bet](./screenshots/placebet.jpg)
+![Place a bet](./screenshots/placebet.png)
 
 ### Payout
 Payout to the winners. On the game finish winning share is taken from the lost bettors and shared proportionally to the winners participants
-![Payout](./screenshots/payout.jpg)
+![Payout](./screenshots/payout.png)
 
 ### Cancel/No winners
 When game cancelled or completed with no winning bet all bets are returned to the bettors. Fee is retained by the contract owner.
-![Cancel/No Winners](./screenshots/cancel.jpg)
+![Cancel/No Winners](./screenshots/cancel.png)
 
 ## Core functionality 
 1. SignIn ability with one of the pre defined default wallets 
