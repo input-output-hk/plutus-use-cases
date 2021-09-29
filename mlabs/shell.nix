@@ -1,20 +1,15 @@
-{ sourcesFile ? ./nix/sources.json
-, system ? builtins.currentSystem
+{ sourcesFile ? ./nix/sources.json, system ? builtins.currentSystem
 , sources ? import ./nix/sources.nix { inherit system sourcesFile; }
 , plutus ? import sources.plutus { }
 , plutusShell ? import "${sources.plutus}/shell.nix" { }
-, deferPluginErrors ? true
-, doCoverage ? true }@args:
+, deferPluginErrors ? true, doCoverage ? true }@args:
 
 let
   project = import ./default.nix args;
   inherit (plutus) pkgs;
-  pab = import ./nix/pab.nix {
-    inherit plutus;
-  };
-in
+  pab = import ./nix/pab.nix { inherit plutus; };
 
-project.shellFor (pab.env_variables // {
+in project.shellFor (pab.env_variables // {
 
   tools.cabal = "latest";
   withHoogle = true;
@@ -25,20 +20,20 @@ project.shellFor (pab.env_variables // {
 
   /* Is this needed?
 
-  inputsFrom = [ plutusShell ];
+     inputsFrom = [ plutusShell ];
 
-  additional = ps: with ps; [
-    pab.plutus_ledger_with_docs
-    playground-common
-    plutus-contract
-    plutus-core
-    plutus-ledger-api
-    plutus-pab
-    plutus-tx
-    plutus-tx-plugin
-    plutus-use-cases
-    prettyprinter-configurable
-  ];
+     additional = ps: with ps; [
+       pab.plutus_ledger_with_docs
+       playground-common
+       plutus-contract
+       plutus-core
+       plutus-ledger-api
+       plutus-pab
+       plutus-tx
+       plutus-tx-plugin
+       plutus-use-cases
+       prettyprinter-configurable
+     ];
   */
 
   nativeBuildInputs = with pkgs;
@@ -53,7 +48,7 @@ project.shellFor (pab.env_variables // {
       plutus.plutus.haskell-language-server
       plutus.plutus.hlint
       stack
-      
+
       # hls doesn't support preprocessors yet so this has to exist in PATH
       haskellPackages.record-dot-preprocessor
 
@@ -62,6 +57,5 @@ project.shellFor (pab.env_variables // {
 
       ### Pab
       pab.plutus_pab_client
-    ]
-    ++ builtins.attrValues plutus.plutus-pab.pab-exes;
+    ] ++ builtins.attrValues plutus.plutus-pab.pab-exes;
 })
