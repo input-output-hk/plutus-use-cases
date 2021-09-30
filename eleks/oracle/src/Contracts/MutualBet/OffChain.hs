@@ -143,7 +143,7 @@ payout ::
 payout params client GameStateChange{gmsOutRef, gmsOutTx, gmsOracleData, gmsSignedMessage} = do
     logInfo ("Payout " ++ Haskell.show gmsOracleData)
     let oracle  = mbpOracle params
-        redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use 
+        redeemer = Redeemer $ PlutusTx.toBuiltinData $ OracleRedeem 
         oracleRequest = oracleToRequestToken oracle
         requestToken = requestTokenValue oracle
         mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken
@@ -184,7 +184,7 @@ cancelGame ::
 cancelGame params client  GameStateChange{gmsOutRef, gmsOutTx}  = do
     logInfo @Haskell.String "Cancel game"
     let oracle  = mbpOracle params
-        redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
+        redeemer = Redeemer $ PlutusTx.toBuiltinData $ OracleRedeem
         oracleRequest = oracleToRequestToken oracle
         requestToken = requestTokenValue oracle
         mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken

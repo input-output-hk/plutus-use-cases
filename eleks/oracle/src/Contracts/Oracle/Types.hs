@@ -105,9 +105,9 @@ instance Eq a => Eq (SignedMessage a) where
         && osmMessageHash l == osmMessageHash r
         && osmDatum l == osmDatum r
 
-data OracleRedeemer = Update | Use
+data OracleRedeemer = Update | OracleRedeem
     deriving Show
-PlutusTx.makeIsDataIndexed ''OracleRedeemer [('Update, 0), ('Use, 1)]
+PlutusTx.makeIsDataIndexed ''OracleRedeemer [('Update, 0), ('OracleRedeem, 1)]
 
 data OracleRequestRedeemer = Request | RedeemToken
     deriving Show

@@ -62,7 +62,7 @@ mkOracleValidator :: Oracle -> OracleData -> OracleRedeemer -> ScriptContext -> 
 mkOracleValidator oracle oracleData r ctx =
     traceIfFalse "request token missing from input" inputHasRequestToken  &&
     case r of
-        Use    -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
+        OracleRedeem    -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
                   && traceIfFalse "value signed by oracle" (isCurrentValueSigned)
                   && traceIfFalse "should redeem request token" (requestTokenValOf forged == -1)
                 --   && traceIfFalse "expected requester to get oracle token" 
