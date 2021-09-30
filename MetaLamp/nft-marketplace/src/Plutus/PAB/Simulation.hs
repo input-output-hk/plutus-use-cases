@@ -164,6 +164,8 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
         _                                          -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful createNft"
 
+    _ <- Simulator.waitNSlots 10
+
     _  <-
         Simulator.callEndpointOnInstance userCid "openSale" $
             Marketplace.OpenSaleParams {
@@ -174,6 +176,8 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
         J.Success (getEndpointStatus (Proxy @"openSale") -> Success Marketplace.OpenedSale) -> Just ()
         _                                          -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful openSale"
+
+    _ <- Simulator.waitNSlots 10
 
     _  <-
         Simulator.callEndpointOnInstance userCid "closeSale"
@@ -187,7 +191,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapDuration = 80 * 1000
+                        saapDuration = 25 * 1000
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
