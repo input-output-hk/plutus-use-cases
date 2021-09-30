@@ -40,17 +40,16 @@ import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Mar
 import qualified Plutus.Contracts.Services.Sale                           as Sale
 import           Plutus.PAB.Simulation                                    (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Time                                    (DiffMilliSeconds)
+import qualified Plutus.Types.Percentage as Percentage
 
 ratioBridge :: BridgePart
 ratioBridge = do
   typeName ^== "Ratio"
   typeModule ^== "PlutusTx.Ratio"
-  psRatio
+  pure psRatio
 
-psRatio :: MonadReader BridgeData m => m PSType
-psRatio = expand <$> psTypeParameters
-  where
-    expand [x] = TypeInfo "web-common" "Data.Json.JsonTuple" "JsonTuple" [x, x]
+psRatio :: PSType
+psRatio = TypeInfo "purescript-foreign-generic" "PlutusTx.Ratio" "Ratio" []
 
 marketplaceTypes :: [SumType 'Haskell]
 marketplaceTypes =
@@ -71,6 +70,7 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Auction.AuctionState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Auction.HighestBid)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Sale.Sale)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Percentage.Percentage)  -- Ratio is used in this type
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.CreateNftParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.OpenSaleParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.CloseLotParams)

@@ -15,7 +15,7 @@ import Plutus.Contract.StateMachine.ThreadToken (ThreadToken)
 import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
 import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (Bundle(..))
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
-import Plutus.Contracts.Services.Sale.Core (Sale)
+import Plutus.Contracts.Services.Sale.Core (Sale)  -- Sale type contains Percentage type in constructor
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (CurrencySymbol, TokenName(..), Value)
 import PlutusTx.AssocMap as AssocMap

@@ -48,7 +48,8 @@ data Sale =
       saleValue           :: !Value,
       saleOwner           :: !Saler,
       marketplaceOperator :: !PubKeyHash,
-      marketplaceSaleFee  :: !Percentage
+      marketplaceSaleFee  :: !Percentage  
+      -- Percentage type is used here, and we import Sale type to the purescript code
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
