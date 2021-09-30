@@ -45,6 +45,7 @@ library
       Ext.Plutus.Contracts.Auction
       Ext.Plutus.Ledger.Value
       Plutus.Types.Percentage
+      Plutus.Types.PercentageInterface
       Plutus.Contracts.NftMarketplace.OnChain.Core
       Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
       Plutus.Contracts.NftMarketplace.OffChain.Serialization

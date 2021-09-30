@@ -29,11 +29,10 @@ import qualified Plutus.Types.Percentage             as Percentage
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                   as AssocMap
 import           PlutusTx.Prelude                    hiding (Semigroup (..))
-import           PlutusTx.Ratio                      ((%))
-import qualified PlutusTx.Ratio                      as Ratio
 import           Prelude                             (Semigroup (..), (/))
 import qualified Prelude                             as Haskell
 import qualified Schema
+import qualified Plutus.Types.PercentageInterface as Percentage
 
 data SaleRedeemer
   = Buy Buyer
@@ -73,7 +72,7 @@ transition Sale{..} state redeemer = case (stateData state, redeemer) of
     saleProfit :: Integer
     saleProfit = salePrice - operatorFee
     operatorFee :: Integer
-    operatorFee = Ratio.round $ (salePrice % 100) * (getPercentage marketplaceSaleFee)
+    operatorFee = Percentage.calculatePercentageRounded marketplaceSaleFee salePrice
     val = stateValue state
 
 {-# INLINABLE isFinal #-}

@@ -37,9 +37,11 @@ import           Plutus.Contract.StateMachine.ThreadToken                 (Threa
 import qualified Plutus.Contracts.NftMarketplace.Endpoints                as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Marketplace
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as NFT
 import qualified Plutus.Contracts.Services.Sale                           as Sale
 import           Plutus.PAB.Simulation                                    (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Time                                    (DiffMilliSeconds)
+import qualified Plutus.Types.Percentage as Percentage
 
 ratioBridge :: BridgePart
 ratioBridge = do
@@ -57,6 +59,7 @@ marketplaceTypes =
       [ (equal <*> (genericShow <*> mkSumType)) (Proxy @ThreadToken)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @DiffMilliSeconds)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Percentage.Percentage)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)
@@ -71,6 +74,7 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Auction.AuctionState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Auction.HighestBid)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Sale.Sale)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @NFT.Auction)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.CreateNftParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.OpenSaleParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.CloseLotParams)

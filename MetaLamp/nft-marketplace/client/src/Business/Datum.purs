@@ -13,7 +13,7 @@ import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), snd)
 import Plutus.Contract.StateMachine.ThreadToken (ThreadToken)
 import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
-import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (Bundle(..))
+import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (Bundle(..), Auction(..))
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
@@ -48,13 +48,6 @@ type NftSingleton
 type NftSingletonLot
   = { nft :: NftSingleton
     , lot :: Either Sale Auction
-    }
-
-type Auction
-  = { threadToken :: ThreadToken
-    , owner :: PubKeyHash
-    , value :: Value
-    , endTime :: BigInteger
     }
 
 type NftBundle
@@ -179,7 +172,7 @@ findNftSingletonLots store = map getSingleton marketplaceSingletons
   where
   marketplaceSingletons ::
     Array
-      ( Tuple (Tuple String (Either Sale (JsonTuple ThreadToken (JsonTuple PubKeyHash (JsonTuple Value BigInteger)))))
+      ( Tuple (Tuple String (Either Sale Auction))
           { niCurrency :: CurrencySymbol
           , niName :: String
           , niDescription :: String
@@ -209,13 +202,7 @@ findNftSingletonLots store = map getSingleton marketplaceSingletons
     , lot:
         case lot of
           Left sale -> Left sale
-          Right (JsonTuple (Tuple threadToken (JsonTuple (Tuple pubKeyHash (JsonTuple (Tuple value pOSIXTime)))))) ->
-            Right
-              { threadToken: threadToken
-              , owner: pubKeyHash
-              , value: value
-              , endTime: pOSIXTime
-              }
+          Right auction -> Right auction
     }
 
 findNftBundleLots :: MarketplaceDatum -> Array NftBundleLot
@@ -240,13 +227,7 @@ findNftBundleLots store =
           , lot:
               case lot of
                 Left sale -> Left sale
-                Right (JsonTuple (Tuple threadToken (JsonTuple (Tuple pubKeyHash (JsonTuple (Tuple value pOSIXTime)))))) ->
-                  Right
-                    { threadToken: threadToken
-                    , owner: pubKeyHash
-                    , value: value
-                    , endTime: pOSIXTime
-                    }
+                Right auction -> Right auction
           }
     _ -> Nothing
 

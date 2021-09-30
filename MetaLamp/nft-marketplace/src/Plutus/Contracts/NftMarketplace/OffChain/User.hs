@@ -191,8 +191,7 @@ deriving newtype instance Schema.ToSchema DiffMilliSeconds
 data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId       :: UserItemId,
-    saapDuration     :: DiffMilliSeconds,
-    saapInitialPrice :: Value
+    saapDuration     :: DiffMilliSeconds
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -217,7 +216,6 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
       apOwner = self,
       apAsset = auctionValue,
       apEndTime = endTime,
-      apInitialPrice = saapInitialPrice,
       apMarketplaceOperator = marketplaceOperator,
       apMarketplaceSaleFee = marketplaceSaleFee
     }

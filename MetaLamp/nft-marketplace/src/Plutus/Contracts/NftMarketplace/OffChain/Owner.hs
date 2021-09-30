@@ -32,7 +32,6 @@ import qualified PlutusTx
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           PlutusTx.Prelude                             hiding
                                                               (Semigroup (..))
-import           PlutusTx.Ratio                               (Ratio)
 import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import qualified Schema
@@ -40,7 +39,7 @@ import           Text.Printf                                  (printf)
 
 data StartMarketplaceParams = StartMarketplaceParams {
     nftFee  :: Integer,
-    saleFee :: Ratio Integer
+    saleFee :: (Integer, Integer)
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)

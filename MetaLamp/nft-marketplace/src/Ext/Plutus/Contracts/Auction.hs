@@ -41,11 +41,11 @@ import qualified Plutus.Contract.StateMachine                     as SM
 import           Plutus.Contract.Util                             (loopM)
 import qualified Plutus.Contracts.Currency                        as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as Core
-import           Plutus.Types.Percentage                          (Percentage (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
-import qualified PlutusTx.Ratio                                   as Ratio
 import qualified Prelude                                          as Haskell
+import qualified Plutus.Types.Percentage as Percentage
+import qualified Plutus.Types.PercentageInterface as Percentage
 
 -- | Definition of an auction
 data AuctionParams
@@ -53,9 +53,8 @@ data AuctionParams
         { apOwner               :: PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
         , apAsset               :: Value -- ^ The asset itself. This value is going to be locked by the auction script output.
         , apEndTime             :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
-        , apInitialPrice        :: Value
         , apMarketplaceOperator :: PubKeyHash
-        , apMarketplaceSaleFee  :: Percentage
+        , apMarketplaceSaleFee  :: Percentage.Percentage
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON)
@@ -70,7 +69,6 @@ fromAuction Core.Auction {..} = AuctionParams {
     apOwner = aOwner,
     apAsset = aAsset,
     apEndTime = Ledger.POSIXTime aEndTime,
-    apInitialPrice = aInitialPrice,
     apMarketplaceOperator = aMarketplaceOperator,
     apMarketplaceSaleFee = aMarketplaceSaleFee
     }
@@ -82,7 +80,6 @@ toAuction threadToken AuctionParams {..} =
         aThreadToken = threadToken
         , aOwner = apOwner
         , aAsset = apAsset
-        , aInitialPrice = apInitialPrice
         , aEndTime = Ledger.getPOSIXTime apEndTime
         , aMarketplaceOperator = apMarketplaceOperator
         , aMarketplaceSaleFee = apMarketplaceSaleFee
@@ -172,7 +169,7 @@ auctionTransition AuctionParams{..} State{stateData=oldState} input =
                 newState = State { stateData = Finished h, stateValue = mempty }
                 highestBidInLovelace = Ada.getLovelace highestBid
                 saleProfit = highestBidInLovelace - operatorFee
-                operatorFee = Ratio.round $ (highestBidInLovelace % 100) * (getPercentage apMarketplaceSaleFee)
+                operatorFee = Percentage.calculatePercentageRounded apMarketplaceSaleFee highestBidInLovelace
             in Just (constraints, newState)
 
         -- Any other combination of 'AuctionState' and 'AuctionInput' is disallowed.

@@ -62,7 +62,6 @@ import qualified Plutus.PAB.Simulator                           as Simulator
 import           Plutus.PAB.Types                               (PABError (..))
 import qualified Plutus.PAB.Types                               as PAB
 import qualified Plutus.PAB.Webserver.Server                    as PAB
-import           PlutusTx.Ratio                                 (Ratio, (%))
 import           Prelude                                        hiding (init)
 import           Wallet.Emulator.Types                          (Wallet (..),
                                                                  walletPubKey)
@@ -77,7 +76,7 @@ userWallets = [Wallet i | i <- [2 .. 4]]
 startMarketplaceParams :: Owner.StartMarketplaceParams
 startMarketplaceParams = Owner.StartMarketplaceParams {
     nftFee = 100000,  -- 0.1 ADA
-    saleFee = 5 % 2
+    saleFee = (5, 2)
 }
 
 initialLotPrice :: Value.Value
@@ -197,8 +196,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapDuration = 80 * 1000,
-                        saapInitialPrice = initialLotPrice
+                        saapDuration = 80 * 1000
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction

@@ -56,7 +56,6 @@ data Auction = Auction {
     aThreadToken         :: ThreadToken,
     aOwner               :: PubKeyHash,
     aAsset               :: Value,
-    aInitialPrice        :: Value,
     aEndTime             :: POSIXTimeT,
     aMarketplaceOperator :: PubKeyHash,
     aMarketplaceSaleFee  :: Percentage

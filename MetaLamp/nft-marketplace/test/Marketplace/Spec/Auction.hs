@@ -123,8 +123,7 @@ startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    Marketplace.saapDuration = 155 * 1000,
-    Marketplace.saapInitialPrice = lovelaceValueOf 100000000
+    Marketplace.saapDuration = 155 * 1000
   }
 
 closeLotParams ::        Marketplace.CloseLotParams
@@ -257,8 +256,7 @@ startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    Marketplace.saapDuration = 142 * 1000,
-    Marketplace.saapInitialPrice = lovelaceValueOf 100000000
+    Marketplace.saapDuration = 142 * 1000
   }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
