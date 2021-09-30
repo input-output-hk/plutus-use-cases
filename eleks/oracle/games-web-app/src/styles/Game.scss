@@ -1,0 +1,61 @@
+.Game {
+  color: #4a4a4a;
+  display: flex;
+  justify-content: space-around;
+  padding: 0 10em;
+
+  .team {
+    width: 30%;
+    text-align: center;
+  }
+
+  .img {
+    width: 100%;
+  }
+
+  .img-border {
+    border: 4px dotted #878787;
+    border-radius: 50%;
+    padding: 2em;
+  }
+
+  .game-details {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 2.5em;
+  }
+
+  .status {
+    padding: 0.5em 2em;
+    border-radius: 5px;
+    font-size: 20px;
+    margin-bottom: 2em;
+
+    &.live {
+      border: 1px solid rgba(255, 192, 7, 0.7);
+      color: rgba(255, 192, 7, 0.7);
+    }
+
+    &.closed {
+      border: 1px solid rgba(220, 52, 68, 0.7);
+      color: rgba(220, 52, 68, 0.7);
+    }
+
+    &.open {
+      border: 1px solid rgba(25, 135, 83, 0.7);
+      color: rgba(25, 135, 83, 0.7);
+    }
+  }
+
+  .date {
+    font-size: 20px;
+    font-weight: bold;
+  }
+
+  .referee {
+    font-size: 20px;
+    font-weight: 300;
+    margin-bottom: 2em;
+  }
+}

@@ -10,6 +10,7 @@ import { ConnectedRouter } from 'connected-react-router';
 
 import './styles/index.scss';
 import 'react-toastify/dist/ReactToastify.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const history = createBrowserHistory();
 export const middleware = routerMiddleware(history);
