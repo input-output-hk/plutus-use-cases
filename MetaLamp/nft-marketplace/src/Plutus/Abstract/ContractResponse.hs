@@ -56,7 +56,8 @@ newtype ContractResponse e a =
     { getEndpointResponses :: Map.Map Prelude.String (RemoteData e a)
     }
   deriving  (Prelude.Eq, Prelude.Show, Generic)
-  deriving newtype (J.ToJSON, J.FromJSON, Q.Arbitrary)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+  deriving newtype (Q.Arbitrary)
 
 instance Semigroup (ContractResponse e a) where
   (ContractResponse x) <> (ContractResponse y) = ContractResponse $ Map.unionWith (<>) x y

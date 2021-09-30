@@ -31,23 +31,13 @@ import           Language.PureScript.Bridge                   (BridgePart,
 import           Language.PureScript.Bridge.Builder           (BridgeData)
 import           Language.PureScript.Bridge.TypeParameters    (A, E)
 import           Plutus.Abstract.ContractResponse             (ContractResponse)
+import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract.StateMachine.ThreadToken     (ThreadToken)
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Contracts.Services.Sale               as Sale
 import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds)
-
-ratioBridge :: BridgePart
-ratioBridge = do
-  typeName ^== "Ratio"
-  typeModule ^== "PlutusTx.Ratio"
-  psRatio
-
-psRatio :: MonadReader BridgeData m => m PSType
-psRatio = expand <$> psTypeParameters
-  where
-    expand [x] = TypeInfo "web-common" "Data.Json.JsonTuple" "JsonTuple" [x, x]
 
 marketplaceTypes :: [SumType 'Haskell]
 marketplaceTypes =
@@ -56,6 +46,7 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @(RemoteData E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserItemId)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserContractState)
