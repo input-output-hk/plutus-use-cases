@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings      #-}
-
+{-# LANGUAGE NumericUnderscores     #-}
 
 import           Prelude
 import           System.Environment
@@ -32,6 +32,7 @@ main = do
     let scriptnum = if nargs > 0 then read (args!!0) else 42
     let feeInt = if nargs > 1 then read(args!!1) else 1000000
         fee = Ada.lovelaceOf feeInt
+        collateral = 1_000_000
     let oracleScriptFile = "oracle.plutus"
         requestTokenScriptFile = "requesttoken.plutus"
   
@@ -47,7 +48,8 @@ main = do
 
         let oracleRequestTokenInfo = OracleRequestToken
                 { ortOperator = pkh
-                , ortFee =fee
+                , ortFee = fee
+                , ortCollateral = collateral
                 }
         let oracle = Oracle
                 { --oSymbol = opSymbol op
@@ -55,6 +57,7 @@ main = do
                 , oOperator = pkh
                 , oOperatorKey = pk
                 , oFee = fee
+                , oCollateral = collateral
                 }
         let oracleData = OracleData
               { ovGame = 1

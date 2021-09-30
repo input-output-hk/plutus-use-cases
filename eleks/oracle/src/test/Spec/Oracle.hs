@@ -64,12 +64,18 @@ oracleCurrency :: CurrencySymbol
 oracleCurrency = "aa"
 
 oracleParams :: OracleParams 
-oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 3_000_000, opSigner = walletPrivKey oracleWallet } 
+oracleParams = OracleParams
+    { opSymbol = oracleCurrency
+    , opFees = 5_000_000
+    , opCollateral = 10_000_000
+    , opSigner = walletPrivKey oracleWallet
+    } 
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
     { ortOperator = pubKeyHash $ walletPubKey oracleWallet
     , ortFee = opFees oracleParams
+    , ortCollateral = opCollateral oracleParams
     }
 oracle ::  Oracle
 oracle = Oracle
@@ -78,6 +84,7 @@ oracle = Oracle
     , oOperator = pubKeyHash $ walletPubKey oracleWallet
     , oOperatorKey = walletPubKey oracleWallet
     , oFee = opFees oracleParams
+    , oCollateral = opCollateral oracleParams
     }
 
 gameId :: Integer
@@ -250,8 +257,8 @@ tests =
         .&&. valueAtAddress (oracleAddress oracle)
             (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
             )
-        .&&. walletFundsChange oracleWallet ((Ada.toValue (oFee oracle)))
-        .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle)))
+        .&&. walletFundsChange oracleWallet ((Ada.toValue (oFee oracle + oCollateral oracle)))
+        .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle + oCollateral oracle)))
         .&&. dataAtAddress (oracleAddress oracle) (== requestOracleTestState)
         )
         requestOracleTrace
@@ -260,7 +267,9 @@ tests =
         ( 
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
-                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1))
+                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1 
+                    <> Ada.toValue (oCollateral oracle))    
+                )
             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
             -- .&&. dataAtAddress (oracleAddress oracle) (== signOracleTestState)
         )
@@ -270,7 +279,9 @@ tests =
         ( 
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
-                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1))
+                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1 
+                    <> Ada.toValue (oCollateral oracle))    
+                )
             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
         )
         updateOracleFromNotStartedToLiveTrace
@@ -287,9 +298,11 @@ tests =
             .&&. assertNotDone (useOracleContract oracle)
                 (Trace.walletInstanceTag oracleClientWallet)
                 "use contract should not fail"
+            .&&. valueAtAddress (oracleAddress oracle)
+                (== (Ada.toValue 0) 
+                )
             .&&. walletFundsChange oracleClientWallet (
                 inv (Ada.toValue $ oFee oracle)
-                <> (Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
                 )
         )
         useOracleTrace

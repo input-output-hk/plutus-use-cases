@@ -98,6 +98,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
                         { opSymbol = Currency.currencySymbol currency
                         , opFees   = 1_500_000
                         , opSigner = (walletPrivKey oracleWallet)
+                        , opCollateral = 1_000_000
                         }
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
     oracle <- waitForLastOracle cidOracle
@@ -209,6 +210,6 @@ slotCfg = def
 initContract :: Contract (Last Currency.OneShotCurrency) Currency.CurrencySchema Currency.CurrencyError ()
 initContract = do
     ownPK <- pubKeyHash <$> Contract.ownPubKey
-    cur   <- Currency.mintContract ownPK [(oracleTokenName, 1)]
+    cur   <- Currency.mintContract ownPK [("test", 1)]
     let cs = Currency.currencySymbol cur
     tell $ Last $ Just cur

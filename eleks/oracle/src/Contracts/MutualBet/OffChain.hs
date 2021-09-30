@@ -133,7 +133,7 @@ mutualBetStart params = do
                     logInfo @Haskell.String "Make bet over"
                     markBettingClosed params client gameState 
                     waitGameStateChange client
-                CANC -> cancelGame client
+                CANC -> cancelGame params client gameState
 
 payout :: 
     MutualBetParams -> 
@@ -143,15 +143,21 @@ payout ::
 payout params client GameStateChange{gmsOutRef, gmsOutTx, gmsOracleData, gmsSignedMessage} = do
     logInfo ("Payout " ++ Haskell.show gmsOracleData)
     let oracle  = mbpOracle params
+        redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use 
+        oracleRequest = oracleToRequestToken oracle
+        requestToken = requestTokenValue oracle
+        mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken
     let lookups = ScriptLookups
-                { slMPS = Map.empty
+                { slMPS = Map.singleton (oracleRequestMintPolicyHash oracleRequest) (requestTokenPolicy oracleRequest)
                 , slTxOutputs = Map.singleton gmsOutRef gmsOutTx
                 , slOtherScripts = Map.singleton (oracleAddress oracle) (oracleValidator oracle)
                 , slOtherData = Map.empty
                 , slTypedValidator = Nothing
                 , slOwnPubkey = Nothing
                 }
-    r <- SM.runStepWith lookups mempty client Payout{oracleValue = gmsOracleData, oracleRef = gmsOutRef, oracleSigned = gmsSignedMessage}
+        constraints = Constraints.mustSpendScriptOutput gmsOutRef redeemer
+                    <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestToken)
+    r <- SM.runStepWith lookups constraints client Payout{oracleValue = gmsOracleData, oracleRef = gmsOutRef, oracleSigned = gmsSignedMessage}
     case r of
         SM.TransitionFailure i            -> logError (TransitionFailed i)
         SM.TransitionSuccess (Finished h) -> logInfo $ MutualBetGameEnded h
@@ -171,15 +177,32 @@ markBettingClosed params client GameStateChange{gmsSignedMessage, gmsOracleData}
         SM.TransitionSuccess s                  -> logWarn ("Unexpected state after BettingClosed transition: " <> Haskell.show s)
 
 cancelGame :: 
+    MutualBetParams -> 
     StateMachineClient MutualBetState MutualBetInput -> 
+    GameStateChange -> 
     Contract MutualBetOutput MutualBetStartSchema MutualBetError ()
-cancelGame client = do
+cancelGame params client  GameStateChange{gmsOutRef, gmsOutTx}  = do
     logInfo @Haskell.String "Cancel game"
-    r <- SM.runStep client CancelGame
+    let oracle  = mbpOracle params
+        redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
+        oracleRequest = oracleToRequestToken oracle
+        requestToken = requestTokenValue oracle
+        mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken
+    let lookups = ScriptLookups
+                { slMPS = Map.singleton (oracleRequestMintPolicyHash oracleRequest) (requestTokenPolicy oracleRequest)
+                , slTxOutputs = Map.singleton gmsOutRef gmsOutTx
+                , slOtherScripts = Map.singleton (oracleAddress oracle) (oracleValidator oracle)
+                , slOtherData = Map.empty
+                , slTypedValidator = Nothing
+                , slOwnPubkey = Nothing
+                }
+        constraints = Constraints.mustSpendScriptOutput gmsOutRef redeemer
+                    <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestToken)
+    r <- SM.runStepWith lookups constraints client CancelGame
     case r of
-        SM.TransitionFailure i              -> logError (TransitionFailed i)
-        SM.TransitionSuccess (Finished h)   -> logInfo $ MutualBetCancelled h
-        SM.TransitionSuccess s              -> logWarn ("Unexpected state after Cancel transition: " <> Haskell.show s)
+        SM.TransitionFailure i            -> logError (TransitionFailed i)
+        SM.TransitionSuccess (Finished h) -> logInfo $ MutualBetCancelled h
+        SM.TransitionSuccess s            -> logWarn ("Unexpected state after Cancel transition: " <> Haskell.show s)
 
 -- | Get the current state of the contract and log it.
 currentState :: StateMachineClient MutualBetState MutualBetInput -> Contract MutualBetOutput BettorSchema MutualBetError (Maybe MutualBetState)

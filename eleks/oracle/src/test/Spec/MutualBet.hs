@@ -56,21 +56,28 @@ oracleCurrency :: CurrencySymbol
 oracleCurrency = "aa"
 
 oracleParams :: OracleParams 
-oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 1_500_000, opSigner = walletPrivKey oracleWallet } 
+oracleParams = OracleParams
+    { opSymbol = oracleCurrency
+    , opFees = 1_000_000
+    , opCollateral = 2_000_000
+    , opSigner = walletPrivKey oracleWallet 
+    } 
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
     { ortOperator = pubKeyHash $ walletPubKey oracleWallet
     , ortFee = opFees oracleParams
+    , ortCollateral = opCollateral oracleParams
     }
 
 oracle ::  Oracle
 oracle = Oracle
-    { --oSymbol = opSymbol oracleParams
+    { --oSymbol = opSymbol oracleParams,
       oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
     , oOperator = pubKeyHash $ walletPubKey oracleWallet
     , oOperatorKey = walletPubKey oracleWallet
     , oFee = opFees oracleParams
+    , oCollateral = opCollateral oracleParams
     }
 
 gameId :: GameId
@@ -329,8 +336,7 @@ tests =
         .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) mutualBetSuccessTraceFinalState ) "final state should be OK"
         .&&. walletFundsChange bettor1 (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet - (mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams) 
-                                              <> Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams))
         )
         mutualBetSuccessTrace
         ,
@@ -340,8 +346,7 @@ tests =
         .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
         .&&. walletFundsChange bettor1 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams) 
-                                              <> Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams))
         )
         returnBetsIfAllLostTrace
         ,
@@ -352,7 +357,7 @@ tests =
         .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) cancelGameTraceState ) "final state should be OK"
         .&&. walletFundsChange bettor1 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
-        .&&. walletFundsChange betOwnerWallet (Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams)
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams))
         )
         cancelGameTrace
         ,
@@ -360,7 +365,7 @@ tests =
         (assertNotDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) "mutual bet contract should not be done"
         .&&. assertNotDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) "bettor 1 contract should not be done"
         .&&. assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
-        .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams))
+        .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams + opCollateral oracleParams))
         )
         inProgressBetFailTrace
         ,

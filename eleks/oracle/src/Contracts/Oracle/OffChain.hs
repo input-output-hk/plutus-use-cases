@@ -70,6 +70,7 @@ import           Schema                    (ToSchema)
 data OracleParams = OracleParams
     { opSymbol :: !CurrencySymbol
     , opFees   :: !Ada
+    , opCollateral :: !Ada
     , opSigner :: !PrivateKey
     } deriving (Haskell.Eq, Haskell.Show, Generic, FromJSON, ToJSON)
 
@@ -80,6 +81,7 @@ startOracle op = do
     let oracleRequestTokenInfo = OracleRequestToken
             { ortOperator = pkh
             , ortFee = opFees op
+            , ortCollateral = opCollateral op
             }
     let oracle = Oracle
             { --oSymbol = opSymbol op
@@ -87,6 +89,7 @@ startOracle op = do
             , oOperator = pkh
             , oOperatorKey = pk
             , oFee = opFees op
+            , oCollateral = opCollateral op
             }
     logInfo @String $ "started oracle " ++ show oracle
     return oracle
@@ -108,10 +111,11 @@ updateOracle oracle operatorPrivateKey params = do
                         let oracleData' = oracleData{ ovSignedMessage = Just $ signMessage oracleSignMessage operatorPrivateKey }
                         when (oracleData' /= oracleData) $ do
                             let requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
+                                collateralVal = Ada.toValue $ oCollateral oracle 
                             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     
                                         <> Constraints.typedValidatorLookups (typedOracleValidator oracle) 
                                         <> Constraints.otherScript (oracleValidator oracle)
-                                tx      = Constraints.mustPayToTheScript oracleData' requestTokenVal 
+                                tx      = Constraints.mustPayToTheScript oracleData' (requestTokenVal <> collateralVal) 
                                         <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
 
                             logInfo ("submit transaction " ++ (show $ oracleData'))
@@ -142,23 +146,23 @@ requestOracleForAddress oracle gameId = do
     let inst = typedOracleValidator oracle
         mrScript = oracleValidator oracle
         tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
-        forgedToken = assetClassValue (requestTokenClassFromOracle oracle) 1
+        forgedToken = requestTokenValue oracle
         oracleFee = oFee oracle 
         feeVal = Ada.toValue oracleFee
+        collateralVal = Ada.toValue $ oCollateral oracle
         oracleData = OracleData 
             { ovRequestAddress = pkh
             , ovGame = gameId
             , ovSignedMessage = Nothing
             }
-
-    let red = Ledger.Redeemer (PlutusTx.toBuiltinData (0 :: Integer))
+        mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ Request
     let lookups = Constraints.typedValidatorLookups inst 
                 <> Constraints.otherScript mrScript
                 <> Constraints.mintingPolicy tokenMintingPolicy
 
         tx      = Constraints.mustPayToTheScript oracleData forgedToken
-                <> Constraints.mustPayToPubKey (oOperator oracle) feeVal
-                <> Constraints.mustMintValueWithRedeemer red forgedToken
+                <> Constraints.mustPayToPubKey (oOperator oracle) (feeVal <> collateralVal)
+                <> Constraints.mustMintValueWithRedeemer mintRedeemer forgedToken
 
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
@@ -272,14 +276,19 @@ useOracle oracle =
             Just (oref, o, t) -> do
                 let inst = typedOracleValidator oracle
                     mrScript = oracleValidator oracle
+                    tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
                     redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
-                    requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
+                    requestTokenVal = requestTokenValue oracle
+                    collateralValue = Ada.toValue $ oCollateral oracle
+                    mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken
 
                 let lookups = Constraints.typedValidatorLookups inst 
                             <> Constraints.otherScript mrScript
                             <> Constraints.unspentOutputs (Map.singleton oref o)
+                            <> Constraints.mintingPolicy tokenMintingPolicy
                     tx  = Constraints.mustSpendScriptOutput oref redeemer
-                            <> Constraints.mustPayToPubKey pkh requestTokenVal
+                             <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestTokenVal)
+                             <> Constraints.mustPayToPubKey pkh collateralValue
 
                 ledgerTx <- submitTxConstraintsWith lookups tx
                 void $ awaitTxConfirmed $ txId ledgerTx

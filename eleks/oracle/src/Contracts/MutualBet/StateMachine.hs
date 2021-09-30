@@ -142,9 +142,7 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                     payConstraints = if null winners
                         then mkTxReturnBets bets
                         else mkTxPayWinners winners 
-                    redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
                     constraints = payConstraints
-                                <> Constraints.mustSpendScriptOutput oracleRef redeemer
                                 <> oracleSignConstraints
                     newState = State { stateData = Finished bets, stateValue = mempty }
                 in Just (constraints, newState)

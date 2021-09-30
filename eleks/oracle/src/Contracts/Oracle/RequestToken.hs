@@ -20,8 +20,10 @@ module Contracts.Oracle.RequestToken
     , requestTokenClass
     , requestTokenClassFromOracle
     , requestTokenPolicy
+    , requestTokenValue
     , mintingScript
     , mintingScriptShortBs
+    , oracleRequestMintPolicyHash
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)
@@ -56,10 +58,12 @@ import           Schema                    (ToSchema)
 import Contracts.Oracle.Types
 
 {-# INLINABLE checkRequesTokenPolicy #-}
-checkRequesTokenPolicy :: OracleRequestToken -> BuiltinData -> ScriptContext -> Bool
-checkRequesTokenPolicy requestToken _ ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}, scriptContextPurpose=Minting _} = 
-    traceIfFalse "Should forge one token" (forgedCount == 1)
-    && traceIfFalse "Is fee paid" (isFeePaid (Just $ ortOperator requestToken))
+checkRequesTokenPolicy :: OracleRequestToken -> OracleRequestRedeemer -> ScriptContext -> Bool
+checkRequesTokenPolicy requestToken r ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}, scriptContextPurpose=Minting _} = 
+    case r of
+        Request     -> traceIfFalse "Should forge one token" (forgedCount == 1)
+                    && traceIfFalse "Is fee and collateral paid" (isFeeAndCollateralPaid (Just $ ortOperator requestToken))
+        RedeemToken -> traceIfFalse "Should redeem one token" (forgedCount == -1)
     where
         ownSymbol = ownCurrencySymbol ctx
         info = scriptContextTxInfo ctx
@@ -67,10 +71,11 @@ checkRequesTokenPolicy requestToken _ ctx@ScriptContext{scriptContextTxInfo=TxIn
         forgedSymbolsCount = length $ symbols forged
         forgedCount = valueOf forged ownSymbol oracleRequestTokenName
         feeValue = Ada.toValue $ ortFee requestToken
-        isFeePaid :: Maybe PubKeyHash -> Bool
-        isFeePaid feeAddr = isJust . find (\o ->
-            txOutValue o == feeValue &&
-            feeAddr == Validation.pubKeyOutput o) $ txInfoOutputs info
+        collateralValue = Ada.toValue $ ortCollateral requestToken
+        isFeeAndCollateralPaid :: Maybe PubKeyHash -> Bool
+        isFeeAndCollateralPaid operatorAddr = isJust . find (\o ->
+            txOutValue o == (feeValue <> collateralValue)  &&
+            operatorAddr == Validation.pubKeyOutput o) $ txInfoOutputs info
 
 requestTokenPolicy :: OracleRequestToken -> LedgerScripts.MintingPolicy
 requestTokenPolicy oracle = LedgerScripts.mkMintingPolicyScript $
@@ -89,6 +94,9 @@ requestTokenClass oracleRequest = AssetClass (requestTokenSymbol oracleRequest, 
 
 requestTokenClassFromOracle :: Oracle -> AssetClass
 requestTokenClassFromOracle = requestTokenClass . oracleToRequestToken
+
+requestTokenValue:: Oracle -> Value
+requestTokenValue oracle = assetClassValue (requestTokenClassFromOracle oracle) 1
 
 mintinPlutusScript :: OracleRequestToken -> Script
 mintinPlutusScript =

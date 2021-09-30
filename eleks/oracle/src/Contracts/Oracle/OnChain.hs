@@ -64,8 +64,8 @@ mkOracleValidator oracle oracleData r ctx =
     case r of
         Use    -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
                   && traceIfFalse "value signed by oracle" (isCurrentValueSigned)
-                  && traceIfFalse "expected requester to get oracle token" 
-                     (sentToAddress (Just $ ovRequestAddress oracleData) $ requestTokenExpectedVal)
+                --   && traceIfFalse "expected requester to get oracle token" 
+                --      (sentToAddress (Just $ ovRequestAddress oracleData) (requestTokenExpectedVal))
         Update -> traceIfFalse "operator signature missing" (txSignedBy info $ oOperator oracle) 
                   && traceIfFalse "invalid output datum" validOutputDatum
                   && traceIfFalse "update data is invalid" isUpdateValid
@@ -81,7 +81,7 @@ mkOracleValidator oracle oracleData r ctx =
     requestTokenExpectedVal = Value.singleton (oRequestTokenSymbol oracle) oracleRequestTokenName 1
 
     requestTokenValOf:: Value -> Integer 
-    requestTokenValOf value = valueOf (txOutValue ownInput) (oRequestTokenSymbol oracle) oracleRequestTokenName
+    requestTokenValOf value = valueOf value (oRequestTokenSymbol oracle) oracleRequestTokenName
 
     sentToAddress :: Maybe PubKeyHash -> Value -> Bool
     sentToAddress h v =
@@ -102,9 +102,13 @@ mkOracleValidator oracle oracleData r ctx =
     inputHasRequestToken = requestTokenValOf (txOutValue ownInput) == 1
 
     ownOutput :: TxOut
-    ownOutput = case getContinuingOutputs ctx of
+    ownOutput = case [ o
+                     | o <- getContinuingOutputs ctx
+                     , requestTokenValOf (txOutValue o) == 1 &&
+                       Ada.fromValue (txOutValue o) == oCollateral oracle
+                     ] of
         [o] -> o
-        _   -> traceError "expected exactly one oracle request output"
+        _   -> traceError "expected request token with collateral ada value"
 
     outputDatumMaybe :: Maybe OracleData
     outputDatumMaybe = oracleValue ownOutput (`findDatum` info)
@@ -130,14 +134,6 @@ mkOracleValidator oracle oracleData r ctx =
         (fromMaybe False $ validateGameStatusChanges <$> 
         (osmGameStatus <$> extractSigendMessage (ovSignedMessage oracleData)) <*> 
         (osmGameStatus <$> extractSigendMessage outputSignedMessage))
-
-    feesPaid :: Bool
-    feesPaid =
-      let
-        inVal  = txOutValue ownInput
-        outVal = txOutValue ownOutput
-      in
-        outVal `geq` (inVal <> Ada.toValue (oFee oracle))
 
 {-# INLINABLE verifyOracleValueSigned #-}
 verifyOracleValueSigned :: PubKey -> SignedMessage OracleSignedMessage -> Maybe (OracleSignedMessage, TxConstraints Void Void)
