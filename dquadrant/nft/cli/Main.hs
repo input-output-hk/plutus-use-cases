@@ -15,8 +15,12 @@ import qualified Data.ByteString.Char8 as C
 import Data.Text.Encoding ( decodeUtf8, encodeUtf8 )
 import qualified Data.ByteString.Lazy as LBS
 import Plutus.Contract.Blockchain.MarketPlace (marketValidator, Market (..), DirectSale (DirectSale, dsAsset, dsSeller), SellType (Primary), marketAddress, MarketRedeemer (Buy), dsFee, dsPaymentValueList)
-import           Cardano.Api.Byron hiding (SomeByronSigningKey (..))
-import           Cardano.Api.Shelley
+-- import           Cardano.Api.Byron hiding (SomeByronSigningKey (..))
+import Cardano.Api
+import qualified Cardano.Api.Shelley
+import Cardano.Api.Shelley (fromPlutusData, Lovelace (Lovelace), Tx (ShelleyTx), PlutusScript (PlutusScriptSerialised), toAlonzoData, ProtocolParameters (protocolParamTxFeeFixed), TxBody (ShelleyTxBody))
+
+
 import Ledger (pubKeyHash, datumHash, Datum (Datum), Tx, txId, PubKeyHash (PubKeyHash))
 import Data.Text.Conversions (Base16(Base16, unBase16), ToText (toText), FromText (fromText), UTF8 (unUTF8, UTF8), Base64, DecodeText (decodeText), convertText)
 import Data.ByteString(ByteString(), split, unpack)
@@ -36,7 +40,7 @@ import Plutus.V1.Ledger.Value (assetClass, tokenName, AssetClass (AssetClass))
 import qualified Data.Text as T
 import Text.Read (readMaybe, Lexeme (Number))
 import Cardano.CLI.Types (SocketPath(SocketPath), TxOutChangeAddress (TxOutChangeAddress))
-import PlutusTx.Builtins (sha2_256, sha3_256, addInteger)
+import PlutusTx.Builtins (sha2_256, sha3_256)
 import Data.ByteString.Lazy (toStrict, fromStrict)
 import Data.Aeson (ToJSON(toJSON), encode, decode)
 import Codec.Serialise (serialise, deserialise)
@@ -47,7 +51,6 @@ import qualified Data.Sequence.Strict as Seq
 
 import Control.Monad (unless, void)
 import System.Posix.Internals (withFilePath)
-import Cardano.Api.Byron (LocalStateQueryClient(LocalStateQueryClient))
 import Cardano.Api.NetworkId.Extra (testnetNetworkId)
 import Control.Exception (try, handle, handleJust, throw)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx(ValidatedTx))
@@ -82,14 +85,14 @@ import System.FilePath (joinPath)
 import qualified Data.ByteString as BS
 import System.Directory
 import GHC.IO.Exception (IOException(IOError))
-import Foreign.Marshal.Error (throwIf)
 import qualified Ledger.AddressMap
 import           Data.Map.Strict (Map)
 import Data.String (IsString)
 import GHC.Exts (IsString(fromString))
 import Shelley.Spec.Ledger.API (Credential(ScriptHashObj, KeyHashObj))
 import PlutusTx.IsData (FromData(fromBuiltinData))
-import Cardano.Api (lovelaceToValue)
+import qualified Cardano.Ledger.Mary.Value (Value(Value))
+import qualified Cardano.Ledger.Alonzo.TxBody as LedgerBody
 
 
 unHex ::  ToText a => a -> Maybe  ByteString
@@ -180,12 +183,13 @@ main = do
 
 
 placeOnMarket conn [tokenStr,costStr] =do
-        lockedValue <- unEither   eitherLockedValue
+        lockedToken<- unEither   eitherLockedValue
         sKey <-getDefaultSignKey
         ds <- unEither $ saleData (sKeyToPkh sKey)
         paramQueryResult<-queryNodeLocalState conn Nothing protocolParamsQuery
         let walletAddr=toAddressAny $ skeyToAddr sKey
             walletPkh=sKeyToPkh sKey
+            lockedValue= lockedValue <> (lovelaceToValue $ Lovelace 2000000)
         scriptDataHash <- unEither $ dataHash ds
         (inputs,change)<-queryPaymentUtxosAndChange  conn lockedValue  walletAddr
         putStrLn $ "Using txin " ++ show inputs
@@ -406,7 +410,7 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
     singletonTxOutValue:: AssetId -> Quantity -> TxOutValue AlonzoEra
     singletonTxOutValue  a v =TxOutValue MultiAssetInAlonzoEra (valueFromList  [ (a , v)])
 
-    singletonTxOut :: AddressInEra  AlonzoEra -> AssetId -> Quantity -> TxOut AlonzoEra
+    singletonTxOut :: AddressInEra  AlonzoEra -> AssetId -> Quantity -> Cardano.Api.Shelley.TxOut AlonzoEra
     singletonTxOut  addr aId q = TxOut addr (singletonTxOutValue aId q) TxOutDatumHashNone
 
 
@@ -454,12 +458,9 @@ runPayCommand conn [strAddr,lovelaceStr] =do
   sKey <-getDefaultSignKey
   let walletAddr=  skeyToAddrInEra sKey
   paymentDigit ::Integer <-unMaybe "Invalid value for lovelace" $ readMaybe lovelaceStr
-  utxos<-querySufficientUtxo  conn (lovelaceToValue $ Lovelace paymentDigit) $toAddressAny $ skeyToAddr sKey
+  utxos<-queryUtxos conn  $toAddressAny $ skeyToAddr sKey
 
-  let txins = map utxosWithWitness utxos
-      totalBalance = foldMap utxosValue utxos
-      change = totalBalance <> (lovelaceToValue $ Lovelace (-paymentDigit) )
-      paymentValue = lovelaceToValue $ Lovelace   paymentDigit
+  let paymentValue = lovelaceToValue $ Lovelace   paymentDigit
 
   -- putStrLn $ "Using txin " ++ show _in
   -- putStrLn $ "Spending " ++  show out
@@ -468,46 +469,46 @@ runPayCommand conn [strAddr,lovelaceStr] =do
     Right e -> case e of
       Left em -> throw $ SomeError "Missmatched Era"
       Right pp -> return pp
-  let txoutEstimate = [TxOut receiverAddrAlonzo (TxOutValue MultiAssetInAlonzoEra paymentValue) TxOutDatumHashNone,
-                TxOut walletAddr (TxOutValue MultiAssetInAlonzoEra change) TxOutDatumHashNone
-              ]
-      body = makeTxBodyContent txins txoutEstimate pParam 200000
-
-  case makeTransactionBody $ body of
-    Left tbe ->
-      throw $ SomeError $  "Tx Body has error : " ++  (show tbe)
-    Right txBody -> do
-
-      --Balance transaction body with fee
-      let  transactionFee = evaluateTransactionFee pParam txBody 1 0  <> Lovelace 1
-      putStrLn $ "Show transaction fee" ++ show transactionFee
-
-      let changeMinusFee = change <> negateValue (lovelaceToValue  transactionFee) 
-          txoutsAfterFee = [TxOut receiverAddrAlonzo (TxOutValue MultiAssetInAlonzoEra paymentValue) TxOutDatumHashNone,
-                TxOut walletAddr (TxOutValue MultiAssetInAlonzoEra changeMinusFee) TxOutDatumHashNone
-              ]
-
-
-      let bodyWithFee = makeTxBodyContent  txins txoutsAfterFee pParam transactionFee
+  putStrLn "Something's fishy" 
+  let balancedBody = mkBalancedBody pParam  utxos (TxBodyContent {
+                      txIns=[],
+                      txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
+                      txOuts=[TxOut receiverAddrAlonzo (TxOutValue MultiAssetInAlonzoEra paymentValue) TxOutDatumHashNone],
+                        -- [TxOut alonzoAddr (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ Lovelace 5927107)) TxOutDatumHashNone ],
+                      txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra  ( Lovelace 0),
+                      txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
+                      -- txValidityRange = (TxValidityLowerBound  ValidityLowerBoundInAlonzoEra 38698728,TxValidityUpperBound ValidityUpperBoundInAlonzoEra  38699728),
+                      txMetadata=TxMetadataNone ,
+                      txAuxScripts=TxAuxScriptsNone,
+                      txExtraScriptData=BuildTxWith TxExtraScriptDataNone ,
+                      txExtraKeyWits=TxExtraKeyWitnessesNone,
+                      txProtocolParams=BuildTxWith (Just  pParam),
+                      txWithdrawals=TxWithdrawalsNone,
+                      txCertificates=TxCertificatesNone,
+                      txUpdateProposal=TxUpdateProposalNone,
+                      txMintValue=TxMintNone,
+                      txScriptValidity=TxScriptValidityNone
+                    })   (lovelaceToValue $ Lovelace 0) receiverAddrAlonzo
 
       --End Balance transaction body with fee
-      case makeTransactionBody bodyWithFee of
-        Left tbe ->
-          throw $ SomeError $  "Tx Body has error : " ++  (show tbe)
-        Right txBody -> do
-          let Lovelace transactionFee = evaluateTransactionFee pParam txBody 1 0
-
-          let tx = makeSignedTransaction [ makeShelleyKeyWitness txBody (WitnessPaymentKey sKey) ] (txBody) -- witness and txBody
-          res <-submitTxToNodeLocal conn $  TxInMode tx AlonzoEraInCardanoMode
-          case res of
-            SubmitSuccess ->  do
-              let v= getTxId txBody
-              putStrLn "Transaction successfully submitted."
-              putStrLn $ "TXId : "++ (show $ v)
-            SubmitFail reason ->
-              case reason of
-                TxValidationErrorInMode err _eraInMode ->  print err
-                TxValidationEraMismatch mismatchErr -> print mismatchErr
+  case  balancedBody of
+    Left tbe ->
+      throw $ SomeError $  "Coding Error : Tx Body has error : " ++  (show tbe)
+    Right txBody -> do
+      let ins=case txBody of { ShelleyTxBody sbe (LedgerBody.TxBody ins _ _ _ _ _ _ _ _ _ _ _ _ ) scs tbsd m_ad tsv -> ins }
+      putStrLn "Using inputs"
+      mapM_ print ins
+      let tx = makeSignedTransaction [ makeShelleyKeyWitness txBody (WitnessPaymentKey sKey) ] (txBody) -- witness and txBody
+      res <-submitTxToNodeLocal conn $  TxInMode tx AlonzoEraInCardanoMode
+      case res of
+        SubmitSuccess ->  do
+          let v= getTxId txBody
+          putStrLn "Transaction successfully submitted."
+          putStrLn $ "TXId : "++ (show $ v)
+        SubmitFail reason ->
+          case reason of
+            TxValidationErrorInMode err _eraInMode ->  print err
+            TxValidationEraMismatch mismatchErr -> print mismatchErr
 
   where
     _witness=KeyWitness KeyWitnessForSpending
@@ -523,27 +524,6 @@ runPayCommand conn [strAddr,lovelaceStr] =do
     utxosWithWitness (txin,txout) = (txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)
 
     utxosValue (txin, TxOut _ (TxOutValue _ value) _) = value
-    makeTxBodyContent txins txouts pParam fee= (TxBodyContent {
-            txIns=txins,
-            txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
-            txOuts=txouts,
-              -- [TxOut alonzoAddr (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ Lovelace 5927107)) TxOutDatumHashNone ],
-            txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra  fee,
-            txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
-            txMetadata=TxMetadataNone ,
-            txAuxScripts=TxAuxScriptsNone,
-            txExtraScriptData=BuildTxWith TxExtraScriptDataNone ,
-            txExtraKeyWits=TxExtraKeyWitnessesNone,
-            txProtocolParams=BuildTxWith (Just  pParam),
-            txWithdrawals=TxWithdrawalsNone,
-            txCertificates=TxCertificatesNone,
-            txUpdateProposal=TxUpdateProposalNone,
-            txMintValue=TxMintNone,
-            txScriptValidity=TxScriptValidityNone
-          })
-
-    sumValue [] = lovelaceToValue $ Lovelace 0
-    sumValue (x:xs) = x <> sumValue xs
 
 
 runPayCommand _ _ = putStrLn "Invalid no of args"
@@ -596,7 +576,7 @@ runBalanceCommand conn args =do
 
   toTxOut (UTxO a) = Map.elems  a
 
-  toValue ::TxOut AlonzoEra -> Value
+  toValue ::Cardano.Api.Shelley.TxOut AlonzoEra -> Value
   toValue (TxOut _ v _) = case v of
     TxOutAdaOnly oasie lo -> lovelaceToValue lo
     TxOutValue masie va -> va
@@ -617,17 +597,24 @@ queryUtxos conn addr=do
   utxoQuery qfilter= QueryInEra AlonzoEraInCardanoMode
                     $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo (QueryUTxO (QueryUTxOByAddress (Set.fromList qfilter)) )
 
-querySufficientUtxo :: LocalNodeConnectInfo CardanoMode -> p -> AddressAny -> IO [(TxIn, TxOut AlonzoEra)]
+querySufficientUtxo :: LocalNodeConnectInfo CardanoMode -> p -> AddressAny -> IO [(TxIn, Cardano.Api.Shelley.TxOut AlonzoEra)]
 querySufficientUtxo conn value addr=queryUtxos conn addr <&>  toList
   where
     toList (UTxO m) = Map.toList m
 
-queryPaymentUtxosAndChange :: LocalNodeConnectInfo CardanoMode -> p -> AddressAny -> IO ([(TxIn, TxOut AlonzoEra)],Value)
-queryPaymentUtxosAndChange conn value addr=
-        queryUtxos conn addr
-    <&> toList
-    <&> (,lovelaceToValue $ Lovelace  2)
+queryPaymentUtxosAndChange :: LocalNodeConnectInfo CardanoMode-> Value -> AddressAny -> IO ([(TxIn, Cardano.Api.Shelley.TxOut AlonzoEra)], Value)
+queryPaymentUtxosAndChange conn value addr=do
+    allUtxos<-queryUtxos conn addr<&> toList
+
+    pure (allUtxos  , foldMap ( toValue . snd) allUtxos <> negateValue value)
+
   where
+    toTxOut (UTxO a) = Map.elems  a
+
+    toValue ::Cardano.Api.Shelley.TxOut AlonzoEra -> Value
+    toValue (TxOut _ v _) = case v of
+      TxOutAdaOnly oasie lo -> lovelaceToValue lo
+      TxOutValue masie va -> va
     toList (UTxO m) = Map.toList m
 
 getWorkPath :: [FilePath] -> IO  FilePath
@@ -721,9 +708,89 @@ runImportKey [path] = do
   exists<-doesFileExist file
   if exists then throw (SomeError "default.skey File already exists") else pure ()
   writeFile file  $ fromText ( serialiseToBech32  key)
-
-
 runImportKey _ = throw $ SomeError "import: To many arguments"
 
+valueLte :: Value -> Value -> Bool
+valueLte _v1 _v2= any (\(aid,Quantity q) -> q > lookup aid) (valueToList _v1) -- do we find anything that's greater than q
+  where
+    lookup x= case Map.lookup x v2Map of
+      Nothing -> 0
+      Just (Quantity v) -> v
+    v2Map=Map.fromList $ valueToList _v2
+    -- v1Bundle= case case valueToNestedRep _v1 of { ValueNestedRep bundle -> bundle} of
+    --   [ValueNestedBundleAda v , ValueNestedBundle policy assetMap] ->LovelaceToValue v
+    --   [ValueNestedBundle policy assetMap]
 
+nullValue :: Value -> Bool
+nullValue v = not $ any (\(aid,Quantity q) -> q>0) (valueToList v)
+
+
+
+
+
+
+mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr = 
+    do
+      let (inputs1,change1) =minimize txouts startingChange
+          bodyContent1=modifiedBody inputs1 change1 startingFee
+      txBody1 <-makeTransactionBody bodyContent1
+
+      let fee1= evaluateTransactionFee pParams txBody1 1 0
+          (inputs2,change2)= minimize txouts change1
+          bodyContent2 =modifiedBody inputs2 change2 fee1
+      makeTransactionBody bodyContent2
+    where
+
+  startingFee=Lovelace $ toInteger $ protocolParamTxFeeFixed pParams
+
+  txouts=  Map.toList utxoMap
+  utxosWithWitness (txin,txout) = (txin, BuildTxWith  $ KeyWitness KeyWitnessForSpending)
+
+
+  minimize utxos remainingChange= case utxos of
+    []     -> ([] ,remainingChange)
+    (txIn,txOut):subUtxos -> if val`valueLte` remainingChange
+            then minimize subUtxos newChange -- remove the current txOut from the list
+            else (case minimize subUtxos remainingChange of { (tos, va) -> ((txIn,BuildTxWith $ KeyWitness KeyWitnessForSpending):tos,va) }) -- include txOut in result
+          where
+            val = txOutValueToValue $ txOutValue  txOut
+            newChange= remainingChange <> negateValue val
+
+  startingChange=(negateValue $ foldMap (txOutValueToValue  . txOutValue ) (txOuts txbody))  --outputs
+                  <> (if  null (txIns txbody) then lovelaceToValue startingFee else inputSum) -- inputs
+                  <> (foldMap (txOutValueToValue  . txOutValue) $  Map.elems utxoMap)
+
+  utxoToTxOut (UTxO map)=Map.toList map
+
+  txOutValueToValue :: TxOutValue era -> Value
+  txOutValueToValue tv =
+    case tv of
+      TxOutAdaOnly _ l -> lovelaceToValue l
+      TxOutValue _ v -> v
+
+  txOutValue (TxOut _ v _) = v
+
+  modifiedBody txins change fee= content
+    where
+      content=(TxBodyContent  {
+            txIns=txins ++ txIns txbody,
+            txInsCollateral=txInsCollateral txbody,
+            txOuts=  if nullValue change
+                  then txOuts txbody
+                  else TxOut  walletAddr (TxOutValue MultiAssetInAlonzoEra change) TxOutDatumHashNone :txOuts txbody ,
+              -- [TxOut alonzoAddr (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ Lovelace 5927107)) TxOutDatumHashNone ],
+            txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra  fee,
+            -- txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
+            txValidityRange = txValidityRange txbody,
+            txMetadata=txMetadata txbody ,
+            txAuxScripts=txAuxScripts txbody,
+            txExtraScriptData=txExtraScriptData txbody ,
+            txExtraKeyWits=txExtraKeyWits txbody,
+            txProtocolParams= txProtocolParams   txbody,
+            txWithdrawals=txWithdrawals txbody,
+            txCertificates=txCertificates txbody,
+            txUpdateProposal=txUpdateProposal txbody,
+            txMintValue=txMintValue txbody,
+            txScriptValidity=txScriptValidity txbody
+          })
 
