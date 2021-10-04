@@ -1,14 +1,13 @@
 module Capability.Contract where
 
 import Prelude
+import Utils.APIError (APIError)
 import Data.Either (Either)
-import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
+import Data.Newtype (class Newtype)
 import Foreign (unsafeToForeign)
 import Foreign.Generic (class Decode, class Encode)
 import Halogen (HalogenM, lift)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
-import Utils.APIError
 
 newtype ContractId
   = ContractId String
@@ -19,6 +18,8 @@ newtype Endpoint
   = Endpoint String
 
 derive newtype instance showEndpoint :: Show Endpoint
+
+derive instance newtypeEndpoint :: Newtype Endpoint _
 
 data ContractUnit
   = ContractUnit
