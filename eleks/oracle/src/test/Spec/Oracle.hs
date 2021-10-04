@@ -47,6 +47,7 @@ import           Contracts.Oracle
 import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)
 import           Test.Tasty
+import           Types.Game
 
 auctionEmulatorCfg :: Trace.EmulatorConfig
 auctionEmulatorCfg =
@@ -63,12 +64,18 @@ oracleCurrency :: CurrencySymbol
 oracleCurrency = "aa"
 
 oracleParams :: OracleParams 
-oracleParams = OracleParams{ opSymbol = oracleCurrency, opFees = 3_000_000, opSigner = walletPrivKey oracleWallet } 
+oracleParams = OracleParams
+    { opSymbol = oracleCurrency
+    , opFees = 5_000_000
+    , opCollateral = 10_000_000
+    , opSigner = walletPrivKey oracleWallet
+    } 
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
     { ortOperator = pubKeyHash $ walletPubKey oracleWallet
     , ortFee = opFees oracleParams
+    , ortCollateral = opCollateral oracleParams
     }
 oracle ::  Oracle
 oracle = Oracle
@@ -77,6 +84,7 @@ oracle = Oracle
     , oOperator = pubKeyHash $ walletPubKey oracleWallet
     , oOperatorKey = walletPubKey oracleWallet
     , oFee = opFees oracleParams
+    , oCollateral = opCollateral oracleParams
     }
 
 gameId :: Integer
@@ -110,9 +118,8 @@ winTeamId = 1
 requestOracleTestState :: OracleData
 requestOracleTestState = OracleData
     { ovGame = gameId
-    , ovWinner = 0
     , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
-    , ovWinnerSigned = Nothing
+    , ovSignedMessage = Nothing
     }
 
 requestOracleTrace :: Trace.EmulatorTrace ()
@@ -125,17 +132,47 @@ requestOracleTrace = do
 signOracleTestState :: OracleData
 signOracleTestState = OracleData
     { ovGame = gameId
-    , ovWinner = 3
     , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
-    , ovWinnerSigned = Just $ signMessage 1 (walletPrivKey oracleWallet) 
+    , ovSignedMessage = Just $ signMessage OracleSignedMessage{ osmGameId = gameId, osmWinnerId = 0, osmGameStatus = NS } (walletPrivKey oracleWallet) 
     }
 
-signOracleTrace :: Trace.EmulatorTrace ()
-signOracleTrace = do
+updateOracleTrace :: Trace.EmulatorTrace ()
+updateOracleTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 20
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
     void $ Trace.waitNSlots 3
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = NS }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 1
+
+invalidUpdateOracleTrace :: Trace.EmulatorTrace ()
+invalidUpdateOracleTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 20
+    requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
+    void $ Trace.waitNSlots 3
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = NS }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
+    --cannot complete finish game if it was not started
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 1, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
+
+updateOracleFromNotStartedToLiveTrace :: Trace.EmulatorTrace ()
+updateOracleFromNotStartedToLiveTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 20
+    requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
+    void $ Trace.waitNSlots 3
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
+    --cannot complete game without in progress state
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 1, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
 
 useOracleTrace :: Trace.EmulatorTrace ()
 useOracleTrace = do
@@ -143,7 +180,7 @@ useOracleTrace = do
     _ <- Trace.waitNSlots 3
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
     _ <- Trace.waitNSlots 5
-    let updateParams = UpdateOracleParams{ uoGameId = gameId,  uoWinnerId = 1 }
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 1, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParams
     _ <- Trace.waitNSlots 5   
     useOracleHdl <- Trace.activateContractWallet oracleClientWallet (useOracleContract oracle)
@@ -168,7 +205,7 @@ useOracleNotOwnerFailTrace = do
     _ <- Trace.waitNSlots 3
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
     _ <- Trace.waitNSlots 5
-    let updateParams = UpdateOracleParams{ uoGameId = gameId,  uoWinnerId = 1 }
+    let updateParams = UpdateOracleParams{ uoGameId = gameId,  uoWinnerId = 1, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParams
     _ <-  Trace.waitNSlots 5
     useOracleHdl <- Trace.activateContractWallet otherWallet (useOracleContract oracle)
@@ -192,7 +229,19 @@ getOnlyActiveGamesTrace = do
     _ <- Trace.waitNSlots 3
     requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
     _ <- Trace.waitNSlots 5
-    let updateParams = UpdateOracleParams{ uoGameId = gameId,  uoWinnerId = 1 }
+    let updateParams = UpdateOracleParams{ uoGameId = gameId,  uoWinnerId = 1, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    _ <- Trace.waitNSlots 5   
+    Trace.callEndpoint @"games" oracleHdl ()
+    void $ Trace.waitNSlots 3
+
+getInProgressGameAsActiveTrace:: Trace.EmulatorTrace ()
+getInProgressGameAsActiveTrace = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 3
+    requestOracleHdl <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle gameId)
+    _ <- Trace.waitNSlots 5
+    let updateParams = UpdateOracleParams{ uoGameId = gameId,  uoWinnerId = 0, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
     _ <- Trace.waitNSlots 5   
     Trace.callEndpoint @"games" oracleHdl ()
@@ -208,21 +257,40 @@ tests =
         .&&. valueAtAddress (oracleAddress oracle)
             (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
             )
-        .&&. walletFundsChange oracleWallet ((Ada.toValue . Ada.lovelaceOf $ (oFee oracle)))
-        .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue . Ada.lovelaceOf $ (oFee oracle)))
+        .&&. walletFundsChange oracleWallet ((Ada.toValue (oFee oracle + oCollateral oracle)))
+        .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle + oCollateral oracle)))
         .&&. dataAtAddress (oracleAddress oracle) (== requestOracleTestState)
         )
         requestOracleTrace
         ,
-        checkPredicateOptions options "Should sign oracle data"
+        checkPredicateOptions options "Should update oracle data"
         ( 
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
-                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1))
-            .&&. walletFundsChange oracleWallet (Ada.toValue . Ada.lovelaceOf $ (oFee oracle))
+                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1 
+                    <> Ada.toValue (oCollateral oracle))    
+                )
+            .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
             -- .&&. dataAtAddress (oracleAddress oracle) (== signOracleTestState)
         )
-        signOracleTrace
+        updateOracleTrace
+        ,
+        checkPredicateOptions options "Should update oracle data from NS to LIVE"
+        ( 
+            assertNoFailedTransactions
+            .&&. valueAtAddress (oracleAddress oracle)
+                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1 
+                    <> Ada.toValue (oCollateral oracle))    
+                )
+            .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
+        )
+        updateOracleFromNotStartedToLiveTrace
+        ,
+        checkPredicateOptions options "Should fail on incorrect update oracle data"
+        ( 
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["update data is invalid", "Pd"] _) -> True; _ -> False  })
+        )
+        invalidUpdateOracleTrace
         ,
         checkPredicateOptions options "Should use oracle data"
         ( 
@@ -230,9 +298,11 @@ tests =
             .&&. assertNotDone (useOracleContract oracle)
                 (Trace.walletInstanceTag oracleClientWallet)
                 "use contract should not fail"
+            .&&. valueAtAddress (oracleAddress oracle)
+                (== (Ada.toValue 0) 
+                )
             .&&. walletFundsChange oracleClientWallet (
-                inv (Ada.toValue . Ada.lovelaceOf $ (oFee oracle))
-                <> (Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
+                inv (Ada.toValue $ oFee oracle)
                 )
         )
         useOracleTrace
@@ -260,14 +330,25 @@ tests =
         )
         getActiveGamesTrace
         ,
-        checkPredicateOptions options "Should not get used games"
+        checkPredicateOptions options "Should not get completed games as active"
         ( 
             assertNoFailedTransactions
             .&&. assertAccumState oracleContract (Trace.walletInstanceTag oracleWallet)
                     (\case Last (Just (Games gameIds)) -> 
                                 gameIds == [];
                            _ -> False)
-                    "should get active game"
+                    "should not get used"
         )
         getOnlyActiveGamesTrace
+        ,
+        checkPredicateOptions options "Get in progress games as active"
+        ( 
+            assertNoFailedTransactions
+            .&&. assertAccumState oracleContract (Trace.walletInstanceTag oracleWallet)
+                    (\case Last (Just (Games gameIds)) -> 
+                                gameIds == [gameId];
+                           _ -> False)
+                    "should get in progress game"
+        )
+        getInProgressGameAsActiveTrace
         ]

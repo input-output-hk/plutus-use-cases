@@ -29,20 +29,25 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude              as Haskell
 import           Text.Printf         (PrintfArg)
+import           Types.Game          (GameId, TeamId, FixtureStatusShort (..))
 
 data Oracle = Oracle
     { --oSymbol   :: !CurrencySymbol
-      oRequestTokenSymbol   :: !CurrencySymbol
-    , oOperator :: !PubKeyHash
-    , oOperatorKey :: !PubKey
-    , oFee      :: !Integer
+      oRequestTokenSymbol :: !CurrencySymbol -- Oracle request token currency symbol
+    , oOperator           :: !PubKeyHash -- Oracle owner
+    , oOperatorKey        :: !PubKey -- Oracle owner key used to verify signed data
+    , oFee                :: !Ada -- Oracle fee amount
+    , oCollateral         :: !Ada -- Oracle fee amount
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
 PlutusTx.makeLift ''Oracle
 
+-- Token used for Oracle service monterization, 
+-- One buy this token to pay for oracle service
 data OracleRequestToken = OracleRequestToken
-    { ortOperator :: !PubKeyHash
-    , ortFee      :: !Integer
+    { ortOperator   :: !PubKeyHash -- Oracle operator, address to send fee 
+    , ortFee        :: !Ada -- token price
+    , ortCollateral :: !Ada
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
 PlutusTx.makeLift ''OracleRequestToken
@@ -51,13 +56,37 @@ oracleToRequestToken:: Oracle -> OracleRequestToken
 oracleToRequestToken oracle = OracleRequestToken
     { ortOperator = oOperator oracle
     , ortFee = oFee oracle
+    , ortCollateral = oCollateral oracle
     }
+
+PlutusTx.makeLift ''FixtureStatusShort
+PlutusTx.makeIsDataIndexed ''FixtureStatusShort [('NS, 0), ('LIVE, 1), ('FT, 2), ('CANC, 3)]
+instance Eq FixtureStatusShort where
+    {-# INLINABLE (==) #-}
+    NS   == NS   = True
+    LIVE == LIVE = True
+    FT   == FT   = True
+    CANC == CANC = True
+    _    == _    = False 
+
+data OracleSignedMessage = OracleSignedMessage
+    { osmWinnerId   :: TeamId
+    , osmGameId     :: GameId
+    , osmGameStatus :: FixtureStatusShort
+    } deriving (Show, Haskell.Eq)
+PlutusTx.makeIsDataIndexed ''OracleSignedMessage [('OracleSignedMessage, 0)]
+PlutusTx.makeLift ''OracleSignedMessage
+
+instance Eq OracleSignedMessage where
+    {-# INLINABLE (==) #-}
+    l == r = (osmGameId l == osmGameId r) && 
+             (osmWinnerId l == osmWinnerId r) && 
+             (osmGameStatus l == osmGameStatus r)
 
 data OracleData = OracleData
     { ovGame           :: Integer
-    , ovWinner         :: Integer
     , ovRequestAddress :: PubKeyHash
-    , ovWinnerSigned   :: Maybe (SignedMessage Integer)
+    , ovSignedMessage  :: Maybe (SignedMessage OracleSignedMessage)
     }
     deriving (Show, Generic, FromJSON, ToJSON, Haskell.Eq)
 
@@ -67,9 +96,8 @@ PlutusTx.makeLift ''OracleData
 instance Eq OracleData where
     {-# INLINABLE (==) #-}
     l == r = (ovGame l == ovGame r) && 
-             (ovWinner l == ovWinner r) &&
              (ovRequestAddress l == ovRequestAddress r) &&
-             (ovWinnerSigned l PlutusTx.Prelude.== ovWinnerSigned r)
+             (ovSignedMessage l PlutusTx.Prelude.== ovSignedMessage r)
 
 instance Eq a => Eq (SignedMessage a) where
     l == r =
@@ -77,18 +105,17 @@ instance Eq a => Eq (SignedMessage a) where
         && osmMessageHash l == osmMessageHash r
         && osmDatum l == osmDatum r
 
-data OracleRedeemer = Update | Use
+data OracleRedeemer = Update | OracleRedeem
     deriving Show
+PlutusTx.makeIsDataIndexed ''OracleRedeemer [('Update, 0), ('OracleRedeem, 1)]
 
-PlutusTx.unstableMakeIsData ''OracleRedeemer
+data OracleRequestRedeemer = Request | RedeemToken
+    deriving Show
+PlutusTx.makeIsDataIndexed ''OracleRequestRedeemer [('Request, 0), ('RedeemToken, 1)]
 
-{-# INLINABLE oracleTokenName #-}
-oracleTokenName :: TokenName
-oracleTokenName = TokenName "oracleTokenName"
-
--- {-# INLINABLE oracleAsset #-}
--- oracleAsset :: Oracle -> AssetClass
--- oracleAsset oracle = AssetClass (oSymbol oracle, oracleTokenName)
+{-# INLINABLE oracleRequestTokenName #-}
+oracleRequestTokenName :: TokenName
+oracleRequestTokenName = TokenName "oracleRequestTokenName"
 
 {-# INLINABLE oracleValue #-}
 oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe OracleData

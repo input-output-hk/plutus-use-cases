@@ -33,6 +33,7 @@ import qualified Data.ByteString.Lazy      as LBS
 import qualified Data.Map                  as Map
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               (Last (..))
+import           Data.Void                 (Void)
 import           Data.Text                 (Text, pack)
 import qualified Data.List.NonEmpty        as NonEmpty
 import           GHC.Generics              (Generic)
@@ -44,7 +45,7 @@ import qualified Ledger.Scripts            as LedgerScripts
 import qualified Ledger.Tx                 as LedgerScripts
 import           Ledger.Constraints        as Constraints
 import qualified Ledger.Contexts           as Validation
-import           Ledger.Oracle             (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), checkSignature)
+import           Ledger.Oracle             (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), verifySignedMessageConstraints)
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
@@ -61,12 +62,14 @@ mkOracleValidator :: Oracle -> OracleData -> OracleRedeemer -> ScriptContext -> 
 mkOracleValidator oracle oracleData r ctx =
     traceIfFalse "request token missing from input" inputHasRequestToken  &&
     case r of
-        Use    -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
-                  && traceIfFalse "value signed by oracle" (isValueSigned)
-                  && traceIfFalse "expected requester to get oracle token" 
-                     (sentToAddress (Just $ ovRequestAddress oracleData) $ requestTokenExpectedVal)
+        OracleRedeem    -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
+                  && traceIfFalse "value signed by oracle" (isCurrentValueSigned)
+                  && traceIfFalse "should redeem request token" (requestTokenValOf forged == -1)
+                --   && traceIfFalse "expected requester to get oracle token" 
+                --      (sentToAddress (Just $ ovRequestAddress oracleData) (requestTokenExpectedVal))
         Update -> traceIfFalse "operator signature missing" (txSignedBy info $ oOperator oracle) 
                   && traceIfFalse "invalid output datum" validOutputDatum
+                  && traceIfFalse "update data is invalid" isUpdateValid
 
   where
     info :: TxInfo
@@ -76,10 +79,10 @@ mkOracleValidator oracle oracleData r ctx =
     forged = txInfoMint $ scriptContextTxInfo ctx
 
     requestTokenExpectedVal:: Value
-    requestTokenExpectedVal = Value.singleton (oRequestTokenSymbol oracle) oracleTokenName 1
+    requestTokenExpectedVal = Value.singleton (oRequestTokenSymbol oracle) oracleRequestTokenName 1
 
     requestTokenValOf:: Value -> Integer 
-    requestTokenValOf value = valueOf (txOutValue ownInput) (oRequestTokenSymbol oracle) oracleTokenName
+    requestTokenValOf value = valueOf value (oRequestTokenSymbol oracle) oracleRequestTokenName
 
     sentToAddress :: Maybe PubKeyHash -> Value -> Bool
     sentToAddress h v =
@@ -100,12 +103,13 @@ mkOracleValidator oracle oracleData r ctx =
     inputHasRequestToken = requestTokenValOf (txOutValue ownInput) == 1
 
     ownOutput :: TxOut
-    ownOutput = case getContinuingOutputs ctx of
+    ownOutput = case [ o
+                     | o <- getContinuingOutputs ctx
+                     , requestTokenValOf (txOutValue o) == 1 &&
+                       Ada.fromValue (txOutValue o) == oCollateral oracle
+                     ] of
         [o] -> o
-        _   -> traceError "expected exactly one oracle request output"
-
-    -- outputHasToken :: Bool
-    -- outputHasToken = assetClassValueOf (txOutValue ownOutput) (oracleAsset oracle) == 1
+        _   -> traceError "expected request token with collateral ada value"
 
     outputDatumMaybe :: Maybe OracleData
     outputDatumMaybe = oracleValue ownOutput (`findDatum` info)
@@ -118,26 +122,25 @@ mkOracleValidator oracle oracleData r ctx =
         Nothing -> traceError "Input data is invalid"
         Just h  -> h
 
-    isValueSigned = isJust $ verifyOracleValueSigned (ovWinnerSigned oracleData) (oOperatorKey oracle)
+    outputSignedMessage = outputDatumMaybe >>= ovSignedMessage
 
-    feesPaid :: Bool
-    feesPaid =
-      let
-        inVal  = txOutValue ownInput
-        outVal = txOutValue ownOutput
-      in
-        outVal `geq` (inVal <> Ada.lovelaceValueOf (oFee oracle))
+    isCurrentValueSigned = isJust $ ovSignedMessage oracleData >>= verifyOracleValueSigned (oOperatorKey oracle)
+
+    extractSigendMessage :: Maybe (SignedMessage OracleSignedMessage) -> Maybe OracleSignedMessage
+    extractSigendMessage signedMessage = signedMessage
+                                            >>= verifyOracleValueSigned (oOperatorKey oracle) 
+                                            >>= (\(message, _) -> Just message)
+
+    isUpdateValid = (not isCurrentValueSigned) || 
+        (fromMaybe False $ validateGameStatusChanges <$> 
+        (osmGameStatus <$> extractSigendMessage (ovSignedMessage oracleData)) <*> 
+        (osmGameStatus <$> extractSigendMessage outputSignedMessage))
 
 {-# INLINABLE verifyOracleValueSigned #-}
-verifyOracleValueSigned :: Maybe (SignedMessage Integer) -> PubKey -> Maybe Integer
-verifyOracleValueSigned smMaybe pk =
-    case smMaybe of
-        Nothing -> Nothing
-        Just sm@SignedMessage{osmMessageHash, osmSignature, osmDatum=Datum dv} -> do
-            case checkSignature osmMessageHash pk osmSignature of
-                Left err -> Nothing
-                Right _  -> maybe (Nothing) pure (PlutusTx.fromBuiltinData dv) 
-
+verifyOracleValueSigned :: PubKey -> SignedMessage OracleSignedMessage -> Maybe (OracleSignedMessage, TxConstraints Void Void)
+verifyOracleValueSigned pubKey sm = case verifySignedMessageConstraints pubKey sm of
+    Left _                   -> Nothing
+    Right (osm, constraints) -> Just (osm, constraints)
 
 data Oracling
 instance Scripts.ValidatorTypes Oracling where

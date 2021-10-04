@@ -18,81 +18,67 @@ module Service
     , createInitialGames
     ) where
 
+import           Control.Lens    
+import           Control.Monad.Except
 import           Data.Aeson
 import           Data.Aeson.TH
 import           Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Lazy.UTF8  as U
 import           Data.Default               (Default (def))
+import           Data.Either.Combinators    (maybeToRight)
 import           Data.Text                  (Text, pack)
-import           Control.Lens    
+import           Data.List                  (find)
 import           GHC.Generics               (Generic)
 import           Types.Game
-import           Data.List                  (find)
 
-
-createInitialGames :: IO ()
+createInitialGames :: ExceptT String IO [Game]
 createInitialGames = do
-    games <- (eitherDecodeFileStrict "gameserver/fixture-template.json" :: IO (Either String [Game]))
-    case games of
-        Left _ -> return ()
-        Right games -> saveGames games
+    games <- lift $ (eitherDecodeFileStrict "gameserver/fixture-template.json" :: IO (Either String [Game]))
+    (liftEither games) >>= saveGames
 
-saveGames :: [Game] -> IO ()
+saveGames :: [Game] -> ExceptT String IO [Game]
 saveGames games = do
-    writeFile "gameserver/fixture.json" $ U.toString $ encodePretty games
+    liftIO $ writeFile "gameserver/fixture.json" $ U.toString $ encodePretty games
+    liftIO $ return games
 
-getGames :: IO (Either String [Game])
+getGames :: ExceptT String IO [Game]
 getGames = do
-    games <- (eitherDecodeFileStrict "gameserver/fixture.json" :: IO (Either String [Game]))
-    return games
+    games <- lift $ (eitherDecodeFileStrict "gameserver/fixture.json" :: IO (Either String [Game]))
+    liftEither games
 
-getGameById :: GameId -> IO (Maybe Game) 
+getGameById :: GameId -> ExceptT String IO Game
 getGameById gameId = do
-    gamesE <- getGames
-    let game = case gamesE of 
-          Left _      -> Nothing
-          Right games -> findGameById gameId games
-    return game
+    getGames >>= liftEither . findGameById gameId
 
-findGameById :: GameId -> [Game] -> Maybe Game
+findGameById :: GameId -> [Game] -> Either String Game
 findGameById gameId games = do
-    find (\g -> gameId == g ^. fixture . fixtureId) games
+    maybeToRight "Game not found" $ find (\g -> gameId == g ^. fixture . fixtureId) games
 
-updateGameState :: TeamId -> FixtureStatusShort -> GameId -> IO (Maybe Game)
-updateGameState winnerId status gameId = do
-    game <- getGameById gameId
+updateGameState :: TeamId -> FixtureStatusShort -> GameId -> ExceptT String IO Game
+updateGameState winnerId status gameId =
+    getGameById gameId
+    >>= liftEither . updateGameWinner winnerId 
+    >>= liftEither . updateGameStatus status 
+    >>= updateGame
 
-    let updatedGame = updateGameWinner winnerId . updateGameStatus status $ game
-    case updatedGame of 
-        Nothing -> return Nothing
-        Just game -> do 
-            updateGame game
-            return $ Just game
+updateGameStatus :: FixtureStatusShort -> Game -> Either String Game 
+updateGameStatus newStatus game = do
+    let currentStatus =  game ^. fixture . status . short
+    when (validateGameStatusChanges currentStatus newStatus) (Left $ "Invalid state change from " ++ show currentStatus ++ " to new " ++ show newStatus)
+    return $ game & fixture . status .~ (createFixtureStatus newStatus)
 
-updateGameStatus :: FixtureStatusShort -> Maybe Game -> Maybe Game 
-updateGameStatus  statusShort game = case game of 
-    Nothing -> Nothing
-    Just game -> Just $ game & fixture . status .~ (createFixtureStatus statusShort)
+updateGameWinner :: TeamId -> Game -> Either String Game 
+updateGameWinner teamIdParam game
+    | game ^. teams . home . teamId == teamIdParam = Right $ game & teams . home . winner .~ True
+    | game ^. teams . away . teamId == teamIdParam = Right $ game & teams . away . winner .~ True
+    | otherwise = Left "Error winner update"
 
-updateGameWinner :: TeamId -> Maybe Game -> Maybe Game 
-updateGameWinner teamIdParam game = 
-    case game of
-        Nothing -> Nothing
-        Just game -> if game ^. teams . home . teamId == teamIdParam
-                        then Just $ game & teams . home . winner .~ True
-                        else 
-                            if game ^. teams . away . teamId == teamIdParam
-                            then Just $ game & teams . away . winner .~ True
-                            else Nothing
-
-updateGame :: Game -> IO ()
+updateGame :: Game -> ExceptT String IO Game
 updateGame updatedGame = do
     games <- getGames
-    case games of 
-        Left _ -> return ()
-        Right games -> do
-            let updatedGames = (flip map games) (\game -> 
+    let updatedGames = (flip map games) (\game -> 
                     if updatedGame == game
                     then updatedGame
                     else game ) 
-            saveGames updatedGames
+    saveGames updatedGames
+    return updatedGame

@@ -1,7 +1,5 @@
 import { compose, withState, withHandlers, withProps } from 'recompose';
 
-import { WALLETS } from '../helpers/constants';
-
 import Select from 'react-select';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
@@ -65,9 +63,9 @@ const enhancer = compose(
   withState('wallet', 'setWallet', ''),
   withState('error', 'setError', ''),
   withProps(({ currentUser, wallet, error }) => ({
-    options: WALLETS.filter(
-      (wallet) => wallet.id !== currentUser.id
-    ).map((wallet) => ({ value: wallet, label: wallet.name })),
+    options: JSON.parse(process.env.REACT_APP_WALLETS)
+      .filter((wallet) => wallet.id !== currentUser.id)
+      .map((wallet) => ({ value: wallet, label: wallet.name })),
     errorVisibility: error && !wallet,
   })),
   withHandlers({

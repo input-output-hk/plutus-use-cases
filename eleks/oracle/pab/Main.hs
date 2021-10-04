@@ -68,18 +68,22 @@ initGame oracle game = do
     let mutualBetParams = MutualBetParams 
                             { mbpGame   = gameId
                             , mbpOracle = oracle
+                            , mbpOwner = pubKeyHash $ walletPubKey mutualBetOwnerWallet
                             , mbpTeam1  = team1Id
-                            , mbpTeam2  = team2Id }
+                            , mbpTeam2  = team2Id 
+                            , mbpMinBet = 2_000_000
+                            , mbpBetFee = 2_000_000 }
+    Simulator.logString @(Builtin MutualBetContracts) $ "activate mutual bet contract for wallet " ++ show mutualBetOwnerWallet ++ " gameId " ++ show gameId
     Simulator.logString @(Builtin MutualBetContracts) $ "params" ++ show mutualBetParams
     cidStartContract <- Simulator.activateContract mutualBetOwnerWallet $ MutualBetStartContract mutualBetParams
-    return cidStartContract
     Simulator.logString @(Builtin MutualBetContracts) $ "get thread token"
     threadToken <- waitForLastBetOuput cidStartContract
     Simulator.logString @(Builtin MutualBetContracts) $ "game thread token " ++ show threadToken
     void $ forM bettorWallets $ \bettorWallet -> do
+        Simulator.logString @(Builtin MutualBetContracts) $ "activate bettor contract for wallet " ++ show bettorWallet ++ " gameId " ++ show gameId
         cidBettorContract <- Simulator.activateContract bettorWallet $ MutualBetBettorContract slotCfg threadToken mutualBetParams
         Simulator.waitForEndpoint cidBettorContract "bet"
-        Simulator.logString @(Builtin MutualBetContracts) "bettor endpoint started for wallet"
+        Simulator.logString @(Builtin MutualBetContracts) $ "bettor endpoint started for wallet " ++ show bettorWallet ++ " gameId " ++ show gameId
         return ()
     return ()
 
@@ -94,12 +98,15 @@ main = void $ Simulator.runSimulationWith handlers $ do
                         { opSymbol = Currency.currencySymbol currency
                         , opFees   = 1_500_000
                         , opSigner = (walletPrivKey oracleWallet)
+                        , opCollateral = 1_000_000
                         }
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
     oracle <- waitForLastOracle cidOracle
     Simulator.waitForEndpoint cidOracle "update"
     games <- liftIO $ fromRight [] <$> GameClient.getGames
     void $ forM games $ \game -> do
+        -- creates oracle request only for one last game without waitNSlots 1
+        Simulator.waitNSlots 1
         initGame oracle game
 
     forever $ do
@@ -108,14 +115,17 @@ main = void $ Simulator.runSimulationWith handlers $ do
         activeGamesIds <- waitForLastGameIds cidOracle   
         Simulator.logString @(Builtin MutualBetContracts) $ "loaded active games" ++ show activeGamesIds
         void $ forM activeGamesIds $ \gameId -> do
-            game <- liftIO $ GameClient.getGameById gameId
-            let winnerIdM = getWinnerTeamId game
-            case winnerIdM of
-                Nothing -> Simulator.logString @(Builtin MutualBetContracts) $ "Game is not finished"
-                Just winnerId -> do
+            gameM <- liftIO $ GameClient.getGameById gameId
+            case gameM of 
+                Left err -> do
+                    Simulator.logString @(Builtin MutualBetContracts) $ "Game not found " ++ show err
+                Right game -> do
+                    let winnerId = fromRight 0 $ getWinnerTeamId game
+                    let gameStatus = game ^. fixture . status . short 
                     let updateParams = UpdateOracleParams 
                                         { uoGameId   = gameId
                                         , uoWinnerId = winnerId
+                                        , uoGameStatus = gameStatus
                                         }     
                     void $ Simulator.callEndpointOnInstance cidOracle "update" updateParams
                     updatedGameId <- waitForOracleUpdated cidOracle   
@@ -161,12 +171,6 @@ waitForLast cid =
         Success (Last (Just x)) -> Just x
         _                       -> Nothing
 
--- waitForLastOracle :: ContractInstanceId -> Simulator.Simulation t (Last OracleContractState)
--- waitForLastOracle cid =
---     flip Simulator.waitForState cid $ \json -> case fromJSON json of
---     Success (Last (Just state)) -> Just state
---     _                           -> Nothing
-
 waitForLastOracle :: ContractInstanceId -> Simulator.Simulation t Oracle
 waitForLastOracle cid =
     flip Simulator.waitForState cid $ \json -> case fromJSON json of
@@ -206,6 +210,6 @@ slotCfg = def
 initContract :: Contract (Last Currency.OneShotCurrency) Currency.CurrencySchema Currency.CurrencyError ()
 initContract = do
     ownPK <- pubKeyHash <$> Contract.ownPubKey
-    cur   <- Currency.mintContract ownPK [(oracleTokenName, 1)]
+    cur   <- Currency.mintContract ownPK [("test", 1)]
     let cs = Currency.currencySymbol cur
     tell $ Last $ Just cur

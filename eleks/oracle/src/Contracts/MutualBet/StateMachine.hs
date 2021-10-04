@@ -29,7 +29,6 @@ import           Data.Bool                        (bool)
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Default                     (Default (def))
 import           Data.Either                      (fromRight)
-import           Data.Maybe                       (fromJust)
 import           Data.Monoid                      (Last (..))
 import           Data.Text                        (Text, pack)
 import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
@@ -62,69 +61,92 @@ type MutualBetMachine = StateMachine MutualBetState MutualBetInput
 {-# INLINABLE betsValueAmount #-}
 -- | The combined value of bets.
 betsValueAmount :: [Bet] -> Ada
-betsValueAmount = fold . map (\bet -> amount bet)
+betsValueAmount = fold . map (\bet -> betAmount bet)
 
 {-# INLINABLE winBets #-}
 -- | Get winning bets.
 winBets :: Integer -> [Bet] -> [Bet]
-winBets gameOutcome bets = filter (\bet -> outcome bet == gameOutcome) bets
+winBets winnerTeamId bets = filter (\bet -> betTeamId bet == winnerTeamId) bets
 
 {-# INLINABLE calculatePrize #-}
 calculatePrize:: Bet -> Ada -> Ada -> Ada
 calculatePrize bet totalBets totalWin =
     let 
         totalPrize = totalBets - totalWin
-        betAmount = amount bet
+        amount = betAmount bet
     in
-        bool ((Ada.divide betAmount totalWin) * totalPrize) 0 (totalWin == 0)
+        bool ((Ada.divide amount totalWin) * totalPrize) 0 (totalWin == 0)
         
-
 {-# INLINABLE calculateWinnerShare #-}
 calculateWinnerShare :: Bet -> Ada -> Ada -> Ada
 calculateWinnerShare bet totalBets totalWin = 
-    (amount bet) + calculatePrize bet totalBets totalWin
+    (betAmount bet) + calculatePrize bet totalBets totalWin
 
 {-# INLINABLE getWinners #-}
 getWinners :: Integer -> [Bet] -> [(PubKeyHash, Ada)]
-getWinners gameOutcome bets = 
+getWinners winnerTeamId bets = 
     let 
-        winnerBets = winBets gameOutcome bets
+        winnerBets = winBets winnerTeamId bets
         total = betsValueAmount bets
         totalWin = betsValueAmount $ winnerBets
     in 
-        map (\winBet -> (bettor winBet, calculateWinnerShare winBet total totalWin)) winnerBets
+        map (\winBet -> (betBettor winBet, calculateWinnerShare winBet total totalWin)) winnerBets
 
 {-# INLINABLE mkTxPayWinners #-}
-mkTxPayWinners :: (PubKeyHash, Ada)-> TxConstraints Void Void
-mkTxPayWinners (winnerAddressHash, winnerPrize) = Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue winnerPrize
+mkTxPayWinners :: [(PubKeyHash, Ada)]-> TxConstraints Void Void
+mkTxPayWinners = foldMap (\(winnerAddressHash, winnerPrize) -> Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue winnerPrize)
+
+{-# INLINABLE mkTxReturnBets #-}
+mkTxReturnBets :: [Bet] -> TxConstraints Void Void
+mkTxReturnBets = foldMap (\bet -> Constraints.mustPayToPubKey (betBettor bet) $ Ada.toValue (betAmount bet))
+
+{-# INLINABLE isValidBet #-}
+isValidBet ::  MutualBetParams -> MutualBetInput -> Bool 
+isValidBet MutualBetParams{mbpTeam1, mbpTeam2, mbpMinBet} NewBet{newBetAmount, newBetTeamId}
+    | newBetAmount < mbpMinBet = False
+    | mbpTeam1 /= newBetTeamId && mbpTeam2 /= newBetTeamId = False
+    | otherwise = True
 
 {-# INLINABLE mutualBetTransition #-}
 -- | The transitions of the mutual bet state machine.
 mutualBetTransition :: MutualBetParams -> State MutualBetState -> MutualBetInput -> Maybe (TxConstraints Void Void, State MutualBetState)
-mutualBetTransition MutualBetParams{mbpOracle} State{stateData=oldState} input =
+mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State{stateData=oldState} input =
     case (oldState, input) of
-
-        (Ongoing bets, NewBet{newBet, newBettor, newOutcome}) ->
-            let constraints = mempty
-                newBets = Bet{amount = newBet, bettor = newBettor, outcome = newOutcome}:bets
-                newState =
-                    State
-                        { stateData = Ongoing newBets
-                        , stateValue = Ada.toValue $ betsValueAmount newBets
-                        }
-            in Just (constraints, newState)
-        (Ongoing bets, Payout{oracleValue, oracleRef})
-          | isValueSigned oracleValue ->
-            let 
-                winners = getWinners (ovWinner oracleValue) bets
-                redeemer = Redeemer $ PlutusTx.toBuiltinData $ Use
-                constraints = foldMap mkTxPayWinners winners 
-                              <> Constraints.mustSpendScriptOutput oracleRef redeemer
-                newState = State { stateData = Finished bets, stateValue = mempty }
-            in Just (constraints, newState)
+        (Ongoing bets, newBet@NewBet{newBetAmount, newBettor, newBetTeamId}) 
+            | isValidBet params newBet ->
+                let constraints = Constraints.mustPayToPubKey mbpOwner $ Ada.toValue mbpBetFee
+                    newBets = Bet{betAmount = newBetAmount, betBettor = newBettor, betTeamId = newBetTeamId}:bets
+                    newState =
+                        State
+                            { stateData = Ongoing newBets
+                            , stateValue = Ada.toValue $ betsValueAmount newBets
+                            }
+                in Just (constraints, newState)
+        (Ongoing bets, FinishBetting{oracleSigned})
+            | Just (OracleSignedMessage{osmWinnerId}, oracleSignConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
+                let constraints = mempty
+                    newState =
+                        State
+                            { stateData = BettingClosed bets
+                            , stateValue = Ada.toValue $ betsValueAmount bets
+                            }
+                in Just (constraints, newState)
+        (Ongoing bets, CancelGame) ->
+                let constraints = mkTxReturnBets bets
+                    newState = State{ stateData = Finished bets, stateValue = mempty }
+                in Just (constraints, newState)
+        (BettingClosed bets, Payout{oracleValue, oracleRef, oracleSigned})
+            | Just (OracleSignedMessage{osmWinnerId}, oracleSignConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
+                let 
+                    winners = getWinners osmWinnerId bets
+                    payConstraints = if null winners
+                        then mkTxReturnBets bets
+                        else mkTxPayWinners winners 
+                    constraints = payConstraints
+                                <> oracleSignConstraints
+                    newState = State { stateData = Finished bets, stateValue = mempty }
+                in Just (constraints, newState)
         _ -> Nothing
-    where isValueSigned oracleValue = isJust $ verifyOracleValueSigned (ovWinnerSigned oracleValue) (oOperatorKey mbpOracle)
-
 
 {-# INLINABLE mutualBetStateMachine #-}
 mutualBetStateMachine :: (ThreadToken, MutualBetParams) -> MutualBetMachine

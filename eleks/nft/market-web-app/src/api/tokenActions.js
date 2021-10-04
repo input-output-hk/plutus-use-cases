@@ -1,16 +1,14 @@
 import { fetchStatus } from './status';
+const API_URL = process.env.REACT_APP_API_URL;
 
 export async function fetchSellToken(wallet, data) {
-  const response = await fetch(
-    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/sell`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }
-  );
+  const response = await fetch(`${API_URL}/${wallet.id}/endpoint/sell`, {
+    method: 'POST',
+    headers: {
+      'Content-type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
 
   if (response.status === 200) {
     return await fetchStatus(wallet, 'Selling');
@@ -22,16 +20,13 @@ export async function fetchSellToken(wallet, data) {
 }
 
 export async function fetchBuyToken(wallet, data) {
-  const response = await fetch(
-    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/buy`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-      },
-      body: JSON.stringify({ bpTokenName: data.id }),
-    }
-  );
+  const response = await fetch(`${API_URL}/${wallet.id}/endpoint/buy`, {
+    method: 'POST',
+    headers: {
+      'Content-type': 'application/json',
+    },
+    body: JSON.stringify({ bpTokenName: data.id }),
+  });
 
   if (response.status === 200) {
     return await fetchStatus(wallet, 'Buyed');
@@ -43,16 +38,13 @@ export async function fetchBuyToken(wallet, data) {
 }
 
 export async function fetchCancelSellToken(wallet, data) {
-  const response = await fetch(
-    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/cancelSell`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-      },
-      body: JSON.stringify({ cspTokenName: data.id }),
-    }
-  );
+  const response = await fetch(`${API_URL}/${wallet.id}/endpoint/cancelSell`, {
+    method: 'POST',
+    headers: {
+      'Content-type': 'application/json',
+    },
+    body: JSON.stringify({ cspTokenName: data.id }),
+  });
 
   if (response.status === 200) {
     return await fetchStatus(wallet, 'CancelSelling');
@@ -64,19 +56,16 @@ export async function fetchCancelSellToken(wallet, data) {
 }
 
 export async function fetchTransferToken(wallet, data) {
-  const response = await fetch(
-    `http://localhost:8080/api/contract/instance/${wallet.id}/endpoint/transfer`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        tpTokenName: data.tokenId,
-        tpReceiverWallet: data.walletNumber,
-      }),
-    }
-  );
+  const response = await fetch(`${API_URL}/${wallet.id}/endpoint/transfer`, {
+    method: 'POST',
+    headers: {
+      'Content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      tpTokenName: data.tokenId,
+      tpReceiverWallet: data.walletNumber,
+    }),
+  });
 
   if (response.status === 200) {
     return await fetchStatus(wallet, 'Transfered');

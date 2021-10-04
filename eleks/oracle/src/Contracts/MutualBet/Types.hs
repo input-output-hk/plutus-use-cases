@@ -28,21 +28,23 @@ import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
 import           Ledger
 import           Ledger.Oracle
 import           Ledger.Value     
-import           Playground.Contract (Show, FromJSON, Generic, ToJSON, ToSchema)
-import           Plutus.Contract.StateMachine (ThreadToken)
+import           Playground.Contract              (Show, FromJSON, Generic, ToJSON, ToSchema)
+import qualified Plutus.Contract.StateMachine     as SM
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude              as Haskell
-
-
+import           Types.Game
 
 -- | Definition of an mutual bet
 data MutualBetParams
     = MutualBetParams
-        { mbpGame   :: Integer -- ^ Game id
-        , mbpOracle :: Oracle
-        , mbpTeam1 :: Integer
-        , mbpTeam2 :: Integer
+        { mbpGame   :: Integer -- Game id
+        , mbpOracle :: Oracle -- Oracle data
+        , mbpOwner  :: PubKeyHash -- Owner of the platform , used for fee sending
+        , mbpTeam1  :: Integer -- Team 1 id
+        , mbpTeam2  :: Integer -- Team 2 id
+        , mbpMinBet :: Ada -- Minimum bet allowed
+        , mbpBetFee :: Ada -- Platform fee, for each bet you need additionally to pay the fee, fee is no returned if game in case game cancelled or no one wins
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON, ToSchema)
@@ -51,9 +53,9 @@ PlutusTx.makeLift ''MutualBetParams
 
 data Bet =
     Bet
-        { amount  :: Ada
-        , bettor  :: PubKeyHash
-        , outcome :: Integer
+        { betAmount  :: Ada
+        , betBettor  :: PubKeyHash
+        , betTeamId  :: Integer
         }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
@@ -62,7 +64,8 @@ PlutusTx.unstableMakeIsData ''Bet
 
 -- | The states of the auction
 data MutualBetState
-    = Ongoing [Bet] -- Bids can be submitted.
+    = Ongoing  [Bet] -- Bids can be submitted.
+    | BettingClosed  [Bet] -- Bids can not be submitted
     | Finished [Bet] -- The auction is finished
     deriving stock (Generic, Haskell.Show, Haskell.Eq)
     deriving anyclass (ToJSON, FromJSON)
@@ -71,7 +74,7 @@ data MutualBetState
 data MutualBetOutput =
     MutualBetOutput
         { mutualBetState       :: Last MutualBetState
-        , mutualBetThreadToken :: Last ThreadToken
+        , mutualBetThreadToken :: Last SM.ThreadToken
         }
         deriving stock (Generic, Haskell.Show, Haskell.Eq)
         deriving anyclass (ToJSON, FromJSON)
@@ -82,7 +85,7 @@ deriving via (GenericSemigroupMonoid MutualBetOutput) instance (Haskell.Monoid M
 mutualBetStateOut :: MutualBetState -> MutualBetOutput
 mutualBetStateOut s = Haskell.mempty { mutualBetState = Last (Just s) }
 
-threadTokenOut :: ThreadToken -> MutualBetOutput
+threadTokenOut :: SM.ThreadToken -> MutualBetOutput
 threadTokenOut t = Haskell.mempty { mutualBetThreadToken = Last (Just t) }
 
 -- | Initial 'MutualBetState'. In the beginning there are no bets
@@ -93,9 +96,33 @@ PlutusTx.unstableMakeIsData ''MutualBetState
 
 -- | Transition between auction states
 data MutualBetInput
-    = NewBet { newBet :: Ada, newBettor :: PubKeyHash, newOutcome :: Integer } -- Increase the price
-    | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef }
+    = NewBet { newBetAmount :: Ada, newBettor :: PubKeyHash, newBetTeamId :: Integer } -- Increase the price
+    | FinishBetting { oracleSigned :: SignedMessage OracleSignedMessage }
+    | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef, oracleSigned :: SignedMessage OracleSignedMessage }
+    | CancelGame
     deriving stock (Generic, Haskell.Show)
     deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''MutualBetInput
+
+data GameStateChange 
+    = GameStateChange 
+        { gmsOutRef :: TxOutRef
+        , gmsOutTx  :: TxOutTx
+        , gmsOracleData :: OracleData
+        , gmsSignedMessage :: SignedMessage OracleSignedMessage
+        , gmsSignedMessageData :: OracleSignedMessage
+        }
+        deriving stock (Haskell.Show)
+
+data MutualBetLog =
+    MutualBetStarted MutualBetParams -- Contract started
+    | MutualBetFailed SM.SMContractError -- Contract start erro
+    | BetSubmitted [Bet] -- bet submitted
+    | MutualBetBettingClosed [Bet] -- Betting not allowed
+    | MutualBetCancelled [Bet] -- Game cancelled
+    | MutualBetGameEnded [Bet] -- Game completed
+    | CurrentStateNotFound -- Contract state not found
+    | TransitionFailed (SM.InvalidTransition MutualBetState MutualBetInput)
+    deriving stock (Haskell.Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)
