@@ -74,3 +74,56 @@ Production deployments of the application should work in all major browsers, inc
 
   1. Ok! Less talking, more poking user interfaces! While PAB is running and listening on port 8080, in a different terminal, run `ob run --no-interpret ./dep/plutus-starter`
     This will start up an interactive repl that will refresh itself anytime you make changes to the 3 component folders I've mentioned above (frontend, common, and backend). If everything compiled, the DApp should now be running on localhost:8000. Have fun!
+
+##  Deploy Contracts to a real Alonzo Node (TODO: WORK IN PROGRESS)
+
+Build and Run Alonzo Purple Node
+```
+cd dep
+ob thunk unpack cardano-node
+cd cardano-node
+nix-build -A cardano-cli -o result/alonzo-purple/cardano-cli
+nix-build -A scripts.alonzo-purple.node -o result/alonzo-purple/cardano-node-alonzo-purple
+cd result/alonzo-purple
+./cardano-node-alonzo-purple/bin/cardano-node-alonzo-purple
+```
+
+In a seperate terminal, verify the Node's sychronization. When `syncProgress` reads 100.00, syncing has completed.
+```
+cd result/alonzo-purple
+CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-purple/node.socket ./cardano-cli/bin/cardano-cli query tip --testnet-magic 8
+```
+
+Mint a Uniswap Token (Assuming you already have a payment address with ADA)
+
+Make note of a TxHash and TxIx you would like to use to mint a uniswap token
+```
+cardano-cli/bin/cardano-cli query utxo --address [ADDRESS] --testnet-magic 8
+```
+
+Send an arbitrary amount of funds to self in order to create a new utxo handle in order to not lose all funds in the unlikely event of collateral seizing runtime errors. Feel free to use the script call below from within ./dep/cardano-node/result/alonzo-purple
+```
+./../../../../scripts/buildCollateral.sh [TXHASH] [TXIX] [TO ADDRESS] [CHANGE ADDRESS] [SEND AMOUNT] [PAYMENT.SKEY PATH]
+```
+Once the node has mined your transaction, you'll be able to query for the new utxo handle to be used when minting the token
+
+Next up, compile a script. Currently, the code we'll be using to compile a script can be found within plutus. 
+
+```
+cd dep
+ob thunk unpack plutus
+cd plutus
+nix-shell
+cabal repl plutus-use-cases:lib:plutus-use-cases
+:l Plutus.Contracts.CompileCurrency
+main [TXHASH STRING] [TXIX STRING]
+```
+
+That would have created a compiled script file called uniswapCurrency.plutus. This file will be used in the following minting script. NOTE: use this script from within ./dep/cardano-node/result/alonzo-purple
+```
+export CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-purple/node.socket
+mkdir dumpdir
+touch issue.addr
+echo '{"constructor":0,"fields":[]}' >> redeemerScript.0
+./mintTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX] [PATH TO SCRIPT]
+```

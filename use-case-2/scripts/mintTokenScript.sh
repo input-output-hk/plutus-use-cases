@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# ./mintTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX]
+# ./mintTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX] [PATH TO SCRIPT]
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ magic="--testnet-magic=8"
 workdir=$(pwd)/dumpdir
 walletdir=$(pwd)
 
-script=$(pwd)/uniswapCurrency.plutus
+script=$6
 scriptaddr=$workdir/issue.addr
 
 mintingpolicyjson=$script 
@@ -20,7 +20,7 @@ paymentskey=$3 # $walletdir/payment.skey
 redeemerFile=$(pwd)/redeemerScript.0
 
 # set txhash & txix from utxo available @ $paymentaddr
-txhash= $4 #bd59d826d94d3099ef61362cf974b1ab1226744bb476eceb4a78b8c510fe5843
+txhash=$4 #bd59d826d94d3099ef61362cf974b1ab1226744bb476eceb4a78b8c510fe5843
 txix=$5 #0
 txmint=$workdir/txmint
 
