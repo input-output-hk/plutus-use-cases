@@ -10,6 +10,7 @@ module Marketplace.Spec.Bundles
 import           Control.Lens                                 ((^.), (^?))
 import           Control.Monad                                (void)
 import           Data.Maybe                                   (isNothing)
+import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
 import           Ledger.Ada                                   (lovelaceValueOf)
@@ -37,7 +38,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not create a bundle if NFTs are not minted"
-        errorCheck
+        errorCheckBundle
         bundleErrorTrace,
       checkPredicateOptions
         Fixtures.options
@@ -47,7 +48,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not unbundle if bundle does not exist"
-        errorCheck
+        errorCheckUnbundle
         unbundleErrorTrace
     ]
 
@@ -112,8 +113,11 @@ bundleDatumsCheck =
                        maybe False Fixtures.hasPhotoTokenRecord
                        (AssocMap.lookup Fixtures.photoTokenIpfsCidHash b)
 
-errorCheck :: TracePredicate
-errorCheck = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckBundle :: TracePredicate
+errorCheckBundle = Utils.assertCrError (Proxy @"bundleUp") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+
+errorCheckUnbundle :: TracePredicate
+errorCheckUnbundle = Utils.assertCrError (Proxy @"unbundle") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 unbundleTrace :: Trace.EmulatorTrace ()
 unbundleTrace = do

@@ -12,6 +12,7 @@ import           Control.Lens                                 (_2, _Right, (&),
 import           Control.Monad                                (void)
 import           Data.Foldable                                (find)
 import           Data.Maybe                                   (isNothing)
+import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
 import qualified Ext.Plutus.Contracts.Auction                 as Auction
@@ -47,7 +48,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not put on auction if NFT does not exist"
-        errorCheckUser
+        errorCheckStart
         startAnAuctionTrace',
       checkPredicateOptions
         Fixtures.options
@@ -57,7 +58,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not close auction if it was not started"
-        errorCheckUser
+        errorCheckComplete
         completeAnAuctionTrace',
       checkPredicateOptions
         Fixtures.options
@@ -67,7 +68,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not bid if NFT is not on auction"
-        errorCheckBuyer
+        errorCheckBid
         bidOnAuctionTrace',
       checkPredicateOptions
         Fixtures.options
@@ -91,7 +92,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not put on auction if bundle does not exist"
-        errorCheckUser
+        errorCheckStart
         startAnAuctionTraceB',
       checkPredicateOptions
         Fixtures.options
@@ -245,11 +246,14 @@ buyOnAuctionValueCheck =
     where
       hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
-errorCheckUser :: TracePredicate
-errorCheckUser = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckStart :: TracePredicate
+errorCheckStart = Utils.assertCrError (Proxy @"startAnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
-errorCheckBuyer :: TracePredicate
-errorCheckBuyer = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
+errorCheckComplete :: TracePredicate
+errorCheckComplete = Utils.assertCrError (Proxy @"completeAnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+
+errorCheckBid :: TracePredicate
+errorCheckBid = Utils.assertCrError (Proxy @"bidOnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
 
 -- \/\/\/ "NFT bundles"
 startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams

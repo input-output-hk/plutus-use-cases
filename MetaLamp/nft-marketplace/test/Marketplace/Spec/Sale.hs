@@ -12,6 +12,7 @@ import           Control.Lens                                 (_2, _Left, (&),
 import           Control.Monad                                (void)
 import           Data.Foldable                                (find)
 import           Data.Maybe                                   (isNothing)
+import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
 import           Ledger.Ada                                   (lovelaceValueOf)
@@ -46,7 +47,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not put on sale if NFT does not exist"
-        errorCheckUser
+        errorCheckOpen
         openSaleTrace',
       checkPredicateOptions
         Fixtures.options
@@ -56,7 +57,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not close sale if it was not started"
-        errorCheckUser
+        errorCheckClose
         closeSaleTrace',
       checkPredicateOptions
         Fixtures.options
@@ -85,7 +86,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should not put on sale if bundle does not exist"
-        errorCheckUser
+        errorCheckOpen
         openSaleTraceB',
       checkPredicateOptions
         Fixtures.options
@@ -216,11 +217,14 @@ buyItemValueCheck =
     where
       hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
-errorCheckUser :: TracePredicate
-errorCheckUser = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckOpen :: TracePredicate
+errorCheckOpen = Utils.assertCrError (Proxy @"openSale") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+
+errorCheckClose :: TracePredicate
+errorCheckClose = Utils.assertCrError (Proxy @"closeSale") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 errorCheckBuyer :: TracePredicate
-errorCheckBuyer = Utils.assertCrError (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
+errorCheckBuyer = Utils.assertCrError (Proxy @"buyItem") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
 
 -- \/\/\/ "NFT bundles"
 openSaleParamsB ::        Marketplace.OpenSaleParams

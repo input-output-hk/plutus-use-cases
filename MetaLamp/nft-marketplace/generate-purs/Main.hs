@@ -26,8 +26,7 @@ import           System.Directory           (doesDirectoryExist,
 
 myBridge :: BridgePart
 myBridge =
-    PAB.pabBridge <|>
-    ratioBridge
+    PAB.pabBridge
 
 data MyBridge
 
