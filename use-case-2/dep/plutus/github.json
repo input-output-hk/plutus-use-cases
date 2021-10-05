@@ -1,8 +1,8 @@
 {
-  "owner": "input-output-hk",
+  "owner": "obsidiansystems",
   "repo": "plutus",
-  "branch": "master",
+  "branch": "is-ll-deploy-uniswap-private-testnet",
   "private": false,
-  "rev": "daeb134772c72af5f184fc1c86762c78b31dbac7",
-  "sha256": "09xl1mawn80hiqn9d5saada8d4zjnwkv1z99q11q8lwra0b1w5yb"
+  "rev": "ea2e3e7fa6c76cb112658b1b5260f8439566e54a",
+  "sha256": "1a5qgc79vqfwfqr5mbkyk5zkxwffbrv2qf0hqljcrdg0vx447w3f"
 }
