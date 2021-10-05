@@ -8,6 +8,9 @@ import {
   FETCH_GAME_BETS_START,
   FETCH_GAME_BETS_SUCCESS,
   FETCH_GAME_BETS_FAILED,
+  FETCH_MAKE_BET_START,
+  FETCH_MAKE_BET_SUCCESS,
+  FETCH_MAKE_BET_FAILED,
 } from '../helpers/actionTypes';
 
 export const fetchGameContractStart = () => ({
@@ -38,6 +41,20 @@ export const fetchGameBetsFailed = (error) => ({
   error,
 });
 
+export const fetchMakeBetStart = () => ({
+  type: FETCH_MAKE_BET_START,
+});
+
+export const fetchMakeBetSuccess = (bet) => ({
+  type: FETCH_MAKE_BET_SUCCESS,
+  bet,
+});
+
+export const fetchMakeBetFailed = (error) => ({
+  type: FETCH_MAKE_BET_FAILED,
+  error,
+});
+
 export const fetchGameContract = (id, gameId) => async (dispatch) => {
   dispatch(fetchGameContractStart());
   const contracts = await fromApi.fetchContracts(id);
@@ -57,7 +74,18 @@ export const fetchGameBets = (id) => async (dispatch) => {
     dispatch(fetchGameBetsFailed(bets.error));
     // toast.error(contracts.error);
   } else {
-    const result = parseBetsResponse(bets)
+    const result = parseBetsResponse(bets);
     dispatch(fetchGameBetsSuccess(result));
+  }
+};
+
+export const makeBet = (team, amount, gameId) => async (dispatch) => {
+  dispatch(fetchMakeBetStart());
+  const bet = await fromApi.makeBet(team, amount, gameId);
+  if (bet.error) {
+    dispatch(fetchMakeBetFailed(bet.error));
+    // toast.error(contracts.error);
+  } else {
+    // dispatch(fetchMakeBetSuccess({team, amount}));
   }
 };

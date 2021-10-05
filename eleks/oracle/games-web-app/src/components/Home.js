@@ -1,11 +1,13 @@
 import { connect } from 'react-redux';
-import { compose, lifecycle, withProps } from 'recompose';
+import { compose, lifecycle, withProps, withState } from 'recompose';
 import moment from 'moment';
 import { Link } from 'react-router-dom';
 import { fetchGames } from '../actions/games';
 import { getGames } from '../reducers';
 import { Card, Row, Col } from 'react-bootstrap';
 import Select from 'react-select';
+import { statusesMap } from '../helpers/constants';
+import { sortByStatus } from '../helpers/utils';
 
 import '../styles/Home.scss';
 
@@ -42,19 +44,24 @@ const customTheme = (theme) => ({
   },
 });
 
-const Home = ({ games, options }) => (
+const Home = ({ gamesFiltered, options, setFilter }) => (
   <div className='Home'>
     <Select
       options={options}
       styles={customStyles}
       theme={customTheme}
       defaultValue={{ label: 'All', value: 'all' }}
+      onChange={(el) => setFilter(el)}
     />
     <Row xs={1} md={3} className='g-4'>
-      {games.map((game, i) => (
+      {gamesFiltered.map((game, i) => (
         <Link to={`/games/${game.fixture.id}`} key={i} className='game'>
           <Col>
-            <Card border='warning'>
+            <Card
+              className={`card ${statusesMap[
+                game.fixture.status.short
+              ].toLowerCase()}`}
+            >
               <div className='imgContainer'>
                 <Card.Img
                   variant='top'
@@ -69,9 +76,11 @@ const Home = ({ games, options }) => (
               </div>
               <Card.ImgOverlay>
                 <div
-                  className={`status ${game.fixture.status.short.toLowerCase()}`}
+                  className={`status ${statusesMap[
+                    game.fixture.status.short
+                  ].toLowerCase()}`}
                 >
-                  {game.fixture.status.short}
+                  {statusesMap[game.fixture.status.short]}
                 </div>
               </Card.ImgOverlay>
               <Card.Body className='cardBody'>
@@ -91,12 +100,14 @@ const Home = ({ games, options }) => (
 );
 
 const enhancer = compose(
+  withState('filter', 'setFilter', { label: 'All', value: 'all' }),
   withProps(() => ({
     options: [
       { label: 'All', value: 'all' },
-      { label: 'Closed', value: 'closed' },
-      { label: 'In progress', value: 'live' },
-      { label: 'Open', value: 'open' },
+      ...Object.entries(statusesMap).map((el) => ({
+        label: el[1].charAt(0) + el[1].slice(1).toLowerCase(),
+        value: el[0],
+      })),
     ],
   })),
   connect(
@@ -111,7 +122,18 @@ const enhancer = compose(
     componentDidMount() {
       this.props.fetchGames();
     },
-  })
+  }),
+  withProps(({ games }) => ({
+    gamesSorted: sortByStatus(games),
+  })),
+  withProps(({ gamesSorted, filter }) => ({
+    gamesFiltered:
+      filter.value === 'all'
+        ? gamesSorted
+        : gamesSorted.filter(
+            (game) => game.fixture.status.short === filter.value
+          ),
+  }))
 );
 
 export default enhancer(Home);

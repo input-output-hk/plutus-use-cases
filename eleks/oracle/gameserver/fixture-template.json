@@ -2,8 +2,8 @@
     {
         "fixture": {
             "status": {
-                "long": "In Progress",
-                "short": "LIVE"
+                "long": "Not Started",
+                "short": "NS"
             },
             "referee": "M. Oliver",
             "id": 1,
@@ -28,8 +28,8 @@
     {
         "fixture": {
             "status": {
-                "long": "In Progress",
-                "short": "LIVE"
+                "long": "Not Started",
+                "short": "NS"
             },
             "referee": "David Coote, England",
             "id": 710557,
@@ -54,8 +54,8 @@
     {
         "fixture": {
             "status": {
-                "long": "In Progress",
-                "short": "LIVE"
+                "long": "Match Cancelled",
+                "short": "CANC"
             },
             "referee": "Jonathan Moss, England",
             "id": 710558,
@@ -80,8 +80,8 @@
     {
         "fixture": {
             "status": {
-                "long": "In Progress",
-                "short": "LIVE"
+                "long": "Not Started",
+                "short": "NS"
             },
             "referee": "Kevin Friend, England",
             "id": 710559,
@@ -106,8 +106,8 @@
     {
         "fixture": {
             "status": {
-                "long": "In Progress",
-                "short": "LIVE"
+                "long": "Match Finished",
+                "short": "FT"
             },
             "referee": "Craig Pawson, England",
             "id": 710560,
@@ -124,7 +124,7 @@
             "away": {
                 "id": 39,
                 "name": "Wolves",
-                "winner": false,
+                "winner": true,
                 "logo": "https://media.api-sports.io/football/teams/39.png"
             }
         }
@@ -158,8 +158,8 @@
     {
         "fixture": {
             "status": {
-                "long": "In Progress",
-                "short": "LIVE"
+                "long": "Match Finished",
+                "short": "FT"
             },
             "referee": "Andre Marriner, England",
             "id": 710563,
@@ -170,7 +170,7 @@
             "home": {
                 "id": 71,
                 "name": "Norwich",
-                "winner": false,
+                "winner": true,
                 "logo": "https://media.api-sports.io/football/teams/71.png"
             },
             "away": {
@@ -184,8 +184,8 @@
     {
         "fixture": {
             "status": {
-                "long": "In Progress",
-                "short": "LIVE"
+                "long": "Not Started",
+                "short": "NS"
             },
             "referee": "Mike Dean, England",
             "id": 710565,

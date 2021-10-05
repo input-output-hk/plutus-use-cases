@@ -4,7 +4,24 @@
   .game {
     text-decoration: none;
     color: #212529;
+  }
 
+  .card {
+    &.live {
+      border-color: rgba(255, 192, 7, 1);
+    }
+
+    &.closed {
+      border-color: rgba(220, 52, 68, 1);
+    }
+
+    &.open {
+      border-color: rgba(25, 135, 83, 1);
+    }
+
+    &.canceled {
+      border-color: rgba(128, 128, 128, 1);
+    }
   }
 
   .imgContainer {
@@ -34,6 +51,14 @@
     &.open {
       background-color: rgba(25, 135, 83, 0.7);
     }
+
+    &.canceled {
+      background-color: rgba(128, 128, 128, 0.7);
+    }
+  }
+
+  .status-text{
+    text-transform: capitalize;
   }
 
   .cardBody {

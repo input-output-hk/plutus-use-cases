@@ -5,7 +5,7 @@ import {
   FETCH_GAME_BETS_FAILED,
 } from '../helpers/actionTypes';
 
-export const data = (state = [], action) => {
+export const data = (state = null, action) => {
   switch (action.type) {
     case FETCH_GAME_BETS_SUCCESS:
       return action.bets;

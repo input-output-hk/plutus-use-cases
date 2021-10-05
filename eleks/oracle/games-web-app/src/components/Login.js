@@ -6,15 +6,27 @@ import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import { login } from '../actions/auth';
 import { getCurrentUser } from '../reducers';
+import { wallets } from '../helpers/constants';
 
 import '../styles/Login.scss';
 
-const Login = ({ onSubmit, options, setWallet, currentUser }) => {
+const Login = ({
+  onSubmit,
+  options,
+  setWallet,
+  currentUser,
+  errorVisibility,
+}) => {
   return currentUser ? (
     <Redirect to='/' />
   ) : (
     <div className='Login'>
       <Form onSubmit={onSubmit} className='form'>
+        <h2 className='heading'>Login</h2>
+        <h6 className='subheading'>
+          Choose wallet and start your <br /> investigation of Mutual Betting
+          Platform
+        </h6>
         <Form.Group controlId='formWalletId'>
           <Select
             options={options}
@@ -22,6 +34,9 @@ const Login = ({ onSubmit, options, setWallet, currentUser }) => {
             placeholder='Select your wallet'
           />
         </Form.Group>
+        <Form.Text className={`error-text ${errorVisibility && 'visible'}`}>
+          Please select your wallet to login the system
+        </Form.Text>
         <Button className='button' variant='secondary' type='submit'>
           Login
         </Button>
@@ -32,14 +47,13 @@ const Login = ({ onSubmit, options, setWallet, currentUser }) => {
 
 const enhancer = compose(
   withState('wallet', 'setWallet'),
-  withProps(() => ({
-    options: [
-      //todo
-      { label: 'Wallet 1', value: 1 },
-      { label: 'Wallet 2', value: 2 },
-      { label: 'Wallet 3', value: 3 },
-      { label: 'Wallet 4', value: 4 },
-    ],
+  withState('error', 'setError'),
+  withProps(({ error, wallet }) => ({
+    options: wallets.map((wallet) => ({
+      label: `Wallet ${wallet}`,
+      value: wallet,
+    })),
+    errorVisibility: error && !wallet,
   })),
   connect(
     (state) => ({
@@ -50,10 +64,13 @@ const enhancer = compose(
     })
   ),
   withHandlers({
-    onSubmit: ({ wallet, login }) => (ev) => {
+    onSubmit: ({ wallet, login, setError }) => (ev) => {
       ev.preventDefault();
-      if (wallet) {
+      if (!wallet) {
+        setError(true);
+      } else {
         localStorage.setItem('currentUser', JSON.stringify(wallet));
+        setError(false);
         login(wallet);
       }
     },

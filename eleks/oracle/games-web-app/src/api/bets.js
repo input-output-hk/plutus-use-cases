@@ -37,3 +37,24 @@ export async function fetchGameBets(id) {
     };
   }
 }
+
+export async function makeBet(nbpWinnerId, nbpAmount, gameId) {
+  const response = await fetch(
+    `http://localhost:9080/api/contract/instance/${gameId}/endpoint/bet`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json',
+      },
+      body: JSON.stringify({ nbpWinnerId, nbpAmount: +nbpAmount }),
+    }
+  );
+
+  if (response.status === 200) {
+    return response.json();
+  } else {
+    return {
+      error: 'Unable to make a bet',
+    };
+  }
+}

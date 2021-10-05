@@ -1,15 +1,39 @@
 .Login {
   height: 100vh;
+
+  .heading {
+    color: #5c5c5c;
+  }
+
+  .subheading {
+    font-weight: 300;
+    color: grey;
+    margin-bottom: 1em;
+  }
+
   .form {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 40%;
+    width: 25%;
     text-align: center;
   }
 
+  .error-text {
+    display: block;
+    color: #c87373;
+    font-size: 0.9em;
+    margin-bottom: 0.5em;
+    visibility: hidden;
+  }
+
+  .error-text.visible {
+    visibility: visible;
+  }
+
   .button {
-      margin-top: 1em;
+    padding-left: 3em;
+    padding-right: 3em;
   }
 }

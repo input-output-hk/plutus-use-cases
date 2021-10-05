@@ -1,19 +1,29 @@
 import { connect } from 'react-redux';
-import { compose, lifecycle, withProps } from 'recompose';
+import { compose, lifecycle, withProps, withState } from 'recompose';
 import moment from 'moment';
 import { Button } from 'react-bootstrap';
 import Bets from './Bets';
+import MakeBet from './MakeBet';
 import { fetchGame } from '../actions/games';
 import { fetchGameContract, fetchGameBets } from '../actions/bets';
 import { getCurrentUser, getGame, getGameBets } from '../reducers';
+import { statusesMap } from '../helpers/constants';
 
 import '../styles/Game.scss';
 
-const Game = ({ game, homeBets, awayBets }) => {
+const Game = ({
+  game,
+  homeBets,
+  awayBets,
+  showModal,
+  setShowModal,
+  homeBorder,
+  awayBorder,
+}) => {
   return game ? (
     <div className='Game'>
       <section className='team'>
-        <div className='img-border'>
+        <div className={`img-border ${homeBorder}`}>
           <img
             src={game.teams.home.logo}
             alt='team-logo'
@@ -24,17 +34,25 @@ const Game = ({ game, homeBets, awayBets }) => {
         <Bets bets={homeBets} />
       </section>
       <section className='game-details'>
-        <span className={`status ${game.fixture.status.short.toLowerCase()}`}>
-          {game.fixture.status.long}
+        <span
+          className={`status ${statusesMap[
+            game.fixture.status.short
+          ].toLowerCase()}`}
+        >
+          {statusesMap[game.fixture.status.short]}
         </span>
         <span className='date'>
           {moment(game.fixture.date).format('DD MMM HH:mm YYYY')}
         </span>
         <span className='referee'>Referee: {game.fixture.referee}</span>
-        <Button variant='secondary'>Make a bet</Button>
+        {game.fixture.status.short === 'NS' && (
+          <Button variant='secondary' onClick={() => setShowModal(true)}>
+            Make a bet
+          </Button>
+        )}
       </section>
       <section className='team'>
-        <div className='img-border'>
+        <div className={`img-border ${awayBorder}`}>
           <img
             src={game.teams.away.logo}
             alt='team-logo'
@@ -44,6 +62,7 @@ const Game = ({ game, homeBets, awayBets }) => {
         <h2>{game.teams.away.name}</h2>
         <Bets bets={awayBets} />
       </section>
+      <MakeBet showModal={showModal} setShowModal={setShowModal} game={game} />
     </div>
   ) : (
     <div></div>
@@ -51,6 +70,7 @@ const Game = ({ game, homeBets, awayBets }) => {
 };
 
 const enhancer = compose(
+  withState('showModal', 'setShowModal', false),
   connect(
     (state) => ({
       currentUser: getCurrentUser(state),
@@ -65,8 +85,24 @@ const enhancer = compose(
     })
   ),
   withProps(({ bets, game }) => ({
-    homeBets: bets.filter((bet) => bet.outcome === game.teams.home.id),
-    awayBets: bets.filter((bet) => bet.outcome === game.teams.away.id),
+    homeBets: bets
+      ? bets.filter((bet) => bet.betTeamId === game.teams.home.id)
+      : [],
+    awayBets: bets
+      ? bets.filter((bet) => bet.betTeamId === game.teams.away.id)
+      : [],
+    homeBorder:
+      game && game.fixture.status.short === 'FT'
+        ? game.teams.home.winner
+          ? 'winner'
+          : 'defeated'
+        : '',
+    awayBorder:
+      game && game.fixture.status.short === 'FT'
+        ? game.teams.away.winner
+          ? 'winner'
+          : 'defeated'
+        : '',
   })),
   lifecycle({
     componentDidMount() {
@@ -77,7 +113,7 @@ const enhancer = compose(
     },
     componentDidUpdate() {
       const { game, fetchGameBets, bets } = this.props;
-      if (game.contractId && bets.length === 0) {
+      if (game.contractId && !bets) {
         fetchGameBets(game.contractId);
       }
     },
