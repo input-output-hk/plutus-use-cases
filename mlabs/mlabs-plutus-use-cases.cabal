@@ -90,6 +90,7 @@ common common-ghc-options
     -fno-strictness
     -fno-warn-orphans
     -fobject-code
+--    -fplugin-opt PlutusTx.Plugin:defer-errors -- do not use for build 
 
 library
   import:  common-imports
@@ -152,6 +153,9 @@ library
     Mlabs.System.Console.PrettyLogger
     Mlabs.System.Console.Utils
     Mlabs.Utils.Wallet 
+    Mlabs.NFT.Types
+    Mlabs.NFT.Contract
+    Mlabs.NFT.Validation
 
 executable mlabs-plutus-use-cases
   import:  common-imports
@@ -166,6 +170,8 @@ executable deploy-app
   import:  common-imports
   import:  common-language
   import:  common-configs
+  import:  common-ghc-options
+
   main-is: deploy-app/Main.hs
   build-depends: 
       mlabs-plutus-use-cases
@@ -177,31 +183,36 @@ executable deploy-app
 executable nft-demo
   import:  common-imports
   import:  common-language
+  import:  common-configs
   import:  common-ghc-options  
+
   main-is: nft-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable governance-demo
   import:  common-imports
   import:  common-language
+  import:  common-configs
   import:  common-ghc-options  
+
   main-is: governance-demo/Main.hs
-  build-depends: 
-      mlabs-plutus-use-cases
+  build-depends: mlabs-plutus-use-cases
 
 executable lendex-demo
   import:  common-imports
   import:  common-language
   import:  common-configs
   import:  common-ghc-options  
+
   main-is: lendex-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 Test-suite mlabs-plutus-use-cases-tests
-  import:          common-imports
-  import:          common-language
-  import:          common-configs
+  import:  common-imports
+  import:  common-language
+  import:  common-configs
   import:  common-ghc-options  
+
   Type:            exitcode-stdio-1.0
   hs-source-dirs:  test
   Main-is:         Main.hs
@@ -254,6 +265,7 @@ Test-suite mlabs-plutus-use-cases-tests
     Test.Nft.Init
     Test.Nft.Logic
     Test.Utils
+    Test.NFT.Trace
                      
   default-extensions:
     RecordWildCards
