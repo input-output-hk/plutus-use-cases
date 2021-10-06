@@ -34,6 +34,9 @@ in pkgs.haskell-nix.cabalProject rec {
       plutus-use-cases.doHaddock = deferPluginErrors;
       plutus-use-cases.flags.defer-plugin-errors = deferPluginErrors;
 
+      plutus-contract.doHaddock = deferPluginErrors;
+      plutus-contract.flags.defer-plugin-errors = deferPluginErrors;
+
       plutus-ledger.doHaddock = deferPluginErrors;
       plutus-ledger.flags.defer-plugin-errors = deferPluginErrors;
 

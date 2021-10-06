@@ -10,12 +10,16 @@ let
   pab = import ./nix/pab.nix { inherit plutus; };
 
 in project.shellFor (pab.env_variables // {
+  packages = ps: [ ps.mlabs-plutus-use-cases ];
 
   tools.cabal = "latest";
   withHoogle = true;
 
-  # Doesn't work
   # Solution in https://github.com/input-output-hk/plutus-starter/commit/3ab180a1c1079c83aeae61d8c6df28e9840aa9cc ?
+  # https://github.com/PrivateStorageio/PaymentServer/blob/main/nix/default.nix
+  # Define a Nixpkgs overlay with `m` defined such that `ieee` can be added
+  # to `additional`, which is needed when `exactDeps = true;`.
+
   # exactDeps = true;
 
   /* Is this needed?
@@ -39,7 +43,6 @@ in project.shellFor (pab.env_variables // {
   nativeBuildInputs = with pkgs;
     [
       # Haskell Tools
-      # cabal-install
       entr
       ghcid
       git
@@ -57,5 +60,7 @@ in project.shellFor (pab.env_variables // {
 
       ### Pab
       pab.plutus_pab_client
+
+      pkg-config libsodium-vrf systemdMinimal
     ] ++ builtins.attrValues plutus.plutus-pab.pab-exes;
 })
