@@ -8,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-specialise #-}
 {-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
@@ -37,7 +38,8 @@ import qualified PlutusTx.AssocMap              as AssocMap
 import           PlutusTx.Prelude               hiding (Semigroup (..))
 import           Prelude                        (Semigroup (..))
 import qualified Prelude                        as Haskell
-
+import qualified Plutus.Contract.StateMachine                     as SM
+import Ext.Plutus.Contracts.Auction (AuctionParams(..), AuctionFee)
 -- TODO can't use POSIXTime directly because of custom JSON instances defined in Plutus:
 -- generated purescript type has generic instances
 type POSIXTimeT = Integer
@@ -52,13 +54,17 @@ type Category = [BuiltinByteString]
 type LotLink = Either Sale.Sale Auction
 type BundleId = BuiltinByteString
 
+{-# INLINABLE getAuctionStateToken #-}
+getAuctionStateToken :: Auction -> SM.ThreadToken
+getAuctionStateToken = aThreadToken
+
+-- TODO: move outside here (check do we really need Auction and Ext.Plutus.Contracts.Auction.AuctionParams types.)
 data Auction = Auction {
     aThreadToken         :: ThreadToken,
     aOwner               :: PubKeyHash,
     aAsset               :: Value,
     aEndTime             :: POSIXTimeT,
-    aMarketplaceOperator :: PubKeyHash,
-    aMarketplaceSaleFee  :: Percentage
+    aAuctionProfit       :: Maybe AuctionFee
   }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
@@ -68,6 +74,26 @@ PlutusTx.unstableMakeIsData ''Auction
 PlutusTx.makeLift ''Auction
 
 Lens.makeClassy_ ''Auction
+
+{-# INLINABLE fromAuction #-}
+fromAuction :: Auction -> AuctionParams
+fromAuction Auction {..} = AuctionParams {
+    apOwner = aOwner,
+    apAsset = aAsset,
+    apEndTime = Ledger.POSIXTime aEndTime,
+    apAuctionProfit = aAuctionProfit
+    }
+
+{-# INLINABLE toAuction #-}
+toAuction :: SM.ThreadToken -> AuctionParams -> Auction
+toAuction threadToken AuctionParams {..} =
+    Auction {
+        aThreadToken = threadToken
+        , aOwner = apOwner
+        , aAsset = apAsset
+        , aEndTime = Ledger.getPOSIXTime apEndTime
+        , aAuctionProfit = apAuctionProfit
+    }
 
 data NftInfo =
   NftInfo

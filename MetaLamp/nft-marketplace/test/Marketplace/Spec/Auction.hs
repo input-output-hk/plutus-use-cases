@@ -117,7 +117,7 @@ tests =
     ]]
 
 auctionValue :: Marketplace.Auction -> Value
-auctionValue = Auction.apAsset . Auction.fromAuction
+auctionValue = Auction.apAsset . Marketplace.fromAuction
 
 -- \/\/\/ "NFT singletons"
 startAnAuctionParams ::        Marketplace.StartAnAuctionParams

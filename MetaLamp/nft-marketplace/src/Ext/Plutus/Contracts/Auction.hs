@@ -13,9 +13,8 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
-
 module Ext.Plutus.Contracts.Auction where
-
+-- TODO: move from Ext to the common code
 import           Control.Lens                                     (makeClassyPrisms)
 import           Data.Aeson                                       (FromJSON,
                                                                    ToJSON)
@@ -40,12 +39,24 @@ import           Plutus.Contract.StateMachine                     hiding
 import qualified Plutus.Contract.StateMachine                     as SM
 import           Plutus.Contract.Util                             (loopM)
 import qualified Plutus.Contracts.Currency                        as Currency
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as Core
+-- import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as Core
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                          as Haskell
 import qualified Plutus.Types.Percentage as Percentage
 import qualified Plutus.Types.PercentageInterface as Percentage
+
+data AuctionFee = 
+    AuctionFee 
+    { afAuctionOperator :: PubKeyHash
+    , afAuctionFee  :: Percentage.Percentage
+    }
+    deriving stock (Haskell.Eq, Haskell.Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)
+
+PlutusTx.unstableMakeIsData ''AuctionFee
+
+PlutusTx.makeLift ''AuctionFee
 
 -- | Definition of an auction
 data AuctionParams
@@ -53,8 +64,7 @@ data AuctionParams
         { apOwner               :: PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
         , apAsset               :: Value -- ^ The asset itself. This value is going to be locked by the auction script output.
         , apEndTime             :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
-        , apMarketplaceOperator :: PubKeyHash
-        , apMarketplaceSaleFee  :: Percentage.Percentage
+        , apAuctionProfit       :: Maybe AuctionFee
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON)
@@ -62,32 +72,6 @@ data AuctionParams
 PlutusTx.makeLift ''AuctionParams
 
 PlutusTx.unstableMakeIsData ''AuctionParams
-
-{-# INLINABLE fromAuction #-}
-fromAuction :: Core.Auction -> AuctionParams
-fromAuction Core.Auction {..} = AuctionParams {
-    apOwner = aOwner,
-    apAsset = aAsset,
-    apEndTime = Ledger.POSIXTime aEndTime,
-    apMarketplaceOperator = aMarketplaceOperator,
-    apMarketplaceSaleFee = aMarketplaceSaleFee
-    }
-
-{-# INLINABLE toAuction #-}
-toAuction :: SM.ThreadToken -> AuctionParams -> Core.Auction
-toAuction threadToken AuctionParams {..} =
-    Core.Auction {
-        aThreadToken = threadToken
-        , aOwner = apOwner
-        , aAsset = apAsset
-        , aEndTime = Ledger.getPOSIXTime apEndTime
-        , aMarketplaceOperator = apMarketplaceOperator
-        , aMarketplaceSaleFee = apMarketplaceSaleFee
-    }
-
-{-# INLINABLE getStateToken #-}
-getStateToken :: Core.Auction -> SM.ThreadToken
-getStateToken auction = Core.aThreadToken auction
 
 data HighestBid =
     HighestBid
@@ -143,10 +127,25 @@ PlutusTx.unstableMakeIsData ''AuctionInput
 
 type AuctionMachine = StateMachine AuctionState AuctionInput
 
+auctionWithFeePayoutConstraints :: AuctionFee -> AuctionParams -> State AuctionState -> TxConstraints Void Void
+auctionWithFeePayoutConstraints AuctionFee{..} AuctionParams{..} State {stateData = (Ongoing HighestBid{highestBidder, highestBid})} =
+    let highestBidInLovelace = Ada.getLovelace highestBid
+        saleProfit = highestBidInLovelace - fee
+        fee = Percentage.calculatePercentageRounded afAuctionFee highestBidInLovelace
+    in
+        Constraints.mustPayToPubKey apOwner (Ada.lovelaceValueOf saleProfit) <>
+        Constraints.mustPayToPubKey afAuctionOperator (Ada.lovelaceValueOf fee)
+auctionWithFeePayoutConstraints _ _ _ = mempty
+
+auctionWithoutFeePayoutConstraints :: AuctionParams -> State AuctionState -> TxConstraints Void Void
+auctionWithoutFeePayoutConstraints AuctionParams{..} State {stateData = (Ongoing HighestBid{highestBidder, highestBid})} =
+        Constraints.mustPayToPubKey apOwner (Ada.toValue highestBid)
+auctionWithoutFeePayoutConstraints _ _ = mempty
+
 {-# INLINABLE auctionTransition #-}
 -- | The transitions of the auction state machine.
-auctionTransition :: AuctionParams -> State AuctionState -> AuctionInput -> Maybe (TxConstraints Void Void, State AuctionState)
-auctionTransition AuctionParams{..} State{stateData=oldState} input =
+auctionTransition :: (AuctionParams -> State AuctionState -> TxConstraints Void Void) -> AuctionParams -> State AuctionState -> AuctionInput -> Maybe (TxConstraints Void Void, State AuctionState)
+auctionTransition getAdditionalPayoutConstraints params@AuctionParams{..} state@State{stateData=oldState} input =
     case (oldState, input) of
 
         (Ongoing HighestBid{highestBid, highestBidder}, Bid{newBid, newBidder}) | newBid > highestBid -> -- if the new bid is higher,
@@ -161,27 +160,26 @@ auctionTransition AuctionParams{..} State{stateData=oldState} input =
             in Just (constraints, newState)
 
         (Ongoing h@HighestBid{highestBidder, highestBid}, Payout) ->
-            let constraints =
+            let 
+                additionalConstraints = getAdditionalPayoutConstraints params state
+                constraints =
                     Constraints.mustValidateIn (Interval.from apEndTime) -- When the auction has ended,
-                    <> Constraints.mustPayToPubKey apOwner (Ada.lovelaceValueOf saleProfit) -- the owner receives the payment
                     <> Constraints.mustPayToPubKey highestBidder apAsset -- and the highest bidder the asset
-                    <> Constraints.mustPayToPubKey apMarketplaceOperator (Ada.lovelaceValueOf operatorFee)
+                    <> additionalConstraints
                 newState = State { stateData = Finished h, stateValue = mempty }
-                highestBidInLovelace = Ada.getLovelace highestBid
-                saleProfit = highestBidInLovelace - operatorFee
-                operatorFee = Percentage.calculatePercentageRounded apMarketplaceSaleFee highestBidInLovelace
             in Just (constraints, newState)
 
         -- Any other combination of 'AuctionState' and 'AuctionInput' is disallowed.
         -- This rules out new bids that don't go over the current highest bid.
         _ -> Nothing
 
-
 {-# INLINABLE auctionStateMachine #-}
 auctionStateMachine :: (ThreadToken, AuctionParams) -> AuctionMachine
-auctionStateMachine (threadToken, auctionParams) = SM.mkStateMachine (Just threadToken) (auctionTransition auctionParams) isFinal where
+auctionStateMachine (threadToken, auctionParams) = SM.mkStateMachine (Just threadToken) (transition $ apAuctionProfit auctionParams) isFinal where
     isFinal Finished{} = True
     isFinal _          = False
+    transition (Just auctionFee) = auctionTransition (auctionWithFeePayoutConstraints auctionFee) auctionParams
+    transition Nothing = auctionTransition auctionWithoutFeePayoutConstraints auctionParams
 
 {-# INLINABLE mkValidator #-}
 mkValidator :: (ThreadToken, AuctionParams) -> Scripts.ValidatorType AuctionMachine

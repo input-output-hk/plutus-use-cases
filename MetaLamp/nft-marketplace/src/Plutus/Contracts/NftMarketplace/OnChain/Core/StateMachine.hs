@@ -186,7 +186,7 @@ stateTransitionCheck nftStore (CreateNftRedeemer ipfsCidHash nftEntry) ctx =
 stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot) ctx =
   traceIfFalse "PutLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
-      lotValue = either Sale.saleValue (Auction.apAsset . Auction.fromAuction) lot
+      lotValue = either Sale.saleValue (Auction.apAsset . fromAuction) lot
       hasBeenPutOnSale = lotValue == nftValue ipfsCid nftEntry
       isValidHash = sha2_256 ipfsCid == ipfsCidHash
       hasNoExistingLot = isNothing $ nftLot nftEntry
@@ -196,7 +196,7 @@ stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId 
 stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Right (InternalBundleId bundleId cids)) lot) ctx =
   traceIfFalse "PutLotRedeemer: " $
   let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
-      lotValue = either Sale.saleValue (Auction.apAsset . Auction.fromAuction) lot
+      lotValue = either Sale.saleValue (Auction.apAsset . fromAuction) lot
       cidHashes = case nbTokens bundle of
           NoLot tokens    -> AssocMap.keys tokens
           HasLot tokens _ -> AssocMap.keys tokens

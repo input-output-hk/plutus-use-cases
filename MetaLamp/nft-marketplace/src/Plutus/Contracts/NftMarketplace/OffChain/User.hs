@@ -216,13 +216,12 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
       apOwner = self,
       apAsset = auctionValue,
       apEndTime = endTime,
-      apMarketplaceOperator = marketplaceOperator,
-      apMarketplaceSaleFee = marketplaceSaleFee
+      apAuctionProfit = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }
     auctionToken <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionParams
 
     let client = Core.marketplaceClient marketplace
-    let lot = Right $ Auction.toAuction auctionToken auctionParams
+    let lot = Right $ Core.toAuction auctionToken auctionParams
     void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auctionParams)
@@ -243,8 +242,8 @@ completeAnAuction marketplace CloseLotParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Auction.getStateToken auction
-    let auctionParams = Auction.fromAuction auction
+    let auctionToken = Core.getAuctionStateToken auction
+    let auctionParams = Core.fromAuction auction
     _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auctionToken auctionParams
 
     let client = Core.marketplaceClient marketplace
@@ -279,8 +278,8 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Auction.getStateToken auction
-    let auctionParams = Auction.fromAuction auction
+    let auctionToken = Core.getAuctionStateToken auction
+    let auctionParams = Core.fromAuction auction
     _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auctionToken auctionParams boapBid
 
     logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)
