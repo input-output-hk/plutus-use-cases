@@ -61,6 +61,7 @@ in project.shellFor (pab.env_variables // {
       ### Pab
       pab.plutus_pab_client
 
-      pkg-config libsodium-vrf systemdMinimal
-    ] ++ builtins.attrValues plutus.plutus-pab.pab-exes;
+      pkg-config libsodium-vrf
+    ] ++ (lib.optionals (!stdenv.isDarwin) [ rPackages.plotly R systemdMinimal ])
+      ++ builtins.attrValues plutus.plutus-pab.pab-exes;
 })
