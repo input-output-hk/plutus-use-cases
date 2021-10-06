@@ -337,7 +337,7 @@ transfer market TransferParams{..} = do
     logInfo $ "transfer NFT: " ++ show nftMetaDto
     return nftMetaDto
 
-marketplace :: CurrencySymbol -> NFTCurrency -> NFTCurrency Integer -> PubKeyHash -> NFTMarket
+marketplace :: CurrencySymbol -> NFTCurrency -> NFTCurrency -> Integer -> PubKeyHash -> NFTMarket
 marketplace cs tokenCur metaTokenCur fee pkh = 
     NFTMarket{ 
     marketId = assetClass cs marketplaceTokenName
