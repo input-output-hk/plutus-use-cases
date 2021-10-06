@@ -98,8 +98,11 @@ instance HasDefinitions NFTMarketContracts where
         NFTStartContract -> Builtin.endpointsToSchemas @NFTMarket.MarketOwnerSchema
         NFTUserContract _ -> Builtin.endpointsToSchemas @NFTMarket.MarketUserSchema
     getContract = \case
-        NFTStartContract -> SomeBuiltin (NFTMarket.ownerEndpoint NFTMarket.forgeMarketToken)
+        NFTStartContract -> SomeBuiltin (NFTMarket.ownerEndpoint NFTMarket.forgeMarketToken nftMarketFee)
         NFTUserContract market -> SomeBuiltin (NFTMarket.userEndpoints market)
+
+nftMarketFee :: Integer
+nftMarketFee = 2000000
 
 handlers :: SimulatorEffectHandlers (Builtin NFTMarketContracts)
 handlers =

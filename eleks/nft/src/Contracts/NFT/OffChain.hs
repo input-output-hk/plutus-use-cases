@@ -16,6 +16,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE NumericUnderscores         #-}
 
 -- | Implements a custom currency with a monetary policy that allows
 --   the forging of a fixed amount of units.
@@ -143,14 +144,15 @@ forgeMarketToken tokenName pk = fmap Currency.currencySymbol $
 -- | Creates a Marketplace "factory". This factory will keep track of the existing nft tokens
 start ::
     forall w w' s. (TokenName -> PubKeyHash -> Contract w s Text CurrencySymbol)
+    -> Integer
     -> Contract w s Text NFTMarket
-start forgeNft = do
+start forgeNft fee = do
     pkh <- pubKeyHash <$> ownPubKey
     cs  <- forgeNft marketplaceTokenName pkh
     let c = assetClass cs marketplaceTokenName
         nftTokenCur = mkNFTCurrency c
         nftTokenMetaCur = mkNFTCurrency c
-        market   = marketplace cs nftTokenCur nftTokenMetaCur
+        market   = marketplace cs nftTokenCur nftTokenMetaCur fee pkh
         inst = marketInstance market
         tx   = mustPayToTheScript (Factory []) $ assetClassValue c 1
     ledgerTx <- submitTxConstraints inst tx
@@ -292,6 +294,9 @@ buy market BuyParams{..} = do
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
         throwError $ pack $ printf "NFT token is not on sale"
     let marketInst = marketInstance market
+        mOwner = marketOwner market
+        mFee = marketFee market
+        mFeeValue = Ada.lovelaceValueOf mFee
         nftMetadata' = nftMetadata { nftSeller = Nothing, nftSellPrice = 0 }
         nftSeller' = fromMaybe "" $ nftSeller nftMetadata
         nftMetadataDatum = NFTMeta nftMetadata'
@@ -299,7 +304,7 @@ buy market BuyParams{..} = do
         redeemer = Redeemer $ PlutusTx.toBuiltinData $ Buy pkh
         nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
         nftMetadataValue = getNftValue (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata)
-        nftSellPriceValue = Ada.lovelaceValueOf $ nftSellPrice nftMetadata
+        nftSellPriceValue = Ada.lovelaceValueOf $ (nftSellPrice nftMetadata - mFee)
  
         lookups = Constraints.typedValidatorLookups marketInst
                   <> Constraints.otherScript mrScript
@@ -309,6 +314,7 @@ buy market BuyParams{..} = do
                   <> Constraints.mustSpendScriptOutput oref redeemer
                   <> Constraints.mustPayToPubKey pkh nftValue
                   <> Constraints.mustPayToPubKey nftSeller' nftSellPriceValue
+                  <> Constraints.mustPayToPubKey mOwner mFeeValue
     ledgerTx <- submitTxConstraintsWith lookups tx
     void $ awaitTxConfirmed $ txId ledgerTx
     let nftMetaDto = nftMetadataToDto nftMetadata'
@@ -331,13 +337,15 @@ transfer market TransferParams{..} = do
     logInfo $ "transfer NFT: " ++ show nftMetaDto
     return nftMetaDto
 
-marketplace :: CurrencySymbol -> NFTCurrency -> NFTCurrency -> NFTMarket
-marketplace cs tokenCur metaTokenCur = 
+marketplace :: CurrencySymbol -> NFTCurrency -> NFTCurrency Integer -> PubKeyHash -> NFTMarket
+marketplace cs tokenCur metaTokenCur fee pkh = 
     NFTMarket{ 
     marketId = assetClass cs marketplaceTokenName
     , marketTokenSymbol = nftCurrencySymbol tokenCur
     , marketTokenMetaSymbol = nftCurrencySymbol metaTokenCur
     , marketTokenMetaNameSuffix = toBuiltin . B.pack $ metadataTokenNamePrefix 
+    , marketFee = fee
+    , marketOwner = pkh
     }
 
 getNFTMarketDatum :: TxOutTx -> Contract w s Text NFTMarketDatum
@@ -469,9 +477,10 @@ ownerEndpoint ::
     -> PubKeyHash 
     -> Contract (Last (Either Text NFTMarket)) MarketOwnerSchema Text CurrencySymbol
     )
+    -> Integer
     -> Contract (Last (Either Text NFTMarket)) MarketOwnerSchema ContractError ()
-ownerEndpoint forgeNft = do
-    e <- mapError absurd $ runError $ start forgeNft
+ownerEndpoint forgeNft fee = do
+    e <- mapError absurd $ runError $ start forgeNft fee
     void $ waitNSlots 1
     tell $ Last $ Just e
 

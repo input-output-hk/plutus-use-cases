@@ -182,11 +182,13 @@ validateBuy ::
     -> ScriptContext
     -> Bool
 validateBuy NFTMarket{..} nftMeta@NFTMetadata{nftMetaTokenSymbol, nftMetaTokenName, nftTokenSymbol, nftTokenName} buyer ctx =
-    traceIfFalse "nft metadata token missing from input" $ isNftToken inVal nftMetaTokenSymbol nftMetaTokenName                  &&
-    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                                     &&
-    traceIfFalse "expected seller to get money" (addressGetValue (nftSeller nftMeta) $ Ada.lovelaceValueOf (nftSellPrice nftMeta))   &&   
-    traceIfFalse "expected buyer to get NFT token" (addressGetValue (Just buyer) $ getNftValue nftTokenSymbol nftTokenName)        && 
-    traceIfFalse "price should be grater 0" (nftSellPrice outDatum == 0)                                                       && 
+    traceIfFalse "nft metadata token missing from input" $ isNftToken inVal nftMetaTokenSymbol nftMetaTokenName                       &&
+    traceIfFalse "ouptut nftMetadata should be same" (nftMeta == outDatum)                                                            &&
+    traceIfFalse "expected seller to get money" (addressGetValue (nftSeller nftMeta) $ Ada.lovelaceValueOf (nftSellPrice nftMeta))    &&   
+    traceIfFalse "expected buyer to get NFT token" (addressGetValue (Just buyer) $ getNftValue nftTokenSymbol nftTokenName)           && 
+    traceIfFalse "expected market owner to get fee" (addressGetValue (Just marketOwner) $ Ada.lovelaceValueOf marketFee)              && 
+    traceIfFalse "price should be grater 0" (nftSellPrice outDatum == 0)                                                              && 
+    traceIfFalse "fee should be grater 0" (marketFee > 0)                                                                             && 
     traceIfFalse "seller should be emptied" (PlutusTx.Prelude.isNothing $ nftSeller outDatum)
  where
     info :: TxInfo

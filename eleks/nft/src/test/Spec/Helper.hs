@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE NumericUnderscores   #-}
 
 module Spec.Helper
     where
@@ -15,7 +16,10 @@ import           Ledger                 (PubKeyHash, pubKeyHash)
 import           Ledger.Value           (CurrencySymbol(..), TokenName (..), AssetClass(..), toString)
 import qualified Plutus.Trace.Emulator  as Trace
 import           PlutusTx.Prelude       (toBuiltin)
-import           Wallet.Emulator        (Wallet, walletPubKey)
+import           Wallet.Emulator        (Wallet(..), walletPubKey)
+
+ownerWallet' :: Wallet
+ownerWallet' = Wallet 5
 
 mockMarketId :: AssetClass
 mockMarketId = createMarketTokenMock NFTMarket.marketplaceTokenName
@@ -29,6 +33,8 @@ nftMarketMock = NFTMarket
     , marketTokenSymbol = nftCurrencySymbol mockNftCurrency
     , marketTokenMetaSymbol = nftCurrencySymbol mockNftCurrency
     , marketTokenMetaNameSuffix = toBuiltin . B.pack $  metadataTokenNamePrefix
+    , marketFee = 500000
+    , marketOwner = pubKeyHash $ walletPubKey ownerWallet'
     } 
 
 data TestTokenMeta = TestTokenMeta
