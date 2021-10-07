@@ -50,7 +50,8 @@ t1 = Trace.walletInstanceTag w1
 t2 = Trace.walletInstanceTag w2
 
 ownerContract :: Contract (Last (Either Text NFTMarket)) MarketOwnerSchema ContractError ()
-ownerContract = NFTMarket.ownerEndpoint forgeMockNftToken
+ownerContract = NFTMarket.ownerEndpoint forgeMockNftToken $ marketFee nftMarketMock 
+
 userContract :: Promise (Last (Either Text MarketContractState)) MarketUserSchema Void ()
 userContract = NFTMarket.userEndpoints nftMarketMock
 
@@ -161,8 +162,9 @@ tests = testGroup "nft"
            .&&. valueAtAddress (marketAddress nftMarketMock) 
                 (== (assetClassValue (testTokenMetaClass testToken1) 1 
                     <> assetClassValue (marketId nftMarketMock) 1))
-           .&&. walletFundsChange w1 (Ada.lovelaceValueOf nftMaketSellPrice)
-           .&&. walletFundsChange w2 (Ada.lovelaceValueOf (negate nftMaketSellPrice) <> assetClassValue (testTokenClass testToken1) 1)
+           .&&. walletFundsChange w1 (Ada.lovelaceValueOf (nftMaketSellPrice - nftMarketFee))
+           .&&. walletFundsChange w2 (Ada.lovelaceValueOf (negate (nftMaketSellPrice)) <> assetClassValue (testTokenClass testToken1) 1)
+           .&&. walletFundsChange ownerWallet (Ada.lovelaceValueOf nftMarketFee)
            .&&. assertAccumState userContract t2
                 (\case Last (Just (Right (NFTMarket.Buyed meta))) -> meta == testToken1MetaDto; _ -> False) 
                 "should create buy NFT state"
