@@ -141,6 +141,7 @@ test-suite test
     hs-source-dirs: test
     other-modules:
       Abstract.ContractRespSpec 
+      Abstract.Percentage
       Abstract.RemoteDataSpec 
       Marketplace.Fixtures
       Marketplace.Fixtures.CheckOptions
