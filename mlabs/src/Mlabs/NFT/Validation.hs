@@ -8,9 +8,11 @@ module Mlabs.NFT.Validation (
   asRedeemer,
   txPolicy,
   txScrAddress,
+  txValHash,
   nftCurrency,
   nftAsset,
   mintPolicy,
+  mkMintPolicy,
   priceNotNegative,
 ) where
 

@@ -250,6 +250,7 @@ Test-suite mlabs-plutus-use-cases-tests
     , tasty
     , tasty-hunit
     , tasty-expected-failure
+    , tasty-plutus
     , tasty-quickcheck
     , QuickCheck
     , text
@@ -267,6 +268,7 @@ Test-suite mlabs-plutus-use-cases-tests
     Test.Nft.Logic
     Test.Utils
     Test.NFT.Trace
+    Test.NFT.Test
                      
   default-extensions:
     RecordWildCards
