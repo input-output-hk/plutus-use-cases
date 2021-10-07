@@ -16,7 +16,9 @@ test :: TestTree
 test =
   testGroup
     "NFT rewrite script tests"
-    [testMinting]
+    [ testMinting
+    , testUserScript
+    ]
 
 testMinting :: TestTree
 testMinting = localOption (TestCurrencySymbol (Ledger.scriptCurrencySymbol nftPolicy)) $

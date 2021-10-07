@@ -268,8 +268,11 @@ Test-suite mlabs-plutus-use-cases-tests
     Test.Nft.Logic
     Test.Utils
     Test.NFT.Trace
-    Test.NFT.Test
-                     
+    Test.NFT.Main
+    Test.NFT.Dealing
+    Test.NFT.Minting
+    Test.NFT.Values
+
   default-extensions:
     RecordWildCards
     OverloadedStrings
