@@ -24,8 +24,8 @@ PlutusTx.unstableMakeIsData ''Percentage
 
 mkPercentage :: Fractional -> Maybe Percentage
 mkPercentage percentage@(numerator, denominator) =
-      let roundedPercentage = numerator `div` denominator
+      let roundedPercentage = abs $ numerator `div` denominator
       in
-      if 0 <= roundedPercentage && roundedPercentage <= 100
+      if denominator /= 0 && 0 <= roundedPercentage && roundedPercentage <= 100
             then pure $ Percentage percentage
             else Nothing

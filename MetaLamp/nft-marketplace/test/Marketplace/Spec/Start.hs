@@ -39,7 +39,7 @@ startTrace = do
 startMarketplaceParams :: StartMarketplaceParams
 startMarketplaceParams = StartMarketplaceParams {
     creationFee = 100000,  -- 0.1 ADA
-    saleFee =getPercentage Fixtures.percentage
+    saleFee = getPercentage Fixtures.percentage
 }
 
 startContract ::
