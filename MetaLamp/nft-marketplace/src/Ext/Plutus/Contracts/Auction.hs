@@ -39,12 +39,11 @@ import           Plutus.Contract.StateMachine                     hiding
 import qualified Plutus.Contract.StateMachine                     as SM
 import           Plutus.Contract.Util                             (loopM)
 import qualified Plutus.Contracts.Currency                        as Currency
--- import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as Core
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                          as Haskell
-import qualified Plutus.Types.Percentage as Percentage
-import qualified Plutus.Types.PercentageInterface as Percentage
+import qualified Plutus.Abstract.Percentage as Percentage
+import qualified Plutus.Abstract.PercentageInterface as Percentage
 
 data AuctionFee = 
     AuctionFee 
@@ -64,7 +63,7 @@ data AuctionParams
         { apOwner               :: PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
         , apAsset               :: Value -- ^ The asset itself. This value is going to be locked by the auction script output.
         , apEndTime             :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
-        , apAuctionProfit       :: Maybe AuctionFee
+        , apAuctionFee       :: Maybe AuctionFee
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON)
@@ -127,7 +126,9 @@ PlutusTx.unstableMakeIsData ''AuctionInput
 
 type AuctionMachine = StateMachine AuctionState AuctionInput
 
-auctionWithFeePayoutConstraints :: AuctionFee -> AuctionParams -> State AuctionState -> TxConstraints Void Void
+type GetAdditionalConstraints = AuctionParams -> State AuctionState -> TxConstraints Void Void
+
+auctionWithFeePayoutConstraints :: AuctionFee -> GetAdditionalConstraints
 auctionWithFeePayoutConstraints AuctionFee{..} AuctionParams{..} State {stateData = (Ongoing HighestBid{highestBidder, highestBid})} =
     let highestBidInLovelace = Ada.getLovelace highestBid
         saleProfit = highestBidInLovelace - fee
@@ -137,14 +138,15 @@ auctionWithFeePayoutConstraints AuctionFee{..} AuctionParams{..} State {stateDat
         Constraints.mustPayToPubKey afAuctionOperator (Ada.lovelaceValueOf fee)
 auctionWithFeePayoutConstraints _ _ _ = mempty
 
-auctionWithoutFeePayoutConstraints :: AuctionParams -> State AuctionState -> TxConstraints Void Void
+auctionWithoutFeePayoutConstraints :: GetAdditionalConstraints
 auctionWithoutFeePayoutConstraints AuctionParams{..} State {stateData = (Ongoing HighestBid{highestBidder, highestBid})} =
         Constraints.mustPayToPubKey apOwner (Ada.toValue highestBid)
 auctionWithoutFeePayoutConstraints _ _ = mempty
 
+
 {-# INLINABLE auctionTransition #-}
 -- | The transitions of the auction state machine.
-auctionTransition :: (AuctionParams -> State AuctionState -> TxConstraints Void Void) -> AuctionParams -> State AuctionState -> AuctionInput -> Maybe (TxConstraints Void Void, State AuctionState)
+auctionTransition :: GetAdditionalConstraints -> AuctionParams -> State AuctionState -> AuctionInput -> Maybe (TxConstraints Void Void, State AuctionState)
 auctionTransition getAdditionalPayoutConstraints params@AuctionParams{..} state@State{stateData=oldState} input =
     case (oldState, input) of
 
@@ -175,7 +177,7 @@ auctionTransition getAdditionalPayoutConstraints params@AuctionParams{..} state@
 
 {-# INLINABLE auctionStateMachine #-}
 auctionStateMachine :: (ThreadToken, AuctionParams) -> AuctionMachine
-auctionStateMachine (threadToken, auctionParams) = SM.mkStateMachine (Just threadToken) (transition $ apAuctionProfit auctionParams) isFinal where
+auctionStateMachine (threadToken, auctionParams) = SM.mkStateMachine (Just threadToken) (transition $ apAuctionFee auctionParams) isFinal where
     isFinal Finished{} = True
     isFinal _          = False
     transition (Just auctionFee) = auctionTransition (auctionWithFeePayoutConstraints auctionFee) auctionParams

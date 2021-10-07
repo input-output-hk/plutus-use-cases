@@ -216,7 +216,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
       apOwner = self,
       apAsset = auctionValue,
       apEndTime = endTime,
-      apAuctionProfit = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
+      apAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }
     auctionToken <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionParams
 

@@ -38,6 +38,8 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Contracts.Services.Sale               as Sale
 import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds)
+import qualified Plutus.Abstract.Percentage as Percentage
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as NFT
 
 marketplaceTypes :: [SumType 'Haskell]
 marketplaceTypes =

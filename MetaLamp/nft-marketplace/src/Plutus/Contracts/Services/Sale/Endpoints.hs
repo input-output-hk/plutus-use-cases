@@ -31,7 +31,7 @@ import           Plutus.Contracts.Currency                                as Cur
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
 import qualified Plutus.Contracts.Services.Sale.Core                      as Core
 import qualified Plutus.Contracts.Services.Sale.StateMachine              as Core
-import qualified Plutus.Types.Percentage                                  as Percentage
+import qualified Plutus.Abstract.Percentage                                  as Percentage
 
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
@@ -63,8 +63,7 @@ openSale OpenSaleParams {..}  Marketplace.Marketplace {..} = do
                   salePrice         = ospSalePrice,
                   saleValue         = ospSaleValue,
                   saleOwner         = pkh,
-                  marketplaceOperator = marketplaceOperator,
-                  marketplaceSaleFee    = marketplaceSaleFee
+                  saleFee           = Just $ Core.SaleFee marketplaceOperator marketplaceSaleFee
                 }
     let client = Core.saleClient sale
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing ospSaleValue

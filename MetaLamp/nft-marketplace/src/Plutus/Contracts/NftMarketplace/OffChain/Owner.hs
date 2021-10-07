@@ -27,7 +27,7 @@ import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
-import           Plutus.Types.Percentage                      (mkPercentage)
+import           Plutus.Abstract.Percentage                      (mkPercentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           PlutusTx.Prelude                             hiding
@@ -38,8 +38,8 @@ import qualified Schema
 import           Text.Printf                                  (printf)
 
 data StartMarketplaceParams = StartMarketplaceParams {
-    nftFee  :: Integer,
-    saleFee :: (Integer, Integer)
+    creationFee  :: Integer,  -- fee by minting and bundling
+    saleFee :: (Integer, Integer)  -- fee by sale and auction
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -49,7 +49,7 @@ start :: StartMarketplaceParams -> Contract w s Text Core.Marketplace
 start StartMarketplaceParams {..} = do
     pkh <- pubKeyHash <$> ownPubKey
     saleFeePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage saleFee
-    let marketplace = Core.Marketplace pkh (lovelaceValueOf nftFee) saleFeePercentage
+    let marketplace = Core.Marketplace pkh (lovelaceValueOf creationFee) saleFeePercentage
     let client = Core.marketplaceClient marketplace
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
 

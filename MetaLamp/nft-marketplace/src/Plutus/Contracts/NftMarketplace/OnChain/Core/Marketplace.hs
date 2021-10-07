@@ -9,7 +9,7 @@ module Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace where
 import qualified Data.Aeson              as J
 import           GHC.Generics            (Generic)
 import           Ledger
-import           Plutus.Types.Percentage (Percentage)
+import           Plutus.Abstract.Percentage (Percentage)
 import qualified PlutusTx
 import           Prelude
 

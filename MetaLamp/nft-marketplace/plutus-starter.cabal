@@ -45,6 +45,8 @@ library
       Ext.Plutus.Ledger.Value
       Ext.Plutus.PAB.Webserver.Server
       Plutus.Abstract.ContractResponse
+      Plutus.Abstract.Percentage
+      Plutus.Abstract.PercentageInterface
       Plutus.Abstract.RemoteData
       Plutus.Contracts.NftMarketplace.Endpoints
       Plutus.Contracts.NftMarketplace.OffChain.ID
@@ -62,8 +64,6 @@ library
       Plutus.Contracts.Services.Sale.Endpoints
       Plutus.Contracts.Services.Sale.StateMachine
       Plutus.PAB.Simulation
-      Plutus.Types.Percentage
-      Plutus.Types.PercentageInterface
       
     build-depends:
       QuickCheck,

@@ -76,7 +76,7 @@ userWallets = [Wallet i | i <- [2 .. 4]]
 
 startMarketplaceParams :: Owner.StartMarketplaceParams
 startMarketplaceParams = Owner.StartMarketplaceParams {
-    nftFee = 100000,  -- 0.1 ADA
+    creationFee = 100000,  -- 0.1 ADA
     saleFee = (5, 2)
 }
 

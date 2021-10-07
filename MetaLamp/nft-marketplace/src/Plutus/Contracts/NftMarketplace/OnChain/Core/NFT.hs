@@ -32,7 +32,7 @@ import qualified Ledger.Value                   as V
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import qualified Plutus.Contracts.Services.Sale as Sale
-import           Plutus.Types.Percentage        (Percentage)
+import           Plutus.Abstract.Percentage        (Percentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap              as AssocMap
 import           PlutusTx.Prelude               hiding (Semigroup (..))
@@ -81,7 +81,7 @@ fromAuction Auction {..} = AuctionParams {
     apOwner = aOwner,
     apAsset = aAsset,
     apEndTime = Ledger.POSIXTime aEndTime,
-    apAuctionProfit = aAuctionProfit
+    apAuctionFee = aAuctionProfit
     }
 
 {-# INLINABLE toAuction #-}
@@ -92,7 +92,7 @@ toAuction threadToken AuctionParams {..} =
         , aOwner = apOwner
         , aAsset = apAsset
         , aEndTime = Ledger.getPOSIXTime apEndTime
-        , aAuctionProfit = apAuctionProfit
+        , aAuctionProfit = apAuctionFee
     }
 
 data NftInfo =
