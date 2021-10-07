@@ -34,6 +34,7 @@ module Contracts.Oracle.OffChain
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1) 
+import           Control.Lens              (view)
 import           Control.Monad             hiding (fmap)
 import           Contracts.Oracle.Types
 import           Contracts.Oracle.RequestToken
@@ -66,14 +67,7 @@ import           Plutus.Contract.Types     (Promise (..))
 import           Prelude                   (Semigroup (..), Show (..), String)
 import qualified Prelude                   as Haskell
 import           Schema                    (ToSchema)
-
-data OracleParams = OracleParams
-    { opSymbol :: !CurrencySymbol
-    , opFees   :: !Ada
-    , opCollateral :: !Ada
-    , opSigner :: !PrivateKey
-    } deriving (Haskell.Eq, Haskell.Show, Generic, FromJSON, ToJSON)
-
+import           Plutus.ChainIndex         ()
 startOracle :: forall w s. OracleParams -> Contract w s Text Oracle
 startOracle op = do
     pk <- Contract.ownPubKey
@@ -122,8 +116,10 @@ updateOracle oracle operatorPrivateKey params = do
                             ledgerTx <- submitTxConstraintsWith lookups tx
                             awaitTxConfirmed $ txId ledgerTx
 
-oracleValueFromTxOutTx :: TxOutTx -> Maybe OracleData
-oracleValueFromTxOutTx o = oracleValue (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
+oracleValueFromTxOutTx :: ChainIndexTxOut -> Maybe OracleData
+oracleValueFromTxOutTx o = do
+    Datum d <- either (const Nothing) Just (_ciTxOutDatum o)
+    PlutusTx.fromBuiltinData d
 
 data UpdateOracleParams = UpdateOracleParams
     { uoGameId      :: !GameId              -- ^ Game
@@ -168,9 +164,9 @@ requestOracleForAddress oracle gameId = do
     void $ awaitTxConfirmed $ txId ledgerTx
 
 --get active request lists for oracle to process
-getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, TxOutTx, OracleData)]
+getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
 getActiveOracleRequests oracle = do
-    xs <- utxoAt (oracleAddress oracle)
+    xs <- utxosAt (oracleAddress oracle)
     let requests = filter (isActiveRequest oracle) . filterOracleRequest oracle . Map.toList $ xs
     return requests 
 
@@ -179,18 +175,17 @@ getActiveGames oracle = do
     requests <- nub . map (\(_, _, or) -> ovGame or) <$> getActiveOracleRequests oracle
     return requests
 
-awaitNextOracleRequest:: Oracle -> Contract w s Text [(TxOutRef, TxOutTx, OracleData)]
+awaitNextOracleRequest:: Oracle -> Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
 awaitNextOracleRequest oracle =
     awaitNext
     where
-    awaitNext :: Contract w s Text [(TxOutRef, TxOutTx, OracleData)]
+    convertChainIndexOut:: (Maybe ChainIndexTxOut, TxOutRef) -> Maybe (TxOutRef, ChainIndexTxOut)
+    convertChainIndexOut (o, oref) =  (\to -> (oref, to)) <$> o
+    awaitNext :: Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
     awaitNext = do
         utxos <- awaitUtxoProduced $ oracleAddress oracle
-        let txs = (flip map) ( NonEmpty.toList $ utxos) (\onchainTx -> do
-                    case onchainTx of
-                        (Valid tx) -> Just $ map (\(o, oref) -> (oref, TxOutTx tx o)) $ txOutRefs tx
-                        _          -> Nothing)
-        let filterValidTx = concat . catMaybes
+        let txs = map (\tx -> map convertChainIndexOut $ chainIndexTxOutsWithRef tx) (NonEmpty.toList $ utxos)
+        let filterValidTx = catMaybes . concat
         let filtered = filterOracleRequest oracle . filterValidTx $ txs
         return filtered
             
@@ -203,6 +198,7 @@ runOracle op = do
     update :: Oracle -> Promise (Last OracleContractState) OracleSchema Text ()
     update oracle = endpoint @"update" $ \updateOracleParams -> do
         logInfo @String "update called"
+        logInfo $ show updateOracleParams
         updateOracle oracle (opSigner op) updateOracleParams
         tell $ Last $ Just $ Updated $ uoGameId updateOracleParams
     games :: Oracle -> Promise (Last OracleContractState) OracleSchema Text ()
@@ -210,31 +206,31 @@ runOracle op = do
         gamesIds <- getActiveGames oracle
         tell $ Last $ Just $ Games gamesIds
 
-hasOracleRequestToken :: Oracle -> (TxOutRef, TxOutTx) -> Bool
+hasOracleRequestToken :: Oracle -> (TxOutRef, ChainIndexTxOut) -> Bool
 hasOracleRequestToken oracle (oref, o) = 
-    assetClassValueOf (txOutValue $ txOutTxOut o) (requestTokenClassFromOracle oracle) == 1
+    assetClassValueOf (view ciTxOutValue o) (requestTokenClassFromOracle oracle) == 1
 
-hasOracelRequestDatum :: (TxOutRef, TxOutTx) -> Bool
+hasOracelRequestDatum :: (TxOutRef, ChainIndexTxOut) -> Bool
 hasOracelRequestDatum (oref, o) = isJust . oracleValueFromTxOutTx $ o
 
-filterOracleRequest :: Oracle -> [(TxOutRef, TxOutTx)] -> [(TxOutRef, TxOutTx, OracleData)]
+filterOracleRequest :: Oracle -> [(TxOutRef, ChainIndexTxOut)] -> [(TxOutRef, ChainIndexTxOut, OracleData)]
 filterOracleRequest oracle txs = catMaybes . map mapDatum . filter (hasOracleRequestToken oracle) $ txs
 
-mapDatum :: (TxOutRef, TxOutTx) -> Maybe (TxOutRef, TxOutTx, OracleData)
+mapDatum :: (TxOutRef, ChainIndexTxOut) -> Maybe (TxOutRef, ChainIndexTxOut, OracleData)
 mapDatum (oref, o) = case oracleValueFromTxOutTx o of
     Just datum -> Just (oref, o, datum)
     Nothing -> Nothing
 
-isGameOracleRequest :: GameId -> (TxOutRef, TxOutTx, OracleData) -> Bool
+isGameOracleRequest :: GameId -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
 isGameOracleRequest gameId (_, _, od) = gameId == (ovGame od) 
 
-isOwnerOracleRequest :: PubKeyHash -> (TxOutRef, TxOutTx, OracleData) -> Bool
+isOwnerOracleRequest :: PubKeyHash -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
 isOwnerOracleRequest owner (_, _, od) = owner == (ovRequestAddress od)
 
 isActiveSignedMessage :: OracleSignedMessage -> Bool
 isActiveSignedMessage message = osmGameStatus message /= FT
 
-isActiveRequest:: Oracle -> (TxOutRef, TxOutTx, OracleData) -> Bool
+isActiveRequest:: Oracle -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
 isActiveRequest oracle (_, _, od) = case ovSignedMessage od of
                                 -- not processed
                                 Nothing -> True
@@ -247,9 +243,9 @@ findOracleRequest ::
     forall w s. Oracle
     -> GameId
     -> PubKeyHash
-    -> Contract w s Text (Maybe (TxOutRef, TxOutTx, OracleData))
+    -> Contract w s Text (Maybe (TxOutRef, ChainIndexTxOut, OracleData))
 findOracleRequest oracle gameId owner = do
-    xs <- utxoAt (oracleAddress oracle)
+    xs <- utxosAt (oracleAddress oracle)
     let findCriteria = find (\tx -> isOwnerOracleRequest owner tx && isGameOracleRequest gameId tx)
     let request = findCriteria . filterOracleRequest oracle . Map.toList $ xs
     pure request 

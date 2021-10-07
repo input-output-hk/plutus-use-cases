@@ -28,6 +28,7 @@ import           Data.Text                          (Text, pack)
 import           Data.Sort                          (sort)
 import           Ledger                             (Ada, Slot (..), Value, pubKeyHash)
 import qualified Ledger.Ada                         as Ada
+import           Ledger.Crypto                      (PrivateKey, privateKey1)
 import           Ledger.Index                       (ValidationError (ScriptFailure))
 import           Ledger.Scripts                     (ScriptError (EvaluationError))
 import           Ledger.Oracle                      (Observation, SignedMessage, signMessage, verifySignedMessageOffChain, verifySignedMessageConstraints)
@@ -68,7 +69,7 @@ oracleParams = OracleParams
     { opSymbol = oracleCurrency
     , opFees = 5_000_000
     , opCollateral = 10_000_000
-    , opSigner = walletPrivKey oracleWallet
+    , opSigner = oraclePrivateKey
     } 
 
 oracleRequestToken :: OracleRequestToken
@@ -102,15 +103,13 @@ requestOracleTokenContract oracle gameId = requestOracleForAddress oracle gameId
 useOracleContract :: Oracle -> Contract Text UseOracleSchema Text ()
 useOracleContract oracle = useOracle oracle
 
-w1, w2, w3 :: Wallet
-w1 = Wallet 1
-w2 = Wallet 2
-w3 = Wallet 3
-w4 = Wallet 4
-w5 = Wallet 5
+oracleWallet, oracleClientWallet, otherWallet :: Wallet
 oracleWallet = w1
 oracleClientWallet = w2
 otherWallet = w3
+
+oraclePrivateKey :: PrivateKey
+oraclePrivateKey = privateKey1
 
 winTeamId:: Integer
 winTeamId = 1
@@ -133,7 +132,7 @@ signOracleTestState :: OracleData
 signOracleTestState = OracleData
     { ovGame = gameId
     , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
-    , ovSignedMessage = Just $ signMessage OracleSignedMessage{ osmGameId = gameId, osmWinnerId = 0, osmGameStatus = NS } (walletPrivKey oracleWallet) 
+    , ovSignedMessage = Just $ signMessage OracleSignedMessage{ osmGameId = gameId, osmWinnerId = 0, osmGameStatus = NS } oraclePrivateKey
     }
 
 updateOracleTrace :: Trace.EmulatorTrace ()
@@ -259,7 +258,7 @@ tests =
             )
         .&&. walletFundsChange oracleWallet ((Ada.toValue (oFee oracle + oCollateral oracle)))
         .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle + oCollateral oracle)))
-        .&&. dataAtAddress (oracleAddress oracle) (== requestOracleTestState)
+        .&&. dataAtAddress (oracleAddress oracle) (== [requestOracleTestState])
         )
         requestOracleTrace
         ,
@@ -288,7 +287,7 @@ tests =
         ,
         checkPredicateOptions options "Should fail on incorrect update oracle data"
         ( 
-            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["update data is invalid", "Pd"] _) -> True; _ -> False  })
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["update data is invalid", "PT5"] _) -> True; _ -> False  })
         )
         invalidUpdateOracleTrace
         ,
@@ -309,7 +308,7 @@ tests =
         ,
         checkPredicateOptions options "Only oracle signed request can be used"
         ( 
-            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["value signed by oracle", "Pd"] _) -> True; _ -> False  })
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["value signed by oracle", "PT5"] _) -> True; _ -> False  })
         )
         useFailIfNotSignedTrace
         ,

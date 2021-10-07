@@ -32,8 +32,9 @@ import           Playground.Contract              (Show, FromJSON, Generic, ToJS
 import qualified Plutus.Contract.StateMachine     as SM
 import qualified PlutusTx
 import           PlutusTx.Prelude
-import qualified Prelude              as Haskell
+import qualified Prelude                          as Haskell
 import           Types.Game
+import qualified Data.OpenApi.Schema              as OpenApi
 
 -- | Definition of an mutual bet
 data MutualBetParams
@@ -47,7 +48,7 @@ data MutualBetParams
         , mbpBetFee :: Ada -- Platform fee, for each bet you need additionally to pay the fee, fee is no returned if game in case game cancelled or no one wins
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
-        deriving anyclass (ToJSON, FromJSON, ToSchema)
+        deriving anyclass (ToJSON, FromJSON, ToSchema, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''MutualBetParams
 
@@ -108,7 +109,7 @@ PlutusTx.unstableMakeIsData ''MutualBetInput
 data GameStateChange 
     = GameStateChange 
         { gmsOutRef :: TxOutRef
-        , gmsOutTx  :: TxOutTx
+        , gmsOutTx  :: ChainIndexTxOut
         , gmsOracleData :: OracleData
         , gmsSignedMessage :: SignedMessage OracleSignedMessage
         , gmsSignedMessageData :: OracleSignedMessage

@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Main(main) where
 
@@ -46,9 +47,9 @@ import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Contracts.MutualBet                 
 import           Contracts.Oracle
 import           Types.Game    
-import           Wallet.Emulator.Types               (Wallet (..))
 import qualified Data.ByteString.Char8               as B
 import           Ledger                              (PubKeyHash(..), pubKeyHash, CurrencySymbol(..), pubKeyAddress)
+import           Ledger.Crypto                       (PrivateKey, privateKey5)
 import qualified Ledger.Value                        as Value
 import           Ledger.Value                        (TokenName (..), Value)
 import           Ledger.TimeSlot                     (SlotConfig)
@@ -58,6 +59,12 @@ import           Wallet.Types                        (ContractInstanceId (..))
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
 import qualified GameClient                           as GameClient
+import           Wallet.Emulator                     (Wallet (..), knownWallets, knownWallet, walletPubKey) 
+import qualified Data.OpenApi.Schema                 as OpenApi
+import           Playground.Contract                 (ToSchema)
+
+deriving instance OpenApi.ToSchema SlotConfig
+deriving instance OpenApi.ToSchema ThreadToken
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
 initGame oracle game = do
@@ -89,6 +96,7 @@ initGame oracle game = do
 
 main :: IO ()
 main = void $ Simulator.runSimulationWith handlers $ do
+
     Simulator.logString @(Builtin MutualBetContracts) "Starting mutual bet"
     shutdown <- PAB.Server.startServerDebug
 
@@ -97,7 +105,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     let oracleParams = OracleParams
                         { opSymbol = Currency.currencySymbol currency
                         , opFees   = 1_500_000
-                        , opSigner = (walletPrivKey oracleWallet)
+                        , opSigner = oraclePrivateKey
                         , opCollateral = 1_000_000
                         }
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
@@ -131,10 +139,10 @@ main = void $ Simulator.runSimulationWith handlers $ do
                     updatedGameId <- waitForOracleUpdated cidOracle   
                     Simulator.logString @(Builtin MutualBetContracts) $ "updated for " ++ show updatedGameId
 
-        Simulator.logString @(Builtin MutualBetContracts) $ "wait 5 seconds"
+        Simulator.logString @(Builtin MutualBetContracts) $ "wait 10 seconds"
 
         -- todo query active games and create contract
-        void $ liftIO $ threadDelay 10_000_000
+        void $ liftIO $ threadDelay 5_000_000
 
 data MutualBetContracts =
     OracleTokenInit
@@ -142,8 +150,8 @@ data MutualBetContracts =
     | MutualBetBettorContract SlotConfig ThreadToken MutualBetParams
     | OracleСontract OracleParams
     deriving (Eq, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
-
+    deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
+    
 instance Pretty MutualBetContracts where
     pretty = viaShow
 
@@ -196,13 +204,16 @@ waitForLastBetOuput cid =
         _           -> Nothing
 
 bettorWallets :: [Wallet]
-bettorWallets = [Wallet i | i <- [1 .. 4]]
+bettorWallets = take 4 knownWallets
 
 mutualBetOwnerWallet :: Wallet
-mutualBetOwnerWallet = Wallet 6
+mutualBetOwnerWallet = knownWallet 6
 
 oracleWallet :: Wallet 
-oracleWallet = Wallet 5
+oracleWallet = knownWallet 5
+
+oraclePrivateKey :: PrivateKey
+oraclePrivateKey = privateKey5
 
 slotCfg :: SlotConfig
 slotCfg = def
