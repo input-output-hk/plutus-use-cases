@@ -26,6 +26,7 @@ import Prelude qualified as Hask
 
 import Data.Bifunctor (first)
 import Data.Coerce (coerce)
+import Data.OpenApi.Schema qualified as OpenApi
 import GHC.Generics (Generic)
 
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
@@ -45,7 +46,7 @@ data AssetClassGov = AssetClassGov
   { acGovCurrencySymbol :: !CurrencySymbol
   , acGovTokenName :: !TokenName
   }
-  deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema)
+  deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema, OpenApi.ToSchema)
 
 instance Eq AssetClassGov where
   {-# INLINEABLE (==) #-}

@@ -7,7 +7,12 @@ module Mlabs.Nft.Contract.Simulator.Handler (
 
 import Prelude
 
-import Control.Monad.Freer (Eff, Member, interpret, type (~>))
+import Control.Monad.Freer (
+  Eff,
+  Member,
+  interpret,
+  type (~>),
+ )
 import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.IO.Class (MonadIO (..))
@@ -15,6 +20,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Default (Default (def))
 import Data.Functor (void)
 import Data.Monoid (Last)
+import Data.OpenApi.Schema qualified as OpenApi
 import Data.Text (Text, pack)
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import GHC.Generics (Generic)
@@ -23,7 +29,10 @@ import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..))
 import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
 import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg (..))
-import Plutus.PAB.Simulator (Simulation, SimulatorEffectHandlers)
+import Plutus.PAB.Simulator (
+  Simulation,
+  SimulatorEffectHandlers,
+ )
 import Plutus.PAB.Simulator qualified as Simulator
 import Plutus.PAB.Types (PABError (..))
 import Plutus.PAB.Webserver.Server qualified as PAB.Server
@@ -42,7 +51,7 @@ data NftContracts
   | -- | we read NftId and instantiate schema for the user actions
     User NftId
   deriving stock (Show, Generic)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
 instance Pretty NftContracts where
   pretty = viaShow

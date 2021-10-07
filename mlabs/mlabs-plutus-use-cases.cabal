@@ -18,6 +18,7 @@ common common-imports
     , extra
     , freer-simple
     , mtl
+    , openapi3
     , playground-common
     , plutus-core
     , plutus-contract

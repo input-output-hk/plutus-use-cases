@@ -22,6 +22,7 @@ import Mlabs.Governance.Contract.Validation (AssetClassGov (..))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Default (Default (def))
 import Data.Monoid (Last (..))
+import Data.OpenApi.Schema qualified as OpenApi
 import Data.Text (Text, pack)
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import GHC.Generics (Generic)
@@ -58,7 +59,7 @@ data GovernanceContracts
   = Bootstrap
   | Governance AssetClassGov
   deriving (Show, Generic)
-  deriving anyclass (FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
 instance Pretty GovernanceContracts where
   pretty = viaShow
