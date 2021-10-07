@@ -31,6 +31,7 @@ import           Data.Text.Lazy                     (toStrict)
 import           Data.Text.Lazy.Builder             (toLazyText)
 import           Ledger                             (Ada, Slot (..), Value, pubKeyHash)
 import qualified Ledger.Ada                         as Ada
+import           Ledger.Crypto                      (PrivateKey, privateKey5)
 import           Ledger.Oracle                      (Observation, SignedMessage, signMessage)
 import           Ledger.TimeSlot                    (SlotConfig)
 import qualified Ledger.TimeSlot                    as TimeSlot
@@ -60,7 +61,7 @@ oracleParams = OracleParams
     { opSymbol = oracleCurrency
     , opFees = 1_000_000
     , opCollateral = 2_000_000
-    , opSigner = walletPrivKey oracleWallet 
+    , opSigner = oraclePrivateKey
     } 
 
 oracleRequestToken :: OracleRequestToken
@@ -120,16 +121,14 @@ bettorContract cur = mutualBetBettor slotCfg cur mutualBetParams
 oracleContract :: Contract (Last OracleContractState) OracleSchema Text ()
 oracleContract = runOracle oracleParams
 
-w1, w2, w3, bettor1, bettor2 :: Wallet
-w1 = Wallet 1
-w2 = Wallet 2
-w3 = Wallet 3
-w4 = Wallet 4
-w5 = Wallet 5
+betOwnerWallet, bettor1, bettor2, oracleWallet :: Wallet
 betOwnerWallet = w1
 bettor1 = w2
 bettor2 = w3
 oracleWallet = w5
+
+oraclePrivateKey :: PrivateKey
+oraclePrivateKey = privateKey5
 
 trace1Bettor1Bet :: Integer
 trace1Bettor1Bet = 10_000_000
@@ -152,13 +151,14 @@ mutualBetSuccessTrace = do
     bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
     _ <- Trace.waitNSlots 1
     let bet1Params = NewBetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
+    Extras.logInfo $ "Make bet Uraaaaaaaaaa " ++ show threadToken
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
-    _ <- Trace.waitNSlots 2
+    _ <- Trace.waitNSlots 10
     let bet2Params = NewBetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = team2Id}
     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
-    void $ Trace.waitNSlots 5
+    void $ Trace.waitNSlots 10
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParams
     void $ Trace.waitNSlots 5

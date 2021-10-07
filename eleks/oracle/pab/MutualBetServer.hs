@@ -18,16 +18,16 @@ import qualified Data.ByteString.Char8 as B
 import           Ledger                (pubKeyHash, getPubKeyHash, pubKeyAddress, PubKey, Address, PubKeyHash)
 import           Network.Wai.Handler.Warp
 import           Types.Game
-import           Wallet.Emulator       (walletPubKey, Wallet (..))
+import           Wallet.Emulator       (walletPubKey, Wallet (..), knownWallet)
 import qualified PlutusTx.Prelude      as PlutusTx
 
 type GamesAPI = "wallet" :> Capture "id" Integer :> Get '[JSON] WalletData
 
 data WalletData = WalletData
-  { walletDataPubKey     :: PubKey
-   , walletDataPubKeyHash :: PubKeyHash
-   , walletDataPubKeyHashStr :: Text
-   , walletDataAddress    :: !Address
+  { walletDataPubKey         :: !PubKey
+   , walletDataPubKeyHash    :: !PubKeyHash
+   , walletDataAddress       :: !Address
+   , walletId                :: !Text
   } deriving Generic
 instance FromJSON WalletData
 instance ToJSON WalletData
@@ -40,11 +40,13 @@ mutualBetServer = wallet
   where 
     wallet:: Integer -> Handler WalletData
     wallet walletId = do
-      let pubKey = walletPubKey . Wallet $ walletId
+
+      let walletInst = knownWallet $ walletId
+          pubKey = walletPubKey walletInst
       return WalletData { walletDataPubKey       = pubKey
                         , walletDataPubKeyHash   = pubKeyHash pubKey
-                        , walletDataPubKeyHashStr = Aeson.encodeByteString $ PlutusTx.fromBuiltin $ getPubKeyHash $ pubKeyHash pubKey
                         , walletDataAddress      = pubKeyAddress pubKey
+                        , walletId               = toUrlPiece walletInst
                         }
 
 mutualBetApp :: Application

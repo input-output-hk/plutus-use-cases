@@ -17,6 +17,7 @@
 module Contracts.Oracle.OnChain
     ( typedOracleValidator
     , oracleValidator
+    , oracleValidatorHash
     , oracleAddress
     , oracleScriptAsShortBs
     , oraclePlutusScript

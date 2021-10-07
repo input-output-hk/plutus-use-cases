@@ -70,6 +70,13 @@ NS   - "Not Started",
 LIVE - "In Progress", 
 FT   - "Match Finished"
 CANC - "Match Cancelled"
+
+switch to live 
+curl -v -X PUT -H "Content-Type: application/json" \
+    -d '{"ugpSatus": "LIVE", "ugpWinnerTeamId": 0}' \
+    http://localhost:8081/games/1
+
+finish with winner
 curl -v -X PUT -H "Content-Type: application/json" \
     -d '{"ugpSatus": "FT", "ugpWinnerTeamId": 55}' \
     http://localhost:8081/games/1
@@ -85,9 +92,9 @@ cabal build mutualbetserver
 cabal exec -- mutualbetserver
 ```
 
-### game server API 
+### mutual bet server API 
 
-1. Wallet info
+1. Wallet info (WalletId, PubKey)
 curl -s http://localhost:8082/wallet/1
 
 ## The Plutus Application Backend (PAB) example
@@ -115,20 +122,24 @@ cabal exec -- bet-pab
 export INSTANCE_ID=...
 curl -s http://localhost:9080/api/new/contract/instance/$INSTANCE_ID/status | jq
 
-2. Running mutual bat contract info and instance id
-curl -s http://localhost:9080/api/contract/instances/wallet/1 | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract.unContractInstanceId'
+2. Get all contract ids and wallet ids
+curl -s http://localhost:9080/api/contract/instances/ | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract, .cicWallet'
 
+3. Running mutual bat contract info and instance id
+export WALLET_ID=76d5e1291d51f16eb442267faccd0ab51a3b0c4a21eb6b8f72d5f0a4ca467189ac5f70a018c6df3f632b48fd8ead1b68f39a44de06f5a5de42a6a131af0f085d44becd56fa30041efea5ff2637205181837dffd03545d3db1c11e6dcbbd3415ce8f85aad41776b99eb62a797b8c5abbe82061e1634efc4c7d5ac6fff3ca94d7f
+curl -s http://localhost:9080/api/contract/instances/wallet/$WALLET_ID | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract'
 
-curl -s http://localhost:9080/api/contract/instances/wallet/1 | jq '.[] | .cicDefinition, .cicContract.unContractInstanceId'
 ### Pab transactions
 1. Make a bet 
-export INSTANCE_ID=...
+export INSTANCE_ID=c2affd9b-3269-414e-9919-891150611639
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data '{"nbpAmount":1500000, "nbpWinnerId": 55}' \
+  --data '{"nbpAmount":3000000, "nbpWinnerId": 55}' \
   http://localhost:9080/api/contract/instance/$INSTANCE_ID/endpoint/bet
 
 2. Get contract state
 curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:9080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
+
+  76d5e1291d51f16eb442267faccd0ab51a3b0c4a21eb6b8f72d5f0a4ca467189ac5f70a018c6df3f632b48fd8ead1b68f39a44de06f5a5de42a6a131af0f085d44becd56fa30041efea5ff2637205181837dffd03545d3db1c11e6dcbbd3415ce8f85aad41776b99eb62a797b8c5abbe82061e1634efc4c7d5ac6fff3ca94d7f

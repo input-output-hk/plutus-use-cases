@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -21,16 +22,29 @@
 module Contracts.Oracle.Types
   where
 
-import           Ledger
-import           Ledger.Oracle       (SignedMessage(..))
-import           Ledger.Value        (TokenName (..), AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
-import           Playground.Contract (Show, FromJSON, Generic, ToJSON, ToSchema)
+import           Cardano.Crypto.Wallet           (xprv, unXPrv, XPrv)
+import           Cardano.Crypto.Wallet.Encrypted (EncryptedKey)
+import           Control.Monad                   (mzero)
+import           Data.Aeson
+import           Data.Aeson.TH   
+import           Data.Aeson.Types
+import           Data.Either                     (fromRight)
+import           Data.Map                        (lookup)
+import           Ledger                          hiding (txOutRefs)
+import           Ledger.Oracle                   (SignedMessage(..))
+import           Ledger.Value                    (TokenName (..), AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
+import           Playground.Contract             (Show, FromJSON, Generic, ToJSON, ToSchema)
+import           Plutus.ChainIndex.Tx            (txOutRefs, ChainIndexTx (..), ChainIndexTxOutputs (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
-import qualified Prelude              as Haskell
-import           Text.Printf         (PrintfArg)
-import           Types.Game          (GameId, TeamId, FixtureStatusShort (..))
+import qualified Prelude                         as Haskell
+import           Text.Printf                     (PrintfArg)
+import           Types.Game                      (GameId, TeamId, FixtureStatusShort (..))
+import           Data.ByteString                 (ByteString)
+import qualified Data.OpenApi.Schema             as OpenApi
+import           Plutus.V1.Ledger.Api            (Credential (PubKeyCredential, ScriptCredential))
 
+deriving instance OpenApi.ToSchema Ada
 data Oracle = Oracle
     { --oSymbol   :: !CurrencySymbol
       oRequestTokenSymbol :: !CurrencySymbol -- Oracle request token currency symbol
@@ -38,7 +52,7 @@ data Oracle = Oracle
     , oOperatorKey        :: !PubKey -- Oracle owner key used to verify signed data
     , oFee                :: !Ada -- Oracle fee amount
     , oCollateral         :: !Ada -- Oracle fee amount
-    } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
+    } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''Oracle
 
@@ -99,11 +113,12 @@ instance Eq OracleData where
              (ovRequestAddress l == ovRequestAddress r) &&
              (ovSignedMessage l PlutusTx.Prelude.== ovSignedMessage r)
 
-instance Eq a => Eq (SignedMessage a) where
-    l == r =
-        osmSignature l == osmSignature r
-        && osmMessageHash l == osmMessageHash r
-        && osmDatum l == osmDatum r
+instance FromJSON XPrv where
+    parseJSON (Object v) = (v .: "encryptedKey" :: Parser ByteString) >>= (\s -> case (xprv s) of Left _ -> mzero; Right r -> return r) 
+      
+instance ToJSON XPrv where 
+   toJSON xprv =
+        object ["encryptedKey" .= unXPrv xprv]
 
 data OracleRedeemer = Update | OracleRedeem
     deriving Show
@@ -112,6 +127,13 @@ PlutusTx.makeIsDataIndexed ''OracleRedeemer [('Update, 0), ('OracleRedeem, 1)]
 data OracleRequestRedeemer = Request | RedeemToken
     deriving Show
 PlutusTx.makeIsDataIndexed ''OracleRequestRedeemer [('Request, 0), ('RedeemToken, 1)]
+
+data OracleParams = OracleParams
+    { opSymbol :: !CurrencySymbol
+    , opFees   :: !Ada
+    , opCollateral :: !Ada
+    , opSigner :: !PrivateKey
+    } deriving (Haskell.Eq, Haskell.Show, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
 {-# INLINABLE oracleRequestTokenName #-}
 oracleRequestTokenName :: TokenName
@@ -123,3 +145,17 @@ oracleValue o f = do
     dh      <- txOutDatum o
     Datum d <- f dh
     PlutusTx.fromBuiltinData d
+
+fromTxOutToChainIndexTxOut :: ChainIndexTx -> TxOut -> Maybe ChainIndexTxOut
+fromTxOutToChainIndexTxOut ChainIndexTx{_citxData} TxOut { txOutAddress, txOutValue, txOutDatumHash } =
+  case addressCredential txOutAddress of
+    PubKeyCredential _ -> pure $ PublicKeyChainIndexTxOut txOutAddress txOutValue
+    ScriptCredential vh ->
+        txOutDatumHash >>=
+        \h -> lookup h _citxData >>=
+        \datum -> pure $ ScriptChainIndexTxOut txOutAddress (Left vh) (Right datum) txOutValue
+
+-- | Get tx output references and tx outputs from tx.
+chainIndexTxOutsWithRef :: ChainIndexTx -> [(Maybe ChainIndexTxOut, TxOutRef)]
+chainIndexTxOutsWithRef tx@ChainIndexTx { _citxOutputs = ValidTx outputs } = zip (map (fromTxOutToChainIndexTxOut tx) outputs) $ txOutRefs tx
+chainIndexTxOutsWithRef ChainIndexTx { _citxOutputs = InvalidTx }          = []

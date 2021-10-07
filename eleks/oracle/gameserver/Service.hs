@@ -64,11 +64,12 @@ updateGameState winnerId status gameId =
 updateGameStatus :: FixtureStatusShort -> Game -> Either String Game 
 updateGameStatus newStatus game = do
     let currentStatus =  game ^. fixture . status . short
-    when (validateGameStatusChanges currentStatus newStatus) (Left $ "Invalid state change from " ++ show currentStatus ++ " to new " ++ show newStatus)
+    when (not $ validateGameStatusChanges currentStatus newStatus) (Left $ "Invalid state change from " ++ show currentStatus ++ " to new " ++ show newStatus)
     return $ game & fixture . status .~ (createFixtureStatus newStatus)
 
 updateGameWinner :: TeamId -> Game -> Either String Game 
 updateGameWinner teamIdParam game
+    | teamIdParam == 0 && game ^. fixture . status . short /= FT = Right game 
     | game ^. teams . home . teamId == teamIdParam = Right $ game & teams . home . winner .~ True
     | game ^. teams . away . teamId == teamIdParam = Right $ game & teams . away . winner .~ True
     | otherwise = Left "Error winner update"
