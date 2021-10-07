@@ -1,4 +1,4 @@
-module Test.NFT.Values where
+module Test.NFT.Script.Values where
 
 import qualified Ledger
 import qualified Ledger.Address         as Ledger

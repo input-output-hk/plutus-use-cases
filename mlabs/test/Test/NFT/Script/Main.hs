@@ -1,9 +1,8 @@
--- TODO: split & move to other modules
-module Test.NFT.Main where
+module Test.NFT.Script.Main where
 
 import Test.Tasty (TestTree, testGroup)
-import Test.NFT.Minting
-import Test.NFT.Dealing
+import Test.NFT.Script.Minting
+import Test.NFT.Script.Dealing
 
 test :: TestTree
 test =

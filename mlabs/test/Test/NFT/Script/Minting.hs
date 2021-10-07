@@ -1,24 +1,17 @@
--- TODO: split & move to other modules
-module Test.NFT.Test where
+module Test.NFT.Script.Minting
+  ( testMinting
+  ) where
 
 import qualified Ledger
 import qualified Mlabs.NFT.Validation          as NFT
 import           PlutusTx.Prelude hiding ((<>))
 import qualified PlutusTx.Prelude as PlutusPrelude
-import           Test.NFT.Values               as TestValues
-import           Test.Tasty                    (TestTree, testGroup, localOption)
+import           Test.NFT.Script.Values               as TestValues
+import           Test.Tasty                    (TestTree, localOption)
 import           Test.Tasty.Plutus.Context
 import           Test.Tasty.Plutus.Script.Unit
 import qualified PlutusTx
 import Data.Semigroup ((<>))
-
-test :: TestTree
-test =
-  testGroup
-    "NFT rewrite script tests"
-    [ testMinting
-    , testUserScript
-    ]
 
 testMinting :: TestTree
 testMinting = localOption (TestCurrencySymbol (Ledger.scriptCurrencySymbol nftPolicy)) $
