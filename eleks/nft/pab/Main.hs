@@ -102,7 +102,7 @@ instance HasDefinitions NFTMarketContracts where
         NFTUserContract market -> SomeBuiltin (NFTMarket.userEndpoints market)
 
 nftMarketFee :: Integer
-nftMarketFee = 2000000
+nftMarketFee = 500000
 
 handlers :: SimulatorEffectHandlers (Builtin NFTMarketContracts)
 handlers =
