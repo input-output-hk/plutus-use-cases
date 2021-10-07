@@ -147,6 +147,8 @@ executable market-simulation
 
 executable market-cli
   main-is: Main.hs
+  other-modules:
+    Test
   hs-source-dirs: cli
   ghc-options:  -threaded -rtsopts "-with-rtsopts=-T"
   default-language: Haskell2010
@@ -159,6 +161,7 @@ executable market-cli
       containers
     , transformers
     , ouroboros-network
+    , cardano-ledger-core
     , transformers-except
     , cardano-ledger-shelley-ma
     , shelley-spec-ledger

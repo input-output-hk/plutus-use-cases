@@ -6,6 +6,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Data.ByteString.Short as SBS
@@ -18,7 +19,7 @@ import Plutus.Contract.Blockchain.MarketPlace (marketValidator, Market (..), Dir
 -- import           Cardano.Api.Byron hiding (SomeByronSigningKey (..))
 import Cardano.Api
 import qualified Cardano.Api.Shelley
-import Cardano.Api.Shelley (fromPlutusData, Lovelace (Lovelace), Tx (ShelleyTx), PlutusScript (PlutusScriptSerialised), toAlonzoData, ProtocolParameters (protocolParamTxFeeFixed), TxBody (ShelleyTxBody))
+import Cardano.Api.Shelley (fromPlutusData, Lovelace (Lovelace), Tx (ShelleyTx), PlutusScript (PlutusScriptSerialised), toAlonzoData, ProtocolParameters (protocolParamTxFeeFixed), TxBody (ShelleyTxBody), Address (ShelleyAddress), toPlutusData)
 
 
 import Ledger (pubKeyHash, datumHash, Datum (Datum), Tx, txId, PubKeyHash (PubKeyHash))
@@ -34,8 +35,8 @@ import Plutus.V1.Ledger.Api
       fromBuiltin,
       toData,
       FromData,
-      CurrencySymbol(CurrencySymbol),
-      TokenName(TokenName), ToData (toBuiltinData), BuiltinData (BuiltinData) )
+      CurrencySymbol(CurrencySymbol, unCurrencySymbol),
+      TokenName(TokenName), ToData (toBuiltinData), BuiltinData (BuiltinData), dataToBuiltinData, DatumHash (DatumHash), fromData )
 import Plutus.V1.Ledger.Value (assetClass, tokenName, AssetClass (AssetClass))
 import qualified Data.Text as T
 import Text.Read (readMaybe, Lexeme (Number))
@@ -89,10 +90,25 @@ import qualified Ledger.AddressMap
 import           Data.Map.Strict (Map)
 import Data.String (IsString)
 import GHC.Exts (IsString(fromString))
-import Shelley.Spec.Ledger.API (Credential(ScriptHashObj, KeyHashObj))
+import Shelley.Spec.Ledger.API (Credential(ScriptHashObj, KeyHashObj), Addr (Addr, AddrBootstrap), KeyPair (sKey))
 import PlutusTx.IsData (FromData(fromBuiltinData))
 import qualified Cardano.Ledger.Mary.Value (Value(Value))
 import qualified Cardano.Ledger.Alonzo.TxBody as LedgerBody
+import GHC.Generics
+import Cardano.Ledger.Address (serialiseAddr, deserialiseAddr)
+import Cardano.Api (valueToList)
+import Data.List (intersperse, intercalate)
+import Data.Ratio
+import GHC.Real (Ratio((:%)))
+import Cardano.Ledger.Keys (KeyHash(KeyHash))
+import Cardano.Ledger.Hashes (ScriptHash(ScriptHash))
+import qualified Data.Text.Lazy.Builder as Text
+import GHC.Num (integerToWord)
+import qualified System.Directory.Internal.Prelude as Set
+import Ledger (TxOut(txOutValue))
+import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Text as JSON
+import Data.Aeson.Text (encodeToLazyText)
 
 
 unHex ::  ToText a => a -> Maybe  ByteString
@@ -134,18 +150,21 @@ maybeToEither e m = case m of
   Nothing -> Left e
   Just a -> Right a
 
+
+defaultMarket =  do
+  let operator :: String="addr_test1vqd4fpkzhpr39d805ylyhsj83wk8dj6dz456mhaez97w7wguunmt6"
+  pkh <-  deserialiseAddress AsShelleyAddress  (toText operator ) >>= addrToMaybePkh'
+  Just Market{
+        mOperator         = pkh
+    ,   mPrimarySaleFee   = 5_000_000
+    ,   mSecondarySaleFee = 3_000_000
+    ,   mAuctionFee       = 2_000_000
+    }
+
+
 main :: IO ()
-defaultMarket :: Market
-defaultMarket = Market{
-  mOperator   = Plutus.PubKeyHash  "1b5486c2b84712b4efa13e4bc2478bac76cb4d1569addfb9117cef39",
-  mAuctionFee =1_000_000 ,  -- 5%
-  mPrimarySaleFee =5_000_000, -- 5%
-  mSecondarySaleFee=2_500_000 -- 2.5%
-}
-
-
-
 main = do
+  market <-unMaybe "Configuration Error: invalid operator address" defaultMarket
   args <- getArgs
   sockEnv <- try $ getEnv "CARDANO_NODE_SOCKET_PATH"
   socketPath <-case  sockEnv of
@@ -162,13 +181,14 @@ main = do
     0 -> printHelp
     _ ->
       case  head args of
-        "sell"-> if length args /= 3 then putStrLn  "Usage \n\tmarket-cli datum sell SellerPubKeyHash CurrencySymbol:TokenName CostInAda" else printSellDatum conn $ tail args
-        "buy"-> if length args /= 3 then putStrLn  "Usage \n\tmarket-cli  buy txHash#UtxoIndex datumHex" else buyToken defaultMarket conn $ tail args
+        "sell"-> if length args /= 3 then putStrLn  "Usage \n\tmarket-cli datum sell SellerPubKeyHash CurrencySymbol:TokenName CostInAda" else placeOnMarket market conn $ tail args
+        "buy"-> if length args /= 3 then putStrLn  "Usage \n\tmarket-cli  buy txHash#UtxoIndex datumHex" else buyToken market conn $ tail args
         "compile" -> do
-          writePlutusScript 42 scriptname (marketScriptPlutus defaultMarket) (marketScriptBS defaultMarket)
+          writePlutusScript 42 scriptname (marketScriptPlutus market) (marketScriptBS market)
           putStrLn $ "Script Written to : " ++ scriptname
-          putStrLn $ "Market  :: " ++ ( show $ marketAddress defaultMarket )
-        "balance" -> runBalanceCommand  conn (map toText $ tail args)
+          putStrLn $ "Market  :: " ++ ( show $ marketAddress market )
+        "ls"  -> listMarket market conn
+        "balance" -> runBalanceCommand conn (map toText $ tail args)
         "connect" -> runConnectionTest conn
         "keygen"  -> runGenerateKey
         "import"  -> runImportKey $ tail args
@@ -182,67 +202,57 @@ main = do
       putStrLn $ "Unknown options " ++show args
 
 
-placeOnMarket conn [tokenStr,costStr] =do
-        lockedToken<- unEither   eitherLockedValue
-        sKey <-getDefaultSignKey
-        ds <- unEither $ saleData (sKeyToPkh sKey)
-        paramQueryResult<-queryNodeLocalState conn Nothing protocolParamsQuery
-        let walletAddr=toAddressAny $ skeyToAddr sKey
-            walletPkh=sKeyToPkh sKey
-            lockedValue= lockedValue <> (lovelaceToValue $ Lovelace 2000000)
-        scriptDataHash <- unEither $ dataHash ds
-        (inputs,change)<-queryPaymentUtxosAndChange  conn lockedValue  walletAddr
-        putStrLn $ "Using txin " ++ show inputs
-        pParam<-case paramQueryResult of
-          Left af -> throw $ SomeError  "Acquire Failure"
-          Right e -> case e of
-            Left em -> throw $ SomeError "Missmatched Era"
-            Right pp -> return pp
-        alonzoWalletAddr<-unMaybe "Address not supported in alonzo era" $ anyAddressInEra AlonzoEra walletAddr
-        let body =
-                (TxBodyContent {
-                  txIns=map (\(a,b)->(a,BuildTxWith $ KeyWitness KeyWitnessForSpending)) inputs ,
-                  txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
-                  txOuts=[
-                      TxOut alonzoWalletAddr (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ Lovelace 5927107)) TxOutDatumHashNone,
-                      TxOut marketCardanoApiAddress (TxOutValue MultiAssetInAlonzoEra lockedValue) (TxOutDatumHash ScriptDataInAlonzoEra scriptDataHash)
-                      ],
-                  txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra $ Lovelace 1000000,
-                  -- txValidityRange = (
-                  --     TxValidityLowerBound ValidityLowerBoundInAlonzoEra 0
-                  --     , TxValidityUpperBound ValidityUpperBoundInAlonzoEra 6969),
-                  txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
-                  txMetadata=TxMetadataNone ,
-                  txAuxScripts=TxAuxScriptsNone,
-                  txExtraScriptData=BuildTxWith TxExtraScriptDataNone ,
-                  txExtraKeyWits=TxExtraKeyWitnessesNone,
-                  txProtocolParams=BuildTxWith (Just  pParam),
-                  txWithdrawals=TxWithdrawalsNone,
-                  txCertificates=TxCertificatesNone,
-                  txUpdateProposal=TxUpdateProposalNone,
-                  txMintValue=TxMintNone,
-                  txScriptValidity=TxScriptValidityNone
-                })
-        case makeTransactionBody $ body of
-          Left tbe ->
-            throw $ SomeError $  "Tx Body has error : " ++  show tbe
-          Right txBody -> do
-            let tx = makeSignedTransaction [ makeShelleyKeyWitness txBody (WitnessPaymentKey sKey) ] txBody -- witness and txBody
-            res <-submitTxToNodeLocal conn $  TxInMode tx AlonzoEraInCardanoMode
-            case res of
-              SubmitSuccess ->  do
-                let v= getTxId txBody
-                putStrLn "Transaction successfully submitted."
-                putStrLn $ "TXId : "++ show  v
-                putStrLn $ "UtxoId       : " ++ show v ++ "#0"
-                putStrLn $ "Datum (JSON) : " ++ dataToJsonString ds
-                putStrLn $ "Datum        : " ++  dataToHex ds
-                putStrLn $ "Datum Hash   : " ++  ( toHexString $ fromBuiltin $ sha3_256 $ toBuiltinBs $ toStrict $ serialise  $ toData ds)
+placeOnMarket market conn [tokenStr,costStr] =do
+    lockedToken<- unEither   eitherLockedValue
+    sKey <-getDefaultSignKey
+    ds <- unEither $ saleData (sKeyToPkh sKey)
+    paramQueryResult<-queryNodeLocalState conn Nothing protocolParamsQuery
+    let walletAddr=toAddressAny $ skeyToAddr sKey
+        walletPkh=sKeyToPkh sKey
+        lockedValue= lockedToken <> (lovelaceToValue $ Lovelace 2000000)
+        scriptData= dataToScriptData ds
+        dataHash=hashScriptData  scriptData
+    walletUtxos <- queryUtxos conn walletAddr
 
-              SubmitFail reason ->
-                case reason of
-                  TxValidationErrorInMode err _eraInMode ->  print err
-                  TxValidationEraMismatch mismatchErr -> print mismatchErr
+    pParam<-case paramQueryResult of
+      Left af -> throw $ SomeError  "Acquire Failure"
+      Right e -> case e of
+        Left em -> throw $ SomeError "Missmatched Era"
+        Right pp -> return pp
+    alonzoWalletAddr<-unMaybe "Address not supported in alonzo era" $ anyAddressInEra AlonzoEra walletAddr
+    let body =
+            (TxBodyContent {
+              txIns=[] ,
+              txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
+              txOuts=[
+                  TxOut marketCardanoApiAddress (TxOutValue MultiAssetInAlonzoEra lockedValue) (TxOutDatumHash ScriptDataInAlonzoEra dataHash)
+                  ],
+              txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra $ Lovelace 0,
+              -- txValidityRange = (
+              --     TxValidityLowerBound ValidityLowerBoundInAlonzoEra 0
+              --     , TxValidityUpperBound ValidityUpperBoundInAlonzoEra 6969),
+              txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
+              txMetadata=TxMetadataNone ,
+              txAuxScripts=TxAuxScriptsNone,
+              txExtraScriptData=BuildTxWith TxExtraScriptDataNone ,
+              txExtraKeyWits=TxExtraKeyWitnessesNone,
+              txProtocolParams=BuildTxWith (Just  pParam),
+              txWithdrawals=TxWithdrawalsNone,
+              txCertificates=TxCertificatesNone,
+              txUpdateProposal=TxUpdateProposalNone,
+              txMintValue=TxMintNone,
+              txScriptValidity=TxScriptValidityNone
+            })
+    let dataJson  =  scriptDataToJson ScriptDataJsonDetailedSchema   scriptData
+    let dataJsonStr :: String = convertText $ encodeToLazyText $ dataJson
+    txId<-balanceAndSubmitBody conn sKey body walletUtxos (lovelaceToValue $ Lovelace 0)
+
+    putStrLn "Transaction successfully submitted."
+    putStrLn $ "\nData (JSON)  : " ++ (dataJsonStr )
+    putStrLn $ "Data         : " ++  dataToHex ds
+    putStrLn $ "Data  Hash   :" ++ (show $ hashScriptData scriptData)
+    putStrLn $ "UtxoId       : " ++  init (tail (show txId)) ++ "#0"
+
   where
     getSignKey content=deserialiseInputAnyOf [FromSomeType (AsSigningKey AsPaymentKey) id] [FromSomeType (AsSigningKey AsPaymentKey) id] content
     _witness=KeyWitness KeyWitnessForSpending
@@ -250,7 +260,7 @@ placeOnMarket conn [tokenStr,costStr] =do
     requiredMemory = 700000000
     requiredSteps  = 700000000
 
-    marketScript=PlutusScript PlutusScriptV1  $ marketScriptPlutus defaultMarket
+    marketScript=PlutusScript PlutusScriptV1  $ marketScriptPlutus market
     marketHash=hashScript   marketScript
     marketCardanoApiAddress=makeShelleyAddressInEra (Testnet (NetworkMagic 1097911063)) scriptCredential NoStakeAddress
     scriptCredential=PaymentCredentialByScript marketHash
@@ -258,8 +268,7 @@ placeOnMarket conn [tokenStr,costStr] =do
                     $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo QueryProtocolParameters
     dummyFee = Just $ Lovelace 0
     tx_mode body =TxInMode ( ShelleyTx ShelleyBasedEraAlonzo body )  AlonzoEraInCardanoMode
-
-    dataToJsonString :: (FromData a,ToJSON a) => a -> String
+    
     dataToJsonString v=   fromText $ decodeUtf8  $ toStrict $ Data.Aeson.encode   $ toJSON v
 
     dataToHex :: (ToData  a) => a -> String
@@ -269,28 +278,18 @@ placeOnMarket conn [tokenStr,costStr] =do
     saleData pkh = case splitByDot  of
       [cHexBytes,tBytes]     ->  case unHexBs cHexBytes of
         Just b  ->  case maybeCost of
-            Just cost -> Right $ DirectSale pkh [] (toAc [b ,tBytes]) ( round (cost * 1000000)) Primary
+            Just cost -> Right $ DirectSale pkh [] (toAc ["" ,""]) ( round (cost * 1000000)) Primary
             _ -> Left $ SomeError $ "Failed to parse \""++costStr++"\" as Ada value"
         _           -> Left $ SomeError $  "Failed to parse \""++ tokenStr ++ "\" : Invalid PolicyId"
       _         -> Left "Invalid format for Native token representation (Too many `.` character)"
 
     -- skey is the owner of the key who can withdraw from market
-    dataHash ::DirectSale  -> Either SomeError (Hash ScriptData)
-    dataHash sData = do
-        let binary= serialise  $   toData  sData
 
-        let hash=  fromStrict  $fromBuiltin $ sha3_256 $ toBuiltinBs $ toStrict  binary
-
-        let cardanoHash=deserialiseFromRawBytes (AsHash AsScriptData) $ toStrict hash
-        case cardanoHash of
-          Nothing -> Left  "Datum Hash conversion from plutus api to cardano api failed"
-          Just ha -> Right ha
-
-    maybeCost:: Maybe Float
+    maybeCost:: Maybe Double
     maybeCost  = readMaybe costStr
 
     eitherLockedValue :: Either SomeError Value
-    eitherLockedValue= case splitByDot  of
+    eitherLockedValue= case C.split  '.' $ encodeUtf8 . T.pack $ tokenStr  of
       [cHexBytes,tBytes]     ->  case unHexBs cHexBytes of
         Just policyBytes  -> case  deserialiseFromRawBytes AsPolicyId  policyBytes of
           Just policyId -> case deserialiseFromRawBytes AsAssetName tBytes of
@@ -311,21 +310,49 @@ placeOnMarket conn [tokenStr,costStr] =do
 
 printSellDatum _ _  = putStrLn $ "Shouldn't happen"
 
+listMarket market conn = do
+  utxos <- queryNodeLocalState   conn Nothing (QueryInEra AlonzoEraInCardanoMode
+                    $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo (QueryUTxO (QueryUTxOByAddress (Set.singleton $ toAddressAny marketCardanoApiAddress)) ))
+  case utxos of
+    Left af -> putStrLn "Acquire failure thing "
+    Right e -> case e of
+      Left em -> putStrLn "Era mismatch !! Either you are in older era or you need to check if there's new version of market-cli"
+      Right (UTxO txouts) ->  mapM_ (putStrLn . toStrings) $ Map.toList txouts
+  where
+    toStrings (TxIn txId (TxIx index),TxOut addr value hash )=    (init $ tail $ show txId) ++ "#" ++  show index ++"\t:\t" ++ (case value of
+       TxOutAdaOnly oasie (Lovelace v) -> show hash ++show v
+       TxOutValue masie va ->  show hash ++intercalate " +" (map vToString $valueToList va ) )
+    vToString (AssetId policy asset,Quantity v)=show v ++ " " ++ (init $ tail $ show  policy) ++ "." ++ (init $ tail $ show  asset)
+    vToString (AdaAssetId, Quantity v) = if v >99999
+      then  case v % 1000000 of { n :% i -> if i==1
+              then show n ++ " Ada"
+              else show n ++"." ++ show i++ " Ada"
+      }
+      else show v ++ " Lovelace"
+    marketScript=PlutusScript PlutusScriptV1  $ marketScriptPlutus market
+    marketHash=hashScript   marketScript
+    marketCardanoApiAddress=makeShelleyAddress (Testnet (NetworkMagic 1097911063)) scriptCredential NoStakeAddress
+    scriptCredential=PaymentCredentialByScript marketHash
 
 buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
-  directSale  <- unEither  (saleData datumStr)
+  consumedData <- unEither $ decodeJsonAsScriptData datumStr
+  directSale  <- unMaybe "Failed to convertData to DirectSale"  (fromData $ toPlutusData consumedData)
   paymentAsset <-unEither $ dsAssetId directSale
   sKey <-getDefaultSignKey
-  operatorAddr <- unMaybe "Market pubKeyHash couldn't be converted to Cardano API address" $ pkhToMaybeAddr mOperator
-  txInData <- unEither $ saleData datumStr
+  operatorAddr <- unMaybe "Operator  pubKeyHash couldn't be converted to Cardano API address" $  pkhToMaybeAddr (Testnet (NetworkMagic 1097911063)) mOperator
+  UTxO uMap<-queryUtxos conn $ toAddressAny marketCardanoApiAddress
   paramQueryResult<-queryNodeLocalState conn Nothing protocolParamsQuery
-  let walletAddr=toAddressAny $ skeyToAddr sKey
+  -- let ourUtxos=Map.filterWithKey (k -> txin -> Bool) (Map k a)
+  txIn<-unEither parseTxIn
+  let myUtxos=Map.filterWithKey  (\k v-> txIn == k) uMap
+      walletAddr=toAddressAny $ skeyToAddr sKey
       walletPkh=sKeyToPkh sKey
-      toPartyUtxo (pkh@(PubKeyHash binary),v) =case pkhToMaybeAddr pkh of
+      toPartyUtxo (pkh@(PubKeyHash binary),v) =case pkhToMaybeAddr (Testnet (NetworkMagic 1097911063)) pkh of
         Just addr -> Right $ singletonTxOut addr paymentAsset (Quantity v)
         _ -> Left $ SomeError $ "Party pubKeyHash couldn't be converted to Cardano API address :" ++ toHexString (fromBuiltin binary)
+  (txin,txout)<-if  null myUtxos then throw (SomeError $ "Utxos Not found " ++ show txIn) else pure  $ head $ Map.toList myUtxos
   partyUtxos<-unEither $ mapM toPartyUtxo ( dsPaymentValueList market directSale)
-  (inputs,change) <-queryPaymentUtxosAndChange conn (lovelaceToValue  $ Lovelace 1) walletAddr
+  walletUtxos <- queryUtxos conn  $toAddressAny $ skeyToAddr sKey
   pParam<-case paramQueryResult of
     Left af -> throw $ SomeError  "Acquire Failure"
     Right e -> case e of
@@ -334,7 +361,7 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
   alonzoWalletAddr<-unMaybe "Address not supported in alonzo era" $ anyAddressInEra AlonzoEra walletAddr
   let body =
           (TxBodyContent {
-            txIns=map (\(a,b)->(a,BuildTxWith $ ScriptWitness ScriptWitnessForSpending $  plutusScriptWitness txInData)) inputs ,
+            txIns=[(txin,BuildTxWith $ ScriptWitness ScriptWitnessForSpending $  plutusScriptWitness directSale)] ,
             txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
             txOuts=
                 singletonTxOut operatorAddr paymentAsset (Quantity $ dsFee market directSale)
@@ -356,40 +383,30 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
             txMintValue=TxMintNone,
             txScriptValidity=TxScriptValidityNone
           })
-  case makeTransactionBody $ body of
-    Left tbe ->
-      throw $ SomeError $  "Tx Body has error : " ++  (show tbe)
-    Right txBody -> do
-      let tx = makeSignedTransaction [ makeShelleyKeyWitness txBody (WitnessPaymentKey sKey) ] (txBody) -- witness and txBody
-      res <-submitTxToNodeLocal conn $  TxInMode tx AlonzoEraInCardanoMode
-      case res of
-        SubmitSuccess ->  do
-          let v= getTxId txBody
-          putStrLn "Transaction successfully submitted."
-          putStrLn $ "TXId : "++ (show $ v)
-        SubmitFail reason ->
-          case reason of
-            TxValidationErrorInMode err _eraInMode ->  print err
-            TxValidationEraMismatch mismatchErr -> print mismatchErr
+      consumedValue=case txout of { TxOut aie tov todh -> case tov of
+                                      TxOutAdaOnly oasie lo -> lovelaceToValue lo
+                                      TxOutValue masie va -> va }
+  balanceAndSubmitBody conn sKey body walletUtxos consumedValue 
+    >>=printTxSubmited
 
   where
     getSignKey content=deserialiseInputAnyOf [FromSomeType (AsSigningKey AsPaymentKey) id] [FromSomeType (AsSigningKey AsPaymentKey) id] content
     _witness=KeyWitness KeyWitnessForSpending
 
-    requiredMemory = 700000000
-    requiredSteps  = 700000000
+    requiredMemory = 100_000_0000
+    requiredSteps  = 100_000_0000
 
-    marketScript=PlutusScript PlutusScriptV1  $ marketScriptPlutus defaultMarket
+    marketScript=PlutusScript PlutusScriptV1  $ marketScriptPlutus market
     marketHash=hashScript   marketScript
-    marketCardanoApiAddress::AddressInEra AlonzoEra
-    marketCardanoApiAddress=makeShelleyAddressInEra (Testnet (NetworkMagic 1097911063)) scriptCredential NoStakeAddress
+    -- marketCardanoApiAddress::AddressInEra AlonzoEra
+    marketCardanoApiAddress=makeShelleyAddress (Testnet (NetworkMagic 1097911063)) scriptCredential NoStakeAddress
     scriptCredential=PaymentCredentialByScript marketHash
 
     plutusScriptWitness ::ToData a=> a-> ScriptWitness  WitCtxTxIn AlonzoEra
     plutusScriptWitness  d = PlutusScriptWitness
                             PlutusScriptV1InAlonzo
                             PlutusScriptV1
-                            (marketScriptPlutus defaultMarket)
+                            (marketScriptPlutus market)
                             (ScriptDatumForTxIn $ fromPlutusData $ toData d) -- script data
                             (fromPlutusData $ toData Buy) -- script redeemer
                             (ExecutionUnits requiredSteps requiredMemory)
@@ -397,15 +414,6 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
                     $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo QueryProtocolParameters
     dummyFee = Just $ Lovelace 0
     tx_mode body =TxInMode ( ShelleyTx ShelleyBasedEraAlonzo body )  AlonzoEraInCardanoMode
-
-    saleData:: String -> Either SomeError DirectSale
-    saleData dataStr =do
-      case head dataStr of
-        '{' -> maybeToEither "JSON couldn't be parsed to DirectSale structure" (Data.Aeson.decode (fromString dataStr ))
-        _    -> do
-            bs<-maybeToEither  "Invalid Hex string for datum" (unHex dataStr)
-            maybeToEither "Binary Data can't be parsed as directSale"  $ fromBuiltinData (toBuiltinData   $  toBuiltin  bs)
-
 
     singletonTxOutValue:: AssetId -> Quantity -> TxOutValue AlonzoEra
     singletonTxOutValue  a v =TxOutValue MultiAssetInAlonzoEra (valueFromList  [ (a , v)])
@@ -415,15 +423,25 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
 
 
     dsAssetId::DirectSale -> Either SomeError AssetId
-    dsAssetId DirectSale{dsAsset=AssetClass (CurrencySymbol c, TokenName t)}=
-      case  deserialiseFromRawBytes AsPolicyId  (fromBuiltin c) of
-          Just policyId -> case deserialiseFromRawBytes AsAssetName (fromBuiltin t) of
-            Just assetName -> Right $ AssetId policyId assetName
-            _ -> Left $ SomeError $ "TokenName couldn't be converrted to CardanoAPI type for value : 0x"++   toHexString (fromBuiltin t)
-          _ -> Left $ SomeError  $ "Policy Id  couldn't converted to CardanoAPI type  for value : 0x"++ toHexString (fromBuiltin t)
-
+    dsAssetId DirectSale{dsAsset=AssetClass (CurrencySymbol  c, TokenName t)}=
+      if BS.null  $ fromBuiltin c 
+      then Right AdaAssetId  
+      else 
+        case  deserialiseFromRawBytes AsPolicyId  (fromBuiltin  c) of
+            Just policyId -> case deserialiseFromRawBytes AsAssetName (fromBuiltin t) of
+              Just assetName -> Right $ AssetId policyId assetName
+              _ -> Left $ SomeError $ "TokenName couldn't be converrted to CardanoAPI type for value : 0x"++   toHexString (fromBuiltin t)
+            _ -> Left $ SomeError  $ "Policy Id  couldn't converted to CardanoAPI type  for value : 0x"++ toHexString (fromBuiltin t)
     toBuiltinBs :: ByteString -> BuiltinByteString
     toBuiltinBs  = toBuiltin
+
+    parseTxIn = case break (== '#') utxoId of
+      (s1, '#':v) -> do
+        txidBs <- maybeToEither "Invalid Hex value in TxId" (unHex s1)
+        txid<-maybeToEither "Invalid TxId hex" (deserialiseFromRawBytes AsTxId txidBs)
+        (index::Integer) <- maybeToEither "TxIndex cant be parsed as string " $ readMaybe v
+        Right $  TxIn txid $ TxIx (fromInteger index)
+      _           ->Left "UtxoId must be in format of TxId#Index"
 
 
 marketScriptPlutus :: Market -> PlutusScript PlutusScriptV1
@@ -452,7 +470,6 @@ writePlutusScript scriptnum filename scriptSerial scriptSBS =
 
 runPayCommand::LocalNodeConnectInfo CardanoMode -> [String] -> IO()
 runPayCommand conn [strAddr,lovelaceStr] =do
-  paramQueryResult<-queryNodeLocalState conn Nothing protocolParamsQuery
   receiverAddr<- unMaybe "Address Unrecognized " $ deserialiseAddress AsAddressAny $ toText strAddr
   receiverAddrAlonzo <- unMaybe "Receiver address not supported in alonzo era" $ anyAddressInEra AlonzoEra receiverAddr
   sKey <-getDefaultSignKey
@@ -460,55 +477,32 @@ runPayCommand conn [strAddr,lovelaceStr] =do
   paymentDigit ::Integer <-unMaybe "Invalid value for lovelace" $ readMaybe lovelaceStr
   utxos<-queryUtxos conn  $toAddressAny $ skeyToAddr sKey
 
+
   let paymentValue = lovelaceToValue $ Lovelace   paymentDigit
+  let unbalancedBody=TxBodyContent {
+        txIns=[],
+        txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
+        txOuts=[TxOut receiverAddrAlonzo (TxOutValue MultiAssetInAlonzoEra paymentValue) TxOutDatumHashNone],
+          -- [TxOut alonzoAddr (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ Lovelace 5927107)) TxOutDatumHashNone ],
+        txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra  ( Lovelace 0),
+        txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
+        -- txValidityRange = (TxValidityLowerBound  ValidityLowerBoundInAlonzoEra 38698728,TxValidityUpperBound ValidityUpperBoundInAlonzoEra  38699728),
+        txMetadata=TxMetadataNone ,
+        txAuxScripts=TxAuxScriptsNone,
+        txExtraScriptData=BuildTxWith TxExtraScriptDataNone ,
+        txExtraKeyWits=TxExtraKeyWitnessesNone,
+        txProtocolParams=BuildTxWith Nothing,
+        txWithdrawals=TxWithdrawalsNone,
+        txCertificates=TxCertificatesNone,
+        txUpdateProposal=TxUpdateProposalNone,
+        txMintValue=TxMintNone,
+        txScriptValidity=TxScriptValidityNone
+      }
 
-  -- putStrLn $ "Using txin " ++ show _in
-  -- putStrLn $ "Spending " ++  show out
-  pParam<-case paramQueryResult of
-    Left af -> throw $ SomeError  "Acquire Failure"
-    Right e -> case e of
-      Left em -> throw $ SomeError "Missmatched Era"
-      Right pp -> return pp
-  putStrLn "Something's fishy" 
-  let balancedBody = mkBalancedBody pParam  utxos (TxBodyContent {
-                      txIns=[],
-                      txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
-                      txOuts=[TxOut receiverAddrAlonzo (TxOutValue MultiAssetInAlonzoEra paymentValue) TxOutDatumHashNone],
-                        -- [TxOut alonzoAddr (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ Lovelace 5927107)) TxOutDatumHashNone ],
-                      txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra  ( Lovelace 0),
-                      txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
-                      -- txValidityRange = (TxValidityLowerBound  ValidityLowerBoundInAlonzoEra 38698728,TxValidityUpperBound ValidityUpperBoundInAlonzoEra  38699728),
-                      txMetadata=TxMetadataNone ,
-                      txAuxScripts=TxAuxScriptsNone,
-                      txExtraScriptData=BuildTxWith TxExtraScriptDataNone ,
-                      txExtraKeyWits=TxExtraKeyWitnessesNone,
-                      txProtocolParams=BuildTxWith (Just  pParam),
-                      txWithdrawals=TxWithdrawalsNone,
-                      txCertificates=TxCertificatesNone,
-                      txUpdateProposal=TxUpdateProposalNone,
-                      txMintValue=TxMintNone,
-                      txScriptValidity=TxScriptValidityNone
-                    })   (lovelaceToValue $ Lovelace 0) receiverAddrAlonzo
+  txId<-balanceAndSubmitBody conn sKey unbalancedBody utxos (lovelaceToValue $ Lovelace 0)
+  putStrLn $ "Transaction Submitted " ++ show txId
+  
 
-      --End Balance transaction body with fee
-  case  balancedBody of
-    Left tbe ->
-      throw $ SomeError $  "Coding Error : Tx Body has error : " ++  (show tbe)
-    Right txBody -> do
-      let ins=case txBody of { ShelleyTxBody sbe (LedgerBody.TxBody ins _ _ _ _ _ _ _ _ _ _ _ _ ) scs tbsd m_ad tsv -> ins }
-      putStrLn "Using inputs"
-      mapM_ print ins
-      let tx = makeSignedTransaction [ makeShelleyKeyWitness txBody (WitnessPaymentKey sKey) ] (txBody) -- witness and txBody
-      res <-submitTxToNodeLocal conn $  TxInMode tx AlonzoEraInCardanoMode
-      case res of
-        SubmitSuccess ->  do
-          let v= getTxId txBody
-          putStrLn "Transaction successfully submitted."
-          putStrLn $ "TXId : "++ (show $ v)
-        SubmitFail reason ->
-          case reason of
-            TxValidationErrorInMode err _eraInMode ->  print err
-            TxValidationEraMismatch mismatchErr -> print mismatchErr
 
   where
     _witness=KeyWitness KeyWitnessForSpending
@@ -671,23 +665,31 @@ sKeyToPkh skey= PubKeyHash (toBuiltin  $  serialiseToRawBytes  vkh)
   where
     vkh=verificationKeyHash   $ getVerificationKey  skey
 
-pkhToMaybeAddr:: PubKeyHash -> Maybe (AddressInEra  AlonzoEra)
-pkhToMaybeAddr (PubKeyHash pkh) =do
+pkhToMaybeAddr :: IsShelleyBasedEra era =>NetworkId -> Plutus.PubKeyHash -> Maybe (AddressInEra era)
+pkhToMaybeAddr network (Plutus.PubKeyHash pkh) =do
     key <- vKey
-    Just $ makeShelleyAddressInEra  Mainnet (PaymentCredentialByKey key)  NoStakeAddress
+    Just $ makeShelleyAddressInEra  network (PaymentCredentialByKey key)  NoStakeAddress
   where
     paymentCredential _vkey=PaymentCredentialByKey _vkey
     vKey= deserialiseFromRawBytes (AsHash AsPaymentKey) $fromBuiltin pkh
 
--- addrToPkh :: AddressAny  -> Either SomeError PubKeyHash
--- addrToPkh addr =   do
---     bs <- maybeBinary
---     Right $ PubKeyHash $  toBuiltin bs
---   where
---     maybeBinary :: Either SomeError  ByteString
---     maybeBinary= case addr of
---       AddressByron ad -> Left "Deverloer doesn't know how to get PubKeyHash of byron address"
---       AddressShelley ad -> case ad of { ShelleyAddress net cre sr -> Right (  serialiseToRawBytes  cre) }
+addrToMaybePkh :: Cardano.Api.Shelley.Address ShelleyAddr -> Maybe PubKeyHash
+addrToMaybePkh (ShelleyAddress net cre sr) = do
+  _hash <-hash
+  pure $ PubKeyHash $ toBuiltin _hash
+  where
+    hash= case cre of
+      ScriptHashObj _ ->Nothing
+      KeyHashObj kh -> case kh of { KeyHash ha -> Just $ toStrict $serialise ha }
+
+addrToMaybePkh' :: Cardano.Api.Shelley.Address ShelleyAddr -> Maybe PubKeyHash
+addrToMaybePkh' (ShelleyAddress net cre sr) = do
+  _hash <-hash
+  pure $ PubKeyHash $ toBuiltin _hash
+  where
+    hash= case cre of
+      ScriptHashObj _ ->Nothing
+      KeyHashObj kh -> case kh of { KeyHash ha -> unHex $ init $ tail$ show  ha }
 
 runGenerateKey :: IO ()
 runGenerateKey = do
@@ -711,37 +713,103 @@ runImportKey [path] = do
 runImportKey _ = throw $ SomeError "import: To many arguments"
 
 valueLte :: Value -> Value -> Bool
-valueLte _v1 _v2= any (\(aid,Quantity q) -> q > lookup aid) (valueToList _v1) -- do we find anything that's greater than q
+valueLte v1 v2= not $ any (\(aid,Quantity q) -> q > lookup aid) (valueToList v1) -- do we find anything that's greater than q
   where
     lookup x= case Map.lookup x v2Map of
       Nothing -> 0
       Just (Quantity v) -> v
-    v2Map=Map.fromList $ valueToList _v2
+    v2Map=Map.fromList $ valueToList v2
     -- v1Bundle= case case valueToNestedRep _v1 of { ValueNestedRep bundle -> bundle} of
     --   [ValueNestedBundleAda v , ValueNestedBundle policy assetMap] ->LovelaceToValue v
     --   [ValueNestedBundle policy assetMap]
 
 nullValue :: Value -> Bool
-nullValue v = not $ any (\(aid,Quantity q) -> q>0) (valueToList v)
+nullValue v = not $ any (\(aid,Quantity q) -> q /= 0) (valueToList v)
+
+positiveValue :: Value -> Bool
+positiveValue v = not $ any (\(aid,Quantity q) -> q<0) (valueToList v)
+
+-- parseStrToValue :: Either SomeError Value
+-- parseStrToValue valueStr=  splitAt "+" valueStr 
+--   where 
+--   stringTokens=splitAt "+" valueStr
+--   splitter valueStr=case C.split  '.' $ encodeUtf8 . T.pack $ valueStr  of
+--     [cHexBytes,tBytes]     ->  case unHexBs cHexBytes of
+--       Just policyBytes  -> case  deserialiseFromRawBytes AsPolicyId  policyBytes of
+--         Just policyId -> case deserialiseFromRawBytes AsAssetName tBytes of
+--           Just assetName -> Right  $ valueFromList  [ (AssetId policyId assetName , 1)]
+--           _ -> Left $ SomeError $ "TokenName couldn't be converrted to CardanoAPI type for value "++ show tBytes
+--         _ -> Left $ SomeError  $ "Policy Id  couldn't converted to CardanoAPI type  for value "++ show policyBytes
+--       _       -> Left $SomeError $ "Policy id is not hex string given value is :"++ show cHexBytes
+--     _         -> Left "Too many `.` character in tokenName"
 
 
+dataToScriptData :: (ToData a1) => a1 -> ScriptData
+dataToScriptData sData =  fromPlutusData $ toData sData
 
 
+decodeJsonAsScriptData :: String -> Either SomeError ScriptData
+decodeJsonAsScriptData jsonStr=do 
+  v<-maybeToEither "Invalid json string" decodeJson
+  case scriptDataFromJson ScriptDataJsonDetailedSchema  v of
+    Left sdje -> case sdje of 
+      ScriptDataJsonSchemaError va sdjse -> Left $ SomeError $  "Wrong schema" ++ show sdjse
+      ScriptDataRangeError va sdre -> Left $ SomeError $  "Invalid data " ++ show sdre
+    Right sd -> Right sd
+  where 
+    decodeJson=JSON.decode $fromString jsonStr 
 
-
-mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr = 
+mkBalancedBody :: ProtocolParameters
+  -> UTxO era
+  -> TxBodyContent BuildTx AlonzoEra
+  -> Value
+  -> AddressInEra AlonzoEra
+  -> Either TxBodyError (TxBody AlonzoEra)
+mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr =
     do
-      let (inputs1,change1) =minimize txouts startingChange
-          bodyContent1=modifiedBody inputs1 change1 startingFee
-      txBody1 <-makeTransactionBody bodyContent1
 
-      let fee1= evaluateTransactionFee pParams txBody1 1 0
-          (inputs2,change2)= minimize txouts change1
+      -- first iteration
+      let (inputs1,change1) =minimize txouts (startingChange <> negLovelace startingFee)
+          bodyContent1=modifiedBody inputs1 change1 startingFee
+      txBody1 <- unEither $ case makeTransactionBody bodyContent1 of
+        Left tbe -> Left $ SomeError $ show tbe
+        Right tb -> Right $ tb
+
+      let modifiedChange1=change1 <> negLovelace  fee1 <> lovelaceToValue startingFee
+          fee1= evaluateTransactionFee pParams txBody1 1 0
+          (inputs2,change2)= minimize txouts modifiedChange1
           bodyContent2 =modifiedBody inputs2 change2 fee1
-      makeTransactionBody bodyContent2
-    where
+       -- if selected utxos are  sufficient to pay transaction fees, just use the fee and make txBody
+       -- otherwide, reselect txins and recalculate fee. it's very improbable that the we will need more txouts now
+      if positiveValue modifiedChange1
+        then makeTransactionBody (modifiedBody inputs1 modifiedChange1 fee1 )
+        else do
+          txbody2 <- makeTransactionBody bodyContent2
+          let fee2=evaluateTransactionFee pParams txbody2 1 0
+              modifiedChange2= change2 <> negLovelace fee2 <> lovelaceToValue fee1
+          if fee2 == fee1
+            then Right  txbody2
+            else  makeTransactionBody (modifiedBody inputs2 modifiedChange2 fee2)
+
+  where
+  performBalance txbody  change fee= do
+            let (inputs,change') =minimize txouts (change <> negLovelace fee)
+                bodyContent=modifiedBody inputs change' fee
+            txBody1<-makeTransactionBody bodyContent
+
+            let modifiedChange1=change' <> negLovelace  fee' <> lovelaceToValue fee
+                fee'= evaluateTransactionFee pParams txBody1 1 0
+                (inputs2,change2)= minimize txouts modifiedChange1
+                newBody =modifiedBody inputs2 change2 fee'
+            if fee' == fee
+              then Right (bodyContent,change,fee)
+              else Right (newBody, modifiedChange1,fee')
+
+
 
   startingFee=Lovelace $ toInteger $ protocolParamTxFeeFixed pParams
+
+  negLovelace v=negateValue $ lovelaceToValue v
 
   txouts=  Map.toList utxoMap
   utxosWithWitness (txin,txout) = (txin, BuildTxWith  $ KeyWitness KeyWitnessForSpending)
@@ -751,14 +819,24 @@ mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr =
     []     -> ([] ,remainingChange)
     (txIn,txOut):subUtxos -> if val`valueLte` remainingChange
             then minimize subUtxos newChange -- remove the current txOut from the list
-            else (case minimize subUtxos remainingChange of { (tos, va) -> ((txIn,BuildTxWith $ KeyWitness KeyWitnessForSpending):tos,va) }) -- include txOut in result
+            else (case minimize subUtxos remainingChange of { (tos, va) -> (txBodyIn :tos,va) }) -- include txOut in result
           where
             val = txOutValueToValue $ txOutValue  txOut
             newChange= remainingChange <> negateValue val
+            txBodyIn =(txIn,BuildTxWith $ KeyWitness KeyWitnessForSpending)
 
-  startingChange=(negateValue $ foldMap (txOutValueToValue  . txOutValue ) (txOuts txbody))  --outputs
-                  <> (if  null (txIns txbody) then lovelaceToValue startingFee else inputSum) -- inputs
-                  <> (foldMap (txOutValueToValue  . txOutValue) $  Map.elems utxoMap)
+  minimize' utxos remainingChange = (doMap,remainingChange)
+    where 
+      doMap=map (\(txin,txout) -> (tobodyIn txin)) utxos
+      tobodyIn _in=(_in,BuildTxWith $ KeyWitness KeyWitnessForSpending)
+      val  out= txOutValueToValue $ txOutValue  out
+
+
+
+
+  startingChange=(negateValue $ foldMap (txOutValueToValue  . txOutValue ) (txOuts txbody))  --already existing outputs
+                  <> (if  null (txIns txbody) then mempty else inputSum) -- already existing inputs
+                  <> (foldMap (txOutValueToValue  . txOutValue) $  Map.elems utxoMap) -- sum of all the available utxos
 
   utxoToTxOut (UTxO map)=Map.toList map
 
@@ -777,7 +855,7 @@ mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr =
             txInsCollateral=txInsCollateral txbody,
             txOuts=  if nullValue change
                   then txOuts txbody
-                  else TxOut  walletAddr (TxOutValue MultiAssetInAlonzoEra change) TxOutDatumHashNone :txOuts txbody ,
+                  else txOuts txbody ++ [ TxOut  walletAddr (TxOutValue MultiAssetInAlonzoEra change) TxOutDatumHashNone]  ,
               -- [TxOut alonzoAddr (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ Lovelace 5927107)) TxOutDatumHashNone ],
             txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra  fee,
             -- txValidityRange=(TxValidityNoLowerBound,TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra),
@@ -793,4 +871,48 @@ mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr =
             txMintValue=txMintValue txbody,
             txScriptValidity=txScriptValidity txbody
           })
+
+
+
+submitEitherBalancedBody conn eitherBalancedBody skey =
+      --End Balance transaction body with fee
+  case  eitherBalancedBody of
+    Left tbe ->
+      throw $ SomeError $  "Coding Error : Tx Body has error : " ++  (show tbe)
+    Right txBody -> do
+      let (ins,outs)=case txBody of { ShelleyTxBody sbe (LedgerBody.TxBody ins outs _ _ _ _ _ _ _ _ _ _ _ ) scs tbsd m_ad tsv -> (ins,outs) }
+          tx = makeSignedTransaction [ makeShelleyKeyWitness txBody (WitnessPaymentKey skey) ] (txBody) -- witness and txBody
+      res <-submitTxToNodeLocal conn $  TxInMode tx AlonzoEraInCardanoMode
+      case res of
+        SubmitSuccess ->  pure $ getTxId txBody
+        SubmitFail reason ->
+          case reason of
+            TxValidationErrorInMode err _eraInMode ->  throw$ SomeError $ show  err
+            TxValidationEraMismatch mismatchErr -> throw $ SomeError $ show  mismatchErr
+
+
+balanceAndSubmitBody conn sKey body utxos sum  = do
+  pParam <-case txProtocolParams body of { 
+    BuildTxWith m_pp -> case m_pp of
+        Just pp -> pure pp  
+        Nothing -> do
+          paramQueryResult<-queryNodeLocalState conn Nothing $
+            QueryInEra AlonzoEraInCardanoMode
+                  $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo QueryProtocolParameters
+          case paramQueryResult of
+            Left af -> throw $ SomeError  "Acquire Failure"
+            Right e -> case e of
+              Left em -> throw $ SomeError "Missmatched Era"
+              Right pp -> return pp
+    }
+  let balancedBody = mkBalancedBody pParam  utxos body sum   $  skeyToAddrInEra sKey
+  submitEitherBalancedBody conn  balancedBody sKey
+
+printTxSubmited txid=putStrLn $ "Transaction Submitted :"++ ( init $ tail $ show txid)
+marketCardanoApiAddress :: IsShelleyBasedEra era => NetworkId -> Market -> AddressInEra era
+marketCardanoApiAddress network market =makeShelleyAddressInEra network scriptCredential NoStakeAddress
+  where
+  marketScript =PlutusScript PlutusScriptV1  $ marketScriptPlutus market
+  marketHash=hashScript   marketScript
+  scriptCredential=PaymentCredentialByScript marketHash
 
