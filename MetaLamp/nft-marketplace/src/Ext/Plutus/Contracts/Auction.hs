@@ -15,40 +15,37 @@
 {-# LANGUAGE TypeOperators         #-}
 module Ext.Plutus.Contracts.Auction where
 -- TODO: move from Ext to the common code
-import           Control.Lens                                     (makeClassyPrisms)
-import           Data.Aeson                                       (FromJSON,
-                                                                   ToJSON)
-import           Data.Monoid                                      (Last (..))
-import           Data.Semigroup.Generic                           (GenericSemigroupMonoid (..))
-import           GHC.Generics                                     (Generic)
-import           Ledger                                           (Ada,
-                                                                   PubKeyHash,
-                                                                   Slot, Value)
+import           Control.Lens                        (makeClassyPrisms)
+import           Data.Aeson                          (FromJSON, ToJSON)
+import           Data.Monoid                         (Last (..))
+import           Data.Semigroup.Generic              (GenericSemigroupMonoid (..))
+import           GHC.Generics                        (Generic)
+import           Ledger                              (Ada, PubKeyHash, Slot,
+                                                      Value)
 import qualified Ledger
-import qualified Ledger.Ada                                       as Ada
-import qualified Ledger.Constraints                               as Constraints
-import           Ledger.Constraints.TxConstraints                 (TxConstraints)
-import qualified Ledger.Interval                                  as Interval
-import qualified Ledger.Typed.Scripts                             as Scripts
-import           Ledger.Typed.Tx                                  (TypedScriptTxOut (..))
-import           Ledger.Value                                     (AssetClass)
+import qualified Ledger.Ada                          as Ada
+import qualified Ledger.Constraints                  as Constraints
+import           Ledger.Constraints.TxConstraints    (TxConstraints)
+import qualified Ledger.Interval                     as Interval
+import qualified Ledger.Typed.Scripts                as Scripts
+import           Ledger.Typed.Tx                     (TypedScriptTxOut (..))
+import           Ledger.Value                        (AssetClass)
+import qualified Plutus.Abstract.Percentage          as Percentage
+import qualified Plutus.Abstract.PercentageInterface as Percentage
 import           Plutus.Contract
-import           Plutus.Contract.StateMachine                     hiding
-                                                                  (mkValidator,
-                                                                   typedValidator)
-import qualified Plutus.Contract.StateMachine                     as SM
-import           Plutus.Contract.Util                             (loopM)
-import qualified Plutus.Contracts.Currency                        as Currency
+import           Plutus.Contract.StateMachine        hiding (mkValidator,
+                                                      typedValidator)
+import qualified Plutus.Contract.StateMachine        as SM
+import           Plutus.Contract.Util                (loopM)
+import qualified Plutus.Contracts.Currency           as Currency
 import qualified PlutusTx
 import           PlutusTx.Prelude
-import qualified Prelude                                          as Haskell
-import qualified Plutus.Abstract.Percentage as Percentage
-import qualified Plutus.Abstract.PercentageInterface as Percentage
+import qualified Prelude                             as Haskell
 
-data AuctionFee = 
-    AuctionFee 
+data AuctionFee =
+    AuctionFee
     { afAuctionOperator :: PubKeyHash
-    , afAuctionFee  :: Percentage.Percentage
+    , afAuctionFee      :: Percentage.Percentage
     }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
@@ -60,10 +57,10 @@ PlutusTx.makeLift ''AuctionFee
 -- | Definition of an auction
 data AuctionParams
     = AuctionParams
-        { apOwner               :: PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
-        , apAsset               :: Value -- ^ The asset itself. This value is going to be locked by the auction script output.
-        , apEndTime             :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
-        , apAuctionFee       :: Maybe AuctionFee
+        { apOwner      :: PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
+        , apAsset      :: Value -- ^ The asset itself. This value is going to be locked by the auction script output.
+        , apEndTime    :: Ledger.POSIXTime -- ^ When the time window for bidding ends.
+        , apAuctionFee :: Maybe AuctionFee
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON)
@@ -162,7 +159,7 @@ auctionTransition getAdditionalPayoutConstraints params@AuctionParams{..} state@
             in Just (constraints, newState)
 
         (Ongoing h@HighestBid{highestBidder, highestBid}, Payout) ->
-            let 
+            let
                 additionalConstraints = getAdditionalPayoutConstraints params state
                 constraints =
                     Constraints.mustValidateIn (Interval.from apEndTime) -- When the auction has ended,

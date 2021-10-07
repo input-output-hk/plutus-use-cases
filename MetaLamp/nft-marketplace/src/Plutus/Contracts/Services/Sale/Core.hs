@@ -27,25 +27,25 @@ import qualified Ledger.Ada                   as Ada
 import qualified Ledger.Constraints           as Constraints
 import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Value
+import           Plutus.Abstract.Percentage   (Percentage)
+import qualified Plutus.Abstract.Percentage   as Percentage
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Abstract.Percentage      (Percentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap            as AssocMap
 import           PlutusTx.Prelude             hiding (Semigroup (..))
 import           Prelude                      (Semigroup (..))
 import qualified Prelude                      as Haskell
 import qualified Schema
-import qualified Plutus.Abstract.Percentage as Percentage
 
 type Saler = PubKeyHash
 type Buyer = PubKeyHash
 type LovelacePrice = Integer
 
-data SaleFee = 
-    SaleFee 
+data SaleFee =
+    SaleFee
     { sfSaleOperator :: !PubKeyHash
-    , sfSaleFee  :: !Percentage.Percentage
+    , sfSaleFee      :: !Percentage.Percentage
     }
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
@@ -56,11 +56,11 @@ PlutusTx.makeLift ''SaleFee
 
 data Sale =
   Sale
-    { saleProtocolToken   :: !ThreadToken,
-      salePrice           :: !LovelacePrice,
-      saleValue           :: !Value,
-      saleOwner           :: !Saler,
-      saleFee            :: Maybe SaleFee
+    { saleProtocolToken :: !ThreadToken,
+      salePrice         :: !LovelacePrice,
+      saleValue         :: !Value,
+      saleOwner         :: !Saler,
+      saleFee           :: Maybe SaleFee
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

@@ -190,8 +190,8 @@ deriving newtype instance Schema.ToSchema DiffMilliSeconds
 
 data StartAnAuctionParams =
   StartAnAuctionParams {
-    saapItemId       :: UserItemId,
-    saapDuration     :: DiffMilliSeconds
+    saapItemId   :: UserItemId,
+    saapDuration :: DiffMilliSeconds
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)

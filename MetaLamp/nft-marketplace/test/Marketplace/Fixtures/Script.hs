@@ -9,8 +9,8 @@ import           Ledger                                       (Address,
 import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures.Wallet                  as Fixtures
+import           Plutus.Abstract.Percentage                   (Percentage (..))
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
-import           Plutus.Abstract.Percentage                      (Percentage (..))
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKey)
 

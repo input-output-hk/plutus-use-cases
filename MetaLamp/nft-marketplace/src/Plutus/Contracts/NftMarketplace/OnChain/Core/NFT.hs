@@ -5,10 +5,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-specialise #-}
 {-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
@@ -24,22 +24,22 @@ import qualified Data.Aeson                     as J
 import qualified Data.ByteArray                 as BA
 import qualified Data.List                      as HL
 import qualified Data.Text                      as T
+import           Ext.Plutus.Contracts.Auction   (AuctionFee, AuctionParams (..))
 import qualified GHC.Generics                   as Haskell
 import           Ledger
 import qualified Ledger.Constraints             as Constraints
 import qualified Ledger.Typed.Scripts           as Scripts
 import qualified Ledger.Value                   as V
+import           Plutus.Abstract.Percentage     (Percentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
+import qualified Plutus.Contract.StateMachine   as SM
 import qualified Plutus.Contracts.Services.Sale as Sale
-import           Plutus.Abstract.Percentage        (Percentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap              as AssocMap
 import           PlutusTx.Prelude               hiding (Semigroup (..))
 import           Prelude                        (Semigroup (..))
 import qualified Prelude                        as Haskell
-import qualified Plutus.Contract.StateMachine                     as SM
-import Ext.Plutus.Contracts.Auction (AuctionParams(..), AuctionFee)
 -- TODO can't use POSIXTime directly because of custom JSON instances defined in Plutus:
 -- generated purescript type has generic instances
 type POSIXTimeT = Integer
@@ -60,11 +60,11 @@ getAuctionStateToken = aThreadToken
 
 -- TODO: move outside here (check do we really need Auction and Ext.Plutus.Contracts.Auction.AuctionParams types.)
 data Auction = Auction {
-    aThreadToken         :: ThreadToken,
-    aOwner               :: PubKeyHash,
-    aAsset               :: Value,
-    aEndTime             :: POSIXTimeT,
-    aAuctionProfit       :: Maybe AuctionFee
+    aThreadToken   :: ThreadToken,
+    aOwner         :: PubKeyHash,
+    aAsset         :: Value,
+    aEndTime       :: POSIXTimeT,
+    aAuctionProfit :: Maybe AuctionFee
   }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

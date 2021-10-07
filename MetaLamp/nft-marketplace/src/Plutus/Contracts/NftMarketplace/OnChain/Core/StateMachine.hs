@@ -25,13 +25,13 @@ import           Ledger
 import qualified Ledger.Constraints                                       as Constraints
 import qualified Ledger.Typed.Scripts                                     as Scripts
 import qualified Ledger.Value                                             as V
+import           Plutus.Abstract.Percentage                               (Percentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
 import qualified Plutus.Contracts.Services.Sale                           as Sale
-import           Plutus.Abstract.Percentage                                  (Percentage)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
 import           PlutusTx.Prelude                                         hiding

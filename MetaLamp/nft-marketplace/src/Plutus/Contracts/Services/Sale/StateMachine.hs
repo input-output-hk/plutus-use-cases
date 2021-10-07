@@ -21,18 +21,18 @@ import qualified Ledger.Ada                          as Ada
 import qualified Ledger.Constraints                  as Constraints
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Ledger.Value
+import           Plutus.Abstract.Percentage          (Percentage (..))
+import qualified Plutus.Abstract.Percentage          as Percentage
+import qualified Plutus.Abstract.PercentageInterface as Percentage
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Services.Sale.Core
-import           Plutus.Abstract.Percentage             (Percentage (..))
-import qualified Plutus.Abstract.Percentage             as Percentage
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                   as AssocMap
 import           PlutusTx.Prelude                    hiding (Semigroup (..))
 import           Prelude                             (Semigroup (..), (/))
 import qualified Prelude                             as Haskell
 import qualified Schema
-import qualified Plutus.Abstract.PercentageInterface as Percentage
 
 data SaleRedeemer
   = Buy Buyer
@@ -99,7 +99,7 @@ saleStateMachine sale = StateMachine
     }
     where
       getTransition (Just fee) = transition (saleWithFeeBuyConstraints fee) sale
-      getTransition Nothing = transition saleWithoutFeeBuyConstraints sale
+      getTransition Nothing    = transition saleWithoutFeeBuyConstraints sale
 
 {-# INLINABLE mkSaleValidator #-}
 mkSaleValidator :: Sale -> SaleDatum -> SaleRedeemer -> ScriptContext -> Bool
