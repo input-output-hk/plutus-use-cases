@@ -7,6 +7,7 @@ module Mlabs.NFT.Validation (
   UserAct (..),
   asRedeemer,
   txPolicy,
+  mkTxPolicy,
   txScrAddress,
   txValHash,
   nftCurrency,
@@ -195,11 +196,11 @@ mintPolicy stateAddr oref nid =
       `PlutusTx.applyCode` PlutusTx.liftCode oref
       `PlutusTx.applyCode` PlutusTx.liftCode nid
 
-{-# INLINEABLE mKTxPolicy #-}
+{-# INLINEABLE mkTxPolicy #-}
 
 -- | A validator script for the user actions.
-mKTxPolicy :: DatumNft -> UserAct -> ScriptContext -> Bool
-mKTxPolicy datum act ctx =
+mkTxPolicy :: DatumNft -> UserAct -> ScriptContext -> Bool
+mkTxPolicy datum act ctx =
   traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." correctDatum
     && traceIfFalse "Datum is not  present." correctDatum'
     && traceIfFalse "New Price cannot be negative." (setPositivePrice act)
@@ -348,7 +349,7 @@ instance ValidatorTypes NftTrade where
 txPolicy :: TypedValidator NftTrade
 txPolicy =
   mkTypedValidator @NftTrade
-    $$(PlutusTx.compile [||mKTxPolicy||])
+    $$(PlutusTx.compile [||mkTxPolicy||])
     $$(PlutusTx.compile [||wrap||])
   where
     wrap = wrapValidator @DatumNft @UserAct
