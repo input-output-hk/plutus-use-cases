@@ -5,6 +5,7 @@ module Test.NFT.Script.Dealing
 import Test.Tasty (TestTree)
 import PlutusTx.Prelude hiding ((<>))
 
+import qualified Mlabs.NFT.Types as NFT
 import qualified Ledger
 import qualified Mlabs.NFT.Validation          as NFT
 import           PlutusTx.Prelude hiding ((<>))
@@ -16,29 +17,35 @@ import           Test.Tasty.Plutus.Script.Unit
 import qualified PlutusTx
 import Data.Semigroup ((<>))
 import qualified Plutus.V1.Ledger.Ada as Ada
+import PlutusTx.IsData.Class (ToData (toBuiltinData))
 
 testDealing :: TestTree
 testDealing = withValidator "Test NFT dealing validator" dealingValidator $ do
   shouldValidate "Can buy with ADA" validBuyData validBuyContext
 
+initialAuthorDatum :: NFT.DatumNft
+initialAuthorDatum = NFT.DatumNft { dNft'id = TestValues.testNftId
+                         , dNft'share = 1 % 2
+                         , dNft'author = NFT.UserId $ TestValues.authorPkh
+                         , dNft'owner = NFT.UserId $ TestValues.authorPkh
+                         , dNft'price = Just 100
+                         }
+
 validBuyData :: TestData 'ForSpending
 validBuyData = SpendingTest datum redeemer val
   where
-    datum = NFT.DatumNft { dNft'id = TestValues.testNftId
-                         , dNft'share = 1 % 2
-                         , dNft'author = error ()
-                         , dNft'owner = error ()
-                         , dNft'price = Just 100
-                         }
+    datum = initialAuthorDatum
 
     redeemer = NFT.BuyAct { act'bid = 100
                           , act'newPrice = Nothing
                           , act'cs = Ada.adaSymbol
                           }
-    val = error ()
+    val = TestValues.adaValue 100
 
 validBuyContext :: ContextBuilder 'ForSpending
-validBuyContext = error ()
+validBuyContext = (addDatum initialAuthorDatum)
+  <> (input $ Input (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneAda)
+  <> (paysToWallet TestValues.userOneWallet) TestValues.oneNft
 
 dealingValidator :: Ledger.Validator
 dealingValidator =

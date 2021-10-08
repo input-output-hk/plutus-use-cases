@@ -61,7 +61,10 @@ oneNft :: Value.Value
 oneNft = Value.singleton (Ledger.scriptCurrencySymbol nftPolicy) testTokenName 1
 
 oneAda :: Value.Value
-oneAda = Ada.lovelaceValueOf 1000000
+oneAda = Ada.lovelaceValueOf 1_000_000
+
+adaValue :: Integer -> Value.Value
+adaValue = Ada.lovelaceValueOf . (* 1_000_000)
 
 testStateAddr :: Ledger.Address
 testStateAddr = NFT.txScrAddress

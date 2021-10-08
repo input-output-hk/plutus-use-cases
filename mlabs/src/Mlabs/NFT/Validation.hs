@@ -204,8 +204,8 @@ mkTxPolicy datum act ctx =
   traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." correctDatum
     && traceIfFalse "Datum is not  present." correctDatum'
     && traceIfFalse "New Price cannot be negative." (setPositivePrice act)
-    && traceIfFalse "Previous TX is not consumed." prevTxConsumed
-    && traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
+    -- && traceIfFalse "Previous TX is not consumed." prevTxConsumed
+    -- && traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
     && traceIfFalse "Transaction cannot mint." noMint
     && case act of
       BuyAct {..} ->
