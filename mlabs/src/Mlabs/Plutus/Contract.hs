@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Useful utils for contracts
 module Mlabs.Plutus.Contract (
   readDatum,

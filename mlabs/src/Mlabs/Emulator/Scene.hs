@@ -5,7 +5,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Set of balances for tests
 module Mlabs.Emulator.Scene (
@@ -17,15 +16,21 @@ module Mlabs.Emulator.Scene (
   coinDiff,
 ) where
 
-import PlutusTx.Prelude
+import Prelude (Semigroup, Monoid, mempty, (<>))
+import PlutusTx.Prelude hiding (Semigroup, Monoid, mempty,(<>))
 
--- import Data.Monoid (mempty)
 
 import Control.Applicative (Alternative (..))
 
 import Data.List qualified as L
 import Data.Map qualified as M
-import Plutus.Contract.Test hiding (tx)
+import Plutus.Contract.Test
+    ( Wallet,
+      (.&&.),
+      assertNoFailedTransactions,
+      valueAtAddress,
+      walletFundsChange,
+      TracePredicate )
 import Plutus.V1.Ledger.Address (Address)
 import Plutus.V1.Ledger.Value (Value)
 import Plutus.V1.Ledger.Value qualified as Value
@@ -55,12 +60,6 @@ instance Semigroup Scene where
 
 instance Monoid Scene where
   mempty = Scene mempty mempty Nothing
-
-instance Semigroup (M.Map Wallet Value) where
-  (<>) = M.union
-
-instance Monoid (M.Map Wallet Value) where
-  mempty = M.empty
 
 -- | Creates scene with single user in it that owns so many coins, app owns zero coins.
 owns :: Wallet -> [(Coin, Integer)] -> Scene
