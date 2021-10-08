@@ -92,7 +92,7 @@ isFinal _          = False
 {-# INLINABLE saleStateMachine #-}
 saleStateMachine :: Sale -> StateMachine SaleDatum SaleRedeemer
 saleStateMachine sale = StateMachine
-    { smTransition  = getTransition $ saleFee sale
+    { smTransition  = getTransition $ saleOperatorFee sale
     , smFinal       = isFinal
     , smCheck       = \d r ctx -> True
     , smThreadToken = Just $ saleProtocolToken sale

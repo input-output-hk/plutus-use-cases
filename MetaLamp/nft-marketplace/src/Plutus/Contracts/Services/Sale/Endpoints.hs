@@ -45,7 +45,8 @@ import           Text.Printf                                              (print
 data OpenSaleParams =
   OpenSaleParams {
     ospSalePrice :: Core.LovelacePrice,
-    ospSaleValue :: Value
+    ospSaleValue :: Value,
+    ospSaleFee   :: Maybe Core.SaleFee
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -54,8 +55,8 @@ PlutusTx.unstableMakeIsData ''OpenSaleParams
 PlutusTx.makeLift ''OpenSaleParams
 
 -- | Starts the Sale protocol and mints protocol NFT
-openSale :: OpenSaleParams -> Marketplace.Marketplace -> Contract w s Text Core.Sale
-openSale OpenSaleParams {..}  Marketplace.Marketplace {..} = do
+openSale :: OpenSaleParams -> Contract w s Text Core.Sale
+openSale OpenSaleParams {..} = do
     pkh <- getOwnPubKey
     saleToken <- mapError (T.pack . Haskell.show @SMContractError) $ getThreadToken
     let sale = Core.Sale
@@ -63,7 +64,7 @@ openSale OpenSaleParams {..}  Marketplace.Marketplace {..} = do
                   salePrice         = ospSalePrice,
                   saleValue         = ospSaleValue,
                   saleOwner         = pkh,
-                  saleFee           = Just $ Core.SaleFee marketplaceOperator marketplaceSaleFee
+                  saleOperatorFee   = ospSaleFee
                 }
     let client = Core.saleClient sale
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing ospSaleValue

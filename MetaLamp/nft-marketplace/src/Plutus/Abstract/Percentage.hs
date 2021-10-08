@@ -10,6 +10,7 @@ import qualified Data.Aeson   as J
 import           GHC.Generics (Generic)
 import qualified PlutusTx
 import           Prelude      hiding (Fractional)
+import qualified Schema
 
 type Fractional = (Integer, Integer)
 
@@ -17,7 +18,7 @@ newtype Percentage =
       Percentage
       {getPercentage :: Fractional}
       deriving stock (Eq, Show, Generic)
-      deriving anyclass (J.ToJSON, J.FromJSON)
+      deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
 PlutusTx.makeLift ''Percentage
 PlutusTx.unstableMakeIsData ''Percentage

@@ -48,11 +48,13 @@ data SaleFee =
     , sfSaleFee      :: !Percentage.Percentage
     }
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-    deriving anyclass (J.ToJSON, J.FromJSON)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
 
 PlutusTx.unstableMakeIsData ''SaleFee
 
 PlutusTx.makeLift ''SaleFee
+
+Lens.makeClassy_ ''SaleFee
 
 data Sale =
   Sale
@@ -60,7 +62,7 @@ data Sale =
       salePrice         :: !LovelacePrice,
       saleValue         :: !Value,
       saleOwner         :: !Saler,
-      saleFee           :: Maybe SaleFee
+      saleOperatorFee   :: Maybe SaleFee
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
@@ -69,4 +71,3 @@ PlutusTx.unstableMakeIsData ''Sale
 
 PlutusTx.makeLift ''Sale
 
-Lens.makeClassy_ ''Sale

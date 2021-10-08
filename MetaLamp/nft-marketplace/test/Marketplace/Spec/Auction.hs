@@ -78,7 +78,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should close auction and pay pay marketplace operator a saleFee"
-        marketplaceOperatorFeeCheck
+        (marketplaceOperatorFeeCheck .&&. sellerProfitWithFeeCheck)
         buyOnAuctionTrace
     ],
   testGroup
@@ -112,7 +112,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should close bundle auction and pay marketplace operator a saleFee"
-        marketplaceOperatorFeeCheckB
+        (marketplaceOperatorFeeCheckB .&&. sellerProfitWithFeeCheckB)
         buyOnAuctionTraceB
     ]]
 
@@ -373,6 +373,11 @@ marketplaceOperatorFeeCheck =
   -- 25000000 * 2.5 /100 = 625000 - fee by complete auction
   -- 100000 - fee by minting token
 
+sellerProfitWithFeeCheck :: TracePredicate
+sellerProfitWithFeeCheck =
+  walletFundsChange Fixtures.userWallet $ lovelaceValueOf 24275000
+  -- 25000000 - 725000 = 24275000
+
 marketplaceOperatorFeeCheckB :: TracePredicate
 marketplaceOperatorFeeCheckB =
   walletFundsChange Fixtures.ownerWallet $ lovelaceValueOf 1175000
@@ -380,3 +385,7 @@ marketplaceOperatorFeeCheckB =
   -- 100000 * 2 = 200000 - fee by minting 2 tokens
   -- 100000 - fee by bundling
 
+sellerProfitWithFeeCheckB :: TracePredicate
+sellerProfitWithFeeCheckB =
+  walletFundsChange Fixtures.userWallet $ lovelaceValueOf 33825000
+  -- 35000000 - 1175000 = 33825000

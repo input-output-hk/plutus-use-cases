@@ -108,7 +108,7 @@ Lens.makeClassy_ ''OpenSaleParams
 
 -- | The user opens sale for his NFT
 openSale :: Core.Marketplace -> OpenSaleParams -> Contract w s Text ()
-openSale marketplace OpenSaleParams {..} = do
+openSale marketplace@Core.Marketplace{..} OpenSaleParams {..} = do
     let internalId = toInternalId ospItemId
     nftStore <- marketplaceStore marketplace
     saleValue <- case internalId of
@@ -118,9 +118,10 @@ openSale marketplace OpenSaleParams {..} = do
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
     let openSaleParams = Sale.OpenSaleParams {
                   ospSalePrice = ospSalePrice,
-                  ospSaleValue = saleValue
+                  ospSaleValue = saleValue,
+                  ospSaleFee = Just $ Sale.SaleFee marketplaceOperator marketplaceSaleFee
               }
-    sale <- Sale.openSale openSaleParams marketplace
+    sale <- Sale.openSale openSaleParams
 
     let client = Core.marketplaceClient marketplace
     let lot = Left sale
