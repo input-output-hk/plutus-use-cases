@@ -10,11 +10,11 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Mlabs.Governance.Contract.Simulator.Handler (
-    GovernanceContracts(..)
-  , handlers
-  , wallets
-  , govTokenName
-  , govAmount
+  GovernanceContracts (..),
+  handlers,
+  wallets,
+  govTokenName,
+  govAmount,
 ) where
 
 import Control.Monad (forM_, when)
@@ -36,7 +36,7 @@ import GHC.Generics (Generic)
 import Control.Monad.Freer (interpret)
 import Plutus.Contract (Contract, EmptySchema, awaitTxConfirmed, mapError, ownPubKey, submitTx, tell)
 
-import Ledger (PubKeyHash, CurrencySymbol, pubKeyHash, txId)
+import Ledger (CurrencySymbol, PubKeyHash, pubKeyHash, txId)
 import Ledger.Constraints (mustPayToPubKey)
 import Mlabs.Utils.Wallet (walletFromNumber)
 import Plutus.Contracts.Currency as Currency

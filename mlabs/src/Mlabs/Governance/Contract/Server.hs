@@ -19,22 +19,22 @@ import Data.Text (Text)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash (..), pubKeyHash)
 import Ledger.Tx (
-    ChainIndexTxOut
-  , TxOut (..)
-  , TxOutRef
-  , ciTxOutDatum
-  , ciTxOutValue
-  , toTxOut
-  , txId
-  , txOutPubKey
-  )
+  ChainIndexTxOut,
+  TxOut (..),
+  TxOutRef,
+  ciTxOutDatum,
+  ciTxOutValue,
+  toTxOut,
+  txId,
+  txOutPubKey,
+ )
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (
-    Datum (..)
-  , Redeemer (..)
-  , fromBuiltinData
-  , toBuiltinData
-  )
+  Datum (..),
+  Redeemer (..),
+  fromBuiltinData,
+  toBuiltinData,
+ )
 import Plutus.V1.Ledger.Value (Value (..), valueOf)
 import Text.Printf (printf)
 

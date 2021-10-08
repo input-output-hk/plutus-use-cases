@@ -1,9 +1,9 @@
 module Mlabs.Deploy.Governance (
-    serializeGovernance
-  ) where
+  serializeGovernance,
+) where
 
 import PlutusTx.Prelude hiding (error)
-import Prelude (IO, FilePath)
+import Prelude (FilePath, IO)
 
 import Mlabs.Governance.Contract.Validation
 
@@ -24,10 +24,10 @@ serializeGovernance = do
           "GOV"
       validator = validatorScript $ govInstance acGov
       policy = xGovMintingPolicy acGov
-      
-      -- alicePkh = "4cebc6f2a3d0111ddeb09ac48e2053b83b33b15f29182f9b528c6491"
-      -- xGovCurrSymbol = scriptCurrencySymbol policy
-      -- fstDatum = GovernanceDatum alicePkh xGovCurrSymbol
+
+  -- alicePkh = "4cebc6f2a3d0111ddeb09ac48e2053b83b33b15f29182f9b528c6491"
+  -- xGovCurrSymbol = scriptCurrencySymbol policy
+  -- fstDatum = GovernanceDatum alicePkh xGovCurrSymbol
 
   validatorToPlutus (outDir ++ "/GovScript.plutus") validator
   policyToPlutus (outDir ++ "/GovPolicy.plutus") policy

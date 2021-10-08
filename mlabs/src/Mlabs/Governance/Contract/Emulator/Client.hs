@@ -1,9 +1,9 @@
 -- | Client functions to test contracts in EmulatorTrace monad.
 module Mlabs.Governance.Contract.Emulator.Client (
-    callDeposit
-  , callWithdraw
-  , callProvideRewards
-  , queryBalance
+  callDeposit,
+  callWithdraw,
+  callProvideRewards,
+  queryBalance,
 ) where
 
 import Control.Monad (void)

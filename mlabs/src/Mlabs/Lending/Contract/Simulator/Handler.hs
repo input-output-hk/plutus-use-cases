@@ -19,6 +19,7 @@ import Prelude
 -- ! import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Aeson (FromJSON, ToJSON)
+
 -- ! import Data.Default (Default (def))
 import Data.Functor (void)
 import Data.Monoid (Last)
@@ -26,11 +27,13 @@ import Data.OpenApi.Schema qualified as OpenApi
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import GHC.Generics (Generic)
 import Plutus.Contract (Contract, EmptySchema)
+
 -- ! import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Effects.Contract.Builtin (
-    Builtin
--- !  , SomeBuiltin (..)
-  )
+  Builtin,
+  -- !  , SomeBuiltin (..)
+ )
+
 -- ! import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
 -- ! import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg (..))
 import Plutus.PAB.Simulator (
@@ -38,6 +41,7 @@ import Plutus.PAB.Simulator (
   SimulatorEffectHandlers,
  )
 import Plutus.PAB.Simulator qualified as Simulator
+
 -- ! import Plutus.PAB.Types (PABError (..))
 import Plutus.PAB.Webserver.Server qualified as PAB.Server
 import Plutus.V1.Ledger.Value (CurrencySymbol)
@@ -70,7 +74,7 @@ instance Pretty LendexContracts where
 type InitContract = Contract (Last CurrencySymbol) EmptySchema Server.LendexError ()
 
 -- FIXME
--- handleLendexContracts lendexId initHandler = 
+-- handleLendexContracts lendexId initHandler =
 -- handleLendexContracts ::
 --   ( Member (Error PABError) effs
 --   , Member (LogMsg (PABMultiAgentMsg (Builtin LendexContracts))) effs

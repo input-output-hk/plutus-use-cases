@@ -5,7 +5,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Set of balances for tests

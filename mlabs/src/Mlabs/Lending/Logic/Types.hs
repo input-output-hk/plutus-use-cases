@@ -97,17 +97,18 @@ data LendingPool = LendingPool
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
-instance Eq LendingPool where 
+instance Eq LendingPool where
   {-# INLINEABLE (==) #-}
-  (LendingPool r1 us1 c1 cm1 hr1 as1 tos1) == (LendingPool r2 us2 c2 cm2 hr2 as2 tos2) = 
-    and [ r1 == r2
-        , us1 == us2
-        , c1 == c2
-        , cm1 == cm2
-        , hr1 == hr2
-        , as1 == as2
-        , tos1 == tos2
-        ]
+  (LendingPool r1 us1 c1 cm1 hr1 as1 tos1) == (LendingPool r2 us2 c2 cm2 hr2 as2 tos2) =
+    and
+      [ r1 == r2
+      , us1 == us2
+      , c1 == c2
+      , cm1 == cm2
+      , hr1 == hr2
+      , as1 == as2
+      , tos1 == tos2
+      ]
 
 {- | Reserve of give coin in the pool.
  It holds all info on individual collaterals and deposits.
@@ -131,14 +132,15 @@ data Reserve = Reserve
 
 instance Eq Reserve where
   {-# INLINEABLE (==) #-}
-  (Reserve w1 r1 lt1 lb1 t1 i1) == (Reserve w2 r2 lt2 lb2 t2 i2) = 
-    and [ w1  == w2
-        , r1  == r2
-        , lt1 == lt2
-        , lb1 == lb2
-        , t1  == t2
-        , i1  == i2
-        ]
+  (Reserve w1 r1 lt1 lb1 t1 i1) == (Reserve w2 r2 lt2 lb2 t2 i2) =
+    and
+      [ w1 == w2
+      , r1 == r2
+      , lt1 == lt2
+      , lb1 == lb2
+      , t1 == t2
+      , i1 == i2
+      ]
 
 data StartParams = StartParams
   { -- | supported coins with ratios to ADA
@@ -181,10 +183,10 @@ data CoinRate = CoinRate
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
-instance Eq CoinRate where 
+instance Eq CoinRate where
   {-# INLINEABLE (==) #-}
-  CoinRate v1 lut1 == CoinRate v2 lut2 = 
-    v1 == v2 && lut1 == lut2 
+  CoinRate v1 lut1 == CoinRate v2 lut2 =
+    v1 == v2 && lut1 == lut2
 
 -- | Parameters for calculation of interest rates.
 data ReserveInterest = ReserveInterest
@@ -199,13 +201,14 @@ data ReserveInterest = ReserveInterest
 
 instance Eq ReserveInterest where
   {-# INLINEABLE (==) #-}
-  (ReserveInterest im1 lr1 li1 ni1 lut1) == (ReserveInterest im2 lr2 li2 ni2 lut2) = 
-    and [ im1  == im2
-        , lr1  == lr2
-        , li1  == li2
-        , ni1  == ni2
-        , lut1 == lut2
-        ]
+  (ReserveInterest im1 lr1 li1 ni1 lut1) == (ReserveInterest im2 lr2 li2 ni2 lut2) =
+    and
+      [ im1 == im2
+      , lr1 == lr2
+      , li1 == li2
+      , ni1 == ni2
+      , lut1 == lut2
+      ]
 
 data InterestModel = InterestModel
   { im'optimalUtilisation :: !Rational
@@ -218,12 +221,13 @@ data InterestModel = InterestModel
 
 instance Eq InterestModel where
   {-# INLINEABLE (==) #-}
-  (InterestModel ou1 s11 s21 b1) == (InterestModel ou2 s12 s22 b2) = 
-    and [ ou1 == ou2
-        , s11 == s12
-        , s21 == s22
-        , b1  == b2
-        ]
+  (InterestModel ou1 s11 s21 b1) == (InterestModel ou2 s12 s22 b2) =
+    and
+      [ ou1 == ou2
+      , s11 == s12
+      , s21 == s22
+      , b1 == b2
+      ]
 
 defaultInterestModel :: InterestModel
 defaultInterestModel =
@@ -305,11 +309,12 @@ data User = User
 
 instance Eq User where
   {-# INLINEABLE (==) #-}
-  (User ws1 lut1 h1) == (User ws2 lut2 h2) = 
-    and [ ws1  == ws2
-        , lut1 == lut2
-        , h1   == h2
-        ]
+  (User ws1 lut1 h1) == (User ws2 lut2 h2) =
+    and
+      [ ws1 == ws2
+      , lut1 == lut2
+      , h1 == h2
+      ]
 
 -- | Health ratio for user per borrow
 type Health = Map Coin Rational
@@ -342,14 +347,15 @@ data Wallet = Wallet
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
-instance Eq Wallet where 
+instance Eq Wallet where
   {-# INLINEABLE (==) #-}
-  Wallet d1 c1 b1 sb1 == Wallet d2 c2 b2 sb2 = 
-    and [ d1 == d2
-        , c1 == c2
-        , b1 == b2
-        ,sb1 == sb2
-        ]
+  Wallet d1 c1 b1 sb1 == Wallet d2 c2 b2 sb2 =
+    and
+      [ d1 == d2
+      , c1 == c2
+      , b1 == b2
+      , sb1 == sb2
+      ]
 
 {-# INLINEABLE defaultWallet #-}
 defaultWallet :: Wallet
@@ -496,10 +502,11 @@ data SupportedCurrency = SupportedCurrency
 instance Eq SupportedCurrency where
   {-# INLINEABLE (==) #-}
   SupportedCurrency u1 t1 er1 == SupportedCurrency u2 t2 er2 =
-    and [ u1 == u2
-        , t1 == t2
-        , er1 == er2
-        ]
+    and
+      [ u1 == u2
+      , t1 == t2
+      , er1 == er2
+      ]
 
 {- | Query returns the user's funds currently locked in the current Lendex,
  including both underlying tokens and aTokens of multiple kinds. Also returns
@@ -524,15 +531,16 @@ data UserBalance = UserBalance
 
 instance Eq UserBalance where
   {-# INLINEABLE (==) #-}
-  (UserBalance id1 td1 tc1 tb1 cb1 f1) == (UserBalance id2 td2 tc2 tb2 cb2 f2) = 
-    and [ id1 == id2
-        , td1 == td2
-        , tc1 == tc2
-        , tb1 == tb2
-        , cb1 == cb2
-        , f1  == f2
-        ]
-    
+  (UserBalance id1 td1 tc1 tb1 cb1 f1) == (UserBalance id2 td2 tc2 tb2 cb2 f2) =
+    and
+      [ id1 == id2
+      , td1 == td2
+      , tc1 == tc2
+      , tb1 == tb2
+      , cb1 == cb2
+      , f1 == f2
+      ]
+
 data InsolventAccount = InsolventAccount
   { -- | User Id
     ia'id :: !UserId
@@ -544,10 +552,11 @@ data InsolventAccount = InsolventAccount
 
 instance Eq InsolventAccount where
   {-# INLINEABLE (==) #-}
-  (InsolventAccount id1 ic1) == (InsolventAccount id2 ic2) = 
-    and [ id1 == id2
-        , ic1 == ic2
-        ]
+  (InsolventAccount id1 ic1) == (InsolventAccount id2 ic2) =
+    and
+      [ id1 == id2
+      , ic1 == ic2
+      ]
 
 -- If anot                                                                      her query is added, extend this data type
 
@@ -564,9 +573,9 @@ instance Eq QueryRes where
   {-# INLINEABLE (==) #-}
   QueryResAllLendexes ls1 == QueryResAllLendexes ls2 =
     ls1 == ls2
-  QueryResSupportedCurrencies scs1 == QueryResSupportedCurrencies scs2 = 
+  QueryResSupportedCurrencies scs1 == QueryResSupportedCurrencies scs2 =
     scs1 == scs2
-  QueryResCurrentBalance b1 == QueryResCurrentBalance b2 = 
+  QueryResCurrentBalance b1 == QueryResCurrentBalance b2 =
     b1 == b2
   QueryResInsolventAccounts ias1 == QueryResInsolventAccounts ias2 =
     ias1 == ias2

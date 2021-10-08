@@ -2,32 +2,33 @@ module Mlabs.Deploy.Utils (
   validatorToPlutus,
   policyToPlutus,
   writeData,
-  toSchemeJson
+  toSchemeJson,
 ) where
 
 import PlutusTx.Prelude hiding (error)
-import Prelude (IO, String, FilePath, error, print)
+import Prelude (FilePath, IO, String, error, print)
 
-import Data.Aeson as Json ( encode )
+import Data.Aeson as Json (encode)
 import Data.ByteString.Lazy qualified as LB
 import Data.ByteString.Short qualified as SBS
 
-import Cardano.Api.Shelley
-    ( PlutusScript(..),
-      PlutusScriptV1,
-      scriptDataToJson,
-      writeFileTextEnvelope,
-      Error(displayError),
-      ScriptData(ScriptDataNumber),
-      ScriptDataJsonSchema(ScriptDataJsonDetailedSchema),
-      fromPlutusData,
-      toAlonzoData )
+import Cardano.Api.Shelley (
+  Error (displayError),
+  PlutusScript (..),
+  PlutusScriptV1,
+  ScriptData (ScriptDataNumber),
+  ScriptDataJsonSchema (ScriptDataJsonDetailedSchema),
+  fromPlutusData,
+  scriptDataToJson,
+  toAlonzoData,
+  writeFileTextEnvelope,
+ )
 
 import Cardano.Ledger.Alonzo.Data qualified as Alonzo
-import Codec.Serialise ( serialise )
+import Codec.Serialise (serialise)
 import Plutus.V1.Ledger.Api (Validator)
 import Plutus.V1.Ledger.Api qualified as Plutus
-import PlutusTx ( ToData, toData )
+import PlutusTx (ToData, toData)
 
 validatorToPlutus :: FilePath -> Validator -> IO ()
 validatorToPlutus file validator = do
@@ -36,12 +37,15 @@ validatorToPlutus file validator = do
   let (validatorPurpleScript, validatorAsSBS) = serializeValidator validator
   case Plutus.defaultCostModelParams of
     Just m ->
-      let getAlonzoData d = case  toAlonzoData d of
+      let getAlonzoData d = case toAlonzoData d of
             Alonzo.Data pData -> pData
             _ -> error "Should not happen"
           (logout, e) =
-            Plutus.evaluateScriptCounting Plutus.Verbose m validatorAsSBS 
-                                          [getAlonzoData (ScriptDataNumber 42)]
+            Plutus.evaluateScriptCounting
+              Plutus.Verbose
+              m
+              validatorAsSBS
+              [getAlonzoData (ScriptDataNumber 42)]
        in do
             print ("Log output" :: String) >> print logout
             case e of
