@@ -45,7 +45,8 @@ validBuyData = SpendingTest datum redeemer val
 validBuyContext :: ContextBuilder 'ForSpending
 validBuyContext = (addDatum initialAuthorDatum)
   <> (input $ Input (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneAda)
-  <> (paysToWallet TestValues.userOneWallet) TestValues.oneNft
+  <> (paysToWallet TestValues.userOneWallet TestValues.oneNft)
+  <> (paysToWallet TestValues.authorWallet (TestValues.adaValue 50))
 
 dealingValidator :: Ledger.Validator
 dealingValidator =
