@@ -26,10 +26,11 @@ import Prelude qualified as Hask
 
 import Data.Bifunctor (first)
 import Data.Coerce (coerce)
-import Data.OpenApi.Schema qualified as OpenApi
 import GHC.Generics (Generic)
 
-import Playground.Contract (FromJSON, ToJSON, ToSchema)
+import Data.OpenApi.Schema qualified as OpenApi
+
+import Playground.Contract (FromJSON, ToJSON)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
 
@@ -46,7 +47,8 @@ data AssetClassGov = AssetClassGov
   { acGovCurrencySymbol :: !CurrencySymbol
   , acGovTokenName :: !TokenName
   }
-  deriving (Hask.Show, Hask.Eq, Generic, ToJSON, FromJSON, ToSchema, OpenApi.ToSchema)
+  deriving stock (Hask.Show, Hask.Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON, OpenApi.ToSchema)
 
 instance Eq AssetClassGov where
   {-# INLINEABLE (==) #-}
@@ -60,7 +62,7 @@ PlutusTx.makeLift ''AssetClassGov
 data GovernanceRedeemer
   = GRDeposit !Integer
   | GRWithdraw !Integer
-  deriving (Hask.Show)
+  deriving stock (Hask.Show)
 
 instance Eq GovernanceRedeemer where
   {-# INLINEABLE (==) #-}
@@ -75,7 +77,7 @@ data GovernanceDatum = GovernanceDatum
   { gdPubKeyHash :: !PubKeyHash
   , gdxGovCurrencySymbol :: !CurrencySymbol
   }
-  deriving (Hask.Show)
+  deriving stock (Hask.Show)
 
 PlutusTx.unstableMakeIsData ''GovernanceDatum
 PlutusTx.makeLift ''GovernanceDatum

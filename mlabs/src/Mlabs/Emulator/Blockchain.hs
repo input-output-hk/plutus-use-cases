@@ -30,7 +30,7 @@ import Data.Maybe (fromMaybe, maybe)
 import Ledger.Constraints (mustMintValue, mustPayToPubKey)
 import Plutus.Contract.StateMachine (TxConstraints, Void)
 import Plutus.V1.Ledger.Value (Value, assetClassValue)
-import Prelude qualified as Hask (Eq, Show, String)
+import Prelude qualified as Hask (Eq, Show)
 
 import Mlabs.Emulator.Types (Coin, UserId (..))
 
@@ -68,7 +68,7 @@ data Resp
       { mint'coin :: Coin
       , mint'amount :: Integer
       }
-  deriving (Hask.Show)
+  deriving stock (Hask.Show)
 
 -- | Moves from first user to second user
 moveFromTo :: UserId -> UserId -> Coin -> Integer -> [Resp]

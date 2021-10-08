@@ -13,7 +13,7 @@ import Data.Functor (void)
 import Data.Monoid (Last (..))
 
 import Mlabs.Governance.Contract.Api (Deposit (..), QueryBalance (..), Withdraw (..))
-import Mlabs.Governance.Contract.Simulator.Handler (BootstrapContract, GovernanceContracts (..))
+import Mlabs.Governance.Contract.Simulator.Handler (GovernanceContracts(..))
 import Mlabs.Governance.Contract.Simulator.Handler qualified as Handler
 import Mlabs.Governance.Contract.Validation (AssetClassGov (..))
 

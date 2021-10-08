@@ -17,7 +17,7 @@ module Mlabs.Emulator.App (
 ) where
 
 import PlutusTx.Prelude
-import Prelude qualified as Hask (Show, String, print, uncurry)
+import Prelude qualified as Hask (Show, print, uncurry)
 
 import Control.Monad.State.Strict (foldM)
 import Data.List (foldl')
@@ -80,7 +80,7 @@ someErrors :: App st act -> Assertion
 someErrors app = assertBool "Script fails" $ not $ null (app.app'log)
 
 -- | Check that we have those wallets after script was run.
-checkWallets :: (Hask.Show act, Hask.Show st) => [(UserId, BchWallet)] -> App st act -> Assertion
+checkWallets :: [(UserId, BchWallet)] -> App st act -> Assertion
 checkWallets wals app = mapM_ (Hask.uncurry $ hasWallet app) wals
 
 -- | Checks that application state contains concrete wallet for a given user id.

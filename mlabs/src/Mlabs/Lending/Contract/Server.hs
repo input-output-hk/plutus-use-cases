@@ -15,8 +15,8 @@ module Mlabs.Lending.Contract.Server (
   StateMachine.LendexError,
 ) where
 
-import Control.Lens ((^.), (^?))
-import Control.Monad (forever, guard)
+import Control.Lens ((^.))
+import Control.Monad (guard)
 import Control.Monad.State.Strict (runStateT)
 
 import Data.Bifunctor (second)
@@ -26,7 +26,7 @@ import Data.Semigroup (Last (..))
 
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
 import Ledger.Crypto (pubKeyHash)
-import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress, ciTxOutDatum, txOutAddress)
+import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress)
 
 import Plutus.Contract ()
 import Plutus.Contract qualified as Contract
@@ -43,12 +43,9 @@ import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
 import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
 import Mlabs.Lending.Logic.React qualified as React
 import Mlabs.Lending.Logic.Types qualified as Types
-import Mlabs.Plutus.Contract (getEndpoint, readChainIndexTxDatum, readDatum, readDatum', selectForever)
+import Mlabs.Plutus.Contract (getEndpoint, readChainIndexTxDatum, readDatum', selectForever)
 import Plutus.Contract.Request qualified as Request
-import Plutus.Contract.Types (Promise (..), promiseMap, selectList)
 
-import Extra (firstJust)
-import Playground.Types (PlaygroundError (input))
 import PlutusTx.Prelude
 import Prelude qualified as Hask
 

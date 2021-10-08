@@ -10,7 +10,7 @@ import PlutusTx.Prelude hiding (toList, uncurry)
 import Prelude (String, show, uncurry)
 
 import Control.Lens ((^.), (^?))
-import Control.Monad (forever, void)
+import Control.Monad (void)
 import Data.List.Extra (maximumOn)
 import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as Map
@@ -18,18 +18,30 @@ import Data.Semigroup (Last (..), sconcat)
 import Data.Text (Text)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash (..), pubKeyHash)
-import Ledger.Tx (ChainIndexTxOut, Tx (..), TxOut (..), TxOutRef, TxOutTx (..), ciTxOutDatum, ciTxOutValue, fromTxOut, toTxOut, txId, txOutPubKey)
+import Ledger.Tx (
+    ChainIndexTxOut
+  , TxOut (..)
+  , TxOutRef
+  , ciTxOutDatum
+  , ciTxOutValue
+  , toTxOut
+  , txId
+  , txOutPubKey
+  )
 import Plutus.Contract qualified as Contract
-import Plutus.V1.Ledger.Api (Datum (..), Redeemer (..), fromBuiltinData, toBuiltinData)
+import Plutus.V1.Ledger.Api (
+    Datum (..)
+  , Redeemer (..)
+  , fromBuiltinData
+  , toBuiltinData
+  )
 import Plutus.V1.Ledger.Value (Value (..), valueOf)
 import Text.Printf (printf)
 
-import GHC.Base (Maybe (Nothing))
 import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Validation (AssetClassGov (..), GovernanceDatum (..), GovernanceRedeemer (..))
 import Mlabs.Governance.Contract.Validation qualified as Validation
 import Mlabs.Plutus.Contract (getEndpoint, selectForever)
-import PlutusTx.Prelude (sequenceA)
 
 --import GHC.Base (Applicative(pure))
 

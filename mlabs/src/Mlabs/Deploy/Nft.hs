@@ -1,21 +1,26 @@
-module Mlabs.Deploy.Nft where
+module Mlabs.Deploy.Nft (serializeNft) where
 
 import PlutusTx.Prelude hiding (error)
-import Prelude (IO, String, error, print, undefined)
+import Prelude (IO, String)
 
 import Mlabs.Emulator.Types (UserId (..))
+import Mlabs.Nft.Logic.Types
 import Mlabs.Nft.Contract.Forge as F
 import Mlabs.Nft.Contract.StateMachine as SM
-import Mlabs.Nft.Logic.Types (Act (..), Nft (..), NftId (..), UserAct (..), initNft, toNftId)
 
-import Data.ByteString qualified as BS
-import Data.ByteString.Lazy qualified as LB
+-- import Data.ByteString.Lazy qualified as LB
 import Ledger.Typed.Scripts.Validators as VS
 import Plutus.V1.Ledger.Api qualified as Plutus
-import Plutus.V1.Ledger.Value as V (toString)
 
 import Mlabs.Deploy.Utils
 
+serializeNft 
+  :: BuiltinByteString
+  -> Integer
+  -> BuiltinByteString
+  -> BuiltinByteString
+  -> String
+  -> IO ()
 serializeNft txId txIx ownerPkh content outDir = do
   let txOutRef =
         Plutus.TxOutRef

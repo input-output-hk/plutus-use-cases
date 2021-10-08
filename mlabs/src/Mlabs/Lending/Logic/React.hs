@@ -28,11 +28,6 @@ import Mlabs.Lending.Logic.Types (
   BadBorrow (BadBorrow, badBorrow'userId),
   CoinCfg (coinCfg'aToken, coinCfg'coin, coinCfg'interestModel, coinCfg'liquidationBonus, coinCfg'rate),
   CoinRate (CoinRate, coinRate'lastUpdateTime),
-  -- UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
-  --         act'amount, act'receiveAToken, act'debtToCover, act'debt,
-  --         act'collateral),
-
-  InsolventAccount (ia'ic),
   InterestModel (im'optimalUtilisation, im'slope1, im'slope2),
   LendingPool (lp'coinMap, lp'healthReport, lp'reserves, lp'users),
   Reserve (reserve'rate, reserve'wallet),

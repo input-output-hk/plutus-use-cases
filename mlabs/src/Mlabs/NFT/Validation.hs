@@ -20,12 +20,9 @@ import Prelude qualified as Hask
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Plutus.V1.Ledger.Ada qualified as Ada (
-  Ada (..),
   adaSymbol,
   adaToken,
-  adaValueOf,
   lovelaceValueOf,
-  toValue,
  )
 
 import Ledger (
@@ -46,12 +43,10 @@ import Ledger (
   getContinuingOutputs,
   mkMintingPolicyScript,
   ownCurrencySymbol,
-  pubKeyOutputsAt,
   scriptContextTxInfo,
   scriptCurrencySymbol,
   txInInfoOutRef,
   txInfoData,
-  txInfoFee,
   txInfoInputs,
   txInfoMint,
   txInfoOutputs,
@@ -220,9 +215,7 @@ mKTxPolicy datum act ctx =
     -- Utility functions.
     getCtxDatum :: PlutusTx.FromData a => ScriptContext -> [a]
     getCtxDatum =
-      id
-        . fmap (\(Just x) -> x)
-        . filter (maybe False (const True))
+      catMaybes'
         . fmap PlutusTx.fromBuiltinData
         . fmap (\(Datum d) -> d)
         . fmap snd
@@ -332,6 +325,10 @@ mKTxPolicy datum act ctx =
       case txInfoSignatories $ scriptContextTxInfo ctx of
         [pkh] -> pkh == getUserId (dNft'owner datum)
         _ -> False
+
+{-# INLINEABLE catMaybes' #-}
+catMaybes' :: [Maybe a] -> [a]
+catMaybes' = mapMaybe id
 
 {-# INLINEABLE priceNotNegative #-}
 priceNotNegative :: Maybe Integer -> Bool
