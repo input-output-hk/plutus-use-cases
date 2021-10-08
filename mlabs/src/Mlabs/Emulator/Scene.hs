@@ -16,21 +16,21 @@ module Mlabs.Emulator.Scene (
   coinDiff,
 ) where
 
-import Prelude (Semigroup, Monoid, mempty, (<>))
-import PlutusTx.Prelude hiding (Semigroup, Monoid, mempty,(<>))
-
+import PlutusTx.Prelude hiding (Monoid, Semigroup, mempty, (<>))
+import Prelude (Monoid, Semigroup, mempty, (<>))
 
 import Control.Applicative (Alternative (..))
 
 import Data.List qualified as L
 import Data.Map qualified as M
-import Plutus.Contract.Test
-    ( Wallet,
-      (.&&.),
-      assertNoFailedTransactions,
-      valueAtAddress,
-      walletFundsChange,
-      TracePredicate )
+import Plutus.Contract.Test (
+  TracePredicate,
+  Wallet,
+  assertNoFailedTransactions,
+  valueAtAddress,
+  walletFundsChange,
+  (.&&.),
+ )
 import Plutus.V1.Ledger.Address (Address)
 import Plutus.V1.Ledger.Value (Value)
 import Plutus.V1.Ledger.Value qualified as Value
