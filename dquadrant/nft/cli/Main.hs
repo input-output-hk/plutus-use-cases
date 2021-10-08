@@ -22,7 +22,14 @@ import qualified Cardano.Api.Shelley
 import Cardano.Api.Shelley (fromPlutusData, Lovelace (Lovelace), Tx (ShelleyTx), PlutusScript (PlutusScriptSerialised), toAlonzoData, ProtocolParameters (protocolParamTxFeeFixed), TxBody (ShelleyTxBody), Address (ShelleyAddress), toPlutusData)
 
 
-import Ledger (pubKeyHash, datumHash, Datum (Datum), Tx, txId, PubKeyHash (PubKeyHash))
+import Ledger
+    ( pubKeyHash,
+      datumHash,
+      Datum(Datum),
+      Tx,
+      txId,
+      PubKeyHash(PubKeyHash),
+      TxOut(txOutValue) )
 import Data.Text.Conversions (Base16(Base16, unBase16), ToText (toText), FromText (fromText), UTF8 (unUTF8, UTF8), Base64, DecodeText (decodeText), convertText)
 import Data.ByteString(ByteString(), split, unpack)
 import Data.Text (Text)
@@ -90,13 +97,12 @@ import qualified Ledger.AddressMap
 import           Data.Map.Strict (Map)
 import Data.String (IsString)
 import GHC.Exts (IsString(fromString))
-import Shelley.Spec.Ledger.API (Credential(ScriptHashObj, KeyHashObj), Addr (Addr, AddrBootstrap), KeyPair (sKey))
+import Shelley.Spec.Ledger.API (Credential(ScriptHashObj, KeyHashObj), Addr (Addr, AddrBootstrap), KeyPair (sKey), Globals (systemStart))
 import PlutusTx.IsData (FromData(fromBuiltinData))
 import qualified Cardano.Ledger.Mary.Value (Value(Value))
 import qualified Cardano.Ledger.Alonzo.TxBody as LedgerBody
 import GHC.Generics
 import Cardano.Ledger.Address (serialiseAddr, deserialiseAddr)
-import Cardano.Api (valueToList)
 import Data.List (intersperse, intercalate)
 import Data.Ratio
 import GHC.Real (Ratio((:%)))
@@ -105,7 +111,6 @@ import Cardano.Ledger.Hashes (ScriptHash(ScriptHash))
 import qualified Data.Text.Lazy.Builder as Text
 import GHC.Num (integerToWord)
 import qualified System.Directory.Internal.Prelude as Set
-import Ledger (TxOut(txOutValue))
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Text as JSON
 import Data.Aeson.Text (encodeToLazyText)
@@ -268,7 +273,7 @@ placeOnMarket market conn [tokenStr,costStr] =do
                     $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo QueryProtocolParameters
     dummyFee = Just $ Lovelace 0
     tx_mode body =TxInMode ( ShelleyTx ShelleyBasedEraAlonzo body )  AlonzoEraInCardanoMode
-    
+
     dataToJsonString v=   fromText $ decodeUtf8  $ toStrict $ Data.Aeson.encode   $ toJSON v
 
     dataToHex :: (ToData  a) => a -> String
@@ -344,13 +349,13 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
   paramQueryResult<-queryNodeLocalState conn Nothing protocolParamsQuery
   -- let ourUtxos=Map.filterWithKey (k -> txin -> Bool) (Map k a)
   txIn<-unEither parseTxIn
-  let myUtxos=Map.filterWithKey  (\k v-> txIn == k) uMap
+  let marketUtxos =Map.filterWithKey  (\k v-> txIn == k) uMap
       walletAddr=toAddressAny $ skeyToAddr sKey
       walletPkh=sKeyToPkh sKey
       toPartyUtxo (pkh@(PubKeyHash binary),v) =case pkhToMaybeAddr (Testnet (NetworkMagic 1097911063)) pkh of
         Just addr -> Right $ singletonTxOut addr paymentAsset (Quantity v)
         _ -> Left $ SomeError $ "Party pubKeyHash couldn't be converted to Cardano API address :" ++ toHexString (fromBuiltin binary)
-  (txin,txout)<-if  null myUtxos then throw (SomeError $ "Utxos Not found " ++ show txIn) else pure  $ head $ Map.toList myUtxos
+  (txin,txout)<-if  null marketUtxos then throw (SomeError $ "Utxos Not found " ++ show txIn) else pure  $ head $ Map.toList marketUtxos
   partyUtxos<-unEither $ mapM toPartyUtxo ( dsPaymentValueList market directSale)
   walletUtxos <- queryUtxos conn  $toAddressAny $ skeyToAddr sKey
   pParam<-case paramQueryResult of
@@ -359,14 +364,40 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
       Left em -> throw $ SomeError "Missmatched Era"
       Right pp -> return pp
   alonzoWalletAddr<-unMaybe "Address not supported in alonzo era" $ anyAddressInEra AlonzoEra walletAddr
-  let body =
+  pparam <- queryProtocolParam conn
+  let txIns=[(txin,BuildTxWith $ ScriptWitness ScriptWitnessForSpending $  plutusScriptWitness directSale)]
+      txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ]
+      txOuts=singletonTxOut operatorAddr paymentAsset (Quantity $ dsFee market directSale)
+              :
+            partyUtxos
+      body= mkBody txIns txOuts txInsCollateral pparam
+      consumedValue=case txout of { TxOut aie tov todh -> case tov of
+                                      TxOutAdaOnly oasie lo -> lovelaceToValue lo
+                                      TxOutValue masie va -> va }
+  systemStart <-querySystemStart conn
+  eraHistory <-queryEraHistory conn
+  balancedBody <- executeMkBalancedBody pParam  walletUtxos body consumedValue   $  skeyToAddrInEra sKey
+  let utxo=UTxO marketUtxos
+  let v= evaluateTransactionExecutionUnits AlonzoEraInCardanoMode systemStart eraHistory pparam utxo balancedBody
+  units<- case v of
+    Left tvie -> throw $ SomeError $ show tvie
+    Right map -> mapM unEitherExecutionUnit (Map.elems  map)
+  case units of
+    [] -> throw $ SomeError " Unexpected empty list of execution units"
+    [eUnit] -> do
+      let modifiedIns= [(txin,BuildTxWith $ ScriptWitness ScriptWitnessForSpending $  computedScriptWitness eUnit directSale)]
+          newBody=mkBody modifiedIns txOuts txInsCollateral pparam
+      balanceAndSubmitBody conn sKey newBody walletUtxos consumedValue
+        >>=printTxSubmited
+    _ -> throw $ SomeError "Too many values in the execution unit array"
+
+
+  where
+    mkBody ins outs collateral pParam =
           (TxBodyContent {
-            txIns=[(txin,BuildTxWith $ ScriptWitness ScriptWitnessForSpending $  plutusScriptWitness directSale)] ,
-            txInsCollateral=TxInsCollateral CollateralInAlonzoEra  [  ],
-            txOuts=
-                singletonTxOut operatorAddr paymentAsset (Quantity $ dsFee market directSale)
-                  :
-                partyUtxos,
+            txIns=ins ,
+            txInsCollateral=collateral,
+            txOuts=outs,
             txFee=TxFeeExplicit TxFeesExplicitInAlonzoEra $ Lovelace 1000000,
             -- txValidityRange = (
             --     TxValidityLowerBound ValidityLowerBoundInAlonzoEra 0
@@ -383,13 +414,10 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
             txMintValue=TxMintNone,
             txScriptValidity=TxScriptValidityNone
           })
-      consumedValue=case txout of { TxOut aie tov todh -> case tov of
-                                      TxOutAdaOnly oasie lo -> lovelaceToValue lo
-                                      TxOutValue masie va -> va }
-  balanceAndSubmitBody conn sKey body walletUtxos consumedValue 
-    >>=printTxSubmited
+    unEitherExecutionUnit e= case e of
+      Left e -> throw $  SomeError  $ show e
+      Right v -> pure v
 
-  where
     getSignKey content=deserialiseInputAnyOf [FromSomeType (AsSigningKey AsPaymentKey) id] [FromSomeType (AsSigningKey AsPaymentKey) id] content
     _witness=KeyWitness KeyWitnessForSpending
 
@@ -402,6 +430,13 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
     marketCardanoApiAddress=makeShelleyAddress (Testnet (NetworkMagic 1097911063)) scriptCredential NoStakeAddress
     scriptCredential=PaymentCredentialByScript marketHash
 
+    computedScriptWitness unit d = PlutusScriptWitness
+                            PlutusScriptV1InAlonzo
+                            PlutusScriptV1
+                            (marketScriptPlutus market)
+                            (ScriptDatumForTxIn $ fromPlutusData $ toData d) -- script data
+                            (fromPlutusData $ toData Buy) -- script redeemer
+                            unit
     plutusScriptWitness ::ToData a=> a-> ScriptWitness  WitCtxTxIn AlonzoEra
     plutusScriptWitness  d = PlutusScriptWitness
                             PlutusScriptV1InAlonzo
@@ -424,9 +459,9 @@ buyToken market@Market{mOperator, mPrimarySaleFee} conn [utxoId, datumStr] =do
 
     dsAssetId::DirectSale -> Either SomeError AssetId
     dsAssetId DirectSale{dsAsset=AssetClass (CurrencySymbol  c, TokenName t)}=
-      if BS.null  $ fromBuiltin c 
-      then Right AdaAssetId  
-      else 
+      if BS.null  $ fromBuiltin c
+      then Right AdaAssetId
+      else
         case  deserialiseFromRawBytes AsPolicyId  (fromBuiltin  c) of
             Just policyId -> case deserialiseFromRawBytes AsAssetName (fromBuiltin t) of
               Just assetName -> Right $ AssetId policyId assetName
@@ -501,7 +536,7 @@ runPayCommand conn [strAddr,lovelaceStr] =do
 
   txId<-balanceAndSubmitBody conn sKey unbalancedBody utxos (lovelaceToValue $ Lovelace 0)
   putStrLn $ "Transaction Submitted " ++ show txId
-  
+
 
 
   where
@@ -749,15 +784,15 @@ dataToScriptData sData =  fromPlutusData $ toData sData
 
 
 decodeJsonAsScriptData :: String -> Either SomeError ScriptData
-decodeJsonAsScriptData jsonStr=do 
+decodeJsonAsScriptData jsonStr=do
   v<-maybeToEither "Invalid json string" decodeJson
   case scriptDataFromJson ScriptDataJsonDetailedSchema  v of
-    Left sdje -> case sdje of 
+    Left sdje -> case sdje of
       ScriptDataJsonSchemaError va sdjse -> Left $ SomeError $  "Wrong schema" ++ show sdjse
       ScriptDataRangeError va sdre -> Left $ SomeError $  "Invalid data " ++ show sdre
     Right sd -> Right sd
-  where 
-    decodeJson=JSON.decode $fromString jsonStr 
+  where
+    decodeJson=JSON.decode $fromString jsonStr
 
 mkBalancedBody :: ProtocolParameters
   -> UTxO era
@@ -805,8 +840,6 @@ mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr =
               then Right (bodyContent,change,fee)
               else Right (newBody, modifiedChange1,fee')
 
-
-
   startingFee=Lovelace $ toInteger $ protocolParamTxFeeFixed pParams
 
   negLovelace v=negateValue $ lovelaceToValue v
@@ -826,7 +859,7 @@ mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr =
             txBodyIn =(txIn,BuildTxWith $ KeyWitness KeyWitnessForSpending)
 
   minimize' utxos remainingChange = (doMap,remainingChange)
-    where 
+    where
       doMap=map (\(txin,txout) -> (tobodyIn txin)) utxos
       tobodyIn _in=(_in,BuildTxWith $ KeyWitness KeyWitnessForSpending)
       val  out= txOutValueToValue $ txOutValue  out
@@ -872,6 +905,17 @@ mkBalancedBody  pParams (UTxO utxoMap)  txbody inputSum walletAddr =
             txScriptValidity=txScriptValidity txbody
           })
 
+executeMkBalancedBody :: ProtocolParameters
+  -> UTxO era
+  -> TxBodyContent BuildTx AlonzoEra
+  -> Value
+  -> AddressInEra AlonzoEra
+  -> IO (TxBody AlonzoEra)
+executeMkBalancedBody  pParams utxos  txbody inputSum walletAddr=do
+  let balancedBody=mkBalancedBody pParams utxos txbody inputSum walletAddr
+  case balancedBody of
+    Left e -> throw $ SomeError $ show e
+    Right g ->pure g
 
 
 submitEitherBalancedBody conn eitherBalancedBody skey =
@@ -892,9 +936,9 @@ submitEitherBalancedBody conn eitherBalancedBody skey =
 
 
 balanceAndSubmitBody conn sKey body utxos sum  = do
-  pParam <-case txProtocolParams body of { 
+  pParam <-case txProtocolParams body of {
     BuildTxWith m_pp -> case m_pp of
-        Just pp -> pure pp  
+        Just pp -> pure pp
         Nothing -> do
           paramQueryResult<-queryNodeLocalState conn Nothing $
             QueryInEra AlonzoEraInCardanoMode
@@ -908,7 +952,31 @@ balanceAndSubmitBody conn sKey body utxos sum  = do
   let balancedBody = mkBalancedBody pParam  utxos body sum   $  skeyToAddrInEra sKey
   submitEitherBalancedBody conn  balancedBody sKey
 
+queryProtocolParam :: LocalNodeConnectInfo CardanoMode -> IO ProtocolParameters
+queryProtocolParam conn=do
+  paramQueryResult<-queryNodeLocalState conn Nothing $
+            QueryInEra AlonzoEraInCardanoMode
+                  $ QueryInShelleyBasedEra ShelleyBasedEraAlonzo QueryProtocolParameters
+  case paramQueryResult of
+    Left af -> throw $ SomeError  "Acquire Failure"
+    Right e -> case e of
+      Left em -> throw $ SomeError "Missmatched Era"
+      Right pp -> return pp
+
+querySystemStart conn=do
+  result<-queryNodeLocalState conn Nothing QuerySystemStart
+  case result of
+    Left af -> throw $ SomeError "Acquire Failure"
+    Right ss -> pure ss
+
+queryEraHistory conn=do
+  result <- queryNodeLocalState conn Nothing (QueryEraHistory (CardanoModeIsMultiEra ))
+  case result of
+    Left af -> throw $ SomeError "Acquire Failure"
+    Right eh -> pure eh
+
 printTxSubmited txid=putStrLn $ "Transaction Submitted :"++ ( init $ tail $ show txid)
+
 marketCardanoApiAddress :: IsShelleyBasedEra era => NetworkId -> Market -> AddressInEra era
 marketCardanoApiAddress network market =makeShelleyAddressInEra network scriptCredential NoStakeAddress
   where
