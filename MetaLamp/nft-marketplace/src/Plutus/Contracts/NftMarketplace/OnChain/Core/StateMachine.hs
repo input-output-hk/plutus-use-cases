@@ -19,7 +19,7 @@ import           Control.Lens                                             ((&),
 import qualified Control.Lens                                             as Lens
 import qualified Data.Aeson                                               as J
 import qualified Data.Text                                                as T
-import qualified Ext.Plutus.Contracts.Auction                             as Auction
+import qualified Plutus.Contracts.Services.Auction as Auction
 import qualified GHC.Generics                                             as Haskell
 import           Ledger
 import qualified Ledger.Constraints                                       as Constraints
@@ -186,7 +186,7 @@ stateTransitionCheck nftStore (CreateNftRedeemer ipfsCidHash nftEntry) ctx =
 stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot) ctx =
   traceIfFalse "PutLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
-      lotValue = either Sale.saleValue (Auction.apAsset . fromAuction) lot
+      lotValue = either Sale.saleValue Auction.aAsset lot
       hasBeenPutOnSale = lotValue == nftValue ipfsCid nftEntry
       isValidHash = sha2_256 ipfsCid == ipfsCidHash
       hasNoExistingLot = isNothing $ nftLot nftEntry
@@ -196,7 +196,7 @@ stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId 
 stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Right (InternalBundleId bundleId cids)) lot) ctx =
   traceIfFalse "PutLotRedeemer: " $
   let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
-      lotValue = either Sale.saleValue (Auction.apAsset . fromAuction) lot
+      lotValue = either Sale.saleValue Auction.aAsset lot
       cidHashes = case nbTokens bundle of
           NoLot tokens    -> AssocMap.keys tokens
           HasLot tokens _ -> AssocMap.keys tokens

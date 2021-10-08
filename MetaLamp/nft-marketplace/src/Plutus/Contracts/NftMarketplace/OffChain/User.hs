@@ -27,7 +27,6 @@ import qualified Data.Aeson                                               as J
 import           Data.Proxy                                               (Proxy (..))
 import           Data.Text                                                (Text)
 import qualified Data.Text                                                as T
-import qualified Ext.Plutus.Contracts.Auction                             as Auction
 import           Ext.Plutus.Ledger.Value                                  (utxoValue)
 import qualified GHC.Generics                                             as Haskell
 import           Ledger
@@ -52,6 +51,7 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
+import qualified Plutus.Contracts.Services.Auction as Auction
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -213,19 +213,19 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
     currTime <- currentTime
     let endTime = currTime + fromMilliSeconds saapDuration
     self <- Ledger.pubKeyHash <$> ownPubKey
-    let auctionParams = Auction.AuctionParams {
-      apOwner = self,
-      apAsset = auctionValue,
-      apEndTime = endTime,
-      apAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
+    let startAuctionParams = Auction.StartAuctionParams {
+      sapOwner = self,
+      sapAsset = auctionValue,
+      sapEndTime = endTime,
+      sapAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }
-    auctionToken <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionParams
+    auction <- mapError (T.pack . Haskell.show) $ Auction.startAuction startAuctionParams
 
     let client = Core.marketplaceClient marketplace
-    let lot = Right $ Core.toAuction auctionToken auctionParams
+    let lot = Right auction
     void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
 
-    logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auctionParams)
+    logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auction)
     pure ()
 
 -- | The user completes the auction for specified NFT
@@ -243,9 +243,7 @@ completeAnAuction marketplace CloseLotParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Core.getAuctionStateToken auction
-    let auctionParams = Core.fromAuction auction
-    _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auctionToken auctionParams
+    _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auction
 
     let client = Core.marketplaceClient marketplace
     void $ mapError' $ runStep client $ Core.RemoveLotRedeemer $
@@ -279,9 +277,7 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Core.getAuctionStateToken auction
-    let auctionParams = Core.fromAuction auction
-    _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auctionToken auctionParams boapBid
+    _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auction boapBid
 
     logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)
     pure ()

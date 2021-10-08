@@ -1,9 +1,9 @@
 module Business.MarketplaceInfo where
 
-import Ext.Plutus.Contracts.Auction
 import Plutus.Contracts.NftMarketplace.OffChain.ID
 import Plutus.Contracts.NftMarketplace.OffChain.Info
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine
+import Plutus.Contracts.Services.Auction.StateMachine
 import Prelude
 import Business.Marketplace (getMarketplaceContractId, getMarketplaceResponseWith)
 import Capability.Contract (ContractId, ContractUnit(..), Endpoint(..))

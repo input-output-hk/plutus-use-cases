@@ -9,7 +9,7 @@ import Data.Newtype (unwrap)
 import Halogen.HTML as HH
 import Network.RemoteData (RemoteData)
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
-import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (Auction)
+import Plutus.Contracts.Services.Auction.Core (Auction)
 import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Value (Value)
 import Utils.Time as Utils
@@ -91,7 +91,7 @@ renderSale sale =
 
 renderAuction ::
   forall props act.
-  Auction -> HH.HTML props act
+  AuctionForClient -> HH.HTML props act
 renderAuction auction =
   HH.div_
     [ HH.h4_ [ HH.text "Auction: " ]

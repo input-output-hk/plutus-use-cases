@@ -15,7 +15,7 @@ import           Data.Maybe                                   (isNothing)
 import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
-import qualified Ext.Plutus.Contracts.Auction                 as Auction
+import qualified Plutus.Contracts.Services.Auction.Core                 as Auction
 import           Ledger                                       (Value)
 import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Value                                 as V
@@ -116,8 +116,8 @@ tests =
         buyOnAuctionTraceB
     ]]
 
-auctionValue :: Marketplace.Auction -> Value
-auctionValue = Auction.apAsset . Marketplace.fromAuction
+auctionValue :: Auction.Auction -> Value
+auctionValue = Auction.aAsset
 
 -- \/\/\/ "NFT singletons"
 startAnAuctionParams ::        Marketplace.StartAnAuctionParams

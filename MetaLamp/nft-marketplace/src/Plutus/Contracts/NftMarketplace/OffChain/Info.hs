@@ -21,7 +21,8 @@ import qualified Data.Aeson                                   as J
 import           Data.Proxy                                   (Proxy (..))
 import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
-import qualified Ext.Plutus.Contracts.Auction                 as Auction
+import qualified Plutus.Contracts.Services.Auction as Auction
+
 import           Ext.Plutus.Ledger.Value                      (utxoValue)
 import qualified GHC.Generics                                 as Haskell
 import           Ledger
@@ -86,10 +87,8 @@ getAuctionState marketplace itemId = do
         maybe (throwError "Bundle has not been put on auction") pure $
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Core.getAuctionStateToken auction
-    let auctionParams = Core.fromAuction auction
     auctionState <- do
-        st <- mapError (T.pack . Haskell.show) $ Auction.currentState auctionToken auctionParams
+        st <- mapError (T.pack . Haskell.show) $ Auction.currentState auction
         maybe (throwError "Auction state not found") pure st
 
     logInfo @Haskell.String $ printf "Returned auction state %s" (Haskell.show auctionState)

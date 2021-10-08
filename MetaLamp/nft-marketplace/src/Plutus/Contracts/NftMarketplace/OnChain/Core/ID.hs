@@ -24,7 +24,7 @@ import qualified Data.Aeson                                       as J
 import qualified Data.ByteArray                                   as BA
 import qualified Data.List                                        as HL
 import qualified Data.Text                                        as T
-import qualified Ext.Plutus.Contracts.Auction                     as Auction
+import qualified Plutus.Contracts.Services.Auction as Auction
 import qualified GHC.Generics                                     as Haskell
 import           Ledger
 import qualified Ledger.Constraints                               as Constraints

@@ -42,5 +42,5 @@ cd MetaLamp/nft-marketplace/ && cabal clean
 ```
 
 ```
-cd MetaLamp/nft-marketplace/client && rm -rf node_modules/ generated/ output/ plutus-purs/ .spago/
+`cd MetaLamp/nft-marketplace/client && rm -rf node_modules/ generated/ output/ plutus-purs/ .spago/`
 ```
