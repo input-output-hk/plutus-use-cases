@@ -22,6 +22,7 @@ import PlutusTx.IsData.Class (ToData (toBuiltinData))
 testDealing :: TestTree
 testDealing = withValidator "Test NFT dealing validator" dealingValidator $ do
   shouldValidate "Can buy with ADA" validBuyData validBuyContext
+  shouldValidate "Author can set price" validSetPriceData validSetPriceContext
 
 initialAuthorDatum :: NFT.DatumNft
 initialAuthorDatum = NFT.DatumNft { dNft'id = TestValues.testNftId
@@ -44,9 +45,25 @@ validBuyData = SpendingTest datum redeemer val
 
 validBuyContext :: ContextBuilder 'ForSpending
 validBuyContext = (addDatum initialAuthorDatum)
-  <> (input $ Input (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneAda)
+  -- <> (input $ Input (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneAda)
   <> (paysToWallet TestValues.userOneWallet TestValues.oneNft)
   <> (paysToWallet TestValues.authorWallet (TestValues.adaValue 50))
+  -- <> (output $ Output (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneNft)
+  -- <> (paysSelf TestValues.oneNft initialAuthorDatum)
+
+validSetPriceData :: TestData 'ForSpending
+validSetPriceData = SpendingTest datum redeemer val
+  where
+    datum = initialAuthorDatum
+
+    redeemer = NFT.SetPriceAct { act'newPrice = Nothing
+                               , act'cs = Ada.adaSymbol
+                               }
+    val = TestValues.adaValue 0
+
+validSetPriceContext :: ContextBuilder 'ForSpending
+validSetPriceContext = (addDatum initialAuthorDatum)
+  <> signedWith authorPkh
 
 dealingValidator :: Ledger.Validator
 dealingValidator =
