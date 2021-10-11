@@ -111,6 +111,28 @@ executable generate-purs
     plutus-contract,
     plutus-ledger-api
 
+executable generate-typescript
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs: generate-typescript
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    aeson-typescript,
+    servant-purescript -any,
+    mtl,
+    directory,
+    lens,
+    aeson,
+    bytestring,
+    -- Plutus:
+    plutus-starter,
+    plutus-pab,
+    plutus-contract,
+    plutus-ledger-api,
+    plutus-tx
+
 test-suite test
     import: lang
     type: exitcode-stdio-1.0
