@@ -14,7 +14,8 @@ import qualified PlutusTx
 import Data.Semigroup ((<>))
 
 testMinting :: TestTree
-testMinting = localOption (TestCurrencySymbol (Ledger.scriptCurrencySymbol nftPolicy)) $
+testMinting = localOption (TestCurrencySymbol TestValues.nftCurrencySymbol) $
+  localOption (TestTxId TestValues.testTxId) $
   withMintingPolicy "Test NFT minting policy" nftMintPolicy $ do
       shouldValidate "valid case" validData validContext
       shouldn'tValidate "not minting" validData (baseCtx <> paysToTxScriptCtx)
