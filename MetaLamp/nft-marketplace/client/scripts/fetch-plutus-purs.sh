@@ -6,4 +6,4 @@ git remote add origin -f https://github.com/input-output-hk/plutus
 git config core.sparseCheckout true
 echo 'web-common-plutus/*' >> .git/info/sparse-checkout
 echo 'web-common/*' >> .git/info/sparse-checkout
-git pull origin cc7bc06c4344cee6cd59bc170063fd627da25ed3  # plutus-starter-devcontainer/v1.0.8
+git pull origin e2cd641501d13715120329092b3a93df35493a44  # plutus-pab/v0.0.2

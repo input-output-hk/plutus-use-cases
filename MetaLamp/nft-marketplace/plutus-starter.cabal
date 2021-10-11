@@ -79,7 +79,7 @@ library
       memory,
       prettyprinter,
       semigroups,
-      servant-options,
+      -- servant-options,
       servant-server,
       text,
       wai-cors,
