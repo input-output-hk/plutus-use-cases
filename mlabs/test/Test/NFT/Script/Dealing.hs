@@ -39,17 +39,15 @@ validBuyData = SpendingTest datum redeemer val
 
     redeemer = NFT.BuyAct { act'bid = 100
                           , act'newPrice = Nothing
-                          , act'cs = Ada.adaSymbol
+                          , act'cs = TestValues.nftCurrencySymbol
                           }
-    val = TestValues.adaValue 100
+    val = TestValues.adaValue 100 <> TestValues.oneNft
 
 validBuyContext :: ContextBuilder 'ForSpending
 validBuyContext = (addDatum initialAuthorDatum)
-  -- <> (input $ Input (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneAda)
   <> (paysToWallet TestValues.userOneWallet TestValues.oneNft)
   <> (paysToWallet TestValues.authorWallet (TestValues.adaValue 50))
-  -- <> (output $ Output (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneNft)
-  -- <> (paysSelf TestValues.oneNft initialAuthorDatum)
+  <> (paysSelf oneNft initialAuthorDatum)
 
 validSetPriceData :: TestData 'ForSpending
 validSetPriceData = SpendingTest datum redeemer val
@@ -57,13 +55,16 @@ validSetPriceData = SpendingTest datum redeemer val
     datum = initialAuthorDatum
 
     redeemer = NFT.SetPriceAct { act'newPrice = Nothing
-                               , act'cs = Ada.adaSymbol
+                               , act'cs = TestValues.nftCurrencySymbol
                                }
-    val = TestValues.adaValue 0
+    val = TestValues.oneNft
 
 validSetPriceContext :: ContextBuilder 'ForSpending
 validSetPriceContext = (addDatum initialAuthorDatum)
   <> signedWith authorPkh
+  -- TODO: choose
+  <> (paysSelf oneNft initialAuthorDatum)
+  -- <> (output $ Output (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneNft)
 
 dealingValidator :: Ledger.Validator
 dealingValidator =
