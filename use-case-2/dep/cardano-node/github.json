@@ -1,8 +1,8 @@
 {
-  "owner": "input-output-hk",
+  "owner": "obsidiansystems",
   "repo": "cardano-node",
-  "branch": "release/1.30.0-min",
+  "branch": "ll-is-cardano-node-bump",
   "private": false,
-  "rev": "0fb43f4e3da8b225f4f86557aed90a183981a64f",
-  "sha256": "0mkir1pg78hp7adxgb8cz6jj4izs07np23fxxnwhkvf0ql92nan7"
+  "rev": "4f09184f281e23a2c6cd9222b0256772e5aaf02c",
+  "sha256": "12lb18ccayc03x8y88ysr66bnxmbzgqxj17qwiyfcvwk751xaf1z"
 }
