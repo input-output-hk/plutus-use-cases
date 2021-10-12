@@ -8,7 +8,6 @@ module Mlabs.System.Console.Utils (
 import Prelude
 
 import Control.Monad.IO.Class (MonadIO)
-import Data.ByteString.Char8 qualified as Char8
 import Plutus.V1.Ledger.Value qualified as Value
 import System.Console.ANSI (Color (Black, Cyan, Green, Red))
 

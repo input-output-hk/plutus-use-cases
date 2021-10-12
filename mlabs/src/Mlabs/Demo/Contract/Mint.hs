@@ -109,7 +109,8 @@ data MintParams = MintParams
   { mpTokenName :: !TokenName
   , mpAmount :: !Integer
   }
-  deriving (Generic, ToJSON, FromJSON, ToSchema)
+  deriving stock (Generic)
+  deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 type MintSchema =
   Endpoint "mint" MintParams

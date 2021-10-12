@@ -6,7 +6,19 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Mlabs.System.Console.PrettyLogger where
+module Mlabs.System.Console.PrettyLogger (
+  LogColor (..),
+  LogStyle (..),
+  logPretty,
+  logPrettyColor,
+  logPrettyBgColor,
+  logPrettyColorBold,
+  withNewLines,
+  logNewLine,
+  logDivider,
+  padLeft,
+  padRight,
+) where
 
 import Prelude
 
