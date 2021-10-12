@@ -153,5 +153,5 @@ Now that we have a script address, feel free to use the following script in orde
 
 Give some time for the node to mine your newly submitted transaction. Once successful, you should use cardano-cli to query the uniswap script address to confirm the uniswap token has been sent.
 
-TODO: Mint PikaCoins
+TODO: Document Mint PikaCoins
 TODO: Create Pool between ADA and PikaCoin

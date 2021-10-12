@@ -15,4 +15,5 @@ set -euox pipefail
   ~/Documents/Obsidian/bobTheBuilder5/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/unipool/liquidityCurrencyPolicy.plutus \
   ~/Documents/Obsidian/bobTheBuilder5/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/unipool/poolDatum.empty.plutus \
   ~/Documents/Obsidian/bobTheBuilder5/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/unipool/unipool-redeemer \
+  ~/Documents/Obsidian/IOHK/cardano-node/result/alonzo-purple/payment.skey
 
