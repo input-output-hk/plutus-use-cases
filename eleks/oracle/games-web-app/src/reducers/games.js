@@ -3,12 +3,15 @@ import {
   FETCH_GAMES_START,
   FETCH_GAMES_SUCCESS,
   FETCH_GAMES_FAILED,
+  LOGOUT,
 } from '../helpers/actionTypes';
 
 export const data = (state = [], action) => {
   switch (action.type) {
     case FETCH_GAMES_SUCCESS:
       return action.games;
+    case LOGOUT:
+      return [];
     default:
       return state;
   }
@@ -44,5 +47,6 @@ const games = combineReducers({
 });
 
 export const getGames = (state) => state.data;
+export const getGamesFetching = (state) => state.fetching;
 
 export default games;

@@ -4,6 +4,7 @@ import {
   FETCH_GAME_SUCCESS,
   FETCH_GAME_FAILED,
   FETCH_GAME_CONTRACT_SUCCESS,
+  LOGOUT,
 } from '../helpers/actionTypes';
 
 export const data = (state = null, action) => {
@@ -13,8 +14,10 @@ export const data = (state = null, action) => {
     case FETCH_GAME_CONTRACT_SUCCESS:
       return {
         ...state,
-        contractId: action.contract,
+        ...action.contract,
       };
+    case LOGOUT:
+      return null;
     default:
       return state;
   }
@@ -50,5 +53,6 @@ const game = combineReducers({
 });
 
 export const getGame = (state) => state.data;
+export const getGameFetching = (state) => state.fetching;
 
 export default game;

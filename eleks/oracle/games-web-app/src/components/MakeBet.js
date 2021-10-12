@@ -3,6 +3,7 @@ import { connect } from 'react-redux';
 import { Modal, Button } from 'react-bootstrap';
 import Select from 'react-select';
 import { makeBet } from '../actions/bets';
+import { getCurrentUser } from '../reducers';
 import '../styles/MakeBet.scss';
 
 const customTheme = (theme) => ({
@@ -39,7 +40,7 @@ const MakeBet = ({
       </Modal.Title>
     </Modal.Header>
     <Modal.Body className='body'>
-      <p>Please, enter the amount in Lovelace, that you want to bet.</p>
+      <p>Please, enter the amount in ADA, that you want to bet.</p>
       <Select
         options={teams}
         onChange={(el) => setTeam(el.value)}
@@ -81,9 +82,15 @@ const enhancer = compose(
       ],
     };
   }),
-  connect(null, (dispatch) => ({
-    makeBet: (team, amount, gameId) => dispatch(makeBet(team, amount, gameId)),
-  })),
+  connect(
+    (state) => ({
+      wallet: getCurrentUser(state),
+    }),
+    (dispatch) => ({
+      makeBet: (team, amount, gameId, wallet) =>
+        dispatch(makeBet(team, amount, gameId, wallet)),
+    })
+  ),
   withHandlers({
     onClose: ({ setError, setAmount, setShowModal }) => (ev) => {
       setError(null);
@@ -92,20 +99,28 @@ const enhancer = compose(
     },
   }),
   withHandlers({
-    handleSubmit: ({ team, amount, makeBet, game, setError, onClose }) => (
-      ev
-    ) => {
-      const reg = new RegExp('^[0-9]*$');
+    handleSubmit: ({
+      team,
+      amount,
+      makeBet,
+      game,
+      setError,
+      onClose,
+      wallet,
+    }) => (ev) => {
+      const reg = new RegExp('^[0-9].*$');
       const isNum = reg.test(amount);
 
       if (!team || !amount) {
         setError('All fields should be filled');
-      } else if (!isNum || amount < 2000000) {
+      } else if (!isNum || amount < game.minBet) {
         setError(
-          'Amount should be a number and can`t be less than 2000000 Lovelace'
+          `Amount should be a number and ${'can`t'} be less than ${
+            game.minBet
+          } ADA`
         );
       } else {
-        makeBet(team, amount, game.contractId);
+        makeBet(team, amount * 1000000, game.contractId, wallet);
         onClose();
       }
     },

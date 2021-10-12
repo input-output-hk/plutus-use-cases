@@ -1,4 +1,4 @@
-// import { toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import * as fromApi from '../api/games';
 import {
   FETCH_GAMES_START,
@@ -42,7 +42,7 @@ export const fetchGames = () => async (dispatch) => {
   const games = await fromApi.fetchGames();
   if (games.error) {
     dispatch(fetchGamesFailed(games.error));
-    // toast.error(games.error);
+    toast.error(games.error);
   } else {
     dispatch(fetchGamesSuccess(games));
   }
@@ -53,7 +53,7 @@ export const fetchGame = (id) => async (dispatch) => {
   const game = await fromApi.fetchGame(id);
   if (game.error) {
     dispatch(fetchGameFailed(game.error));
-    // toast.error(games.error);
+    toast.error(game.error);
   } else {
     dispatch(fetchGameSuccess(game));
   }

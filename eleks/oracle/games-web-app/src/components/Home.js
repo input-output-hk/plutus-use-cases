@@ -3,9 +3,10 @@ import { compose, lifecycle, withProps, withState } from 'recompose';
 import moment from 'moment';
 import { Link } from 'react-router-dom';
 import { fetchGames } from '../actions/games';
-import { getGames } from '../reducers';
+import { getGames, getGamesFetching } from '../reducers';
 import { Card, Row, Col } from 'react-bootstrap';
 import Select from 'react-select';
+import Loader from './Loader';
 import { statusesMap } from '../helpers/constants';
 import { sortByStatus } from '../helpers/utils';
 
@@ -44,7 +45,7 @@ const customTheme = (theme) => ({
   },
 });
 
-const Home = ({ gamesFiltered, options, setFilter }) => (
+const Home = ({ gamesFiltered, options, setFilter, gamesFetching }) => (
   <div className='Home'>
     <Select
       options={options}
@@ -96,6 +97,9 @@ const Home = ({ gamesFiltered, options, setFilter }) => (
         </Link>
       ))}
     </Row>
+    {gamesFetching && (
+      <Loader disableBackground={true} text={'Loading games...'} />
+    )}
   </div>
 );
 
@@ -113,6 +117,7 @@ const enhancer = compose(
   connect(
     (state) => ({
       games: getGames(state),
+      gamesFetching: getGamesFetching(state),
     }),
     (dispatch) => ({
       fetchGames: () => dispatch(fetchGames()),

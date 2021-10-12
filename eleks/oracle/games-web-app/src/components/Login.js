@@ -4,8 +4,9 @@ import { connect } from 'react-redux';
 import Select from 'react-select';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
+import Loader from './Loader';
 import { login } from '../actions/auth';
-import { getCurrentUser } from '../reducers';
+import { getCurrentUser, getCurrentUserFetching } from '../reducers';
 import { wallets } from '../helpers/constants';
 
 import '../styles/Login.scss';
@@ -16,8 +17,9 @@ const Login = ({
   setWallet,
   currentUser,
   errorVisibility,
-}) => {
-  return currentUser ? (
+  currentUserFetching,
+}) =>
+  currentUser ? (
     <Redirect to='/' />
   ) : (
     <div className='Login'>
@@ -41,9 +43,11 @@ const Login = ({
           Login
         </Button>
       </Form>
+      {currentUserFetching && (
+        <Loader disableBackground={true} text={'Login into the system...'} />
+      )}
     </div>
   );
-};
 
 const enhancer = compose(
   withState('wallet', 'setWallet'),
@@ -58,6 +62,7 @@ const enhancer = compose(
   connect(
     (state) => ({
       currentUser: getCurrentUser(state),
+      currentUserFetching: getCurrentUserFetching(state),
     }),
     (dispatch) => ({
       login: (wallet) => dispatch(login(wallet)),
@@ -69,7 +74,6 @@ const enhancer = compose(
       if (!wallet) {
         setError(true);
       } else {
-        localStorage.setItem('currentUser', JSON.stringify(wallet));
         setError(false);
         login(wallet);
       }

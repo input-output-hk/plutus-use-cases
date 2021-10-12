@@ -1,4 +1,4 @@
-// import { toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import * as fromApi from '../api/bets';
 import { getGameContract, parseBetsResponse } from '../helpers/utils';
 import {
@@ -60,7 +60,7 @@ export const fetchGameContract = (id, gameId) => async (dispatch) => {
   const contracts = await fromApi.fetchContracts(id);
   if (contracts.error) {
     dispatch(fetchGameContractFailed(contracts.error));
-    // toast.error(contracts.error);
+    toast.error(contracts.error);
   } else {
     const contract = getGameContract(contracts, gameId);
     dispatch(fetchGameContractSuccess(contract));
@@ -72,20 +72,27 @@ export const fetchGameBets = (id) => async (dispatch) => {
   const bets = await fromApi.fetchGameBets(id);
   if (bets.error) {
     dispatch(fetchGameBetsFailed(bets.error));
-    // toast.error(contracts.error);
+    toast.error(bets.error);
   } else {
     const result = parseBetsResponse(bets);
     dispatch(fetchGameBetsSuccess(result));
   }
 };
 
-export const makeBet = (team, amount, gameId) => async (dispatch) => {
+export const makeBet = (team, amount, gameId, wallet) => async (dispatch) => {
   dispatch(fetchMakeBetStart());
   const bet = await fromApi.makeBet(team, amount, gameId);
   if (bet.error) {
     dispatch(fetchMakeBetFailed(bet.error));
-    // toast.error(contracts.error);
+    toast.error(bet.error);
   } else {
-    // dispatch(fetchMakeBetSuccess({team, amount}));
+    dispatch(
+      fetchMakeBetSuccess({
+        betBettor: { getPubKeyHash: wallet.publicKey },
+        betAmount: { getLovelace: amount },
+        betTeamId: team,
+      })
+    );
+    toast.success('Your bet has been accepted');
   }
 };

@@ -1,4 +1,6 @@
-export const LOGIN = 'LOGIN';
+export const FETCH_LOGIN_START = 'FETCH_LOGIN_START';
+export const FETCH_LOGIN_SUCCESS = 'FETCH_LOGIN_SUCCESS';
+export const FETCH_LOGIN_FAILED = 'FETCH_LOGIN_FAILED';
 export const LOGOUT = 'LOGOUT';
 
 export const FETCH_GAMES_START = 'FETCH_GAMES_START';
