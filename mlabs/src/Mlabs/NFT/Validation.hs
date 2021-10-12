@@ -285,7 +285,7 @@ mkTxPolicy datum act ctx =
 
     ------------------------------------------------------------------------------
     -- Check if the Current Owner is being reimbursed accordingly.
-    correctPaymentOwner = correctPayment dNft'author calculateOwnerShare
+    correctPaymentOwner = correctPayment dNft'owner calculateOwnerShare
 
     ------------------------------------------------------------------------------
     -- Check if the new Datum is correctly.
