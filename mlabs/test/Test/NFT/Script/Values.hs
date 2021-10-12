@@ -32,6 +32,12 @@ authorPkh = Ledger.pubKeyHash authorPk
 userOneWallet :: Emu.Wallet
 userOneWallet = Emu.fromWalletNumber (Emu.WalletNumber 2)
 
+userOnePk :: Ledger.PubKey
+userOnePk = Emu.walletPubKey userOneWallet
+
+userOnePkh :: Ledger.PubKeyHash
+userOnePkh = Ledger.pubKeyHash userOnePk
+
 -- User 2
 userTwoWallet :: Emu.Wallet
 userTwoWallet = Emu.fromWalletNumber (Emu.WalletNumber 3)
