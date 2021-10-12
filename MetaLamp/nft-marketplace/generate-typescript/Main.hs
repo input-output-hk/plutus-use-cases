@@ -46,13 +46,17 @@ $(deriveTypeScript Aeson.defaultOptions ''TxId)
 $(deriveTypeScript Aeson.defaultOptions ''CurrencySymbol)
 $(deriveTypeScript Aeson.defaultOptions ''PubKeyHash)
 $(deriveTypeScript Aeson.defaultOptions ''Value)
-$(deriveTypeScript Aeson.defaultOptions ''AssocMap.Map)
+
+instance (TypeScript a, TypeScript b) => TypeScript (AssocMap.Map a b) where
+  getTypeScriptType _ = "AssocMap<" <> (getTypeScriptType (Proxy :: Proxy a)) <> ", " <> (getTypeScriptType (Proxy :: Proxy b)) <> ">"
+  getTypeScriptDeclarations _ = [TSRawDeclaration "export type AssocMap<K, V> = [K, V][]"]
+
 $(deriveTypeScript Aeson.defaultOptions ''TokenName)
 $(deriveTypeScript Aeson.defaultOptions ''Ada)
 
 -- TODO: write 'normally', if there is nothing else to do
 instance (TypeScript a, TypeScript b) => TypeScript (RemoteData a b) where
-  getTypeScriptType _ = "RemoteData<" <> (getTypeScriptType (Proxy :: Proxy a)) <> "," <> (getTypeScriptType (Proxy :: Proxy b)) <> ">"
+  getTypeScriptType _ = "RemoteData<" <> (getTypeScriptType (Proxy :: Proxy a)) <> ", " <> (getTypeScriptType (Proxy :: Proxy b)) <> ">"
   getTypeScriptDeclarations _ = [
     TSRawDeclaration "export type RemoteData<E, A> = INotAsked | ILoading | IFailure<E> | ISuccess<A>;", 
     TSRawDeclaration "export interface INotAsked { tag: \"NotAsked\"; }",
@@ -128,4 +132,5 @@ main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @Value)) <>
     (getTypeScriptDeclarations (Proxy @TokenName)) <>
     (getTypeScriptDeclarations (Proxy @Ada)) <>
+    (getTypeScriptDeclarations (Proxy @(AssocMap.Map T1 T2))) <>
     (getTypeScriptDeclarations (Proxy @(Either T1 T2))))
