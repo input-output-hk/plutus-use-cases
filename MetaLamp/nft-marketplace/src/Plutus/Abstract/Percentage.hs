@@ -6,12 +6,12 @@
 {-# LANGUAGE TemplateHaskell       #-}
 
 module Plutus.Abstract.Percentage where
-import qualified Data.Aeson   as J
-import           GHC.Generics (Generic)
+import qualified Data.Aeson          as J
+import qualified Data.OpenApi.Schema as OpenApi
+import           GHC.Generics        (Generic)
 import qualified PlutusTx
-import           Prelude      hiding (Fractional)
+import           Prelude             hiding (Fractional)
 import qualified Schema
-import qualified Data.OpenApi.Schema                       as OpenApi
 
 type Fractional = (Integer, Integer)
 

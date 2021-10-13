@@ -1,7 +1,7 @@
 module Marketplace.Fixtures.Wallet where
 
-import           Wallet.Emulator.Wallet                         (Wallet (..), fromWalletNumber)
-import           Wallet.Emulator.Types (WalletNumber (..))
+import           Wallet.Emulator.Types  (WalletNumber (..))
+import           Wallet.Emulator.Wallet (Wallet (..), fromWalletNumber)
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1

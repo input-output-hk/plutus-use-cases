@@ -4,6 +4,8 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE RecordWildCards    #-}
@@ -11,8 +13,6 @@
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE ViewPatterns       #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE NumericUnderscores #-}
 module Plutus.PAB.Simulation where
 
 import           Control.Monad                                  (forM, forM_,
@@ -27,6 +27,7 @@ import qualified Data.Aeson                                     as J
 import           Data.Default                                   (Default (def))
 import qualified Data.Map.Strict                                as Map
 import qualified Data.Monoid                                    as Monoid
+import qualified Data.OpenApi.Schema                            as OpenApi
 import           Data.Proxy                                     (Proxy (..))
 import qualified Data.Semigroup                                 as Semigroup
 import           Data.Text                                      (Text)
@@ -39,10 +40,13 @@ import           Ledger.Ada                                     (adaSymbol,
                                                                  adaToken,
                                                                  adaValueOf,
                                                                  lovelaceValueOf)
+import qualified Ledger.Ada                                     as Ada
 import           Ledger.Constraints
 import qualified Ledger.Constraints.OffChain                    as Constraints
 import qualified Ledger.Typed.Scripts                           as Scripts
 import           Ledger.Value                                   as Value
+import           Playground.Types                               (SimulatorWallet (..),
+                                                                 adaCurrency)
 import           Plutus.Abstract.ContractResponse               (ContractResponse (..),
                                                                  getEndpointStatus)
 import           Plutus.Abstract.RemoteData                     (RemoteData (..))
@@ -65,14 +69,11 @@ import           Plutus.PAB.Types                               (PABError (..))
 import qualified Plutus.PAB.Types                               as PAB
 import qualified Plutus.PAB.Webserver.Server                    as PAB
 import           Prelude                                        hiding (init)
-import           Wallet.Emulator.Types                          (
+import           Wallet.Emulator.Types                          (WalletNumber (..),
                                                                  walletPubKey)
+import           Wallet.Emulator.Wallet                         (Wallet (..),
+                                                                 fromWalletNumber)
 import           Wallet.Types                                   (ContractInstanceId)
-import           Wallet.Emulator.Types (WalletNumber (..))
-import Playground.Types (SimulatorWallet (..), adaCurrency)
-import qualified Ledger.Ada                   as Ada
-import           Wallet.Emulator.Wallet                         (Wallet (..), fromWalletNumber)
-import qualified Data.OpenApi.Schema                       as OpenApi
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1

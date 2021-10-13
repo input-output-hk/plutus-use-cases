@@ -1,15 +1,14 @@
 module Ext.Plutus.Ledger.Value where
 
+import           Control.Lens           (view)
 import qualified Data.Map               as Map
-import           Ledger                 (TxOutRef, TxOut (txOutValue),
-                                         TxOutTx (txOutTxOut), Value, Address)
+import           Data.Text              (Text)
+import           Ledger                 (Address, TxOut (txOutValue), TxOutRef,
+                                         TxOutTx (txOutTxOut), Value)
 import           Ledger.AddressMap      (UtxoMap)
-import           Plutus.V1.Ledger.Value (Value)
-import Ledger.Tx (toTxOut)
-import           Ledger.Tx                   (ChainIndexTxOut, ciTxOutValue)
+import           Ledger.Tx              (ChainIndexTxOut, ciTxOutValue, toTxOut)
 import           Plutus.Contract
-import           Data.Text                                    (Text)
-import           Control.Lens                     (view)
+import           Plutus.V1.Ledger.Value (Value)
 
 type ChainIndexTxMap = Map.Map TxOutRef ChainIndexTxOut
 

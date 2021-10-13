@@ -22,7 +22,8 @@ import           Data.Proxy                                   (Proxy (..))
 import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
 import qualified Ext.Plutus.Contracts.Auction                 as Auction
-import           Ext.Plutus.Ledger.Value                      (utxosValue, ChainIndexTxMap)
+import           Ext.Plutus.Ledger.Value                      (ChainIndexTxMap,
+                                                               utxosValue)
 import qualified GHC.Generics                                 as Haskell
 import           Ledger
 import qualified Ledger.Typed.Scripts                         as Scripts
