@@ -186,12 +186,10 @@ closeSale marketplace CloseLotParams {..} = do
     logInfo @Haskell.String $ printf "Closed lot sale %s" (Haskell.show sale)
     pure ()
 
--- deriving newtype instance Schema.ToSchema DiffMilliSeconds
-
 data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId   :: UserItemId,
-    saapDuration :: Integer
+    saapDuration :: Integer  --- TODO: use DiffMilliSeconds here, when it will be possible 
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
