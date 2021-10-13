@@ -188,7 +188,7 @@ validSetPriceContext :: ContextBuilder 'ForSpending
 validSetPriceContext =
   (addDatum initialAuthorDatum)
     <> signedWith authorPkh
-    -- TODO: choose
+    -- TODO: choose between `paysSelf` and `output` (see below)
     <> (paysSelf oneNft initialAuthorDatum)
 
 -- <> (output $ Output (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneNft)
