@@ -3,6 +3,7 @@ module Mlabs.NFT.Contract (
   schemas,
   endpoints,
   queryEndpoints,
+  hashData,
 ) where
 
 import PlutusTx.Prelude hiding (mconcat, (<>))
