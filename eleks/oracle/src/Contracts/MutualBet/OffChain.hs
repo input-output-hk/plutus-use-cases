@@ -291,14 +291,22 @@ waitForChange slotCfg params client bets = do
             promiseBind
                 smUpdatePromise
                  $ \case
-                    ContractEnded {} -> pure (MutualBetIsOver bets)
+                    ContractEnded _ input -> 
+                        do 
+                            case input of 
+                                Payout{oracleSigned=signedMessage} -> do
+                                    logInfo ("signedMessage " ++ Haskell.show signedMessage)
+                                    pure (MutualBetIsOver bets)
+                                CancelGame -> pure (MutualBetIsOver bets)
+                                _          -> pure (MutualBetIsOver bets)
                     -- The state machine transitionned to a new state
-                    Transition {} -> do
-                        state <- currentState client
+                    Transition _ _ SM.OnChainState{SM.ocsTxOut=TypedScriptTxOut{tyTxOutData=state}}   -> do
                         case state of 
-                            Just (Ongoing bets) -> pure (OtherBet bets)
-                            Just (BettingClosed bets) -> pure (BettingHasСlosed bets)
-                            _ -> pure (MutualBetIsOver bets)
+                            (Ongoing bets) -> pure (OtherBet bets)
+                            (BettingClosed bets) -> pure (BettingHasСlosed bets)
+                            _ -> do
+                                logInfo @Haskell.String ("Unexpected state")
+                                pure (NoChange bets)
                     _ -> pure (NoChange bets)
     selectList [makeBet, otherBid]
 
