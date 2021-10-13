@@ -84,13 +84,13 @@ import Mlabs.NFT.Types
 data DatumNft = DatumNft
   { -- | NFT ID
     dNft'id :: NftId
-  , -- | Share
+  , -- | Author's share of the NFT.
     dNft'share :: Rational
-  , -- | Author receives the shares of the price
+  , -- | Author's wallet pubKey.
     dNft'author :: UserId
-  , -- | current owner
+  , -- | Owner's wallet pubkey.
     dNft'owner :: UserId
-  , -- | Price in ada, if it's nothing then nobody can buy
+  , -- | Price in Lovelace. If Nothing, NFT not for sale.
     dNft'price :: Maybe Integer
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
@@ -111,18 +111,18 @@ instance Eq DatumNft where
 data UserAct
   = -- | Buy NFT and set new price
     BuyAct
-      { -- | price to buy.
+      { -- | price to buy. In Lovelace.
         act'bid :: Integer
-      , -- | new price for NFT (Nothing locks NFT).
+      , -- | new price for NFT. In Lovelace.
         act'newPrice :: Maybe Integer
       , -- | CurencySymbol of the NFT the user is attempting to buy.
         act'cs :: CurrencySymbol
       }
   | -- | Set new price for NFT
     SetPriceAct
-      { -- | new price for NFT (Nothing locks NFT)
+      { -- | new price for NFT. In Lovelace.
         act'newPrice :: Maybe Integer
-      , -- | Currency Symbol of the NFT the user is attempting to set the price of
+      , -- | Currency Symbol of the NFT the user is attempting to set the price of.
         act'cs :: CurrencySymbol
       }
   deriving stock (Hask.Show, Generic, Hask.Eq)
@@ -194,7 +194,7 @@ mintPolicy stateAddr oref nid =
 mKTxPolicy :: DatumNft -> UserAct -> ScriptContext -> Bool
 mKTxPolicy datum act ctx =
   traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." correctDatum
-    && traceIfFalse "Datum is not  present." correctDatum'
+    && traceIfFalse "Datum is not present." correctDatum'
     && traceIfFalse "New Price cannot be negative." (setPositivePrice act)
     && traceIfFalse "Previous TX is not consumed." prevTxConsumed
     && traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
@@ -204,9 +204,12 @@ mKTxPolicy datum act ctx =
         traceIfFalse "NFT not for sale." nftForSale
           && traceIfFalse "Bid is too low for the NFT price." (bidHighEnough act'bid)
           && traceIfFalse "New owner is not the payer." correctNewOwner
-          && traceIfFalse "Author is not paid their share." (correctPaymentAuthor act'bid)
-          && traceIfFalse "Current owner is not paid their share." (correctPaymentOwner act'bid)
           && traceIfFalse "Datum is not consistent, illegaly altered." consistentDatum
+          && if ownerIsAuthor
+            then traceIfFalse "Amount paid to author/owner does not match bid." (correctPaymentOnlyAuthor act'bid)
+            else
+              traceIfFalse "Current owner is not paid their share." (correctPaymentOwner act'bid)
+                && traceIfFalse "Author is not paid their share." (correctPaymentAuthor act'bid)
       SetPriceAct {} ->
         traceIfFalse "Price can not be negative." priceNotNegative'
           && traceIfFalse "Only owner exclusively can set NFT price." ownerSetsPrice
@@ -221,6 +224,11 @@ mKTxPolicy datum act ctx =
         . fmap snd
         . txInfoData
         . scriptContextTxInfo
+
+    ownerIsAuthor :: Bool
+    ownerIsAuthor = dNft'owner datum == dNft'author datum
+
+    getAda = flip assetClassValueOf $ assetClass Ada.adaSymbol Ada.adaToken
 
     ------------------------------------------------------------------------------
     -- Checks
@@ -253,21 +261,19 @@ mKTxPolicy datum act ctx =
        in fromMaybe False $ (bid >=) <$> price
 
     ------------------------------------------------------------------------------
-    -- Check if the new owner is set correctly.
+    -- Check if the new owner is set correctly. todo
     correctNewOwner = True
 
     ------------------------------------------------------------------------------
     -- Check if the Person is being reimbursed accordingly, with the help of 2
     -- getter functions. Helper function.
-    correctPayment f g bid =
-      let info = scriptContextTxInfo ctx
-          personId = getUserId . f $ datum
-          authorShare = dNft'share datum
-          personGetsAda = getAda $ valuePaidTo info personId
-          personWantsAda = getAda $ g bid authorShare
-       in personGetsAda >= personWantsAda
+    correctPayment f shareCalcFn bid = personGetsAda >= personWantsAda
       where
-        getAda = flip assetClassValueOf $ assetClass Ada.adaSymbol Ada.adaToken
+        info = scriptContextTxInfo ctx
+        personId = getUserId . f $ datum
+        share = dNft'share datum
+        personGetsAda = getAda $ valuePaidTo info personId
+        personWantsAda = getAda $ shareCalcFn bid share
 
     ------------------------------------------------------------------------------
     -- Check if the Author is being reimbursed accordingly.
@@ -275,7 +281,16 @@ mKTxPolicy datum act ctx =
 
     ------------------------------------------------------------------------------
     -- Check if the Current Owner is being reimbursed accordingly.
-    correctPaymentOwner = correctPayment dNft'author calculateOwnerShare
+    correctPaymentOwner = correctPayment dNft'owner calculateOwnerShare
+
+    ------------------------------------------------------------------------------
+    -- Check if the Author is being paid the full amount when they are both
+    -- owner and author.
+    correctPaymentOnlyAuthor bid = authorGetsAda >= bid
+      where
+        info = scriptContextTxInfo ctx
+        author = getUserId . dNft'author $ datum
+        authorGetsAda = getAda $ valuePaidTo info author
 
     ------------------------------------------------------------------------------
     -- Check if the new Datum is correctly.
@@ -378,16 +393,15 @@ nftAsset nid = AssetClass (nftCurrency nid, nftId'token nid)
 
 {-# INLINEABLE calculateShares #-}
 
--- | Returns the calculated value of shares.
+{- | Returns the amount each party should be paid given the number of shares
+ retained by author.
+-}
 calculateShares :: Integer -> Rational -> (Value, Value)
 calculateShares bid authorShare = (toOwner, toAuthor)
   where
-    adaToLovelaceVal = Ada.lovelaceValueOf . (* 1_000_000)
-
-    toAuthor' = round $ fromInteger bid * authorShare
-    toAuthor = adaToLovelaceVal toAuthor'
-    toOwner' = bid - toAuthor'
-    toOwner = adaToLovelaceVal toOwner'
+    authorPart = round $ fromInteger bid * authorShare
+    toAuthor = Ada.lovelaceValueOf authorPart
+    toOwner = Ada.lovelaceValueOf $ bid - authorPart
 
 {-# INLINEABLE calculateOwnerShare #-}
 

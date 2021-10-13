@@ -109,7 +109,7 @@ data MintParams = MintParams
     mp'title :: Title
   , -- | Shares retained by author.
     mp'share :: Rational
-  , -- | Listing price of the NFT.
+  , -- | Listing price of the NFT, in Lovelace.
     mp'price :: Maybe Integer
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
@@ -124,8 +124,10 @@ instance Eq MintParams where
     content1 == content2 && title1 == title2 && share1 == share2 && price1 == price2
 
 data SetPriceParams = SetPriceParams
-  { sp'nftId :: NftId
-  , sp'price :: Maybe Integer -- todo maybe Natural? are they available here?
+  { -- | NFTid of the token which price is set.
+    sp'nftId :: NftId
+  , -- | New price, in Lovelace.
+    sp'price :: Maybe Integer -- todo maybe Natural? are they available here?
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
@@ -138,9 +140,9 @@ instance Eq SetPriceParams where
 data BuyRequestUser = BuyRequestUser
   { -- | nftId to Buy
     ur'nftId :: NftId
-  , -- | price to buy
+  , -- | price to buy, in Lovelace.
     ur'price :: Integer
-  , -- | new price for NFT (Nothing locks NFT)
+  , -- | new price for NFT (Nothing locks NFT), in Lovelace.
     ur'newPrice :: Maybe Integer
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
