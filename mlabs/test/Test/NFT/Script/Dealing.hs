@@ -181,7 +181,7 @@ ownerUserOneSetPriceData = SpendingTest dtm redeemer val
 
 validSetPriceContext :: ContextBuilder 'ForSpending
 validSetPriceContext =
-    signedWith authorPkh
+  signedWith authorPkh
     -- TODO: choose between `paysSelf` and `output` (see below)
     <> (paysSelf oneNft initialAuthorDatum)
 
@@ -189,12 +189,12 @@ validSetPriceContext =
 
 ownerUserOneSetPriceContext :: ContextBuilder 'ForSpending
 ownerUserOneSetPriceContext =
-    signedWith userOnePkh
+  signedWith userOnePkh
     <> (paysSelf oneNft ownerUserOneDatum)
 
 authorNotOwnerSetPriceContext :: ContextBuilder 'ForSpending
 authorNotOwnerSetPriceContext =
-    signedWith authorPkh
+  signedWith authorPkh
     <> (paysSelf oneNft ownerUserOneDatum)
 
 dealingValidator :: Ledger.Validator
