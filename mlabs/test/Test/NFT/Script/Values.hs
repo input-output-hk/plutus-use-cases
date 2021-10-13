@@ -1,17 +1,17 @@
 module Test.NFT.Script.Values where
 
-import qualified Ledger
-import qualified Ledger.Address         as Ledger
-import qualified Wallet.Emulator.Wallet as Emu
-import qualified Plutus.V1.Ledger.Ada as Ada
-import qualified Mlabs.NFT.Contract            as NFT
-import           Mlabs.NFT.Types               (NftId (..), Content(..), Title(..))
-import qualified Mlabs.NFT.Validation          as NFT
-import qualified Data.Aeson                    as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Maybe (fromJust)
-import qualified Ledger.Value as Value
+import Ledger qualified
+import Ledger.Address qualified as Ledger
 import Ledger.Value (TokenName (..))
-import           PlutusTx.Prelude hiding ((<>))
+import Ledger.Value qualified as Value
+import Mlabs.NFT.Contract qualified as NFT
+import Mlabs.NFT.Types (Content (..), NftId (..), Title (..))
+import Mlabs.NFT.Validation qualified as NFT
+import Plutus.V1.Ledger.Ada qualified as Ada
+import PlutusTx.Prelude hiding ((<>))
+import Wallet.Emulator.Wallet qualified as Emu
 
 -- test values
 
@@ -54,10 +54,12 @@ testTokenName = TokenName hData
     hData = NFT.hashData $ Content "A painting."
 
 testNftId :: NftId
-testNftId = NftId { nftId'title = Title "Fiona Lisa"
-                  , nftId'token = testTokenName
-                  , nftId'outRef = testOref
-                  }
+testNftId =
+  NftId
+    { nftId'title = Title "Fiona Lisa"
+    , nftId'token = testTokenName
+    , nftId'outRef = testOref
+    }
 
 nftPolicy :: Ledger.MintingPolicy
 nftPolicy = NFT.mintPolicy testStateAddr testOref testNftId
