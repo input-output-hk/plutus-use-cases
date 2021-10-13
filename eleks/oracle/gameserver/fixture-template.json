@@ -5,6 +5,10 @@
                 "long": "Not Started",
                 "short": "NS"
             },
+            "venue":{
+                "name": "Brentford Community Stadium",
+                "city": "Brentford, Middlesex"
+             },
             "referee": "M. Oliver",
             "id": 1,
             "date": "2021-08-13T19:00:00+00:00",
@@ -23,6 +27,248 @@
                 "winner": false,
                 "logo": "https://media.api-sports.io/football/teams/42.png"
             }
+        },
+        "goals":{
+            "home": 2,
+            "away": 0
+         }
+    },
+    {
+        "fixture": {
+            "status": {
+                "long": "Not Started",
+                "short": "NS"
+            },
+            "venue": {
+                "name": "Turf Moor",
+                "city": "Burnley"
+            },
+            "referee": "David Coote, England",
+            "id": 710557,
+            "date": "2021-08-14T14:00:00+00:00",
+            "timezone": "UTC"
+        },
+        "teams": {
+           "home": {
+              "id": 44,
+              "name": "Burnley",
+              "winner": false,
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/44.png"
+           },
+           "away": {
+              "id": 51,
+              "name": "Brighton",
+              "winner": false,
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/51.png"
+           }
+        },
+        "goals": {
+           "home": 1,
+           "away": 2
         }
-    }
+     },
+     {
+        "fixture": {
+            "status": {
+                "long": "Not Started",
+                "short": "NS"
+            },
+            "venue": {
+                "name": "Stamford Bridge",
+                "city": "London"
+            },
+            "referee": "Jonathan Moss, England",
+            "id": 710558,
+            "date": "2021-08-14T14:00:00+00:00",
+            "timezone": "UTC"           
+        },
+        "teams":{
+           "home": {
+              "id": 49,
+              "name": "Chelsea",
+              "logo":"https:\/\/media.api-sports.io\/football\/teams\/49.png",
+              "winner": false
+           },
+           "away": {
+              "id": 52,
+              "name": "Crystal Palace",
+              "logo":"https:\/\/media.api-sports.io\/football\/teams\/52.png",
+              "winner": false
+           }
+        },
+        "goals":{
+           "home": 3,
+           "away": 0
+        }
+     },
+     {
+        "fixture": {
+            "status": {
+                "long": "Not Started",
+                "short": "NS"
+            },
+            "venue": {
+                "name": "Goodison Park",
+                "city": "Liverpool"
+            },
+            "referee": "Kevin Friend, England",
+            "id": 710559,
+            "date":"2021-08-14T14:00:00+00:00",
+            "timezone":"UTC"   
+        },
+        "teams": {
+           "home": {
+              "id": 45,
+              "name": "Everton",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/45.png",
+              "winner": false
+           },
+           "away": {
+              "id": 41,
+              "name": "Southampton",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/41.png",
+              "winner": false
+           }
+        },
+        "goals": {
+           "home": 3,
+           "away": 1
+        }
+     },
+     {
+        "fixture": {
+            "status": {
+                "long": "Not Started",
+                "short": "NS"
+            },
+            "venue": {
+                "name": "King Power Stadium",
+                "city": "Leicester, Leicestershire"
+            },
+            "referee": "Craig Pawson, England",
+            "id": 710560,
+            "date": "2021-08-14T14:00:00+00:00",
+            "timezone": "UTC"
+        },
+        "teams": {
+           "home": {
+              "id": 46,
+              "name": "Leicester",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/46.png",
+              "winner": false
+           },
+           "away": {
+              "id": 39,
+              "name": "Wolves",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/39.png",
+              "winner": false
+           }
+        },
+        "goals": {
+           "home": 1,
+           "away": 0
+        }
+     },
+     {
+        "fixture": {
+            "status": {
+                "long": "Not Started",
+                "short": "NS"
+            },
+            "venue": {
+                "name": "Old Trafford",
+                "city": "Manchester"
+            },
+            "referee": "P. Tierney",
+            "id": 710561,
+            "date":"2021-08-14T11:30:00+00:00",
+            "timezone":"UTC"
+        },
+        "teams": {
+           "home": {
+              "id": 33,
+              "name": "Manchester United",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/33.png",
+              "winner": false
+           },
+           "away": {
+              "id": 63,
+              "name": "Leeds",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/63.png",
+              "winner": false
+           }
+        },
+        "goals": {
+           "home": 5,
+           "away": 1
+        }
+     },
+     {
+        "fixture": {
+            "status": {
+                "long": "Not Started",
+                "short": "NS"
+            },
+            "venue": {
+                "name": "Carrow Road",
+                "city": "Norwich, Norfolk"
+             },
+             "referee": "Andre Marriner, England",
+             "id": 710563,
+             "date": "2021-08-14T16:30:00+00:00",
+             "timezone": "UTC"
+        },
+        "teams": {
+           "home": {
+              "id": 71,
+              "name": "Norwich",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/71.png",
+              "winner": false
+           },
+           "away": {
+              "id": 40,
+              "name": "Liverpool",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/40.png",
+              "winner": false
+           }
+        },
+        "goals": {
+           "home": 0,
+           "away": 3
+        }
+     },
+     {
+        "fixture": {
+            "status": {
+                "long": "Not Started",
+                "short": "NS"
+            },
+            "venue": {
+                "name": "Vicarage Road",
+                "city": "Watford"
+            },
+            "referee": "Mike Dean, England",
+            "id": 710565,
+            "date": "2021-08-14T14:00:00+00:00",
+            "timezone": "UTC"
+        },
+        "teams": {
+           "home": {
+              "id": 38,
+              "name": "Watford",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/38.png",
+              "winner": false
+           },
+           "away": {
+              "id": 66,
+              "name": "Aston Villa",
+              "logo": "https:\/\/media.api-sports.io\/football\/teams\/66.png",
+              "winner": false
+           }
+        },
+        "goals": {
+           "home": 3,
+           "away": 2
+        }
+     }
 ]

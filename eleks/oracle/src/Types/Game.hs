@@ -26,6 +26,7 @@ import           Schema               (ToSchema)
 
 type GameId = Integer
 type TeamId = Integer
+type Goal   = Integer
 
 skipUnderscore:: String -> String
 skipUnderscore = drop 1
@@ -55,6 +56,16 @@ instance ToJSON GameTeams where
    toJSON = genericToJSON defaultOptions{fieldLabelModifier = skipUnderscore}
 makeLenses ''GameTeams
 
+data GameGoals = GameGoals 
+    { _teamHome :: !Goal
+    , _teamAway :: !Goal
+    }  deriving (Show,Generic)
+instance FromJSON GameGoals where
+    parseJSON = genericParseJSON defaultOptions{fieldLabelModifier = renameLabel "teamHome" "home" . renameLabel "teamAway" "away" . skipUnderscore}
+instance ToJSON GameGoals where 
+   toJSON = genericToJSON defaultOptions{fieldLabelModifier = renameLabel "teamHome" "home" . renameLabel "teamAway" "away" . skipUnderscore}
+makeLenses ''GameGoals
+
 data FixtureStatusShort = NS | LIVE | FT | CANC
     deriving (Generic, Show, Enum, Eq, Ord, ToSchema)
 instance FromJSON FixtureStatusShort
@@ -78,12 +89,23 @@ instance ToJSON FixtureStatus where
    toJSON = genericToJSON defaultOptions{fieldLabelModifier = skipUnderscore}
 makeLenses ''FixtureStatus
 
+data FixtureVenue = FixtureVenue 
+    { _venueName  :: !Text
+    , _city       :: !Text
+    } deriving (Show,Generic)
+instance FromJSON FixtureVenue where
+    parseJSON = genericParseJSON defaultOptions{fieldLabelModifier = renameLabel "venueName" "name" . skipUnderscore}
+instance ToJSON FixtureVenue where 
+   toJSON = genericToJSON defaultOptions{fieldLabelModifier = renameLabel "venueName" "name" . skipUnderscore}
+makeLenses ''FixtureVenue
+
 data Fixture = Fixture
     { _fixtureId :: !GameId
     , _referee   :: !Text
     , _timezone  :: !Text
     , _date      :: !Text  
     , _status    :: !FixtureStatus
+    , _venue     :: !FixtureVenue
     } deriving (Show,Generic)
 instance FromJSON Fixture where
     parseJSON = genericParseJSON defaultOptions { fieldLabelModifier = renameLabel "fixtureId" "id" . skipUnderscore }
@@ -94,6 +116,7 @@ makeLenses ''Fixture
 data Game = Game  
     { _fixture :: !Fixture
     , _teams   :: !GameTeams
+    , _goals   :: !GameGoals
     } 
     deriving  (Show, Generic)
 makeLenses ''Game
