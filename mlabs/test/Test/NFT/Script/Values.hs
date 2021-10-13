@@ -43,7 +43,7 @@ userTwoWallet :: Emu.Wallet
 userTwoWallet = Emu.fromWalletNumber (Emu.WalletNumber 3)
 
 testTxId :: Ledger.TxId
-testTxId = fromJust $ Aeson.decode $ "{\"getTxId\" : \"61626364\"}"
+testTxId = fromJust $ Aeson.decode "{\"getTxId\" : \"61626364\"}"
 
 testOref :: Ledger.TxOutRef
 testOref = Ledger.TxOutRef testTxId 1

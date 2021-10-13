@@ -52,8 +52,8 @@ validData = MintingTest ()
 
 nonMintingCtx :: ContextBuilder 'ForMinting
 nonMintingCtx =
-  (paysOther NFT.txValHash TestValues.oneNft TestValues.testNftId)
-    <> (input $ Input (PubKeyType TestValues.authorPkh) TestValues.oneAda)
+  paysOther NFT.txValHash TestValues.oneNft TestValues.testNftId
+    <> input (Input (PubKeyType TestValues.authorPkh) TestValues.oneAda)
 
 nftMintPolicy :: Ledger.MintingPolicy
 nftMintPolicy =
