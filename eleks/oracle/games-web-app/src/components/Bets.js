@@ -1,3 +1,4 @@
+import { lovelaceToAda } from '../helpers/utils';
 import '../styles/Bets.scss';
 
 const Bets = ({ bets, currentUser }) => (
@@ -13,7 +14,7 @@ const Bets = ({ bets, currentUser }) => (
       >
         <span className='hash'>{bet.betBettor.getPubKeyHash}</span>
         <span className='amount'>
-          {bet.betAmount.getLovelace / 1000000} ADA
+          {lovelaceToAda(bet.betAmount.getLovelace)} ADA
         </span>
       </div>
     ))}

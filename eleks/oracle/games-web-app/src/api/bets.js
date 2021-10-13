@@ -1,3 +1,5 @@
+import { errorMap } from '../helpers/errorMap';
+
 export async function fetchContracts(id) {
   const response = await fetch(
     `http://localhost:9080/api/contract/instances/wallet/${id}`,
@@ -51,7 +53,12 @@ export async function makeBet(nbpWinnerId, nbpAmount, gameId) {
   );
 
   if (response.status === 200) {
-    return response.json();
+    const statusResponse = await fetchGameBets(gameId);
+    if (statusResponse.cicCurrentState.err) {
+      return { error: errorMap(statusResponse, 'Unable to make a bet') };
+    } else {
+      return response.json();
+    }
   } else {
     return {
       error: 'Unable to make a bet',
