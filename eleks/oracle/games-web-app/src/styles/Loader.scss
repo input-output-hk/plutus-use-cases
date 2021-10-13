@@ -1,0 +1,38 @@
+.Loader {
+  .heading {
+    position: absolute;
+    top: 9.2em;
+    left: 50%;
+    transform: translate(-50%, 0);
+
+    &.dark {
+      color: #545454;
+    }
+  }
+
+  .spinner {
+    position: absolute;
+    top: 9em;
+    left: 50%;
+    transform: translate(-50%, 0);
+  }
+
+  .cover {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(209, 209, 209, 0.6);
+  }
+}
+
+.Loader.static {
+  .heading {
+    top: 1.5em;
+  }
+
+  .spinner {
+    top: 0em;
+  }
+}

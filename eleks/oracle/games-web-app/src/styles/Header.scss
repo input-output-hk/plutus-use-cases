@@ -1,0 +1,24 @@
+.Header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6em 1em;
+  margin-bottom: 2em;
+  border-bottom: 1px solid #dedede;
+  background-color: #f5f5f5;
+
+  .title {
+    color: #5e666d;
+    margin-bottom: 0;
+  }
+
+  .logoutBtn {
+    height: 40px;
+    margin-left: 1em;
+  }
+
+  .rightPart {
+    display: flex;
+    align-items: center;
+  }
+}
