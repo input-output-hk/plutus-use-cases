@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Useful utils for contracts
 module Mlabs.Plutus.Contract (
   readDatum,
@@ -15,22 +13,21 @@ module Mlabs.Plutus.Contract (
 ) where
 
 import PlutusTx.Prelude
-import Prelude (String, foldl1)
+import Prelude (String)
 
-import Control.Lens (review, view, (^.), (^?))
+import Control.Lens (view, (^?))
 import Control.Monad (forever)
 import Control.Monad.Freer (Eff)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Bifunctor (second)
 import Data.Functor (void)
-import Data.Kind (Type)
 import Data.Map qualified as M
 import Data.OpenUnion (Member)
 import Data.Proxy (Proxy (..))
-import Data.Row (KnownSymbol, Row)
+import Data.Row (KnownSymbol)
 import GHC.TypeLits (Symbol, symbolVal)
-import Ledger (Datum (Datum), DatumHash, TxOut (txOutDatumHash), TxOutTx (txOutTxOut, txOutTxTx), lookupDatum)
-import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress, ciTxOutDatum, toTxOut, txOutAddress)
+import Ledger (Datum (Datum), TxOut (txOutDatumHash), TxOutTx (txOutTxOut, txOutTxTx), lookupDatum)
+import Ledger.Tx (ChainIndexTxOut, ciTxOutDatum)
 import Mlabs.Data.List (maybeRight)
 import Playground.Contract (Contract, ToSchema)
 import Plutus.ChainIndex.Tx (ChainIndexTx, citxData)
@@ -81,7 +78,6 @@ getEndpoint ::
   ( Contract.HasEndpoint (EndpointSymbol a) a s
   , Contract.AsContractError e
   , IsEndpoint a
-  , FromJSON a
   ) =>
   (a -> Contract w s e b) ->
   Contract.Promise w s e b

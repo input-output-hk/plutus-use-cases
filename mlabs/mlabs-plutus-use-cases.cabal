@@ -101,6 +101,12 @@ library
                   
   Ghc-Options:
     -Wall
+    -Wcompat
+    -Wincomplete-uni-patterns
+    -Wredundant-constraints
+    -Wmissing-export-lists
+    -Wmissing-deriving-strategies
+    -Werror
     -fplugin=RecordDotPreprocessor
     
   hs-source-dirs:

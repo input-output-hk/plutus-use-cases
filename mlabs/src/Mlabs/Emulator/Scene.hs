@@ -16,15 +16,21 @@ module Mlabs.Emulator.Scene (
   coinDiff,
 ) where
 
-import PlutusTx.Prelude
-
--- import Data.Monoid (mempty)
+import PlutusTx.Prelude hiding (Monoid, Semigroup, mempty, (<>))
+import Prelude (Monoid, Semigroup, mempty, (<>))
 
 import Control.Applicative (Alternative (..))
 
 import Data.List qualified as L
 import Data.Map qualified as M
-import Plutus.Contract.Test hiding (tx)
+import Plutus.Contract.Test (
+  TracePredicate,
+  Wallet,
+  assertNoFailedTransactions,
+  valueAtAddress,
+  walletFundsChange,
+  (.&&.),
+ )
 import Plutus.V1.Ledger.Address (Address)
 import Plutus.V1.Ledger.Value (Value)
 import Plutus.V1.Ledger.Value qualified as Value
@@ -54,12 +60,6 @@ instance Semigroup Scene where
 
 instance Monoid Scene where
   mempty = Scene mempty mempty Nothing
-
-instance Semigroup (M.Map Wallet Value) where
-  (<>) = M.union
-
-instance Monoid (M.Map Wallet Value) where
-  mempty = M.empty
 
 -- | Creates scene with single user in it that owns so many coins, app owns zero coins.
 owns :: Wallet -> [(Coin, Integer)] -> Scene

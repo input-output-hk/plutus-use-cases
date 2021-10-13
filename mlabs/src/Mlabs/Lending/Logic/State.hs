@@ -65,7 +65,7 @@ module Mlabs.Lending.Logic.State (
 ) where
 
 import PlutusTx.Prelude
-import Prelude qualified as Hask (Show, String, uncurry)
+import Prelude qualified as Hask (Show, uncurry)
 
 import Control.Monad.Except (MonadError (throwError))
 import Control.Monad.State.Strict (MonadState (get, put), gets, modify')
@@ -101,7 +101,6 @@ import Mlabs.Lending.Logic.Types (
  )
 import Mlabs.Lending.Logic.Types qualified as Types
 import PlutusTx.Ratio qualified as R
-import System.Posix.Types qualified as Types
 
 -- | Type for errors
 type Error = BuiltinByteString
@@ -252,7 +251,7 @@ data Convert = Convert
   , -- | convert to
     convert'to :: Types.Coin
   }
-  deriving (Hask.Show)
+  deriving stock (Hask.Show)
 
 {-# INLINEABLE reverseConvert #-}
 reverseConvert :: Convert -> Convert

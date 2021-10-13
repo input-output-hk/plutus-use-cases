@@ -7,38 +7,44 @@ module Mlabs.Nft.Contract.Simulator.Handler (
 
 import Prelude
 
-import Control.Monad.Freer (
-  Eff,
-  Member,
-  interpret,
-  type (~>),
- )
-import Control.Monad.Freer.Error (Error)
-import Control.Monad.Freer.Extras.Log (LogMsg)
+-- FIXME
+-- handler related imports commented out with `-- !` to disable compilation warnings
+-- ! import Control.Monad.Freer (
+--   Eff,
+--   Member,
+--   interpret,
+--   type (~>),
+--  )
+-- ! import Control.Monad.Freer.Error (Error)
+-- ! import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Default (Default (def))
 import Data.Functor (void)
-import Data.Monoid (Last)
+
+-- ! import Data.Monoid (Last)
 import Data.OpenApi.Schema qualified as OpenApi
-import Data.Text (Text, pack)
+
+-- ! import Data.Text (Text, pack)
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import GHC.Generics (Generic)
-import Plutus.Contract (Contract, mapError)
-import Plutus.PAB.Effects.Contract (ContractEffect (..))
-import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..))
-import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
-import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg (..))
+
+-- ! import Plutus.Contract (Contract, mapError)
+-- ! import Plutus.PAB.Effects.Contract (ContractEffect (..))
+import Plutus.PAB.Effects.Contract.Builtin (Builtin)
+
+-- ! import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg (..))
 import Plutus.PAB.Simulator (
   Simulation,
   SimulatorEffectHandlers,
  )
 import Plutus.PAB.Simulator qualified as Simulator
-import Plutus.PAB.Types (PABError (..))
+
+-- ! import Plutus.PAB.Types (PABError (..))
 import Plutus.PAB.Webserver.Server qualified as PAB.Server
 
 import Mlabs.Nft.Contract.Api qualified as Nft
-import Mlabs.Nft.Contract.Server qualified as Nft
+
+-- ! import Mlabs.Nft.Contract.Server qualified as Nft
 import Mlabs.Nft.Logic.Types (NftId)
 
 -- | Shortcut for Simulator monad for NFT case
@@ -57,14 +63,14 @@ instance Pretty NftContracts where
   pretty = viaShow
 
 -- FIXME
-handleNftContracts ::
-  ( Member (Error PABError) effs
-  , Member (LogMsg (PABMultiAgentMsg (Builtin NftContracts))) effs
-  ) =>
-  Nft.StartParams ->
-  ContractEffect (Builtin NftContracts) ~> Eff effs
-handleNftContracts sp = error "Fix required after Plutus update"
-
+-- related imports commented out to disable compilation warnings
+-- handleNftContracts ::
+--   ( Member (Error PABError) effs ,
+--     Member (LogMsg (PABMultiAgentMsg (Builtin NftContracts))) effs
+--   ) =>
+--   Nft.StartParams ->
+--   ContractEffect (Builtin NftContracts) ~> Eff effs
+-- handleNftContracts sp =
 -- Builtin.handleBuiltin getSchema getContract
 --   where
 --     getSchema = \case
@@ -76,13 +82,15 @@ handleNftContracts sp = error "Fix required after Plutus update"
 
 -- FIXME
 handlers :: Nft.StartParams -> SimulatorEffectHandlers (Builtin NftContracts)
-handlers sp = error "Fix required after Plutus update"
+handlers = error "Fix required after Plutus update"
 
+-- handlers sp =
 -- Simulator.mkSimulatorHandlers @(Builtin NftContracts) def def $
 --   interpret (handleNftContracts sp)
 
-startNftContract :: Nft.StartParams -> Contract (Last NftId) Nft.AuthorSchema Text ()
-startNftContract startParams = mapError (pack . show) $ Nft.startNft startParams
+-- FIXME
+-- startNftContract :: Nft.StartParams -> Contract (Last NftId) Nft.AuthorSchema Text ()
+-- startNftContract startParams = mapError (pack . show) $ Nft.startNft startParams
 
 -- | Runs simulator for NFT
 runSimulator :: Nft.StartParams -> Sim () -> IO ()

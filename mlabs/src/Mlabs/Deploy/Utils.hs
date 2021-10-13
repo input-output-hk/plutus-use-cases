@@ -1,32 +1,51 @@
-module Mlabs.Deploy.Utils where
+module Mlabs.Deploy.Utils (
+  validatorToPlutus,
+  policyToPlutus,
+  writeData,
+  toSchemeJson,
+) where
 
 import PlutusTx.Prelude hiding (error)
-import Prelude (IO, String, error, print, undefined)
+import Prelude (FilePath, IO, String, error, print)
 
-import Data.Aeson as Json
-import Data.ByteString as DB
+import Data.Aeson as Json (encode)
 import Data.ByteString.Lazy qualified as LB
 import Data.ByteString.Short qualified as SBS
 
-import Cardano.Api
-import Cardano.Api.Shelley
+import Cardano.Api.Shelley (
+  Error (displayError),
+  PlutusScript (..),
+  PlutusScriptV1,
+  ScriptData (ScriptDataNumber),
+  ScriptDataJsonSchema (ScriptDataJsonDetailedSchema),
+  fromPlutusData,
+  scriptDataToJson,
+  toAlonzoData,
+  writeFileTextEnvelope,
+ )
 
 import Cardano.Ledger.Alonzo.Data qualified as Alonzo
-import Codec.Serialise
-import Ledger.Typed.Scripts.Validators as VS
-import Plutus.V1.Ledger.Api (MintingPolicy, TxOutRef, Validator)
+import Codec.Serialise (serialise)
+import Plutus.V1.Ledger.Api (Validator)
 import Plutus.V1.Ledger.Api qualified as Plutus
-import PlutusTx
+import PlutusTx (ToData, toData)
 
+validatorToPlutus :: FilePath -> Validator -> IO ()
 validatorToPlutus file validator = do
   -- taken from here
   -- https://github.com/input-output-hk/Alonzo-testnet/blob/main/resources/plutus-sources/plutus-example/app/plutus-minting-purple-example.hs
   let (validatorPurpleScript, validatorAsSBS) = serializeValidator validator
   case Plutus.defaultCostModelParams of
     Just m ->
-      let Alonzo.Data pData = toAlonzoData (ScriptDataNumber 42)
+      let getAlonzoData d = case toAlonzoData d of
+            Alonzo.Data pData -> pData
+            _ -> error "Should not happen"
           (logout, e) =
-            Plutus.evaluateScriptCounting Plutus.Verbose m validatorAsSBS [pData]
+            Plutus.evaluateScriptCounting
+              Plutus.Verbose
+              m
+              validatorAsSBS
+              [getAlonzoData (ScriptDataNumber 42)]
        in do
             print ("Log output" :: String) >> print logout
             case e of
@@ -38,6 +57,7 @@ validatorToPlutus file validator = do
     Left err -> print $ displayError err
     Right () -> return ()
 
+policyToPlutus :: FilePath -> Plutus.MintingPolicy -> IO ()
 policyToPlutus file policy =
   validatorToPlutus
     file
@@ -52,6 +72,7 @@ serializeValidator validator =
       purpleScript = PlutusScriptSerialised sbs
    in (purpleScript, sbs)
 
+writeData :: ToData a => FilePath -> a -> IO ()
 writeData file isData = LB.writeFile file (toSchemeJson isData)
 
 toSchemeJson :: ToData a => a -> LB.ByteString
