@@ -36,8 +36,8 @@
     {
         "fixture": {
             "status": {
-                "long": "Match Finished",
-                "short": "FT"
+                "long": "Not Started",
+                "short": "NS"
             },
             "venue": {
                 "name": "Turf Moor",
@@ -70,8 +70,8 @@
      {
         "fixture": {
             "status": {
-                "long": "Match Finished",
-                "short": "FT"
+                "long": "Not Started",
+                "short": "NS"
             },
             "venue": {
                 "name": "Stamford Bridge",
@@ -104,8 +104,8 @@
      {
         "fixture": {
             "status": {
-                "long": "Match Finished",
-                "short": "FT"
+                "long": "Not Started",
+                "short": "NS"
             },
             "venue": {
                 "name": "Goodison Park",
@@ -138,8 +138,8 @@
      {
         "fixture": {
             "status": {
-                "long": "Match Finished",
-                "short": "FT"
+                "long": "Not Started",
+                "short": "NS"
             },
             "venue": {
                 "name": "King Power Stadium",
@@ -172,8 +172,8 @@
      {
         "fixture": {
             "status": {
-                "long": "Match Finished",
-                "short": "FT"
+                "long": "Not Started",
+                "short": "NS"
             },
             "venue": {
                 "name": "Old Trafford",
@@ -206,8 +206,8 @@
      {
         "fixture": {
             "status": {
-                "long": "Match Finished",
-                "short": "FT"
+                "long": "Not Started",
+                "short": "NS"
             },
             "venue": {
                 "name": "Carrow Road",
@@ -240,8 +240,8 @@
      {
         "fixture": {
             "status": {
-                "long": "Match Finished",
-                "short": "FT"
+                "long": "Not Started",
+                "short": "NS"
             },
             "venue": {
                 "name": "Vicarage Road",
