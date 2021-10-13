@@ -36,14 +36,23 @@ import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Contracts.Services.Sale               as Sale
 import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
-import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds)
-import qualified Plutus.Abstract.Percentage as Percentage
 import qualified Plutus.Contracts.Services.Auction as Auction
+import qualified Plutus.Abstract.Percentage                       as Percentage
+
+psPosixTime :: MonadReader BridgeData m => m PSType
+psPosixTime =
+    TypeInfo "purescript-foreign-generic" "Plutus.V1.Ledger.Time" "POSIXTime" <$>
+    psTypeParameters
+
+posixTimeBridge :: BridgePart
+posixTimeBridge = do
+    typeName ^== "POSIXTime"
+    typeModule ^== "Plutus.V1.Ledger.Time"
+    psPosixTime
 
 marketplaceTypes :: [SumType 'Haskell]
 marketplaceTypes =
       [ (equal <*> (genericShow <*> mkSumType)) (Proxy @ThreadToken)
-          , (equal <*> (genericShow <*> mkSumType)) (Proxy @DiffMilliSeconds)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Percentage.Percentage)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)

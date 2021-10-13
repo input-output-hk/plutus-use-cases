@@ -6,10 +6,11 @@
 {-# LANGUAGE TemplateHaskell       #-}
 
 module Plutus.Abstract.Percentage where
-import qualified Data.Aeson   as J
-import           GHC.Generics (Generic)
+import qualified Data.Aeson          as J
+import qualified Data.OpenApi.Schema as OpenApi
+import           GHC.Generics        (Generic)
 import qualified PlutusTx
-import           Prelude      hiding (Fractional)
+import           Prelude             hiding (Fractional)
 import qualified Schema
 
 type Fractional = (Integer, Integer)
@@ -18,7 +19,7 @@ newtype Percentage =
       Percentage
       {getPercentage :: Fractional}
       deriving stock (Eq, Show, Generic)
-      deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+      deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''Percentage
 PlutusTx.unstableMakeIsData ''Percentage

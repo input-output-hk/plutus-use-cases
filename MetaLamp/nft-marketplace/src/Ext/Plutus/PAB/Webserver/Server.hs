@@ -13,10 +13,11 @@
 
 module Ext.Plutus.PAB.Webserver.Server where
 
-import           Cardano.Wallet.Types                   (WalletInfo (..))
+import           Cardano.Wallet.Mock.Types              (WalletInfo (..))
 import           Control.Concurrent.Availability        (Availability,
                                                          available, newToken)
 import           Data.Aeson                             (FromJSON, ToJSON)
+import qualified Data.OpenApi.Schema                    as OpenApi
 import           Data.Proxy
 import           Ledger.Crypto                          (pubKeyHash)
 import qualified Network.Wai.Middleware.Cors            as Cors
@@ -36,16 +37,18 @@ import           Servant                                (Application,
                                                          (:<|>) ((:<|>)))
 import qualified Servant
 
+
 -- Note: this definition is only to provide options responses
 -- WSAPI is websocket api which does not support options requests
 type CombinedAPI t =
       API (Contract.ContractDef t) Integer
 
-startServer :: forall t.
+startServer :: forall t env.
     ( FromJSON (Contract.ContractDef t)
     , ToJSON (Contract.ContractDef t)
     , Contract.PABContract t
     , Servant.MimeUnrender Servant.JSON (Contract.ContractDef t)
+    , OpenApi.ToSchema (Contract.ContractDef t)
     )
     => Simulation t (Simulation t ())
 startServer = do
@@ -53,8 +56,12 @@ startServer = do
     let mkWalletInfo = do
             (wllt, pk) <- Simulator.addWallet
             pure $ WalletInfo{wiWallet = wllt, wiPubKey = pk, wiPubKeyHash = pubKeyHash pk}
-    snd <$> PAB.startServer' [Cors.cors (const $ Just policy), provideOptions] 9080 (Right mkWalletInfo) Nothing availability 30
+    snd <$> PAB.startServer' corsMiddlewares 9080 (Right mkWalletInfo) Nothing availability 30
     where
-      provideOptions = Cors.provideOptions (Proxy @(CombinedAPI t))
-      policy = Cors.simpleCorsResourcePolicy
-                  { Cors.corsRequestHeaders = [ "content-type" ] }
+        corsMiddlewares =
+            [ -- a custom CORS policy since 'simpleCors' doesn't support "content-type" header by default
+            let policy = Cors.simpleCorsResourcePolicy { Cors.corsRequestHeaders = [ "content-type" ] }
+            in Cors.cors (const $ Just policy)
+            -- this middleware handles preflight OPTIONS browser requests
+            , Cors.provideOptions (Proxy @(API (Contract.ContractDef t) Integer))
+            ]

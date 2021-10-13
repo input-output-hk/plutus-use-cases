@@ -91,9 +91,9 @@ renderSale sale =
 
 renderAuction ::
   forall props act.
-  AuctionForClient -> HH.HTML props act
+  Auction -> HH.HTML props act
 renderAuction auction =
   HH.div_
     [ HH.h4_ [ HH.text "Auction: " ]
-    , HH.p_ [ HH.text $ "end time: " <> Fmt.format Utils.timeFormatter (Utils.posixTimeToUtcUnsafe (unwrap auction).aEndTime) ]
+    , HH.p_ [ HH.text $ "end time: " <> Fmt.format Utils.timeFormatter (Utils.posixTimeToUtcUnsafe (unwrap (unwrap auction).aEndTime)) ]
     ]

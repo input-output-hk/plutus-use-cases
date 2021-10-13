@@ -22,8 +22,8 @@ import           Data.Proxy                                   (Proxy (..))
 import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
 import qualified Plutus.Contracts.Services.Auction as Auction
-
-import           Ext.Plutus.Ledger.Value                      (utxoValue)
+import           Ext.Plutus.Ledger.Value                      (ChainIndexTxMap,
+                                                               utxosValue)
 import qualified GHC.Generics                                 as Haskell
 import           Ledger
 import qualified Ledger.Typed.Scripts                         as Scripts
@@ -51,7 +51,7 @@ marketplaceStore marketplace = do
   mapError' (getOnChainState client) >>= getStateDatum
 
 getStateDatum ::
-    Maybe (OnChainState Core.MarketplaceDatum i, UtxoMap) -> Contract w s Text Core.MarketplaceDatum
+    Maybe (OnChainState Core.MarketplaceDatum i, ChainIndexTxMap) -> Contract w s Text Core.MarketplaceDatum
 getStateDatum = maybe (throwError "Marketplace output not found") (pure . tyTxOutData . ocsTxOut . fst)
 
 getNftEntry :: Core.MarketplaceDatum -> Core.InternalNftId -> Contract w s Text Core.NFT
@@ -66,11 +66,11 @@ getBundleEntry nftStore (Core.InternalBundleId bundleId cids) =
 
 -- | Gets all UTxOs belonging to a user and concats them into one Value
 fundsAt :: PubKeyHash -> Contract w s Text Value
-fundsAt pkh = utxoValue <$> utxoAt (pubKeyHashAddress pkh)
+fundsAt pkh = utxosValue $ pubKeyHashAddress pkh
 
 -- | Gets all UTxOs belonging to the Marketplace script and concats them into one Value
 marketplaceFunds :: Core.Marketplace -> Contract w s Text Value
-marketplaceFunds marketplace =  utxoValue <$> utxoAt (Core.marketplaceAddress marketplace)
+marketplaceFunds marketplace =  utxosValue $ Core.marketplaceAddress marketplace
 
 -- | Gets current auction state for specified NFT
 getAuctionState :: Core.Marketplace -> UserItemId -> Contract w s Text Auction.AuctionState

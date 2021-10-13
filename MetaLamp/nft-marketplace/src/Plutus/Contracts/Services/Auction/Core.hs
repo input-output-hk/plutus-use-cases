@@ -54,27 +54,6 @@ PlutusTx.makeLift ''AuctionFee
 
 Lens.makeClassy_ ''AuctionFee
 
--- TODO can't use POSIXTime directly because of custom JSON instances defined in Plutus:
--- generated purescript type has generic instances
-type POSIXTimeT = Integer
-
-data AuctionForClient =
-    AuctionForClient {
-        afcProtocolToken :: !PubKeyHash,
-        afcOwner :: !PubKeyHash,
-        afcAsset :: !Value,
-        afcEndTime :: !POSIXTimeT,   -- TODO: use Auction time for frontend after update plutus
-        afcAuctionFee  :: Maybe AuctionFee
-    }
-        deriving stock (Haskell.Eq, Haskell.Show, Generic)
-        deriving anyclass (ToJSON, FromJSON)
-
-PlutusTx.makeLift ''AuctionForClient
-
-PlutusTx.unstableMakeIsData ''AuctionForClient
-
-Lens.makeClassy_ ''AuctionForClient
-
 -- | Definition of an auction
 data Auction
     = Auction
