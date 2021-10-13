@@ -13,6 +13,7 @@ import Test.Lending.Logic qualified as Lending.Logic
 import Test.Lending.QuickCheck qualified as Lending.QuickCheck
 import Test.Nft.Contract qualified as Nft.Contract
 import Test.Nft.Logic qualified as Nft.Logic
+import Test.NFT.Contract qualified as NFT.Contract
 
 main :: IO ()
 main =
@@ -20,10 +21,15 @@ main =
     testGroup
       "tests"
       [ testGroup
-          "NFT"
+          "Nft"
           [ Nft.Logic.test
           , contract Nft.Contract.test
           ]
+      , testGroup
+          "NFT"
+          [ contract NFT.Contract.test
+          ]
+      
       , testGroup
           "Lending"
           [ Lending.Logic.test
