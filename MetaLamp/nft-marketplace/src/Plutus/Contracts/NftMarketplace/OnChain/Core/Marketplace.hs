@@ -12,6 +12,7 @@ import           Ledger
 import           Plutus.Abstract.Percentage (Percentage)
 import qualified PlutusTx
 import           Prelude
+import qualified Data.OpenApi.Schema                       as OpenApi
 
 data Marketplace =
   Marketplace
@@ -20,7 +21,7 @@ data Marketplace =
       marketplaceSaleFee  :: Percentage -- percentage by selling on the Sale or Auction
     }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
+  deriving anyclass (J.ToJSON, J.FromJSON, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''Marketplace
 PlutusTx.unstableMakeIsData ''Marketplace

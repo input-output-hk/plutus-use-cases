@@ -11,7 +11,8 @@
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE ViewPatterns       #-}
-
+{-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE NumericUnderscores #-}
 module Plutus.PAB.Simulation where
 
 import           Control.Monad                                  (forM, forM_,
@@ -64,15 +65,26 @@ import           Plutus.PAB.Types                               (PABError (..))
 import qualified Plutus.PAB.Types                               as PAB
 import qualified Plutus.PAB.Webserver.Server                    as PAB
 import           Prelude                                        hiding (init)
-import           Wallet.Emulator.Types                          (Wallet (..),
+import           Wallet.Emulator.Types                          (
                                                                  walletPubKey)
 import           Wallet.Types                                   (ContractInstanceId)
+import           Wallet.Emulator.Types (WalletNumber (..))
+import Playground.Types (SimulatorWallet (..), adaCurrency)
+import qualified Ledger.Ada                   as Ada
+import           Wallet.Emulator.Wallet                         (Wallet (..), fromWalletNumber)
+import qualified Data.OpenApi.Schema                       as OpenApi
 
 ownerWallet :: Wallet
-ownerWallet = Wallet 1
+ownerWallet = fromWalletNumber $ WalletNumber 1
+
+wallet2 :: Wallet
+wallet2 = fromWalletNumber $ WalletNumber 2
+
+wallet3 :: Wallet
+wallet3 = fromWalletNumber $ WalletNumber 3
 
 userWallets :: [Wallet]
-userWallets = [Wallet i | i <- [2 .. 4]]
+userWallets = fromWalletNumber <$> [WalletNumber i | i <- [2 .. 4]]
 
 startMarketplaceParams :: Owner.StartMarketplaceParams
 startMarketplaceParams = Owner.StartMarketplaceParams {
@@ -118,8 +130,8 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
-    let userCid = cidUser Map.! Wallet 2
-        sender = pubKeyHash . walletPubKey $ Wallet 2
+    let userCid = cidUser Map.! wallet2
+        sender = pubKeyHash . walletPubKey $ wallet2
     let catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
     let photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
 
@@ -148,8 +160,8 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
         _                                          -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful openSale"
 
-    let buyerCid = cidUser Map.! Wallet 3
-        buyer = pubKeyHash . walletPubKey $ Wallet 3
+    let buyerCid = cidUser Map.! wallet3
+        buyer = pubKeyHash . walletPubKey $ wallet3
 
     _  <-
         Simulator.callEndpointOnInstance buyerCid "buyItem" Marketplace.CloseLotParams {
@@ -288,7 +300,7 @@ data MarketplaceContracts =
     | MarketplaceInfo Marketplace.Marketplace
     | MarketplaceUser Marketplace.Marketplace
     deriving (Eq, Show, Generic)
-    deriving anyclass (J.FromJSON, J.ToJSON)
+    deriving anyclass (J.FromJSON, J.ToJSON, OpenApi.ToSchema)
 
 instance Pretty MarketplaceContracts where
     pretty = viaShow
