@@ -15,48 +15,45 @@
 {-# LANGUAGE TypeOperators         #-}
 
 module Plutus.Contracts.Services.Auction.Endpoints where
-import           Control.Lens                                     (makeClassyPrisms)
-import           Data.Aeson                                       (FromJSON,
-                                                                   ToJSON)
-import           Data.Monoid                                      (Last (..))
-import           Data.Semigroup.Generic                           (GenericSemigroupMonoid (..))
-import           GHC.Generics                                     (Generic)
-import           Ledger                                           (Ada,
-                                                                   PubKeyHash,
-                                                                   Slot, Value)
+import           Control.Lens                                   (makeClassyPrisms)
+import           Data.Aeson                                     (FromJSON,
+                                                                 ToJSON)
+import qualified Data.Aeson                                     as J
+import           Data.Monoid                                    (Last (..))
+import           Data.Semigroup.Generic                         (GenericSemigroupMonoid (..))
+import           GHC.Generics                                   (Generic)
+import           Ledger                                         (Ada,
+                                                                 PubKeyHash,
+                                                                 Slot, Value)
 import qualified Ledger
-import qualified Ledger.Ada                          as Ada
-import qualified Ledger.Constraints                  as Constraints
-import           Ledger.Constraints.TxConstraints    (TxConstraints)
-import qualified Ledger.Interval                     as Interval
-import qualified Ledger.Typed.Scripts                as Scripts
-import           Ledger.Typed.Tx                     (TypedScriptTxOut (..))
-import           Ledger.Value                        (AssetClass)
-import qualified Plutus.Abstract.Percentage          as Percentage
-import qualified Plutus.Abstract.PercentageInterface as Percentage
+import qualified Ledger.Ada                                     as Ada
+import qualified Ledger.Constraints                             as Constraints
+import           Ledger.Constraints.TxConstraints               (TxConstraints)
+import qualified Ledger.Interval                                as Interval
+import qualified Ledger.Typed.Scripts                           as Scripts
+import           Ledger.Typed.Tx                                (TypedScriptTxOut (..))
+import           Ledger.Value                                   (AssetClass)
+import qualified Plutus.Abstract.Percentage                     as Percentage
+import qualified Plutus.Abstract.PercentageInterface            as Percentage
 import           Plutus.Contract
-import           Plutus.Contract.StateMachine                     hiding
-                                                                  (mkValidator,
-                                                                   typedValidator)
-import qualified Plutus.Contract.StateMachine                     as SM
-import           Plutus.Contract.Util                             (loopM)
-import qualified Plutus.Contracts.Currency                        as Currency
+import           Plutus.Contract.StateMachine                   hiding
+                                                                (mkValidator,
+                                                                 typedValidator)
+import qualified Plutus.Contract.StateMachine                   as SM
+import           Plutus.Contract.Util                           (loopM)
+import qualified Plutus.Contracts.Currency                      as Currency
+import           Plutus.Contracts.Services.Auction.Core
+import           Plutus.Contracts.Services.Auction.StateMachine
 import qualified PlutusTx
 import           PlutusTx.Prelude
-import qualified Prelude                                          as Haskell
-import qualified Plutus.Abstract.Percentage as Percentage
-import qualified Plutus.Abstract.PercentageInterface as Percentage
-import  Plutus.Contracts.Services.Auction.Core 
+import qualified Prelude                                        as Haskell
 import qualified Schema
-import           GHC.Generics                                     (Generic)
-import qualified Data.Aeson                   as J
-import Plutus.Contracts.Services.Auction.StateMachine
 
 
 data StartAuctionParams = StartAuctionParams {
-    sapOwner :: !PubKeyHash,
-    sapAsset :: !Value,
-    sapEndTime :: !Ledger.POSIXTime,
+    sapOwner      :: !PubKeyHash,
+    sapAsset      :: !Value,
+    sapEndTime    :: !Ledger.POSIXTime,
     sapAuctionFee :: Maybe AuctionFee
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Generic)

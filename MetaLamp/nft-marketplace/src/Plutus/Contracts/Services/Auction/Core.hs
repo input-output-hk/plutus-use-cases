@@ -19,13 +19,16 @@
 module Plutus.Contracts.Services.Auction.Core where
 
 import qualified Control.Lens                 as Lens
+import           Data.Aeson                   (FromJSON, ToJSON)
 import qualified Data.Text                    as T
+import           GHC.Generics                 (Generic)
 import qualified GHC.Generics                 as Haskell
 import           Ledger
 import qualified Ledger.Ada                   as Ada
 import qualified Ledger.Constraints           as Constraints
 import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Value
+import qualified Plutus.Abstract.Percentage   as Percentage
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import qualified PlutusTx
@@ -34,16 +37,11 @@ import           PlutusTx.Prelude             hiding (Semigroup (..))
 import           Prelude                      (Semigroup (..))
 import qualified Prelude                      as Haskell
 import qualified Schema
-import qualified Plutus.Abstract.Percentage as Percentage
-import           Data.Aeson                                       (FromJSON,
-                                                                   ToJSON)
-import           GHC.Generics                                     (Generic)
-import qualified Schema
 
-data AuctionFee = 
-    AuctionFee 
+data AuctionFee =
+    AuctionFee
     { afAuctionOperator :: !PubKeyHash
-    , afAuctionFee  :: !Percentage.Percentage
+    , afAuctionFee      :: !Percentage.Percentage
     }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON, Schema.ToSchema)
@@ -57,11 +55,11 @@ Lens.makeClassy_ ''AuctionFee
 -- | Definition of an auction
 data Auction
     = Auction
-        { aProtocolToken   :: !ThreadToken
-        , aOwner               :: !PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
-        , aAsset               :: !Value -- ^ The asset itself. This value is going to be locked by the auction script output.
-        , aEndTime             :: !Ledger.POSIXTime -- ^ When the time window for bidding ends.
-        , aAuctionFee       :: Maybe AuctionFee
+        { aProtocolToken :: !ThreadToken
+        , aOwner         :: !PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
+        , aAsset         :: !Value -- ^ The asset itself. This value is going to be locked by the auction script output.
+        , aEndTime       :: !Ledger.POSIXTime -- ^ When the time window for bidding ends.
+        , aAuctionFee    :: Maybe AuctionFee
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON)

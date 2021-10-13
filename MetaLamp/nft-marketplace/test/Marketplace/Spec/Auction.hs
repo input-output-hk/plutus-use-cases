@@ -15,7 +15,6 @@ import           Data.Maybe                                   (isNothing)
 import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
-import qualified Plutus.Contracts.Services.Auction.Core                 as Auction
 import           Ledger                                       (Value)
 import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Value                                 as V
@@ -27,6 +26,7 @@ import           Plutus.Abstract.ContractResponse             (ContractResponse)
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
+import qualified Plutus.Contracts.Services.Auction.Core       as Auction
 import qualified Plutus.Trace                                 as Trace
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty

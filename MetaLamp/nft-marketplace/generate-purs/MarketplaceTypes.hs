@@ -30,14 +30,14 @@ import           Language.PureScript.Bridge                   (BridgePart,
 import           Language.PureScript.Bridge.Builder           (BridgeData)
 import           Language.PureScript.Bridge.TypeParameters    (A, E)
 import           Plutus.Abstract.ContractResponse             (ContractResponse)
+import qualified Plutus.Abstract.Percentage                   as Percentage
 import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract.StateMachine.ThreadToken     (ThreadToken)
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
+import qualified Plutus.Contracts.Services.Auction            as Auction
 import qualified Plutus.Contracts.Services.Sale               as Sale
 import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
-import qualified Plutus.Contracts.Services.Auction as Auction
-import qualified Plutus.Abstract.Percentage                       as Percentage
 
 psPosixTime :: MonadReader BridgeData m => m PSType
 psPosixTime =

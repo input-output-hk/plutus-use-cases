@@ -19,7 +19,6 @@ import           Control.Lens                                             ((&),
 import qualified Control.Lens                                             as Lens
 import qualified Data.Aeson                                               as J
 import qualified Data.Text                                                as T
-import qualified Plutus.Contracts.Services.Auction as Auction
 import qualified GHC.Generics                                             as Haskell
 import           Ledger
 import qualified Ledger.Constraints                                       as Constraints
@@ -31,6 +30,7 @@ import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
+import qualified Plutus.Contracts.Services.Auction                        as Auction
 import qualified Plutus.Contracts.Services.Sale                           as Sale
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap

@@ -21,7 +21,6 @@ import qualified Data.Aeson                                   as J
 import           Data.Proxy                                   (Proxy (..))
 import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
-import qualified Plutus.Contracts.Services.Auction as Auction
 import           Ext.Plutus.Ledger.Value                      (ChainIndexTxMap,
                                                                utxosValue)
 import qualified GHC.Generics                                 as Haskell
@@ -36,6 +35,7 @@ import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
+import qualified Plutus.Contracts.Services.Auction            as Auction
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           PlutusTx.Prelude                             hiding
