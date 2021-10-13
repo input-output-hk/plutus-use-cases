@@ -81,6 +81,11 @@ curl -v -X PUT -H "Content-Type: application/json" \
     -d '{"ugpSatus": "FT", "ugpWinnerTeamId": 55}' \
     http://localhost:8081/games/1
 
+4. Update Match Goals
+curl -v -X PUT -H "Content-Type: application/json" \
+    -d '{"ugpHome": 3, "ugpAway": 1}' \
+    http://localhost:8081/games/1/goals
+
 ## Mutual bet rest server 
 
 1. Build the game rest server:

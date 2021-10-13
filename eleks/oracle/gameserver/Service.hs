@@ -15,6 +15,7 @@ module Service
     , getGameById
     , getWinnerTeamId
     , updateGameState
+    , updateGameGoals
     , createInitialGames
     ) where
 
@@ -53,6 +54,21 @@ getGameById gameId = do
 findGameById :: GameId -> [Game] -> Either String Game
 findGameById gameId games = do
     maybeToRight "Game not found" $ find (\g -> gameId == g ^. fixture . fixtureId) games
+
+updateGameGoals :: Goal -> Goal -> GameId -> ExceptT String IO Game
+updateGameGoals homeGoals awayGoals gameId =
+    getGameById gameId
+    >>= liftEither . updateGoals HOME homeGoals 
+    >>= liftEither . updateGoals AWAY awayGoals 
+    >>= updateGame
+
+updateGoals :: GoalType -> Goal -> Game -> Either String Game 
+updateGoals goalType goalValue game
+    | game ^. fixture . status . short /= LIVE = Left "Error goal update. Game not active"
+    | goalValue == 0 = Right game 
+    | goalType == HOME = Right $ game & goals . teamHome .~ goalValue
+    | goalType == AWAY = Right $ game & goals . teamAway .~ goalValue
+    | otherwise = Left "Error goal update"
 
 updateGameState :: TeamId -> FixtureStatusShort -> GameId -> ExceptT String IO Game
 updateGameState winnerId status gameId =

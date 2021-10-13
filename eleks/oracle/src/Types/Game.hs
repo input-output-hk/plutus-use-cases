@@ -71,6 +71,9 @@ data FixtureStatusShort = NS | LIVE | FT | CANC
 instance FromJSON FixtureStatusShort
 instance ToJSON FixtureStatusShort 
 
+data GoalType = HOME | AWAY
+    deriving (Generic, Show, Eq)
+
 fixureStatusLong :: Map.Map FixtureStatusShort Text
 fixureStatusLong = fromList [(NS,"Not Started"), (LIVE,"In Progress"), (FT, "Match Finished"), (CANC, "Match Cancelled")]
 
