@@ -4,6 +4,7 @@ import { Modal, Button } from 'react-bootstrap';
 import Select from 'react-select';
 import { makeBet } from '../actions/bets';
 import { getCurrentUser } from '../reducers';
+import { adaToLovelace } from '../helpers/utils';
 import '../styles/MakeBet.scss';
 
 const customTheme = (theme) => ({
@@ -120,7 +121,7 @@ const enhancer = compose(
           } ADA`
         );
       } else {
-        makeBet(team, amount * 1000000, game.contractId, wallet);
+        makeBet(team, adaToLovelace(amount), game.contractId, wallet);
         onClose();
       }
     },

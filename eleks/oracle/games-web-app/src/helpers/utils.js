@@ -7,7 +7,7 @@ export const getGameContract = (contracts, gameId) => {
   return {
     contractId: contract ? contract.cicContract.unContractInstanceId : null,
     minBet: contract
-      ? contract.cicDefinition.contents[2].mbpMinBet.getLovelace / 1000000
+      ? lovelaceToAda(contract.cicDefinition.contents[2].mbpMinBet.getLovelace)
       : null,
   };
 };
@@ -34,3 +34,7 @@ export const sortByStatus = (data) =>
     }
     return 0;
   });
+
+export const lovelaceToAda = (amount) => amount / 1000000;
+
+export const adaToLovelace = (amount) => amount * 1000000;
