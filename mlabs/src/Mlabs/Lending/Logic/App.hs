@@ -66,7 +66,7 @@ initApp AppConfig {..} =
   App
     { app'st =
         Types.LendingPool
-          { lp'reserves = AM.fromList (fmap (\x -> (x.coinCfg'coin, Types.initReserve x)) appConfig'reserves)
+          { lp'reserves = AM.fromList (fmap (\x -> (Types.coinCfg'coin x, Types.initReserve x)) appConfig'reserves)
           , lp'users = AM.empty
           , lp'currency = appConfig'currencySymbol
           , lp'coinMap = coinMap

@@ -343,7 +343,7 @@ getLiquidationBonus coin =
 
 {-# INLINEABLE modifyUsers #-}
 modifyUsers :: (Map Types.UserId User -> Map Types.UserId User) -> St ()
-modifyUsers f = modify' $ \lp -> lp {lp'users = f $ lp.lp'users}
+modifyUsers f = modify' $ \lp -> lp {lp'users = f $ lp'users lp}
 
 {-# INLINEABLE modifyReserve #-}
 
@@ -357,9 +357,11 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 modifyReserve' :: Types.Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
   st <- get
-  case M.lookup asset $ st.lp'reserves of
-    Just reserve -> either throwError (\x -> put $ st {lp'reserves = M.insert asset x $ st.lp'reserves}) (f reserve)
+  case M.lookup asset $ lp'reserves st of
+    Just reserve -> either throwError (putReserve st) (f reserve)
     Nothing -> throwError "Asset is not supported"
+  where
+    putReserve st x = put $ st {lp'reserves = M.insert asset x $ lp'reserves st}
 
 {-# INLINEABLE modifyUser #-}
 
@@ -373,13 +375,15 @@ modifyUser uid f = modifyUser' uid (Right . f)
 modifyUser' :: Types.UserId -> (User -> Either Error User) -> St ()
 modifyUser' uid f = do
   st <- get
-  case f $ fromMaybe defaultUser $ M.lookup uid $ lp'users st of
+  let poolUsers = lp'users st
+  case f $ fromMaybe defaultUser $ M.lookup uid poolUsers of
     Left msg -> throwError msg
-    Right user -> put $ st {lp'users = M.insert uid user $ st.lp'users}
+    Right user -> put $ st {lp'users = M.insert uid user poolUsers}
 
 {-# INLINEABLE modifyHealthReport #-}
 modifyHealthReport :: (Types.HealthReport -> Types.HealthReport) -> St ()
-modifyHealthReport f = modify' $ \lp -> lp {lp'healthReport = f $ lp.lp'healthReport}
+modifyHealthReport f =
+  modify' $ \lp -> lp {lp'healthReport = f $ lp'healthReport lp}
 
 {-# INLINEABLE modifyWalletAndReserve #-}
 
@@ -406,7 +410,7 @@ modifyReserveWallet coin f = modifyReserveWallet' coin (Right . f)
 -- | Modify reserve wallet for a given asset. It can throw errors.
 modifyReserveWallet' :: Types.Coin -> (Wallet -> Either Error Wallet) -> St ()
 modifyReserveWallet' coin f =
-  modifyReserve' coin $ \r -> fmap (\w -> r {reserve'wallet = w}) $ f $ r.reserve'wallet
+  modifyReserve' coin $ \r -> fmap (\w -> r {reserve'wallet = w}) $ f $ reserve'wallet r
 
 {-# INLINEABLE modifyWallet #-}
 

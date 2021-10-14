@@ -56,11 +56,12 @@ logPretty = logPrettyStyled defLogStyle
 
 logPrettyStyled :: MonadIO m => LogStyle -> String -> m ()
 logPrettyStyled style string = liftIO $ do
-  setSGR
-    ( getColorList (style.color)
-        <> getBgColorList (style.bgColor)
-        <> getConsoleIntensityList (style.isBold)
-    )
+  setSGR . foldMap ($ style) $
+    [ getColorList . color
+    , getBgColorList . bgColor
+    , getConsoleIntensityList . isBold
+    ]
+
   putStr string
   setSGR [Reset]
   where

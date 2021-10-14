@@ -25,7 +25,7 @@ import Mlabs.Emulator.Blockchain (Resp (Burn, Mint), moveFromTo)
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import Mlabs.Lending.Logic.State qualified as State
 import Mlabs.Lending.Logic.Types (
-  BadBorrow (BadBorrow, badBorrow'userId),
+  BadBorrow (BadBorrow, badBorrow'asset, badBorrow'userId),
   CoinCfg (coinCfg'aToken, coinCfg'coin, coinCfg'interestModel, coinCfg'liquidationBonus, coinCfg'rate),
   CoinRate (CoinRate, coinRate'lastUpdateTime),
   InterestModel (im'optimalUtilisation, im'slope1, im'slope2),
@@ -285,8 +285,8 @@ react input = do
           , moveFromTo Self uid adaCoin adaBonus
           ]
       where
-        borrowAsset = debt.badBorrow'asset
-        borrowUserId = debt.badBorrow'userId
+        borrowAsset = badBorrow'asset debt
+        borrowUserId = badBorrow'userId debt
 
         receiveAsset aCoin
           | receiveATokens = aCoin
@@ -356,9 +356,9 @@ react input = do
     addReserve cfg@Types.CoinCfg {..} = do
       st <- get
       State.guardError "Reserve is already present" $
-        M.member coinCfg'coin (st.lp'reserves)
-      let newReserves = M.insert coinCfg'coin (initReserve cfg) $ st.lp'reserves
-          newCoinMap = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
+        M.member coinCfg'coin (lp'reserves st)
+      let newReserves = M.insert coinCfg'coin (initReserve cfg) $ lp'reserves st
+          newCoinMap = M.insert coinCfg'aToken coinCfg'coin $ lp'coinMap st
       put $ st {lp'reserves = newReserves, lp'coinMap = newCoinMap}
       return []
 
@@ -379,7 +379,7 @@ react input = do
           us <- fmap setTimestamp . M.toList <$> gets lp'users
           pure $ fmap snd $ L.take userUpdateSpan $ L.sortOn fst us
 
-        setTimestamp (uid, user) = (user.user'lastUpdateTime - currentTime, (uid, user))
+        setTimestamp (uid, user) = (user'lastUpdateTime user - currentTime, (uid, user))
 
     updateSingleUserHealth currentTime uid = do
       user <- State.getUser uid
@@ -397,7 +397,7 @@ react input = do
             }
         )
       where
-        userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user.user'wallets
+        userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user'wallets user
 
     reportUserHealth uid (asset, health)
       | health >= R.fromInteger 1 = State.modifyHealthReport $ M.delete (BadBorrow uid asset)

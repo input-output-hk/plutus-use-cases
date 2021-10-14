@@ -372,5 +372,5 @@ findNft addr nftId = do
     hasCorrectNft (_, ciTxOut, datum) =
       let (cs, tn) = unAssetClass $ nftAsset nftId
        in tn == nftId'token nftId -- sanity check
-            && datum.dNft'id == nftId -- check that Datum has correct NftId
+            && dNft'id datum == nftId -- check that Datum has correct NftId
             && valueOf (ciTxOut ^. ciTxOutValue) cs tn == 1 -- check that UTXO has single NFT in Value

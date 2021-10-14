@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 -- | Calculate interest rate parameters
 module Mlabs.Lending.Logic.InterestRate (
   updateReserveInterestRates,
@@ -18,19 +20,30 @@ import PlutusTx.Ratio qualified as R
 
 {-# INLINEABLE updateReserveInterestRates #-}
 updateReserveInterestRates :: Integer -> Types.Reserve -> Types.Reserve
-updateReserveInterestRates currentTime reserve = reserve {reserve'interest = nextInterest reserve}
+updateReserveInterestRates currentTime reserve =
+  reserve {reserve'interest = nextInterest reserve}
   where
-    nextInterest Types.Reserve {..} =
+    nextInterest Types.Reserve {reserve'interest} =
       reserve'interest
         { ri'liquidityRate = liquidityRate
-        , ri'liquidityIndex = getCumulatedLiquidityIndex liquidityRate yearDelta $ reserve'interest.ri'liquidityIndex
-        , ri'normalisedIncome = getNormalisedIncome liquidityRate yearDelta $ reserve'interest.ri'liquidityIndex
+        , ri'liquidityIndex = newIndex
+        , ri'normalisedIncome = newIncome
         , ri'lastUpdateTime = currentTime
         }
       where
+        newIndex =
+          getCumulatedLiquidityIndex
+            liquidityRate
+            yearDelta
+            (ri'liquidityIndex reserve'interest)
+        newIncome =
+          getNormalisedIncome
+            liquidityRate
+            yearDelta
+            (ri'liquidityIndex reserve'interest)
         yearDelta = getYearDelta lastUpdateTime currentTime
         liquidityRate = getLiquidityRate reserve
-        lastUpdateTime = reserve'interest.ri'lastUpdateTime
+        lastUpdateTime = ri'lastUpdateTime reserve'interest
 
 {-# INLINEABLE getYearDelta #-}
 getYearDelta :: Integer -> Integer -> Rational
