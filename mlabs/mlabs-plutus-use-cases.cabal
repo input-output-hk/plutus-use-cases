@@ -31,8 +31,6 @@ common common-imports
     , plutus-use-cases
     , prettyprinter
     , pretty-show
-    , record-dot-preprocessor
-    , record-hasfield
     , row-types
     , stm
     , lens
@@ -107,7 +105,6 @@ library
     -Wmissing-export-lists
     -Wmissing-deriving-strategies
     -Werror
-    -fplugin=RecordDotPreprocessor
     
   hs-source-dirs:
     src/
@@ -228,7 +225,7 @@ Test-suite mlabs-plutus-use-cases-tests
     -Wall
     -threaded
     -rtsopts
-    -fplugin=RecordDotPreprocessor
+    -- -fplugin=RecordDotPreprocessor
   
   Build-Depends:
     base 

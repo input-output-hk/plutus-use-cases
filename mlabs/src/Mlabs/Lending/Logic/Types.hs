@@ -261,7 +261,7 @@ initLendingPool curSym coinCfgs admins oracles =
     , lp'trustedOracles = oracles
     }
   where
-    reserves = M.fromList $ fmap (\cfg -> (cfg.coinCfg'coin, initReserve cfg)) coinCfgs
+    reserves = M.fromList $ fmap (\cfg -> (coinCfg'coin cfg, initReserve cfg)) coinCfgs
     coinMap = M.fromList $ fmap (\(CoinCfg coin _ aToken _ _) -> (aToken, coin)) coinCfgs
 
 {-# INLINEABLE initReserve #-}
