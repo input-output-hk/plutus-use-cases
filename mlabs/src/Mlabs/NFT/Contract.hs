@@ -70,7 +70,7 @@ import Mlabs.NFT.Validation (
 import Mlabs.Plutus.Contract (readDatum', selectForever)
 
 -- | A contract used exclusively for query actions.
-type QueryContract a = Contract QueryResponse NFTAppSchema Text a
+type QueryContract a = Contract (Last QueryResponse) NFTAppSchema Text a
 
 -- | A contract used for all user actions.
 type UserContract a = Contract (Last NftId) NFTAppSchema Text a
@@ -256,7 +256,7 @@ setPrice spParams = do
 queryCurrentPrice :: NftId -> QueryContract QueryResponse
 queryCurrentPrice nftid = do
   price <- wrap <$> getsNftDatum dNft'price nftid
-  Contract.tell price >> log price >> return price
+  Contract.tell (Last $ pure price) >> log price >> return price
   where
     wrap = QueryCurrentPrice . Last . join
     log price =
@@ -269,7 +269,7 @@ queryCurrentPrice nftid = do
 queryCurrentOwner :: NftId -> QueryContract QueryResponse
 queryCurrentOwner nftid = do
   ownerResp <- wrap <$> getsNftDatum dNft'owner nftid
-  Contract.tell ownerResp >> log ownerResp >> return ownerResp
+  Contract.tell (Last $ pure ownerResp) >> log ownerResp >> return ownerResp
   where
     wrap = QueryCurrentOwner . Last
     log owner =

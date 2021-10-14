@@ -9,8 +9,8 @@ module Test.Lending.Contract (
 import Data.Functor (void)
 import Data.Semigroup (Last (..))
 
-import PlutusTx.Prelude hiding (foldMap, mconcat, (<>))
-import Prelude (foldMap, mconcat, (<>))
+import PlutusTx.Prelude hiding (mconcat, (<>), Eq(..))
+import Prelude (mconcat, (<>), Eq(..))
 
 import Plutus.Contract.Test (Wallet, assertAccumState, checkPredicateOptions)
 import Plutus.Trace.Emulator qualified as Trace
@@ -63,9 +63,6 @@ import Mlabs.Lending.Logic.Types (
   defaultInterestModel,
  )
 import Mlabs.Plutus.Contract (callEndpoint')
-
-instance Eq a => Eq (Last a) where
-  (Last x) == (Last y) = x == y
 
 test :: TestTree
 test =

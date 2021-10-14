@@ -1,7 +1,7 @@
 module Test.NFT.Init where
 
 import PlutusTx.Prelude hiding (foldMap, pure)
-import Prelude (foldMap, mconcat, (<>), Applicative(..))
+import Prelude (foldMap, Applicative(..))
 import Plutus.Contract.Test (Wallet (..), checkPredicateOptions)
 import Control.Lens ((&), (.~))
 import Control.Monad.Freer (Eff)
@@ -71,14 +71,7 @@ toUserId = UserId . pubKeyHash . walletPubKey
 -}
 runScript :: Script -> EmulatorTrace ()
 runScript script = do
-  nftId <-
-    callStartNft w1 $
-      MintParams
-        { mp'content = Content "Mona Lisa"
-        , mp'title = Title ""
-        , mp'share = 1 R.% 10
-        , mp'price = Nothing
-        }
+  nftId <- callStartNft w1 mp
   next
   runReaderT script nftId
 
@@ -111,3 +104,11 @@ check msg assertions script = checkPredicateOptions checkOptions msg assertions 
 -- | Scene without any transfers
 noChangesScene :: Scene
 noChangesScene = foldMap (`ownsAda` 0) [w1, w2, w3]
+
+mp :: MintParams
+mp = MintParams
+     { mp'content = Content "Mona Lisa"
+     , mp'title = Title ""
+     , mp'share = 1 R.% 10
+     , mp'price = Nothing
+     }
