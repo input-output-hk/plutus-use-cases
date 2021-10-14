@@ -49,7 +49,6 @@ type POSIXTimeT = Integer
 -- 2. acts as a list of tags
 type IpfsCid = BuiltinByteString
 type IpfsCidHash = BuiltinByteString
--- type Auction = (ThreadToken, PubKeyHash, Value, POSIXTimeT)
 type Category = [BuiltinByteString]
 type LotLink = Either Sale.Sale Auction
 type BundleId = BuiltinByteString
