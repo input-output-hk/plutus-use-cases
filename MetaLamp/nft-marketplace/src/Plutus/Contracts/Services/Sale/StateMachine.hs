@@ -21,13 +21,16 @@ import qualified Ledger.Ada                          as Ada
 import qualified Ledger.Constraints                  as Constraints
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Ledger.Value
+import           Plutus.Abstract.Percentage          (Percentage (..))
+import qualified Plutus.Abstract.Percentage          as Percentage
+import qualified Plutus.Abstract.PercentageInterface as Percentage
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Services.Sale.Core
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                   as AssocMap
 import           PlutusTx.Prelude                    hiding (Semigroup (..))
-import           Prelude                             (Semigroup (..))
+import           Prelude                             (Semigroup (..), (/))
 import qualified Prelude                             as Haskell
 import qualified Schema
 
@@ -49,9 +52,23 @@ PlutusTx.unstableMakeIsData ''SaleDatum
 
 PlutusTx.makeLift ''SaleDatum
 
+type GetAdditionalConstraints = Sale -> TxConstraints Void Void
+
+saleWithFeeBuyConstraints :: SaleFee -> GetAdditionalConstraints
+saleWithFeeBuyConstraints SaleFee {..} Sale {..} =
+  let saleProfit = salePrice - operatorFee
+      operatorFee = Percentage.calculatePercentageRounded sfSaleFee salePrice
+  in
+    Constraints.mustPayToPubKey saleOwner (Ada.lovelaceValueOf saleProfit) <>
+    Constraints.mustPayToPubKey sfSaleOperator (Ada.lovelaceValueOf operatorFee)
+
+saleWithoutFeeBuyConstraints :: GetAdditionalConstraints
+saleWithoutFeeBuyConstraints Sale {..} =
+    Constraints.mustPayToPubKey saleOwner (Ada.lovelaceValueOf salePrice)
+
 {-# INLINABLE transition #-}
-transition :: Sale -> State SaleDatum -> SaleRedeemer -> Maybe (TxConstraints Void Void, State SaleDatum)
-transition Sale{..} state redeemer = case (stateData state, redeemer) of
+transition :: GetAdditionalConstraints -> Sale -> State SaleDatum -> SaleRedeemer -> Maybe (TxConstraints Void Void, State SaleDatum)
+transition additionalConstraints sale@Sale{..} state redeemer = case (stateData state, redeemer) of
     (SaleOngoing, Redeem)
         -> Just ( Constraints.mustBeSignedBy saleOwner <>
                   Constraints.mustPayToPubKey saleOwner val
@@ -59,8 +76,8 @@ transition Sale{..} state redeemer = case (stateData state, redeemer) of
                 )
     (SaleOngoing, Buy buyer) | saleValue == val
         -> Just ( Constraints.mustBeSignedBy buyer <>
-                  Constraints.mustPayToPubKey saleOwner (Ada.lovelaceValueOf salePrice) <>
-                  Constraints.mustPayToPubKey buyer saleValue
+                  Constraints.mustPayToPubKey buyer saleValue <>
+                  additionalConstraints sale
                 , State SaleClosed mempty
                 )
     _                                        -> Nothing
@@ -75,11 +92,14 @@ isFinal _          = False
 {-# INLINABLE saleStateMachine #-}
 saleStateMachine :: Sale -> StateMachine SaleDatum SaleRedeemer
 saleStateMachine sale = StateMachine
-    { smTransition  = transition sale
+    { smTransition  = getTransition $ saleOperatorFee sale
     , smFinal       = isFinal
     , smCheck       = \d r ctx -> True
     , smThreadToken = Just $ saleProtocolToken sale
     }
+    where
+      getTransition (Just fee) = transition (saleWithFeeBuyConstraints fee) sale
+      getTransition Nothing    = transition saleWithoutFeeBuyConstraints sale
 
 {-# INLINABLE mkSaleValidator #-}
 mkSaleValidator :: Sale -> SaleDatum -> SaleRedeemer -> ScriptContext -> Bool

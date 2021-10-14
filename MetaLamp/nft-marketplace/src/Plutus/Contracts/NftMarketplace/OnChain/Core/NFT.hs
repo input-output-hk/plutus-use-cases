@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
@@ -23,21 +24,22 @@ import qualified Data.Aeson                     as J
 import qualified Data.ByteArray                 as BA
 import qualified Data.List                      as HL
 import qualified Data.Text                      as T
-import qualified Ext.Plutus.Contracts.Auction   as Auction
+import           Ext.Plutus.Contracts.Auction   (AuctionFee, AuctionParams (..))
 import qualified GHC.Generics                   as Haskell
 import           Ledger
 import qualified Ledger.Constraints             as Constraints
 import qualified Ledger.Typed.Scripts           as Scripts
 import qualified Ledger.Value                   as V
+import           Plutus.Abstract.Percentage     (Percentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
+import qualified Plutus.Contract.StateMachine   as SM
 import qualified Plutus.Contracts.Services.Sale as Sale
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap              as AssocMap
 import           PlutusTx.Prelude               hiding (Semigroup (..))
 import           Prelude                        (Semigroup (..))
 import qualified Prelude                        as Haskell
-
 -- TODO can't use POSIXTime directly because of custom JSON instances defined in Plutus:
 -- generated purescript type has generic instances
 type POSIXTimeT = Integer
@@ -47,10 +49,50 @@ type POSIXTimeT = Integer
 -- 2. acts as a list of tags
 type IpfsCid = BuiltinByteString
 type IpfsCidHash = BuiltinByteString
-type Auction = (ThreadToken, PubKeyHash, Value, POSIXTimeT)
 type Category = [BuiltinByteString]
 type LotLink = Either Sale.Sale Auction
 type BundleId = BuiltinByteString
+
+{-# INLINABLE getAuctionStateToken #-}
+getAuctionStateToken :: Auction -> SM.ThreadToken
+getAuctionStateToken = aThreadToken
+
+-- TODO: move outside here (check do we really need Auction and Ext.Plutus.Contracts.Auction.AuctionParams types.)
+data Auction = Auction {
+    aThreadToken   :: ThreadToken,
+    aOwner         :: PubKeyHash,
+    aAsset         :: Value,
+    aEndTime       :: POSIXTimeT,
+    aAuctionProfit :: Maybe AuctionFee
+  }
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''Auction
+
+PlutusTx.makeLift ''Auction
+
+Lens.makeClassy_ ''Auction
+
+{-# INLINABLE fromAuction #-}
+fromAuction :: Auction -> AuctionParams
+fromAuction Auction {..} = AuctionParams {
+    apOwner = aOwner,
+    apAsset = aAsset,
+    apEndTime = Ledger.POSIXTime aEndTime,
+    apAuctionFee = aAuctionProfit
+    }
+
+{-# INLINABLE toAuction #-}
+toAuction :: SM.ThreadToken -> AuctionParams -> Auction
+toAuction threadToken AuctionParams {..} =
+    Auction {
+        aThreadToken = threadToken
+        , aOwner = apOwner
+        , aAsset = apAsset
+        , aEndTime = Ledger.getPOSIXTime apEndTime
+        , aAuctionProfit = apAuctionFee
+    }
 
 data NftInfo =
   NftInfo

@@ -25,11 +25,9 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Network.RemoteData (RemoteData(..))
-import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
 import Plutus.Contracts.NftMarketplace.OffChain.User (BidOnAuctionParams(..), CloseLotParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
-import View.NFT (renderAuction, renderNftSingletonLots, renderSale)
-import View.NFT (renderNftBundleLots)
+import View.NFT (renderAuction, renderNftSingletonLots, renderSale, renderNftBundleLots)
 
 type Slot id
   = forall query. H.Slot query Void id

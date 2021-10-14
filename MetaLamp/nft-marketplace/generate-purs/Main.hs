@@ -25,8 +25,7 @@ import           System.Directory           (doesDirectoryExist,
                                              removeDirectoryRecursive)
 
 myBridge :: BridgePart
-myBridge =
-    PAB.pabBridge
+myBridge = PAB.pabBridge
 
 data MyBridge
 

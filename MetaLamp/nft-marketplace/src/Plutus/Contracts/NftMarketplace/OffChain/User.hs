@@ -15,42 +15,43 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.User where
 
-import           Control.Lens                                           (_2,
-                                                                         _Left,
-                                                                         _Right,
-                                                                         (^.),
-                                                                         (^?))
-import qualified Control.Lens                                           as Lens
-import           Control.Monad                                          hiding
-                                                                        (fmap)
-import qualified Data.Aeson                                             as J
-import           Data.Proxy                                             (Proxy (..))
-import           Data.Text                                              (Text)
-import qualified Data.Text                                              as T
-import qualified Ext.Plutus.Contracts.Auction                           as Auction
-import           Ext.Plutus.Ledger.Value                                (utxoValue)
-import qualified GHC.Generics                                           as Haskell
+import           Control.Lens                                             (_2,
+                                                                           _Left,
+                                                                           _Right,
+                                                                           (^.),
+                                                                           (^?))
+import qualified Control.Lens                                             as Lens
+import           Control.Monad                                            hiding
+                                                                          (fmap)
+import qualified Data.Aeson                                               as J
+import           Data.Proxy                                               (Proxy (..))
+import           Data.Text                                                (Text)
+import qualified Data.Text                                                as T
+import qualified Ext.Plutus.Contracts.Auction                             as Auction
+import           Ext.Plutus.Ledger.Value                                  (utxoValue)
+import qualified GHC.Generics                                             as Haskell
 import           Ledger
-import qualified Ledger.Typed.Scripts                                   as Scripts
+import qualified Ledger.Typed.Scripts                                     as Scripts
 import           Ledger.Typed.Tx
-import qualified Ledger.Value                                           as V
+import qualified Ledger.Value                                             as V
 import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                              as Currency
+import           Plutus.Contracts.Currency                                as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID
 import           Plutus.Contracts.NftMarketplace.OffChain.Info
-import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Core
-import qualified Plutus.Contracts.Services.Sale                         as Sale
+import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString)
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Core
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
+import qualified Plutus.Contracts.Services.Sale                           as Sale
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                                      as AssocMap
-import           PlutusTx.Prelude                                       hiding
-                                                                        (Semigroup (..))
-import           Prelude                                                (Semigroup (..))
-import qualified Prelude                                                as Haskell
+import qualified PlutusTx.AssocMap                                        as AssocMap
+import           PlutusTx.Prelude                                         hiding
+                                                                          (Semigroup (..))
+import           Prelude                                                  (Semigroup (..))
+import qualified Prelude                                                  as Haskell
 import qualified Schema
-import           Text.Printf                                            (printf)
+import           Text.Printf                                              (printf)
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -82,7 +83,6 @@ createNft marketplace CreateNftParams {..} = do
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
            Currency.mintContract pkh [(tokenName, 1)]
-
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
             { niCurrency          = Currency.currencySymbol nft
@@ -108,7 +108,7 @@ Lens.makeClassy_ ''OpenSaleParams
 
 -- | The user opens sale for his NFT
 openSale :: Core.Marketplace -> OpenSaleParams -> Contract w s Text ()
-openSale marketplace OpenSaleParams {..} = do
+openSale marketplace@Core.Marketplace{..} OpenSaleParams {..} = do
     let internalId = toInternalId ospItemId
     nftStore <- marketplaceStore marketplace
     saleValue <- case internalId of
@@ -116,12 +116,12 @@ openSale marketplace OpenSaleParams {..} = do
         Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
       Right bundleId@(Core.InternalBundleId bundleHash cids) ->
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
-
-    sale <- Sale.openSale
-              Sale.OpenSaleParams {
+    let openSaleParams = Sale.OpenSaleParams {
                   ospSalePrice = ospSalePrice,
-                  ospSaleValue = saleValue
+                  ospSaleValue = saleValue,
+                  ospSaleFee = Just $ Sale.SaleFee marketplaceOperator marketplaceSaleFee
               }
+    sale <- Sale.openSale openSaleParams
 
     let client = Core.marketplaceClient marketplace
     let lot = Left sale
@@ -201,7 +201,7 @@ Lens.makeClassy_ ''StartAnAuctionParams
 
 -- | The user starts an auction for specified NFT
 startAnAuction :: Core.Marketplace -> StartAnAuctionParams -> Contract w s Text ()
-startAnAuction marketplace StartAnAuctionParams {..} = do
+startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
     let internalId = toInternalId saapItemId
     nftStore <- marketplaceStore marketplace
     auctionValue <- case internalId of
@@ -212,10 +212,17 @@ startAnAuction marketplace StartAnAuctionParams {..} = do
 
     currTime <- currentTime
     let endTime = currTime + fromMilliSeconds saapDuration
-    (auctionToken, auctionParams) <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionValue endTime
+    self <- Ledger.pubKeyHash <$> ownPubKey
+    let auctionParams = Auction.AuctionParams {
+      apOwner = self,
+      apAsset = auctionValue,
+      apEndTime = endTime,
+      apAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
+    }
+    auctionToken <- mapError (T.pack . Haskell.show) $ Auction.startAuction auctionParams
 
     let client = Core.marketplaceClient marketplace
-    let lot = Right $ Auction.toTuple auctionToken auctionParams
+    let lot = Right $ Core.toAuction auctionToken auctionParams
     void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auctionParams)
@@ -236,8 +243,8 @@ completeAnAuction marketplace CloseLotParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Auction.getStateToken auction
-    let auctionParams = Auction.fromTuple auction
+    let auctionToken = Core.getAuctionStateToken auction
+    let auctionParams = Core.fromAuction auction
     _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auctionToken auctionParams
 
     let client = Core.marketplaceClient marketplace
@@ -272,8 +279,8 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
 
-    let auctionToken = Auction.getStateToken auction
-    let auctionParams = Auction.fromTuple auction
+    let auctionToken = Core.getAuctionStateToken auction
+    let auctionParams = Core.fromAuction auction
     _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auctionToken auctionParams boapBid
 
     logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)

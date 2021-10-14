@@ -41,34 +41,57 @@ common lang
 library
     import: lang
     exposed-modules:
-      Plutus.Contracts.NftMarketplace.OnChain.Core Plutus.Abstract.RemoteData Plutus.Contracts.NftMarketplace.OffChain.Serialization Ext.Plutus.PAB.Webserver.Server Plutus.Contracts.NftMarketplace.OffChain.ID Plutus.Contracts.NftMarketplace.OnChain.Core.ID Plutus.Contracts.Services.Sale.Core Plutus.Contracts.NftMarketplace.OnChain.Core.NFT Ext.Plutus.Contracts.Auction Plutus.Contracts.Services.Sale Plutus.Contracts.Services.Sale.Endpoints Plutus.Contracts.Services.Sale.StateMachine Plutus.Contracts.NftMarketplace.OffChain.Info Ext.Plutus.Ledger.Value Plutus.Contracts.NftMarketplace.OffChain.User Plutus.Abstract.ContractResponse Plutus.Contracts.NftMarketplace.Endpoints Plutus.Contracts.NftMarketplace.OffChain.Owner Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine Plutus.PAB.Simulation
+      Ext.Plutus.Contracts.Auction
+      Ext.Plutus.Ledger.Value
+      Ext.Plutus.PAB.Webserver.Server
+      Plutus.Abstract.ContractResponse
+      Plutus.Abstract.Percentage
+      Plutus.Abstract.PercentageInterface
+      Plutus.Abstract.RemoteData
+      Plutus.Contracts.NftMarketplace.Endpoints
+      Plutus.Contracts.NftMarketplace.OffChain.ID
+      Plutus.Contracts.NftMarketplace.OffChain.Info
+      Plutus.Contracts.NftMarketplace.OffChain.Owner
+      Plutus.Contracts.NftMarketplace.OffChain.Serialization
+      Plutus.Contracts.NftMarketplace.OffChain.User
+      Plutus.Contracts.NftMarketplace.OnChain.Core
+      Plutus.Contracts.NftMarketplace.OnChain.Core.ID
+      Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
+      Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
+      Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine
+      Plutus.Contracts.Services.Sale
+      Plutus.Contracts.Services.Sale.Core
+      Plutus.Contracts.Services.Sale.Endpoints
+      Plutus.Contracts.Services.Sale.StateMachine
+      Plutus.PAB.Simulation
+      
     build-depends:
-      base >= 4.9 && < 5,
+      QuickCheck,
       aeson,
+      base >= 4.9 && < 5,
       bytestring,
       containers,
-      text,
-      freer-simple,
-      freer-extras,
-      prettyprinter,
-      lens,
-      semigroups,
       cryptonite,
-      memory,
       data-default,
-      servant-server,
-      wai-cors,
+      freer-extras,
+      freer-simple,
+      lens,
+      memory,
+      prettyprinter,
+      semigroups,
       servant-options,
-      QuickCheck,
+      servant-server,
+      text,
+      wai-cors,
       -- Plutus:
       playground-common,
       plutus-contract,
-      plutus-tx-plugin,
-      plutus-tx,
       plutus-ledger,
       plutus-ledger-api,
-      plutus-use-cases,
-      plutus-pab
+      plutus-pab,
+      plutus-tx,
+      plutus-tx-plugin,
+      plutus-use-cases
     hs-source-dirs: src
 
 executable pab
@@ -100,16 +123,16 @@ executable generate-purs
     -threaded
   build-depends:
     base >= 4.9 && < 5,
-    purescript-bridge,
-    servant-purescript -any,
-    mtl,
     directory,
     lens,
+    mtl,
+    purescript-bridge,
+    servant-purescript -any,
     -- Plutus:
-    plutus-starter,
-    plutus-pab,
     plutus-contract,
-    plutus-ledger-api
+    plutus-ledger-api,
+    plutus-pab,
+    plutus-starter
 
 executable generate-typescript
   import: lang
@@ -139,35 +162,50 @@ test-suite test
     main-is: Main.hs
     hs-source-dirs: test
     other-modules:
-      Marketplace.Spec.Start Abstract.ContractRespSpec Abstract.RemoteDataSpec Utils.Data Marketplace.Spec.Auction Marketplace.Fixtures.NFT Marketplace.Spec.Bundles Marketplace.Spec.Sale Utils.Trace Utils Marketplace.Fixtures.Wallet Marketplace.Fixtures Marketplace.Fixtures.CheckOptions Marketplace.Fixtures.Script Marketplace.Spec.CreateNft
+      Abstract.ContractRespSpec 
+      Abstract.Percentage
+      Abstract.RemoteDataSpec 
+      Marketplace.Fixtures
+      Marketplace.Fixtures.CheckOptions
+      Marketplace.Fixtures.NFT
+      Marketplace.Fixtures.Script
+      Marketplace.Fixtures.Wallet
+      Marketplace.Spec.Auction
+      Marketplace.Spec.Bundles
+      Marketplace.Spec.CreateNft
+      Marketplace.Spec.Sale
+      Marketplace.Spec.Start
+      Utils
+      Utils.Data
+      Utils.Trace
     build-depends:
-        plutus-core -any,
-        plutus-tx -any,
-        plutus-contract -any,
-        plutus-ledger -any,
-        plutus-starter,
-        plutus-ledger-api,
-        plutus-tx-plugin
+      plutus-contract -any,
+      plutus-core -any,
+      plutus-ledger -any,
+      plutus-ledger-api,
+      plutus-starter,
+      plutus-tx -any,
+      plutus-tx-plugin
     build-depends:
-        base >=4.9 && <5,
-        aeson -any,
-        bytestring -any,
-        containers -any,
-        data-default -any,
-        freer-extras -any,
-        hedgehog -any,
-        prettyprinter -any,
-        tasty -any,
-        tasty-hunit -any,
-        tasty-hedgehog >=0.2.0.0,
-        tasty-golden -any,
-        tasty-quickcheck -any,
-        text -any,
-        lens -any,
-        mtl -any,
-        row-types -any,
-        QuickCheck -any,
-        quickcheck-properties -any,
-        freer-simple -any,
-        foldl -any,
-        streaming -any
+      QuickCheck -any,
+      aeson -any,
+      base >=4.9 && <5,
+      bytestring -any,
+      containers -any,
+      data-default -any,
+      foldl -any,
+      freer-extras -any,
+      freer-simple -any,
+      hedgehog -any,
+      lens -any,
+      mtl -any,
+      prettyprinter -any,
+      quickcheck-properties -any,
+      row-types -any,
+      streaming -any,
+      tasty -any,
+      tasty-golden -any,
+      tasty-hedgehog >=0.2.0.0,
+      tasty-hunit -any,
+      tasty-quickcheck -any,
+      text -any

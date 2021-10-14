@@ -12,37 +12,32 @@
 
 module Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine where
 
-import           Control.Lens                                     ((&), (.~),
-                                                                   (?~), (^.))
-import qualified Control.Lens                                     as Lens
-import qualified Data.Aeson                                       as J
-import qualified Data.Text                                        as T
-import qualified Ext.Plutus.Contracts.Auction                     as Auction
-import qualified GHC.Generics                                     as Haskell
+import           Control.Lens                                             ((&),
+                                                                           (.~),
+                                                                           (?~),
+                                                                           (^.))
+import qualified Control.Lens                                             as Lens
+import qualified Data.Aeson                                               as J
+import qualified Data.Text                                                as T
+import qualified Ext.Plutus.Contracts.Auction                             as Auction
+import qualified GHC.Generics                                             as Haskell
 import           Ledger
-import qualified Ledger.Constraints                               as Constraints
-import qualified Ledger.Typed.Scripts                             as Scripts
-import qualified Ledger.Value                                     as V
+import qualified Ledger.Constraints                                       as Constraints
+import qualified Ledger.Typed.Scripts                                     as Scripts
+import qualified Ledger.Value                                             as V
+import           Plutus.Abstract.Percentage                               (Percentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
-import qualified Plutus.Contracts.Services.Sale                   as Sale
+import qualified Plutus.Contracts.Services.Sale                           as Sale
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                                as AssocMap
-import           PlutusTx.Prelude                                 hiding
-                                                                  (Semigroup (..))
-import           Prelude                                          (Semigroup (..))
-import qualified Prelude                                          as Haskell
-
-newtype Marketplace =
-  Marketplace
-    { marketplaceOperator :: PubKeyHash
-    }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.makeLift ''Marketplace
+import qualified PlutusTx.AssocMap                                        as AssocMap
+import           PlutusTx.Prelude                                         hiding
+                                                                          (Semigroup (..))
+import           Prelude                                                  (Semigroup (..))
+import qualified Prelude                                                  as Haskell
 
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
@@ -133,9 +128,10 @@ removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
 
 {-# INLINABLE transition #-}
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
-transition marketplace state redeemer = case redeemer of
+transition marketplace@Marketplace{..} state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
-        -> Just ( mustBeSignedByIssuer nftEntry
+        -> Just ( mustBeSignedByIssuer nftEntry <>
+                  Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )
     PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot
@@ -163,7 +159,7 @@ transition marketplace state redeemer = case redeemer of
                     , State (insertBundle bundleId newEntry nftStore) currStateValue
                     )
     BundleUpRedeemer nftIds bundleId bundleInfo
-        -> Just ( mempty
+        -> Just ( Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
                 , State (bundleUpDatum nftIds bundleId bundleInfo nftStore) currStateValue
                 )
     UnbundleRedeemer bundleId
@@ -190,7 +186,7 @@ stateTransitionCheck nftStore (CreateNftRedeemer ipfsCidHash nftEntry) ctx =
 stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot) ctx =
   traceIfFalse "PutLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
-      lotValue = either Sale.saleValue (Auction.apAsset . Auction.fromTuple) lot
+      lotValue = either Sale.saleValue (Auction.apAsset . fromAuction) lot
       hasBeenPutOnSale = lotValue == nftValue ipfsCid nftEntry
       isValidHash = sha2_256 ipfsCid == ipfsCidHash
       hasNoExistingLot = isNothing $ nftLot nftEntry
@@ -200,7 +196,7 @@ stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId 
 stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Right (InternalBundleId bundleId cids)) lot) ctx =
   traceIfFalse "PutLotRedeemer: " $
   let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
-      lotValue = either Sale.saleValue (Auction.apAsset . Auction.fromTuple) lot
+      lotValue = either Sale.saleValue (Auction.apAsset . fromAuction) lot
       cidHashes = case nbTokens bundle of
           NoLot tokens    -> AssocMap.keys tokens
           HasLot tokens _ -> AssocMap.keys tokens

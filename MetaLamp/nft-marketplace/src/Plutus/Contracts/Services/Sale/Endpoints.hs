@@ -13,35 +13,40 @@
 
 module Plutus.Contracts.Services.Sale.Endpoints where
 
-import           Control.Monad                               hiding (fmap)
-import qualified Data.Aeson                                  as J
-import           Data.Proxy                                  (Proxy (..))
-import           Data.Text                                   (Text)
-import qualified Data.Text                                   as T
-import qualified GHC.Generics                                as Haskell
+import           Control.Monad                                            hiding
+                                                                          (fmap)
+import qualified Data.Aeson                                               as J
+import           Data.Proxy                                               (Proxy (..))
+import           Data.Text                                                (Text)
+import qualified Data.Text                                                as T
+import qualified GHC.Generics                                             as Haskell
 import           Ledger
-import qualified Ledger.Typed.Scripts                        as Scripts
+import qualified Ledger.Typed.Scripts                                     as Scripts
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse            (ContractResponse,
-                                                              withContractResponse)
+import           Plutus.Abstract.ContractResponse                         (ContractResponse,
+                                                                           withContractResponse)
+import qualified Plutus.Abstract.Percentage                               as Percentage
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                   as Currency
-import qualified Plutus.Contracts.Services.Sale.Core         as Core
-import qualified Plutus.Contracts.Services.Sale.StateMachine as Core
+import           Plutus.Contracts.Currency                                as Currency
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
+import qualified Plutus.Contracts.Services.Sale.Core                      as Core
+import qualified Plutus.Contracts.Services.Sale.StateMachine              as Core
+
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                           as AssocMap
-import           PlutusTx.Prelude                            hiding
-                                                             (Semigroup (..))
-import           Prelude                                     (Semigroup (..))
-import qualified Prelude                                     as Haskell
+import qualified PlutusTx.AssocMap                                        as AssocMap
+import           PlutusTx.Prelude                                         hiding
+                                                                          (Semigroup (..))
+import           Prelude                                                  (Semigroup (..))
+import qualified Prelude                                                  as Haskell
 import qualified Schema
-import           Text.Printf                                 (printf)
+import           Text.Printf                                              (printf)
 
 data OpenSaleParams =
   OpenSaleParams {
     ospSalePrice :: Core.LovelacePrice,
-    ospSaleValue :: Value
+    ospSaleValue :: Value,
+    ospSaleFee   :: Maybe Core.SaleFee
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -51,14 +56,15 @@ PlutusTx.makeLift ''OpenSaleParams
 
 -- | Starts the Sale protocol and mints protocol NFT
 openSale :: OpenSaleParams -> Contract w s Text Core.Sale
-openSale OpenSaleParams {..}  = do
+openSale OpenSaleParams {..} = do
     pkh <- getOwnPubKey
     saleToken <- mapError (T.pack . Haskell.show @SMContractError) $ getThreadToken
     let sale = Core.Sale
                 { saleProtocolToken = saleToken,
                   salePrice         = ospSalePrice,
                   saleValue         = ospSaleValue,
-                  saleOwner         = pkh
+                  saleOwner         = pkh,
+                  saleOperatorFee   = ospSaleFee
                 }
     let client = Core.saleClient sale
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing ospSaleValue
