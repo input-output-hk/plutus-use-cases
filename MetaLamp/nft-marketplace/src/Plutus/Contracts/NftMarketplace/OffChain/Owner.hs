@@ -23,7 +23,7 @@ import qualified Ledger.Typed.Scripts                         as Scripts
 import           Ledger.Value
 import           Plutus.Abstract.ContractResponse             (ContractResponse,
                                                                withContractResponse)
-import           Plutus.Abstract.Percentage                   (mkPercentage)
+import           Plutus.Abstract.Percentage                   (mkPercentage, Fractional)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency
@@ -39,7 +39,7 @@ import           Text.Printf                                  (printf)
 
 data StartMarketplaceParams = StartMarketplaceParams {
     creationFee :: Integer,  -- fee by minting and bundling
-    saleFee     :: (Integer, Integer)  -- fee by sale and auction
+    saleFee     :: Fractional  -- fee by sale and auction
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
