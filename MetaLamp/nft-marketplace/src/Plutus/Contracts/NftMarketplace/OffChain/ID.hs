@@ -28,6 +28,7 @@ import           Plutus.Contract
 import           Plutus.Contracts.Currency                              as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Core
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID        (InternalId (..))
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                      as AssocMap
 import           PlutusTx.Prelude                                       hiding
@@ -36,7 +37,6 @@ import           Prelude                                                (Semigro
 import qualified Prelude                                                as Haskell
 import qualified Schema
 import           Text.Printf                                            (printf)
-import Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalId(..))
 -- type UserItemId = Either Core.IpfsCid [Core.IpfsCid]
 data UserItemId = UserNftId Text | UserBundleId [Text]
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)

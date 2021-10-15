@@ -36,11 +36,13 @@ import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                                as Currency
-import           Plutus.Contracts.NftMarketplace.OffChain.ID (toInternalId, UserItemId(..))
-import Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalId(..))
+import           Plutus.Contracts.NftMarketplace.OffChain.ID              (UserItemId (..),
+                                                                           toInternalId)
 import           Plutus.Contracts.NftMarketplace.OffChain.Info
 import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Core
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID          (InternalId (..))
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID          as Core
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
 import qualified Plutus.Contracts.Services.Auction                        as Auction
 import qualified Plutus.Contracts.Services.Sale                           as Sale
@@ -52,7 +54,6 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID as Core
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey

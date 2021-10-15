@@ -63,8 +63,8 @@ PlutusTx.unstableMakeIsData ''InternalBundleId
 
 PlutusTx.makeLift ''InternalBundleId
 
-data InternalId = 
-  NftInternalId InternalNftId 
+data InternalId =
+  NftInternalId InternalNftId
   | BundleInternalId InternalBundleId
   deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)

@@ -27,7 +27,7 @@ import qualified Ledger.Value                                             as V
 import           Plutus.Abstract.Percentage                               (Percentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID  
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
 import qualified Plutus.Contracts.Services.Auction                        as Auction
@@ -39,7 +39,7 @@ import           PlutusTx.Prelude                                         hiding
 import           Prelude                                                  (Semigroup (..))
 import qualified Prelude                                                  as Haskell
 
-data RemoveLotRedeemerValue = 
+data RemoveLotRedeemerValue =
   RemoveNftLotRedeemer IpfsCidHash
   | RemoveBundleLotRedeemer BundleId
   deriving  (Haskell.Show)

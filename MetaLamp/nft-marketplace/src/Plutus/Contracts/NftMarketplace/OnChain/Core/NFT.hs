@@ -17,8 +17,10 @@
 
 module Plutus.Contracts.NftMarketplace.OnChain.Core.NFT where
 
-import           Control.Lens                           ((&), (.~), (?~), (^?), (^.), _2)
+import           Control.Lens                           (_2, (&), (.~), (?~),
+                                                         (^.), (^?))
 import qualified Control.Lens                           as Lens
+import           Control.Monad                          (join)
 import qualified Crypto.Hash                            as Hash
 import qualified Data.Aeson                             as J
 import qualified Data.ByteArray                         as BA
@@ -42,7 +44,6 @@ import qualified PlutusTx.AssocMap                      as AssocMap
 import           PlutusTx.Prelude                       hiding (Semigroup (..))
 import           Prelude                                (Semigroup (..))
 import qualified Prelude                                as Haskell
-import           Control.Monad          (join)
 
 -- Category = [BuiltinByteString]
 -- 1. acts as a list of category with nested subcategories
@@ -52,8 +53,8 @@ type IpfsCidHash = BuiltinByteString
 type Category = [BuiltinByteString]
 type BundleId = BuiltinByteString
 
-data LotLink = 
-  SaleLotLink Sale.Sale 
+data LotLink =
+  SaleLotLink Sale.Sale
   | AuctionLotLink Auction.Auction
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
@@ -66,14 +67,14 @@ Lens.makeClassy_ ''LotLink
 
 getSaleFromLot :: LotLink -> Maybe Sale.Sale
 getSaleFromLot (SaleLotLink sale) = Just sale
-getSaleFromLot _ = Nothing
+getSaleFromLot _                  = Nothing
 
 getAuctionFromLot :: LotLink -> Maybe Auction.Auction
 getAuctionFromLot (AuctionLotLink auction) = Just auction
-getAuctionFromLot _ = Nothing
+getAuctionFromLot _                        = Nothing
 
 getLotValue :: LotLink -> V.Value
-getLotValue (SaleLotLink sale) = Sale.saleValue sale 
+getLotValue (SaleLotLink sale)       = Sale.saleValue sale
 getLotValue (AuctionLotLink auction) = Auction.aAsset auction
 
 data NftInfo =

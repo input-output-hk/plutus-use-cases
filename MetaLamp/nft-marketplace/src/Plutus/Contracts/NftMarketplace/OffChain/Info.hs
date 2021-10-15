@@ -12,38 +12,38 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.Info where
 
-import           Control.Lens                                 (_2, _Left,
-                                                               _Right, (^.),
-                                                               (^?))
-import qualified Control.Lens                                 as Lens
-import           Control.Monad                                hiding (fmap)
-import qualified Data.Aeson                                   as J
-import           Data.Proxy                                   (Proxy (..))
-import           Data.Text                                    (Text)
-import qualified Data.Text                                    as T
-import           Ext.Plutus.Ledger.Value                      (ChainIndexTxMap,
-                                                               utxosValue)
-import qualified GHC.Generics                                 as Haskell
+import           Control.Lens                                    (_2, _Left,
+                                                                  _Right, (^.),
+                                                                  (^?))
+import qualified Control.Lens                                    as Lens
+import           Control.Monad                                   hiding (fmap)
+import qualified Data.Aeson                                      as J
+import           Data.Proxy                                      (Proxy (..))
+import           Data.Text                                       (Text)
+import qualified Data.Text                                       as T
+import           Ext.Plutus.Ledger.Value                         (ChainIndexTxMap,
+                                                                  utxosValue)
+import qualified GHC.Generics                                    as Haskell
 import           Ledger
-import qualified Ledger.Typed.Scripts                         as Scripts
+import qualified Ledger.Typed.Scripts                            as Scripts
 import           Ledger.Typed.Tx
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse             (ContractResponse,
-                                                               withContractResponse)
+import           Plutus.Abstract.ContractResponse                (ContractResponse,
+                                                                  withContractResponse)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                    as Currency
+import           Plutus.Contracts.Currency                       as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
-import qualified Plutus.Contracts.Services.Auction            as Auction
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core    as Core
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalId (..))
+import qualified Plutus.Contracts.Services.Auction               as Auction
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                            as AssocMap
-import           PlutusTx.Prelude                             hiding
-                                                              (Semigroup (..))
-import           Prelude                                      (Semigroup (..))
-import qualified Prelude                                      as Haskell
-import           Text.Printf                                  (printf)
-import Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalId(..))
+import qualified PlutusTx.AssocMap                               as AssocMap
+import           PlutusTx.Prelude                                hiding
+                                                                 (Semigroup (..))
+import           Prelude                                         (Semigroup (..))
+import qualified Prelude                                         as Haskell
+import           Text.Printf                                     (printf)
 
 -- | Gets current Marketplace store state
 marketplaceStore :: Core.Marketplace -> Contract w s Text Core.MarketplaceDatum

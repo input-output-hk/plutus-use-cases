@@ -12,34 +12,33 @@
 
 module Main where
 
-import           Control.Monad                                    (when)
-import           Control.Monad.Reader                             (MonadReader)
+import           Control.Monad                                (when)
+import           Control.Monad.Reader                         (MonadReader)
 import           Data.Aeson.TypeScript.Internal
 import           Data.Aeson.TypeScript.TH
-import qualified Data.Aeson.Types                                 as Aeson
-import           Data.ByteString                                  (ByteString)
-import           Data.Proxy                                       (Proxy (Proxy))
-import qualified Plutus.Contracts.Services.Auction                     as Auction
-import qualified Plutus.Abstract.Percentage                       as Percentage
-import           Plutus.Abstract.RemoteData                       (RemoteData)
-import           Plutus.Contract.StateMachine.ThreadToken         (ThreadToken)
-import qualified Plutus.Contracts.NftMarketplace.Endpoints        as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core     as Marketplace
-import qualified Plutus.Contracts.Services.Sale                   as Sale
-import           Plutus.PAB.Simulation                            (MarketplaceContracts (..))
-import           Plutus.V1.Ledger.Ada                             (Ada)
-import           Plutus.V1.Ledger.Crypto                          (PubKeyHash)
-import           Plutus.V1.Ledger.Time                            (DiffMilliSeconds)
-import           Plutus.V1.Ledger.Tx                              (TxOutRef)
-import           Plutus.V1.Ledger.TxId                            (TxId)
-import           Plutus.V1.Ledger.Value                           (CurrencySymbol,
-                                                                   TokenName,
-                                                                   Value)
-import qualified PlutusTx.AssocMap                                as AssocMap
-import           PlutusTx.Builtins.Internal                       (BuiltinByteString)
-import           System.Directory                                 (doesDirectoryExist,
-                                                                   removeDirectoryRecursive)
-import  Plutus.V1.Ledger.Time  (POSIXTime)
+import qualified Data.Aeson.Types                             as Aeson
+import           Data.ByteString                              (ByteString)
+import           Data.Proxy                                   (Proxy (Proxy))
+import qualified Plutus.Abstract.Percentage                   as Percentage
+import           Plutus.Abstract.RemoteData                   (RemoteData)
+import           Plutus.Contract.StateMachine.ThreadToken     (ThreadToken)
+import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
+import qualified Plutus.Contracts.Services.Auction            as Auction
+import qualified Plutus.Contracts.Services.Sale               as Sale
+import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
+import           Plutus.V1.Ledger.Ada                         (Ada)
+import           Plutus.V1.Ledger.Crypto                      (PubKeyHash)
+import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds,
+                                                               POSIXTime)
+import           Plutus.V1.Ledger.Tx                          (TxOutRef)
+import           Plutus.V1.Ledger.TxId                        (TxId)
+import           Plutus.V1.Ledger.Value                       (CurrencySymbol,
+                                                               TokenName, Value)
+import qualified PlutusTx.AssocMap                            as AssocMap
+import           PlutusTx.Builtins.Internal                   (BuiltinByteString)
+import           System.Directory                             (doesDirectoryExist,
+                                                               removeDirectoryRecursive)
 
 instance TypeScript BuiltinByteString where
   getTypeScriptType _ = "string"
