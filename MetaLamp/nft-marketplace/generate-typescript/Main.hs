@@ -19,13 +19,12 @@ import           Data.Aeson.TypeScript.TH
 import qualified Data.Aeson.Types                                 as Aeson
 import           Data.ByteString                                  (ByteString)
 import           Data.Proxy                                       (Proxy (Proxy))
-import qualified Ext.Plutus.Contracts.Auction                     as Auction
+import qualified Plutus.Contracts.Services.Auction                     as Auction
 import qualified Plutus.Abstract.Percentage                       as Percentage
 import           Plutus.Abstract.RemoteData                       (RemoteData)
 import           Plutus.Contract.StateMachine.ThreadToken         (ThreadToken)
 import qualified Plutus.Contracts.NftMarketplace.Endpoints        as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core     as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as NFT
 import qualified Plutus.Contracts.Services.Sale                   as Sale
 import           Plutus.PAB.Simulation                            (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Ada                             (Ada)
@@ -40,6 +39,7 @@ import qualified PlutusTx.AssocMap                                as AssocMap
 import           PlutusTx.Builtins.Internal                       (BuiltinByteString)
 import           System.Directory                                 (doesDirectoryExist,
                                                                    removeDirectoryRecursive)
+import  Plutus.V1.Ledger.Time  (POSIXTime)
 
 instance TypeScript BuiltinByteString where
   getTypeScriptType _ = "string"
@@ -67,6 +67,7 @@ instance (TypeScript a, TypeScript b) => TypeScript (RemoteData a b) where
     TSRawDeclaration "export interface IFailure<T> { tag: \"Failure\"; contents: T; }",
     TSRawDeclaration "export interface ISuccess<T> { tag: \"Success\"; contents: T; }"]
 
+$(deriveTypeScript Aeson.defaultOptions ''POSIXTime)
 $(deriveTypeScript Aeson.defaultOptions ''ThreadToken)
 $(deriveTypeScript Aeson.defaultOptions ''DiffMilliSeconds)
 $(deriveTypeScript Aeson.defaultOptions ''MarketplaceContracts)
@@ -81,7 +82,7 @@ $(deriveTypeScript Aeson.defaultOptions ''Marketplace.NFT)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.Bundle)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BundleInfo)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.NftBundle)
-$(deriveTypeScript Aeson.defaultOptions ''NFT.Auction)
+$(deriveTypeScript Aeson.defaultOptions ''Auction.Auction)
 $(deriveTypeScript Aeson.defaultOptions ''Auction.AuctionState)
 $(deriveTypeScript Aeson.defaultOptions ''Auction.HighestBid)
 $(deriveTypeScript Aeson.defaultOptions ''Auction.AuctionFee)
@@ -123,7 +124,7 @@ main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @Marketplace.Bundle)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.BundleInfo)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.NftBundle)) <>
-    (getTypeScriptDeclarations (Proxy @NFT.Auction)) <>
+    (getTypeScriptDeclarations (Proxy @Auction.Auction)) <>
     (getTypeScriptDeclarations (Proxy @Auction.AuctionState)) <>
     (getTypeScriptDeclarations (Proxy @Auction.HighestBid)) <>
     (getTypeScriptDeclarations (Proxy @Auction.AuctionFee)) <>
