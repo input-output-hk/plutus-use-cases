@@ -15,7 +15,6 @@ import PlutusTx.Prelude
 import Prelude qualified as Hask
 
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Monoid (Last)
 import GHC.Generics (Generic)
 
 import Ledger (PubKeyHash, TokenName, TxOutRef)
@@ -157,7 +156,7 @@ instance Eq BuyRequestUser where
 
 -- | A datatype used by the QueryContract to return a response
 data QueryResponse
-  = QueryCurrentOwner (Last UserId)
-  | QueryCurrentPrice (Last Integer)
+  = QueryCurrentOwner UserId
+  | QueryCurrentPrice (Maybe Integer)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)

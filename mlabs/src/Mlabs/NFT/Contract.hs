@@ -11,7 +11,7 @@ import Prelude (mconcat, (<>))
 import Prelude qualified as Hask
 
 import Control.Lens (filtered, to, traversed, (^.), (^..), _Just, _Right)
-import Control.Monad (join, void)
+import Control.Monad (void)
 import Data.List qualified as L
 import Data.Map qualified as Map
 import Data.Monoid (Last (..))
@@ -71,7 +71,7 @@ import Mlabs.NFT.Validation (
 import Mlabs.Plutus.Contract (readDatum', selectForever)
 
 -- | A contract used exclusively for query actions.
-type QueryContract a = Contract QueryResponse NFTAppSchema Text a
+type QueryContract a = Contract (Last QueryResponse) NFTAppSchema Text a
 
 -- | A contract used for all user actions.
 type UserContract a = Contract (Last NftId) NFTAppSchema Text a
@@ -151,64 +151,61 @@ nftIdInit mP = do
 -}
 buy :: BuyRequestUser -> Contract w NFTAppSchema Text ()
 buy (BuyRequestUser nftId bid newPrice) = do
-  oldDatum' <- getNftDatum nftId
-  case oldDatum' of
-    Nothing -> Contract.logError @Hask.String "NFT Cannot be found."
-    Just oldDatum -> do
-      let scrAddress = txScrAddress
-          oref = nftId'outRef . dNft'id $ oldDatum
-          nftPolicy = mintPolicy scrAddress oref nftId
-          val = Value.singleton (scriptCurrencySymbol nftPolicy) (nftId'token nftId) 1
-      case dNft'price oldDatum of
-        Nothing -> Contract.logError @Hask.String "NFT not for sale."
-        Just price ->
-          if bid < price
-            then Contract.logError @Hask.String "Bid Price is too low."
-            else do
-              user <- getUId
-              userUtxos <- getUserUtxos
-              (nftOref, ciTxOut, _) <- findNft txScrAddress nftId
-              oref' <- fstUtxo =<< getUserAddr
-              let nftPolicy' = mintPolicy scrAddress oref' nftId
-                  nftCurrency' = nftCurrency nftId
-                  newDatum' =
-                    -- Unserialised Datum
-                    DatumNft
-                      { dNft'id = dNft'id oldDatum
-                      , dNft'share = dNft'share oldDatum
-                      , dNft'author = dNft'author oldDatum
-                      , dNft'owner = user
-                      , dNft'price = newPrice
-                      }
-                  action =
-                    BuyAct
-                      { act'bid = bid
-                      , act'newPrice = newPrice
-                      , act'cs = nftCurrency'
-                      }
-                  newDatum = Datum . PlutusTx.toBuiltinData $ newDatum' -- Serialised Datum
-                  (paidToAuthor, paidToOwner) = calculateShares bid $ dNft'share oldDatum
-                  newValue = ciTxOut ^. ciTxOutValue
-                  (lookups, tx) =
-                    ( mconcat
-                        [ Constraints.unspentOutputs userUtxos
-                        , Constraints.typedValidatorLookups txPolicy
-                        , Constraints.mintingPolicy nftPolicy'
-                        , Constraints.otherScript (validatorScript txPolicy)
-                        , Constraints.unspentOutputs $ Map.singleton nftOref ciTxOut
-                        ]
-                    , mconcat
-                        [ Constraints.mustPayToTheScript newDatum' newValue
-                        , Constraints.mustIncludeDatum newDatum
-                        , Constraints.mustPayToPubKey (getUserId . dNft'owner $ oldDatum) paidToOwner
-                        , Constraints.mustPayToPubKey (getUserId . dNft'author $ oldDatum) paidToAuthor
-                        , Constraints.mustSpendScriptOutput
-                            nftOref
-                            (Redeemer . PlutusTx.toBuiltinData $ action)
-                        ]
-                    )
-              void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
-              void $ Contract.logInfo @Hask.String $ printf "Bought %s" $ Hask.show val
+  oldDatum <- getNftDatum nftId
+  let scrAddress = txScrAddress
+      oref = nftId'outRef . dNft'id $ oldDatum
+      nftPolicy = mintPolicy scrAddress oref nftId
+      val = Value.singleton (scriptCurrencySymbol nftPolicy) (nftId'token nftId) 1
+  case dNft'price oldDatum of
+    Nothing -> Contract.logError @Hask.String "NFT not for sale."
+    Just price ->
+      if bid < price
+        then Contract.logError @Hask.String "Bid Price is too low."
+        else do
+          user <- getUId
+          userUtxos <- getUserUtxos
+          (nftOref, ciTxOut, _) <- findNft txScrAddress nftId
+          oref' <- fstUtxo =<< getUserAddr
+          let nftPolicy' = mintPolicy scrAddress oref' nftId
+              nftCurrency' = nftCurrency nftId
+              newDatum' =
+                -- Unserialised Datum
+                DatumNft
+                  { dNft'id = dNft'id oldDatum
+                  , dNft'share = dNft'share oldDatum
+                  , dNft'author = dNft'author oldDatum
+                  , dNft'owner = user
+                  , dNft'price = newPrice
+                  }
+              action =
+                BuyAct
+                  { act'bid = bid
+                  , act'newPrice = newPrice
+                  , act'cs = nftCurrency'
+                  }
+              newDatum = Datum . PlutusTx.toBuiltinData $ newDatum' -- Serialised Datum
+              (paidToAuthor, paidToOwner) = calculateShares bid $ dNft'share oldDatum
+              newValue = ciTxOut ^. ciTxOutValue
+              (lookups, tx) =
+                ( mconcat
+                    [ Constraints.unspentOutputs userUtxos
+                    , Constraints.typedValidatorLookups txPolicy
+                    , Constraints.mintingPolicy nftPolicy'
+                    , Constraints.otherScript (validatorScript txPolicy)
+                    , Constraints.unspentOutputs $ Map.singleton nftOref ciTxOut
+                    ]
+                , mconcat
+                    [ Constraints.mustPayToTheScript newDatum' newValue
+                    , Constraints.mustIncludeDatum newDatum
+                    , Constraints.mustPayToPubKey (getUserId . dNft'owner $ oldDatum) paidToOwner
+                    , Constraints.mustPayToPubKey (getUserId . dNft'author $ oldDatum) paidToAuthor
+                    , Constraints.mustSpendScriptOutput
+                        nftOref
+                        (Redeemer . PlutusTx.toBuiltinData $ action)
+                    ]
+                )
+          void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
+          void $ Contract.logInfo @Hask.String $ printf "Bought %s" $ Hask.show val
 
 -- SET PRICE --
 setPrice :: SetPriceParams -> Contract w NFTAppSchema Text ()
@@ -257,9 +254,9 @@ setPrice spParams = do
 queryCurrentPrice :: NftId -> QueryContract QueryResponse
 queryCurrentPrice nftid = do
   price <- wrap <$> getsNftDatum dNft'price nftid
-  Contract.tell price >> log price >> return price
+  Contract.tell (Last . Just $ price) >> log price >> return price
   where
-    wrap = QueryCurrentPrice . Last . join
+    wrap = QueryCurrentPrice
     log price =
       Contract.logInfo @Hask.String $
         "Current price of: " <> Hask.show nftid <> " is: " <> Hask.show price
@@ -270,9 +267,9 @@ queryCurrentPrice nftid = do
 queryCurrentOwner :: NftId -> QueryContract QueryResponse
 queryCurrentOwner nftid = do
   ownerResp <- wrap <$> getsNftDatum dNft'owner nftid
-  Contract.tell ownerResp >> log ownerResp >> return ownerResp
+  Contract.tell (Last . Just $ ownerResp) >> log ownerResp >> return ownerResp
   where
-    wrap = QueryCurrentOwner . Last
+    wrap = QueryCurrentOwner
     log owner =
       Contract.logInfo @Hask.String $
         "Current owner of: " <> Hask.show nftid <> " is: " <> Hask.show owner
@@ -323,7 +320,7 @@ fstUtxo address = do
     x : _ -> pure x
 
 -- | Returns the Datum of a specific nftId from the Script address.
-getNftDatum :: NftId -> Contract w s Text (Maybe DatumNft)
+getNftDatum :: NftId -> Contract w s Text DatumNft
 getNftDatum nftId = do
   utxos :: [Ledger.ChainIndexTxOut] <- Map.elems <$> getAddrUtxos txScrAddress
   let datums :: [DatumNft] =
@@ -336,15 +333,15 @@ getNftDatum nftId = do
   Contract.logInfo @Hask.String $ Hask.show $ "Datum Found:" <> Hask.show datums
   Contract.logInfo @Hask.String $ Hask.show $ "Datum length:" <> Hask.show (Hask.length datums)
   case datums of
-    [x] -> pure $ Just x
+    [x] -> pure x
     [] -> Contract.throwError "No Datum can be found."
     _ : _ -> Contract.throwError "More than one suitable Datums can be found."
 
 {- | Gets the Datum of a specific nftId from the Script address, and applies an
  extraction function to it.
 -}
-getsNftDatum :: (DatumNft -> b) -> NftId -> Contract a s Text (Maybe b)
-getsNftDatum f = fmap (fmap f) . getNftDatum
+getsNftDatum :: (DatumNft -> field) -> NftId -> Contract a s Text field
+getsNftDatum getField = fmap getField . getNftDatum
 
 -- | A hashing function to minimise the data to be attached to the NTFid.
 hashData :: Content -> BuiltinByteString
