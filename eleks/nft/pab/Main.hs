@@ -21,6 +21,7 @@ import           Control.Monad.IO.Class              (MonadIO (..))
 import           Data.Default                        (Default (def))
 import qualified Data.Monoid                         as Monoid
 import qualified Data.Map.Strict                     as Map
+import qualified Data.OpenApi.Schema                 as OpenApi
 import           Data.Text                           (Text, pack)
 import qualified Data.Text                           as T
 import qualified Data.ByteString.Char8               as C
@@ -38,6 +39,7 @@ import qualified Plutus.PAB.Simulator                as Simulator
 import           Plutus.PAB.Types                    (PABError (..))
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Contracts.NFT                       as NFTMarket
+import           Wallet.Emulator                     (knownWallets, knownWallet) 
 import           Wallet.Emulator.Types               (Wallet (..))
 import qualified Data.ByteString.Char8               as B
 import qualified Ledger.Value                        as Value
@@ -57,7 +59,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin NFTMarketContracts) "Starting nft market place PAB webserver on port 8080. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug' defaultWebServerConfig{ baseUrl = BaseUrl Http "localhost" 8080 ""}
 
-    let w1 = Wallet 1
+    let w1 = knownWallet 1
     w1Address <- pubKeyAddress <$> Simulator.handleAgentThread w1 ownPubKey
 
     nftMarketInstance1 <- Simulator.activateContract w1 NFTStartContract
@@ -68,16 +70,17 @@ main = void $ Simulator.runSimulationWith handlers $ do
                     _                                             -> Nothing
 
     Simulator.logString @(Builtin NFTMarketContracts) $ "NFT Marketplace instance created: " ++ show market
-    cids <- fmap Map.fromList $ forM wallets $ \w -> do
+    cids <- fmap Map.fromList $ forM walletsIndexes $ \wIndex -> do
+        let w = knownWallet wIndex
         cid <- Simulator.activateContract w $ NFTUserContract market
-        liftIO $ writeFile ('W' : show (getWallet w) ++ ".cid") $ show cid
+        liftIO $ writeFile ('W' : show (wIndex) ++ ".cid") $ show cid
         Simulator.logString @(Builtin NFTMarketContracts) $ "NFT user contract started for " ++ show w
         return (w, cid)
 
     Simulator.waitNSlots 10
     Simulator.logString @(Builtin NFTMarketContracts) $ "Enter to continue"
     void $ liftIO getLine
-
+    void $ liftIO getLine
     Simulator.logString @(Builtin NFTMarketContracts) "Balances at the end of the simulation"
     b <- Simulator.currentBalances
     Simulator.logBalances @(Builtin NFTMarketContracts) b
@@ -87,7 +90,7 @@ data NFTMarketContracts =
       NFTStartContract 
     | NFTUserContract NFTMarket.NFTMarket
     deriving (Eq, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
+    deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
 instance Pretty NFTMarketContracts where
     pretty = viaShow
@@ -109,5 +112,5 @@ handlers =
     Simulator.mkSimulatorHandlers def def
     $ interpret (contractHandler (Builtin.handleBuiltin @NFTMarketContracts))
 
-wallets :: [Wallet]
-wallets = [Wallet i | i <- [1 .. 4]]
+walletsIndexes :: [Integer]
+walletsIndexes = [1 .. 4]

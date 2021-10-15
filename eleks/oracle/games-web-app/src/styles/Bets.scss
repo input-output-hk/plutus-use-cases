@@ -1,0 +1,23 @@
+.Bets {
+  margin-top: 1em;
+  margin-bottom: 3em;
+
+  .bet {
+    display: flex;
+    padding: 10px 0;
+    border-bottom: 1px solid grey;
+
+    &.myBet {
+      border-bottom: 2px solid rgba(25, 135, 83, 1);
+    }
+  }
+
+  .hash {
+    word-break: break-all;
+    margin-right: 20px;
+  }
+
+  .amount {
+    font-weight: bold;
+  }
+}
