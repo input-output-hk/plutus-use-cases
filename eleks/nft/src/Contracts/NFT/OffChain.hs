@@ -41,6 +41,7 @@ module Contracts.NFT.OffChain
 import           Contracts.NFT.Types
 import           Contracts.NFT.OnChain            (marketInstance)
 import           Contracts.NFT.NFTCurrency       
+import           Control.Lens                     (view)
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString.Base64           as B64
 import qualified Data.ByteString.Char8            as B
@@ -73,7 +74,7 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..), unless
 import           Prelude                          (Semigroup (..), String, Char, read, show)
 import qualified Prelude
 import           Text.Printf                      (printf)
-import           Wallet.Emulator                  (walletPubKey)
+import           Wallet.Emulator                  (walletPubKey, knownWallets, knownWallet)
 
 marketplaceTokenName :: TokenName
 marketplaceTokenName = "NFTMarketplace"
@@ -327,7 +328,7 @@ transfer ::
     -> TransferParams 
     -> Contract w s Text NFTMetadataDto
 transfer market TransferParams{..} = do
-    let sendToKeyHash = pubKeyHash $ walletPubKey $ Wallet tpReceiverWallet
+    let sendToKeyHash = pubKeyHash $ walletPubKey $ knownWallet tpReceiverWallet
     let tokenName = fromString tpTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     let nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
@@ -348,25 +349,31 @@ marketplace cs tokenCur metaTokenCur fee pkh =
     , marketOwner = pkh
     }
 
-getNFTMarketDatum :: TxOutTx -> Contract w s Text NFTMarketDatum
-getNFTMarketDatum o = case txOutDatumHash $ txOutTxOut o of
-        Nothing -> throwError "datumHash not found"
-        Just h -> case Map.lookup h $ txData $ txOutTxTx o of
-            Nothing -> throwError "datum not found"
-            Just (Datum e) -> case PlutusTx.fromBuiltinData e of
-                Nothing -> throwError "datum has wrong type"
-                Just d  -> return d
-
+getNFTMarketDatum :: ChainIndexTxOut -> Contract w s Text NFTMarketDatum
+getNFTMarketDatum o =
+  case o of
+      PublicKeyChainIndexTxOut {} ->
+        throwError "no datum for a txout of a public key address"
+      ScriptChainIndexTxOut { _ciTxOutDatum } -> do
+        (Datum e) <- either getDatum pure _ciTxOutDatum
+        maybe (throwError "datum hash wrong type")
+              pure
+              (PlutusTx.fromBuiltinData e)
+  where
+    getDatum :: DatumHash -> Contract w s Text Datum
+    getDatum dh =
+      datumFromHash dh >>= \case Nothing -> throwError "datum not found"
+                                 Just d  -> pure d
 findNFTMartketInstance :: 
     forall a w s. NFTMarket 
     -> AssetClass 
     -> (NFTMarketDatum -> Maybe a) 
-    -> Contract w s Text (TxOutRef, TxOutTx, a)
+    -> Contract w s Text (TxOutRef, ChainIndexTxOut, a)
 findNFTMartketInstance market asset f = do
     let addr = marketAddress market
     logInfo @String $ printf "looking for NFTMarket instance at address %s containing asset %s " (show addr) (show asset)
-    utxos <- utxoAt addr
-    go  [x | x@(_, o) <- Map.toList utxos, assetClassValueOf (txOutValue $ txOutTxOut o) asset == 1]
+    utxos <- utxosAt addr
+    go  [x | x@(_, o) <- Map.toList utxos, assetClassValueOf (view ciTxOutValue o) asset == 1]
   where
     go [] = throwError "NFTMarket instance not found"
     go ((oref, o) : xs) = do
@@ -379,7 +386,7 @@ findNFTMartketInstance market asset f = do
 
 findNFTMarketFactory :: 
     forall w s. NFTMarket 
-    -> Contract w s Text (TxOutRef, TxOutTx, [NFTMetadata])
+    -> Contract w s Text (TxOutRef, ChainIndexTxOut, [NFTMetadata])
 findNFTMarketFactory nftm@NFTMarket{..} = findNFTMartketInstance nftm marketId $ \case
     Factory nfts -> Just nfts
     NFTMeta _    -> Nothing
@@ -387,7 +394,7 @@ findNFTMarketFactory nftm@NFTMarket{..} = findNFTMartketInstance nftm marketId $
 findNftMetadata :: 
     forall w s. NFTMarket 
     -> NFTMetadata 
-    -> Contract w s Text (TxOutRef, TxOutTx, NFTMetadata)
+    -> Contract w s Text (TxOutRef, ChainIndexTxOut, NFTMetadata)
 findNftMetadata market nftMeta = findNFTMartketInstance market (assetClass (nftMetaTokenSymbol nftMeta) (nftMetaTokenName nftMeta)) $ \case
         NFTMeta nftMeta'
             | nftMeta == nftMeta' -> Just nftMeta'
@@ -396,8 +403,8 @@ findNftMetadata market nftMeta = findNFTMartketInstance market (assetClass (nftM
 findMarketFactoryAndNftMeta :: 
     forall w s. NFTMarket
     -> TokenName
-    -> Contract w s Text ((TxOutRef, TxOutTx, [NFTMetadata])
-                          ,(TxOutRef, TxOutTx, NFTMetadata))
+    -> Contract w s Text ((TxOutRef, ChainIndexTxOut, [NFTMetadata])
+                          ,(TxOutRef, ChainIndexTxOut, NFTMetadata))
 findMarketFactoryAndNftMeta market tokenName  = do
     (oref1, o1, nftMetas) <- findNFTMarketFactory market
     case [ nftMeta'
@@ -418,13 +425,13 @@ queryNftMetadatas ::
     -> Contract w s Text [NFTMetadata]
 queryNftMetadatas market = do
     (_, _, nftMarketMetas) <- findNFTMarketFactory market
-    utxos <- utxoAt (marketAddress market)
+    utxos <- utxosAt (marketAddress market)
     query nftMarketMetas $ snd <$> Map.toList utxos
   where
-    query :: [NFTMetadata] -> [TxOutTx] -> Contract w s Text [NFTMetadata]
+    query :: [NFTMetadata] -> [ChainIndexTxOut] -> Contract w s Text [NFTMetadata]
     query nftMarketMetas []       = return []
     query nftMarketMetas (o : os) = do
-        let v = txOutValue $ txOutTxOut o
+        let v = view ciTxOutValue o
         if any (\meta -> isNftToken v (nftMetaTokenSymbol meta) (nftMetaTokenName meta)) nftMarketMetas
             then do
                 d <- getNFTMarketDatum o
@@ -451,9 +458,9 @@ userNftTokens market = do
     logInfo @String $ printf "start userNftTokens"
     pkh <- pubKeyHash <$> ownPubKey
     let ownAddress = pubKeyHashAddress pkh
-    ownerUtxos <- utxoAt ownAddress
+    ownerUtxos <- utxosAt ownAddress
     let os = map snd $ Map.toList ownerUtxos
-    let values = mconcat [txOutValue $ txOutTxOut o | o <- os]
+    let values = mconcat [view ciTxOutValue o | o <- os]
     nftMetas <- queryNftMetadatas market
     let ownUserTokens = [ meta | meta <- nftMetas, isNftToken values (nftTokenSymbol meta) (nftTokenName meta)]
         sellingUserTokens = flip filter nftMetas (\ nftMetadata -> case nftSeller nftMetadata of 

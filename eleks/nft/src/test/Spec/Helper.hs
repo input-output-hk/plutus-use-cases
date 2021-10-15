@@ -5,6 +5,7 @@ module Spec.Helper
     where
 
 import           Contracts.NFT          as NFTMarket
+import           Plutus.Contract.Test   hiding (not)
 import qualified Data.ByteString.Char8  as B
 import qualified Data.Semigroup         as Semigroup
 import           Data.String            (fromString)
@@ -19,7 +20,7 @@ import           PlutusTx.Prelude       (toBuiltin)
 import           Wallet.Emulator        (Wallet(..), walletPubKey)
 
 ownerWallet' :: Wallet
-ownerWallet' = Wallet 5
+ownerWallet' = w5
 
 mockMarketId :: AssetClass
 mockMarketId = createMarketTokenMock NFTMarket.marketplaceTokenName

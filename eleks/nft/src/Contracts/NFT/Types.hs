@@ -21,6 +21,7 @@
 module Contracts.NFT.Types
   where
 
+import qualified Data.OpenApi.Schema as OpenApi
 import           Ledger
 import           Ledger.Value        (AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
 import           Playground.Contract (Show, FromJSON, Generic, ToJSON, ToSchema)
@@ -38,7 +39,7 @@ data NFTMarket = NFTMarket
     , marketTokenMetaNameSuffix:: BuiltinByteString
     , marketFee :: Integer
     , marketOwner :: PubKeyHash
-    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema, Prelude.Eq, Prelude.Ord)
+    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema, Prelude.Eq, Prelude.Ord, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''NFTMarket
 

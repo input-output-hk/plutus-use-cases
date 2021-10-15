@@ -40,10 +40,8 @@ import           Test.Tasty
 import           Spec.MockNFTCurrency                   as MockCurrency 
 import           Spec.Helper
 
-w1, w2, ownerWallet :: Wallet
-w1 = Wallet 1
-w2 = Wallet 2
-ownerWallet = Wallet 5
+ownerWallet :: Wallet
+ownerWallet = w5
 
 t1, t2 :: ContractInstanceTag
 t1 = Trace.walletInstanceTag w1
@@ -80,7 +78,7 @@ tests = testGroup "nft"
         ,
         checkPredicate "Should fail if duplicate token created"
         ( 
-            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists", "Pd"] _) -> True; _ -> False  })
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["nft token is arleady exists", "PT5"] _) -> True; _ -> False  })
         )
         createDuplicateNftTokenFailureTrace
         ,
@@ -152,7 +150,7 @@ tests = testGroup "nft"
         ,
         checkPredicate "Should fail cancel sell if not token owner"
             ( 
-                assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["owner should sign", "Pd"] _) -> True; _ -> False  })
+                assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["owner should sign", "PT5"] _) -> True; _ -> False  })
             )
         cancelSellFailureIfNotOwnerTrace
         ,
