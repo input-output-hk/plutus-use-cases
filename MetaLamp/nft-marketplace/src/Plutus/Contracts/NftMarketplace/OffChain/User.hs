@@ -123,7 +123,7 @@ openSale marketplace@Core.Marketplace{..} OpenSaleParams {..} = do
     sale <- Sale.openSale openSaleParams
 
     let client = Core.marketplaceClient marketplace
-    let lot = Left sale
+    let lot = Core.SaleLotLink sale
     void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show sale)
@@ -147,11 +147,11 @@ buyItem marketplace CloseLotParams {..} = do
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on sale") pure $
-            nftEntry ^. Core._nftLot ^? traverse . _2 . _Left
+            Core.getSaleFromNFT nftEntry
       Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on sale") pure $
-            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Left
+            Core.getSaleFromBundle bundleEntry
 
     _ <- Sale.buyLot sale
 
@@ -171,11 +171,11 @@ closeSale marketplace CloseLotParams {..} = do
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on sale") pure $
-            nftEntry ^. Core._nftLot ^? traverse . _2 . _Left
+            Core.getSaleFromNFT nftEntry
       Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on sale") pure $
-            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Left
+            Core.getSaleFromBundle bundleEntry
 
     _ <- Sale.redeemLot sale
 
@@ -219,7 +219,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
     auction <- mapError (T.pack . Haskell.show) $ Auction.startAuction startAuctionParams
 
     let client = Core.marketplaceClient marketplace
-    let lot = Right auction
+    let lot = Core.AuctionLotLink auction
     void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auction)
@@ -234,11 +234,11 @@ completeAnAuction marketplace CloseLotParams {..} = do
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on auction") pure $
-            nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
+            Core.getAuctionFromNFT nftEntry
       Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on auction") pure $
-            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
+            Core.getAuctionFromBundle bundleEntry
 
     _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auction
 
@@ -268,11 +268,11 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on auction") pure $
-            nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
+            Core.getAuctionFromNFT nftEntry
       Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on auction") pure $
-            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
+            Core.getAuctionFromBundle bundleEntry
 
     _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auction boapBid
 

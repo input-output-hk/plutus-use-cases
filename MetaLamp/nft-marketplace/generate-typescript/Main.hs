@@ -72,6 +72,7 @@ $(deriveTypeScript Aeson.defaultOptions ''ThreadToken)
 $(deriveTypeScript Aeson.defaultOptions ''DiffMilliSeconds)
 $(deriveTypeScript Aeson.defaultOptions ''MarketplaceContracts)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.Marketplace)
+$(deriveTypeScript Aeson.defaultOptions ''Marketplace.LotLink)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.MarketplaceDatum)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.UserItemId)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.UserContractState)
@@ -114,6 +115,7 @@ main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @MarketplaceContracts)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.Marketplace)) <>
     (getTypeScriptDeclarations (Proxy @(RemoteData T1 T2))) <>
+    (getTypeScriptDeclarations (Proxy @Marketplace.LotLink)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.MarketplaceDatum)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.UserItemId)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.OwnerContractState)) <>

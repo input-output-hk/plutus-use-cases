@@ -63,6 +63,7 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserContractState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.InfoContractState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.NftInfo)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.LotLink)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.NFT)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Bundle)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.BundleInfo)

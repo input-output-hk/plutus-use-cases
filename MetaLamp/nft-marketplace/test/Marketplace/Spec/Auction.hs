@@ -116,9 +116,6 @@ tests =
         buyOnAuctionTraceB
     ]]
 
-auctionValue :: Auction.Auction -> Value
-auctionValue = Auction.aAsset
-
 -- \/\/\/ "NFT singletons"
 startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
@@ -209,7 +206,7 @@ startAnAuctionDatumsCheck =
     Fixtures.marketplaceAddress
     (Utils.checkOneDatum (nftIsOnAuction . Marketplace.mdSingletons))
     where
-      nftIsOnAuction = maybe False (\t -> t ^. Marketplace._nftLot ^? traverse . _2 . _Right & fmap auctionValue &
+      nftIsOnAuction = maybe False (\t -> Marketplace.getAuctionFromNFT t & fmap Auction.aAsset &
                                 (== Just (Marketplace.nftValue Fixtures.catTokenIpfsCidBs t))) .
                     AssocMap.lookup Fixtures.catTokenIpfsCidHash
 
@@ -327,7 +324,7 @@ startAnAuctionDatumsCheckB =
     Fixtures.marketplaceAddress
     (Utils.checkOneDatum (bundleIsOnAuction . Marketplace.mdBundles))
     where
-      bundleIsOnAuction = maybe False (\b -> b ^. Marketplace._nbTokens ^? Marketplace._HasLot . _2 . _Right & fmap auctionValue &
+      bundleIsOnAuction = maybe False (\b -> Marketplace.getAuctionFromBundle b & fmap Auction.aAsset &
                                 (== Just (Marketplace.bundleValue AssocMap.empty b))) .
                           AssocMap.lookup Fixtures.bundleId
 

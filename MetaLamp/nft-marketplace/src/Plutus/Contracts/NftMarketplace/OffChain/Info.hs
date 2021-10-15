@@ -81,11 +81,11 @@ getAuctionState marketplace itemId = do
       Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on auction") pure $
-            nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
+            Core.getAuctionFromNFT nftEntry
       Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on auction") pure $
-            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
+            Core.getAuctionFromBundle bundleEntry
 
     auctionState <- do
         st <- mapError (T.pack . Haskell.show) $ Auction.currentState auction
