@@ -73,18 +73,18 @@ CANC - "Match Cancelled"
 
 switch to live 
 curl -v -X PUT -H "Content-Type: application/json" \
-    -d '{"ugpSatus": "LIVE", "ugpWinnerTeamId": 0}' \
+    -d '{"ugpSatus": "LIVE"}' \
     http://localhost:8081/games/1
 
 finish with winner
 curl -v -X PUT -H "Content-Type: application/json" \
-    -d '{"ugpSatus": "FT", "ugpWinnerTeamId": 55}' \
+    -d '{"ugpSatus": "FT"}' \
     http://localhost:8081/games/1
 
-4. Update Match Goals
+4. Add Game score
 curl -v -X PUT -H "Content-Type: application/json" \
-    -d '{"ugpHome": 3, "ugpAway": 1}' \
-    http://localhost:8081/games/1/goals
+    -d '{"ugpTeam": 55}' \
+    http://localhost:8081/games/1/add-score
 
 ## Mutual bet rest server 
 
