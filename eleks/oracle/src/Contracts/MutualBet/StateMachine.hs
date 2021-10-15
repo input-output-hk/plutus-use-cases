@@ -20,6 +20,7 @@ module Contracts.MutualBet.StateMachine(
     typedValidator
     , mutualBetStateMachine
     , MutualBetMachine
+    , includeWinshareInBets
     ) where
 
 import           Contracts.Oracle
@@ -79,22 +80,37 @@ calculatePrize bet totalBets totalWin =
         
 {-# INLINABLE calculateWinnerShare #-}
 calculateWinnerShare :: Bet -> Ada -> Ada -> Ada
-calculateWinnerShare bet totalBets totalWin = 
-    (betAmount bet) + calculatePrize bet totalBets totalWin
-
+calculateWinnerShare bet totalBets totalWin = calculatePrize bet totalBets totalWin
+   
 {-# INLINABLE getWinners #-}
-getWinners :: Integer -> [Bet] -> [(PubKeyHash, Ada)]
+getWinners :: Integer -> [Bet] -> [(PubKeyHash, Ada, Ada)]
 getWinners winnerTeamId bets = 
     let 
         winnerBets = winBets winnerTeamId bets
         total = betsValueAmount bets
         totalWin = betsValueAmount $ winnerBets
     in 
-        map (\winBet -> (betBettor winBet, calculateWinnerShare winBet total totalWin)) winnerBets
+        map (\winBet -> (betBettor winBet, betAmount winBet, calculateWinnerShare winBet total totalWin)) winnerBets
+
+includeWinshareInBets  :: Integer -> [Bet] -> [Bet]
+includeWinshareInBets winnerTeamId bets =
+    let 
+        winnerBets = winBets winnerTeamId bets
+        total = betsValueAmount bets
+        totalWin = betsValueAmount $ winnerBets
+    in 
+    map (\bet -> Bet{
+        betAmount = betAmount bet
+        , betBettor = betBettor bet
+        , betTeamId = betTeamId bet
+        , winShare = if betTeamId bet == winnerTeamId 
+            then calculateWinnerShare bet total totalWin
+            else 0
+        }) bets
 
 {-# INLINABLE mkTxPayWinners #-}
-mkTxPayWinners :: [(PubKeyHash, Ada)]-> TxConstraints Void Void
-mkTxPayWinners = foldMap (\(winnerAddressHash, winnerPrize) -> Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue winnerPrize)
+mkTxPayWinners :: [(PubKeyHash, Ada, Ada)]-> TxConstraints Void Void
+mkTxPayWinners = foldMap (\(winnerAddressHash, winnerBetAmount, winnerPrize) -> Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue $ winnerBetAmount + winnerPrize)
 
 {-# INLINABLE mkTxReturnBets #-}
 mkTxReturnBets :: [Bet] -> TxConstraints Void Void
@@ -115,7 +131,7 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
         (Ongoing bets, newBet@NewBet{newBetAmount, newBettor, newBetTeamId}) 
             | isValidBet params newBet ->
                 let constraints = Constraints.mustPayToPubKey mbpOwner $ Ada.toValue mbpBetFee
-                    newBets = Bet{betAmount = newBetAmount, betBettor = newBettor, betTeamId = newBetTeamId}:bets
+                    newBets = Bet{betAmount = newBetAmount, betBettor = newBettor, betTeamId = newBetTeamId, winShare = Ada.lovelaceOf 0}:bets
                     newState =
                         State
                             { stateData = Ongoing newBets
@@ -144,6 +160,8 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                         else mkTxPayWinners winners 
                     constraints = payConstraints
                                 <> oracleSignConstraints
+                    
+                    
                     newState = State { stateData = Finished bets, stateValue = mempty }
                 in Just (constraints, newState)
         _ -> Nothing

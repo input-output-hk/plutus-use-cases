@@ -57,6 +57,7 @@ data Bet =
         { betAmount  :: Ada
         , betBettor  :: PubKeyHash
         , betTeamId  :: Integer
+        , winShare   :: Ada
         }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)

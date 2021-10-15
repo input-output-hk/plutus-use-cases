@@ -121,10 +121,11 @@ bettorContract cur = mutualBetBettor slotCfg cur mutualBetParams
 oracleContract :: Contract (Last OracleContractState) OracleSchema Text ()
 oracleContract = runOracle oracleParams
 
-betOwnerWallet, bettor1, bettor2, oracleWallet :: Wallet
+betOwnerWallet, bettor1, bettor2, bettor3, oracleWallet :: Wallet
 betOwnerWallet = w1
 bettor1 = w2
 bettor2 = w3
+bettor3 = w4
 oracleWallet = w5
 
 oraclePrivateKey :: PrivateKey
@@ -135,6 +136,33 @@ trace1Bettor1Bet = 10_000_000
 
 trace1Bettor2Bet :: Integer
 trace1Bettor2Bet = 10_000_000
+
+calculateWinShare :: Ada -> Ada -> Ada -> Ada
+calculateWinShare amount totalBets totalWin =
+    let 
+        totalPrize = totalBets - totalWin
+    in
+        (Ada.divide amount totalWin) * totalPrize
+
+trace2Bettor1Bet :: Integer
+trace2Bettor1Bet = 10_000_000
+
+trace2Bettor2Bet :: Integer
+trace2Bettor2Bet = 10_000_000
+
+trace2Bettor3Bet :: Integer
+trace2Bettor3Bet = 10_000_000
+
+trace2TotalBetsAmount :: Ada
+trace2TotalBetsAmount = Ada.lovelaceOf $ trace2Bettor1Bet + trace2Bettor2Bet + trace2Bettor3Bet
+
+trace2TotalWinAmount :: Ada
+trace2TotalWinAmount = Ada.lovelaceOf $ trace2Bettor1Bet + trace2Bettor3Bet
+
+trace2Bettor1WinShare, trace2Bettor2WinShare, trace2Bettor3WinShare :: Ada
+trace2Bettor1WinShare = calculateWinShare (Ada.lovelaceOf trace2Bettor1Bet) trace2TotalBetsAmount trace2TotalWinAmount
+trace2Bettor2WinShare = calculateWinShare (Ada.lovelaceOf trace2Bettor2Bet) trace2TotalBetsAmount trace2TotalWinAmount
+trace2Bettor3WinShare = calculateWinShare (Ada.lovelaceOf trace2Bettor3Bet) trace2TotalBetsAmount trace2TotalWinAmount
 
 trace1Winner :: TeamId
 trace1Winner = team1Id
@@ -172,10 +200,65 @@ mutualBetSuccessTraceFinalState =
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor2Bet
                 , betBettor = pubKeyHash (walletPubKey bettor2)
                 , betTeamId = team2Id
+                , winShare = Ada.lovelaceOf 0
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor1Bet
                 , betBettor = pubKeyHash (walletPubKey bettor1)
                 , betTeamId = team1Id
+                , winShare = Ada.lovelaceOf trace1Bettor2Bet
+                }
+            ]
+        , mutualBetThreadToken = Last $ Just threadToken
+        }
+
+mutualBetSuccessTrace2 :: Trace.EmulatorTrace ()
+mutualBetSuccessTrace2 = do
+    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.waitNSlots 5
+    mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
+    _ <- Trace.waitNSlots 5
+    threadToken <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadToken
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+    bettor3Hdl <- Trace.activateContractWallet bettor3 (bettorContract threadToken)
+    _ <- Trace.waitNSlots 5
+    let bet1Params = NewBetParams { nbpAmount = trace2Bettor1Bet, nbpWinnerId = team1Id}
+    Trace.callEndpoint @"bet" bettor1Hdl bet1Params
+    _ <- Trace.waitNSlots 10
+    let bet2Params = NewBetParams { nbpAmount = trace2Bettor2Bet, nbpWinnerId = team2Id}
+    Trace.callEndpoint @"bet" bettor2Hdl bet2Params
+    _ <- Trace.waitNSlots 10
+    let bet3Params = NewBetParams { nbpAmount = trace2Bettor3Bet, nbpWinnerId = team1Id}
+    Trace.callEndpoint @"bet" bettor3Hdl bet3Params
+    _ <- Trace.waitNSlots 10
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 10
+    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParams
+    void $ Trace.waitNSlots 5
+
+
+mutualBetSuccessTrace2FinalState :: MutualBetOutput
+mutualBetSuccessTrace2FinalState =
+    MutualBetOutput
+        { mutualBetState = Last $ Just $ Finished $
+            [
+                Bet{ betAmount = Ada.lovelaceOf trace2Bettor3Bet
+                , betBettor = pubKeyHash (walletPubKey bettor3)
+                , betTeamId = team1Id
+                , winShare = trace2Bettor3WinShare
+                },
+                Bet{ betAmount = Ada.lovelaceOf trace2Bettor2Bet
+                , betBettor = pubKeyHash (walletPubKey bettor2)
+                , betTeamId = team2Id
+                , winShare = trace2Bettor2WinShare
+                },
+                Bet{ betAmount = Ada.lovelaceOf trace2Bettor1Bet
+                , betBettor = pubKeyHash (walletPubKey bettor1)
+                , betTeamId = team1Id
+                , winShare = trace2Bettor1WinShare
                 }
             ]
         , mutualBetThreadToken = Last $ Just threadToken
@@ -278,10 +361,12 @@ cancelGameTraceState =
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor2Bet
                 , betBettor = pubKeyHash (walletPubKey bettor2)
                 , betTeamId = team2Id
+                , winShare = 0
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor1Bet
                 , betBettor = pubKeyHash (walletPubKey bettor1)
                 , betTeamId = team1Id
+                , winShare = 0
                 }
             ]
         , mutualBetThreadToken = Last $ Just threadToken
@@ -339,6 +424,19 @@ tests =
         .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams))
         )
         mutualBetSuccessTrace
+        ,
+        checkPredicateOptions options "success games 2 winner 1 lost"
+        (assertDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) (const True) "mutual bet contract should be done"
+        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
+        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
+        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor3) (const True) "bettor 3 contract should be done"
+        .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) mutualBetSuccessTrace2FinalState) "final state should be OK"
+        .&&. walletFundsChange bettor1 (Ada.toValue $ trace2Bettor1WinShare - (mbpBetFee mutualBetParams))
+        .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet + (mbpBetFee mutualBetParams)))
+        .&&. walletFundsChange bettor3 (Ada.toValue $ trace2Bettor3WinShare - (mbpBetFee mutualBetParams))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (3 * mbpBetFee mutualBetParams) - opFees oracleParams))
+        )
+        mutualBetSuccessTrace2
         ,
         checkPredicateOptions options "return bets if everyone lost"
         (assertDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) (const True) "mutual bet contract should be done"

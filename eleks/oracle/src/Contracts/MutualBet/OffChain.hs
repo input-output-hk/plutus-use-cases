@@ -272,12 +272,13 @@ waitForGameStateChange params = do
                 Just d  -> do { logInfo ("State changes " ++ Haskell.show d); return d; }
 
 data BettorEvent =
-        MutualBetIsOver [Bet] -- ^ The mutual bet is over
+        MutualBetIsOver [Bet] TeamId -- ^ The mutual bet is over
         | MakeBet NewBetParams -- ^ make a bet bet
         | BettingHasСlosed [Bet] -- ^ no one can place more bets
         | OtherBet [Bet] -- ^ Another bettor make a bet
         | NoChange [Bet] -- ^ Nothing has changed
         deriving (Haskell.Show)
+
 waitForChange :: SlotConfig -> MutualBetParams -> StateMachineClient MutualBetState MutualBetInput -> [Bet] -> Contract MutualBetOutput BettorSchema MutualBetError BettorEvent
 waitForChange slotCfg params client bets = do
     now <- currentTime
@@ -291,16 +292,32 @@ waitForChange slotCfg params client bets = do
             promiseBind
                 smUpdatePromise
                  $ \case
-                    ContractEnded {} -> pure (MutualBetIsOver bets)
+                    ContractEnded _ input -> 
+                        do 
+                            case input of 
+                                Payout{oracleSigned=signedMessage} -> do
+                                    let winnerId = getWinnerId signedMessage
+                                    logInfo ("Winner ID: " ++ Haskell.show winnerId)
+                                    pure (MutualBetIsOver bets winnerId)
+                                CancelGame -> pure (MutualBetIsOver bets 0)
+                                _          -> pure (MutualBetIsOver bets 0)
                     -- The state machine transitionned to a new state
-                    Transition {} -> do
-                        state <- currentState client
+                    Transition _ _ SM.OnChainState{SM.ocsTxOut=TypedScriptTxOut{tyTxOutData=state}}   -> do
                         case state of 
-                            Just (Ongoing bets) -> pure (OtherBet bets)
-                            Just (BettingClosed bets) -> pure (BettingHasСlosed bets)
-                            _ -> pure (MutualBetIsOver bets)
+                            (Ongoing bets) -> pure (OtherBet bets)
+                            (BettingClosed bets) -> pure (BettingHasСlosed bets)
+                            _ -> do
+                                logInfo @Haskell.String ("Unexpected state")
+                                pure (NoChange bets)
                     _ -> pure (NoChange bets)
     selectList [makeBet, otherBid]
+
+getWinnerId :: (Oracle.SignedMessage OracleSignedMessage) -> TeamId
+getWinnerId signedMessage = 
+    case PlutusTx.fromBuiltinData . getDatum $ Oracle.osmDatum signedMessage of
+        Just oracleMessage -> osmWinnerId oracleMessage
+        Nothing -> 0
+        
 
 handleEvent :: StateMachineClient MutualBetState MutualBetInput -> [Bet] -> BettorEvent -> Contract MutualBetOutput BettorSchema MutualBetError (Either [Bet] ())
 handleEvent client bets change =
@@ -308,12 +325,14 @@ handleEvent client bets change =
         stop     = pure (Right ())
     -- see note [Bettor client]
     in case change of
-        MutualBetIsOver s -> do
-            logInfo ("Mutual bet over"  ++ Haskell.show bets)
-            tell (mutualBetStateOut $ Finished s)
+        MutualBetIsOver s w -> do
+            let bets' = includeWinshareInBets w bets
+            logInfo ("Mutual bet over"  ++ Haskell.show bets')
+            tell (mutualBetStateOut $ Finished bets')
             stop
         BettingHasСlosed s -> do
             logInfo @Haskell.String "Betting has closed"  
+            logInfo ("BettingHasСlosedState: "  ++ Haskell.show s)
             tell (mutualBetStateOut $ BettingClosed s)
             continue s
         MakeBet betParams -> do
