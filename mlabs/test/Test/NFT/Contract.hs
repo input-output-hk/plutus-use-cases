@@ -2,20 +2,20 @@ module Test.NFT.Contract (
   test,
 ) where
 
-import PlutusTx.Prelude hiding (mconcat, check)
-import Prelude (mconcat)
-import Test.Tasty (TestTree, testGroup)
-import Plutus.Contract.Test (assertAccumState, checkPredicateOptions)
-import Plutus.Trace.Emulator (walletInstanceTag, activateContractWallet, callEndpoint, waitNSlots)
-import Data.Monoid (Last (..))
 import Control.Monad.Reader (void)
+import Data.Monoid (Last (..))
 import Ledger.Crypto (pubKeyHash)
+import Plutus.Contract.Test (assertAccumState, checkPredicateOptions)
+import Plutus.Trace.Emulator (activateContractWallet, callEndpoint, waitNSlots, walletInstanceTag)
+import PlutusTx.Prelude hiding (check, mconcat)
+import Test.Tasty (TestTree, testGroup)
 import Wallet.Emulator.Wallet (walletPubKey)
+import Prelude (mconcat)
 
 import Mlabs.Emulator.Scene (checkScene)
-import Mlabs.NFT.Validation
 import Mlabs.NFT.Contract
 import Mlabs.NFT.Types
+import Mlabs.NFT.Validation
 import Test.NFT.Init
 
 test :: TestTree
@@ -93,7 +93,8 @@ testBuyNotEnoughPriceScript = check "Buy not enough price" (checkScene noChanges
       userAct w2 $ BuyAct 10 Nothing "NFT"
 
 testQueryPrice :: TestTree
-testQueryPrice = checkPredicateOptions
+testQueryPrice =
+  checkPredicateOptions
     checkOptions
     "Query price"
     (assertAccumState queryEndpoints (walletInstanceTag w2) predicate "")
@@ -118,7 +119,8 @@ testQueryPrice = checkPredicateOptions
       _ -> False
 
 testQueryOwner :: TestTree
-testQueryOwner = checkPredicateOptions
+testQueryOwner =
+  checkPredicateOptions
     checkOptions
     "Query owner"
     (assertAccumState queryEndpoints (walletInstanceTag w2) predicate "")

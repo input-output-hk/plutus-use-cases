@@ -9,8 +9,8 @@ module Test.Lending.Contract (
 import Data.Functor (void)
 import Data.Semigroup (Last (..))
 
-import PlutusTx.Prelude hiding (mconcat, (<>), Eq(..))
-import Prelude (mconcat, (<>), Eq(..))
+import PlutusTx.Prelude hiding (Eq (..), mconcat, (<>))
+import Prelude (Eq (..), mconcat, (<>))
 
 import Plutus.Contract.Test (Wallet, assertAccumState, checkPredicateOptions)
 import Plutus.Trace.Emulator qualified as Trace

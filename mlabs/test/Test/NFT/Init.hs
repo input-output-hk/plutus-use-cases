@@ -1,35 +1,33 @@
 module Test.NFT.Init where
 
-import PlutusTx.Prelude hiding (foldMap, pure)
-import Prelude (foldMap, Applicative(..))
-import Plutus.Contract.Test (Wallet (..), checkPredicateOptions)
 import Control.Lens ((&), (.~))
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.Reader (ReaderT, ask, lift, runReaderT, void)
 import Data.Map qualified as M
+import Data.Monoid (Last (..))
 import Ledger.Contexts (pubKeyHash)
-import Plutus.Contract.Test (CheckOptions, TracePredicate, defaultCheckOptions, emulatorConfig, walletPubKey)
+import Plutus.Contract.Test (CheckOptions, TracePredicate, Wallet (..), checkPredicateOptions, defaultCheckOptions, emulatorConfig, walletPubKey)
 import Plutus.Trace.Effects.EmulatedWalletAPI (EmulatedWalletAPI)
 import Plutus.Trace.Effects.EmulatorControl (EmulatorControl)
 import Plutus.Trace.Effects.RunContract (RunContract)
 import Plutus.Trace.Effects.Waiting (Waiting)
-import Plutus.Trace.Emulator (EmulatorRuntimeError(GenericError), EmulatorTrace, initialChainState, throwError, waitNSlots, activateContractWallet, callEndpoint, observableState)
+import Plutus.Trace.Emulator (EmulatorRuntimeError (GenericError), EmulatorTrace, activateContractWallet, callEndpoint, initialChainState, observableState, throwError, waitNSlots)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
 import Plutus.V1.Ledger.Value (Value, singleton)
-import Test.Utils (next)
-import Prelude (String)
+import PlutusTx.Prelude hiding (foldMap, pure)
 import PlutusTx.Ratio qualified as R
-import Data.Monoid (Last (..))
 import Test.Tasty (TestTree)
+import Test.Utils (next)
+import Prelude (Applicative (..), String, foldMap)
 
-import Mlabs.Emulator.Types (adaCoin)
-import Mlabs.Utils.Wallet (walletFromNumber)
 import Mlabs.Emulator.Scene (Scene, owns)
-import Mlabs.NFT.Validation
+import Mlabs.Emulator.Types (adaCoin)
 import Mlabs.NFT.Contract
 import Mlabs.NFT.Types
+import Mlabs.NFT.Validation
+import Mlabs.Utils.Wallet (walletFromNumber)
 
 -- | Calls user act
 callUserAct :: NftId -> Wallet -> UserAct -> EmulatorTrace ()
@@ -106,9 +104,10 @@ noChangesScene :: Scene
 noChangesScene = foldMap (`ownsAda` 0) [w1, w2, w3]
 
 mp :: MintParams
-mp = MintParams
-     { mp'content = Content "Mona Lisa"
-     , mp'title = Title ""
-     , mp'share = 1 R.% 10
-     , mp'price = Nothing
-     }
+mp =
+  MintParams
+    { mp'content = Content "Mona Lisa"
+    , mp'title = Title ""
+    , mp'share = 1 R.% 10
+    , mp'price = Nothing
+    }
