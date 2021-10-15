@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 -- | Server for lendex application
 module Mlabs.Lending.Contract.Server (
   -- * Contract monads
@@ -183,10 +185,12 @@ querySupportedCurrencies lid = do
   tellResult . getSupportedCurrencies $ pool
   where
     getSupportedCurrencies :: Types.LendingPool -> [Types.SupportedCurrency]
-    getSupportedCurrencies lp =
-      fmap
-        (\(coin, rsrv) -> Types.SupportedCurrency coin rsrv.reserve'aToken rsrv.reserve'rate)
-        (M.toList lp.lp'reserves)
+    getSupportedCurrencies Types.LendingPool {lp'reserves} =
+      fmap toSupportedCurrency (M.toList lp'reserves)
+
+    toSupportedCurrency (coin, Types.Reserve {reserve'aToken, reserve'rate}) =
+      Types.SupportedCurrency coin reserve'aToken reserve'rate
+
     tellResult = Contract.tell . Just . Last . Types.QueryResSupportedCurrencies
 
 ----------------------------------------------------------

@@ -39,7 +39,7 @@ import Mlabs.Emulator.Blockchain (toConstraints, updateRespValue)
 import Mlabs.Emulator.Types (UserId (..))
 import Mlabs.Nft.Contract.Forge qualified as Forge
 import Mlabs.Nft.Logic.React (react)
-import Mlabs.Nft.Logic.Types (Act (UserAct), Nft (nft'id), NftId)
+import Mlabs.Nft.Logic.Types (Act (UserAct), Nft (nft'id), NftId (nftId'token))
 
 type NftMachine = SM.StateMachine Nft Act
 type NftMachineClient = SM.StateMachineClient Nft Act
@@ -131,7 +131,7 @@ nftSymbol nid = Forge.currencySymbol (nftAddress nid) nid
 
 -- | NFT coin (AssetClass)
 nftCoin :: NftId -> AssetClass
-nftCoin nid = AssetClass (nftSymbol nid, nid.nftId'token)
+nftCoin nid = AssetClass (nftSymbol nid, nftId'token nid)
 
 -- | Single value of NFT coin. We check that there is only one NFT-coin can be minted.
 nftValue :: NftId -> Value

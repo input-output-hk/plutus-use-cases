@@ -233,10 +233,10 @@
         "homepage": "",
         "owner": "Liqwid-Labs",
         "repo": "plutus-extra",
-        "rev": "c2079131a2a138d0895282e26d6cdd16cd65c649",
-        "sha256": "194ar0vkmlxr62w94bpc2kkyiy0rnzmaj5s9mszhxggcgy2gyvp3",
+        "rev": "b34f7ac0813aaf982ad8c65bcc3c2a54a601e601",
+        "sha256": "1fs67ilfg2aghnz3ry4k08292dhya0wwwhpyqf9frx7ps11vadwr",
         "type": "tarball",
-        "url": "https://github.com/Liqwid-Labs/plutus-extra/archive/c2079131a2a138d0895282e26d6cdd16cd65c649.tar.gz",
+        "url": "https://github.com/Liqwid-Labs/plutus-extra/archive/b34f7ac0813aaf982ad8c65bcc3c2a54a601e601.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "plutus-latest": {

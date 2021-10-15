@@ -117,10 +117,8 @@ type MintSchema =
 
 -- | Generates tokens with the specified name/amount and burns an equal amount of Ada.
 mintContract :: MintParams -> Contract w MintSchema Text ()
-mintContract mp = do
-  let tn = mp.mpTokenName
-      amt = mp.mpAmount
-      payVal = Ada.lovelaceValueOf $ amt * tokenToLovelaceXR
+mintContract (MintParams tn amt) = do
+  let payVal = Ada.lovelaceValueOf $ amt * tokenToLovelaceXR
       forgeVal = Value.singleton curSymbol tn amt
       lookups = Constraints.mintingPolicy curPolicy
       tx =
