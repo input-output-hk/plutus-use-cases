@@ -27,7 +27,7 @@ import qualified Ledger.Value                                             as V
 import           Plutus.Abstract.Percentage                               (Percentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID  
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
 import qualified Plutus.Contracts.Services.Auction                        as Auction
@@ -39,10 +39,32 @@ import           PlutusTx.Prelude                                         hiding
 import           Prelude                                                  (Semigroup (..))
 import qualified Prelude                                                  as Haskell
 
+data RemoveLotRedeemerValue = 
+  RemoveNftLotRedeemer IpfsCidHash
+  | RemoveBundleLotRedeemer BundleId
+  deriving  (Haskell.Show)
+
+PlutusTx.unstableMakeIsData ''RemoveLotRedeemerValue
+
+PlutusTx.makeLift ''RemoveLotRedeemerValue
+
+data PutLotRedeemerValue =
+  PutNftLotRedeemer InternalNftId LotLink
+  | PutBundleLotRedeemer InternalBundleId LotLink
+  deriving  (Haskell.Show)
+
+PlutusTx.unstableMakeIsData ''PutLotRedeemerValue
+
+PlutusTx.makeLift ''PutLotRedeemerValue
+
+mkPutLotRedeemer :: InternalId -> LotLink -> MarketplaceRedeemer
+mkPutLotRedeemer (NftInternalId nId) lot = PutLotRedeemer $ PutNftLotRedeemer nId lot
+mkPutLotRedeemer (BundleInternalId bId) lot = PutLotRedeemer $ PutBundleLotRedeemer bId lot
+
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
-  | PutLotRedeemer (Either InternalNftId InternalBundleId) LotLink
-  | RemoveLotRedeemer (Either IpfsCidHash BundleId)
+  | PutLotRedeemer PutLotRedeemerValue
+  | RemoveLotRedeemer RemoveLotRedeemerValue
   | BundleUpRedeemer [IpfsCidHash] BundleId BundleInfo
   | UnbundleRedeemer BundleId
   deriving  (Haskell.Show)
@@ -50,6 +72,10 @@ data MarketplaceRedeemer
 PlutusTx.unstableMakeIsData ''MarketplaceRedeemer
 
 PlutusTx.makeLift ''MarketplaceRedeemer
+
+mkRemoveLotRedeemer :: InternalId -> MarketplaceRedeemer
+mkRemoveLotRedeemer (NftInternalId nId) = RemoveLotRedeemer . RemoveNftLotRedeemer $ iniIpfsCidHash  nId
+mkRemoveLotRedeemer (BundleInternalId bId) = RemoveLotRedeemer . RemoveBundleLotRedeemer $ ibiBundleId bId
 
 data MarketplaceDatum =
   MarketplaceDatum
@@ -134,25 +160,25 @@ transition marketplace@Marketplace{..} state redeemer = case redeemer of
                   Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )
-    PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot
+    PutLotRedeemer (PutNftLotRedeemer (InternalNftId ipfsCidHash ipfsCid) lot)
         -> let newEntry = maybe (traceError "NFT has not been created.") (_nftLot ?~ (ipfsCid, lot)) $
                             AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
            in  Just ( mempty
                     , State (insertNft ipfsCidHash newEntry nftStore) currStateValue
                     )
-    PutLotRedeemer (Right (InternalBundleId bundleId cids)) lot
+    PutLotRedeemer (PutBundleLotRedeemer (InternalBundleId bundleId cids) lot)
         -> let newEntry = maybe (traceError "Bundle has not been created.") (addLotToBundle cids lot) $
                             AssocMap.lookup bundleId $ mdBundles nftStore
            in  Just ( mempty
                     , State (insertBundle bundleId newEntry nftStore) currStateValue
                     )
-    RemoveLotRedeemer (Left ipfsCidHash)
+    RemoveLotRedeemer (RemoveNftLotRedeemer ipfsCidHash)
         -> let newEntry = maybe (traceError "NFT has not been created.") (_nftLot .~ Nothing) $
                             AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
            in  Just ( mempty
                     , State (insertNft ipfsCidHash newEntry nftStore) currStateValue
                     )
-    RemoveLotRedeemer (Right bundleId)
+    RemoveLotRedeemer (RemoveBundleLotRedeemer bundleId)
         -> let newEntry = maybe (traceError "NFT has not been created.") removeLotFromBundle $
                             AssocMap.lookup bundleId $ mdBundles nftStore
            in  Just ( mempty
@@ -183,7 +209,7 @@ stateTransitionCheck nftStore (CreateNftRedeemer ipfsCidHash nftEntry) ctx =
   traceIfFalse "CreateNftRedeemer: " $
   traceIfFalse "NFT entry already exists" $
     isNothing $ AssocMap.lookup ipfsCidHash $ nftUnion nftStore
-stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId ipfsCidHash ipfsCid)) lot) ctx =
+stateTransitionCheck MarketplaceDatum {..}  (PutLotRedeemer (PutNftLotRedeemer (InternalNftId ipfsCidHash ipfsCid) lot)) ctx =
   traceIfFalse "PutLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
       lotValue = getLotValue lot
@@ -193,7 +219,7 @@ stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Left (InternalNftId 
   in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale &&
       traceIfFalse "Invalid IPFS Cid Hash" isValidHash &&
       traceIfFalse "NFT already has a lot" hasNoExistingLot
-stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Right (InternalBundleId bundleId cids)) lot) ctx =
+stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (PutBundleLotRedeemer (InternalBundleId bundleId cids) lot)) ctx =
   traceIfFalse "PutLotRedeemer: " $
   let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
       lotValue = getLotValue lot
@@ -209,12 +235,12 @@ stateTransitionCheck MarketplaceDatum {..} (PutLotRedeemer (Right (InternalBundl
       traceIfFalse "Not all IPFS Cids provided" allCidsProvided &&
       traceIfFalse "Invalid IPFS Cid Hash provided" hasValidHashes &&
       traceIfFalse "Bundle already has a lot" hasNoExistingLot
-stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (Left ipfsCidHash)) ctx =
+stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (RemoveNftLotRedeemer ipfsCidHash)) ctx =
   traceIfFalse "RemoveLotRedeemer: " $
   let nftEntry = fromMaybe (traceError "NFT has not been created") $ AssocMap.lookup ipfsCidHash mdSingletons
       hasBeenPutOnSale = isJust $ nftLot nftEntry
   in  traceIfFalse "NFT has not been put on sale or auction" hasBeenPutOnSale
-stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (Right bundleId)) ctx =
+stateTransitionCheck MarketplaceDatum {..} (RemoveLotRedeemer (RemoveBundleLotRedeemer bundleId)) ctx =
   traceIfFalse "RemoveLotRedeemer: " $
   let bundle = fromMaybe (traceError "Bundle has not been created") $ AssocMap.lookup bundleId mdBundles
       hasLot = hasLotBundle bundle

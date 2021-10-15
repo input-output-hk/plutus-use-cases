@@ -36,7 +36,8 @@ import           Plutus.Abstract.ContractResponse
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                                as Currency
-import           Plutus.Contracts.NftMarketplace.OffChain.ID
+import           Plutus.Contracts.NftMarketplace.OffChain.ID (toInternalId, UserItemId(..))
+import Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalId(..))
 import           Plutus.Contracts.NftMarketplace.OffChain.Info
 import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Core
@@ -51,6 +52,7 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID as Core
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -111,9 +113,9 @@ openSale marketplace@Core.Marketplace{..} OpenSaleParams {..} = do
     let internalId = toInternalId ospItemId
     nftStore <- marketplaceStore marketplace
     saleValue <- case internalId of
-      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
         Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
-      Right bundleId@(Core.InternalBundleId bundleHash cids) ->
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) ->
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
     let openSaleParams = Sale.OpenSaleParams {
                   ospSalePrice = ospSalePrice,
@@ -124,7 +126,7 @@ openSale marketplace@Core.Marketplace{..} OpenSaleParams {..} = do
 
     let client = Core.marketplaceClient marketplace
     let lot = Core.SaleLotLink sale
-    void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
+    void $ mapError' $ runStep client $ Core.mkPutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show sale)
     pure ()
@@ -144,11 +146,11 @@ buyItem marketplace CloseLotParams {..} = do
     let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     sale <- case internalId of
-      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on sale") pure $
             Core.getSaleFromNFT nftEntry
-      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on sale") pure $
             Core.getSaleFromBundle bundleEntry
@@ -156,8 +158,7 @@ buyItem marketplace CloseLotParams {..} = do
     _ <- Sale.buyLot sale
 
     let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer $
-      Lens.bimap Core.iniIpfsCidHash Core.ibiBundleId internalId
+    void $ mapError' $ runStep client $ Core.mkRemoveLotRedeemer internalId
 
     logInfo @Haskell.String $ printf "Bought lot from sale %s" (Haskell.show sale)
     pure ()
@@ -168,11 +169,11 @@ closeSale marketplace CloseLotParams {..} = do
     let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     sale <- case internalId of
-      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on sale") pure $
             Core.getSaleFromNFT nftEntry
-      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on sale") pure $
             Core.getSaleFromBundle bundleEntry
@@ -180,8 +181,7 @@ closeSale marketplace CloseLotParams {..} = do
     _ <- Sale.redeemLot sale
 
     let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer $
-      Lens.bimap Core.iniIpfsCidHash Core.ibiBundleId internalId
+    void $ mapError' $ runStep client $ Core.mkRemoveLotRedeemer internalId
 
     logInfo @Haskell.String $ printf "Closed lot sale %s" (Haskell.show sale)
     pure ()
@@ -202,9 +202,9 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
     let internalId = toInternalId saapItemId
     nftStore <- marketplaceStore marketplace
     auctionValue <- case internalId of
-      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
         Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
-      Right bundleId@(Core.InternalBundleId bundleHash cids) ->
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) ->
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currTime <- currentTime
@@ -220,7 +220,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
 
     let client = Core.marketplaceClient marketplace
     let lot = Core.AuctionLotLink auction
-    void $ mapError' $ runStep client $ Core.PutLotRedeemer internalId lot
+    void $ mapError' $ runStep client $ Core.mkPutLotRedeemer internalId lot
 
     logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auction)
     pure ()
@@ -231,11 +231,11 @@ completeAnAuction marketplace CloseLotParams {..} = do
     let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
     auction <- case internalId of
-      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on auction") pure $
             Core.getAuctionFromNFT nftEntry
-      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on auction") pure $
             Core.getAuctionFromBundle bundleEntry
@@ -243,8 +243,7 @@ completeAnAuction marketplace CloseLotParams {..} = do
     _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auction
 
     let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.RemoveLotRedeemer $
-      Lens.bimap Core.iniIpfsCidHash Core.ibiBundleId internalId
+    void $ mapError' $ runStep client $ Core.mkRemoveLotRedeemer internalId
 
     logInfo @Haskell.String $ printf "Completed an auction %s" (Haskell.show auction)
     pure ()
@@ -265,11 +264,11 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
     let internalId = toInternalId boapItemId
     nftStore <- marketplaceStore marketplace
     auction <- case internalId of
-      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on auction") pure $
             Core.getAuctionFromNFT nftEntry
-      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on auction") pure $
             Core.getAuctionFromBundle bundleEntry

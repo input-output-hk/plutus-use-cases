@@ -43,6 +43,7 @@ import           PlutusTx.Prelude                             hiding
 import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import           Text.Printf                                  (printf)
+import Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalId(..))
 
 -- | Gets current Marketplace store state
 marketplaceStore :: Core.Marketplace -> Contract w s Text Core.MarketplaceDatum
@@ -78,11 +79,11 @@ getAuctionState marketplace itemId = do
     let internalId = toInternalId itemId
     nftStore <- marketplaceStore marketplace
     auction <- case internalId of
-      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on auction") pure $
             Core.getAuctionFromNFT nftEntry
-      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on auction") pure $
             Core.getAuctionFromBundle bundleEntry
