@@ -19,7 +19,6 @@ import Data.Either (Either(..))
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
-import Data.Newtype (wrap)
 import Data.Symbol (SProxy(..))
 import Data.UserInstance (UserInstance)
 import Effect.Aff.Class (class MonadAff)
@@ -209,7 +208,7 @@ component =
         MarketplaceUser.startAnAuction contractId
           $ MarketplaceUser.StartAnAuctionParams
               { saapItemId: Datum.getItemId item
-              , saapDuration: wrap $ fromInt (p.duration * 1000)
+              , saapDuration: fromInt (p.duration * 1000)
               }
       logInfo $ "Marketplace item put on auction: " <> show resp
       handleAction Initialize

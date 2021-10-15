@@ -23,7 +23,8 @@ import qualified Ledger.Typed.Scripts                         as Scripts
 import           Ledger.Value
 import           Plutus.Abstract.ContractResponse             (ContractResponse,
                                                                withContractResponse)
-import           Plutus.Abstract.Percentage                   (mkPercentage, Fractional)
+import           Plutus.Abstract.Percentage                   (Fractional,
+                                                               mkPercentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency

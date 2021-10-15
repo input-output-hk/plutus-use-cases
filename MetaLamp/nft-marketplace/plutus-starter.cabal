@@ -83,6 +83,7 @@ library
       servant-server,
       text,
       wai-cors,
+      openapi3 -any,
       -- Plutus:
       playground-common,
       plutus-contract,

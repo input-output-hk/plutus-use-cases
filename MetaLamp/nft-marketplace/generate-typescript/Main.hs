@@ -6,37 +6,40 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TemplateHaskell          #-}
 
 module Main where
 
-import           Control.Monad              (when)
-import           System.Directory           (doesDirectoryExist,
-                                             removeDirectoryRecursive)
-import           Control.Monad.Reader                         (MonadReader)
-import           Data.Proxy                                   (Proxy (Proxy))
-import qualified Ext.Plutus.Contracts.Auction                 as Auction
-import           Plutus.Abstract.RemoteData                   (RemoteData)
-import           Plutus.Contract.StateMachine.ThreadToken     (ThreadToken)
-import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
-import qualified Plutus.Contracts.Services.Sale               as Sale
-import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
-import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds)
-import Data.Aeson.TypeScript.TH
-import Data.Aeson.TypeScript.Internal
-import qualified Data.Aeson.Types as Aeson
-
-import Plutus.V1.Ledger.Tx (TxOutRef)
-import Plutus.V1.Ledger.TxId (TxId)
-import PlutusTx.Builtins.Internal (BuiltinByteString)
-import Data.ByteString (ByteString)
-import Plutus.V1.Ledger.Value (CurrencySymbol, Value, TokenName)
-import Plutus.V1.Ledger.Crypto (PubKeyHash)
-import qualified PlutusTx.AssocMap as AssocMap
-import Plutus.V1.Ledger.Ada (Ada)
+import           Control.Monad                                    (when)
+import           Control.Monad.Reader                             (MonadReader)
+import           Data.Aeson.TypeScript.Internal
+import           Data.Aeson.TypeScript.TH
+import qualified Data.Aeson.Types                                 as Aeson
+import           Data.ByteString                                  (ByteString)
+import           Data.Proxy                                       (Proxy (Proxy))
+import qualified Ext.Plutus.Contracts.Auction                     as Auction
+import qualified Plutus.Abstract.Percentage                       as Percentage
+import           Plutus.Abstract.RemoteData                       (RemoteData)
+import           Plutus.Contract.StateMachine.ThreadToken         (ThreadToken)
+import qualified Plutus.Contracts.NftMarketplace.Endpoints        as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core     as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as NFT
+import qualified Plutus.Contracts.Services.Sale                   as Sale
+import           Plutus.PAB.Simulation                            (MarketplaceContracts (..))
+import           Plutus.V1.Ledger.Ada                             (Ada)
+import           Plutus.V1.Ledger.Crypto                          (PubKeyHash)
+import           Plutus.V1.Ledger.Time                            (DiffMilliSeconds)
+import           Plutus.V1.Ledger.Tx                              (TxOutRef)
+import           Plutus.V1.Ledger.TxId                            (TxId)
+import           Plutus.V1.Ledger.Value                           (CurrencySymbol,
+                                                                   TokenName,
+                                                                   Value)
+import qualified PlutusTx.AssocMap                                as AssocMap
+import           PlutusTx.Builtins.Internal                       (BuiltinByteString)
+import           System.Directory                                 (doesDirectoryExist,
+                                                                   removeDirectoryRecursive)
 
 instance TypeScript BuiltinByteString where
   getTypeScriptType _ = "string"
@@ -58,7 +61,7 @@ $(deriveTypeScript Aeson.defaultOptions ''Ada)
 instance (TypeScript a, TypeScript b) => TypeScript (RemoteData a b) where
   getTypeScriptType _ = "RemoteData<" <> (getTypeScriptType (Proxy :: Proxy a)) <> ", " <> (getTypeScriptType (Proxy :: Proxy b)) <> ">"
   getTypeScriptDeclarations _ = [
-    TSRawDeclaration "export type RemoteData<E, A> = INotAsked | ILoading | IFailure<E> | ISuccess<A>;", 
+    TSRawDeclaration "export type RemoteData<E, A> = INotAsked | ILoading | IFailure<E> | ISuccess<A>;",
     TSRawDeclaration "export interface INotAsked { tag: \"NotAsked\"; }",
     TSRawDeclaration "export interface ILoading { tag: \"Loading\"; }",
     TSRawDeclaration "export interface IFailure<T> { tag: \"Failure\"; contents: T; }",
@@ -78,9 +81,13 @@ $(deriveTypeScript Aeson.defaultOptions ''Marketplace.NFT)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.Bundle)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BundleInfo)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.NftBundle)
+$(deriveTypeScript Aeson.defaultOptions ''NFT.Auction)
 $(deriveTypeScript Aeson.defaultOptions ''Auction.AuctionState)
 $(deriveTypeScript Aeson.defaultOptions ''Auction.HighestBid)
+$(deriveTypeScript Aeson.defaultOptions ''Auction.AuctionFee)
 $(deriveTypeScript Aeson.defaultOptions ''Sale.Sale)
+$(deriveTypeScript Aeson.defaultOptions ''Sale.SaleFee)
+$(deriveTypeScript Aeson.defaultOptions ''Percentage.Percentage)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.CreateNftParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.OpenSaleParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.CloseLotParams)
@@ -88,6 +95,7 @@ $(deriveTypeScript Aeson.defaultOptions ''Marketplace.StartAnAuctionParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BidOnAuctionParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BundleUpParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.UnbundleParams)
+
 
 formattingOptions :: FormattingOptions
 formattingOptions = FormattingOptions
@@ -115,9 +123,13 @@ main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @Marketplace.Bundle)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.BundleInfo)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.NftBundle)) <>
+    (getTypeScriptDeclarations (Proxy @NFT.Auction)) <>
     (getTypeScriptDeclarations (Proxy @Auction.AuctionState)) <>
     (getTypeScriptDeclarations (Proxy @Auction.HighestBid)) <>
+    (getTypeScriptDeclarations (Proxy @Auction.AuctionFee)) <>
     (getTypeScriptDeclarations (Proxy @Sale.Sale)) <>
+    (getTypeScriptDeclarations (Proxy @Sale.SaleFee)) <>
+    (getTypeScriptDeclarations (Proxy @Percentage.Percentage)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.CreateNftParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.OpenSaleParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.CloseLotParams)) <>

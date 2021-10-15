@@ -28,7 +28,6 @@ import           Data.Proxy                                               (Proxy
 import           Data.Text                                                (Text)
 import qualified Data.Text                                                as T
 import qualified Ext.Plutus.Contracts.Auction                             as Auction
-import           Ext.Plutus.Ledger.Value                                  (utxoValue)
 import qualified GHC.Generics                                             as Haskell
 import           Ledger
 import qualified Ledger.Typed.Scripts                                     as Scripts
@@ -187,12 +186,10 @@ closeSale marketplace CloseLotParams {..} = do
     logInfo @Haskell.String $ printf "Closed lot sale %s" (Haskell.show sale)
     pure ()
 
-deriving newtype instance Schema.ToSchema DiffMilliSeconds
-
 data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId   :: UserItemId,
-    saapDuration :: DiffMilliSeconds
+    saapDuration :: Integer  --- TODO: use DiffMilliSeconds here, when it will be possible
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -211,7 +208,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currTime <- currentTime
-    let endTime = currTime + fromMilliSeconds saapDuration
+    let endTime = currTime + fromMilliSeconds (DiffMilliSeconds saapDuration)
     self <- Ledger.pubKeyHash <$> ownPubKey
     let auctionParams = Auction.AuctionParams {
       apOwner = self,
