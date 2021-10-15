@@ -69,9 +69,9 @@ toUserId = UserId . pubKeyHash . walletPubKey
 {- | Script runner. It inits NFT by user 1 and provides nft id to all sequent
  endpoint calls.
 -}
-runScript :: Script -> EmulatorTrace ()
-runScript script = do
-  nftId <- callStartNft w1 mp
+runScript :: Wallet -> Script -> EmulatorTrace ()
+runScript wal script = do
+  nftId <- callStartNft wal mp
   next
   runReaderT script nftId
 
@@ -98,8 +98,8 @@ initialDistribution =
 ownsAda :: Wallet -> Integer -> Scene
 ownsAda wal amount = wal `owns` [(adaCoin, amount)]
 
-check :: String -> TracePredicate -> Script -> TestTree
-check msg assertions script = checkPredicateOptions checkOptions msg assertions (runScript script)
+check :: String -> TracePredicate -> Wallet -> Script -> TestTree
+check msg assertions wal script = checkPredicateOptions checkOptions msg assertions (runScript wal script)
 
 -- | Scene without any transfers
 noChangesScene :: Scene

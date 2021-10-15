@@ -275,6 +275,7 @@ Test-suite mlabs-plutus-use-cases-tests
     Test.NFT.Init
     Test.NFT.Trace
     Test.NFT.Contract
+    Test.NFT.QuickCheck
                      
   default-extensions:
     RecordWildCards
