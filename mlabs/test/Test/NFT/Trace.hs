@@ -85,9 +85,62 @@ setPriceTrace = do
         , mp'price = Just 100
         }
 
+queryPriceTrace :: EmulatorTrace ()
+queryPriceTrace = do
+  let wallet1 = walletFromNumber 1 :: Emulator.Wallet
+      wallet2 = walletFromNumber 5 :: Emulator.Wallet
+  authMintH :: AppTraceHandle <- activateContractWallet wallet1 endpoints
+  callEndpoint @"mint" authMintH artwork
+  void $ Trace.waitNSlots 2
+  oState <- Trace.observableState authMintH
+  nftId <- case getLast oState of
+    Nothing -> Trace.throwError (Trace.GenericError "NftId not found")
+    Just nid -> return nid
+  logInfo $ Hask.show nftId
+  void $ Trace.waitNSlots 1
+
+  authUseH <- activateContractWallet wallet1 endpoints
+  callEndpoint @"set-price" authUseH (SetPriceParams nftId (Just 20))
+  void $ Trace.waitNSlots 2
+
+  queryHandle <- activateContractWallet wallet2 queryEndpoints
+  callEndpoint @"query-current-price" queryHandle nftId
+  -- hangs if this is not called before `observableState`
+  void $ Trace.waitNSlots 1
+  queryState <- Trace.observableState queryHandle
+  queriedPrice <- case getLast queryState of
+    Nothing -> Trace.throwError (Trace.GenericError "QueryResponse not found")
+    Just resp -> case resp of
+      QueryCurrentOwner _ -> Trace.throwError (Trace.GenericError "wrong query state, got owner instead of price")
+      QueryCurrentPrice price -> return price
+  logInfo $ "Queried price: " <> Hask.show queriedPrice
+
+  callEndpoint @"query-current-owner" queryHandle nftId
+  void $ Trace.waitNSlots 1
+  queryState2 <- Trace.observableState queryHandle
+  queriedOwner <- case getLast queryState2 of
+    Nothing -> Trace.throwError (Trace.GenericError "QueryResponse not found")
+    Just resp -> case resp of
+      QueryCurrentOwner owner -> return owner
+      QueryCurrentPrice _ -> Trace.throwError (Trace.GenericError "wrong query state, got price instead of owner")
+  logInfo $ "Queried owner: " <> Hask.show queriedOwner
+
+  void $ Trace.waitNSlots 1
+  where
+    artwork =
+      MintParams
+        { mp'content = Content "A painting."
+        , mp'title = Title "Fiona Lisa"
+        , mp'share = 1 % 10
+        , mp'price = Just 100
+        }
+
 -- | Test for prototyping.
 test :: Hask.IO ()
 test = runEmulatorTraceIO eTrace1
 
 testSetPrice :: Hask.IO ()
 testSetPrice = runEmulatorTraceIO setPriceTrace
+
+testQueryPrice :: Hask.IO ()
+testQueryPrice = runEmulatorTraceIO queryPriceTrace

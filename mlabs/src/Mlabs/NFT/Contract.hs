@@ -11,7 +11,7 @@ import Prelude (mconcat, (<>))
 import Prelude qualified as Hask
 
 import Control.Lens (filtered, to, traversed, (^.), (^..), _Just, _Right)
-import Control.Monad (join, void)
+import Control.Monad (void)
 import Data.List qualified as L
 import Data.Map qualified as Map
 import Data.Monoid (Last (..))
@@ -257,9 +257,9 @@ setPrice spParams = do
 queryCurrentPrice :: NftId -> QueryContract QueryResponse
 queryCurrentPrice nftid = do
   price <- wrap <$> getsNftDatum dNft'price nftid
-  Contract.tell (Last $ pure price) >> log price >> return price
+  Contract.tell (Last . Just $ price) >> log price >> return price
   where
-    wrap = QueryCurrentPrice . Last . join
+    wrap = QueryCurrentPrice
     log price =
       Contract.logInfo @Hask.String $
         "Current price of: " <> Hask.show nftid <> " is: " <> Hask.show price
@@ -270,9 +270,9 @@ queryCurrentPrice nftid = do
 queryCurrentOwner :: NftId -> QueryContract QueryResponse
 queryCurrentOwner nftid = do
   ownerResp <- wrap <$> getsNftDatum dNft'owner nftid
-  Contract.tell (Last $ pure ownerResp) >> log ownerResp >> return ownerResp
+  Contract.tell (Last . Just $ ownerResp) >> log ownerResp >> return ownerResp
   where
-    wrap = QueryCurrentOwner . Last
+    wrap = QueryCurrentOwner
     log owner =
       Contract.logInfo @Hask.String $
         "Current owner of: " <> Hask.show nftid <> " is: " <> Hask.show owner
@@ -323,7 +323,7 @@ fstUtxo address = do
     x : _ -> pure x
 
 -- | Returns the Datum of a specific nftId from the Script address.
-getNftDatum :: NftId -> Contract w s Text (Maybe DatumNft)
+getNftDatum :: NftId -> Contract w s Text DatumNft
 getNftDatum nftId = do
   utxos :: [Ledger.ChainIndexTxOut] <- Map.elems <$> getAddrUtxos txScrAddress
   let datums :: [DatumNft] =
@@ -336,15 +336,15 @@ getNftDatum nftId = do
   Contract.logInfo @Hask.String $ Hask.show $ "Datum Found:" <> Hask.show datums
   Contract.logInfo @Hask.String $ Hask.show $ "Datum length:" <> Hask.show (Hask.length datums)
   case datums of
-    [x] -> pure $ Just x
+    [x] -> pure x
     [] -> Contract.throwError "No Datum can be found."
     _ : _ -> Contract.throwError "More than one suitable Datums can be found."
 
 {- | Gets the Datum of a specific nftId from the Script address, and applies an
  extraction function to it.
 -}
-getsNftDatum :: (DatumNft -> b) -> NftId -> Contract a s Text (Maybe b)
-getsNftDatum f = fmap (fmap f) . getNftDatum
+getsNftDatum :: (DatumNft -> field) -> NftId -> Contract a s Text field
+getsNftDatum getField = fmap getField . getNftDatum
 
 -- | A hashing function to minimise the data to be attached to the NTFid.
 hashData :: Content -> BuiltinByteString
