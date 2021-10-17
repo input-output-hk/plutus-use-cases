@@ -22,7 +22,7 @@ main =
     testGroup
       "tests"
       [ testGroup
-          "Nft"
+          "NFT - legacy"
           [ Nft.Logic.test
           , contract Nft.Contract.test
           ]
