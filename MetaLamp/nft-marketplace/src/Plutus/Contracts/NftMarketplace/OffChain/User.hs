@@ -275,7 +275,7 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
             Core.getAuctionFromBundle bundleEntry
 
     currTime <- currentTime
-    -- when auction is expired autocall completeAuction and throwError
+    -- when auction has expired call completeAuction and throwError
     when (currTime > (Auction.aEndTime auction)) $ do
       completeAnAuction marketplace $ CloseLotParams boapItemId
       throwError "Auction has expired."
