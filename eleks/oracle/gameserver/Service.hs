@@ -15,6 +15,7 @@ module Service
     , getGameById
     , getWinnerTeamId
     , updateGameState
+    , updateGameScore
     , createInitialGames
     ) where
 
@@ -54,11 +55,27 @@ findGameById :: GameId -> [Game] -> Either String Game
 findGameById gameId games = do
     maybeToRight "Game not found" $ find (\g -> gameId == g ^. fixture . fixtureId) games
 
-updateGameState :: TeamId -> FixtureStatusShort -> GameId -> ExceptT String IO Game
-updateGameState winnerId status gameId =
+updateGameScore :: TeamId -> GameId -> ExceptT String IO Game
+updateGameScore teamId gameId =
     getGameById gameId
-    >>= liftEither . updateGameWinner winnerId 
+    >>= liftEither . addGameScore teamId 
+    >>= updateGame
+
+scoreValue :: Integer -> Integer
+scoreValue preValue = preValue +1 
+
+addGameScore :: TeamId -> Game -> Either String Game 
+addGameScore teamIdParam game
+    | game ^. fixture . status . short /= LIVE = Left "Error goal update. Game not active"
+    | game ^. teams . home . teamId == teamIdParam = Right $ game & goals . teamHome .~ (game ^. goals . teamHome + 1)
+    | game ^. teams . away . teamId == teamIdParam = Right $ game & goals . teamAway .~ (game ^. goals . teamAway + 1)
+    | otherwise = Left "Error goal update"
+
+updateGameState :: FixtureStatusShort -> GameId -> ExceptT String IO Game
+updateGameState status gameId =
+    getGameById gameId
     >>= liftEither . updateGameStatus status 
+    >>= liftEither . updateGameWinner 
     >>= updateGame
 
 updateGameStatus :: FixtureStatusShort -> Game -> Either String Game 
@@ -67,11 +84,12 @@ updateGameStatus newStatus game = do
     when (not $ validateGameStatusChanges currentStatus newStatus) (Left $ "Invalid state change from " ++ show currentStatus ++ " to new " ++ show newStatus)
     return $ game & fixture . status .~ (createFixtureStatus newStatus)
 
-updateGameWinner :: TeamId -> Game -> Either String Game 
-updateGameWinner teamIdParam game
-    | teamIdParam == 0 && game ^. fixture . status . short /= FT = Right game 
-    | game ^. teams . home . teamId == teamIdParam = Right $ game & teams . home . winner .~ True
-    | game ^. teams . away . teamId == teamIdParam = Right $ game & teams . away . winner .~ True
+updateGameWinner :: Game -> Either String Game 
+updateGameWinner game
+    | game ^. fixture . status . short /= FT = Right game 
+    | game ^. goals . teamHome == game ^. goals . teamAway = Right game 
+    | game ^. goals . teamHome > game ^. goals . teamAway = Right $ game & teams . home . winner .~ True
+    | game ^. goals . teamHome < game ^. goals . teamAway = Right $ game & teams . away . winner .~ True
     | otherwise = Left "Error winner update"
 
 updateGame :: Game -> ExceptT String IO Game

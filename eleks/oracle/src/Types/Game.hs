@@ -69,7 +69,7 @@ makeLenses ''GameGoals
 data FixtureStatusShort = NS | LIVE | FT | CANC
     deriving (Generic, Show, Enum, Eq, Ord, ToSchema)
 instance FromJSON FixtureStatusShort
-instance ToJSON FixtureStatusShort 
+instance ToJSON FixtureStatusShort
 
 fixureStatusLong :: Map.Map FixtureStatusShort Text
 fixureStatusLong = fromList [(NS,"Not Started"), (LIVE,"In Progress"), (FT, "Match Finished"), (CANC, "Match Cancelled")]
@@ -134,9 +134,11 @@ getWinnerTeamId game =
         else do
             let team1 = game ^. teams . home
             let team2 = game ^. teams . away
-            if (team1 ^. winner) 
-                then Right (team1 ^. teamId ) 
-                else Right (team2 ^. teamId) 
+            if (team1 ^. winner == team2 ^. winner) 
+                then Right 0 
+                else if (team1 ^. winner) 
+                    then Right (team1 ^. teamId) 
+                    else Right (team2 ^. teamId) 
 
 isGameClosed :: FixtureStatusShort -> Bool
 isGameClosed FT = True

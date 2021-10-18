@@ -20,13 +20,19 @@ import           Types.Game
 type GamesAPI = "games" :> Get '[JSON] [Game]
             :<|> "games" :> Capture "id" GameId :> Get '[JSON] Game
             :<|> "games" :> Capture "id" GameId :> ReqBody '[JSON] UpdateGameParams :> Put '[JSON] Game
+            :<|> "games" :> Capture "id" GameId :> "score" :> ReqBody '[JSON] UpdateGameScore :> Put '[JSON] Game
 
 data UpdateGameParams = UpdateGameParams
-  { ugpSatus :: !FixtureStatusShort
-  , ugpWinnerTeamId :: !TeamId
+  { ugpSatus        :: !FixtureStatusShort
   } deriving Generic
 instance FromJSON UpdateGameParams
 instance ToJSON UpdateGameParams
+
+data UpdateGameScore = UpdateGameScore
+  { ugpTeam         :: !TeamId
+  } deriving Generic
+instance FromJSON UpdateGameScore
+instance ToJSON UpdateGameScore
 
 gamesAPI :: Proxy GamesAPI
 gamesAPI = Proxy
@@ -35,6 +41,7 @@ gamesServer :: Server GamesAPI
 gamesServer = games
       :<|> gameById
       :<|> сhangeGameState
+      :<|> changeGameScore
   where 
     games:: Handler [Game]
     games = do
@@ -50,7 +57,13 @@ gamesServer = games
         Right game -> return game
     сhangeGameState:: GameId -> UpdateGameParams -> Handler Game
     сhangeGameState gameId updateParams = do
-      game <- liftIO $ runExceptT $ updateGameState (ugpWinnerTeamId updateParams) (ugpSatus updateParams) gameId
+      game <- liftIO $ runExceptT $ updateGameState (ugpSatus updateParams) gameId
+      case game of 
+        Left e -> throwError err500{errBody=fromString e}
+        Right game -> return game 
+    changeGameScore:: GameId -> UpdateGameScore -> Handler Game
+    changeGameScore gameId updateParams = do
+      game <- liftIO $ runExceptT $ updateGameScore (ugpTeam updateParams) gameId
       case game of 
         Left e -> throwError err500{errBody=fromString e}
         Right game -> return game 
