@@ -20,7 +20,7 @@ import           Types.Game
 type GamesAPI = "games" :> Get '[JSON] [Game]
             :<|> "games" :> Capture "id" GameId :> Get '[JSON] Game
             :<|> "games" :> Capture "id" GameId :> ReqBody '[JSON] UpdateGameParams :> Put '[JSON] Game
-            :<|> "games" :> Capture "id" GameId :> "add-score" :> ReqBody '[JSON] UpdateGameScore :> Put '[JSON] Game
+            :<|> "games" :> Capture "id" GameId :> "score" :> ReqBody '[JSON] UpdateGameScore :> Put '[JSON] Game
 
 data UpdateGameParams = UpdateGameParams
   { ugpSatus        :: !FixtureStatusShort
@@ -41,7 +41,7 @@ gamesServer :: Server GamesAPI
 gamesServer = games
       :<|> gameById
       :<|> сhangeGameState
-      :<|> addGameScore
+      :<|> changeGameScore
   where 
     games:: Handler [Game]
     games = do
@@ -61,8 +61,8 @@ gamesServer = games
       case game of 
         Left e -> throwError err500{errBody=fromString e}
         Right game -> return game 
-    addGameScore:: GameId -> UpdateGameScore -> Handler Game
-    addGameScore gameId updateParams = do
+    changeGameScore:: GameId -> UpdateGameScore -> Handler Game
+    changeGameScore gameId updateParams = do
       game <- liftIO $ runExceptT $ updateGameScore (ugpTeam updateParams) gameId
       case game of 
         Left e -> throwError err500{errBody=fromString e}

@@ -76,7 +76,7 @@ calculatePrize bet totalBets totalWin =
         totalPrize = totalBets - totalWin
         amount = betAmount bet
     in
-        bool ((Ada.divide amount totalWin) * totalPrize) 0 (totalWin == 0)
+        bool ((Ada.divide (amount * totalPrize ) totalWin)) 0 (totalWin == 0)
         
 {-# INLINABLE calculateWinnerShare #-}
 calculateWinnerShare :: Bet -> Ada -> Ada -> Ada
@@ -92,6 +92,7 @@ getWinners winnerTeamId bets =
     in 
         map (\winBet -> (betBettor winBet, betAmount winBet, calculateWinnerShare winBet total totalWin)) winnerBets
 
+{-# INLINABLE includeWinshareInBets #-}
 includeWinshareInBets  :: Integer -> [Bet] -> [Bet]
 includeWinshareInBets winnerTeamId bets =
     let 
@@ -99,13 +100,10 @@ includeWinshareInBets winnerTeamId bets =
         total = betsValueAmount bets
         totalWin = betsValueAmount $ winnerBets
     in 
-    map (\bet -> Bet{
-        betAmount = betAmount bet
-        , betBettor = betBettor bet
-        , betTeamId = betTeamId bet
-        , winShare = if betTeamId bet == winnerTeamId 
+    map (\bet -> bet{
+        winShare = if betTeamId bet == winnerTeamId 
             then calculateWinnerShare bet total totalWin
-            else 0
+            else Ada.lovelaceOf 0
         }) bets
 
 {-# INLINABLE mkTxPayWinners #-}

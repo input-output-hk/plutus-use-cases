@@ -317,7 +317,15 @@ getWinnerId signedMessage =
     case PlutusTx.fromBuiltinData . getDatum $ Oracle.osmDatum signedMessage of
         Just oracleMessage -> osmWinnerId oracleMessage
         Nothing -> 0
-        
+
+calculatePrize:: Bet -> Ada -> Ada -> Ada
+calculatePrize bet totalBets totalWin =
+    let 
+        totalPrize = totalBets - totalWin
+        amount = betAmount bet
+    in
+        Ada.divide (amount*1000) totalWin
+        -- (Ada.divide amount totalWin) * totalPrize      
 
 handleEvent :: StateMachineClient MutualBetState MutualBetInput -> [Bet] -> BettorEvent -> Contract MutualBetOutput BettorSchema MutualBetError (Either [Bet] ())
 handleEvent client bets change =

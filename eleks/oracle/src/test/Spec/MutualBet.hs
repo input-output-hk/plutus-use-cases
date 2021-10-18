@@ -137,13 +137,6 @@ trace1Bettor1Bet = 10_000_000
 trace1Bettor2Bet :: Integer
 trace1Bettor2Bet = 10_000_000
 
-calculateWinShare :: Ada -> Ada -> Ada -> Ada
-calculateWinShare amount totalBets totalWin =
-    let 
-        totalPrize = totalBets - totalWin
-    in
-        (Ada.divide amount totalWin) * totalPrize
-
 trace2Bettor1Bet :: Integer
 trace2Bettor1Bet = 10_000_000
 
@@ -160,9 +153,9 @@ trace2TotalWinAmount :: Ada
 trace2TotalWinAmount = Ada.lovelaceOf $ trace2Bettor1Bet + trace2Bettor3Bet
 
 trace2Bettor1WinShare, trace2Bettor2WinShare, trace2Bettor3WinShare :: Ada
-trace2Bettor1WinShare = calculateWinShare (Ada.lovelaceOf trace2Bettor1Bet) trace2TotalBetsAmount trace2TotalWinAmount
-trace2Bettor2WinShare = calculateWinShare (Ada.lovelaceOf trace2Bettor2Bet) trace2TotalBetsAmount trace2TotalWinAmount
-trace2Bettor3WinShare = calculateWinShare (Ada.lovelaceOf trace2Bettor3Bet) trace2TotalBetsAmount trace2TotalWinAmount
+trace2Bettor1WinShare = Ada.lovelaceOf 5_000_000 
+trace2Bettor2WinShare = Ada.lovelaceOf 0
+trace2Bettor3WinShare = Ada.lovelaceOf 5_000_000
 
 trace1Winner :: TeamId
 trace1Winner = team1Id
@@ -222,7 +215,7 @@ mutualBetSuccessTrace2 = do
     bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
     bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
     bettor3Hdl <- Trace.activateContractWallet bettor3 (bettorContract threadToken)
-    _ <- Trace.waitNSlots 5
+    _ <- Trace.waitNSlots 1
     let bet1Params = NewBetParams { nbpAmount = trace2Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     _ <- Trace.waitNSlots 10
@@ -432,7 +425,7 @@ tests =
         .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor3) (const True) "bettor 3 contract should be done"
         .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) mutualBetSuccessTrace2FinalState) "final state should be OK"
         .&&. walletFundsChange bettor1 (Ada.toValue $ trace2Bettor1WinShare - (mbpBetFee mutualBetParams))
-        .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet + (mbpBetFee mutualBetParams)))
+        .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace2Bettor2Bet + (mbpBetFee mutualBetParams)))
         .&&. walletFundsChange bettor3 (Ada.toValue $ trace2Bettor3WinShare - (mbpBetFee mutualBetParams))
         .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (3 * mbpBetFee mutualBetParams) - opFees oracleParams))
         )

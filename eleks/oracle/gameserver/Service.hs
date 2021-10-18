@@ -90,8 +90,6 @@ updateGameWinner game
     | game ^. goals . teamHome == game ^. goals . teamAway = Right game 
     | game ^. goals . teamHome > game ^. goals . teamAway = Right $ game & teams . home . winner .~ True
     | game ^. goals . teamHome < game ^. goals . teamAway = Right $ game & teams . away . winner .~ True
-    -- | game ^. teams . home . teamId == teamIdParam = Right $ game & teams . home . winner .~ True
-    -- | game ^. teams . away . teamId == teamIdParam = Right $ game & teams . away . winner .~ True
     | otherwise = Left "Error winner update"
 
 updateGame :: Game -> ExceptT String IO Game
