@@ -163,7 +163,6 @@ test-suite test
     main-is: Main.hs
     hs-source-dirs: test
     other-modules:
-      Abstract.ContractRespSpec 
       Abstract.Percentage
       Abstract.RemoteDataSpec 
       Marketplace.Fixtures

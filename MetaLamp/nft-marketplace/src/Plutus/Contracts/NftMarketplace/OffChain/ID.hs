@@ -22,8 +22,6 @@ import qualified GHC.Generics                                           as Haske
 import           Ledger
 import qualified Ledger.Typed.Scripts                                   as Scripts
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse                       (ContractResponse,
-                                                                         withContractResponse)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                              as Currency
