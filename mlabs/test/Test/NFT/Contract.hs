@@ -115,7 +115,7 @@ testQueryPrice =
       void $ callEndpoint @"query-current-price" hdl2 nftId
       void $ waitNSlots 10
     predicate = \case
-      Last (Just (QueryCurrentPrice (Last (Just x)))) -> x == 100
+      Last (Just (QueryCurrentPrice (Just x))) -> x == 100
       _ -> False
 
 testQueryOwner :: TestTree
@@ -141,5 +141,5 @@ testQueryOwner =
       void $ callEndpoint @"query-current-owner" hdl2 nftId
       void $ waitNSlots 10
     predicate = \case
-      Last (Just (QueryCurrentOwner (Last (Just (UserId hash))))) -> hash == pubKeyHash (walletPubKey w1)
+      Last (Just (QueryCurrentOwner (UserId hash))) -> hash == pubKeyHash (walletPubKey w1)
       _ -> False
