@@ -184,7 +184,7 @@ buy (BuyRequestUser nftId bid newPrice) = do
                   , act'cs = nftCurrency'
                   }
               newDatum = Datum . PlutusTx.toBuiltinData $ newDatum' -- Serialised Datum
-              (paidToAuthor, paidToOwner) = calculateShares bid $ dNft'share oldDatum
+              (paidToOwner, paidToAuthor) = calculateShares bid $ dNft'share oldDatum
               newValue = ciTxOut ^. ciTxOutValue
               (lookups, tx) =
                 ( mconcat

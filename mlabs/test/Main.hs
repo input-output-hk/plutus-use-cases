@@ -11,6 +11,8 @@ import Test.Governance.Contract qualified as Governance.Contract
 import Test.Lending.Contract qualified as Lending.Contract
 import Test.Lending.Logic qualified as Lending.Logic
 import Test.Lending.QuickCheck qualified as Lending.QuickCheck
+import Test.NFT.Contract qualified as NFT.Contract
+import Test.NFT.QuickCheck qualified as NFT.QuickCheck
 import Test.Nft.Contract qualified as Nft.Contract
 import Test.Nft.Logic qualified as Nft.Logic
 
@@ -20,9 +22,14 @@ main =
     testGroup
       "tests"
       [ testGroup
-          "NFT"
+          "NFT - legacy"
           [ Nft.Logic.test
           , contract Nft.Contract.test
+          ]
+      , testGroup
+          "NFT"
+          [ contract NFT.Contract.test
+          , NFT.QuickCheck.test
           ]
       , testGroup
           "Lending"
