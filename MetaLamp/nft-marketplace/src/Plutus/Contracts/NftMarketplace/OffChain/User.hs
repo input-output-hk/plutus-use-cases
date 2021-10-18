@@ -274,6 +274,12 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             Core.getAuctionFromBundle bundleEntry
 
+    currTime <- currentTime
+    -- when auction is expired autocall completeAuction and throwError
+    when (currTime > (Auction.aEndTime auction)) $ do
+      completeAnAuction marketplace $ CloseLotParams boapItemId
+      throwError "Auction has expired."
+
     _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auction boapBid
 
     logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)
