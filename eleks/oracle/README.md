@@ -84,7 +84,7 @@ curl -v -X PUT -H "Content-Type: application/json" \
 4. Add Game score
 curl -v -X PUT -H "Content-Type: application/json" \
     -d '{"ugpTeam": 55}' \
-    http://localhost:8081/games/1/add-score
+    http://localhost:8081/games/1/score
 
 ## Mutual bet rest server 
 
