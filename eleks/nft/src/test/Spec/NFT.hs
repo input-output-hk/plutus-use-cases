@@ -121,6 +121,12 @@ tests = testGroup "nft"
         )
         sellFailureOnLessThanZeroPriceTrace
         ,
+        checkPredicate "Should fail start selling if price less than fee"
+        ( 
+            assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["price should be greater than fee", "PT5"] _) -> True; _ -> False  })
+        )
+        sellFailureOnLessThanFeePriceTrace
+        ,
         checkPredicate "Should cancel NFT token selling"
         ( 
             assertNoFailedTransactions
@@ -280,6 +286,13 @@ sellFailureOnLessThanZeroPriceTrace = do
     user1Hdl <- Trace.activateContractWallet w1 userContract
     nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
     sellNftTokenTrace user1Hdl nftTokenMeta 0
+
+sellFailureOnLessThanFeePriceTrace  :: EmulatorTrace ()
+sellFailureOnLessThanFeePriceTrace = do
+    initialise
+    user1Hdl <- Trace.activateContractWallet w1 userContract
+    nftTokenMeta <- createNftTokenTrace user1Hdl testToken1
+    sellNftTokenTrace user1Hdl nftTokenMeta sellPriceLowerThanFee
 
 cancelSellNftTokenFlowTrace :: EmulatorTrace ()
 cancelSellNftTokenFlowTrace = do

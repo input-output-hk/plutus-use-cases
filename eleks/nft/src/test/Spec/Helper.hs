@@ -92,6 +92,9 @@ createMarketTokenMock tokenName = AssetClass (getMarketTokenSymbol tokenName, to
 nftMaketSellPrice:: Integer
 nftMaketSellPrice = 2000000
 
+sellPriceLowerThanFee:: Integer
+sellPriceLowerThanFee = 40000
+
 nftMarketFee :: Integer
 nftMarketFee = marketFee nftMarketMock 
 
