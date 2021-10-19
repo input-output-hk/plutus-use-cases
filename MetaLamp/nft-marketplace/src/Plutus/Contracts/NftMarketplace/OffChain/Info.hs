@@ -12,37 +12,38 @@
 
 module Plutus.Contracts.NftMarketplace.OffChain.Info where
 
-import           Control.Lens                                 (_2, _Left,
-                                                               _Right, (^.),
-                                                               (^?))
-import qualified Control.Lens                                 as Lens
-import           Control.Monad                                hiding (fmap)
-import qualified Data.Aeson                                   as J
-import           Data.Proxy                                   (Proxy (..))
-import           Data.Text                                    (Text)
-import qualified Data.Text                                    as T
-import qualified Ext.Plutus.Contracts.Auction                 as Auction
-import           Ext.Plutus.Ledger.Value                      (ChainIndexTxMap,
-                                                               utxosValue)
-import qualified GHC.Generics                                 as Haskell
+import           Control.Lens                                    (_2, _Left,
+                                                                  _Right, (^.),
+                                                                  (^?))
+import qualified Control.Lens                                    as Lens
+import           Control.Monad                                   hiding (fmap)
+import qualified Data.Aeson                                      as J
+import           Data.Proxy                                      (Proxy (..))
+import           Data.Text                                       (Text)
+import qualified Data.Text                                       as T
+import           Ext.Plutus.Ledger.Value                         (ChainIndexTxMap,
+                                                                  utxosValue)
+import qualified GHC.Generics                                    as Haskell
 import           Ledger
-import qualified Ledger.Typed.Scripts                         as Scripts
+import qualified Ledger.Typed.Scripts                            as Scripts
 import           Ledger.Typed.Tx
 import           Ledger.Value
 import           Plutus.Abstract.ContractResponse             (withRemoteDataResponse)
 import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                    as Currency
+import           Plutus.Contracts.Currency                       as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core    as Core
+import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalId (..))
+import qualified Plutus.Contracts.Services.Auction               as Auction
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                            as AssocMap
-import           PlutusTx.Prelude                             hiding
-                                                              (Semigroup (..))
-import           Prelude                                      (Semigroup (..))
-import qualified Prelude                                      as Haskell
-import           Text.Printf                                  (printf)
+import qualified PlutusTx.AssocMap                               as AssocMap
+import           PlutusTx.Prelude                                hiding
+                                                                 (Semigroup (..))
+import           Prelude                                         (Semigroup (..))
+import qualified Prelude                                         as Haskell
+import           Text.Printf                                     (printf)
 
 -- | Gets current Marketplace store state
 marketplaceStore :: Core.Marketplace -> Contract w s Text Core.MarketplaceDatum
@@ -78,19 +79,17 @@ getAuctionState marketplace itemId = do
     let internalId = toInternalId itemId
     nftStore <- marketplaceStore marketplace
     auction <- case internalId of
-      Left nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on auction") pure $
-            nftEntry ^. Core._nftLot ^? traverse . _2 . _Right
-      Right bundleId@(Core.InternalBundleId bundleHash cids) -> do
+            Core.getAuctionFromNFT nftEntry
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on auction") pure $
-            bundleEntry ^. Core._nbTokens ^? Core._HasLot . _2 . _Right
+            Core.getAuctionFromBundle bundleEntry
 
-    let auctionToken = Core.getAuctionStateToken auction
-    let auctionParams = Core.fromAuction auction
     auctionState <- do
-        st <- mapError (T.pack . Haskell.show) $ Auction.currentState auctionToken auctionParams
+        st <- mapError (T.pack . Haskell.show) $ Auction.currentState auction
         maybe (throwError "Auction state not found") pure st
 
     logInfo @Haskell.String $ printf "Returned auction state %s" (Haskell.show auctionState)

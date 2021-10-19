@@ -28,6 +28,7 @@ import Network.RemoteData (RemoteData(..))
 import Plutus.Contracts.NftMarketplace.OffChain.User (BidOnAuctionParams(..), CloseLotParams(..)) as MarketplaceUser
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import View.NFT (renderAuction, renderNftSingletonLots, renderSale, renderNftBundleLots)
+import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (LotLink(..))
 
 type Slot id
   = forall query. H.Slot query Void id
@@ -150,7 +151,7 @@ renderLot ::
   MonadAff m =>
   State -> Datum.ItemLot -> H.ComponentHTML Action Slots m
 renderLot st r = case Datum.getLot r of
-  Right auction ->
+  AuctionLotLink auction ->
     HH.div_
       [ renderAuction auction
       , HH.button
@@ -158,7 +159,7 @@ renderLot st r = case Datum.getLot r of
           [ HH.text "Complete Auction" ]
       , HH.slot (SProxy :: _ "bidOnAuctionForm") (Datum.getItem r) BidOnAuctionForm.component unit (Just <<< BidOnAuction r)
       ]
-  Left sale ->
+  SaleLotLink sale ->
     HH.div_
       [ renderSale sale
       , if (unwrap sale).saleOwner == st.userInstance.userPubKey then

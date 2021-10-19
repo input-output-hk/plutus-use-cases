@@ -13,7 +13,8 @@ import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), snd)
 import Plutus.Contract.StateMachine.ThreadToken (ThreadToken)
 import Plutus.Contracts.NftMarketplace.OffChain.ID (UserItemId(..))
-import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (Bundle(..), Auction(..))
+import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (Bundle(..), LotLink(..))
+import Plutus.Contracts.Services.Auction.Core (Auction(..))
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.Contracts.Services.Sale.Core (Sale)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
@@ -30,7 +31,7 @@ getItemId = either (UserNftId <<< _.ipfsCid) (UserBundleId <<< map _.ipfsCid <<<
 type ItemLot
   = Either NftSingletonLot NftBundleLot
 
-getLot :: ItemLot -> Either Sale Auction
+getLot :: ItemLot -> LotLink
 getLot = either _.lot _.lot
 
 getItem :: ItemLot -> Item
@@ -47,7 +48,7 @@ type NftSingleton
 
 type NftSingletonLot
   = { nft :: NftSingleton
-    , lot :: Either Sale Auction
+    , lot :: LotLink
     }
 
 type NftBundle
@@ -59,7 +60,7 @@ type NftBundle
 
 type NftBundleLot
   = { bundle :: NftBundle
-    , lot :: Either Sale Auction
+    , lot :: LotLink
     }
 
 findNftSingletons :: Value -> MarketplaceDatum -> Array NftSingleton
@@ -172,7 +173,7 @@ findNftSingletonLots store = map getSingleton marketplaceSingletons
   where
   marketplaceSingletons ::
     Array
-      ( Tuple (Tuple String (Either Sale Auction))
+      ( Tuple (Tuple String LotLink)
           { niCurrency :: CurrencySymbol
           , niName :: String
           , niDescription :: String
@@ -199,10 +200,7 @@ findNftSingletonLots store = map getSingleton marketplaceSingletons
         , category: map Utils.decodeUtf8 record.niCategory
         , issuer: record.niIssuer
         }
-    , lot:
-        case lot of
-          Left sale -> Left sale
-          Right auction -> Right auction
+    , lot: lot
     }
 
 findNftBundleLots :: MarketplaceDatum -> Array NftBundleLot
@@ -224,10 +222,7 @@ findNftBundleLots store =
               , category: Utils.decodeUtf8 <$> bundleInfo.biCategory
               , tokens: map (getToken <<< unwrap <<< snd) $ AssocMap.toTuples tokens
               }
-          , lot:
-              case lot of
-                Left sale -> Left sale
-                Right auction -> Right auction
+          , lot: lot
           }
     _ -> Nothing
 
