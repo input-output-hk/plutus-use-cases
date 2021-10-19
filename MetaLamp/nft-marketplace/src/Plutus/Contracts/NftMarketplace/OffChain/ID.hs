@@ -37,7 +37,6 @@ import           Prelude                                                (Semigro
 import qualified Prelude                                                as Haskell
 import qualified Schema
 import           Text.Printf                                            (printf)
--- type UserItemId = Either Core.IpfsCid [Core.IpfsCid]
 data UserItemId = UserNftId Text | UserBundleId [Text]
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)

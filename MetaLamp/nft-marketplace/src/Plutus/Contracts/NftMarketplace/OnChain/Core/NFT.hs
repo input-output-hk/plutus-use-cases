@@ -63,15 +63,7 @@ PlutusTx.unstableMakeIsData ''LotLink
 
 PlutusTx.makeLift ''LotLink
 
-Lens.makeClassy_ ''LotLink
-
-getSaleFromLot :: LotLink -> Maybe Sale.Sale
-getSaleFromLot (SaleLotLink sale) = Just sale
-getSaleFromLot _                  = Nothing
-
-getAuctionFromLot :: LotLink -> Maybe Auction.Auction
-getAuctionFromLot (AuctionLotLink auction) = Just auction
-getAuctionFromLot _                        = Nothing
+Lens.makePrisms ''LotLink
 
 getLotValue :: LotLink -> V.Value
 getLotValue (SaleLotLink sale)       = Sale.saleValue sale
@@ -109,10 +101,10 @@ PlutusTx.makeLift ''NFT
 Lens.makeClassy_ ''NFT
 
 getAuctionFromNFT :: NFT -> Maybe Auction.Auction
-getAuctionFromNFT nft = join (getAuctionFromLot <$> (nft ^. _nftLot ^? traverse . _2))
+getAuctionFromNFT nft = nft ^. _nftLot ^? traverse . _2 . _AuctionLotLink
 
 getSaleFromNFT :: NFT -> Maybe Sale.Sale
-getSaleFromNFT nft = join (getSaleFromLot <$> (nft ^. _nftLot ^? traverse . _2))
+getSaleFromNFT nft =  nft ^. _nftLot ^? traverse . _2 . _SaleLotLink
 
 data Bundle
   = NoLot  !(AssocMap.Map IpfsCidHash NftInfo)
@@ -156,10 +148,10 @@ PlutusTx.makeLift ''NftBundle
 Lens.makeClassy_ ''NftBundle
 
 getAuctionFromBundle :: NftBundle -> Maybe Auction.Auction
-getAuctionFromBundle nftBundle = join (getAuctionFromLot <$> (nftBundle ^. _nbTokens ^? _HasLot . _2))
+getAuctionFromBundle nftBundle = nftBundle ^. _nbTokens ^? _HasLot . _2 . _AuctionLotLink
 
 getSaleFromBundle :: NftBundle -> Maybe Sale.Sale
-getSaleFromBundle nftBundle = join (getSaleFromLot <$> (nftBundle ^. _nbTokens ^? _HasLot . _2))
+getSaleFromBundle nftBundle = nftBundle ^. _nbTokens ^? _HasLot . _2 . _SaleLotLink
 
 -- Calculates a hash of a list of ByteStrings,
 -- the result does not depend on the order of ByteStrings inside a list
