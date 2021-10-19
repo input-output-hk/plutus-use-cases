@@ -22,7 +22,7 @@ import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Bundles                     as Bundles
 import qualified Marketplace.Spec.CreateNft                   as CreateNft
 import qualified Marketplace.Spec.Start                       as Start
-import           Plutus.Abstract.ContractResponse             (ContractResponse)
+import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
@@ -134,7 +134,7 @@ bidOnAuctionParams = Marketplace.BidOnAuctionParams {
             Marketplace.boapBid    = fromInteger $ 25 * Fixtures.oneAdaInLovelace
           }
 
-startAnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+startAnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (RemoteData Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 startAnAuctionTrace = do
   h <- CreateNft.createNftTrace
 
@@ -171,7 +171,7 @@ completeAnAuctionTrace' = do
   _ <- Trace.waitNSlots 50
   pure ()
 
-bidOnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+bidOnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (RemoteData Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 bidOnAuctionTrace = do
   _ <- startAnAuctionTrace
 
@@ -244,13 +244,13 @@ buyOnAuctionValueCheck =
       hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
 errorCheckStart :: TracePredicate
-errorCheckStart = Utils.assertCrError (Proxy @"startAnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckStart = Utils.assertRDError (Proxy @"startAnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 errorCheckComplete :: TracePredicate
-errorCheckComplete = Utils.assertCrError (Proxy @"completeAnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckComplete = Utils.assertRDError (Proxy @"completeAnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 errorCheckBid :: TracePredicate
-errorCheckBid = Utils.assertCrError (Proxy @"bidOnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
+errorCheckBid = Utils.assertRDError (Proxy @"bidOnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
 
 -- \/\/\/ "NFT bundles"
 startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
@@ -271,7 +271,7 @@ bidOnAuctionParamsB = Marketplace.BidOnAuctionParams {
             Marketplace.boapBid    = fromInteger $ 35 * Fixtures.oneAdaInLovelace
           }
 
-startAnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+startAnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (RemoteData Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 startAnAuctionTraceB = do
   h <- Bundles.bundleTrace
 
@@ -299,7 +299,7 @@ completeAnAuctionTraceB = do
   _ <- Trace.waitNSlots 250
   pure ()
 
-bidOnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+bidOnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (RemoteData Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 bidOnAuctionTraceB = do
   _ <- startAnAuctionTraceB
 

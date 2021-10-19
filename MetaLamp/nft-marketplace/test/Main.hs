@@ -2,7 +2,6 @@ module Main
   ( main
   ) where
 
-import qualified Abstract.ContractRespSpec  as ContractResp
 import qualified Abstract.Percentage        as Percentage
 import qualified Abstract.RemoteDataSpec    as RemoteData
 import qualified Marketplace.Spec.Auction   as Auction
@@ -22,5 +21,5 @@ tests =
     [ testGroup
         "NFT Marketplace"
         [Start.tests, CreateNft.tests, Bundles.tests, Sale.tests, Auction.tests]
-    , testGroup "Abstract" [RemoteData.tests, ContractResp.tests, Percentage.tests]
+    , testGroup "Abstract" [RemoteData.tests, Percentage.tests]
     ]
