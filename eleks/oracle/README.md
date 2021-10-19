@@ -45,6 +45,12 @@ When game cancelled or completed with no winning bet all bets are returned to th
 1. Have the avility to start mutual bet contract via rest api. https://github.com/input-output-hk/plutus/issues/3972
 2. Have the ability to query complete contracts to get all users previous bets. https://github.com/input-output-hk/plutus/issues/3971
 
+## Setting up
+Follow next steps to get an environment with the correct tools set up.
+
+  - Run `nix-shell` command in the plutus folder
+  - Run `cabal build all` from the nix-shell terminal
+
 ## Games info rest server 
 
 1. Build the game rest server:

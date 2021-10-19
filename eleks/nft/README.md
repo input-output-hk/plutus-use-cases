@@ -58,13 +58,8 @@ Owner could transfer token to any other user directly. Market NFT metadata track
 
 Follow next steps to get an environment with the correct tools set up.
 
-- Run the nix terminal
-  - Clone https://github.com/input-output-hk/plutus 
-  - Set up your machine to run Nix terminal, following the Plutus README (make sure to set up the binary cache!)
   - Run `nix-shell` command in the plutus folder
-- Clone the current repository
-  - In the nix terminal switch to the root folder
-  - `cabal build` from the terminal should work
+  - Run `cabal build all` from the nix-shell terminal
 
 ## The Plutus Application Backend (PAB) example
 

@@ -1,5 +1,5 @@
 cabal-version:      2.4
-name:               mutual-bet
+name:               plutus-starter
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
@@ -23,40 +23,28 @@ maintainer:         Your email
 
 library
     exposed-modules:
-      Contracts.Oracle.Types
-      Contracts.Oracle.RequestToken
-      Contracts.Oracle.OnChain
-      Contracts.Oracle.OffChain
-      Contracts.Oracle
-      Contracts.MutualBet
-      Contracts.MutualBet.Types
-      Contracts.MutualBet.OffChain
-      Contracts.MutualBet.StateMachine
-      Types.Game
+      Contracts.NFT
+      Contracts.NFT.Types
+      Contracts.NFT.OnChain
+      Contracts.NFT.OffChain
+      Contracts.NFT.NFTCurrency
     build-depends:
-      aeson,
       base >= 4.9 && < 5,
+      aeson,
       bytestring,
       base64-bytestring,
-      cardano-api -any,
-      cardano-crypto -any,
       containers -any,
-      data-default -any,
       text -any,
       lens -any,
       openapi3 -any,
-      semigroups -any,
-      serialise,
       playground-common,
       plutus-contract,
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
       plutus-ledger-api,
-      plutus-chain-index,
       plutus-use-cases,
-
-    hs-source-dirs: src src/Contracts/MutualBet
+    hs-source-dirs: src src/Contracts/NFT
     default-language: Haskell2010
     ghc-options:
             -- See Plutus Tx readme
@@ -67,7 +55,9 @@ test-suite plutus-example-projects-test
   main-is: Spec.hs
   hs-source-dirs: src/test
   other-modules:
-    Spec.MutualBet
+    Spec.NFT
+    Spec.MockNFTCurrency
+    Spec.Helper
   default-language: Haskell2010
   ghc-options: -Wall -Wnoncanonical-monad-instances
               -Wincomplete-uni-patterns -Wincomplete-record-updates
@@ -75,7 +65,7 @@ test-suite plutus-example-projects-test
               -- See Plutus Tx readme
               -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
   build-depends:
-    mutual-bet -any,
+    plutus-starter -any,
     playground-common,
     plutus-tx -any,
     plutus-tx-plugin,
@@ -87,114 +77,48 @@ test-suite plutus-example-projects-test
     base >=4.9 && <5,
     base64-bytestring,
     bytestring,
-    data-default,
-    foldl,
     freer-extras,
-    freer-simple -any,
     lens -any,
-    sort -any,
-    streaming -any,
     text -any,
     tasty -any,
     tasty-hunit -any,
     tasty-hedgehog >=0.2.0.0
 
-executable bet-pab
+executable nft-market-pab
   main-is: Main.hs
   hs-source-dirs: pab
-  other-modules:
-    GameClient
   ghc-options:
     -threaded
   build-depends:
     base >= 4.9 && < 5,
     bytestring,
     base64-bytestring,
-    containers -any,
     data-default -any,
     text -any,
+    containers -any,
     lens -any,
     openapi3 -any,
-    playground-common,
+    servant-client -any,
     plutus-contract -any,
     plutus-pab -any,
-    mutual-bet,
+    plutus-starter -any,
     aeson -any,
     freer-simple -any,
     prettyprinter -any,
     freer-extras -any,
     plutus-ledger -any,
-    plutus-use-cases,
     stm -any,
-    req -any,
 
-executable gs
-  main-is: GenerateOracleScript.hs
-  hs-source-dirs: pab
-  ghc-options:  -threaded
-  build-depends:        
-    aeson, 
-    base >= 4.9 && < 5,
-    cardano-api, 
-    cardano-ledger-alonzo,
-    mutual-bet,
-    plutus-contract,
-    plutus-ledger,
-    plutus-ledger-api,
-    plutus-tx,
-    bytestring
-  
-executable gameserver
-  main-is: Server.hs
-  other-modules:
-    Service
-  hs-source-dirs: gameserver
-  ghc-options:  -threaded
-  build-depends:        
-    aeson, 
-    aeson-pretty,
-    base >= 4.9 && < 5,
-    bytestring,
-    data-default -any,
-    either,
-    lens,
-    mtl,
-    mutual-bet,
-    servant-server -any,
-    text -any,
-    utf8-string,
-    warp
- 
--- executable gamesclient
---   main-is: GameClient.hs
---   hs-source-dirs: pab
---   ghc-options:  -threaded
---   build-depends:        
---     aeson, 
---     base >= 4.9 && < 5,
---     bytestring,
---     mutual-bet,
---     text -any,
---     req
-
-executable mutualbetserver
-  main-is: MutualBetServer.hs
-  hs-source-dirs: pab
-  ghc-options:  -threaded
-  build-depends:        
-    aeson, 
-    aeson-pretty,
-    base >= 4.9 && < 5,
-    bytestring,
-    data-default -any,
-    either,
-    lens,
-    mtl,
-    mutual-bet,
-    servant-server -any,
-    plutus-contract,
-    plutus-ledger,
-    plutus-tx,
-    text -any,
-    utf8-string,
-    warp,
+-- executable create-build
+  -- hs-source-dirs: 
+  --   app
+  -- main-is: build.hs
+  -- ghc-options:
+  --   -threaded
+  -- build-depends:  
+  --   base >= 4.9 && < 5,      
+  --   cardano-api,
+  --   cardano-ledger-alonzo,
+  --   plutus-starter -any,
+  --   plutus-ledger-api,
+  --   bytestring
