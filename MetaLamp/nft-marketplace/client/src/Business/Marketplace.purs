@@ -14,7 +14,6 @@ import Data.Newtype (unwrap)
 import Data.RawJson (RawJson(..))
 import Data.UUID (toString) as UUID
 import Foreign.Generic (class Decode, class Encode, decodeJSON)
-import Plutus.Abstract.ContractResponse (ContractResponse(..))
 import Plutus.Abstract.RemoteData as PRD
 import Plutus.PAB.Events.ContractInstanceState (PartiallyDecodedResponse(..))
 import Plutus.PAB.Simulation (MarketplaceContracts)
@@ -41,10 +40,10 @@ getMarketplaceResponseWith endpoint pick cid param = pollEndpoint getNext endpoi
   getNext (ContractInstanceClientState { cicCurrentState: PartiallyDecodedResponse { observableState: RawJson s } }) =
     runExcept
       $ do
-          (contractResponse :: ContractResponse String s) <- withExcept (ResponseError <<< show) (decodeJSON s)
-          case lookup (unwrap endpoint) (unwrap contractResponse).getEndpointResponses of
-            Just (PRD.Failure e) -> throwError <<< ResponseError $ e
-            Just (PRD.Success state) ->
+          (contractResponse :: PRD.RemoteData String s) <- withExcept (ResponseError <<< show) (decodeJSON s)
+          case contractResponse of
+            PRD.Failure e -> throwError <<< ResponseError $ e
+            PRD.Success state ->
               maybe
                 (throwError <<< ResponseError $ "Invalid state: " <> (show state))
                 pure

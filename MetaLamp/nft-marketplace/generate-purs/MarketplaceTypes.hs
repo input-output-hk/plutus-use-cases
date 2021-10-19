@@ -32,7 +32,6 @@ import           Language.PureScript.Bridge                       (BridgePart,
                                                                    (^==))
 import           Language.PureScript.Bridge.Builder               (BridgeData)
 import           Language.PureScript.Bridge.TypeParameters        (A, E)
-import           Plutus.Abstract.ContractResponse                 (ContractResponse)
 import qualified Plutus.Abstract.Percentage                       as Percentage
 import           Plutus.Abstract.RemoteData                       (RemoteData)
 import           Plutus.Contract.StateMachine.ThreadToken         (ThreadToken)
@@ -48,7 +47,6 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Percentage.Percentage)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
-          , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(RemoteData E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserItemId)
