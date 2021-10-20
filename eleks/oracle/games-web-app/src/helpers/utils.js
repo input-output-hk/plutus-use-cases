@@ -38,3 +38,12 @@ export const sortByStatus = (data) =>
 export const lovelaceToAda = (amount) => amount / 1000000;
 
 export const adaToLovelace = (amount) => amount * 1000000;
+
+export const isGameFinished = (game) =>
+  game && game.fixture && statusesMap[game.fixture.status.short] === 'CLOSED';
+
+export const isGameLive = (game) =>
+  game && game.fixture && statusesMap[game.fixture.status.short] === 'LIVE';
+
+export const isGameOpen = (game) =>
+  game && game.fixture && statusesMap[game.fixture.status.short] === 'OPEN';

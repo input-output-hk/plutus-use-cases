@@ -15,7 +15,12 @@ import {
   getGameBetsFetching,
 } from '../reducers';
 import { statusesMap } from '../helpers/constants';
-import { lovelaceToAda } from '../helpers/utils';
+import {
+  lovelaceToAda,
+  isGameFinished,
+  isGameLive,
+  isGameOpen,
+} from '../helpers/utils';
 
 import '../styles/Game.scss';
 
@@ -67,19 +72,18 @@ const Game = ({
             <span className='details place'>
               <b>Place:</b> {game.fixture.venue.name}
             </span>
-            {(game.fixture.status.short === 'FT' ||
-              game.fixture.status.short === 'LIVE') && (
+            {(isGameFinished(game) || isGameLive(game)) && (
               <div className='goals-container'>
                 <span className={`goals ${homeColor}`}>{game.goals.home}</span>{' '}
                 -<span className={`goals ${awayColor}`}>{game.goals.away}</span>
               </div>
             )}
-            {game.fixture.status.short === 'FT' && myReward !== 0 && (
+            {myReward !== 0 && (
               <span className='reward'>
                 You won <b>{lovelaceToAda(myReward)}</b> ADA
               </span>
             )}
-            {game.fixture.status.short === 'NS' && (
+            {isGameOpen(game) && (
               <Button variant='secondary' onClick={() => setShowModal(true)}>
                 Make a bet
               </Button>
@@ -147,28 +151,33 @@ const enhancer = compose(
         )
       : [];
     return {
-      myReward:
-      game && game.fixture.status.short === 'FT'
-          ? myBets.reduce((acc, curr) => acc + curr.winShare.getLovelace, 0)
-          : 0,
+      myReward: isGameFinished(game)
+        ? myBets.reduce((acc, curr) => {
+            if (curr.winShare.getLovelace !== 0) {
+              return (
+                acc + curr.winShare.getLovelace + curr.betAmount.getLovelace
+              );
+            } else {
+              return 0;
+            }
+          }, 0)
+        : 0,
       homeBets: bets
         ? bets.filter((bet) => bet.betTeamId === game.teams.home.id)
         : [],
       awayBets: bets
         ? bets.filter((bet) => bet.betTeamId === game.teams.away.id)
         : [],
-      homeColor:
-        game && game.fixture && game.fixture.status.short === 'FT'
-          ? game.teams.home.winner
-            ? 'winner'
-            : 'defeated'
-          : '',
-      awayColor:
-        game && game.fixture && game.fixture.status.short === 'FT'
-          ? game.teams.away.winner
-            ? 'winner'
-            : 'defeated'
-          : '',
+      homeColor: isGameFinished(game)
+        ? game.teams.home.winner
+          ? 'winner'
+          : 'defeated'
+        : '',
+      awayColor: isGameFinished(game)
+        ? game.teams.away.winner
+          ? 'winner'
+          : 'defeated'
+        : '',
     };
   }),
   lifecycle({
