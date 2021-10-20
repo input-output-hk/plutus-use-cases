@@ -51,10 +51,11 @@ import qualified Schema
 
 
 data StartAuctionParams = StartAuctionParams {
-    sapOwner      :: !PubKeyHash,
-    sapAsset      :: !Value,
-    sapEndTime    :: !Ledger.POSIXTime,
-    sapAuctionFee :: Maybe AuctionFee
+    sapOwner        :: !PubKeyHash,
+    sapAsset        :: !Value,
+    sapInitialPrice :: !Ada,
+    sapEndTime      :: !Ledger.POSIXTime,
+    sapAuctionFee   :: Maybe AuctionFee
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -71,6 +72,7 @@ startAuction StartAuctionParams{..} = do
         aProtocolToken = threadToken,
         aOwner = sapOwner,
         aAsset = sapAsset,
+        aInitialPrice = sapInitialPrice,
         aEndTime = sapEndTime,
         aAuctionFee = sapAuctionFee
     }

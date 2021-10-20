@@ -211,7 +211,8 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapDuration = 25 * 1000
+                        saapDuration = 25 * 1000,
+                        saapInitialPrice = fromInteger $ 5 * oneAdaInLovelace
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
@@ -223,7 +224,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
     _  <-
         Simulator.callEndpointOnInstance buyerCid "bidOnAuction" Marketplace.BidOnAuctionParams {
                                                                         boapItemId = Marketplace.UserNftId photoTokenIpfsCid,
-                                                                        boapBid     = fromInteger $ 15*oneAdaInLovelace
+                                                                        boapBid     = fromInteger $ 15 * oneAdaInLovelace
                                                                     }
     _ <- flip Simulator.waitForState buyerCid $ \json -> case (J.fromJSON json :: J.Result (RemoteData Text Marketplace.UserContractState)) of
         J.Success (Success Marketplace.BidSubmitted) -> Just ()

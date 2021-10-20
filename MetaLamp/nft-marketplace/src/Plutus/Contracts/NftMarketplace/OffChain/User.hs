@@ -190,8 +190,9 @@ closeSale marketplace CloseLotParams {..} = do
 
 data StartAnAuctionParams =
   StartAnAuctionParams {
-    saapItemId   :: UserItemId,
-    saapDuration :: Integer  --- TODO: use DiffMilliSeconds here, when it will be possible
+    saapItemId       :: UserItemId,
+    saapInitialPrice :: Ada,
+    saapDuration     :: Integer  --- TODO: use DiffMilliSeconds here, when it will be possible
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -215,6 +216,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
     let startAuctionParams = Auction.StartAuctionParams {
       sapOwner = self,
       sapAsset = auctionValue,
+      sapInitialPrice = saapInitialPrice,
       sapEndTime = endTime,
       sapAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }

@@ -56,9 +56,10 @@ Lens.makeClassy_ ''AuctionFee
 data Auction
     = Auction
         { aProtocolToken :: !ThreadToken
-        , aOwner         :: !PubKeyHash -- ^ Current owner of the asset. This is where the proceeds of the auction will be sent.
-        , aAsset         :: !Value -- ^ The asset itself. This value is going to be locked by the auction script output.
-        , aEndTime       :: !Ledger.POSIXTime -- ^ When the time window for bidding ends.
+        , aOwner         :: !PubKeyHash
+        , aAsset         :: !Value
+        , aInitialPrice  :: !Ada
+        , aEndTime       :: !Ledger.POSIXTime
         , aAuctionFee    :: Maybe AuctionFee
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
