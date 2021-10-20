@@ -71,7 +71,7 @@ fundsAt pkh = utxosValue $ pubKeyHashAddress pkh
 
 -- | Gets all UTxOs belonging to the Marketplace script and concats them into one Value
 marketplaceFunds :: Core.Marketplace -> Contract w s Text Value
-marketplaceFunds marketplace =  utxosValue $ Core.marketplaceAddress marketplace
+marketplaceFunds marketplace = utxosValue $ Core.marketplaceAddress marketplace
 
 -- | Gets current auction state for specified NFT
 getAuctionState :: Core.Marketplace -> UserItemId -> Contract w s Text Auction.AuctionState

@@ -12,6 +12,7 @@
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
+
 module Plutus.PAB.Simulation where
 
 import           Control.Monad                                  (forM, forM_,
@@ -52,6 +53,7 @@ import           Plutus.Contracts.Currency                      as Currency
 import qualified Plutus.Contracts.NftMarketplace.Endpoints      as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OffChain.Owner as Owner
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OffChain.Controller as Marketplace
 import qualified Plutus.Contracts.Services.Sale                 as Sale
 import           Plutus.PAB.Effects.Contract                    (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin            (Builtin,
@@ -71,6 +73,11 @@ import           Wallet.Emulator.Types                          (WalletNumber (.
 import           Wallet.Emulator.Wallet                         (Wallet (..),
                                                                  fromWalletNumber)
 import           Wallet.Types                                   (ContractInstanceId)
+import Control.Concurrent (forkIO)
+import Plutus.PAB.MarketplaceContracts (MarketplaceContracts(..))
+import Plutus.PAB.Client (loopController)
+import Servant.Client (mkClientEnv, BaseUrl(..), Scheme(..))
+import Network.HTTP.Client (newManager, defaultManagerSettings)
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1
@@ -93,7 +100,7 @@ startMarketplaceParams = Owner.StartMarketplaceParams {
 initialLotPrice :: Value.Value
 initialLotPrice = lovelaceValueOf 100000000 -- 100 ADA
 
-data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
+data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId, cidController :: ContractInstanceId }
 
 activateContracts :: Simulation (Builtin MarketplaceContracts) ContractIDs
 activateContracts = do
@@ -111,14 +118,20 @@ activateContracts = do
         Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace user contract started for " ++ show w
         return (w, cid)
 
-    pure $ ContractIDs users cidInfo
+    cidController <- Simulator.activateContract ownerWallet $ MarketplaceController mp
+
+    pure $ ContractIDs users cidInfo cidController
 
 startMpServer :: IO ()
 startMpServer = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- Ext.Plutus.PAB.startServer
 
-    _ <- activateContracts
+    ContractIDs {..} <- activateContracts
+
+    manager <- liftIO . newManager $ defaultManagerSettings
+    _ <- liftIO . forkIO . void $ loopController (mkClientEnv manager (BaseUrl Http "localhost" 9080 "")) cidController
+
     Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
     _ <- liftIO getLine
     shutdown
@@ -292,27 +305,6 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     _ <- liftIO getLine
     shutdown
-
-data MarketplaceContracts =
-    MarketplaceStart
-    | MarketplaceInfo Marketplace.Marketplace
-    | MarketplaceUser Marketplace.Marketplace
-    deriving (Eq, Show, Generic)
-    deriving anyclass (J.FromJSON, J.ToJSON, OpenApi.ToSchema)
-
-instance Pretty MarketplaceContracts where
-    pretty = viaShow
-
-instance Builtin.HasDefinitions MarketplaceContracts where
-    getDefinitions = [MarketplaceStart]
-    getSchema = \case
-        MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
-        MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
-        MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
-    getContract = \case
-        MarketplaceInfo marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.infoEndpoints marketplace
-        MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
-        MarketplaceStart           -> SomeBuiltin . awaitPromise $ Marketplace.ownerEndpoints
 
 handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
 handlers =

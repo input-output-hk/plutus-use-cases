@@ -7,3 +7,4 @@ import           Plutus.Contracts.NftMarketplace.OffChain.Info          as Expor
 import           Plutus.Contracts.NftMarketplace.OffChain.Owner         as Export
 import           Plutus.Contracts.NftMarketplace.OffChain.Serialization as Export
 import           Plutus.Contracts.NftMarketplace.OffChain.User          as Export
+import           Plutus.Contracts.NftMarketplace.OffChain.Controller          as Export

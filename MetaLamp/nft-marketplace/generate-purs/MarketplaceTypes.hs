@@ -36,7 +36,7 @@ import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Contracts.Services.Auction            as Auction
 import qualified Plutus.Contracts.Services.Sale               as Sale
-import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
+import           Plutus.PAB.MarketplaceContracts                       (MarketplaceContracts (..))
 
 psPosixTime :: MonadReader BridgeData m => m PSType
 psPosixTime =

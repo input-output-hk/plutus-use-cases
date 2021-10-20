@@ -241,7 +241,6 @@ completeAnAuction marketplace CloseLotParams {..} = do
         bundleEntry <- getBundleEntry nftStore bundleId
         maybe (throwError "Bundle has not been put on auction") pure $
             Core.getAuctionFromBundle bundleEntry
-
     _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auction
 
     let client = Core.marketplaceClient marketplace
