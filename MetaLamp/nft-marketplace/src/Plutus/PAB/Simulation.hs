@@ -71,6 +71,10 @@ import           Wallet.Emulator.Types                          (WalletNumber (.
 import           Wallet.Emulator.Wallet                         (Wallet (..),
                                                                  fromWalletNumber)
 import           Wallet.Types                                   (ContractInstanceId)
+import Ledger.TimeSlot (SlotConfig(..))
+import qualified Data.Time.Clock as Time
+import Ext.Plutus.Ledger.Time (convertUtcToPOSIX)
+import Plutus.V1.Ledger.Time (POSIXTime)
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1
@@ -114,17 +118,20 @@ activateContracts = do
     pure $ ContractIDs users cidInfo
 
 startMpServer :: IO ()
-startMpServer = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
-    shutdown <- Ext.Plutus.PAB.startServer
+startMpServer = do
+    beginningOfTime <- convertUtcToPOSIX <$> Time.getCurrentTime
+    void $ Simulator.runSimulationWith (handlers $ slotConfiguration beginningOfTime) $ do
+        Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
+        shutdown <- Ext.Plutus.PAB.startServer
 
-    _ <- activateContracts
-    Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
-    _ <- liftIO getLine
-    shutdown
+        _ <- activateContracts
+        Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
+        _ <- liftIO getLine
+        shutdown
 
 runNftMarketplace :: IO ()
-runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
+runNftMarketplace = 
+    void $ Simulator.runSimulationWith (handlers def) $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
@@ -314,9 +321,15 @@ instance Builtin.HasDefinitions MarketplaceContracts where
         MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
         MarketplaceStart           -> SomeBuiltin . awaitPromise $ Marketplace.ownerEndpoints
 
-handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
-handlers =
-    Simulator.mkSimulatorHandlers def def
+slotConfiguration :: POSIXTime -> SlotConfig
+slotConfiguration beginningOfTime = SlotConfig
+        { scSlotLength   = 1000 
+        , scSlotZeroTime = beginningOfTime 
+        }
+    
+handlers :: SlotConfig -> SimulatorEffectHandlers (Builtin MarketplaceContracts)
+handlers slotConfig = 
+    Simulator.mkSimulatorHandlers def slotConfig
     $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @MarketplaceContracts))
 
 oneAdaInLovelace :: Integer
