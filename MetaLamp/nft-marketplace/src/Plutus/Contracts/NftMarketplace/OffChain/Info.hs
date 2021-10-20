@@ -28,8 +28,8 @@ import           Ledger
 import qualified Ledger.Typed.Scripts                            as Scripts
 import           Ledger.Typed.Tx
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse             (withRemoteDataResponse)
-import           Plutus.Abstract.RemoteData                   (RemoteData)
+import           Plutus.Abstract.ContractResponse                (withRemoteDataResponse)
+import           Plutus.Abstract.RemoteData                      (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                       as Currency

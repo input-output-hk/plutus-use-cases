@@ -10,10 +10,10 @@ import           Control.Lens               ((^?))
 import           Data.Maybe                 (isJust)
 import           GHC.TypeLits               (KnownSymbol)
 import           Plutus.Abstract.RemoteData (RemoteData (..))
+import qualified Plutus.Abstract.RemoteData as RD
 import qualified Plutus.Contract            as C
 import           Plutus.Contract.Test       (TracePredicate, assertAccumState)
 import qualified Plutus.Trace.Emulator      as Trace
-import qualified Plutus.Abstract.RemoteData       as RD
 
 assertRDError :: forall contract e r s err a proxy l. (Show r, Show e, C.IsContract contract, KnownSymbol l) =>
     proxy l ->

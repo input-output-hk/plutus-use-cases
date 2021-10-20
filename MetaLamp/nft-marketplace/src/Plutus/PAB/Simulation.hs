@@ -32,6 +32,8 @@ import qualified Data.Semigroup                                 as Semigroup
 import           Data.Text                                      (Text)
 import           Data.Text.Prettyprint.Doc                      (Pretty (..),
                                                                  viaShow)
+import qualified Data.Time.Clock                                as Time
+import           Ext.Plutus.Ledger.Time                         (convertUtcToPOSIX)
 import qualified Ext.Plutus.PAB.Webserver.Server                as Ext.Plutus.PAB
 import           GHC.Generics                                   (Generic)
 import           Ledger
@@ -42,6 +44,7 @@ import           Ledger.Ada                                     (adaSymbol,
 import qualified Ledger.Ada                                     as Ada
 import           Ledger.Constraints
 import qualified Ledger.Constraints.OffChain                    as Constraints
+import           Ledger.TimeSlot                                (SlotConfig (..))
 import qualified Ledger.Typed.Scripts                           as Scripts
 import           Ledger.Value                                   as Value
 import           Playground.Types                               (SimulatorWallet (..),
@@ -65,16 +68,13 @@ import qualified Plutus.PAB.Simulator                           as Simulator
 import           Plutus.PAB.Types                               (PABError (..))
 import qualified Plutus.PAB.Types                               as PAB
 import qualified Plutus.PAB.Webserver.Server                    as PAB
+import           Plutus.V1.Ledger.Time                          (POSIXTime)
 import           Prelude                                        hiding (init)
 import           Wallet.Emulator.Types                          (WalletNumber (..),
                                                                  walletPubKey)
 import           Wallet.Emulator.Wallet                         (Wallet (..),
                                                                  fromWalletNumber)
 import           Wallet.Types                                   (ContractInstanceId)
-import Ledger.TimeSlot (SlotConfig(..))
-import qualified Data.Time.Clock as Time
-import Ext.Plutus.Ledger.Time (convertUtcToPOSIX)
-import Plutus.V1.Ledger.Time (POSIXTime)
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1
@@ -130,7 +130,7 @@ startMpServer = do
         shutdown
 
 runNftMarketplace :: IO ()
-runNftMarketplace = 
+runNftMarketplace =
     void $ Simulator.runSimulationWith (handlers def) $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
@@ -323,12 +323,12 @@ instance Builtin.HasDefinitions MarketplaceContracts where
 
 slotConfiguration :: POSIXTime -> SlotConfig
 slotConfiguration beginningOfTime = SlotConfig
-        { scSlotLength   = 1000 
-        , scSlotZeroTime = beginningOfTime 
+        { scSlotLength   = 1000
+        , scSlotZeroTime = beginningOfTime
         }
-    
+
 handlers :: SlotConfig -> SimulatorEffectHandlers (Builtin MarketplaceContracts)
-handlers slotConfig = 
+handlers slotConfig =
     Simulator.mkSimulatorHandlers def slotConfig
     $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @MarketplaceContracts))
 
