@@ -8,6 +8,7 @@ import qualified Abstract.RemoteDataSpec    as RemoteData
 import qualified Marketplace.Spec.Auction   as Auction
 import qualified Marketplace.Spec.Bundles   as Bundles
 import qualified Marketplace.Spec.CreateNft as CreateNft
+import qualified Marketplace.Spec.ImportNft as ImportNft
 import qualified Marketplace.Spec.Sale      as Sale
 import qualified Marketplace.Spec.Start     as Start
 import           Test.Tasty
@@ -21,6 +22,6 @@ tests =
     "All tests"
     [ testGroup
         "NFT Marketplace"
-        [Start.tests, CreateNft.tests, Bundles.tests, Sale.tests, Auction.tests]
+        [Start.tests, CreateNft.tests, ImportNft.tests, Bundles.tests, Sale.tests, Auction.tests]
     , testGroup "Abstract" [RemoteData.tests, ContractResp.tests, Percentage.tests]
     ]

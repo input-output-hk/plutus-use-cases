@@ -27,6 +27,7 @@ import qualified Data.Aeson                                               as J
 import           Data.Proxy                                               (Proxy (..))
 import           Data.Text                                                (Text)
 import qualified Data.Text                                                as T
+import qualified Data.Text.Encoding as T
 import qualified Ext.Plutus.Contracts.Auction                             as Auction
 import qualified GHC.Generics                                             as Haskell
 import           Ledger
@@ -93,6 +94,42 @@ createNft marketplace CreateNftParams {..} = do
     void $ mapError' $ runStep client $ Core.CreateNftRedeemer ipfsCidHash nftEntry
 
     logInfo @Haskell.String $ printf "Created NFT %s with store entry %s" (Haskell.show nft) (Haskell.show nftEntry)
+    pure ()
+
+data ImportNftParams =
+  ImportNftParams {
+    inpNftCurrency        :: Text,
+    inpIpfsCid        :: Text,
+    inpNftName        :: Text,
+    inpNftDescription :: Text,
+    inpNftCategory    :: [Text],
+    inpRevealIssuer   :: Bool
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+Lens.makeClassy_ ''ImportNftParams
+
+-- | The user adds an existing nft, which follows the same protocol
+importNft :: Core.Marketplace -> ImportNftParams -> Contract w s Text ()
+importNft marketplace ImportNftParams {..} = do
+    let ipfsCid = deserializeByteString inpIpfsCid
+    let ipfsCidHash = sha2_256 ipfsCid
+    nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
+    when (isJust $ AssocMap.lookup ipfsCidHash nftStore) $ throwError "Nft entry already exists"
+
+    pkh <- getOwnPubKey
+    let client = Core.marketplaceClient marketplace
+    let nftEntry = Core.NftInfo
+            { niCurrency          = V.currencySymbol . T.encodeUtf8 $ inpNftCurrency
+            , niName        = deserializeByteString inpNftName
+            , niDescription = deserializeByteString inpNftDescription
+            , niCategory = deserializeByteString <$> inpNftCategory
+            , niIssuer      = if inpRevealIssuer then Just pkh else Nothing
+            }
+    void $ mapError' $ runStep client $ Core.ImportNftRedeemer ipfsCidHash nftEntry
+
+    logInfo @Haskell.String $ printf "Imported NFT %s with store entry %s" (Haskell.show inpNftCurrency) (Haskell.show nftEntry)
     pure ()
 
 data OpenSaleParams =
@@ -345,6 +382,7 @@ ownPubKeyBalance = getOwnPubKey >>= fundsAt
 
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
+    .\/ Endpoint "importNft" ImportNftParams
     .\/ Endpoint "openSale" OpenSaleParams
     .\/ Endpoint "buyItem" CloseLotParams
     .\/ Endpoint "closeSale" CloseLotParams
@@ -358,6 +396,7 @@ type MarketplaceUserSchema =
 
 data UserContractState =
     NftCreated
+    | NftImported
     | OpenedSale
     | NftBought
     | ClosedSale
@@ -376,6 +415,7 @@ Lens.makeClassyPrisms ''UserContractState
 userEndpoints :: Core.Marketplace -> Promise (ContractResponse Text UserContractState) MarketplaceUserSchema Void ()
 userEndpoints marketplace =
     (withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
+    `select` withContractResponse (Proxy @"importNft") (const NftImported) (importNft marketplace)
     `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
     `select` withContractResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
     `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)

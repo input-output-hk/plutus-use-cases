@@ -41,6 +41,7 @@ import qualified Prelude                                                  as Has
 
 data MarketplaceRedeemer
   = CreateNftRedeemer IpfsCidHash NftInfo
+  | ImportNftRedeemer IpfsCidHash NftInfo
   | PutLotRedeemer (Either InternalNftId InternalBundleId) LotLink
   | RemoveLotRedeemer (Either IpfsCidHash BundleId)
   | BundleUpRedeemer [IpfsCidHash] BundleId BundleInfo
@@ -130,6 +131,11 @@ removeLotFromBundle NftBundle {..} = NftBundle nbRecord $ NoLot $ snd <$> tokens
 transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Maybe (TxConstraints Void Void, State MarketplaceDatum)
 transition marketplace@Marketplace{..} state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
+        -> Just ( mustBeSignedByIssuer nftEntry <>
+                  Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
+                , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
+                )
+    ImportNftRedeemer ipfsCidHash nftEntry
         -> Just ( mustBeSignedByIssuer nftEntry <>
                   Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
