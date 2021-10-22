@@ -1,5 +1,7 @@
+const GAME_URL = process.env.REACT_APP_GAME_URL;
+
 export async function fetchGames() {
-  const response = await fetch(`http://localhost:8081/games`, {
+  const response = await fetch(`${GAME_URL}/games`, {
     method: 'GET',
     headers: {
       'Content-type': 'application/json',
@@ -16,7 +18,7 @@ export async function fetchGames() {
 }
 
 export async function fetchGame(id) {
-  const response = await fetch(`http://localhost:8081/games/${id}`, {
+  const response = await fetch(`${GAME_URL}/games/${id}`, {
     method: 'GET',
     headers: {
       'Content-type': 'application/json',

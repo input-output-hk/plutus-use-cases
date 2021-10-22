@@ -32,17 +32,18 @@
   }
 
   .game-details {
+    max-width: 25%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-top: 2.5em;
+    margin-top: 2.1em;
   }
 
   .status {
     padding: 0.5em 2em;
     border-radius: 5px;
     font-size: 20px;
-    margin-bottom: 2em;
+    margin-bottom: 1.5em;
 
     &.live {
       border: 1px solid rgba(255, 192, 7, 1);
@@ -70,10 +71,43 @@
     font-weight: bold;
   }
 
-  .referee {
+  .details {
     font-size: 20px;
     font-weight: 300;
-    margin-bottom: 2em;
+    text-align: center;
+  }
+
+  .details.place {
+    margin-bottom: 1.5em;
+  }
+
+  .goals-container {
+    display: flex;
+    font-size: 2em;
+    font-weight: bold;
+    margin-top: -1em;
+
+    .goals {
+      margin: 0 0.5em;
+
+      &.winner {
+        color: rgba(25, 135, 83, 1);
+      }
+
+      &.defeated {
+        color: rgba(220, 52, 68, 1);
+      }
+    }
+  }
+
+  .reward {
+    padding: 0.5em 2em;
+    border-radius: 5px;
+    font-size: 20px;
+    margin-bottom: 1.5em;
+    border: 1px solid rgba(25, 135, 83, 1);
+    color: rgba(25, 135, 83, 1);
+    text-align: center;
   }
 }
 
