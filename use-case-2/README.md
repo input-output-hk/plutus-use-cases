@@ -154,4 +154,41 @@ Now that we have a script address, feel free to use the following script in orde
 Give some time for the node to mine your newly submitted transaction. Once successful, you should use cardano-cli to query the uniswap script address to confirm the uniswap token has been sent.
 
 TODO: Document Mint PikaCoins
+(Placeholder hint) The same script that was used to generate a single Uniswap Token, can be used to generate other ambiguous tokens.
+
 TODO: Create Pool between ADA and PikaCoin
+Get back into the plutus ghci
+
+NOTE: to use ADA as one of the tokens to create a token pool with, pass in an empty string as both the currency symbol and token name.
+
+```
+:l Plutus.Contracts.UniPools
+main [COIN A AMOUNT] [COIN B AMOUNT] [UNISWAP CURRENCY SYMBOL] [(COIN A CURRENCY SYMBOL, COIN A TOKENNAME)] [(COIN B CURRENCY SYMBOL, COIN B TOKENNAME)]
+TODO: Make use of liquidity calculator and minimum lovelace requirements algorithms in bash script to handle hard coded integers.
+```
+NOTE: known happy expample path: `main 1930992 100000 [UNISWAP CURRENCY SYMBOL] [(COIN A CURRENCY SYMBOL, COIN A TOKENNAME)] [(COIN B CURRENCY SYMBOL, COIN B TOKENNAME)]`
+
+This command will generate some files ./unipool necessary for cardano-cli to submit the smart contracts available to create a token pool between two coins and mint their liquidity tokens.
+
+Use the following script to submit token pools, their liquidity state, and liquidity tokens to the Alonzo node:
+```
+# ./buildPool.sh [TXHASH#TXIX] [TOKEN B TXHASH#TXIX] [UNISWAP TOKEN TXHASH#TXIX] [SCRIPT FILE] [UNISWAP SCRIPT ADDRESS] [UNISWAP TOKEN CURRENCY SYMBOL] [POOL TOKEN CURRENCY SYMBOL] [FACTORY DATUM EMBED FILE] [LIQUIDITY POOL DATUM EMBED FILE] [CHANGE ADDRESS] [LIQUIDITY CURRENCY POLICY] [UNIPOOL DATUM HASH] [UNISWAP ACTION REDEEMER FILE] [SKEY FILE] [LIQUIDITY TOKEN CURRENCY SYMBOL] [TOKEN B CURRENCY SYMBOL]
+```
+
+Once submitted successfully, moments later when querying the uniswap contract address, there will be a utxo available that should show PoolState along with a datum hash and the amount of tokens used to initialize the token pool.
+
+Now we're ready to perform a swap. In the terminal running ghci against plutus-use-cases, run the following command to generate the redeemer and pool script datum that will be used when building the cardano-cli transaction
+
+```
+:l Plutus.Contracts.CompileCurrency
+main [(CURRENCY SYMBOL,TOKEN NAME)] [AMOUNT] [(CURRENCY SYMBOL,TOKEN NAME)] [AMOUNT] [POOL DATUM FILE PATH]
+```
+
+That will generate a directory called `rawSwap` that has the redeemer used to tell the uniswap script which contract action to be performed and the pool datum that reports the state of the uniswap liquidity pools
+
+Feel free to use the following script to build and submit a transaction to perform the swap
+
+Note: be sure to use this script from within ./dep/cardano-node/result/alonzo-purple
+```
+# ../../../../scripts/handleSwap.sh [TXHASH#TXIX] [UNISWAP SCRIPT FILE] [UNIPOOL DATUM FILE] [REDEEMER FILE] [COLLATERAL ADDRESS] [UNISWAP SCRIPT ADDRESS] [COIN TO BE SWAPPED - CURRENCYSYMBOL.TOKENNAME] [SKEY FILE] [ADDITIONAL FUNDS - TXHASH#TXIX] [POOL UTXO - TXHASH#TXIX] [POOL STATE CURRENCYSYMBOL.TOKENNAME]
+```

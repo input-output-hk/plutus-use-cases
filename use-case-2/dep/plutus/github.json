@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "plutus",
-  "branch": "ll-is-plutus-bump",
+  "branch": "is-plutus-bump-with-validator-compilers",
   "private": false,
-  "rev": "855a34c72005e45147768e5d1864b6e53cecc602",
-  "sha256": "1q8jc7mx5dm9v35ic6q7lgxq677y93fxkqy5dw38flxkraihbsm5"
+  "rev": "9e8660652934deae8616590f23c8b56673bb3b06",
+  "sha256": "02qqidvna4207s5dbbrw2p7p3kx0cpqgwvy64k111rdjxb1n7myz"
 }
