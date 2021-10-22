@@ -49,21 +49,31 @@ import           Prelude                          (Monoid (..), Semigroup (..),
                                                    show, subtract)
 import qualified Prelude
 
-withRemoteDataResponse :: forall l a p r s.
+type ContractResponse k e a = Last (ContractState k e a)
+
+data ContractState k e a = ContractState {
+    endpointName :: k,
+    response     :: RemoteData e a
+}
+  deriving  (Prelude.Eq, Prelude.Show, Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+withContractResponse :: forall l a p r s.
     (HasEndpoint l p s, FromJSON p)
     => Proxy l
     -> (a -> r)
-    -> (p -> Contract (RemoteData Text r) s Text a)
-    -> Promise (RemoteData Text r) s Void ()
-withRemoteDataResponse ep g c = do
+    -> (p -> Contract (ContractResponse Prelude.String Text r) s Text a)
+    -> Promise (ContractResponse Prelude.String Text r) s Void ()
+withContractResponse ep g c = do
+    let makeResponse = Last . Just . ContractState (symbolVal ep)
     handleEndpoint @l $ \case
-        Left err -> tell $ Failure err
+        Left err -> tell . makeResponse . Failure $ err
         Right p -> do
-            _ <- tell Loading
+            _ <- tell . makeResponse $ Loading
             e <- runError $ errorHandler `handleError` c p
             tell $ case e of
-                Left err -> Failure err
-                Right a  -> Success $ g a
+                Left err -> makeResponse . Failure $ err
+                Right a  -> makeResponse . Success . g $ a
 
 errorHandler :: Text -> Contract w s Text b
 errorHandler e = do

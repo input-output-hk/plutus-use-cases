@@ -28,8 +28,9 @@ import           Ledger
 import qualified Ledger.Typed.Scripts                            as Scripts
 import           Ledger.Typed.Tx
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse             (withRemoteDataResponse)
-import           Plutus.Abstract.RemoteData                   (RemoteData)
+import           Plutus.Abstract.ContractResponse                (ContractResponse,
+                                                                  withContractResponse)
+import           Plutus.Abstract.RemoteData                      (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                       as Currency
@@ -114,9 +115,9 @@ data InfoContractState =
 
 Lens.makeClassyPrisms ''InfoContractState
 
-infoEndpoints :: Core.Marketplace -> Promise (RemoteData Text InfoContractState) MarketplaceInfoSchema Void ()
+infoEndpoints :: Core.Marketplace -> Promise (ContractResponse Haskell.String Text InfoContractState) MarketplaceInfoSchema Void ()
 infoEndpoints marketplace =
-    (withRemoteDataResponse (Proxy @"fundsAt") FundsAt fundsAt
-    `select` withRemoteDataResponse (Proxy @"marketplaceFunds") MarketplaceFunds (const $ marketplaceFunds marketplace)
-    `select` withRemoteDataResponse (Proxy @"marketplaceStore") MarketplaceStore (const $ marketplaceStore marketplace)
-    `select` withRemoteDataResponse (Proxy @"getAuctionState") AuctionState (getAuctionState marketplace)) <> infoEndpoints marketplace
+    (withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
+    `select` withContractResponse (Proxy @"marketplaceFunds") MarketplaceFunds (const $ marketplaceFunds marketplace)
+    `select` withContractResponse (Proxy @"marketplaceStore") MarketplaceStore (const $ marketplaceStore marketplace)
+    `select` withContractResponse (Proxy @"getAuctionState") AuctionState (getAuctionState marketplace)) <> infoEndpoints marketplace

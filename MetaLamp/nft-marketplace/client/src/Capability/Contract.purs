@@ -19,6 +19,8 @@ newtype Endpoint
 
 derive newtype instance showEndpoint :: Show Endpoint
 
+derive newtype instance eqEndpoint :: Eq Endpoint
+
 derive instance newtypeEndpoint :: Newtype Endpoint _
 
 data ContractUnit

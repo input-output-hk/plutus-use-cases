@@ -17,7 +17,7 @@ import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
-import           Plutus.Abstract.RemoteData                   (RemoteData)
+import           Plutus.Abstract.ContractResponse             (ContractResponse)
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
@@ -52,7 +52,7 @@ createNftParams = Marketplace.CreateNftParams {
                         Marketplace.cnpRevealIssuer   = False
                     }
 
-createNftTrace :: Trace.EmulatorTrace (Trace.ContractHandle (RemoteData Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+createNftTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 createNftTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
