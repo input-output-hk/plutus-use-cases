@@ -118,8 +118,11 @@ submitBid auction ada = do
         client       = machineClient inst auction
     self <- Ledger.pubKeyHash <$> ownPubKey
     let bid = Bid{newBid = ada, newBidder = self}
-    _ <- SM.runStep client bid
-    logInfo @Haskell.String $ "Bid submitted" <> Haskell.show bid
+    result <- SM.runStep client bid
+    case result of
+        TransitionSuccess newState ->
+            logInfo @Haskell.String $ "Bid submitted. New state is: " <> Haskell.show newState
+        _ -> logInfo @Haskell.String $ "Auction bid failed"
 
 data AuctionLog =
     AuctionStarted Auction

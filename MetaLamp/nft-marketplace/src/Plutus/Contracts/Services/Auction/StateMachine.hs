@@ -122,7 +122,7 @@ auctionTransition :: GetAdditionalConstraints -> Auction -> State AuctionState -
 auctionTransition getAdditionalPayoutConstraints params@Auction{..} state@State{stateData=oldState} input =
     case (oldState, input) of
 
-        (Ongoing HighestBid{highestBid, highestBidder}, Bid{newBid, newBidder}) | newBid > highestBid -> -- if the new bid is higher,
+        (Ongoing HighestBid{highestBid, highestBidder}, Bid{newBid, newBidder}) | (newBid > aInitialPrice) && (newBid > highestBid) -> -- if the new bid is higher,
             let constraints =
                     Constraints.mustPayToPubKey highestBidder (Ada.toValue highestBid) -- we pay back the previous highest bid
                     <> Constraints.mustValidateIn (Interval.to $ aEndTime - 1) -- but only if we haven't gone past 'aEndTime'
