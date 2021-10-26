@@ -13,6 +13,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Plutus.Contracts.Services.Auction.Endpoints where
 import           Control.Lens                                   (makeClassyPrisms)
@@ -48,7 +49,7 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                        as Haskell
 import qualified Schema
-
+import qualified Data.Text as T
 
 data StartAuctionParams = StartAuctionParams {
     sapOwner        :: !PubKeyHash,
@@ -112,7 +113,7 @@ currentState auction = mapError StateMachineContractError (SM.getOnChainState cl
       inst         = typedValidator auction
       client       = machineClient inst auction
 
-submitBid :: Auction -> Ada -> Contract w s AuctionError ()
+submitBid :: Auction -> Ada -> Contract w s AuctionError ((Either T.Text ()))
 submitBid auction ada = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
@@ -120,9 +121,12 @@ submitBid auction ada = do
     let bid = Bid{newBid = ada, newBidder = self}
     result <- SM.runStep client bid
     case result of
-        TransitionSuccess newState ->
+        TransitionSuccess newState -> do
             logInfo @Haskell.String $ "Bid submitted. New state is: " <> Haskell.show newState
-        _ -> logInfo @Haskell.String $ "Auction bid failed"
+            pure $ Right ()
+        _ -> do
+            logInfo @Haskell.String $ "Auction bid failed"
+            pure $ Left "Auction bid failed"
 
 data AuctionLog =
     AuctionStarted Auction

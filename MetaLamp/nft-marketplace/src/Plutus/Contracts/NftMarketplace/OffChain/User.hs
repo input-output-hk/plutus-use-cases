@@ -277,8 +277,8 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             Core.getAuctionFromBundle bundleEntry
 
-    _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auction boapBid
-
+    result <- mapError (T.pack . Haskell.show) $ Auction.submitBid auction boapBid
+    _ <- either throwError pure result
     logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)
     pure ()
 
