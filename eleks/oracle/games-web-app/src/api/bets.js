@@ -60,3 +60,24 @@ export async function makeBet(nbpWinnerId, nbpAmount, gameId) {
     };
   }
 }
+
+export async function cancelBet(nbpWinnerId, nbpAmount, gameId) {
+  const response = await fetch(
+    `${BET_PUB_URL}/instance/${gameId}/endpoint/cancelBet`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json',
+      },
+      body: JSON.stringify({ nbpWinnerId, nbpAmount: +nbpAmount }),
+    }
+  );
+
+  if (response.status === 200) {
+    return response.json();
+  } else {
+    return {
+      error: 'Unable to cancel a bet',
+    };
+  }
+}

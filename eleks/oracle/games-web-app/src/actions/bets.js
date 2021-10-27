@@ -11,6 +11,9 @@ import {
   FETCH_MAKE_BET_START,
   FETCH_MAKE_BET_SUCCESS,
   FETCH_MAKE_BET_FAILED,
+  FETCH_CANCEL_BET_START,
+  FETCH_CANCEL_BET_SUCCESS,
+  FETCH_CANCEL_BET_FAILED,
 } from '../helpers/actionTypes';
 
 export const fetchGameContractStart = () => ({
@@ -55,6 +58,20 @@ export const fetchMakeBetFailed = (error) => ({
   error,
 });
 
+export const fetchCancelBetStart = () => ({
+  type: FETCH_CANCEL_BET_START,
+});
+
+export const fetchCancelBetSuccess = (bet) => ({
+  type: FETCH_CANCEL_BET_SUCCESS,
+  bet,
+});
+
+export const fetchCancelBetFailed = (error) => ({
+  type: FETCH_CANCEL_BET_FAILED,
+  error,
+});
+
 export const fetchGameContract = (id, gameId) => async (dispatch) => {
   dispatch(fetchGameContractStart());
   const contracts = await fromApi.fetchContracts(id);
@@ -94,5 +111,23 @@ export const makeBet = (team, amount, gameId, wallet) => async (dispatch) => {
       })
     );
     toast.success('Your bet has been accepted');
+  }
+};
+
+export const cancelBet = (team, amount, gameId, wallet) => async (dispatch) => {
+  dispatch(fetchCancelBetStart());
+  const bet = await fromApi.cancelBet(team, amount, gameId);
+  if (bet.error) {
+    dispatch(fetchCancelBetFailed(bet.error));
+    toast.error(bet.error);
+  } else {
+    dispatch(
+      fetchCancelBetSuccess({
+        betBettor: wallet.publicKey,
+        betAmount: amount,
+        betTeamId: team,
+      })
+    );
+    toast.success('Your bet has been canceled');
   }
 };
