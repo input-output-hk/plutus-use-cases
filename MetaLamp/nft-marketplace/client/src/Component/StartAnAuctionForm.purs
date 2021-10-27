@@ -44,8 +44,8 @@ component =
   formInput =
     { validators:
         Form
-          { duration: V.strIsInt,
-            initialPrice: V.strIsInt
+          { duration: V.strIsInt
+          , initialPrice: V.strIsInt
           }
     , initialInputs: Nothing
     }

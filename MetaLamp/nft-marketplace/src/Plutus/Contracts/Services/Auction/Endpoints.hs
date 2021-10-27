@@ -7,13 +7,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Plutus.Contracts.Services.Auction.Endpoints where
 import           Control.Lens                                   (makeClassyPrisms)
@@ -22,6 +22,7 @@ import           Data.Aeson                                     (FromJSON,
 import qualified Data.Aeson                                     as J
 import           Data.Monoid                                    (Last (..))
 import           Data.Semigroup.Generic                         (GenericSemigroupMonoid (..))
+import qualified Data.Text                                      as T
 import           GHC.Generics                                   (Generic)
 import           Ledger                                         (Ada,
                                                                  PubKeyHash,
@@ -49,7 +50,6 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                        as Haskell
 import qualified Schema
-import qualified Data.Text as T
 
 data StartAuctionParams = StartAuctionParams {
     sapOwner        :: !PubKeyHash,
