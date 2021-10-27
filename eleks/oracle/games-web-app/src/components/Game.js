@@ -50,7 +50,7 @@ const Game = ({
               />
             </div>
             <h2>{game.teams.home.name}</h2>
-            <Bets bets={homeBets} currentUser={currentUser} />
+            <Bets bets={homeBets} currentUser={currentUser} game={game} />
           </section>
           <section className='game-details'>
             <span
@@ -102,6 +102,7 @@ const Game = ({
               bets={awayBets}
               currentUser={currentUser}
               betsFetching={betsFetching}
+              game={game}
             />
           </section>
           <MakeBet
