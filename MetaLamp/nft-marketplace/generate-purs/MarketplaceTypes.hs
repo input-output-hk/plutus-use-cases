@@ -56,6 +56,7 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Percentage.Percentage)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceSettingsInfo)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(RemoteData E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractState K E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)

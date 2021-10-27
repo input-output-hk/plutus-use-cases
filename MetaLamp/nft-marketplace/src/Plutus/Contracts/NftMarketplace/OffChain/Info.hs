@@ -9,7 +9,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
-
+{-# LANGUAGE RecordWildCards #-}
 module Plutus.Contracts.NftMarketplace.OffChain.Info where
 
 import           Control.Lens                                    (_2, _Left,
@@ -45,12 +45,29 @@ import           PlutusTx.Prelude                                hiding
 import           Prelude                                         (Semigroup (..))
 import qualified Prelude                                         as Haskell
 import           Text.Printf                                     (printf)
+import           GHC.Generics               (Generic)
+import           Plutus.Abstract.Percentage (Percentage)
+import Ledger.Ada (getLovelace, fromValue)
 
 -- | Gets current Marketplace store state
 marketplaceStore :: Core.Marketplace -> Contract w s Text Core.MarketplaceDatum
 marketplaceStore marketplace = do
   let client = Core.marketplaceClient marketplace
   mapError' (getOnChainState client) >>= getStateDatum
+
+data MarketplaceSettingsInfo = MarketplaceSettingsInfo {
+  msCreationFee   :: Integer,
+  msSaleFee  :: Percentage
+}
+  deriving stock (Haskell.Eq, Haskell.Show, Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+marketplaceSettings :: Core.Marketplace -> Contract w s Text MarketplaceSettingsInfo
+marketplaceSettings Core.Marketplace {..} = 
+  pure MarketplaceSettingsInfo {
+      msCreationFee = getLovelace . fromValue $ marketplaceNFTFee,
+      msSaleFee = marketplaceSaleFee
+    }
 
 getStateDatum ::
     Maybe (OnChainState Core.MarketplaceDatum i, ChainIndexTxMap) -> Contract w s Text Core.MarketplaceDatum
@@ -103,12 +120,14 @@ type MarketplaceInfoSchema =
     Endpoint "fundsAt" PubKeyHash
     .\/ Endpoint "marketplaceFunds" ()
     .\/ Endpoint "marketplaceStore" ()
+    .\/ Endpoint "marketplaceSettings" ()
     .\/ Endpoint "getAuctionState" UserItemId
 
 data InfoContractState =
     FundsAt Value
     | MarketplaceFunds Value
     | MarketplaceStore Core.MarketplaceDatum
+    | MarketplaceSettings MarketplaceSettingsInfo
     | AuctionState Auction.AuctionState
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
@@ -120,4 +139,5 @@ infoEndpoints marketplace =
     (withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
     `select` withContractResponse (Proxy @"marketplaceFunds") MarketplaceFunds (const $ marketplaceFunds marketplace)
     `select` withContractResponse (Proxy @"marketplaceStore") MarketplaceStore (const $ marketplaceStore marketplace)
+    `select` withContractResponse (Proxy @"marketplaceSettings") MarketplaceSettings (const $ marketplaceSettings marketplace)
     `select` withContractResponse (Proxy @"getAuctionState") AuctionState (getAuctionState marketplace)) <> infoEndpoints marketplace
