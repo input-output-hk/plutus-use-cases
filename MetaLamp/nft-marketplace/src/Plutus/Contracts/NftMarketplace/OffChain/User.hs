@@ -32,7 +32,8 @@ import           Ledger
 import qualified Ledger.Typed.Scripts                                     as Scripts
 import           Ledger.Typed.Tx
 import qualified Ledger.Value                                             as V
-import           Plutus.Abstract.ContractResponse
+import           Plutus.Abstract.ContractResponse                         (ContractResponse,
+                                                                           withContractResponse)
 import           Plutus.Abstract.RemoteData                               (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
@@ -372,16 +373,16 @@ data UserContractState =
 
 Lens.makeClassyPrisms ''UserContractState
 
-userEndpoints :: Core.Marketplace -> Promise (RemoteData Text UserContractState) MarketplaceUserSchema Void ()
+userEndpoints :: Core.Marketplace -> Promise (ContractResponse Haskell.String Text UserContractState) MarketplaceUserSchema Void ()
 userEndpoints marketplace =
-    (withRemoteDataResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
-    `select` withRemoteDataResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
-    `select` withRemoteDataResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
-    `select` withRemoteDataResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
-    `select` withRemoteDataResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
-    `select` withRemoteDataResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
-    `select` withRemoteDataResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
-    `select` withRemoteDataResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
-    `select` withRemoteDataResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
-    `select` withRemoteDataResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
-    `select` withRemoteDataResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints marketplace
+    (withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
+    `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
+    `select` withContractResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
+    `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
+    `select` withContractResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
+    `select` withContractResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
+    `select` withContractResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
+    `select` withContractResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
+    `select` withContractResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
+    `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
+    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints marketplace

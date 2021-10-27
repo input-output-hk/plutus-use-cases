@@ -21,7 +21,7 @@ import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Bundles                     as Bundles
 import qualified Marketplace.Spec.CreateNft                   as CreateNft
 import qualified Marketplace.Spec.Start                       as Start
-import           Plutus.Abstract.RemoteData                   (RemoteData)
+import           Plutus.Abstract.ContractResponse             (ContractResponse)
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
@@ -117,7 +117,7 @@ closeLotParams =  Marketplace.CloseLotParams {
                       Marketplace.clpItemId    = Marketplace.UserNftId Fixtures.catTokenIpfsCid
                     }
 
-openSaleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (RemoteData Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+openSaleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 openSaleTrace = do
   h <- CreateNft.createNftTrace
 
@@ -218,13 +218,13 @@ buyItemValueCheck =
       hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
 errorCheckOpen :: TracePredicate
-errorCheckOpen = Utils.assertRDError (Proxy @"openSale") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckOpen = Utils.assertCrError (Proxy @"openSale") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 errorCheckClose :: TracePredicate
-errorCheckClose = Utils.assertRDError (Proxy @"closeSale") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckClose = Utils.assertCrError (Proxy @"closeSale") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 errorCheckBuyer :: TracePredicate
-errorCheckBuyer = Utils.assertRDError (Proxy @"buyItem") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
+errorCheckBuyer = Utils.assertCrError (Proxy @"buyItem") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
 
 -- \/\/\/ "NFT bundles"
 openSaleParamsB ::        Marketplace.OpenSaleParams
@@ -238,7 +238,7 @@ closeLotParamsB =  Marketplace.CloseLotParams {
                       Marketplace.clpItemId    = Marketplace.UserBundleId Fixtures.cids
                     }
 
-openSaleTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (RemoteData Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+openSaleTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 openSaleTraceB = do
   h <- Bundles.bundleTrace
 
