@@ -143,6 +143,12 @@ runNftMarketplace =
     let catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
     let photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
 
+    _ <- Simulator.callEndpointOnInstance cidInfo "marketplaceSettings" ()
+    v <- flip Simulator.waitForState cidInfo $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.InfoContractState)) of
+            J.Success (Last (Just (ContractState _ (Success (Marketplace.MarketplaceSettings v))))) -> Just v
+            _                                           -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "MarketplaceSettings: " <> show v
+
     _  <-
         Simulator.callEndpointOnInstance userCid "createNft" $
             Marketplace.CreateNftParams {
