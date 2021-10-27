@@ -148,6 +148,11 @@ curl -H "Content-Type: application/json" \
   --data '{"nbpAmount":3000000, "nbpWinnerId": 55}' \
   http://localhost:9080/api/contract/instance/$INSTANCE_ID/endpoint/bet
 
+2. Cancel a bet ( Only when game no started)
+curl -H "Content-Type: application/json" \
+  --request POST \
+  --data '{"nbpAmount":3000000, "nbpWinnerId": 55}' \
+  http://localhost:9080/api/contract/instance/$INSTANCE_ID/endpoint/cancelBet
 2. Get contract state
 curl -H "Content-Type: application/json" \
   --request GET \

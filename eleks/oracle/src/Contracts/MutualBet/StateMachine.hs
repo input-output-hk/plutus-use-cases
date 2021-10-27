@@ -101,7 +101,7 @@ includeWinshareInBets winnerTeamId bets =
         totalWin = betsValueAmount $ winnerBets
     in 
     map (\bet -> bet{
-        winShare = if betTeamId bet == winnerTeamId 
+        betWinShare = if betTeamId bet == winnerTeamId 
             then calculateWinnerShare bet total totalWin
             else Ada.lovelaceOf 0
         }) bets
@@ -115,21 +115,38 @@ mkTxReturnBets :: [Bet] -> TxConstraints Void Void
 mkTxReturnBets = foldMap (\bet -> Constraints.mustPayToPubKey (betBettor bet) $ Ada.toValue (betAmount bet))
 
 {-# INLINABLE isValidBet #-}
-isValidBet ::  MutualBetParams -> MutualBetInput -> Bool 
-isValidBet MutualBetParams{mbpTeam1, mbpTeam2, mbpMinBet} NewBet{newBetAmount, newBetTeamId}
-    | newBetAmount < mbpMinBet = False
-    | mbpTeam1 /= newBetTeamId && mbpTeam2 /= newBetTeamId = False
+isValidBet ::  MutualBetParams -> Bet -> Bool 
+isValidBet MutualBetParams{mbpTeam1, mbpTeam2, mbpMinBet} Bet{betAmount, betTeamId, betWinShare}
+    | betAmount < mbpMinBet = False
+    | mbpTeam1 /= betTeamId && mbpTeam2 /= betTeamId = False
+    | betWinShare /= 0 = False
     | otherwise = True
+
+{-# INLINABLE deleteFirstOccurence #-}
+deleteFirstOccurence :: Bet -> [Bet] -> [Bet]
+deleteFirstOccurence bet (x:xs)
+    | (bet==x) = xs
+    | otherwise = x : deleteFirstOccurence bet xs
 
 {-# INLINABLE mutualBetTransition #-}
 -- | The transitions of the mutual bet state machine.
 mutualBetTransition :: MutualBetParams -> State MutualBetState -> MutualBetInput -> Maybe (TxConstraints Void Void, State MutualBetState)
 mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State{stateData=oldState} input =
     case (oldState, input) of
-        (Ongoing bets, newBet@NewBet{newBetAmount, newBettor, newBetTeamId}) 
+        (Ongoing bets, NewBet{newBet}) 
             | isValidBet params newBet ->
                 let constraints = Constraints.mustPayToPubKey mbpOwner $ Ada.toValue mbpBetFee
-                    newBets = Bet{betAmount = newBetAmount, betBettor = newBettor, betTeamId = newBetTeamId, winShare = Ada.lovelaceOf 0}:bets
+                    newBets = newBet:bets
+                    newState =
+                        State
+                            { stateData = Ongoing newBets
+                            , stateValue = Ada.toValue $ betsValueAmount newBets
+                            }
+                in Just (constraints, newState)
+        (Ongoing bets, CancelBet{cancelBet}) 
+            | elem cancelBet bets ->
+                let constraints = Constraints.mustPayToPubKey (betBettor cancelBet) $ Ada.toValue (betAmount cancelBet)
+                    newBets = deleteFirstOccurence cancelBet bets 
                     newState =
                         State
                             { stateData = Ongoing newBets

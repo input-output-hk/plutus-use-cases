@@ -22,7 +22,7 @@ module Contracts.MutualBet.OffChain(
     MutualBetStartSchema,
     BettorSchema,
     MutualBetParams(..),
-    NewBetParams(..),
+    BetParams(..),
     mutualBetStart,
     mutualBetBettor,
     MutualBetOutput(..),
@@ -69,15 +69,16 @@ import           PlutusTx.Prelude
 import qualified Prelude                          as Haskell
 import           Types.Game
 
-data NewBetParams = 
-    NewBetParams
+data BetParams = 
+    BetParams
         { nbpAmount  :: Integer -- Bet lovelace amount 
         , nbpWinnerId :: Integer -- Bet on this team to win
         }
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON, ToSchema)
 
-type BettorSchema = Endpoint "bet" NewBetParams
+type BettorSchema = Endpoint "bet" BetParams
+                    .\/ Endpoint "cancelBet" BetParams
 type MutualBetStartSchema = EmptySchema -- Don't need any endpoints: the contract runs automatically until the mutual bet is finished.
 
 data MutualBetError =
@@ -273,7 +274,8 @@ waitForGameStateChange params = do
 
 data BettorEvent =
         MutualBetIsOver [Bet] TeamId -- ^ The mutual bet is over
-        | MakeBet NewBetParams -- ^ make a bet bet
+        | MakeBet BetParams -- ^ make a bet bet
+        | UndoBet BetParams -- ^ cancel a bet
         | BettingHasСlosed [Bet] -- ^ no one can place more bets
         | OtherBet [Bet] -- ^ Another bettor make a bet
         | NoChange [Bet] -- ^ Nothing has changed
@@ -288,6 +290,9 @@ waitForChange slotCfg params client bets = do
         makeBet = endpoint @"bet" $ \params -> do 
                                         logInfo ("last bets" ++ Haskell.show params)
                                         pure $ MakeBet params
+        cancelBet = endpoint @"cancelBet" $ \params -> do 
+                                logInfo ("last bets" ++ Haskell.show params)
+                                pure $ UndoBet params
         otherBid = do
             promiseBind
                 smUpdatePromise
@@ -310,7 +315,7 @@ waitForChange slotCfg params client bets = do
                                 logInfo @Haskell.String ("Unexpected state")
                                 pure (NoChange bets)
                     _ -> pure (NoChange bets)
-    selectList [makeBet, otherBid]
+    selectList [makeBet, cancelBet, otherBid]
 
 getWinnerId :: (Oracle.SignedMessage OracleSignedMessage) -> TeamId
 getWinnerId signedMessage = 
@@ -335,18 +340,31 @@ handleEvent client bets change =
             tell (mutualBetStateOut $ BettingClosed s)
             continue s
         MakeBet betParams -> do
-            logInfo @Haskell.String "Submitting bid"
+            logInfo @Haskell.String "Submitting bet"
             self <- Ledger.pubKeyHash <$> ownPubKey
-            logInfo @Haskell.String "Received pubkey"
             let betAda = Ada.lovelaceOf $ nbpAmount betParams
-                newBet = NewBet{newBetAmount = betAda, newBettor = self, newBetTeamId = nbpWinnerId betParams}
-            r <- SM.runStep client newBet
+                newBetInput = NewBet{ newBet = Bet{ betAmount = betAda, betBettor = self, betTeamId = nbpWinnerId betParams, betWinShare = Ada.lovelaceOf 0}}
+            r <- SM.runStep client newBetInput
             logInfo @Haskell.String "SM: runStep done"
             case r of
                 SM.TransitionFailure i -> logError (TransitionFailed i) >> continue bets
                 SM.TransitionSuccess (Ongoing bets)  -> do
                     tell (mutualBetStateOut $ Ongoing bets)
                     logInfo (BetSubmitted bets) >> continue bets
+                SM.TransitionSuccess (BettingClosed bets)  -> logInfo (MutualBetBettingClosed bets) >> continue bets
+                SM.TransitionSuccess (Finished bets) -> logError (MutualBetGameEnded bets) >> stop
+        UndoBet betParams -> do
+            logInfo @Haskell.String "Cancelling bet"
+            self <- Ledger.pubKeyHash <$> ownPubKey
+            let betAda = Ada.lovelaceOf $ nbpAmount betParams
+                cancelBet = CancelBet{ cancelBet = Bet{ betAmount = betAda, betBettor = self, betTeamId = nbpWinnerId betParams, betWinShare = Ada.lovelaceOf 0}}
+            r <- SM.runStep client cancelBet
+            logInfo @Haskell.String "SM: runStep done"
+            case r of
+                SM.TransitionFailure i -> logError (TransitionFailed i) >> continue bets
+                SM.TransitionSuccess (Ongoing bets)  -> do
+                    tell (mutualBetStateOut $ Ongoing bets)
+                    logInfo (BetCancelled bets) >> continue bets
                 SM.TransitionSuccess (BettingClosed bets)  -> logInfo (MutualBetBettingClosed bets) >> continue bets
                 SM.TransitionSuccess (Finished bets) -> logError (MutualBetGameEnded bets) >> stop
         OtherBet s -> do
