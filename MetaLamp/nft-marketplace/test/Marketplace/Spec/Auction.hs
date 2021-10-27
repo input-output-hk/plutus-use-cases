@@ -32,6 +32,7 @@ import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress)
+import           Plutus.V1.Ledger.Time                        (POSIXTime(..), DiffMilliSeconds(..), fromMilliSeconds)
 
 tests :: TestTree
 tests =
@@ -116,12 +117,16 @@ tests =
         buyOnAuctionTraceB
     ]]
 
+-- Setted up for Simulation and Emulators in plutus Ledger.TimeSlot module
+beginningOfTime :: Integer
+beginningOfTime = 1596059091000
+
 -- \/\/\/ "NFT singletons"
 startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    Marketplace.saapDuration = 155 * 1000
+    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (155 * 1000))
   }
 
 closeLotParams ::        Marketplace.CloseLotParams
@@ -257,7 +262,7 @@ startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    Marketplace.saapDuration = 142 * 1000
+    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (300 * 1000))
   }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
