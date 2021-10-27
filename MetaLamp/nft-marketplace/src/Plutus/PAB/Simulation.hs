@@ -33,6 +33,8 @@ import qualified Data.Semigroup                                 as Semigroup
 import           Data.Text                                      (Text)
 import           Data.Text.Prettyprint.Doc                      (Pretty (..),
                                                                  viaShow)
+import qualified Data.Time.Clock                                as Time
+import           Ext.Plutus.Ledger.Time                         (convertUtcToPOSIX)
 import qualified Ext.Plutus.PAB.Webserver.Server                as Ext.Plutus.PAB
 import           GHC.Generics                                   (Generic)
 import           Ledger
@@ -43,6 +45,7 @@ import           Ledger.Ada                                     (adaSymbol,
 import qualified Ledger.Ada                                     as Ada
 import           Ledger.Constraints
 import qualified Ledger.Constraints.OffChain                    as Constraints
+import           Ledger.TimeSlot                                (SlotConfig (..))
 import qualified Ledger.Typed.Scripts                           as Scripts
 import           Ledger.Value                                   as Value
 import           Playground.Types                               (SimulatorWallet (..),
@@ -68,6 +71,7 @@ import qualified Plutus.PAB.Simulator                           as Simulator
 import           Plutus.PAB.Types                               (PABError (..))
 import qualified Plutus.PAB.Types                               as PAB
 import qualified Plutus.PAB.Webserver.Server                    as PAB
+import           Plutus.V1.Ledger.Time                          (POSIXTime (..))
 import           Prelude                                        hiding (init)
 import           Wallet.Emulator.Types                          (WalletNumber (..),
                                                                  walletPubKey)
@@ -117,17 +121,20 @@ activateContracts = do
     pure $ ContractIDs users cidInfo
 
 startMpServer :: IO ()
-startMpServer = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
-    shutdown <- Ext.Plutus.PAB.startServer
+startMpServer = do
+    beginningOfTime <- convertUtcToPOSIX <$> Time.getCurrentTime
+    void $ Simulator.runSimulationWith (handlers $ slotConfiguration beginningOfTime) $ do
+        Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
+        shutdown <- Ext.Plutus.PAB.startServer
 
-    _ <- activateContracts
-    Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
-    _ <- liftIO getLine
-    shutdown
+        _ <- activateContracts
+        Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
+        _ <- liftIO getLine
+        shutdown
 
 runNftMarketplace :: IO ()
-runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
+runNftMarketplace =
+    void $ Simulator.runSimulationWith (handlers def) $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
@@ -214,7 +221,7 @@ runNftMarketplace = void $ Simulator.runSimulationWith handlers $ do
 
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapDuration = 25 * 1000
+                        saapEndTime = POSIXTime 1635308387
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
@@ -317,9 +324,15 @@ instance Builtin.HasDefinitions MarketplaceContracts where
         MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
         MarketplaceStart           -> SomeBuiltin . awaitPromise $ Marketplace.ownerEndpoints
 
-handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
-handlers =
-    Simulator.mkSimulatorHandlers def def
+slotConfiguration :: POSIXTime -> SlotConfig
+slotConfiguration beginningOfTime = SlotConfig
+        { scSlotLength   = 1000
+        , scSlotZeroTime = beginningOfTime
+        }
+
+handlers :: SlotConfig -> SimulatorEffectHandlers (Builtin MarketplaceContracts)
+handlers slotConfig =
+    Simulator.mkSimulatorHandlers def slotConfig
     $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @MarketplaceContracts))
 
 oneAdaInLovelace :: Integer
