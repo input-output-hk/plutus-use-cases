@@ -5,11 +5,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE RecordWildCards #-}
 module Plutus.Contracts.NftMarketplace.OffChain.Info where
 
 import           Control.Lens                                    (_2, _Left,
@@ -23,13 +23,17 @@ import           Data.Text                                       (Text)
 import qualified Data.Text                                       as T
 import           Ext.Plutus.Ledger.Value                         (ChainIndexTxMap,
                                                                   utxosValue)
+import           GHC.Generics                                    (Generic)
 import qualified GHC.Generics                                    as Haskell
 import           Ledger
+import           Ledger.Ada                                      (fromValue,
+                                                                  getLovelace)
 import qualified Ledger.Typed.Scripts                            as Scripts
 import           Ledger.Typed.Tx
 import           Ledger.Value
 import           Plutus.Abstract.ContractResponse                (ContractResponse,
                                                                   withContractResponse)
+import           Plutus.Abstract.Percentage                      (Percentage)
 import           Plutus.Abstract.RemoteData                      (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
@@ -45,9 +49,6 @@ import           PlutusTx.Prelude                                hiding
 import           Prelude                                         (Semigroup (..))
 import qualified Prelude                                         as Haskell
 import           Text.Printf                                     (printf)
-import           GHC.Generics               (Generic)
-import           Plutus.Abstract.Percentage (Percentage)
-import Ledger.Ada (getLovelace, fromValue)
 
 -- | Gets current Marketplace store state
 marketplaceStore :: Core.Marketplace -> Contract w s Text Core.MarketplaceDatum
@@ -56,14 +57,14 @@ marketplaceStore marketplace = do
   mapError' (getOnChainState client) >>= getStateDatum
 
 data MarketplaceSettingsInfo = MarketplaceSettingsInfo {
-  msCreationFee   :: Integer,
-  msSaleFee  :: Percentage
+  msCreationFee :: Integer,
+  msSaleFee     :: Percentage
 }
   deriving stock (Haskell.Eq, Haskell.Show, Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
 
 marketplaceSettings :: Core.Marketplace -> Contract w s Text MarketplaceSettingsInfo
-marketplaceSettings Core.Marketplace {..} = 
+marketplaceSettings Core.Marketplace {..} =
   pure MarketplaceSettingsInfo {
       msCreationFee = getLovelace . fromValue $ marketplaceNFTFee,
       msSaleFee = marketplaceSaleFee
