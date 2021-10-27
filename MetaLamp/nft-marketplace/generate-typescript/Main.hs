@@ -19,6 +19,7 @@ import           Data.Aeson.TypeScript.TH
 import qualified Data.Aeson.Types                             as Aeson
 import           Data.ByteString                              (ByteString)
 import           Data.Proxy                                   (Proxy (Proxy))
+import           Plutus.Abstract.ContractResponse             (ContractState)
 import qualified Plutus.Abstract.Percentage                   as Percentage
 import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract.StateMachine.ThreadToken     (ThreadToken)
@@ -96,7 +97,7 @@ $(deriveTypeScript Aeson.defaultOptions ''Marketplace.StartAnAuctionParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BidOnAuctionParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BundleUpParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.UnbundleParams)
-
+$(deriveTypeScript Aeson.defaultOptions ''ContractState)
 
 formattingOptions :: FormattingOptions
 formattingOptions = FormattingOptions
@@ -110,10 +111,12 @@ formattingOptions = FormattingOptions
 main :: IO ()
 main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @ThreadToken)) <>
+    (getTypeScriptDeclarations (Proxy @POSIXTime)) <>
     (getTypeScriptDeclarations (Proxy @DiffMilliSeconds)) <>
     (getTypeScriptDeclarations (Proxy @MarketplaceContracts)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.Marketplace)) <>
     (getTypeScriptDeclarations (Proxy @(RemoteData T1 T2))) <>
+    (getTypeScriptDeclarations (Proxy @(ContractState T1 T2 T3))) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.LotLink)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.MarketplaceDatum)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.UserItemId)) <>

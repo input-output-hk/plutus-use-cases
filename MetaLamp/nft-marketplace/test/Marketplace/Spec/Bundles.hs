@@ -16,7 +16,7 @@ import           Data.Void                                    (Void)
 import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
-import           Plutus.Abstract.RemoteData                   (RemoteData)
+import           Plutus.Abstract.ContractResponse             (ContractResponse)
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
@@ -60,7 +60,7 @@ bundleUpParams =  Marketplace.BundleUpParams {
           Marketplace.bupCategory    = Fixtures.bundleCategory
         }
 
-bundleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (RemoteData Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+bundleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 bundleTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
@@ -114,10 +114,10 @@ bundleDatumsCheck =
                        (AssocMap.lookup Fixtures.photoTokenIpfsCidHash b)
 
 errorCheckBundle :: TracePredicate
-errorCheckBundle = Utils.assertRDError (Proxy @"bundleUp") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckBundle = Utils.assertCrError (Proxy @"bundleUp") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 errorCheckUnbundle :: TracePredicate
-errorCheckUnbundle = Utils.assertRDError (Proxy @"unbundle") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
+errorCheckUnbundle = Utils.assertCrError (Proxy @"unbundle") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 unbundleTrace :: Trace.EmulatorTrace ()
 unbundleTrace = do

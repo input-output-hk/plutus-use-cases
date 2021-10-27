@@ -21,7 +21,8 @@ import           Ledger
 import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Typed.Scripts                         as Scripts
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse             (withRemoteDataResponse)
+import           Plutus.Abstract.ContractResponse             (ContractResponse,
+                                                               withContractResponse)
 import           Plutus.Abstract.Percentage                   (Fractional,
                                                                mkPercentage)
 import           Plutus.Abstract.RemoteData                   (RemoteData)
@@ -66,5 +67,5 @@ data OwnerContractState = Started Core.Marketplace
 
 Lens.makeClassyPrisms ''OwnerContractState
 
-ownerEndpoints :: Promise (RemoteData Text OwnerContractState) MarketplaceOwnerSchema Void ()
-ownerEndpoints = withRemoteDataResponse (Proxy @"start") Started (start) <> ownerEndpoints
+ownerEndpoints :: Promise (ContractResponse Haskell.String Text OwnerContractState) MarketplaceOwnerSchema Void ()
+ownerEndpoints = withContractResponse (Proxy @"start") Started (start) <> ownerEndpoints
