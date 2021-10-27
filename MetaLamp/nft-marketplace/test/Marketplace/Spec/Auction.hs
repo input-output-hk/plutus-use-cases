@@ -28,11 +28,13 @@ import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Contracts.Services.Auction.Core       as Auction
 import qualified Plutus.Trace                                 as Trace
+import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds (..),
+                                                               POSIXTime (..),
+                                                               fromMilliSeconds)
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress)
-import           Plutus.V1.Ledger.Time                        (POSIXTime(..), DiffMilliSeconds(..), fromMilliSeconds)
 
 tests :: TestTree
 tests =

@@ -48,6 +48,7 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID          as Cor
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
 import qualified Plutus.Contracts.Services.Auction                        as Auction
 import qualified Plutus.Contracts.Services.Sale                           as Sale
+import           Plutus.V1.Ledger.Time                                    (POSIXTime (..))
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
 import           PlutusTx.Prelude                                         hiding
@@ -56,7 +57,6 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-import           Plutus.V1.Ledger.Time                        (POSIXTime(..))
 
 
 getOwnPubKey :: Contract w s Text PubKeyHash
@@ -193,7 +193,7 @@ closeSale marketplace CloseLotParams {..} = do
 
 data StartAnAuctionParams =
   StartAnAuctionParams {
-    saapItemId   :: UserItemId,
+    saapItemId  :: UserItemId,
     saapEndTime :: POSIXTime
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -211,7 +211,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
         Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
       BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) ->
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
-    
+
     currTime <- currentTime
     when (saapEndTime < currTime) $ throwError "Auction end time is from the past"
 
