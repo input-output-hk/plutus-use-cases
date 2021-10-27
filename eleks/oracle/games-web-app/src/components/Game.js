@@ -154,9 +154,9 @@ const enhancer = compose(
     return {
       myReward: isGameFinished(game)
         ? myBets.reduce((acc, curr) => {
-            if (curr.winShare.getLovelace !== 0) {
+            if (curr.betWinShare.getLovelace !== 0) {
               return (
-                acc + curr.winShare.getLovelace + curr.betAmount.getLovelace
+                acc + curr.betWinShare.getLovelace + curr.betAmount.getLovelace
               );
             } else {
               return 0;

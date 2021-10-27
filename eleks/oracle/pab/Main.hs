@@ -128,6 +128,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
                 Left err -> do
                     Simulator.logString @(Builtin MutualBetContracts) $ "Game not found " ++ show err
                 Right game -> do
+                    Simulator.logString @(Builtin MutualBetContracts) $ "Run for game" ++ show gameId
                     let winnerId = fromRight 0 $ getWinnerTeamId game
                     let gameStatus = game ^. fixture . status . short 
                     let updateParams = UpdateOracleParams 
@@ -136,13 +137,12 @@ main = void $ Simulator.runSimulationWith handlers $ do
                                         , uoGameStatus = gameStatus
                                         }     
                     void $ Simulator.callEndpointOnInstance cidOracle "update" updateParams
-                    updatedGameId <- waitForOracleUpdated cidOracle   
-                    Simulator.logString @(Builtin MutualBetContracts) $ "updated for " ++ show updatedGameId
+                    void $ liftIO $ threadDelay 1_000_000
 
         Simulator.logString @(Builtin MutualBetContracts) $ "wait 10 seconds"
 
         -- todo query active games and create contract
-        void $ liftIO $ threadDelay 5_000_000
+        void $ liftIO $ threadDelay 10_000_000
 
 data MutualBetContracts =
     OracleTokenInit
