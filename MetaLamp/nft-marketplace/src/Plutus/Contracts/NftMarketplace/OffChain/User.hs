@@ -194,6 +194,7 @@ closeSale marketplace CloseLotParams {..} = do
 data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId  :: UserItemId,
+    saapInitialPrice :: Ada,
     saapEndTime :: POSIXTime
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -219,6 +220,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
     let startAuctionParams = Auction.StartAuctionParams {
       sapOwner = self,
       sapAsset = auctionValue,
+      sapInitialPrice = saapInitialPrice,
       sapEndTime = saapEndTime,
       sapAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }
@@ -279,8 +281,8 @@ bidOnAuction marketplace BidOnAuctionParams {..} = do
         maybe (throwError "Bundle has not been put on auction") pure $
             Core.getAuctionFromBundle bundleEntry
 
-    _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auction boapBid
-
+    result <- mapError (T.pack . Haskell.show) $ Auction.submitBid auction boapBid
+    _ <- either throwError pure result
     logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)
     pure ()
 

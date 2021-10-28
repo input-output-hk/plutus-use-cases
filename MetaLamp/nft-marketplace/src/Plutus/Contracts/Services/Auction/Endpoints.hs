@@ -7,6 +7,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
@@ -21,6 +22,7 @@ import           Data.Aeson                                     (FromJSON,
 import qualified Data.Aeson                                     as J
 import           Data.Monoid                                    (Last (..))
 import           Data.Semigroup.Generic                         (GenericSemigroupMonoid (..))
+import qualified Data.Text                                      as T
 import           GHC.Generics                                   (Generic)
 import           Ledger                                         (Ada,
                                                                  PubKeyHash,
@@ -49,12 +51,12 @@ import           PlutusTx.Prelude
 import qualified Prelude                                        as Haskell
 import qualified Schema
 
-
 data StartAuctionParams = StartAuctionParams {
-    sapOwner      :: !PubKeyHash,
-    sapAsset      :: !Value,
-    sapEndTime    :: !Ledger.POSIXTime,
-    sapAuctionFee :: Maybe AuctionFee
+    sapOwner        :: !PubKeyHash,
+    sapAsset        :: !Value,
+    sapInitialPrice :: !Ada,
+    sapEndTime      :: !Ledger.POSIXTime,
+    sapAuctionFee   :: Maybe AuctionFee
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -71,6 +73,7 @@ startAuction StartAuctionParams{..} = do
         aProtocolToken = threadToken,
         aOwner = sapOwner,
         aAsset = sapAsset,
+        aInitialPrice = sapInitialPrice,
         aEndTime = sapEndTime,
         aAuctionFee = sapAuctionFee
     }
@@ -110,14 +113,20 @@ currentState auction = mapError StateMachineContractError (SM.getOnChainState cl
       inst         = typedValidator auction
       client       = machineClient inst auction
 
-submitBid :: Auction -> Ada -> Contract w s AuctionError ()
+submitBid :: Auction -> Ada -> Contract w s AuctionError ((Either T.Text ()))
 submitBid auction ada = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
     self <- Ledger.pubKeyHash <$> ownPubKey
     let bid = Bid{newBid = ada, newBidder = self}
-    _ <- SM.runStep client bid
-    logInfo @Haskell.String $ "Bid submitted" <> Haskell.show bid
+    result <- SM.runStep client bid
+    case result of
+        TransitionSuccess newState -> do
+            logInfo @Haskell.String $ "Bid submitted. New state is: " <> Haskell.show newState
+            pure $ Right ()
+        _ -> do
+            logInfo @Haskell.String $ "Auction bid failed"
+            pure $ Left "Auction bid failed"
 
 data AuctionLog =
     AuctionStarted Auction

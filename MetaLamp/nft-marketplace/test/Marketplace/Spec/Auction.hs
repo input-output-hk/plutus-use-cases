@@ -128,7 +128,8 @@ startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (155 * 1000))
+    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (155 * 1000)),
+    Marketplace.saapInitialPrice = fromInteger $ 5 * Fixtures.oneAdaInLovelace
   }
 
 closeLotParams ::        Marketplace.CloseLotParams
@@ -264,7 +265,8 @@ startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (300 * 1000))
+    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (300 * 1000)),
+    Marketplace.saapInitialPrice = fromInteger $ 15 * Fixtures.oneAdaInLovelace
   }
 
 closeLotParamsB ::        Marketplace.CloseLotParams

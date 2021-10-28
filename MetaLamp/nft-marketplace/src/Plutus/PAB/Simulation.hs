@@ -71,7 +71,9 @@ import qualified Plutus.PAB.Simulator                           as Simulator
 import           Plutus.PAB.Types                               (PABError (..))
 import qualified Plutus.PAB.Types                               as PAB
 import qualified Plutus.PAB.Webserver.Server                    as PAB
-import           Plutus.V1.Ledger.Time                          (POSIXTime (..))
+import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds (..),
+                                                               POSIXTime (..),
+                                                               fromMilliSeconds)
 import           Prelude                                        hiding (init)
 import           Wallet.Emulator.Types                          (WalletNumber (..),
                                                                  walletPubKey)
@@ -227,7 +229,8 @@ runNftMarketplace =
 
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapEndTime = POSIXTime 1635308387
+                        saapInitialPrice = fromInteger $ 5 * oneAdaInLovelace,
+                        saapEndTime =  (POSIXTime 1596059091000) + fromMilliSeconds (DiffMilliSeconds (55 * 1000))
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
@@ -239,7 +242,17 @@ runNftMarketplace =
     _  <-
         Simulator.callEndpointOnInstance buyerCid "bidOnAuction" Marketplace.BidOnAuctionParams {
                                                                         boapItemId = Marketplace.UserNftId photoTokenIpfsCid,
-                                                                        boapBid     = fromInteger $ 15*oneAdaInLovelace
+                                                                        boapBid     = fromInteger $ 3 * oneAdaInLovelace
+                                                                    }
+    _ <- flip Simulator.waitForState buyerCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
+        J.Success (Last (Just (ContractState _ (Failure _)))) -> Just ()
+        _                                                     -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "BidOnAuction failed."
+
+    _  <-
+        Simulator.callEndpointOnInstance buyerCid "bidOnAuction" Marketplace.BidOnAuctionParams {
+                                                                        boapItemId = Marketplace.UserNftId photoTokenIpfsCid,
+                                                                        boapBid     = fromInteger $ 15 * oneAdaInLovelace
                                                                     }
     _ <- flip Simulator.waitForState buyerCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
         J.Success (Last (Just (ContractState _ (Success Marketplace.BidSubmitted)))) -> Just ()
