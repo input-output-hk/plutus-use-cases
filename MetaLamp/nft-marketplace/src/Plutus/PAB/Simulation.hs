@@ -71,7 +71,9 @@ import qualified Plutus.PAB.Simulator                           as Simulator
 import           Plutus.PAB.Types                               (PABError (..))
 import qualified Plutus.PAB.Types                               as PAB
 import qualified Plutus.PAB.Webserver.Server                    as PAB
-import           Plutus.V1.Ledger.Time                          (POSIXTime (..))
+import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds (..),
+                                                               POSIXTime (..),
+                                                               fromMilliSeconds)
 import           Prelude                                        hiding (init)
 import           Wallet.Emulator.Types                          (WalletNumber (..),
                                                                  walletPubKey)
@@ -228,7 +230,7 @@ runNftMarketplace =
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
                         saapInitialPrice = fromInteger $ 5 * oneAdaInLovelace,
-                        saapEndTime = POSIXTime 1635308387
+                        saapEndTime =  (POSIXTime 1596059091000) + fromMilliSeconds (DiffMilliSeconds (55 * 1000))
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
