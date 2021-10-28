@@ -69,5 +69,3 @@ returns { amount :: Integer }
 returns the total number of GOV tokens currently stored under the specified address. (may include multiple deposits, partial or full withdrawals may have occured)
 
 this is used for determining vote weight in democratic procedures
-
-

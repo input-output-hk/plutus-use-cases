@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 -- | State machine and binding of transitions to Plutus for lending app
 module Mlabs.Lending.Contract.StateMachine (
   Lendex,
@@ -44,16 +46,16 @@ machine lid =
     { SM.smCheck = checkTimestamp
     }
   where
-    isFinal = const False
+    !isFinal = const False
 
-    checkTimestamp _ input ctx = maybe True check $ getInputTime input
+    checkTimestamp _ !input !ctx = maybe True check $ getInputTime input
       where
-        check t =
+        check !t =
           Ledger.Slot t
             `Ledger.member` TimeSlot.posixTimeRangeToContainedSlotRange def range
-        range = Ledger.txInfoValidRange $ Ledger.scriptContextTxInfo ctx
+        !range = Ledger.txInfoValidRange $ Ledger.scriptContextTxInfo ctx
 
-    getInputTime = \case
+    !getInputTime = \case
       Types.UserAct time _ _ -> Just time
       Types.PriceAct time _ _ -> Just time
       _ -> Nothing
@@ -87,10 +89,10 @@ transition ::
   SM.State (Types.LendexId, Types.LendingPool) ->
   Types.Act ->
   Maybe (SM.TxConstraints SM.Void SM.Void, SM.State (Types.LendexId, Types.LendingPool))
-transition lid SM.State {stateData = oldData, stateValue = oldValue} input
+transition lid SM.State {stateData = !oldData, stateValue = !oldValue} input
   | lid == inputLid = case runStateT (react input) (snd oldData) of
     Left _err -> Nothing
-    Right (resps, newData) ->
+    Right (!resps, !newData) ->
       Just
         ( foldMap toConstraints resps Plutus.<> ctxConstraints
         , SM.State
@@ -103,9 +105,9 @@ transition lid SM.State {stateData = oldData, stateValue = oldValue} input
     inputLid = fst oldData
 
     -- we check that user indeed signed the transaction with his own key
-    ctxConstraints = maybe Plutus.mempty mustBeSignedBy userId
+    !ctxConstraints = maybe Plutus.mempty mustBeSignedBy userId
 
-    userId = case input of
+    !userId = case input of
       Types.UserAct _ (Types.UserId uid) _ -> Just uid
       _ -> Nothing
 

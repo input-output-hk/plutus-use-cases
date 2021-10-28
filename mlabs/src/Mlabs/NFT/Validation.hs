@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Mlabs.NFT.Validation (
@@ -152,27 +153,27 @@ asRedeemer = Redeemer . PlutusTx.toBuiltinData
 
 -- | Minting policy for NFTs.
 mkMintPolicy :: Address -> TxOutRef -> NftId -> () -> ScriptContext -> Bool
-mkMintPolicy stateAddr oref (NftId _ token outRef) _ ctx =
+mkMintPolicy !stateAddr !oref (NftId _ token !outRef) _ !ctx =
   -- ? maybe author could be checked also, their key should be in signatures.
   traceIfFalse "UTXO not consumed" hasUtxo
     && traceIfFalse "Wrong amount minted" checkMintedAmount
     && traceIfFalse "Does not pay to state" paysToState
     && traceIfFalse "NFTid TxOutRef and minting TxOutRef are different" sameORef
   where
-    info = scriptContextTxInfo ctx
+    !info = scriptContextTxInfo ctx
 
-    hasUtxo =
+    !hasUtxo =
       any (\inp -> txInInfoOutRef inp == oref) $
         txInfoInputs info
 
-    checkMintedAmount = case flattenValue (txInfoMint info) of
-      [(cur, tn, val)] ->
+    !checkMintedAmount = case flattenValue (txInfoMint info) of
+      [(cur, tn, !val)] ->
         ownCurrencySymbol ctx == cur
           && token == tn
           && val == 1
       _ -> False
 
-    paysToState = any hasNftToken $ txInfoOutputs info
+    !paysToState = any hasNftToken $ txInfoOutputs info
 
     -- Check to see if the NFT token is correctly minted.
     hasNftToken TxOut {..} =
@@ -181,7 +182,7 @@ mkMintPolicy stateAddr oref (NftId _ token outRef) _ ctx =
 
     -- Check to see if the received TxOutRef is the same as the  one the NFT is
     -- paramaterised by.
-    sameORef = oref == outRef
+    !sameORef = oref == outRef
 
 mintPolicy :: Address -> TxOutRef -> NftId -> MintingPolicy
 mintPolicy stateAddr oref nid =
@@ -195,7 +196,7 @@ mintPolicy stateAddr oref nid =
 
 -- | A validator script for the user actions.
 mkTxPolicy :: DatumNft -> UserAct -> ScriptContext -> Bool
-mkTxPolicy datum act ctx =
+mkTxPolicy !datum !act !ctx =
   traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." correctDatum
     && traceIfFalse "Datum is not present." correctDatum'
     && traceIfFalse "New Price cannot be negative." (setPositivePrice act)
@@ -220,7 +221,7 @@ mkTxPolicy datum act ctx =
     ------------------------------------------------------------------------------
     -- Utility functions.
     getCtxDatum :: PlutusTx.FromData a => ScriptContext -> [a]
-    getCtxDatum =
+    !getCtxDatum =
       catMaybes'
         . fmap PlutusTx.fromBuiltinData
         . fmap (\(Datum d) -> d)
@@ -229,18 +230,18 @@ mkTxPolicy datum act ctx =
         . scriptContextTxInfo
 
     ownerIsAuthor :: Bool
-    ownerIsAuthor = dNft'owner datum == dNft'author datum
+    !ownerIsAuthor = dNft'owner datum == dNft'author datum
 
-    getAda = flip assetClassValueOf $ assetClass Ada.adaSymbol Ada.adaToken
+    !getAda = flip assetClassValueOf $ assetClass Ada.adaSymbol Ada.adaToken
 
     ------------------------------------------------------------------------------
     -- Checks
     ------------------------------------------------------------------------------
     -- Check if the datum attached is also present in the is also in the transaction.
     correctDatum :: Bool
-    correctDatum =
-      let datums :: [DatumNft] = getCtxDatum ctx
-          suitableDatums = filter (== dNft'id datum) . fmap dNft'id $ datums
+    !correctDatum =
+      let !datums = getCtxDatum ctx :: [DatumNft]
+          !suitableDatums = filter (== dNft'id datum) . fmap dNft'id $ datums
        in case suitableDatums of
             _ : _ -> True
             _ -> False
@@ -248,98 +249,98 @@ mkTxPolicy datum act ctx =
     ------------------------------------------------------------------------------
     -- Check if the datum in the datum is also the same in the transaction, v2.
     correctDatum' :: Bool
-    correctDatum' =
-      let info = scriptContextTxInfo ctx
-          mDatums = findDatumHash (Datum . PlutusTx.toBuiltinData $ datum) info
+    !correctDatum' =
+      let !info = scriptContextTxInfo ctx
+          !mDatums = findDatumHash (Datum . PlutusTx.toBuiltinData $ datum) info
        in maybe False (const True) mDatums
 
     ------------------------------------------------------------------------------
     -- Check if the NFT is for sale.
-    nftForSale = maybe False (const True) $ dNft'price datum
+    !nftForSale = maybe False (const True) $ dNft'price datum
 
     ------------------------------------------------------------------------------
     -- Check if the bid price is high enough.
-    bidHighEnough bid =
-      let price = dNft'price datum
+    bidHighEnough !bid =
+      let !price = dNft'price datum
        in fromMaybe False $ (bid >=) <$> price
 
     ------------------------------------------------------------------------------
     -- Check if the new owner is set correctly. todo
-    correctNewOwner = True
+    !correctNewOwner = True
 
     ------------------------------------------------------------------------------
     -- Check if the Person is being reimbursed accordingly, with the help of 2
     -- getter functions. Helper function.
-    correctPayment f shareCalcFn bid = personGetsAda >= personWantsAda
+    correctPayment !f !shareCalcFn !bid = personGetsAda >= personWantsAda
       where
-        info = scriptContextTxInfo ctx
+        !info = scriptContextTxInfo ctx
         personId = getUserId . f $ datum
-        share = dNft'share datum
-        personGetsAda = getAda $ valuePaidTo info personId
-        personWantsAda = getAda $ shareCalcFn bid share
+        !share = dNft'share datum
+        !personGetsAda = getAda $ valuePaidTo info personId
+        !personWantsAda = getAda $ shareCalcFn bid share
 
     ------------------------------------------------------------------------------
     -- Check if the Author is being reimbursed accordingly.
-    correctPaymentAuthor = correctPayment dNft'author calculateAuthorShare
+    !correctPaymentAuthor = correctPayment dNft'author calculateAuthorShare
 
     ------------------------------------------------------------------------------
     -- Check if the Current Owner is being reimbursed accordingly.
-    correctPaymentOwner = correctPayment dNft'owner calculateOwnerShare
+    !correctPaymentOwner = correctPayment dNft'owner calculateOwnerShare
 
     ------------------------------------------------------------------------------
     -- Check if the Author is being paid the full amount when they are both
     -- owner and author.
-    correctPaymentOnlyAuthor bid = authorGetsAda >= bid
+    correctPaymentOnlyAuthor !bid = authorGetsAda >= bid
       where
-        info = scriptContextTxInfo ctx
+        !info = scriptContextTxInfo ctx
         author = getUserId . dNft'author $ datum
-        authorGetsAda = getAda $ valuePaidTo info author
+        !authorGetsAda = getAda $ valuePaidTo info author
 
     ------------------------------------------------------------------------------
     -- Check if the new Datum is correctly.
-    consistentDatum =
-      let prevDatum :: DatumNft = head . getCtxDatum $ ctx
+    !consistentDatum =
+      let !prevDatum = head . getCtxDatum $ ctx :: DatumNft
        in dNft'id prevDatum == dNft'id datum
             && dNft'share prevDatum == dNft'share datum
             && dNft'author prevDatum == dNft'author datum
 
     ------------------------------------------------------------------------------
     -- Check no new token is minted.
-    noMint = isZero . txInfoMint . scriptContextTxInfo $ ctx
+    !noMint = isZero . txInfoMint . scriptContextTxInfo $ ctx
 
     ------------------------------------------------------------------------------
     -- Check if the NFT is sent to the correct address.
-    tokenSentToCorrectAddress =
+    !tokenSentToCorrectAddress =
       containsNft $ foldMap txOutValue (getContinuingOutputs ctx)
 
-    containsNft v = valueOf v (act'cs act) (nftTokenName datum) == 1
+    containsNft !v = valueOf v (act'cs act) (nftTokenName datum) == 1
 
     ------------------------------------------------------------------------------
     -- Check new price is positive or nothing.
-    setPositivePrice = \case
+    !setPositivePrice = \case
       action@BuyAct {} ->
         case act'newPrice action of
           Nothing -> True
-          Just x -> x > 0
+          Just !x -> x > 0
       action@SetPriceAct {} ->
         case act'newPrice action of
           Nothing -> True
-          Just x -> x > 0
+          Just !x -> x > 0
 
     ------------------------------------------------------------------------------
     -- Check if the previous Tx containing the token is consumed.
-    prevTxConsumed =
+    !prevTxConsumed =
       case findOwnInput ctx of
-        Just (TxInInfo _ out) -> containsNft $ txOutValue out
+        Just (TxInInfo _ !out) -> containsNft $ txOutValue out
         Nothing -> False
 
     ------------------------------------------------------------------------------
     -- Check if new price non-negative.
-    priceNotNegative' = priceNotNegative (act'newPrice act)
+    !priceNotNegative' = priceNotNegative (act'newPrice act)
 
     ------------------------------------------------------------------------------
     -- Check that price set by NFT owner.
-    ownerSetsPrice =
+    !ownerSetsPrice =
       case txInfoSignatories $ scriptContextTxInfo ctx of
         [pkh] -> pkh == getUserId (dNft'owner datum)
         _ -> False

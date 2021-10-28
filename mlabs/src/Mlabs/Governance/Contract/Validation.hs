@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
@@ -91,25 +92,25 @@ instance Validators.ValidatorTypes Governance where
 {-# INLINEABLE govValidator #-}
 
 mkValidator :: AssetClassGov -> GovernanceDatum -> GovernanceRedeemer -> ScriptContext -> Bool
-mkValidator gov datum redeemer ctx =
+mkValidator !gov !datum !redeemer !ctx =
   traceIfFalse "incorrect value from redeemer" checkCorrectValue
     && traceIfFalse "incorrect minting script involvenment" checkForging
     && traceIfFalse "invalid datum update" checkCorrectDatumUpdate
   where
-    info = scriptContextTxInfo ctx
+    !info = scriptContextTxInfo ctx
 
     ownInput :: Contexts.TxInInfo
-    ownInput = case findOwnInput ctx of
-      Just o -> o
+    !ownInput = case findOwnInput ctx of
+      Just !o -> o
       Nothing -> traceError "no self in input"
 
     ownOutput :: Contexts.TxOut
-    ownOutput = case Contexts.getContinuingOutputs ctx of
-      [o] -> o -- this may crash here, may need to filter by pkh
+    !ownOutput = case Contexts.getContinuingOutputs ctx of
+      [!o] -> o -- this may crash here, may need to filter by pkh
       _ -> traceError "expected exactly one continuing output"
 
     outputDatum :: GovernanceDatum
-    outputDatum = case txOutDatumHash ownOutput of
+    !outputDatum = case txOutDatumHash ownOutput of
       Nothing -> traceError "no datum hash on governance"
       Just h -> case findDatum h info of
         Nothing -> traceError "no datum on governance"
@@ -118,10 +119,10 @@ mkValidator gov datum redeemer ctx =
           Just gd -> gd
 
     valueIn :: Value
-    valueIn = txOutValue $ txInInfoResolved ownInput
+    !valueIn = txOutValue $ txInInfoResolved ownInput
 
     valueOut :: Value
-    valueOut = txOutValue ownOutput
+    !valueOut = txOutValue ownOutput
 
     pkh :: PubKeyHash
     pkh = gdPubKeyHash datum
@@ -132,20 +133,20 @@ mkValidator gov datum redeemer ctx =
     --- checks
 
     checkForging :: Bool
-    checkForging = case AssocMap.lookup xGov . Value.getValue $ txInfoMint info of
+    !checkForging = case AssocMap.lookup xGov . Value.getValue $ txInfoMint info of
       Nothing -> False
-      Just mp -> case (redeemer, AssocMap.lookup (coerce pkh) mp) of
-        (GRDeposit n, Just m) -> n == m
-        (GRWithdraw n, Just m) -> n == negate m
+      Just !mp -> case (redeemer, AssocMap.lookup (coerce pkh) mp) of
+        (GRDeposit !n, Just !m) -> n == m
+        (GRWithdraw !n, Just !m) -> n == negate m
         _ -> False
 
     checkCorrectValue :: Bool
-    checkCorrectValue = case redeemer of
-      GRDeposit n -> n > 0 && valueIn + govSingleton gov n == valueOut
-      GRWithdraw n -> n > 0 && valueIn - govSingleton gov n == valueOut
+    !checkCorrectValue = case redeemer of
+      GRDeposit !n -> n > 0 && valueIn + govSingleton gov n == valueOut
+      GRWithdraw !n -> n > 0 && valueIn - govSingleton gov n == valueOut
 
     checkCorrectDatumUpdate :: Bool
-    checkCorrectDatumUpdate =
+    !checkCorrectDatumUpdate =
       pkh == gdPubKeyHash outputDatum
         && xGov == gdxGovCurrencySymbol outputDatum
 
@@ -175,47 +176,47 @@ xgovSingleton gov pkh = Value.singleton (xGovCurrencySymbol gov) (coerce pkh)
 -- xGOV minting policy
 {-# INLINEABLE mkPolicy #-}
 mkPolicy :: ValidatorHash -> AssetClassGov -> () -> ScriptContext -> Bool
-mkPolicy vh AssetClassGov {..} _ ctx =
+mkPolicy vh AssetClassGov {..} _ !ctx =
   traceIfFalse "attempt to mint unpaid-for xGOV" checkMintedSubsetGovDeposits
   where
-    info = scriptContextTxInfo ctx
+    !info = scriptContextTxInfo ctx
 
     isGov (ScriptCredential v) = v == vh
     isGov _ = False
 
     getGovernanceIn :: [TxOut]
-    getGovernanceIn = filter (isGov . addressCredential . txOutAddress) . map txInInfoResolved $ txInfoInputs info
+    !getGovernanceIn = filter (isGov . addressCredential . txOutAddress) . map txInInfoResolved $ txInfoInputs info
 
     getGovernanceOut :: [TxOut]
-    getGovernanceOut = filter (isGov . addressCredential . txOutAddress) $ txInfoOutputs info
+    !getGovernanceOut = filter (isGov . addressCredential . txOutAddress) $ txInfoOutputs info
 
     -- how much GOV sits 'at every pkh'
     pkhWithGov :: [TxOut] -> [(PubKeyHash, Integer)]
-    pkhWithGov inout = inout >>= extractDatum
+    pkhWithGov !inout = inout >>= extractDatum
       where
-        extractDatum utxo = case txOutDatumHash utxo of
+        extractDatum !utxo = case txOutDatumHash utxo of
           Nothing -> traceError "no datum hash on governance"
           Just h -> case findDatum h info of
             Nothing -> traceError "no datum on governance"
             Just (Datum d) -> case PlutusTx.fromBuiltinData d of
               Nothing -> traceError "no datum parse"
-              Just gd -> case AssocMap.lookup acGovCurrencySymbol . Value.getValue $ txOutValue utxo of
+              Just !gd -> case AssocMap.lookup acGovCurrencySymbol . Value.getValue $ txOutValue utxo of
                 Nothing -> [] -- just in case someone puts some other tokens in the script
-                Just mp -> [(gdPubKeyHash gd, snd . head $ AssocMap.toList mp)]
+                Just !mp -> [(gdPubKeyHash gd, snd . head $ AssocMap.toList mp)]
 
     differenceGovDeposits :: [(PubKeyHash, Integer)]
-    differenceGovDeposits = filter ((> 0) . snd) $ foldr foo [] (pkhWithGov getGovernanceOut)
+    !differenceGovDeposits = filter ((> 0) . snd) $ foldr foo [] (pkhWithGov getGovernanceOut)
       where
-        inMap = AssocMap.fromList $ pkhWithGov getGovernanceIn
+        !inMap = AssocMap.fromList $ pkhWithGov getGovernanceIn
 
-        foo (pkh, n) xs = case AssocMap.lookup pkh inMap of
+        foo (pkh, !n) !xs = case AssocMap.lookup pkh inMap of
           Nothing -> (pkh, n) : xs
-          Just m -> (pkh, n - m) : xs
+          Just !m -> (pkh, n - m) : xs
 
     mintedDeposit :: [(TokenName, Integer)]
     mintedDeposit = case AssocMap.lookup (ownCurrencySymbol ctx) . Value.getValue $ txInfoMint info of
       Nothing -> traceError "no self minting"
-      Just mp -> filter ((> 0) . snd) $ AssocMap.toList mp
+      Just !mp -> filter ((> 0) . snd) $ AssocMap.toList mp
 
     -- checks
 
@@ -223,7 +224,7 @@ mkPolicy vh AssetClassGov {..} _ ctx =
     checkMintedSubsetGovDeposits :: Bool
     checkMintedSubsetGovDeposits = foldr memb True (map (first coerce) mintedDeposit)
       where
-        memb pair b = (b &&) . foldr (||) False $ map (== pair) differenceGovDeposits
+        memb !pair !b = (b &&) . foldr (||) False $ map (== pair) differenceGovDeposits
 
 -- yes, I've only done it ^this way so that it compiles
 

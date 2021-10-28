@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 -- | Validation of forge for NFTs
 module Mlabs.Nft.Contract.Forge (
   currencyPolicy,
@@ -31,20 +33,20 @@ import Mlabs.Nft.Logic.Types (NftId (NftId))
  that NFT coin was payed to script after minting.
 -}
 validate :: Address -> NftId -> BuiltinData -> Contexts.ScriptContext -> Bool
-validate stateAddr (NftId token oref) _ ctx =
+validate !stateAddr (NftId token !oref) _ !ctx =
   traceIfFalse "UTXO not consumed" hasUtxo
     && traceIfFalse "wrong amount minted" checkMintedAmount
     && traceIfFalse "Does not pay to state" paysToState
   where
-    info = Contexts.scriptContextTxInfo ctx
+    !info = Contexts.scriptContextTxInfo ctx
 
-    hasUtxo = any (\inp -> Contexts.txInInfoOutRef inp == oref) $ Contexts.txInfoInputs info
+    !hasUtxo = any (\inp -> Contexts.txInInfoOutRef inp == oref) $ Contexts.txInfoInputs info
 
-    checkMintedAmount = case Value.flattenValue (Contexts.txInfoMint info) of
-      [(cur, tn, val)] -> Contexts.ownCurrencySymbol ctx == cur && token == tn && val == 1
+    !checkMintedAmount = case Value.flattenValue (Contexts.txInfoMint info) of
+      [(cur, tn, !val)] -> Contexts.ownCurrencySymbol ctx == cur && token == tn && val == 1
       _ -> False
 
-    paysToState = any hasNftToken $ Contexts.txInfoOutputs info
+    !paysToState = any hasNftToken $ Contexts.txInfoOutputs info
 
     hasNftToken Contexts.TxOut {..} =
       txOutAddress == stateAddr

@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -54,15 +55,15 @@ toNftError = SM.SMCContractError . fromString
 
 -- | State machine definition
 machine :: NftId -> NftMachine
-machine nftId = SM.mkStateMachine Nothing (transition nftId) isFinal
+machine !nftId = SM.mkStateMachine Nothing (transition nftId) isFinal
   where
-    isFinal = const False
+    !isFinal = const False
 
 {-# INLINEABLE mkValidator #-}
 
 -- | State machine validator
 mkValidator :: NftId -> Scripts.ValidatorType NftMachine
-mkValidator nftId = SM.mkValidator (machine nftId)
+mkValidator !nftId = SM.mkValidator (machine nftId)
 
 -- | State machine client
 client :: NftId -> NftMachineClient
@@ -95,11 +96,11 @@ transition ::
   SM.State Nft ->
   Act ->
   Maybe (SM.TxConstraints SM.Void SM.Void, SM.State Nft)
-transition nftId SM.State {stateData = oldData, stateValue = oldValue} input
+transition !nftId SM.State {stateData = !oldData, stateValue = !oldValue} !input
   | idIsValid =
     case runStateT (react input) oldData of
       Left _err -> Nothing
-      Right (resps, newData) ->
+      Right (!resps, !newData) ->
         Just
           ( foldMap toConstraints resps Plutus.<> ctxConstraints
           , SM.State
@@ -109,12 +110,12 @@ transition nftId SM.State {stateData = oldData, stateValue = oldValue} input
           )
   | otherwise = Nothing
   where
-    idIsValid = nftId == nft'id oldData
+    !idIsValid = nftId == nft'id oldData
 
     -- we check that user indeed signed the transaction with his own key
-    ctxConstraints = maybe Plutus.mempty mustBeSignedBy userId
+    !ctxConstraints = maybe Plutus.mempty mustBeSignedBy userId
 
-    userId = case input of
+    !userId = case input of
       UserAct (UserId uid) _ -> Just uid
       _ -> Nothing
 
