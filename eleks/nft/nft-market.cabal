@@ -82,7 +82,7 @@ test-suite plutus-example-projects-test
     text -any,
     tasty -any,
     tasty-hunit -any,
-    tasty-hedgehog >=0.2.0.0
+    tasty-hedgehog >=0.2.0.0,
 
 executable nft-market-pab
   main-is: Main.hs

@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main(main) where
 
+-- import qualified Spec.DebugApi
 import qualified Spec.NFT
 import           Test.Tasty
 import           Test.Tasty.Hedgehog       (HedgehogTestLimit (..))
@@ -16,6 +17,6 @@ limit :: HedgehogTestLimit
 limit = HedgehogTestLimit (Just 5)
 
 tests :: TestTree
-tests = localOption limit $ testGroup "use cases" [
+tests = localOption limit $ testGroup "use case" [
     Spec.NFT.tests
     ]

@@ -1,0 +1,54 @@
+{
+    "Right": {
+      "contents": {
+        "getValue": [
+          [
+            {
+              "unCurrencySymbol": ""
+            },
+            [
+              [
+                {
+                  "unTokenName": ""
+                },
+                99999988318
+              ]
+            ]
+          ],
+          [
+            {
+              "unCurrencySymbol": "8f64d76b980cd0efd01b7b8edcd01fa79b3813ea9fcdce8c6cabd2b6"
+            },
+            [
+              [
+                {
+                  "unTokenName": "TestToken"
+                },
+                1
+              ],
+              [
+                {
+                  "unTokenName": "TestTokenMetadata"
+                },
+                0
+              ]
+            ]
+          ],
+          [
+            {
+              "unCurrencySymbol": "34142263b7ea279bb2c2a509e135a414f56f12538e8fabc9320f6c3c"
+            },
+            [
+              [
+                {
+                  "unTokenName": "NFTMarketplace"
+                },
+                0
+              ]
+            ]
+          ]
+        ]
+      },
+      "tag": "WalletInfo"
+    }
+  }

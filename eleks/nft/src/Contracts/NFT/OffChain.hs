@@ -449,7 +449,17 @@ userPubKeyHash = do
     logInfo @String $ printf "start getting userPubKeyHash"
     pkh <- pubKeyHash <$> ownPubKey
     return $ byteStrToDto . getPubKeyHash $ pkh
- 
+
+-- | Gets info about the wallet.
+walletInfo :: forall w s. Contract w s Text Value
+walletInfo = do
+    logInfo @String $ printf "start getting walletInfo"
+    pkh    <- pubKeyHash <$> ownPubKey
+    utxos <- utxosAt $ pubKeyHashAddress pkh
+    let os = map snd $ Map.toList utxos
+    let values = mconcat [view ciTxOutValue o | o <- os]
+    return values
+
 -- | Gets the caller's NFTs.
 userNftTokens :: 
     forall w s. NFTMarket 
@@ -505,6 +515,7 @@ type MarketUserSchema =
         .\/ Endpoint "userNftTokens"  ()
         .\/ Endpoint "sellingTokens"  ()
         .\/ Endpoint "stop"   ()
+        .\/ Endpoint "walletInfo" ()
 
 
 data MarketContractState =
@@ -517,6 +528,7 @@ data MarketContractState =
     | Transfered NFTMetadataDto
     | UserPubKeyHash String
     | Stopped
+    | WalletInfo Value
     deriving (Show, Generic, FromJSON, ToJSON)
 -- | Provides the following endpoints for users of a NFT marketplace instance:
 --
@@ -541,7 +553,8 @@ userEndpoints market =
       f (Proxy @"transfer") Transfered transfer                                         `select`
       f (Proxy @"userNftTokens") Tokens (\market' () -> userNftTokens market')          `select`
       f (Proxy @"sellingTokens") SellingTokens (\market' () -> sellingTokens market')   `select`
-      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))    
+      f (Proxy @"userPubKeyHash")  UserPubKeyHash (\market' () -> userPubKeyHash))      `select`
+      f (Proxy @"walletInfo") WalletInfo (\market' () -> walletInfo)
     <> userEndpoints market)
   where
     f :: forall l a p.

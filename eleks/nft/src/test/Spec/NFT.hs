@@ -27,13 +27,14 @@ import           Ledger                                 (PubKeyHash(..), pubKeyH
 import           Ledger.Ada                             as Ada
 import           Ledger.Index                           (ValidationError (ScriptFailure))
 import           Ledger.Scripts                         (ScriptError (EvaluationError))
-import           Ledger.Value                           (CurrencySymbol(..), TokenName (..), assetClassValue)
+import           Ledger.Value                           (CurrencySymbol(..), TokenName (..), assetClassValue, valueOf)
 import           Plutus.Contract                        hiding (when)
 import           Plutus.Contract.Test
 import           Plutus.Trace.Emulator                  (EmulatorTrace)
 import qualified Plutus.Trace.Emulator                  as Trace
 import           Plutus.Trace.Emulator.Types  
 import           PlutusTx.Prelude                       as PlutusTx
+import           Plutus.V1.Ledger.Value                 (singleton)
 import qualified Prelude
 import           Prelude                                (read, show)
 import           Test.Tasty
@@ -242,6 +243,18 @@ tests = testGroup "nft"
                 "should get wallet key state"
         )
         shouldGetWalletKeyTrace
+        ,
+        checkPredicate "Should get wallet info"
+        ( 
+            assertNoFailedTransactions
+            .&&. assertAccumState userContract t1
+            (\case Last (Just (Right (NFTMarket.WalletInfo walletInfo))) -> 
+                        valueOf walletInfo adaCurrency adaName == valueOf walletMockData adaCurrency adaName &&
+                        valueOf walletInfo (testTokenSymbol testToken1) (testTokenName testToken1) ==  valueOf walletMockData (testTokenSymbol testToken1) (testTokenName testToken1)
+                   _ -> False)
+                "should get wallet info state"
+        )
+        shouldGetWalletInfoTrace
     ]
 
 initialise :: EmulatorTrace ()
@@ -384,6 +397,15 @@ shouldGetWalletKeyTrace = do
     initialise
     user1Hdl <- Trace.activateContractWallet w1 userContract
     Trace.callEndpoint @"userPubKeyHash" user1Hdl ()
+    void $ Trace.waitNSlots 5
+
+shouldGetWalletInfoTrace :: EmulatorTrace ()
+shouldGetWalletInfoTrace = do
+    initialise
+    user1Hdl <- Trace.activateContractWallet w1 userContract
+    void $ createNftTokenTrace user1Hdl testToken1
+    void $ Trace.waitNSlots 5
+    Trace.callEndpoint @"walletInfo" user1Hdl ()
     void $ Trace.waitNSlots 5
 
 forgeMockNftToken:: 

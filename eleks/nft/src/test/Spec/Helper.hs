@@ -4,20 +4,22 @@
 module Spec.Helper
     where
 
-import           Contracts.NFT          as NFTMarket
-import           Plutus.Contract.Test   hiding (not)
-import qualified Data.ByteString.Char8  as B
-import qualified Data.Semigroup         as Semigroup
-import           Data.String            (fromString)
-import           Data.Monoid            (Last (..))
-import           Data.Text              (Text)
-import           Data.Void              (Void)
-import qualified Spec.MockNFTCurrency   as MockCurrency
-import           Ledger                 (PubKeyHash, pubKeyHash)
-import           Ledger.Value           (CurrencySymbol(..), TokenName (..), AssetClass(..), toString)
-import qualified Plutus.Trace.Emulator  as Trace
-import           PlutusTx.Prelude       (toBuiltin)
-import           Wallet.Emulator        (Wallet(..), walletPubKey)
+import           Contracts.NFT              as NFTMarket
+import           Plutus.Contract.Test       hiding (not)
+import qualified Data.ByteString.Char8      as B
+import qualified Data.Semigroup             as Semigroup
+import           Data.String                (fromString)
+import           Data.Monoid                (Last (..))
+import           Data.Text                  (Text)
+import           Data.Void                  (Void)
+import qualified Spec.MockNFTCurrency       as MockCurrency
+import           Ledger                     (PubKeyHash, pubKeyHash)
+import           Ledger.Ada                 as Ada
+import           Ledger.Value               (CurrencySymbol(..), TokenName (..), AssetClass(..), toString, Value)
+import           Plutus.V1.Ledger.Value     (singleton, tokenName, currencySymbol)     
+import qualified Plutus.Trace.Emulator      as Trace
+import           PlutusTx.Prelude           (toBuiltin)
+import           Wallet.Emulator            (Wallet(..), walletPubKey)
 
 ownerWallet' :: Wallet
 ownerWallet' = w5
@@ -113,6 +115,18 @@ createNftMeta testToken = NFTMetadata
     , nftSeller = testTokenSeller testToken
     , nftSellPrice = testTokenSellPrice testToken
     }
+
+walletAdaAmount :: Integer
+walletAdaAmount = 99988318
+
+walletMockData :: Value
+walletMockData = singleton (testTokenSymbol testToken1) (testTokenName testToken1) 1 <> lovelaceValueOf walletAdaAmount
+
+adaCurrency :: CurrencySymbol
+adaCurrency = currencySymbol ""
+
+adaName :: TokenName
+adaName = tokenName ""
 
 extractNFTMarket:: Trace.ContractHandle ( Last (Either Text NFTMarket)) MarketOwnerSchema Void -> Trace.EmulatorTrace NFTMarket
 extractNFTMarket handle = do
