@@ -193,9 +193,9 @@ closeSale marketplace CloseLotParams {..} = do
 
 data StartAnAuctionParams =
   StartAnAuctionParams {
-    saapItemId  :: UserItemId,
+    saapItemId       :: UserItemId,
     saapInitialPrice :: Ada,
-    saapEndTime :: POSIXTime
+    saapEndTime      :: POSIXTime
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)

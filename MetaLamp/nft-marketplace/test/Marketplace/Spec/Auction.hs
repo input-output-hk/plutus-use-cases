@@ -256,8 +256,8 @@ cancelAuctionWhenTimeIsOverTrace :: Trace.EmulatorTrace ()
 cancelAuctionWhenTimeIsOverTrace = do
   h <- CreateNft.createNftTrace
   let startAuctionParamsWithLessTime = startAnAuctionParams {Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (5 * 1000))}
-  
-  _ <- Trace.callEndpoint @"startAnAuction" h startAuctionParamsWithLessTime 
+
+  _ <- Trace.callEndpoint @"startAnAuction" h startAuctionParamsWithLessTime
 
   _ <- Trace.waitNSlots 50
 

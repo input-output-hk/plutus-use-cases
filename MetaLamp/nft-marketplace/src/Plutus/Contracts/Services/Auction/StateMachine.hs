@@ -144,7 +144,7 @@ auctionTransition getAdditionalPayoutConstraints params@Auction{..} state@State{
                     <> additionalConstraints
                 newState = State { stateData = Finished h, stateValue = mempty }
             in Just (constraints, newState)
-            
+
         (Ongoing h@HighestBid{highestBidder, highestBid}, Cancel) ->
             let
                 constraints =

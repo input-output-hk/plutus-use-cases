@@ -102,7 +102,7 @@ payoutAuction auction = do
         SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
 
 cancelAuction :: Auction -> Contract w s AuctionError ()
-cancelAuction auction = do 
+cancelAuction auction = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
     r <- SM.runStep client Cancel
