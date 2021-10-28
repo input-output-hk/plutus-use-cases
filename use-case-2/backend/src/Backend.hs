@@ -48,6 +48,8 @@ import Rhyolite.Backend.Listen
 import Rhyolite.Concurrent
 import Safe (lastMay)
 import Statistics.Regression
+import System.Exit
+import System.Process
 
 import Backend.Notification
 import Backend.Schema
@@ -82,6 +84,9 @@ backend = Backend
   , _backend_routeEncoder = fullRouteEncoder
   }
 
+uniswapScriptAddress :: Text
+uniswapScriptAddress = "addr_test1wpr9r6r6q0wgydckagwh52kvw2fxwq3mc3mpcym7l6l9lzqgvz4f8"
+
 -- | Handle requests / commands, a standard part of Obelisk apps.
 requestHandler :: Manager -> Pool Pg.Connection -> RequestHandler Api IO
 requestHandler httpManager pool = RequestHandler $ \case
@@ -94,6 +99,7 @@ requestHandler httpManager pool = RequestHandler $ \case
   Api_CallFunds cid -> callFunds httpManager cid
   Api_CallPools cid -> callPools httpManager cid
   Api_EstimateTransactionFee action -> estimateTransactionFee pool action
+  Api_BuildStaticSwapTransaction txHash collateralTxHash walletAddress -> buildStaticSwapTransaction txHash collateralTxHash walletAddress
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler dbNotification _ = case _dbNotification_message dbNotification of
@@ -563,3 +569,31 @@ runBeamSerializable
       => m a)
   -> Serializable a
 runBeamSerializable action = unsafeMkSerializable $ liftIO . flip runBeamPostgres action =<< ask
+
+buildStaticSwapTransaction :: Text -> Text -> Text -> IO (Either String Text)
+buildStaticSwapTransaction txHash collateralTxHash changeAddress = do
+  print "buildStaticSwapTransaction: Start!"
+  print $ "buildStaticSwapTransaction: value of txHash is " <> txHash
+  print $ "buildStaticSwapTransaction: value of collateralTxHash is " <> collateralTxHash
+  print $ "buildStaticSwapTransaction: value of changeAddress is " <> changeAddress
+  (exitCode, stdIn, err) <- readProcessWithExitCode "./scripts/handleSwap.sh"
+    [(T.unpack txHash)
+    , "~/Documents/Obsidian/bobTheBuilder5/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/uniswapPlutusScript.plutus"
+    , "~/Documents/Obsidian/bobTheBuilder5/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/poolDatum.plutus"
+    , "~/Documents/Obsidian/bobTheBuilder5/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/rawSwap-redeemer"
+    , (T.unpack collateralTxHash)
+    , (T.unpack uniswapScriptAddress)
+    , "e41bbd4c8c419c825945d05499ba41cc53181b44b8ac056d24dbdb42.PikaCoin"
+    , (T.unpack changeAddress)
+    , "~/Documents/Obsidian/IOHK/cardano-node/result/alonzo-purple/payment.skey"
+    , "5815e952c71c605055521a48edb676ee4090f4a69a95d46252a9d2da6da459ef#0"
+    , "5815e952c71c605055521a48edb676ee4090f4a69a95d46252a9d2da6da459ef#1"
+    , "207875f104148d5f3bacb2601ce9ee519defbd276be5fe241d84107a.PoolState"
+    ] []
+  case exitCode of
+    ExitFailure _ -> do
+      print $ show err
+      -- TODO: Based on the exit code, determine whether to return Right or Left
+      return $ Left $ "Transaction not built: " ++ (show err)
+    ExitSuccess -> return $ Right $ T.pack $ show stdIn
+

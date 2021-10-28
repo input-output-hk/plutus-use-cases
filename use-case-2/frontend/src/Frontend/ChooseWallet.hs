@@ -21,10 +21,15 @@ import Control.Category
 import Control.Applicative
 import Control.Lens
 import Control.Monad
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.Aeson
+import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Vector as V
 import Data.Vessel
 import Data.Vessel.Identity
 import Data.Vessel.Vessel
@@ -33,10 +38,13 @@ import Obelisk.Route
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
 import Rhyolite.Frontend.App
+import Safe
 
 import Common.Api
 import Common.Route
 import Frontend.NavBar
+
+import Language.Javascript.JSaddle
 
 chooseWallet
   :: forall t m js
@@ -66,6 +74,44 @@ chooseWallet = do
               forM_ walletIds $ \wid -> do
                 (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
                 setRoute $ (FrontendRoute_WalletRoute :/ (wid, WalletRoute_Swap :/ ())) <$ domEvent Click e
+      elClass "h3" "display-5 fw-bold" $ text "Real Node Static Smart Contract Transaction"
+      el "p" $ text "Use the button below to perform static swap using Nami Wallet against a real Alonzo Node with a smart contract that is deployed to test net magic 8!"
+      staticSwapEv <- button "Swap ADA for PikaCoin"
+      staticSwapRequestEv <- prerender (pure never) $ liftJSM $ do
+        jsWalletAddress <- eval ("window.cardano.getBalance().then(result => result);" :: Text)
+        walletAddress <- valToText jsWalletAddress -- Note: can throw an exception
+        jsWalletUtxo <- eval ("(async () => { let x = await window.cardano.getUtxos(); console.log(x); return x;})();" :: Text)
+        -- cdno <- jsg "window" ! "cardano"
+        -- jsWalletUtxo2 <- cdno ^. js0 "getUtxos"
+        jsonWalletUtxo <- valToJSON jsWalletUtxo
+        let aesonValToText :: Aeson.Value -> Text
+            aesonValToText val = case val of
+              Aeson.String txtVal -> txtVal
+              _ -> ("" :: Text)
+            jsValueWalletUtxo = toJSON jsonWalletUtxo
+            walletUtxos = headMay $ map aesonValToText $ case jsValueWalletUtxo of
+              Aeson.Array utxoVector -> V.toList utxoVector
+              _ -> []
+        liftIO $ print $ show jsonWalletUtxo
+        jsCollateralUtxo <- eval ("window.cardano.getCollateral().then(result => result);" :: Text)
+        jsonCollateralUtxo <- valToJSON jsWalletUtxo
+        let jsValueCollateralUtxo = toJSON jsonCollateralUtxo
+            collateralUtxos = headMay $ map aesonValToText $ case jsValueCollateralUtxo of
+              Aeson.Array utxoVector -> V.toList utxoVector
+              _ -> []
+        liftIO $ print $ show jsonCollateralUtxo
+        let requestLoad = Api_BuildStaticSwapTransaction
+               (fromMaybe ""  walletUtxos)
+               (fromMaybe ""  collateralUtxos)
+               walletAddress
+        return $ requestLoad <$ staticSwapEv
+        return never
+      let newEv = switchDyn staticSwapRequestEv
+      staticSwapResponse <- requestingIdentity newEv
+      widgetHold blank $ ffor staticSwapResponse $ \case
+        Left err -> text $ T.pack err
+        Right sth -> text sth
+      return ()
 
 viewContracts
   :: ( MonadQuery t (Vessel Q (Const SelectedCount)) m

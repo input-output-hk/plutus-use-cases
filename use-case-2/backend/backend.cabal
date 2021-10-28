@@ -28,6 +28,7 @@ library
                , monad-logger
                , mtl
                , postgresql-simple
+               , process
                , resource-pool
                , rhyolite-backend
                , rhyolite-backend-db
