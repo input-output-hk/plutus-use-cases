@@ -48,6 +48,7 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID          as Cor
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
 import qualified Plutus.Contracts.Services.Auction                        as Auction
 import qualified Plutus.Contracts.Services.Sale                           as Sale
+import           Plutus.V1.Ledger.Time                                    (POSIXTime (..))
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
 import           PlutusTx.Prelude                                         hiding
@@ -56,6 +57,7 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
+
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -191,9 +193,9 @@ closeSale marketplace CloseLotParams {..} = do
 
 data StartAnAuctionParams =
   StartAnAuctionParams {
-    saapItemId       :: UserItemId,
+    saapItemId  :: UserItemId,
     saapInitialPrice :: Ada,
-    saapDuration     :: Integer  --- TODO: use DiffMilliSeconds here, when it will be possible
+    saapEndTime :: POSIXTime
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -212,13 +214,14 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currTime <- currentTime
-    let endTime = currTime + fromMilliSeconds (DiffMilliSeconds saapDuration)
+    when (saapEndTime < currTime) $ throwError "Auction end time is from the past"
+
     self <- Ledger.pubKeyHash <$> ownPubKey
     let startAuctionParams = Auction.StartAuctionParams {
       sapOwner = self,
       sapAsset = auctionValue,
       sapInitialPrice = saapInitialPrice,
-      sapEndTime = endTime,
+      sapEndTime = saapEndTime,
       sapAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }
     auction <- mapError (T.pack . Haskell.show) $ Auction.startAuction startAuctionParams

@@ -41,6 +41,7 @@ common lang
 library
     import: lang
     exposed-modules:
+      Ext.Plutus.Ledger.Time
       Ext.Plutus.Ledger.Value
       Ext.Plutus.PAB.Webserver.Server
       Plutus.Abstract.ContractResponse
@@ -72,6 +73,8 @@ library
       QuickCheck,
       aeson,
       base >= 4.9 && < 5,
+      time,
+      avro,
       bytestring,
       containers,
       cryptonite,
