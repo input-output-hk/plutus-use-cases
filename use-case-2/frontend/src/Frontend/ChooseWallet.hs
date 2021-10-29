@@ -77,35 +77,48 @@ chooseWallet = do
       elClass "h3" "display-5 fw-bold" $ text "Real Node Static Smart Contract Transaction"
       el "p" $ text "Use the button below to perform static swap using Nami Wallet against a real Alonzo Node with a smart contract that is deployed to test net magic 8!"
       staticSwapEv <- button "Swap ADA for PikaCoin"
+      ----------------------
+      (utxosEv, utxosTrigger) <- newTriggerEvent
+      dynWalletUtxo <- holdDyn "" utxosEv
+      (collateralEv, collateralTrigger) <- newTriggerEvent
+      dynCollateralUtxo <- holdDyn "" collateralEv
+      (addressEv, addressTrigger) <- newTriggerEvent
+      dynAddress <- holdDyn "" addressEv
       staticSwapRequestEv <- prerender (pure never) $ liftJSM $ do
-        jsWalletAddress <- eval ("window.cardano.getBalance().then(result => result);" :: Text)
+        let getUtxosCallback :: JSCallAsFunction
+            getUtxosCallback = fun $ \_ _ args -> case args of
+              (i:_) -> do
+                fromJSVal i >>= \case
+                  Just (a :: Text) -> liftIO (utxosTrigger a)
+                  _ -> pure ()
+              _ -> pure ()
+            getCollateralCallback :: JSCallAsFunction
+            getCollateralCallback = fun $ \_ _ args -> case args of
+              (i:_) -> do
+                fromJSVal i >>= \case
+                  Just (a :: Text) -> liftIO (collateralTrigger a)
+                  _ -> pure ()
+              _ -> pure ()
+            getAddressCallback :: JSCallAsFunction
+            getAddressCallback = fun $ \_ _ args -> case args of
+              (i:_) -> do
+                fromJSVal i >>= \case
+                  Just (a :: Text) -> liftIO (addressTrigger a)
+                  _ -> pure ()
+              _ -> pure ()
+        jsWalletAddress <- eval
+          ("(async function foo (someparam) { let x = await window.cardano.getUsedAddresses(); console.log(x[0]); someparam(x[0]); })" :: Text)
+        _ <- call jsWalletAddress jsWalletAddress (getAddressCallback)
         walletAddress <- valToText jsWalletAddress -- Note: can throw an exception
-        jsWalletUtxo <- eval ("(async () => { let x = await window.cardano.getUtxos(); console.log(x); return x;})();" :: Text)
-        -- cdno <- jsg "window" ! "cardano"
-        -- jsWalletUtxo2 <- cdno ^. js0 "getUtxos"
-        jsonWalletUtxo <- valToJSON jsWalletUtxo
-        let aesonValToText :: Aeson.Value -> Text
-            aesonValToText val = case val of
-              Aeson.String txtVal -> txtVal
-              _ -> ("" :: Text)
-            jsValueWalletUtxo = toJSON jsonWalletUtxo
-            walletUtxos = headMay $ map aesonValToText $ case jsValueWalletUtxo of
-              Aeson.Array utxoVector -> V.toList utxoVector
-              _ -> []
-        liftIO $ print $ show jsonWalletUtxo
-        jsCollateralUtxo <- eval ("window.cardano.getCollateral().then(result => result);" :: Text)
-        jsonCollateralUtxo <- valToJSON jsWalletUtxo
-        let jsValueCollateralUtxo = toJSON jsonCollateralUtxo
-            collateralUtxos = headMay $ map aesonValToText $ case jsValueCollateralUtxo of
-              Aeson.Array utxoVector -> V.toList utxoVector
-              _ -> []
-        liftIO $ print $ show jsonCollateralUtxo
-        let requestLoad = Api_BuildStaticSwapTransaction
-               (fromMaybe ""  walletUtxos)
-               (fromMaybe ""  collateralUtxos)
-               walletAddress
-        return $ requestLoad <$ staticSwapEv
-        return never
+        jsWalletUtxo2 <- eval ("(async function foo (someparam) { let x = await window.cardano.getUtxos(); console.log(x[0]); someparam(x[0]); })" :: Text)
+        _ <- call jsWalletUtxo2 jsWalletUtxo2 (getUtxosCallback)
+        jsCollateralUtxo2 <- eval ("(async function foo (someparam) { let x = await window.cardano.getCollateral(); console.log(x); someparam(x); })" :: Text)
+        _ <- call jsCollateralUtxo2 jsCollateralUtxo2 (getCollateralCallback)
+        let requestLoad = (\w c a -> Api_BuildStaticSwapTransaction w c a)
+               <$> dynWalletUtxo
+               <*> dynCollateralUtxo
+               <*> dynAddress
+        return $ tagPromptlyDyn requestLoad staticSwapEv
       let newEv = switchDyn staticSwapRequestEv
       staticSwapResponse <- requestingIdentity newEv
       widgetHold blank $ ffor staticSwapResponse $ \case

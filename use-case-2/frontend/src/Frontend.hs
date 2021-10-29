@@ -54,7 +54,6 @@ frontend = Frontend
       -- during prerendering and a different widget to run on the client with
       -- JavaScript. The following will generate a `blank` widget on the server and
       -- print "Hello, World!" on the client.
-      prerender_ blank $ liftJSM $ void $ eval ("window.cardano.enable();" :: T.Text)
       let errorLeft e = case e of
             Left _ -> error "runFrontend: Unexpected non-app ObeliskRoute reached the frontend. This shouldn't happen."
             Right x -> x
