@@ -33,13 +33,13 @@ tests =
     [ checkPredicateOptions
         Fixtures.options
         "1 Should create the Marketplace entry hiding issuer"
-        datumsCheck
+        valueCheck
         (void importNftTrace)
     ]
 
 importNftParams :: Marketplace.ImportNftParams
 importNftParams = Marketplace.ImportNftParams {
-                        Marketplace.inpNftCurrency = "hmmidk",
+                        Marketplace.inpNftCurrency = "hmmidk",  -- ????
                         Marketplace.inpIpfsCid        = Fixtures.catTokenIpfsCid,
                         Marketplace.inpNftName        = Fixtures.catTokenName,
                         Marketplace.inpNftDescription = Fixtures.catTokenDescription,
@@ -51,6 +51,7 @@ importNftTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Te
 importNftTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
+  _ <- Trace.callEndpoint @"mintNFT" h Fixtures.catTokenIpfsCid
   _ <- Trace.callEndpoint @"importNft" h importNftParams
   _ <- Trace.waitNSlots 50
   pure h
@@ -78,7 +79,7 @@ datumsCheck' =
     (Utils.checkOneDatum (containsNft . Marketplace.mdSingletons))
     where
       containsNft = maybe False (\t -> (t ^. Marketplace._nftLot & isNothing) &&
-                                t ^. Marketplace._nftRecord . Marketplace._niIssuer == Just (Utils.walletPkh Fixtures.userWallet) &&
+                                t ^. Marketplace._nftRecord . Marketplace._niIssuer == Nothing &&
                                 (t ^. Marketplace._nftRecord & Fixtures.hasCatTokenRecord)) .
                     AssocMap.lookup Fixtures.catTokenIpfsCidHash
 
