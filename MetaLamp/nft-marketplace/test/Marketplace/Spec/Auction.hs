@@ -80,9 +80,24 @@ tests =
         buyOnAuctionTrace,
       checkPredicateOptions
         Fixtures.options
-        "Should close auction and pay pay marketplace operator a saleFee"
+        "Should close auction and pay marketplace operator a saleFee"
         (marketplaceOperatorFeeCheck .&&. sellerProfitWithFeeCheck)
-        buyOnAuctionTrace
+        buyOnAuctionTrace,
+      checkPredicateOptions
+        Fixtures.options
+        "Should cancel auction and get NFT back to owner when no bids"
+        (cancelAuctionDatumsCheck .&&. cancelAnAuctionValueCheck)
+        cancelAuctionWithoutBidsTrace,
+      checkPredicateOptions
+        Fixtures.options
+        "Should cancel auction and get NFT and bid back to owner and bidder"
+        (cancelAuctionDatumsCheck .&&. cancelAnAuctionValueCheck .&&. cancelAnAuctionBidReturningCheck)
+        cancelAuctionWithBidsTrace,
+      checkPredicateOptions
+        Fixtures.options
+        "Should not cancel auction if time is over"
+        errorCheckCancel
+        cancelAuctionWhenTimeIsOverTrace
     ],
   testGroup
     "NFT bundles"
@@ -116,7 +131,17 @@ tests =
         Fixtures.options
         "Should close bundle auction and pay marketplace operator a saleFee"
         (marketplaceOperatorFeeCheckB .&&. sellerProfitWithFeeCheckB)
-        buyOnAuctionTraceB
+        buyOnAuctionTraceB,
+      checkPredicateOptions
+        Fixtures.options
+        "Should cancel auction and get bundle back to owner when no bids"
+        (cancelAuctionDatumsCheckB .&&. cancelAnAuctionValueCheckB)
+        cancelAuctionWithoutBidsTraceB,
+      checkPredicateOptions
+        Fixtures.options
+        "Should cancel auction and get bundle and bid back to owner and bidder"
+        (cancelAuctionDatumsCheckB .&&. cancelAnAuctionValueCheckB .&&. cancelAnAuctionBidReturningCheckB)
+        cancelAuctionWithBidsTraceB
     ]]
 
 -- Setted up for Simulation and Emulators in plutus Ledger.TimeSlot module
@@ -208,6 +233,39 @@ buyOnAuctionTrace = do
   _ <- Trace.waitNSlots 250
   pure ()
 
+cancelAuctionWithBidsTrace :: Trace.EmulatorTrace ()
+cancelAuctionWithBidsTrace = do
+  h <- startAnAuctionTrace
+
+  h1 <- Trace.activateContractWallet Fixtures.buyerWallet $ Marketplace.userEndpoints Fixtures.marketplace
+  _ <- Trace.callEndpoint @"bidOnAuction" h1 bidOnAuctionParams
+  _ <- Trace.callEndpoint @"cancelAnAuction" h closeLotParams
+
+  _ <- Trace.waitNSlots 50
+  pure ()
+
+cancelAuctionWithoutBidsTrace :: Trace.EmulatorTrace ()
+cancelAuctionWithoutBidsTrace = do
+  h <- startAnAuctionTrace
+  _ <- Trace.callEndpoint @"cancelAnAuction" h closeLotParams
+
+  _ <- Trace.waitNSlots 50
+  pure ()
+
+cancelAuctionWhenTimeIsOverTrace :: Trace.EmulatorTrace ()
+cancelAuctionWhenTimeIsOverTrace = do
+  h <- CreateNft.createNftTrace
+  let startAuctionParamsWithLessTime = startAnAuctionParams {Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (5 * 1000))}
+
+  _ <- Trace.callEndpoint @"startAnAuction" h startAuctionParamsWithLessTime
+
+  _ <- Trace.waitNSlots 50
+
+  _ <- Trace.callEndpoint @"cancelAnAuction" h closeLotParams
+
+  _ <- Trace.waitNSlots 50
+  pure ()
+
 startAnAuctionDatumsCheck :: TracePredicate
 startAnAuctionDatumsCheck =
   dataAtAddress
@@ -243,6 +301,27 @@ completeAnAuctionValueCheck =
     where
       hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
+cancelAuctionDatumsCheck :: TracePredicate
+cancelAuctionDatumsCheck =
+  dataAtAddress
+    Fixtures.marketplaceAddress
+    (Utils.checkOneDatum (nftNotOnAuction . Marketplace.mdSingletons))
+    where
+      nftNotOnAuction = maybe False (isNothing . Marketplace.nftLot) .
+                        AssocMap.lookup Fixtures.catTokenIpfsCidHash
+
+cancelAnAuctionValueCheck :: TracePredicate
+cancelAnAuctionValueCheck =
+  valueAtAddress
+    (walletAddress Fixtures.userWallet)
+    (Utils.one hasNft . V.flattenValue)
+    where
+      hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
+
+cancelAnAuctionBidReturningCheck :: TracePredicate
+cancelAnAuctionBidReturningCheck =
+  walletFundsChange Fixtures.buyerWallet $ lovelaceValueOf 0
+
 buyOnAuctionValueCheck :: TracePredicate
 buyOnAuctionValueCheck =
   valueAtAddress
@@ -259,6 +338,9 @@ errorCheckComplete = Utils.assertCrError (Proxy @"completeAnAuction") (Marketpla
 
 errorCheckBid :: TracePredicate
 errorCheckBid = Utils.assertCrError (Proxy @"bidOnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
+
+errorCheckCancel :: TracePredicate
+errorCheckCancel = Utils.assertCrError (Proxy @"cancelAnAuction") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.userWallet)
 
 -- \/\/\/ "NFT bundles"
 startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
@@ -327,6 +409,25 @@ buyOnAuctionTraceB = do
   _ <- Trace.waitNSlots 250
   pure ()
 
+cancelAuctionWithBidsTraceB :: Trace.EmulatorTrace ()
+cancelAuctionWithBidsTraceB = do
+  h <- startAnAuctionTraceB
+
+  h1 <- Trace.activateContractWallet Fixtures.buyerWallet $ Marketplace.userEndpoints Fixtures.marketplace
+  _ <- Trace.callEndpoint @"bidOnAuction" h1 bidOnAuctionParamsB
+  _ <- Trace.callEndpoint @"cancelAnAuction" h closeLotParamsB
+
+  _ <- Trace.waitNSlots 50
+  pure ()
+
+cancelAuctionWithoutBidsTraceB :: Trace.EmulatorTrace ()
+cancelAuctionWithoutBidsTraceB = do
+  h <- startAnAuctionTraceB
+  _ <- Trace.callEndpoint @"cancelAnAuction" h closeLotParamsB
+
+  _ <- Trace.waitNSlots 50
+  pure ()
+
 startAnAuctionDatumsCheckB :: TracePredicate
 startAnAuctionDatumsCheckB =
   dataAtAddress
@@ -363,6 +464,28 @@ completeAnAuctionValueCheckB =
     where
       hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
       hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCidBs
+
+cancelAuctionDatumsCheckB :: TracePredicate
+cancelAuctionDatumsCheckB =
+  dataAtAddress
+    Fixtures.marketplaceAddress
+    (Utils.checkOneDatum (bundleNotOnAuction . Marketplace.mdBundles))
+    where
+      bundleNotOnAuction = maybe False (Prelude.not . Marketplace.hasLotBundle) .
+                           AssocMap.lookup Fixtures.bundleId
+
+cancelAnAuctionValueCheckB :: TracePredicate
+cancelAnAuctionValueCheckB =
+  valueAtAddress
+    (walletAddress Fixtures.userWallet) $
+    \v -> (Utils.one hasCatToken . V.flattenValue $ v) && (Utils.one hasPhotoToken . V.flattenValue $ v)
+    where
+      hasCatToken v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
+      hasPhotoToken v = (v ^. _2 & V.unTokenName) == Fixtures.photoTokenIpfsCidBs
+
+cancelAnAuctionBidReturningCheckB :: TracePredicate
+cancelAnAuctionBidReturningCheckB =
+  walletFundsChange Fixtures.buyerWallet $ lovelaceValueOf 0
 
 buyOnAuctionValueCheckB :: TracePredicate
 buyOnAuctionValueCheckB =

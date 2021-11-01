@@ -101,6 +101,16 @@ payoutAuction auction = do
         SM.TransitionSuccess (Finished h) -> logInfo $ AuctionEnded h
         SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
 
+cancelAuction :: Auction -> Contract w s AuctionError ()
+cancelAuction auction = do
+    let inst         = typedValidator auction
+        client       = machineClient inst auction
+    r <- SM.runStep client Cancel
+    case r of
+        SM.TransitionFailure i            -> logError (TransitionFailed i)
+        SM.TransitionSuccess Canceled -> logInfo $ AuctionCanceled
+        SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
+
 -- | Get the current state of the contract and log it.
 currentState :: Auction -> Contract w s AuctionError (Maybe AuctionState)
 currentState auction = mapError StateMachineContractError (SM.getOnChainState client) >>= \case
@@ -133,6 +143,7 @@ data AuctionLog =
     | AuctionFailed SM.SMContractError
     | BidSubmitted HighestBid
     | AuctionEnded HighestBid
+    | AuctionCanceled
     | CurrentStateNotFound
     | TransitionFailed (SM.InvalidTransition AuctionState AuctionInput)
     deriving stock (Haskell.Show, Generic)
