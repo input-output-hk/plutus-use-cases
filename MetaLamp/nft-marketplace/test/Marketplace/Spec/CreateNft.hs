@@ -52,7 +52,7 @@ createNftParams = Marketplace.CreateNftParams {
                         Marketplace.cnpRevealIssuer   = False
                     }
 
-createNftTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+createNftTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 createNftTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace

@@ -41,7 +41,7 @@ common lang
 library
     import: lang
     exposed-modules:
-      Ext.Plutus.Contracts.Auction
+      Ext.Plutus.Ledger.Time
       Ext.Plutus.Ledger.Value
       Ext.Plutus.PAB.Webserver.Server
       Plutus.Abstract.ContractResponse
@@ -59,6 +59,10 @@ library
       Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace
       Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
       Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine
+      Plutus.Contracts.Services.Auction
+      Plutus.Contracts.Services.Auction.Core
+      Plutus.Contracts.Services.Auction.Endpoints
+      Plutus.Contracts.Services.Auction.StateMachine
       Plutus.Contracts.Services.Sale
       Plutus.Contracts.Services.Sale.Core
       Plutus.Contracts.Services.Sale.Endpoints
@@ -69,6 +73,8 @@ library
       QuickCheck,
       aeson,
       base >= 4.9 && < 5,
+      time,
+      avro,
       bytestring,
       containers,
       cryptonite,
@@ -163,7 +169,6 @@ test-suite test
     main-is: Main.hs
     hs-source-dirs: test
     other-modules:
-      Abstract.ContractRespSpec 
       Abstract.Percentage
       Abstract.RemoteDataSpec 
       Marketplace.Fixtures

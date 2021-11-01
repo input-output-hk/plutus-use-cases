@@ -48,55 +48,34 @@ import           PlutusTx.Prelude                 hiding (Monoid (..),
 import           Prelude                          (Monoid (..), Semigroup (..),
                                                    show, subtract)
 import qualified Prelude
-import qualified Test.QuickCheck                  as Q
-import           Text.Printf                      (printf)
 
-newtype ContractResponse e a =
-  ContractResponse
-    { getEndpointResponses :: Map.Map Prelude.String (RemoteData e a)
-    }
+type ContractResponse k e a = Last (ContractState k e a)
+
+data ContractState k e a = ContractState {
+    endpointName :: k,
+    response     :: RemoteData e a
+}
   deriving  (Prelude.Eq, Prelude.Show, Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
-  deriving newtype (Q.Arbitrary)
-
-instance Semigroup (ContractResponse e a) where
-  (ContractResponse x) <> (ContractResponse y) = ContractResponse $ Map.unionWith (<>) x y
-
-instance Monoid (ContractResponse e a) where
-  mempty = ContractResponse mempty
-
-updateEndpointStatus :: forall a e proxy l. (KnownSymbol l) => proxy l -> RemoteData e a -> ContractResponse e a
-updateEndpointStatus p status = ContractResponse $ Map.singleton label status
-  where
-    label :: Prelude.String
-    label = symbolVal p
-
-getEndpointStatus :: forall a e proxy l. (KnownSymbol l) => proxy l -> ContractResponse e a -> RemoteData e a
-getEndpointStatus p (ContractResponse res) = fromMaybe NotAsked $ Map.lookup label res
-  where
-    label :: Prelude.String
-    label = symbolVal p
 
 withContractResponse :: forall l a p r s.
     (HasEndpoint l p s, FromJSON p)
     => Proxy l
     -> (a -> r)
-    -> (p -> Contract (ContractResponse Text r) s Text a)
-    -> Promise (ContractResponse Text r) s Void ()
+    -> (p -> Contract (ContractResponse Prelude.String Text r) s Text a)
+    -> Promise (ContractResponse Prelude.String Text r) s Void ()
 withContractResponse ep g c = do
+    let makeResponse = Last . Just . ContractState (symbolVal ep)
     handleEndpoint @l $ \case
-        Left err -> tellEndpointStatus ep $ Failure err
+        Left err -> tell . makeResponse . Failure $ err
         Right p -> do
-            _ <- tellEndpointStatus ep Loading
+            _ <- tell . makeResponse $ Loading
             e <- runError $ errorHandler `handleError` c p
-            tellEndpointStatus ep $ case e of
-                Left err -> Failure err
-                Right a  -> Success $ g a
+            tell $ case e of
+                Left err -> makeResponse . Failure $ err
+                Right a  -> makeResponse . Success . g $ a
 
 errorHandler :: Text -> Contract w s Text b
 errorHandler e = do
     logInfo @Text ("Error submiting the transaction: " <> e)
     throwError e
-
-tellEndpointStatus :: forall a s e ce proxy l m. (KnownSymbol l) => proxy l -> RemoteData e a -> Contract (ContractResponse e a) s ce ()
-tellEndpointStatus p status = tell $ updateEndpointStatus p status

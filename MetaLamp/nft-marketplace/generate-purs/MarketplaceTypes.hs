@@ -11,36 +11,44 @@
 
 module MarketplaceTypes where
 
-import           Control.Monad.Reader                             (MonadReader)
-import           Data.Proxy                                       (Proxy (Proxy))
-import qualified Ext.Plutus.Contracts.Auction                     as Auction
-import           Language.PureScript.Bridge                       (BridgePart,
-                                                                   Language (Haskell),
-                                                                   PSType,
-                                                                   SumType,
-                                                                   TypeInfo (TypeInfo),
-                                                                   buildBridge,
-                                                                   equal,
-                                                                   genericShow,
-                                                                   haskType,
-                                                                   mkSumType,
-                                                                   order,
-                                                                   psTypeParameters,
-                                                                   typeModule,
-                                                                   typeName,
-                                                                   writePSTypesWith,
-                                                                   (^==))
-import           Language.PureScript.Bridge.Builder               (BridgeData)
-import           Language.PureScript.Bridge.TypeParameters        (A, E)
-import           Plutus.Abstract.ContractResponse                 (ContractResponse)
-import qualified Plutus.Abstract.Percentage                       as Percentage
-import           Plutus.Abstract.RemoteData                       (RemoteData)
-import           Plutus.Contract.StateMachine.ThreadToken         (ThreadToken)
-import qualified Plutus.Contracts.NftMarketplace.Endpoints        as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core     as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.NFT as NFT
-import qualified Plutus.Contracts.Services.Sale                   as Sale
-import           Plutus.PAB.Simulation                            (MarketplaceContracts (..))
+import           Control.Monad.Reader                         (MonadReader)
+import           Data.Proxy                                   (Proxy (Proxy))
+import           Language.PureScript.Bridge                   (BridgePart,
+                                                               Language (Haskell),
+                                                               PSType, SumType,
+                                                               TypeInfo (TypeInfo),
+                                                               buildBridge,
+                                                               equal,
+                                                               genericShow,
+                                                               haskType,
+                                                               mkSumType, order,
+                                                               psTypeParameters,
+                                                               typeModule,
+                                                               typeName,
+                                                               writePSTypesWith,
+                                                               (^==))
+import           Language.PureScript.Bridge.Builder           (BridgeData)
+import           Language.PureScript.Bridge.TypeParameters    (A, E, K)
+import           Plutus.Abstract.ContractResponse             (ContractState)
+import qualified Plutus.Abstract.Percentage                   as Percentage
+import           Plutus.Abstract.RemoteData                   (RemoteData)
+import           Plutus.Contract.StateMachine.ThreadToken     (ThreadToken)
+import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
+import qualified Plutus.Contracts.Services.Auction            as Auction
+import qualified Plutus.Contracts.Services.Sale               as Sale
+import           Plutus.PAB.Simulation                        (MarketplaceContracts (..))
+
+psPosixTime :: MonadReader BridgeData m => m PSType
+psPosixTime =
+    TypeInfo "purescript-foreign-generic" "Plutus.V1.Ledger.Time" "POSIXTime" <$>
+    psTypeParameters
+
+posixTimeBridge :: BridgePart
+posixTimeBridge = do
+    typeName ^== "POSIXTime"
+    typeModule ^== "Plutus.V1.Ledger.Time"
+    psPosixTime
 
 marketplaceTypes :: [SumType 'Haskell]
 marketplaceTypes =
@@ -48,13 +56,15 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Percentage.Percentage)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
-          , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractResponse E A))
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceSettingsInfo)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(RemoteData E A))
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractState K E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceDatum)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserItemId)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.UserContractState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.InfoContractState)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.NftInfo)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.LotLink)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.NFT)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Bundle)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.BundleInfo)
@@ -64,7 +74,7 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Auction.HighestBid)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Sale.Sale)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Sale.SaleFee)
-          , (equal <*> (genericShow <*> mkSumType)) (Proxy @NFT.Auction)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Auction.Auction)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.CreateNftParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.OpenSaleParams)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.CloseLotParams)

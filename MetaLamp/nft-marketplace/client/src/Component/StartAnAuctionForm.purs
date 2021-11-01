@@ -14,9 +14,9 @@ import Utils.FormValidation as V
 import View.FormElement as UI
 
 type Slot
-  = H.Slot (F.Query Form (Const Void) ()) DurationOutput
+  = H.Slot (F.Query Form (Const Void) ()) AuctionOutput
 
-type DurationOutput
+type AuctionOutput
   = { | FormRow F.OutputType }
 
 newtype Form r f
@@ -26,12 +26,13 @@ derive instance newtypeForm :: Newtype (Form r f) _
 
 type FormRow f
   = ( duration :: f V.FieldError String Int -- Seconds
+    , initialPrice :: f V.FieldError String Int
     )
 
 component ::
   forall m.
   MonadAff m =>
-  F.Component Form (Const Void) () Unit DurationOutput m
+  F.Component Form (Const Void) () Unit AuctionOutput m
 component =
   F.component (const formInput)
     $ F.defaultSpec
@@ -44,6 +45,7 @@ component =
     { validators:
         Form
           { duration: V.strIsInt
+          , initialPrice: V.strIsInt
           }
     , initialInputs: Nothing
     }
@@ -51,6 +53,19 @@ component =
   renderForm { form } =
     UI.formContent_
       [ UI.input
+          { label: "Initial price:"
+          , help:
+              F.getResult prx.initialPrice form
+                # UI.resultToHelp
+                    "What is a minimal price you want to sell for?"
+          , placeholder: "10000"
+          }
+          [ HP.value $ F.getInput prx.initialPrice form
+          , HE.onValueInput
+              $ Just
+              <<< F.setValidate prx.initialPrice
+          ]
+      , UI.input
           { label: "Duration in seconds"
           , help:
               F.getResult prx.duration form

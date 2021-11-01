@@ -60,7 +60,7 @@ bundleUpParams =  Marketplace.BundleUpParams {
           Marketplace.bupCategory    = Fixtures.bundleCategory
         }
 
-bundleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+bundleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 bundleTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace

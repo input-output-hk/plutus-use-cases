@@ -117,7 +117,7 @@ closeLotParams =  Marketplace.CloseLotParams {
                       Marketplace.clpItemId    = Marketplace.UserNftId Fixtures.catTokenIpfsCid
                     }
 
-openSaleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+openSaleTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 openSaleTrace = do
   h <- CreateNft.createNftTrace
 
@@ -180,7 +180,7 @@ openSaleDatumsCheck =
     Fixtures.marketplaceAddress
     (Utils.checkOneDatum (nftIsOnSale . Marketplace.mdSingletons))
     where
-      nftIsOnSale = maybe False (\t -> t ^. Marketplace._nftLot ^? traverse . _2 . _Left & fmap Sale.saleValue &
+      nftIsOnSale = maybe False (\t -> Marketplace.getSaleFromNFT t & fmap Sale.saleValue &
                                 (== Just (Marketplace.nftValue Fixtures.catTokenIpfsCidBs t))) .
                     AssocMap.lookup Fixtures.catTokenIpfsCidHash
 
@@ -238,7 +238,7 @@ closeLotParamsB =  Marketplace.CloseLotParams {
                       Marketplace.clpItemId    = Marketplace.UserBundleId Fixtures.cids
                     }
 
-openSaleTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+openSaleTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 openSaleTraceB = do
   h <- Bundles.bundleTrace
 
@@ -282,7 +282,7 @@ openSaleDatumsCheckB =
     Fixtures.marketplaceAddress
     (Utils.checkOneDatum (bundleIsOnSale . Marketplace.mdBundles))
     where
-      bundleIsOnSale = maybe False (\b -> b ^. Marketplace._nbTokens ^? Marketplace._HasLot . _2 . _Left & fmap Sale.saleValue &
+      bundleIsOnSale = maybe False (\b -> Marketplace.getSaleFromBundle b & fmap Sale.saleValue &
                                 (== Just (Marketplace.bundleValue AssocMap.empty b))) .
                        AssocMap.lookup Fixtures.bundleId
 

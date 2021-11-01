@@ -2,7 +2,7 @@ module Business.Marketplace where
 
 import Prelude
 import Utils.APIError
-import Capability.Contract (class Contract, ContractId(..), Endpoint, getContracts)
+import Capability.Contract (class Contract, ContractId(..), Endpoint(..), getContracts)
 import Capability.PollContract (class PollContract, LeftPoll(..), PollError, PollResponse, pollEndpoint)
 import Control.Monad.Except (runExcept, throwError, withExcept)
 import Data.Either (Either)
@@ -14,12 +14,12 @@ import Data.Newtype (unwrap)
 import Data.RawJson (RawJson(..))
 import Data.UUID (toString) as UUID
 import Foreign.Generic (class Decode, class Encode, decodeJSON)
-import Plutus.Abstract.ContractResponse (ContractResponse(..))
 import Plutus.Abstract.RemoteData as PRD
 import Plutus.PAB.Events.ContractInstanceState (PartiallyDecodedResponse(..))
 import Plutus.PAB.Simulation (MarketplaceContracts)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState(..))
 import Wallet.Types (ContractInstanceId(..))
+import Plutus.Abstract.ContractResponse (ContractState(..))
 
 getMarketplaceContracts :: forall m. Contract m => m (Either APIError (Array (ContractInstanceClientState MarketplaceContracts)))
 getMarketplaceContracts = getContracts
@@ -41,10 +41,12 @@ getMarketplaceResponseWith endpoint pick cid param = pollEndpoint getNext endpoi
   getNext (ContractInstanceClientState { cicCurrentState: PartiallyDecodedResponse { observableState: RawJson s } }) =
     runExcept
       $ do
-          (contractResponse :: ContractResponse String s) <- withExcept (ResponseError <<< show) (decodeJSON s)
-          case lookup (unwrap endpoint) (unwrap contractResponse).getEndpointResponses of
-            Just (PRD.Failure e) -> throwError <<< ResponseError $ e
-            Just (PRD.Success state) ->
+          (fullResponse :: Maybe (ContractState String String s)) <- withExcept (ResponseError <<< show) (decodeJSON s)
+          ContractState { endpointName, response } <- maybe (throwError Continue) pure fullResponse
+          when (Endpoint endpointName /= endpoint) (throwError <<< ResponseError $ "Endpoint name mismatch")
+          case response of
+            PRD.Failure e -> throwError <<< ResponseError $ e
+            PRD.Success state ->
               maybe
                 (throwError <<< ResponseError $ "Invalid state: " <> (show state))
                 pure

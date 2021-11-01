@@ -25,6 +25,7 @@ import           Plutus.Abstract.ContractResponse             (ContractResponse,
                                                                withContractResponse)
 import           Plutus.Abstract.Percentage                   (Fractional,
                                                                mkPercentage)
+import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency
@@ -66,5 +67,5 @@ data OwnerContractState = Started Core.Marketplace
 
 Lens.makeClassyPrisms ''OwnerContractState
 
-ownerEndpoints :: Promise (ContractResponse Text OwnerContractState) MarketplaceOwnerSchema Void ()
+ownerEndpoints :: Promise (ContractResponse Haskell.String Text OwnerContractState) MarketplaceOwnerSchema Void ()
 ownerEndpoints = withContractResponse (Proxy @"start") Started (start) <> ownerEndpoints

@@ -15,7 +15,6 @@ import           Data.Maybe                                   (isNothing)
 import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
-import qualified Ext.Plutus.Contracts.Auction                 as Auction
 import           Ledger                                       (Value)
 import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Value                                 as V
@@ -27,7 +26,11 @@ import           Plutus.Abstract.ContractResponse             (ContractResponse)
 import           Plutus.Contract.Test
 import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
+import qualified Plutus.Contracts.Services.Auction.Core       as Auction
 import qualified Plutus.Trace                                 as Trace
+import           Plutus.V1.Ledger.Time                        (DiffMilliSeconds (..),
+                                                               POSIXTime (..),
+                                                               fromMilliSeconds)
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
@@ -116,15 +119,17 @@ tests =
         buyOnAuctionTraceB
     ]]
 
-auctionValue :: Marketplace.Auction -> Value
-auctionValue = Auction.apAsset . Marketplace.fromAuction
+-- Setted up for Simulation and Emulators in plutus Ledger.TimeSlot module
+beginningOfTime :: Integer
+beginningOfTime = 1596059091000
 
 -- \/\/\/ "NFT singletons"
 startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    Marketplace.saapDuration = 155 * 1000
+    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (155 * 1000)),
+    Marketplace.saapInitialPrice = fromInteger $ 5 * Fixtures.oneAdaInLovelace
   }
 
 closeLotParams ::        Marketplace.CloseLotParams
@@ -137,7 +142,7 @@ bidOnAuctionParams = Marketplace.BidOnAuctionParams {
             Marketplace.boapBid    = fromInteger $ 25 * Fixtures.oneAdaInLovelace
           }
 
-startAnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+startAnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 startAnAuctionTrace = do
   h <- CreateNft.createNftTrace
 
@@ -174,7 +179,7 @@ completeAnAuctionTrace' = do
   _ <- Trace.waitNSlots 50
   pure ()
 
-bidOnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+bidOnAuctionTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 bidOnAuctionTrace = do
   _ <- startAnAuctionTrace
 
@@ -209,7 +214,7 @@ startAnAuctionDatumsCheck =
     Fixtures.marketplaceAddress
     (Utils.checkOneDatum (nftIsOnAuction . Marketplace.mdSingletons))
     where
-      nftIsOnAuction = maybe False (\t -> t ^. Marketplace._nftLot ^? traverse . _2 . _Right & fmap auctionValue &
+      nftIsOnAuction = maybe False (\t -> Marketplace.getAuctionFromNFT t & fmap Auction.aAsset &
                                 (== Just (Marketplace.nftValue Fixtures.catTokenIpfsCidBs t))) .
                     AssocMap.lookup Fixtures.catTokenIpfsCidHash
 
@@ -260,7 +265,8 @@ startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    Marketplace.saapDuration = 142 * 1000
+    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (300 * 1000)),
+    Marketplace.saapInitialPrice = fromInteger $ 15 * Fixtures.oneAdaInLovelace
   }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
@@ -274,7 +280,7 @@ bidOnAuctionParamsB = Marketplace.BidOnAuctionParams {
             Marketplace.boapBid    = fromInteger $ 35 * Fixtures.oneAdaInLovelace
           }
 
-startAnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+startAnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 startAnAuctionTraceB = do
   h <- Bundles.bundleTrace
 
@@ -302,7 +308,7 @@ completeAnAuctionTraceB = do
   _ <- Trace.waitNSlots 250
   pure ()
 
-bidOnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
+bidOnAuctionTraceB :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 bidOnAuctionTraceB = do
   _ <- startAnAuctionTraceB
 
@@ -327,7 +333,7 @@ startAnAuctionDatumsCheckB =
     Fixtures.marketplaceAddress
     (Utils.checkOneDatum (bundleIsOnAuction . Marketplace.mdBundles))
     where
-      bundleIsOnAuction = maybe False (\b -> b ^. Marketplace._nbTokens ^? Marketplace._HasLot . _2 . _Right & fmap auctionValue &
+      bundleIsOnAuction = maybe False (\b -> Marketplace.getAuctionFromBundle b & fmap Auction.aAsset &
                                 (== Just (Marketplace.bundleValue AssocMap.empty b))) .
                           AssocMap.lookup Fixtures.bundleId
 

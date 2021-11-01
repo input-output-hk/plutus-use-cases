@@ -1,4 +1,5 @@
 generated
+generated.ts
 generated/
 generated-docs/
 node_modules/

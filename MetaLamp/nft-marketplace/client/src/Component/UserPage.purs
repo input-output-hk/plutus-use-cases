@@ -33,6 +33,7 @@ import Plutus.Contracts.NftMarketplace.OffChain.User (BundleUpParams(..), Create
 import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDatum)
 import Plutus.V1.Ledger.Value (Value)
 import View.NFT (renderNftBundles, renderNftSingletons)
+import Component.Utils as Utils
 
 type Slot id
   = forall query. H.Slot query Void id
@@ -62,7 +63,7 @@ data Action
   | CreateBundle CreateBundleForm.SubmittedBundle
   | Unbundle Datum.NftBundle
   | PutOnSale Datum.Item PutOnSaleForm.PriceOutput
-  | PutOnAuction Datum.Item StartAnAuctionForm.DurationOutput
+  | PutOnAuction Datum.Item StartAnAuctionForm.AuctionOutput
 
 type Slots
   = ( createNftForm :: CreateNftForm.Slot Unit
@@ -208,6 +209,7 @@ component =
         MarketplaceUser.startAnAuction contractId
           $ MarketplaceUser.StartAnAuctionParams
               { saapItemId: Datum.getItemId item
+              , saapInitialPrice: Utils.mkAdaFromInt p.initialPrice
               , saapDuration: fromInt (p.duration * 1000)
               }
       logInfo $ "Marketplace item put on auction: " <> show resp
