@@ -44,14 +44,28 @@ import qualified PlutusTx.AssocMap                      as AssocMap
 import           PlutusTx.Prelude                       hiding (Semigroup (..))
 import           Prelude                                (Semigroup (..))
 import qualified Prelude                                as Haskell
+import Plutus.Contracts.NftMarketplace.OffChain.Serialization (serializeByteString, deserializeByteString)
 
 -- Category = [BuiltinByteString]
 -- 1. acts as a list of category with nested subcategories
 -- 2. acts as a list of tags
 type IpfsCid = BuiltinByteString
 type IpfsCidHash = BuiltinByteString
-type Category = [BuiltinByteString]
+type Category = [PlutusBuiltinByteString]
 type BundleId = BuiltinByteString
+
+newtype PlutusBuiltinByteString = PlutusBuiltinByteString { getPlutusBuiltinByteString :: BuiltinByteString }
+  deriving (Haskell.Eq, Haskell.Show)
+
+PlutusTx.unstableMakeIsData ''PlutusBuiltinByteString
+
+PlutusTx.makeLift ''PlutusBuiltinByteString
+
+instance J.ToJSON PlutusBuiltinByteString where
+  toJSON (PlutusBuiltinByteString s) = J.String (serializeByteString s)
+
+instance J.FromJSON PlutusBuiltinByteString where
+  parseJSON (J.String s) = Haskell.pure . PlutusBuiltinByteString . deserializeByteString $ s
 
 data LotLink =
   SaleLotLink Sale.Sale
@@ -72,8 +86,8 @@ getLotValue (AuctionLotLink auction) = Auction.aAsset auction
 data NftInfo =
   NftInfo
     { niCurrency    :: !CurrencySymbol
-    , niName        :: !BuiltinByteString
-    , niDescription :: !BuiltinByteString
+    , niName        :: !PlutusBuiltinByteString
+    , niDescription :: !PlutusBuiltinByteString
     , niCategory    :: !Category
     , niIssuer      :: !(Maybe PubKeyHash)
     }
@@ -120,8 +134,8 @@ Lens.makeClassyPrisms ''Bundle
 
 data BundleInfo =
   BundleInfo
-    { biName        :: !BuiltinByteString
-    , biDescription :: !BuiltinByteString
+    { biName        :: !PlutusBuiltinByteString
+    , biDescription :: !PlutusBuiltinByteString
     , biCategory    :: !Category
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)

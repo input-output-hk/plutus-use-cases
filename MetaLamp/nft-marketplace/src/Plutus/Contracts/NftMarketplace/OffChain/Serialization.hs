@@ -8,3 +8,6 @@ import           PlutusTx.Prelude
 
 deserializeByteString :: Text -> BuiltinByteString
 deserializeByteString = toBuiltin . T.encodeUtf8
+
+serializeByteString :: BuiltinByteString -> Text
+serializeByteString = T.decodeUtf8 . fromBuiltin
