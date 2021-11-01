@@ -91,7 +91,7 @@ newtype NftId = NftId
   { -- | token name is identified by content of the NFT (it's hash of it).
     nftId'contentHash :: BuiltinByteString
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 instance Eq NftId where
