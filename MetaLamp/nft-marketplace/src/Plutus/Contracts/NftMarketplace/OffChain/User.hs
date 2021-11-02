@@ -58,7 +58,8 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-
+import           Ext.Plutus.Ledger.Value                         (utxosValue, findNftCurrencyByTokenName)
+import qualified Debug.Trace as Debug
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -103,14 +104,9 @@ createNft marketplace CreateNftParams {..} = do
     logInfo @Haskell.String $ printf "Created NFT %s with store entry %s" (Haskell.show nft) (Haskell.show nftEntry)
     pure ()
 
--- TODO: endpoint for test import
--- Can we remove from user endpoints and place in tests modules?
-mintNFT :: Text -> Contract w s Text ()
-mintNFT cnpIpfsCid = do
-    let ipfsCid = deserializeByteString cnpIpfsCid
-    let ipfsCidHash = sha2_256 ipfsCid
-    pkh <- getOwnPubKey
-    let tokenName = V.TokenName ipfsCid
+
+mintNFT :: PubKeyHash -> TokenName -> Contract w s Text ()
+mintNFT pkh tokenName = do
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
            Currency.mintContract pkh [(tokenName, 1)]
@@ -118,12 +114,12 @@ mintNFT cnpIpfsCid = do
 
 data ImportNftParams =
   ImportNftParams {
-    inpNftCurrency    :: Text, -- TODO: can't we get currency in another way?
     inpIpfsCid        :: Text,
     inpNftName        :: Text,
     inpNftDescription :: Text,
     inpNftCategory    :: [Text],
-    inpRevealIssuer   :: Bool
+    inpRevealIssuer   :: Bool,
+    inpMintBeforeImport :: Bool -- Is True for testing
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -137,12 +133,16 @@ importNft marketplace ImportNftParams {..} = do
     let ipfsCidHash = sha2_256 ipfsCid
     nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
     when (isJust $ AssocMap.lookup ipfsCidHash nftStore) $ throwError "Nft entry already exists"
-    -- TODO: check if NFT is exists in blockchain
     pkh <- getOwnPubKey
-    -- TODO: check if NFT owner is the person who try to import
+    let tokenName = V.TokenName ipfsCid
+    _ <- when inpMintBeforeImport $ mintNFT pkh tokenName
+    value <- utxosValue $ pubKeyHashAddress pkh
+    nftCurrency <- 
+        maybe (throwError "NFT doesn't exist or You are not an owner") pure $ findNftCurrencyByTokenName value tokenName
+    Debug.traceM $ "Values in wallet: " <> Haskell.show nftCurrency
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
-            { niCurrency          = V.currencySymbol . T.encodeUtf8 $ inpNftCurrency
+            { niCurrency    = nftCurrency
             , niName        = deserializeByteString inpNftName
             , niDescription = deserializeByteString inpNftDescription
             , niCategory = deserializeByteString <$> inpNftCategory
@@ -150,7 +150,7 @@ importNft marketplace ImportNftParams {..} = do
             }
     void $ mapError' $ runStep client $ Core.ImportNftRedeemer ipfsCidHash nftEntry
 
-    logInfo @Haskell.String $ printf "Imported NFT %s with store entry %s" (Haskell.show inpNftCurrency) (Haskell.show nftEntry)
+    logInfo @Haskell.String $ printf "Imported NFT %s with store entry %s" (Haskell.show nftCurrency) (Haskell.show nftEntry)
     pure ()
 
 data OpenSaleParams =
@@ -410,7 +410,6 @@ type MarketplaceUserSchema =
     .\/ Endpoint "unbundle" UnbundleParams
     .\/ Endpoint "ownPubKey" ()
     .\/ Endpoint "ownPubKeyBalance" ()
-    .\/ Endpoint "mintNFT" Text
 
 data UserContractState =
     NftCreated
@@ -425,7 +424,6 @@ data UserContractState =
     | Unbundled
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
-    | MintedNFT
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
@@ -444,6 +442,5 @@ userEndpoints marketplace =
     `select` withContractResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
     `select` withContractResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
-    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) 
-    `select` withContractResponse (Proxy @"mintNFT") (const MintedNFT) mintNFT <> userEndpoints marketplace
+    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints marketplace
     

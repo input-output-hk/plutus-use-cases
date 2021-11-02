@@ -39,19 +39,18 @@ tests =
 
 importNftParams :: Marketplace.ImportNftParams
 importNftParams = Marketplace.ImportNftParams {
-                        Marketplace.inpNftCurrency = "hmmidk",  -- ????
                         Marketplace.inpIpfsCid        = Fixtures.catTokenIpfsCid,
                         Marketplace.inpNftName        = Fixtures.catTokenName,
                         Marketplace.inpNftDescription = Fixtures.catTokenDescription,
                         Marketplace.inpNftCategory = Fixtures.catTokenCategory,
-                        Marketplace.inpRevealIssuer   = False
+                        Marketplace.inpRevealIssuer   = False,
+                        Marketplace.inpMintBeforeImport = True
                     }
 
 importNftTrace :: Trace.EmulatorTrace (Trace.ContractHandle (ContractResponse String Text Marketplace.UserContractState) Marketplace.MarketplaceUserSchema Void)
 importNftTrace = do
   _ <- Start.startTrace
   h <- Trace.activateContractWallet Fixtures.userWallet $ Marketplace.userEndpoints Fixtures.marketplace
-  _ <- Trace.callEndpoint @"mintNFT" h Fixtures.catTokenIpfsCid
   _ <- Trace.callEndpoint @"importNft" h importNftParams
   _ <- Trace.waitNSlots 50
   pure h

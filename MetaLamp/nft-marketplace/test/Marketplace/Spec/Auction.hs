@@ -80,7 +80,7 @@ tests =
         buyOnAuctionTrace,
       checkPredicateOptions
         Fixtures.options
-        "Should close auction and pay pay marketplace operator a saleFee"
+        "Should close auction and pay marketplace operator a saleFee"
         (marketplaceOperatorFeeCheck .&&. sellerProfitWithFeeCheck)
         buyOnAuctionTrace
     ],
