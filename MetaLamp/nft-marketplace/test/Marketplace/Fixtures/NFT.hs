@@ -19,9 +19,9 @@ bundleId = Marketplace.calcBundleIdHash $ fmap Marketplace.deserializeByteString
 
 bundleInfo :: Marketplace.BundleInfo
 bundleInfo = Marketplace.BundleInfo
-    { biName        = Marketplace.deserializeByteString bundleName
-    , biDescription = Marketplace.deserializeByteString bundleDescription
-    , biCategory    = Marketplace.deserializeByteString <$> bundleCategory
+    { biName        = Marketplace.deserializePlutusBuiltinBS bundleName
+    , biDescription = Marketplace.deserializePlutusBuiltinBS bundleDescription
+    , biCategory    = Marketplace.deserializePlutusBuiltinBS <$> bundleCategory
     }
 
 bundleName :: Text
@@ -53,9 +53,9 @@ catTokenCategory = ["GIFs"]
 
 hasCatTokenRecord :: Marketplace.NftInfo -> Bool
 hasCatTokenRecord Marketplace.NftInfo {..} =
-  niCategory == (Marketplace.deserializeByteString <$> catTokenCategory) &&
-  niName == (Marketplace.deserializeByteString catTokenName) &&
-  niDescription == (Marketplace.deserializeByteString catTokenDescription)
+  niCategory == (Marketplace.deserializePlutusBuiltinBS <$> catTokenCategory) &&
+  niName == (Marketplace.deserializePlutusBuiltinBS catTokenName) &&
+  niDescription == (Marketplace.deserializePlutusBuiltinBS catTokenDescription)
 
 photoTokenIpfsCid :: Text
 photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
@@ -77,9 +77,9 @@ photoTokenCategory = ["Photos"]
 
 hasPhotoTokenRecord :: Marketplace.NftInfo -> Bool
 hasPhotoTokenRecord Marketplace.NftInfo {..} =
-  niCategory == (Marketplace.deserializeByteString <$> photoTokenCategory) &&
-  niName == (Marketplace.deserializeByteString photoTokenName) &&
-  niDescription == (Marketplace.deserializeByteString photoTokenDescription)
+  niCategory == (Marketplace.deserializePlutusBuiltinBS <$> photoTokenCategory) &&
+  niName == (Marketplace.deserializePlutusBuiltinBS photoTokenName) &&
+  niDescription == (Marketplace.deserializePlutusBuiltinBS photoTokenDescription)
 
 oneAdaInLovelace :: Integer
 oneAdaInLovelace = 1000000
