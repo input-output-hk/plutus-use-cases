@@ -140,6 +140,18 @@ input config props =
         <> props
     ]
 
+dateInput :: forall i p. FieldConfig' -> Array (HH.IProp HTMLinput p) -> HH.HTML i p
+dateInput config props =
+  field
+    { label: config.label, help: config.help }
+    [ HH.input
+        $ [ HP.type_ InputDate
+          , either (const $ class_ "date-input is-danger") (const $ class_ "date-input") config.help
+          , HP.placeholder config.placeholder
+          ]
+        <> props
+    ]
+
 textarea :: forall i p. FieldConfig' -> Array (HH.IProp HTMLtextarea p) -> HH.HTML i p
 textarea config props =
   field

@@ -34,6 +34,8 @@ import Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine (MarketplaceDat
 import Plutus.V1.Ledger.Value (Value)
 import View.NFT (renderNftBundles, renderNftSingletons)
 import Component.Utils as Utils
+import Capability.GetDate (class GetDate)
+import Plutus.V1.Ledger.Time (POSIXTime(..))
 
 type Slot id
   = forall query. H.Slot query Void id
@@ -77,6 +79,7 @@ component ::
   LogMessages m =>
   IPFS.IPFS m =>
   PollContract m =>
+  GetDate m =>
   MonadEffect m =>
   MonadAff m =>
   H.Component HH.HTML query PageInput output m
@@ -210,7 +213,7 @@ component =
           $ MarketplaceUser.StartAnAuctionParams
               { saapItemId: Datum.getItemId item
               , saapInitialPrice: Utils.mkAdaFromInt p.initialPrice
-              , saapDuration: fromInt (p.duration * 1000)
+              , saapEndTime: POSIXTime { getPOSIXTime: fromInt p.endDate }
               }
       logInfo $ "Marketplace item put on auction: " <> show resp
       handleAction Initialize

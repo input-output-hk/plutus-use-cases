@@ -37,6 +37,7 @@ import Routing.Duplex (parse) as Routing
 import Routing.Hash (getHash) as Routing
 import Web.Event.Event (preventDefault)
 import Web.UIEvent.MouseEvent (MouseEvent, toEvent)
+import Capability.GetDate (class GetDate)
 
 type State
   = { route :: Maybe Route
@@ -76,6 +77,7 @@ component ::
   LogMessages m =>
   PollContract m =>
   IPFS.IPFS m =>
+  GetDate m => 
   H.Component HH.HTML Query input output m
 component =
   H.mkComponent
@@ -158,6 +160,7 @@ pages ::
   MonadEffect m =>
   MonadAff m =>
   LogMessages m =>
+  GetDate m =>
   State -> H.ComponentHTML Action Slots m
 pages st =
   navbar
@@ -210,6 +213,7 @@ renderUserPage ::
   MonadAff m =>
   PollContract m =>
   LogMessages m =>
+  GetDate m =>
   Maybe PageInput -> H.ComponentHTML Action Slots m
 renderUserPage = case _ of
   Nothing -> HH.h1_ [ HH.text "Loading user page..." ]

@@ -35,6 +35,9 @@ import Web.XHR.FormData as FormData
 import Web.XHR.ReadyState (ReadyState(..)) as XHR
 import Web.XHR.ResponseType (string) as XHR
 import Web.XHR.XMLHttpRequest (XMLHttpRequest, open, readyState, response, sendFormData, status, statusText, xmlHttpRequest) as XHR
+import Effect.Now (now)
+import Capability.GetDate (class GetDate)
+import Data.JSDate as JSD
 
 type Env
   = { ipfsServer :: ServerInfo, pabServer :: ServerInfo }
@@ -68,6 +71,10 @@ runAppM env (AppM m) = runReaderT m env
 instance logMessagesAppM :: LogMessages AppM where
   logInfo = Console.log >>> liftEffect
   logError = Console.error >>> liftEffect
+
+instance getDateAppM :: GetDate AppM where
+  now = liftEffect now
+  parseDate = JSD.parse >>> liftEffect
 
 ajaxErrorToString :: AjaxError -> String
 ajaxErrorToString (AjaxError e) = case e.description of
