@@ -41,7 +41,8 @@ import           Plutus.Contracts.Currency                                as Cur
 import           Plutus.Contracts.NftMarketplace.OffChain.ID              (UserItemId (..),
                                                                            toInternalId)
 import           Plutus.Contracts.NftMarketplace.OffChain.Info
-import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString)
+import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString,
+                                                                           deserializePlutusBuiltinBS)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Core
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID          (InternalId (..))
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID          as Core
@@ -57,7 +58,6 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -92,9 +92,9 @@ createNft marketplace CreateNftParams {..} = do
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
             { niCurrency          = Currency.currencySymbol nft
-            , niName        = deserializeByteString cnpNftName
-            , niDescription = deserializeByteString cnpNftDescription
-            , niCategory = deserializeByteString <$> cnpNftCategory
+            , niName        = deserializePlutusBuiltinBS cnpNftName
+            , niDescription = deserializePlutusBuiltinBS cnpNftDescription
+            , niCategory = deserializePlutusBuiltinBS <$> cnpNftCategory
             , niIssuer      = if cnpRevealIssuer then Just pkh else Nothing
             }
     void $ mapError' $ runStep client $ Core.CreateNftRedeemer ipfsCidHash nftEntry
@@ -333,9 +333,9 @@ bundleUp marketplace BundleUpParams {..} = do
     when (isJust $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry already exists"
     let nftIds = sha2_256 <$> ipfsCids
     let bundleInfo = Core.BundleInfo
-          { biName        = deserializeByteString bupName
-          , biDescription = deserializeByteString bupDescription
-          , biCategory    = deserializeByteString <$> bupCategory
+          { biName        = deserializePlutusBuiltinBS bupName
+          , biDescription = deserializePlutusBuiltinBS bupDescription
+          , biCategory    = deserializePlutusBuiltinBS <$> bupCategory
           }
 
     let client = Core.marketplaceClient marketplace
