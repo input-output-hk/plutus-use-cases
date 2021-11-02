@@ -2,6 +2,7 @@
 module Mlabs.Plutus.Contract (
   readDatum,
   readDatum',
+  fromDatum,
   readChainIndexTxDatum,
   Call,
   IsEndpoint (..),
@@ -26,7 +27,7 @@ import Data.OpenUnion (Member)
 import Data.Proxy (Proxy (..))
 import Data.Row (KnownSymbol)
 import GHC.TypeLits (Symbol, symbolVal)
-import Ledger (Datum (Datum), TxOut (txOutDatumHash), TxOutTx (txOutTxOut, txOutTxTx), lookupDatum)
+import Ledger (Datum (..), TxOut (txOutDatumHash), TxOutTx (txOutTxOut, txOutTxTx), lookupDatum)
 import Ledger.Tx (ChainIndexTxOut, ciTxOutDatum)
 import Mlabs.Data.List (maybeRight)
 import Playground.Contract (Contract, ToSchema)
@@ -37,6 +38,12 @@ import Plutus.PAB.Simulator (Simulation, callEndpointOnInstance, waitNSlots)
 import Plutus.Trace.Effects.RunContract (RunContract, callEndpoint)
 import Plutus.Trace.Emulator.Types (ContractConstraints, ContractHandle)
 import PlutusTx (FromData, fromBuiltinData)
+
+-- | For off-chain code
+fromDatum :: FromData a => Datum -> Maybe a
+fromDatum d = do
+  let e = getDatum d
+  PlutusTx.fromBuiltinData e
 
 -- | For off-chain code
 readDatum :: FromData a => TxOutTx -> Maybe a

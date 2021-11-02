@@ -7,7 +7,7 @@ import Test.Tasty (TestTree, testGroup)
 test :: TestTree
 test =
   testGroup
-    "NFT rewrite script tests"
+    "Script"
     [ testMinting
     , testDealing
     ]

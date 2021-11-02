@@ -17,38 +17,40 @@ import Plutus.Trace.Emulator (EmulatorRuntimeError (GenericError), EmulatorTrace
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
 import Plutus.V1.Ledger.Value (Value, singleton)
 import PlutusTx.Prelude hiding (foldMap, pure)
-import PlutusTx.Ratio qualified as R
+
 import Test.Tasty (TestTree)
 import Test.Utils (next)
 import Prelude (Applicative (..), String, foldMap)
 
 import Mlabs.Emulator.Scene (Scene, owns)
 import Mlabs.Emulator.Types (adaCoin)
-import Mlabs.NFT.Contract
-import Mlabs.NFT.Types
-import Mlabs.NFT.Validation
+import Mlabs.NFT.Api
+import Mlabs.NFT.Types (
+  BuyRequestUser (..),
+  Content (..),
+  MintParams (..),
+  NftAppSymbol (..),
+  NftId (..),
+  SetPriceParams (..),
+  Title (..),
+  UserId (..),
+ )
 import Mlabs.Utils.Wallet (walletFromNumber)
 
--- | Calls user act
-callUserAct :: NftId -> Wallet -> UserAct -> EmulatorTrace ()
-callUserAct nid wal act = do
-  hdl <- activateContractWallet wal endpoints
-  void $ case act of
-    BuyAct {..} -> callEndpoint @"buy" hdl (BuyRequestUser nid act'bid act'newPrice)
-    SetPriceAct {..} -> callEndpoint @"set-price" hdl (SetPriceParams nid act'newPrice)
-
 -- | Calls initialisation of state for Nft pool
-callStartNft :: Wallet -> MintParams -> EmulatorTrace NftId
-callStartNft wal sp = do
-  hdl <- activateContractWallet wal endpoints
-  void $ callEndpoint @"mint" hdl sp
-  void $ waitNSlots 10
-  Last nid <- observableState hdl
-  maybe err pure nid
-  where
-    err = throwError $ GenericError "No NFT started in emulator"
+callStartNft :: Wallet -> EmulatorTrace NftAppSymbol
+callStartNft wal = do
+  hAdmin <- activateContractWallet wal adminEndpoints
+  callEndpoint @"app-init" hAdmin ()
+  void $ waitNSlots 2
+  oState <- observableState hAdmin
+  aSymbol <- case getLast oState of
+    Nothing -> throwError $ GenericError "App Symbol Could not be established."
+    Just aS -> pure aS
+  void $ waitNSlots 1
+  pure aSymbol
 
-type ScriptM a = ReaderT NftId (Eff '[RunContract, Waiting, EmulatorControl, EmulatedWalletAPI, LogMsg String, Error EmulatorRuntimeError]) a
+type ScriptM a = ReaderT NftAppSymbol (Eff '[RunContract, Waiting, EmulatorControl, EmulatedWalletAPI, LogMsg String, Error EmulatorRuntimeError]) a
 
 type Script = ScriptM ()
 
@@ -69,15 +71,37 @@ toUserId = UserId . pubKeyHash . walletPubKey
 -}
 runScript :: Wallet -> Script -> EmulatorTrace ()
 runScript wal script = do
-  nftId <- callStartNft wal mp
+  symbol <- callStartNft wal
   next
-  runReaderT script nftId
+  runReaderT script symbol
 
--- | User action call.
-userAct :: Wallet -> UserAct -> Script
-userAct wal act = do
-  nftId <- ask
-  lift $ callUserAct nftId wal act >> next
+userMint :: Wallet -> MintParams -> ScriptM NftId
+userMint wal mp = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (endpoints symbol)
+    callEndpoint @"mint" hdl mp
+    next
+    oState <- observableState hdl
+    case getLast oState of
+      Nothing -> throwError $ GenericError "Could not mint NFT"
+      Just nftId -> pure nftId
+
+userSetPrice :: Wallet -> SetPriceParams -> Script
+userSetPrice wal sp = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (endpoints symbol)
+    callEndpoint @"set-price" hdl sp
+    next
+
+userBuy :: Wallet -> BuyRequestUser -> Script
+userBuy wal br = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (endpoints symbol)
+    callEndpoint @"buy" hdl br
+    next
 
 {- | Initial distribution of wallets for testing.
  We have 3 users. All of them get 1000 lovelace at the start.
@@ -103,11 +127,11 @@ check msg assertions wal script = checkPredicateOptions checkOptions msg asserti
 noChangesScene :: Scene
 noChangesScene = foldMap (`ownsAda` 0) [w1, w2, w3]
 
-mp :: MintParams
-mp =
+artwork1 :: MintParams
+artwork1 =
   MintParams
-    { mp'content = Content "Mona Lisa"
-    , mp'title = Title ""
-    , mp'share = 1 R.% 10
+    { mp'content = Content "A painting."
+    , mp'title = Title "Fiona Lisa"
+    , mp'share = 1 % 10
     , mp'price = Nothing
     }

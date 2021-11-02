@@ -3,11 +3,12 @@ module Test.NFT.Script.Values where
 import Data.Aeson qualified as Aeson
 import Data.Maybe (fromJust)
 import Ledger qualified
-import Ledger.Address qualified as Ledger
+
 import Ledger.Value (TokenName (..))
 import Ledger.Value qualified as Value
-import Mlabs.NFT.Contract qualified as NFT
-import Mlabs.NFT.Types (Content (..), NftId (..), Title (..))
+
+import Mlabs.NFT.Contract.Aux qualified as NFT
+import Mlabs.NFT.Types (Content (..), NftAppInstance (..), NftAppSymbol (..), NftId (..))
 import Mlabs.NFT.Validation qualified as NFT
 import Plutus.V1.Ledger.Ada qualified as Ada
 import PlutusTx.Prelude hiding ((<>))
@@ -44,31 +45,22 @@ userTwoWallet = Emu.fromWalletNumber (Emu.WalletNumber 3)
 
 testTxId :: Ledger.TxId
 testTxId = fromJust $ Aeson.decode "{\"getTxId\" : \"61626364\"}"
-
-testOref :: Ledger.TxOutRef
-testOref = Ledger.TxOutRef testTxId 1
-
 testTokenName :: TokenName
 testTokenName = TokenName hData
   where
     hData = NFT.hashData $ Content "A painting."
 
 testNftId :: NftId
-testNftId =
-  NftId
-    { nftId'title = Title "Fiona Lisa"
-    , nftId'token = testTokenName
-    , nftId'outRef = testOref
-    }
+testNftId = NftId . unTokenName $ testTokenName
 
 nftPolicy :: Ledger.MintingPolicy
-nftPolicy = NFT.mintPolicy testStateAddr testOref testNftId
+nftPolicy = NFT.mintPolicy appInstance
 
 oneNft :: Value.Value
 oneNft = Value.singleton nftCurrencySymbol testTokenName 1
 
 nftCurrencySymbol :: Value.CurrencySymbol
-nftCurrencySymbol = Ledger.scriptCurrencySymbol nftPolicy
+nftCurrencySymbol = app'symbol appSymbol
 
 oneAda :: Value.Value
 oneAda = Ada.lovelaceValueOf 1_000_000
@@ -78,3 +70,10 @@ adaValue = Ada.lovelaceValueOf . (* 1_000_000)
 
 testStateAddr :: Ledger.Address
 testStateAddr = NFT.txScrAddress
+
+-- FIXME
+appInstance :: NftAppInstance
+appInstance = NftAppInstance testStateAddr (Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", "Unique App Token"))
+
+appSymbol :: NftAppSymbol
+appSymbol = NftAppSymbol . NFT.curSymbol $ appInstance

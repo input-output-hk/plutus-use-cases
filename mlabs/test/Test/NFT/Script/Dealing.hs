@@ -6,11 +6,11 @@ import Data.Semigroup ((<>))
 import Ledger qualified
 import Mlabs.NFT.Types qualified as NFT
 import Mlabs.NFT.Validation qualified as NFT
-import Plutus.V1.Ledger.Ada qualified as Ada
+
 import PlutusTx qualified
-import PlutusTx.IsData.Class (ToData (toBuiltinData))
+
 import PlutusTx.Prelude hiding ((<>))
-import PlutusTx.Prelude qualified as PlutusPrelude
+
 import Test.NFT.Script.Values as TestValues
 import Test.Tasty (TestTree)
 import Test.Tasty.Plutus.Context
@@ -23,34 +23,63 @@ testDealing = withValidator "Test NFT dealing validator" dealingValidator $ do
   shouldValidate "Owner can set price" ownerUserOneSetPriceData ownerUserOneSetPriceContext
   shouldn'tValidate "Author can't set price when not owner" ownerUserOneSetPriceData authorNotOwnerSetPriceContext
   shouldn'tValidate "Can't buy if not for sale" notForSaleData notForSaleContext
-  shouldn'tValidate "Can't buy if bid not high enough" bidNotHighEnoughData validBuyContext
+  shouldn'tValidate "Can't buy if bid not high enough" bidNotHighEnoughData bidNotHighEnoughContext
   shouldn'tValidate "Can't buy if author not paid" validBuyData authorNotPaidContext
   shouldn'tValidate "Can't buy if owner not paid" ownerNotPaidData ownerNotPaidContext
 
 -- TODO: bring back this test if `tasty-plutus` would allow to change datum order
 -- shouldn'tValidate "Can't buy with inconsistent datum" validBuyData inconsistentDatumContext
 
-initialAuthorDatum :: NFT.DatumNft
-initialAuthorDatum =
-  NFT.DatumNft
-    { dNft'id = TestValues.testNftId
-    , dNft'share = 1 % 2
-    , dNft'author = NFT.UserId TestValues.authorPkh
-    , dNft'owner = NFT.UserId TestValues.authorPkh
-    , dNft'price = Just (100 * 1_000_000)
+initialNode :: NFT.NftListNode
+initialNode =
+  NFT.NftListNode
+    { node'information =
+        NFT.InformationNft
+          { info'id = TestValues.testNftId
+          , info'share = 1 % 2
+          , info'author = NFT.UserId TestValues.authorPkh
+          , info'owner = NFT.UserId TestValues.authorPkh
+          , info'price = Just (100 * 1_000_000)
+          }
+    , node'next = Nothing
+    , node'appInstance = TestValues.appInstance
     }
 
+initialAuthorDatum :: NFT.DatumNft
+initialAuthorDatum = NFT.NodeDatum initialNode
+
 ownerUserOneDatum :: NFT.DatumNft
-ownerUserOneDatum = initialAuthorDatum {NFT.dNft'owner = NFT.UserId TestValues.userOnePkh}
+ownerUserOneDatum =
+  NFT.NodeDatum $
+    initialNode
+      { NFT.node'information =
+          (NFT.node'information initialNode)
+            { NFT.info'owner = NFT.UserId TestValues.userOnePkh
+            }
+      }
 
 notForSaleDatum :: NFT.DatumNft
-notForSaleDatum = initialAuthorDatum {NFT.dNft'price = Nothing}
+notForSaleDatum =
+  NFT.NodeDatum $
+    initialNode
+      { NFT.node'information =
+          (NFT.node'information initialNode)
+            { NFT.info'price = Nothing
+            }
+      }
 
 ownerNotPaidDatum :: NFT.DatumNft
 ownerNotPaidDatum = ownerUserOneDatum
 
 inconsistentDatum :: NFT.DatumNft
-inconsistentDatum = initialAuthorDatum {NFT.dNft'share = 1 % 10}
+inconsistentDatum =
+  NFT.NodeDatum $
+    initialNode
+      { NFT.node'information =
+          (NFT.node'information initialNode)
+            { NFT.info'share = 1 % 10
+            }
+      }
 
 -- Buy test cases
 
@@ -63,9 +92,9 @@ validBuyData = SpendingTest dtm redeemer val
       NFT.BuyAct
         { act'bid = 100 * 1_000_000
         , act'newPrice = Nothing
-        , act'cs = TestValues.nftCurrencySymbol
+        , act'symbol = TestValues.appSymbol
         }
-    val = TestValues.adaValue 100 <> TestValues.oneNft
+    val = TestValues.adaValue 100
 
 notForSaleData :: TestData 'ForSpending
 notForSaleData = SpendingTest dtm redeemer val
@@ -76,7 +105,7 @@ notForSaleData = SpendingTest dtm redeemer val
       NFT.BuyAct
         { act'bid = 100 * 1_000_000
         , act'newPrice = Just 150
-        , act'cs = TestValues.nftCurrencySymbol
+        , act'symbol = TestValues.appSymbol
         }
     val = TestValues.adaValue 100 <> TestValues.oneNft
 
@@ -89,9 +118,9 @@ bidNotHighEnoughData = SpendingTest dtm redeemer val
       NFT.BuyAct
         { act'bid = 90 * 1_000_000
         , act'newPrice = Nothing
-        , act'cs = TestValues.nftCurrencySymbol
+        , act'symbol = TestValues.appSymbol
         }
-    val = TestValues.adaValue 100 <> TestValues.oneNft
+    val = TestValues.adaValue 90 <> TestValues.oneNft
 
 ownerNotPaidData :: TestData 'ForSpending
 ownerNotPaidData = SpendingTest dtm redeemer val
@@ -102,7 +131,7 @@ ownerNotPaidData = SpendingTest dtm redeemer val
       NFT.BuyAct
         { act'bid = 100 * 1_000_000
         , act'newPrice = Nothing
-        , act'cs = TestValues.nftCurrencySymbol
+        , act'symbol = TestValues.appSymbol
         }
     val = TestValues.adaValue 0 <> TestValues.oneNft
 
@@ -115,39 +144,41 @@ inconsistentDatumData = SpendingTest dtm redeemer val
       NFT.BuyAct
         { act'bid = 100 * 1_000_000
         , act'newPrice = Nothing
-        , act'cs = TestValues.nftCurrencySymbol
+        , act'symbol = TestValues.appSymbol
         }
     val = TestValues.adaValue 100 <> TestValues.oneNft
 
 validBuyContext :: ContextBuilder 'ForSpending
 validBuyContext =
-  paysToWallet TestValues.userOneWallet TestValues.oneNft
-    <> paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
-    <> paysSelf oneNft initialAuthorDatum
+  paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
+    <> paysOther NFT.txValHash oneNft initialAuthorDatum
+
+bidNotHighEnoughContext :: ContextBuilder 'ForSpending
+bidNotHighEnoughContext =
+  paysToWallet TestValues.authorWallet (TestValues.adaValue 90)
+    <> paysOther NFT.txValHash oneNft initialAuthorDatum
 
 notForSaleContext :: ContextBuilder 'ForSpending
 notForSaleContext =
   paysToWallet TestValues.userOneWallet TestValues.oneNft
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
-    <> paysSelf oneNft notForSaleDatum
+    <> paysOther NFT.txValHash oneNft notForSaleDatum
 
 authorNotPaidContext :: ContextBuilder 'ForSpending
 authorNotPaidContext =
-  paysToWallet TestValues.userOneWallet TestValues.oneNft
-    <> paysToWallet TestValues.authorWallet (TestValues.adaValue 5)
-    <> paysSelf oneNft initialAuthorDatum
+  paysToWallet TestValues.authorWallet (TestValues.adaValue 5)
+    <> paysOther NFT.txValHash oneNft initialAuthorDatum
 
 ownerNotPaidContext :: ContextBuilder 'ForSpending
 ownerNotPaidContext =
-  paysToWallet TestValues.userTwoWallet TestValues.oneNft
-    <> paysToWallet TestValues.authorWallet (TestValues.adaValue 50)
-    <> paysSelf oneNft ownerNotPaidDatum
+  paysToWallet TestValues.authorWallet (TestValues.adaValue 50)
+    <> paysOther NFT.txValHash oneNft ownerNotPaidDatum
 
 inconsistentDatumContext :: ContextBuilder 'ForSpending
 inconsistentDatumContext =
   paysToWallet TestValues.userOneWallet TestValues.oneNft
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
-    <> paysSelf oneNft inconsistentDatum
+    <> paysOther NFT.txValHash oneNft inconsistentDatum
 
 -- SetPrice test cases
 
@@ -159,7 +190,7 @@ validSetPriceData = SpendingTest dtm redeemer val
     redeemer =
       NFT.SetPriceAct
         { act'newPrice = Just (150 * 1_000_000)
-        , act'cs = TestValues.nftCurrencySymbol
+        , act'symbol = TestValues.appSymbol
         }
     val = TestValues.oneNft
 
@@ -171,27 +202,27 @@ ownerUserOneSetPriceData = SpendingTest dtm redeemer val
     redeemer =
       NFT.SetPriceAct
         { act'newPrice = Nothing
-        , act'cs = TestValues.nftCurrencySymbol
+        , act'symbol = TestValues.appSymbol
         }
     val = TestValues.oneNft
 
 validSetPriceContext :: ContextBuilder 'ForSpending
 validSetPriceContext =
   signedWith authorPkh
-    -- TODO: choose between `paysSelf` and `output` (see below)
-    <> paysSelf oneNft initialAuthorDatum
+    -- TODO: choose between `paysOther NFT.txValHash` and `output` (see below)
+    <> paysOther NFT.txValHash oneNft initialAuthorDatum
 
 -- <> (output $ Output (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneNft)
 
 ownerUserOneSetPriceContext :: ContextBuilder 'ForSpending
 ownerUserOneSetPriceContext =
   signedWith userOnePkh
-    <> paysSelf oneNft ownerUserOneDatum
+    <> paysOther NFT.txValHash oneNft ownerUserOneDatum
 
 authorNotOwnerSetPriceContext :: ContextBuilder 'ForSpending
 authorNotOwnerSetPriceContext =
   signedWith authorPkh
-    <> paysSelf oneNft ownerUserOneDatum
+    <> paysOther NFT.txValHash oneNft ownerUserOneDatum
 
 dealingValidator :: Ledger.Validator
 dealingValidator =
