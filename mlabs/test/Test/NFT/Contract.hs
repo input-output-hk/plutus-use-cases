@@ -7,8 +7,38 @@ import Test.Tasty (TestTree, testGroup)
 import Prelude (mconcat)
 
 import Mlabs.Emulator.Scene (checkScene)
-import Mlabs.NFT.Types
-import Test.NFT.Init
+import Mlabs.NFT.Api (endpoints, queryEndpoints)
+import Mlabs.NFT.Types (
+  BuyRequestUser (..),
+  QueryResponse (..),
+  SetPriceParams (..),
+ )
+import Test.NFT.Init (
+  artwork1,
+  callStartNft,
+  check,
+  checkOptions,
+  noChangesScene,
+  ownsAda,
+  toUserId,
+  userBuy,
+  userMint,
+  userSetPrice,
+  w1,
+  w2,
+  w3,
+ )
+import Test.NFT.Trace (AppInitHandle)
+
+import Plutus.Contract (waitNSlots)
+import Plutus.Trace.Emulator (activateContractWallet, callEndpoint)
+import Plutus.Trace.Emulator.Types (walletInstanceTag)
+
+import Control.Monad (void)
+
+import Plutus.Contract.Test (CheckOptions, assertAccumState, checkPredicateOptions)
+
+import Data.Monoid (Last (..))
 
 test :: TestTree
 test =
@@ -92,28 +122,25 @@ testBuyNotEnoughPriceScript = check "Buy not enough price" (checkScene noChanges
 
 -- testQueryPrice :: TestTree
 -- testQueryPrice =
---   checkPredicateOptions
---     checkOptions
---     "Query price"
+--   checkPredicateOptions checkOptions "Query price"
 --     (assertAccumState queryEndpoints (walletInstanceTag w2) predicate "")
 --     script
 --   where
 --     script = do
---       nftId <- callStartNft w1 mp
+--       nftId <- callStartNft w1
+--
+--       nft1 <- userMint w1 artwork1
 --       void $ waitNSlots 10
-
---       hdl1 <- activateContractWallet w1 endpoints
---       void $ callEndpoint @"mint" hdl1 mp
---       void $ waitNSlots 10
-
+--
 --       void $ callEndpoint @"set-price" hdl1 (SetPriceParams nftId (Just 100))
 --       void $ waitNSlots 10
-
+--
 --       hdl2 <- activateContractWallet w2 queryEndpoints
 --       void $ callEndpoint @"query-current-price" hdl2 nftId
 --       void $ waitNSlots 10
+--
 --     predicate = \case
---       Last (Just (QueryCurrentPrice (Just x))) -> x == 100
+--       QueryCurrentPrice (Just x) -> x == 100
 --       _ -> False
 
 -- testQueryOwner :: TestTree

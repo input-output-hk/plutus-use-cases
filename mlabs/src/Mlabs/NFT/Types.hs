@@ -198,7 +198,7 @@ instance Eq BuyRequestUser where
 
 -- | A datatype used by the QueryContract to return a response
 data QueryResponse
-  = QueryCurrentOwner UserId
+  = QueryCurrentOwner (Maybe UserId)
   | QueryCurrentPrice (Maybe Integer)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)

@@ -1,4 +1,18 @@
-module Test.NFT.Init where
+module Test.NFT.Init (
+  check,
+  callStartNft,
+  noChangesScene,
+  checkOptions,
+  w1,
+  w2,
+  w3,
+  toUserId,
+  userBuy,
+  userMint,
+  userSetPrice,
+  artwork1,
+  ownsAda,
+) where
 
 import Control.Lens ((&), (.~))
 import Control.Monad.Freer (Eff)
@@ -16,7 +30,7 @@ import Plutus.Trace.Effects.Waiting (Waiting)
 import Plutus.Trace.Emulator (EmulatorRuntimeError (GenericError), EmulatorTrace, activateContractWallet, callEndpoint, initialChainState, observableState, throwError, waitNSlots)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
 import Plutus.V1.Ledger.Value (Value, singleton)
-import PlutusTx.Prelude hiding (foldMap, pure)
+import PlutusTx.Prelude hiding (check, foldMap, pure)
 
 import Test.Tasty (TestTree)
 import Test.Utils (next)

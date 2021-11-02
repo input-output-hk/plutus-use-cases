@@ -4,6 +4,7 @@ module Mlabs.NFT.Api (
   endpoints,
   queryEndpoints,
   adminEndpoints,
+  ApiAdminContract,
 ) where
 
 import Data.Monoid (Last (..))

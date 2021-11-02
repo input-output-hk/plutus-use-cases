@@ -1,4 +1,4 @@
-module Test.NFT.Trace (testMint, testMint2, testAny) where
+module Test.NFT.Trace (appInitTrace, testMint, testMint2, testAny, AppInitHandle) where
 
 import PlutusTx.Prelude
 import Prelude qualified as Hask
