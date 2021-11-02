@@ -18,11 +18,19 @@ with obelisk;
 let
 deps = obelisk.nixpkgs.thunkSet ./dep;
 rhyolite = (import deps.rhyolite { inherit obelisk; });
-p = project ./. ({ pkgs, ... }: {
+cardano-base = import deps.cardano-base {};
+p = project ./. ({ pkgs, hackGet, ... }: {
   inherit withHoogle;
   overrides = pkgs.lib.composeExtensions
     rhyolite.haskellOverrides
-    (_: _: {});
+		(self: super: with pkgs.haskell.lib; {
+			canonical-json = doJailbreak (dontCheck (markUnbroken super.canonical-json));
+			nothunks =  doJailbreak (dontCheck (self.callCabal2nix "nothunks" "${deps.nothunks}" {}));
+			cardano-prelude-test = doJailbreak (dontCheck (self.callCabal2nix "cardano-prelude-test" "${deps.cardano-prelude}/cardano-prelude-test" {}));
+			cardano-prelude = doJailbreak (dontCheck (self.callCabal2nix "cardano-prelude" "${deps.cardano-prelude}/cardano-prelude" {}));
+			cardano-binary = doJailbreak (self.callCabal2nix "cardano-binary" "${deps.cardano-base}/binary" {});
+			quiet = self.callCabal2nix "quiet" "${deps.quiet}" {};
+		});
   android.applicationId = "systems.obsidian.obelisk.examples.minimal";
   android.displayName = "Obelisk Minimal Example";
   ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";

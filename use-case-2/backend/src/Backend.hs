@@ -7,6 +7,7 @@
 
 module Backend where
 
+import Cardano.Binary
 import Control.Applicative
 import Control.Concurrent
 import Control.Exception
@@ -27,6 +28,7 @@ import Data.Proxy
 import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
+import qualified Data.Text.Encoding as T
 import Data.Time.Clock
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -576,6 +578,9 @@ buildStaticSwapTransaction txHash collateralTxHash changeAddress = do
   print $ "buildStaticSwapTransaction: value of txHash is " <> txHash
   print $ "buildStaticSwapTransaction: value of collateralTxHash is " <> collateralTxHash
   print $ "buildStaticSwapTransaction: value of changeAddress is " <> changeAddress
+  let sth = T.encodeUtf16BE $ changeAddress
+      sthelse :: Either DecoderError Text = decodeFull' sth
+  print $ "buildStaticSwapTransaction: value of changeAddress is " <> (T.pack $ show sthelse)
   (exitCode, stdIn, err) <- readProcessWithExitCode "./scripts/handleSwap.sh"
     [(T.unpack txHash)
     , "~/Documents/Obsidian/bobTheBuilder5/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/uniswapPlutusScript.plutus"
