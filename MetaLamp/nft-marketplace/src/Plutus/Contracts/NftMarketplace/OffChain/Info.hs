@@ -5,11 +5,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
-
 module Plutus.Contracts.NftMarketplace.OffChain.Info where
 
 import           Control.Lens                                    (_2, _Left,
@@ -23,13 +23,18 @@ import           Data.Text                                       (Text)
 import qualified Data.Text                                       as T
 import           Ext.Plutus.Ledger.Value                         (ChainIndexTxMap,
                                                                   utxosValue)
+import           GHC.Generics                                    (Generic)
 import qualified GHC.Generics                                    as Haskell
 import           Ledger
+import           Ledger.Ada                                      (fromValue,
+                                                                  getLovelace)
 import qualified Ledger.Typed.Scripts                            as Scripts
 import           Ledger.Typed.Tx
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse             (withRemoteDataResponse)
-import           Plutus.Abstract.RemoteData                   (RemoteData)
+import           Plutus.Abstract.ContractResponse                (ContractResponse,
+                                                                  withContractResponse)
+import           Plutus.Abstract.Percentage                      (Percentage)
+import           Plutus.Abstract.RemoteData                      (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                       as Currency
@@ -50,6 +55,20 @@ marketplaceStore :: Core.Marketplace -> Contract w s Text Core.MarketplaceDatum
 marketplaceStore marketplace = do
   let client = Core.marketplaceClient marketplace
   mapError' (getOnChainState client) >>= getStateDatum
+
+data MarketplaceSettingsInfo = MarketplaceSettingsInfo {
+  msCreationFee :: Integer,
+  msSaleFee     :: Percentage
+}
+  deriving stock (Haskell.Eq, Haskell.Show, Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+marketplaceSettings :: Core.Marketplace -> Contract w s Text MarketplaceSettingsInfo
+marketplaceSettings Core.Marketplace {..} =
+  pure MarketplaceSettingsInfo {
+      msCreationFee = getLovelace . fromValue $ marketplaceNFTFee,
+      msSaleFee = marketplaceSaleFee
+    }
 
 getStateDatum ::
     Maybe (OnChainState Core.MarketplaceDatum i, ChainIndexTxMap) -> Contract w s Text Core.MarketplaceDatum
@@ -102,21 +121,24 @@ type MarketplaceInfoSchema =
     Endpoint "fundsAt" PubKeyHash
     .\/ Endpoint "marketplaceFunds" ()
     .\/ Endpoint "marketplaceStore" ()
+    .\/ Endpoint "marketplaceSettings" ()
     .\/ Endpoint "getAuctionState" UserItemId
 
 data InfoContractState =
     FundsAt Value
     | MarketplaceFunds Value
     | MarketplaceStore Core.MarketplaceDatum
+    | MarketplaceSettings MarketplaceSettingsInfo
     | AuctionState Auction.AuctionState
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
 Lens.makeClassyPrisms ''InfoContractState
 
-infoEndpoints :: Core.Marketplace -> Promise (RemoteData Text InfoContractState) MarketplaceInfoSchema Void ()
+infoEndpoints :: Core.Marketplace -> Promise (ContractResponse Haskell.String Text InfoContractState) MarketplaceInfoSchema Void ()
 infoEndpoints marketplace =
-    (withRemoteDataResponse (Proxy @"fundsAt") FundsAt fundsAt
-    `select` withRemoteDataResponse (Proxy @"marketplaceFunds") MarketplaceFunds (const $ marketplaceFunds marketplace)
-    `select` withRemoteDataResponse (Proxy @"marketplaceStore") MarketplaceStore (const $ marketplaceStore marketplace)
-    `select` withRemoteDataResponse (Proxy @"getAuctionState") AuctionState (getAuctionState marketplace)) <> infoEndpoints marketplace
+    (withContractResponse (Proxy @"fundsAt") FundsAt fundsAt
+    `select` withContractResponse (Proxy @"marketplaceFunds") MarketplaceFunds (const $ marketplaceFunds marketplace)
+    `select` withContractResponse (Proxy @"marketplaceStore") MarketplaceStore (const $ marketplaceStore marketplace)
+    `select` withContractResponse (Proxy @"marketplaceSettings") MarketplaceSettings (const $ marketplaceSettings marketplace)
+    `select` withContractResponse (Proxy @"getAuctionState") AuctionState (getAuctionState marketplace)) <> infoEndpoints marketplace

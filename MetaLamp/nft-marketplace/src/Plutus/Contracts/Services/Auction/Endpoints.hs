@@ -7,6 +7,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
@@ -21,6 +22,7 @@ import           Data.Aeson                                     (FromJSON,
 import qualified Data.Aeson                                     as J
 import           Data.Monoid                                    (Last (..))
 import           Data.Semigroup.Generic                         (GenericSemigroupMonoid (..))
+import qualified Data.Text                                      as T
 import           GHC.Generics                                   (Generic)
 import           Ledger                                         (Ada,
                                                                  PubKeyHash,
@@ -48,13 +50,15 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                        as Haskell
 import qualified Schema
-
+import qualified Debug.Trace as D
+import           Plutus.V1.Ledger.Time                                    (POSIXTime (..))
 
 data StartAuctionParams = StartAuctionParams {
-    sapOwner      :: !PubKeyHash,
-    sapAsset      :: !Value,
-    sapEndTime    :: !Ledger.POSIXTime,
-    sapAuctionFee :: Maybe AuctionFee
+    sapOwner        :: !PubKeyHash,
+    sapAsset        :: !Value,
+    sapInitialPrice :: !Ada,
+    sapEndTime      :: !Ledger.POSIXTime,
+    sapAuctionFee   :: Maybe AuctionFee
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -71,6 +75,7 @@ startAuction StartAuctionParams{..} = do
         aProtocolToken = threadToken,
         aOwner = sapOwner,
         aAsset = sapAsset,
+        aInitialPrice = sapInitialPrice,
         aEndTime = sapEndTime,
         aAuctionFee = sapAuctionFee
     }
@@ -90,12 +95,22 @@ payoutAuction auction = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
 
-    _ <- awaitTime $ aEndTime auction
-
+    _ <- awaitTime $ POSIXTime 1596059091000
+    -- D.traceM "time awaited"
     r <- SM.runStep client Payout
     case r of
         SM.TransitionFailure i            -> logError (TransitionFailed i)
         SM.TransitionSuccess (Finished h) -> logInfo $ AuctionEnded h
+        SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
+
+cancelAuction :: Auction -> Contract w s AuctionError ()
+cancelAuction auction = do
+    let inst         = typedValidator auction
+        client       = machineClient inst auction
+    r <- SM.runStep client Cancel
+    case r of
+        SM.TransitionFailure i            -> logError (TransitionFailed i)
+        SM.TransitionSuccess Canceled -> logInfo $ AuctionCanceled
         SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
 
 -- | Get the current state of the contract and log it.
@@ -110,20 +125,27 @@ currentState auction = mapError StateMachineContractError (SM.getOnChainState cl
       inst         = typedValidator auction
       client       = machineClient inst auction
 
-submitBid :: Auction -> Ada -> Contract w s AuctionError ()
+submitBid :: Auction -> Ada -> Contract w s AuctionError ((Either T.Text ()))
 submitBid auction ada = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
     self <- Ledger.pubKeyHash <$> ownPubKey
     let bid = Bid{newBid = ada, newBidder = self}
-    _ <- SM.runStep client bid
-    logInfo @Haskell.String $ "Bid submitted" <> Haskell.show bid
+    result <- SM.runStep client bid
+    case result of
+        TransitionSuccess newState -> do
+            logInfo @Haskell.String $ "Bid submitted. New state is: " <> Haskell.show newState
+            pure $ Right ()
+        _ -> do
+            logInfo @Haskell.String $ "Auction bid failed"
+            pure $ Left "Auction bid failed"
 
 data AuctionLog =
     AuctionStarted Auction
     | AuctionFailed SM.SMContractError
     | BidSubmitted HighestBid
     | AuctionEnded HighestBid
+    | AuctionCanceled
     | CurrentStateNotFound
     | TransitionFailed (SM.InvalidTransition AuctionState AuctionInput)
     deriving stock (Haskell.Show, Generic)

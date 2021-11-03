@@ -32,7 +32,8 @@ import           Ledger
 import qualified Ledger.Typed.Scripts                                     as Scripts
 import           Ledger.Typed.Tx
 import qualified Ledger.Value                                             as V
-import           Plutus.Abstract.ContractResponse
+import           Plutus.Abstract.ContractResponse                         (ContractResponse,
+                                                                           withContractResponse)
 import           Plutus.Abstract.RemoteData                               (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
@@ -40,13 +41,15 @@ import           Plutus.Contracts.Currency                                as Cur
 import           Plutus.Contracts.NftMarketplace.OffChain.ID              (UserItemId (..),
                                                                            toInternalId)
 import           Plutus.Contracts.NftMarketplace.OffChain.Info
-import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString)
+import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString,
+                                                                           deserializePlutusBuiltinBS)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Core
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID          (InternalId (..))
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID          as Core
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
 import qualified Plutus.Contracts.Services.Auction                        as Auction
 import qualified Plutus.Contracts.Services.Sale                           as Sale
+import           Plutus.V1.Ledger.Time                                    (POSIXTime (..))
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
 import           PlutusTx.Prelude                                         hiding
@@ -89,9 +92,9 @@ createNft marketplace CreateNftParams {..} = do
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
             { niCurrency          = Currency.currencySymbol nft
-            , niName        = deserializeByteString cnpNftName
-            , niDescription = deserializeByteString cnpNftDescription
-            , niCategory = deserializeByteString <$> cnpNftCategory
+            , niName        = deserializePlutusBuiltinBS cnpNftName
+            , niDescription = deserializePlutusBuiltinBS cnpNftDescription
+            , niCategory = deserializePlutusBuiltinBS <$> cnpNftCategory
             , niIssuer      = if cnpRevealIssuer then Just pkh else Nothing
             }
     void $ mapError' $ runStep client $ Core.CreateNftRedeemer ipfsCidHash nftEntry
@@ -190,8 +193,9 @@ closeSale marketplace CloseLotParams {..} = do
 
 data StartAnAuctionParams =
   StartAnAuctionParams {
-    saapItemId   :: UserItemId,
-    saapDuration :: Integer  --- TODO: use DiffMilliSeconds here, when it will be possible
+    saapItemId       :: UserItemId,
+    saapInitialPrice :: Ada,
+    saapEndTime      :: POSIXTime
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -210,12 +214,14 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currTime <- currentTime
-    let endTime = currTime + fromMilliSeconds (DiffMilliSeconds saapDuration)
+    when (saapEndTime < currTime) $ throwError "Auction end time is from the past"
+
     self <- Ledger.pubKeyHash <$> ownPubKey
     let startAuctionParams = Auction.StartAuctionParams {
       sapOwner = self,
       sapAsset = auctionValue,
-      sapEndTime = endTime,
+      sapInitialPrice = saapInitialPrice,
+      sapEndTime = saapEndTime,
       sapAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }
     auction <- mapError (T.pack . Haskell.show) $ Auction.startAuction startAuctionParams
@@ -294,6 +300,32 @@ data BundleUpParams =
 
 Lens.makeClassy_ ''BundleUpParams
 
+-- | The user cancel the auction for specified NFT
+cancelAnAuction :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
+cancelAnAuction marketplace CloseLotParams {..} = do
+    let internalId = toInternalId clpItemId
+    nftStore <- marketplaceStore marketplace
+    auction <- case internalId of
+      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
+        nftEntry <- getNftEntry nftStore nftId
+        maybe (throwError "NFT has not been put on auction") pure $
+            Core.getAuctionFromNFT nftEntry
+      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
+        bundleEntry <- getBundleEntry nftStore bundleId
+        maybe (throwError "Bundle has not been put on auction") pure $
+            Core.getAuctionFromBundle bundleEntry
+    currTime <- currentTime
+
+    when (currTime > Auction.aEndTime auction) $ throwError "Auction time is over, can't cancel"
+
+    _ <- mapError (T.pack . Haskell.show) $ Auction.cancelAuction auction
+
+    let client = Core.marketplaceClient marketplace
+    void $ mapError' $ runStep client $ Core.mkRemoveLotRedeemer internalId
+
+    logInfo @Haskell.String $ printf "Canceled an auction %s" (Haskell.show auction)
+    pure ()
+
 -- | The user creates a bundle from specified NFTs
 bundleUp :: forall w s. Core.Marketplace -> BundleUpParams -> Contract w s Text ()
 bundleUp marketplace BundleUpParams {..} = do
@@ -303,9 +335,9 @@ bundleUp marketplace BundleUpParams {..} = do
     when (isJust $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry already exists"
     let nftIds = sha2_256 <$> ipfsCids
     let bundleInfo = Core.BundleInfo
-          { biName        = deserializeByteString bupName
-          , biDescription = deserializeByteString bupDescription
-          , biCategory    = deserializeByteString <$> bupCategory
+          { biName        = deserializePlutusBuiltinBS bupName
+          , biDescription = deserializePlutusBuiltinBS bupDescription
+          , biCategory    = deserializePlutusBuiltinBS <$> bupCategory
           }
 
     let client = Core.marketplaceClient marketplace
@@ -349,6 +381,7 @@ type MarketplaceUserSchema =
     .\/ Endpoint "closeSale" CloseLotParams
     .\/ Endpoint "startAnAuction" StartAnAuctionParams
     .\/ Endpoint "completeAnAuction" CloseLotParams
+    .\/ Endpoint "cancelAnAuction" CloseLotParams
     .\/ Endpoint "bidOnAuction" BidOnAuctionParams
     .\/ Endpoint "bundleUp" BundleUpParams
     .\/ Endpoint "unbundle" UnbundleParams
@@ -362,6 +395,7 @@ data UserContractState =
     | ClosedSale
     | AuctionStarted
     | AuctionComplete
+    | AuctionCanceled
     | BidSubmitted
     | Bundled
     | Unbundled
@@ -372,16 +406,17 @@ data UserContractState =
 
 Lens.makeClassyPrisms ''UserContractState
 
-userEndpoints :: Core.Marketplace -> Promise (RemoteData Text UserContractState) MarketplaceUserSchema Void ()
+userEndpoints :: Core.Marketplace -> Promise (ContractResponse Haskell.String Text UserContractState) MarketplaceUserSchema Void ()
 userEndpoints marketplace =
-    (withRemoteDataResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
-    `select` withRemoteDataResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
-    `select` withRemoteDataResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
-    `select` withRemoteDataResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
-    `select` withRemoteDataResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
-    `select` withRemoteDataResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
-    `select` withRemoteDataResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
-    `select` withRemoteDataResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
-    `select` withRemoteDataResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
-    `select` withRemoteDataResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
-    `select` withRemoteDataResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints marketplace
+    (withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
+    `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
+    `select` withContractResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
+    `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
+    `select` withContractResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
+    `select` withContractResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
+    `select` withContractResponse (Proxy @"cancelAnAuction") (const AuctionCanceled) (cancelAnAuction marketplace)
+    `select` withContractResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
+    `select` withContractResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
+    `select` withContractResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
+    `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
+    `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints marketplace

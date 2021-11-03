@@ -30,7 +30,7 @@ import           Ledger
 import qualified Ledger.Typed.Scripts                         as Scripts
 import           Ledger.Typed.Tx
 import           Ledger.Value
-import           Plutus.Abstract.ContractResponse             (withRemoteDataResponse)
+import           Plutus.Abstract.ContractResponse             (ContractResponse, withContractResponse)
 import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
@@ -91,7 +91,7 @@ data ControllerContractState =
 
 Lens.makeClassyPrisms ''ControllerContractState
 
-controllerEndpoints :: Core.Marketplace -> Promise (RemoteData Text ControllerContractState) MarketplaceControllerSchema Void ()
+controllerEndpoints :: Core.Marketplace -> Promise (ContractResponse Haskell.String Text ControllerContractState) MarketplaceControllerSchema Void ()
 controllerEndpoints marketplace =
-    withRemoteDataResponse (Proxy @"collect") Collected (const $ collect marketplace) 
+    withContractResponse (Proxy @"collect") Collected (const $ collect marketplace) 
       <> controllerEndpoints marketplace
