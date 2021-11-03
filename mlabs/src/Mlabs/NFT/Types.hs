@@ -306,6 +306,8 @@ data InformationNft = InformationNft
     info'owner :: UserId
   , -- | Price in Lovelace. If Nothing, NFT not for sale.
     info'price :: Maybe Integer
+  , -- | Auction state
+    dNft'auctionState :: Maybe AuctionState
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
