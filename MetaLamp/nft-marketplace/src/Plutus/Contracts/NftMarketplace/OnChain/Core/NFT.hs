@@ -17,40 +17,46 @@
 
 module Plutus.Contracts.NftMarketplace.OnChain.Core.NFT where
 
-import           Control.Lens                           (_2, (&), (.~), (?~),
-                                                         (^.), (^?))
-import qualified Control.Lens                           as Lens
-import           Control.Monad                          (join)
-import qualified Crypto.Hash                            as Hash
-import qualified Data.Aeson                             as J
-import qualified Data.ByteArray                         as BA
-import qualified Data.List                              as HL
-import qualified Data.Text                              as T
-import qualified GHC.Generics                           as Haskell
+import           Control.Lens                                           (_2,
+                                                                         (&),
+                                                                         (.~),
+                                                                         (?~),
+                                                                         (^.),
+                                                                         (^?))
+import qualified Control.Lens                                           as Lens
+import           Control.Monad                                          (join)
+import qualified Crypto.Hash                                            as Hash
+import qualified Data.Aeson                                             as J
+import qualified Data.ByteArray                                         as BA
+import qualified Data.List                                              as HL
+import qualified Data.Text                                              as T
+import qualified GHC.Generics                                           as Haskell
 import           Ledger
-import qualified Ledger.Constraints                     as Constraints
-import qualified Ledger.Typed.Scripts                   as Scripts
-import qualified Ledger.Value                           as V
-import           Plutus.Abstract.Percentage             (Percentage)
+import qualified Ledger.Constraints                                     as Constraints
+import qualified Ledger.Typed.Scripts                                   as Scripts
+import qualified Ledger.Value                                           as V
+import           Plutus.Abstract.Percentage                             (Percentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import qualified Plutus.Contract.StateMachine           as SM
-import           Plutus.Contracts.Services.Auction.Core (Auction (..),
-                                                         AuctionFee)
-import qualified Plutus.Contracts.Services.Auction.Core as Auction
-import qualified Plutus.Contracts.Services.Sale         as Sale
+import qualified Plutus.Contract.StateMachine                           as SM
+import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (PlutusBuiltinByteString (..))
+import           Plutus.Contracts.Services.Auction.Core                 (Auction (..),
+                                                                         AuctionFee)
+import qualified Plutus.Contracts.Services.Auction.Core                 as Auction
+import qualified Plutus.Contracts.Services.Sale                         as Sale
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap                      as AssocMap
-import           PlutusTx.Prelude                       hiding (Semigroup (..))
-import           Prelude                                (Semigroup (..))
-import qualified Prelude                                as Haskell
+import qualified PlutusTx.AssocMap                                      as AssocMap
+import           PlutusTx.Prelude                                       hiding
+                                                                        (Semigroup (..))
+import           Prelude                                                (Semigroup (..))
+import qualified Prelude                                                as Haskell
 
 -- Category = [BuiltinByteString]
 -- 1. acts as a list of category with nested subcategories
 -- 2. acts as a list of tags
 type IpfsCid = BuiltinByteString
 type IpfsCidHash = BuiltinByteString
-type Category = [BuiltinByteString]
+type Category = [PlutusBuiltinByteString]
 type BundleId = BuiltinByteString
 
 data LotLink =
@@ -72,8 +78,8 @@ getLotValue (AuctionLotLink auction) = Auction.aAsset auction
 data NftInfo =
   NftInfo
     { niCurrency    :: !CurrencySymbol
-    , niName        :: !BuiltinByteString
-    , niDescription :: !BuiltinByteString
+    , niName        :: !PlutusBuiltinByteString
+    , niDescription :: !PlutusBuiltinByteString
     , niCategory    :: !Category
     , niIssuer      :: !(Maybe PubKeyHash)
     }
@@ -120,8 +126,8 @@ Lens.makeClassyPrisms ''Bundle
 
 data BundleInfo =
   BundleInfo
-    { biName        :: !BuiltinByteString
-    , biDescription :: !BuiltinByteString
+    { biName        :: !PlutusBuiltinByteString
+    , biDescription :: !PlutusBuiltinByteString
     , biCategory    :: !Category
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)

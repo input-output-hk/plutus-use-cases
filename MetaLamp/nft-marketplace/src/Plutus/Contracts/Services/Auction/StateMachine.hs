@@ -39,6 +39,7 @@ import qualified Plutus.Contract.StateMachine           as SM
 import           Plutus.Contract.Util                   (loopM)
 import qualified Plutus.Contracts.Currency              as Currency
 import           Plutus.Contracts.Services.Auction.Core
+import           Plutus.V1.Ledger.Time                  (POSIXTime (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                as Haskell
@@ -58,6 +59,7 @@ PlutusTx.unstableMakeIsData ''HighestBid
 data AuctionState
     = Ongoing HighestBid -- Bids can be submitted.
     | Finished HighestBid -- The auction is finished
+    | Canceled
     deriving stock (Generic, Haskell.Show, Haskell.Eq)
     deriving anyclass (ToJSON, FromJSON)
 
@@ -91,6 +93,7 @@ PlutusTx.unstableMakeIsData ''AuctionState
 data AuctionInput
     = Bid { newBid :: Ada, newBidder :: PubKeyHash } -- Increase the price
     | Payout
+    | Cancel
     deriving stock (Generic, Haskell.Show)
     deriving anyclass (ToJSON, FromJSON)
 
@@ -137,10 +140,19 @@ auctionTransition getAdditionalPayoutConstraints params@Auction{..} state@State{
             let
                 additionalConstraints = getAdditionalPayoutConstraints params state
                 constraints =
-                    Constraints.mustValidateIn (Interval.from aEndTime) -- When the auction has ended,
-                    <> Constraints.mustPayToPubKey highestBidder aAsset -- and the highest bidder the asset
+                    Constraints.mustPayToPubKey highestBidder aAsset -- and the highest bidder the asset
                     <> additionalConstraints
+                    <> Constraints.mustValidateIn (Interval.from aEndTime) -- When the auction has ended,
                 newState = State { stateData = Finished h, stateValue = mempty }
+            in Just (constraints, newState)
+
+        (Ongoing h@HighestBid{highestBidder, highestBid}, Cancel) ->
+            let
+                constraints =
+                    Constraints.mustValidateIn (Interval.to aEndTime) -- While the auction hasn't ended,
+                    <> Constraints.mustPayToPubKey highestBidder (Ada.toValue highestBid) -- and the highest bidder the asset
+                    <> Constraints.mustPayToPubKey aOwner aAsset -- and the highest bidder the asset
+                newState = State { stateData = Canceled, stateValue = mempty }
             in Just (constraints, newState)
 
         -- Any other combination of 'AuctionState' and 'AuctionInput' is disallowed.
