@@ -29,9 +29,9 @@ main =
           ]
       , testGroup
           "NFT"
-          [ contract NFT.Contract.test
-          , NFT.QuickCheck.test
-          , NFT.Script.test
+          [ NFT.Script.test
+          , contract NFT.Contract.test
+          , contract NFT.QuickCheck.test
           ]
       , testGroup
           "Lending"

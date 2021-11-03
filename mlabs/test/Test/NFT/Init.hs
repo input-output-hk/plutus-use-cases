@@ -58,10 +58,11 @@ checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
 
 -- | Wallets that are used for testing.
-w1, w2, w3 :: Wallet
+w1, w2, w3, w4 :: Wallet
 w1 = walletFromNumber 1
 w2 = walletFromNumber 2
 w3 = walletFromNumber 3
+w4 = walletFromNumber 4
 
 toUserId :: Wallet -> UserId
 toUserId = UserId . pubKeyHash . walletPubKey

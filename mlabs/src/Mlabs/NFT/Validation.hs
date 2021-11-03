@@ -67,7 +67,6 @@ import Data.Function (on)
 import Ledger.Value (
   TokenName (..),
   assetClass,
-  flattenValue,
   valueOf,
  )
 import Plutus.V1.Ledger.Value (AssetClass (..), assetClassValueOf, isZero)
@@ -108,7 +107,7 @@ mkMintPolicy !appInstance !act !ctx =
   case act of
     Mint nftid ->
       traceIfFalse "Only pointer of first node can change." firstChangedOnlyPtr
-        && traceIfFalse "Only One Token Can be Minted" (checkMintedAmount nftid)
+        && traceIfFalse "Excatly one NFT must be minted" (checkMintedAmount nftid)
         && traceIfFalse "Old first node must point to second node." (first `pointsTo'` second)
         && traceIfFalse "New first node must point to new node." (newFirst `pointsTo` newInserted)
         && traceIfFalse "New node must point to second node." (newInserted `pointsTo'` second)
@@ -228,13 +227,12 @@ mkTxPolicy !datum' !act !ctx =
               paysBack tx = valueOf (txOutValue tx) currency tokenName == 1
            in any paysBack . txInfoOutputs . scriptContextTxInfo $ ctx
     NodeDatum node ->
-      traceIfFalse "Transaction cannot mint." noMint
-        && traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
+      traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
         && case act of
-          MintAct {} ->
-            traceIfFalse "Only one token can be minted" checkMintedAmount
+          MintAct {} -> True
           BuyAct {..} ->
-            traceIfFalse "NFT not for sale." nftForSale
+            traceIfFalse "Transaction cannot mint." noMint
+              && traceIfFalse "NFT not for sale." nftForSale
               && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
               && traceIfFalse "Act'Bid is too low for the NFT price." (bidHighEnough act'bid)
               && traceIfFalse "Datum is not consistent, illegaly altered." consistentDatumBuy
@@ -244,7 +242,8 @@ mkTxPolicy !datum' !act !ctx =
                   traceIfFalse "Current owner is not paid their share." (correctPaymentOwner act'bid)
                     && traceIfFalse "Author is not paid their share." (correctPaymentAuthor act'bid)
           SetPriceAct {..} ->
-            traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." correctDatumSetPrice
+            traceIfFalse "Transaction cannot mint." noMint
+              && traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." correctDatumSetPrice
               && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
               && traceIfFalse "Only owner exclusively can set NFT price." ownerSetsPrice
               && traceIfFalse "Datum is not consistent, illegaly altered." consistentDatumSetPrice
@@ -282,14 +281,6 @@ mkTxPolicy !datum' !act !ctx =
 
         ------------------------------------------------------------------------------
         -- Checks
-
-        -- Check if minting only one token
-        !checkMintedAmount = case flattenValue (txInfoMint . scriptContextTxInfo $ ctx) of
-          [(cur, tn, val)] ->
-            ownCurrencySymbol ctx == cur
-              && nftTokenName datum' == tn
-              && val == 1
-          _ -> False
 
         -- Check if changed only owner and price
         !consistentDatumBuy =
@@ -347,9 +338,9 @@ mkTxPolicy !datum' !act !ctx =
         !noMint = isZero . txInfoMint . scriptContextTxInfo $ ctx
 
         -- Check if the NFT is sent to the correct address.
-        !tokenSentToCorrectAddress = case filter (containsNft . txOutValue) (txInfoOutputs . scriptContextTxInfo $ ctx) of
-          [tx] -> txOutAddress tx == (appInstance'Address . node'appInstance $ oldNode)
-          _ -> False
+        !tokenSentToCorrectAddress =
+          let sentBack tx = txOutAddress tx == (appInstance'Address . node'appInstance $ oldNode)
+           in all sentBack $ filter (containsNft . txOutValue) (txInfoOutputs . scriptContextTxInfo $ ctx)
 
 {-# INLINEABLE catMaybes' #-}
 catMaybes' :: [Maybe a] -> [a]
