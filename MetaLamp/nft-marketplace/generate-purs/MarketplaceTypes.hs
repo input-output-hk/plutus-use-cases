@@ -38,6 +38,7 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Contracts.Services.Auction            as Auction
 import qualified Plutus.Contracts.Services.Sale               as Sale
 import           Plutus.PAB.MarketplaceContracts                       (MarketplaceContracts (..))
+import qualified Plutus.Contracts.NftMarketplace.OffChain.Serialization as Marketplace
 
 psPosixTime :: MonadReader BridgeData m => m PSType
 psPosixTime =
@@ -56,6 +57,7 @@ marketplaceTypes =
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @MarketplaceContracts)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Percentage.Percentage)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.Marketplace)
+          , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.PlutusBuiltinByteString)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @Marketplace.MarketplaceSettingsInfo)
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(RemoteData E A))
           , (equal <*> (genericShow <*> mkSumType)) (Proxy @(ContractState K E A))

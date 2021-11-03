@@ -28,7 +28,7 @@ import qualified Plutus.Contracts.NftMarketplace.OffChain.Serialization as Marke
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Marketplace
 import qualified Plutus.Contracts.Services.Auction                      as Auction
 import qualified Plutus.Contracts.Services.Sale                         as Sale
-import           Plutus.PAB.Simulation                                  (MarketplaceContracts (..))
+import           Plutus.PAB.MarketplaceContracts                                  (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Ada                                   (Ada)
 import           Plutus.V1.Ledger.Crypto                                (PubKeyHash)
 import           Plutus.V1.Ledger.Time                                  (DiffMilliSeconds,
@@ -44,6 +44,9 @@ import           System.Directory                                       (doesDir
                                                                          removeDirectoryRecursive)
 
 instance TypeScript BuiltinByteString where
+  getTypeScriptType _ = "string"
+
+instance TypeScript Marketplace.PlutusBuiltinByteString where
   getTypeScriptType _ = "string"
 
 $(deriveTypeScript Aeson.defaultOptions ''TxOutRef)
@@ -100,7 +103,7 @@ $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BidOnAuctionParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BundleUpParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.UnbundleParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.MarketplaceSettingsInfo)
-$(deriveTypeScript Aeson.defaultOptions ''Marketplace.PlutusBuiltinByteString)
+-- $(deriveTypeScript Aeson.defaultOptions ''Marketplace.PlutusBuiltinByteString)
 $(deriveTypeScript Aeson.defaultOptions ''ContractState)
 
 formattingOptions :: FormattingOptions
@@ -147,7 +150,7 @@ main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @Marketplace.BundleUpParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.UnbundleParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.MarketplaceSettingsInfo)) <>
-    (getTypeScriptDeclarations (Proxy @Marketplace.PlutusBuiltinByteString)) <>
+    -- (getTypeScriptDeclarations (Proxy @Marketplace.PlutusBuiltinByteString)) <>
     (getTypeScriptDeclarations (Proxy @TxOutRef)) <>
     (getTypeScriptDeclarations (Proxy @TxId)) <>
     (getTypeScriptDeclarations (Proxy @CurrencySymbol)) <>
