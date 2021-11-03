@@ -39,6 +39,7 @@ import qualified Plutus.Contract.StateMachine           as SM
 import           Plutus.Contract.Util                   (loopM)
 import qualified Plutus.Contracts.Currency              as Currency
 import           Plutus.Contracts.Services.Auction.Core
+import           Plutus.V1.Ledger.Time                  (POSIXTime (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                as Haskell
@@ -139,9 +140,9 @@ auctionTransition getAdditionalPayoutConstraints params@Auction{..} state@State{
             let
                 additionalConstraints = getAdditionalPayoutConstraints params state
                 constraints =
-                    Constraints.mustValidateIn (Interval.from aEndTime) -- When the auction has ended,
-                    <> Constraints.mustPayToPubKey highestBidder aAsset -- and the highest bidder the asset
+                    Constraints.mustPayToPubKey highestBidder aAsset -- and the highest bidder the asset
                     <> additionalConstraints
+                    <> Constraints.mustValidateIn (Interval.from aEndTime) -- When the auction has ended,
                 newState = State { stateData = Finished h, stateValue = mempty }
             in Just (constraints, newState)
 

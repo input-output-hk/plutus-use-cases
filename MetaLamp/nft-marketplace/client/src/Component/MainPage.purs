@@ -31,7 +31,7 @@ import Halogen.HTML.Properties as HP
 import Network.RemoteData (RemoteData(..))
 import Network.RemoteData as RD
 import Network.RemoteData as RemoteData
-import Plutus.PAB.Simulation (MarketplaceContracts)
+import Plutus.PAB.MarketplaceContracts (MarketplaceContracts)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
 import Routing.Duplex (parse) as Routing
 import Routing.Hash (getHash) as Routing

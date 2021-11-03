@@ -16,7 +16,7 @@ import Data.UUID (toString) as UUID
 import Foreign.Generic (class Decode, class Encode, decodeJSON)
 import Plutus.Abstract.RemoteData as PRD
 import Plutus.PAB.Events.ContractInstanceState (PartiallyDecodedResponse(..))
-import Plutus.PAB.Simulation (MarketplaceContracts)
+import Plutus.PAB.MarketplaceContracts (MarketplaceContracts)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState(..))
 import Wallet.Types (ContractInstanceId(..))
 import Plutus.Abstract.ContractResponse (ContractState(..))

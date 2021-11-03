@@ -10,7 +10,7 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe)
 import Data.Newtype (class Newtype, unwrap)
 import Plutus.Contracts.NftMarketplace.OffChain.User
-import Plutus.PAB.Simulation (MarketplaceContracts, _MarketplaceUser)
+import Plutus.PAB.MarketplaceContracts (MarketplaceContracts, _MarketplaceUser)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Plutus.V1.Ledger.Value (Value)

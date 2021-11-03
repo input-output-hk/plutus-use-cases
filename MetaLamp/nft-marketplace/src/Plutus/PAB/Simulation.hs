@@ -12,74 +12,88 @@
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
+
 module Plutus.PAB.Simulation where
 
-import           Control.Monad                                  (forM, forM_,
-                                                                 void, when)
-import           Control.Monad.Freer                            (Eff, Member,
-                                                                 interpret,
-                                                                 type (~>))
-import           Control.Monad.Freer.Error                      (Error)
-import           Control.Monad.Freer.Extras.Log                 (LogMsg)
-import           Control.Monad.IO.Class                         (MonadIO (..))
-import qualified Data.Aeson                                     as J
-import           Data.Default                                   (Default (def))
-import qualified Data.Map.Strict                                as Map
-import           Data.Monoid                                    (Last (..))
-import qualified Data.Monoid                                    as Monoid
-import qualified Data.OpenApi.Schema                            as OpenApi
-import           Data.Proxy                                     (Proxy (..))
-import qualified Data.Semigroup                                 as Semigroup
-import           Data.Text                                      (Text)
-import           Data.Text.Prettyprint.Doc                      (Pretty (..),
-                                                                 viaShow)
-import qualified Data.Time.Clock                                as Time
-import           Ext.Plutus.Ledger.Time                         (convertUtcToPOSIX)
-import qualified Ext.Plutus.PAB.Webserver.Server                as Ext.Plutus.PAB
-import           GHC.Generics                                   (Generic)
+import           Control.Concurrent                                  (forkIO)
+import           Control.Monad                                       (forM,
+                                                                      forM_,
+                                                                      void,
+                                                                      when)
+import           Control.Monad.Freer                                 (Eff,
+                                                                      Member,
+                                                                      interpret,
+                                                                      type (~>))
+import           Control.Monad.Freer.Error                           (Error)
+import           Control.Monad.Freer.Extras.Log                      (LogMsg)
+import           Control.Monad.IO.Class                              (MonadIO (..))
+import qualified Data.Aeson                                          as J
+import           Data.Default                                        (Default (def))
+import qualified Data.Map.Strict                                     as Map
+import           Data.Monoid                                         (Last (..))
+import qualified Data.Monoid                                         as Monoid
+import qualified Data.OpenApi.Schema                                 as OpenApi
+import           Data.Proxy                                          (Proxy (..))
+import qualified Data.Semigroup                                      as Semigroup
+import           Data.Text                                           (Text)
+import           Data.Text.Prettyprint.Doc                           (Pretty (..),
+                                                                      viaShow)
+import qualified Data.Time.Clock                                     as Time
+import           Ext.Plutus.Ledger.Time                              (convertUtcToPOSIX)
+import qualified Ext.Plutus.PAB.Webserver.Server                     as Ext.Plutus.PAB
+import           GHC.Generics                                        (Generic)
 import           Ledger
-import           Ledger.Ada                                     (adaSymbol,
-                                                                 adaToken,
-                                                                 adaValueOf,
-                                                                 lovelaceValueOf)
-import qualified Ledger.Ada                                     as Ada
+import           Ledger.Ada                                          (adaSymbol,
+                                                                      adaToken,
+                                                                      adaValueOf,
+                                                                      lovelaceValueOf)
+import qualified Ledger.Ada                                          as Ada
 import           Ledger.Constraints
-import qualified Ledger.Constraints.OffChain                    as Constraints
-import           Ledger.TimeSlot                                (SlotConfig (..))
-import qualified Ledger.Typed.Scripts                           as Scripts
-import           Ledger.Value                                   as Value
-import           Playground.Types                               (SimulatorWallet (..),
-                                                                 adaCurrency)
-import           Plutus.Abstract.ContractResponse               (ContractResponse,
-                                                                 ContractState (..))
-import           Plutus.Abstract.RemoteData                     (RemoteData (..))
-import           Plutus.Contract                                hiding (when)
-import           Plutus.Contracts.Currency                      as Currency
-import qualified Plutus.Contracts.NftMarketplace.Endpoints      as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OffChain.Owner as Owner
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
-import qualified Plutus.Contracts.Services.Sale                 as Sale
-import           Plutus.PAB.Effects.Contract                    (ContractEffect (..))
-import           Plutus.PAB.Effects.Contract.Builtin            (Builtin,
-                                                                 SomeBuiltin (..),
-                                                                 type (.\\))
-import qualified Plutus.PAB.Effects.Contract.Builtin            as Builtin
-import           Plutus.PAB.Monitoring.PABLogMsg                (PABMultiAgentMsg)
-import           Plutus.PAB.Simulator                           (Simulation,
-                                                                 SimulatorEffectHandlers)
-import qualified Plutus.PAB.Simulator                           as Simulator
-import           Plutus.PAB.Types                               (PABError (..))
-import qualified Plutus.PAB.Types                               as PAB
-import qualified Plutus.PAB.Webserver.Server                    as PAB
-import           Plutus.V1.Ledger.Time                          (DiffMilliSeconds (..),
-                                                                 POSIXTime (..),
-                                                                 fromMilliSeconds)
-import           Prelude                                        hiding (init)
-import           Wallet.Emulator.Types                          (WalletNumber (..),
-                                                                 walletPubKey)
-import           Wallet.Emulator.Wallet                         (Wallet (..),
-                                                                 fromWalletNumber)
-import           Wallet.Types                                   (ContractInstanceId)
+import qualified Ledger.Constraints.OffChain                         as Constraints
+import qualified Ledger.Typed.Scripts                                as Scripts
+import           Ledger.Value                                        as Value
+import           Network.HTTP.Client                                 (defaultManagerSettings,
+                                                                      newManager)
+import           Playground.Types                                    (SimulatorWallet (..),
+                                                                      adaCurrency)
+import           Plutus.Abstract.ContractResponse                    (ContractResponse,
+                                                                      ContractState (..))
+import           Plutus.Abstract.RemoteData                          (RemoteData (..))
+import           Plutus.Contract                                     hiding
+                                                                     (when)
+import           Plutus.Contracts.Currency                           as Currency
+import qualified Plutus.Contracts.NftMarketplace.Endpoints           as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OffChain.Controller as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OffChain.Owner      as Owner
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core        as Marketplace
+import qualified Plutus.Contracts.Services.Sale                      as Sale
+import           Plutus.PAB.Client                                   (loopController)
+import           Plutus.PAB.Effects.Contract                         (ContractEffect (..))
+import           Plutus.PAB.Effects.Contract.Builtin                 (Builtin,
+                                                                      SomeBuiltin (..),
+                                                                      type (.\\))
+import qualified Plutus.PAB.Effects.Contract.Builtin                 as Builtin
+import           Plutus.PAB.MarketplaceContracts                     (MarketplaceContracts (..))
+import           Plutus.PAB.Monitoring.PABLogMsg                     (PABMultiAgentMsg)
+import           Plutus.PAB.Simulator                                (Simulation,
+                                                                      SimulatorEffectHandlers)
+import qualified Plutus.PAB.Simulator                                as Simulator
+import           Plutus.PAB.Types                                    (PABError (..))
+import qualified Plutus.PAB.Types                                    as PAB
+import qualified Plutus.PAB.Webserver.Server                         as PAB
+import           Plutus.V1.Ledger.Time                               (DiffMilliSeconds (..),
+                                                                      POSIXTime (..),
+                                                                      fromMilliSeconds)
+import           Prelude                                             hiding
+                                                                     (init)
+import           Servant.Client                                      (BaseUrl (..),
+                                                                      Scheme (..),
+                                                                      mkClientEnv)
+import           Wallet.Emulator.Types                               (WalletNumber (..),
+                                                                      walletPubKey)
+import           Wallet.Emulator.Wallet                              (Wallet (..),
+                                                                      fromWalletNumber)
+import           Wallet.Types                                        (ContractInstanceId)
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1
@@ -102,7 +116,7 @@ startMarketplaceParams = Owner.StartMarketplaceParams {
 initialLotPrice :: Value.Value
 initialLotPrice = lovelaceValueOf 100000000 -- 100 ADA
 
-data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
+data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId, cidController :: ContractInstanceId }
 
 activateContracts :: Simulation (Builtin MarketplaceContracts) ContractIDs
 activateContracts = do
@@ -120,23 +134,29 @@ activateContracts = do
         Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace user contract started for " ++ show w
         return (w, cid)
 
-    pure $ ContractIDs users cidInfo
+    cidController <- Simulator.activateContract ownerWallet $ MarketplaceController mp
+
+    pure $ ContractIDs users cidInfo cidController
 
 startMpServer :: IO ()
 startMpServer = do
     beginningOfTime <- convertUtcToPOSIX <$> Time.getCurrentTime
-    void $ Simulator.runSimulationWith (handlers $ slotConfiguration beginningOfTime) $ do
+    void $ Simulator.runSimulationWith handlers $ do
         Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
         shutdown <- Ext.Plutus.PAB.startServer
 
-        _ <- activateContracts
+        ContractIDs {..} <- activateContracts
+
+        manager <- liftIO . newManager $ defaultManagerSettings
+        _ <- liftIO . forkIO . void $ loopController (mkClientEnv manager (BaseUrl Http "localhost" 9080 "")) cidController
+
         Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
         _ <- liftIO getLine
         shutdown
 
 runNftMarketplace :: IO ()
 runNftMarketplace =
-    void $ Simulator.runSimulationWith (handlers def) $ do
+    void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
@@ -230,7 +250,7 @@ runNftMarketplace =
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
                         saapInitialPrice = fromInteger $ 5 * oneAdaInLovelace,
-                        saapEndTime =  (POSIXTime 1596059091000) + fromMilliSeconds (DiffMilliSeconds (55 * 1000))
+                        saapDuration = 25 * 1000
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
@@ -238,16 +258,6 @@ runNftMarketplace =
         J.Success (Last (Just (ContractState _ (Success Marketplace.AuctionStarted)))) -> Just ()
         _                                              -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Started An Auction"
-
-    _  <-
-        Simulator.callEndpointOnInstance buyerCid "bidOnAuction" Marketplace.BidOnAuctionParams {
-                                                                        boapItemId = Marketplace.UserNftId photoTokenIpfsCid,
-                                                                        boapBid     = fromInteger $ 3 * oneAdaInLovelace
-                                                                    }
-    _ <- flip Simulator.waitForState buyerCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
-        J.Success (Last (Just (ContractState _ (Failure _)))) -> Just ()
-        _                                                     -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "BidOnAuction failed."
 
     _  <-
         Simulator.callEndpointOnInstance buyerCid "bidOnAuction" Marketplace.BidOnAuctionParams {
@@ -322,36 +332,9 @@ runNftMarketplace =
     _ <- liftIO getLine
     shutdown
 
-data MarketplaceContracts =
-    MarketplaceStart
-    | MarketplaceInfo Marketplace.Marketplace
-    | MarketplaceUser Marketplace.Marketplace
-    deriving (Eq, Show, Generic)
-    deriving anyclass (J.FromJSON, J.ToJSON, OpenApi.ToSchema)
-
-instance Pretty MarketplaceContracts where
-    pretty = viaShow
-
-instance Builtin.HasDefinitions MarketplaceContracts where
-    getDefinitions = [MarketplaceStart]
-    getSchema = \case
-        MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
-        MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
-        MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
-    getContract = \case
-        MarketplaceInfo marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.infoEndpoints marketplace
-        MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
-        MarketplaceStart           -> SomeBuiltin . awaitPromise $ Marketplace.ownerEndpoints
-
-slotConfiguration :: POSIXTime -> SlotConfig
-slotConfiguration beginningOfTime = SlotConfig
-        { scSlotLength   = 1000
-        , scSlotZeroTime = beginningOfTime
-        }
-
-handlers :: SlotConfig -> SimulatorEffectHandlers (Builtin MarketplaceContracts)
-handlers slotConfig =
-    Simulator.mkSimulatorHandlers def slotConfig
+handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
+handlers =
+    Simulator.mkSimulatorHandlers def def
     $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @MarketplaceContracts))
 
 oneAdaInLovelace :: Integer
