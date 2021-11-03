@@ -103,7 +103,6 @@ $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BidOnAuctionParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.BundleUpParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.UnbundleParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.MarketplaceSettingsInfo)
--- $(deriveTypeScript Aeson.defaultOptions ''Marketplace.PlutusBuiltinByteString)
 $(deriveTypeScript Aeson.defaultOptions ''ContractState)
 
 formattingOptions :: FormattingOptions
@@ -150,7 +149,6 @@ main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @Marketplace.BundleUpParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.UnbundleParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.MarketplaceSettingsInfo)) <>
-    -- (getTypeScriptDeclarations (Proxy @Marketplace.PlutusBuiltinByteString)) <>
     (getTypeScriptDeclarations (Proxy @TxOutRef)) <>
     (getTypeScriptDeclarations (Proxy @TxId)) <>
     (getTypeScriptDeclarations (Proxy @CurrencySymbol)) <>
