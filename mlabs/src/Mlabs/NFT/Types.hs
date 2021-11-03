@@ -479,6 +479,22 @@ data UserAct
       , -- | Nft symbol
         act'symbol :: NftAppSymbol
       }
+  | -- | Start NFT auction
+    OpenAuctionAct
+      { -- | Nft symbol
+        act'symbol :: NftAppSymbol
+      }
+  | -- | Make a bid in an auction
+    BidAuctionAct
+      { -- | Bid amount in lovelace
+        act'bid :: Integer
+      , -- | Nft symbol
+        act'symbol :: NftAppSymbol
+      }
+  | CloseAuctionAct
+      { -- | Nft symbol
+        act'symbol :: NftAppSymbol
+      }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
