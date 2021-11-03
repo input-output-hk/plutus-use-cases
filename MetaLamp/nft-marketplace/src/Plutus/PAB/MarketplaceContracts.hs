@@ -15,18 +15,18 @@
 
 module Plutus.PAB.MarketplaceContracts where
 
-import qualified Plutus.Contracts.NftMarketplace.Endpoints      as Marketplace
-import           Plutus.PAB.Effects.Contract.Builtin            (Builtin,
-                                                                 SomeBuiltin (..),
-                                                                 type (.\\))
-import qualified Plutus.PAB.Effects.Contract.Builtin            as Builtin
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
-import           GHC.Generics                                   (Generic)
-import qualified Data.Aeson                                     as J
-import           Data.Text.Prettyprint.Doc                      (Pretty (..),
-                                                                 viaShow)
-import qualified Data.OpenApi.Schema                            as OpenApi
-import           Plutus.Contract                                hiding (when)
+import qualified Data.Aeson                                   as J
+import qualified Data.OpenApi.Schema                          as OpenApi
+import           Data.Text.Prettyprint.Doc                    (Pretty (..),
+                                                               viaShow)
+import           GHC.Generics                                 (Generic)
+import           Plutus.Contract                              hiding (when)
+import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
+import           Plutus.PAB.Effects.Contract.Builtin          (Builtin,
+                                                               SomeBuiltin (..),
+                                                               type (.\\))
+import qualified Plutus.PAB.Effects.Contract.Builtin          as Builtin
 
 data MarketplaceContracts =
     MarketplaceStart

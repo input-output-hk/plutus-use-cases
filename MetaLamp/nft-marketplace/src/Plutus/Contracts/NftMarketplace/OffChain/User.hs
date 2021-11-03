@@ -49,7 +49,9 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID          as Cor
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
 import qualified Plutus.Contracts.Services.Auction                        as Auction
 import qualified Plutus.Contracts.Services.Sale                           as Sale
-import           Plutus.V1.Ledger.Time                                    (POSIXTime (..), fromMilliSeconds, DiffMilliSeconds(..))
+import           Plutus.V1.Ledger.Time                                    (DiffMilliSeconds (..),
+                                                                           POSIXTime (..),
+                                                                           fromMilliSeconds)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
 import           PlutusTx.Prelude                                         hiding
@@ -195,7 +197,7 @@ data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId       :: UserItemId,
     saapInitialPrice :: Ada,
-    saapDuration      :: Integer
+    saapDuration     :: Integer
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -215,7 +217,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
 
     currTime <- currentTime
     let endTime = currTime + fromMilliSeconds (DiffMilliSeconds saapDuration)
-    
+
     self <- Ledger.pubKeyHash <$> ownPubKey
     let startAuctionParams = Auction.StartAuctionParams {
       sapOwner = self,

@@ -4,22 +4,24 @@
 {-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE RecordWildCards         #-}
 
 module Plutus.PAB.Client where
 
-import Servant.Client (runClientM, ClientError, ClientEnv)
-import Plutus.PAB.Webserver.Client (pabClient, PabClient(..), InstanceClient(..))
-import           Wallet.Types                                   (ContractInstanceId(..))
-import Data.Aeson (toJSON, ToJSON, FromJSON)
-import qualified Data.Text as Text
-import Control.Concurrent (threadDelay)
-import Control.Monad (forever)
-import Plutus.PAB.MarketplaceContracts (MarketplaceContracts)
+import           Control.Concurrent              (threadDelay)
+import           Control.Monad                   (forever)
+import           Data.Aeson                      (FromJSON, ToJSON, toJSON)
+import qualified Data.Text                       as Text
+import           Plutus.PAB.MarketplaceContracts (MarketplaceContracts)
+import           Plutus.PAB.Webserver.Client     (InstanceClient (..),
+                                                  PabClient (..), pabClient)
+import           Servant.Client                  (ClientEnv, ClientError,
+                                                  runClientM)
+import           Wallet.Types                    (ContractInstanceId (..))
 
 loopController :: ClientEnv -> ContractInstanceId -> IO ()
 loopController env contractId = forever $ do

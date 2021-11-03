@@ -11,34 +11,37 @@
 
 module MarketplaceTypes where
 
-import           Control.Monad.Reader                         (MonadReader)
-import           Data.Proxy                                   (Proxy (Proxy))
-import           Language.PureScript.Bridge                   (BridgePart,
-                                                               Language (Haskell),
-                                                               PSType, SumType,
-                                                               TypeInfo (TypeInfo),
-                                                               buildBridge,
-                                                               equal,
-                                                               genericShow,
-                                                               haskType,
-                                                               mkSumType, order,
-                                                               psTypeParameters,
-                                                               typeModule,
-                                                               typeName,
-                                                               writePSTypesWith,
-                                                               (^==))
-import           Language.PureScript.Bridge.Builder           (BridgeData)
-import           Language.PureScript.Bridge.TypeParameters    (A, E, K)
-import           Plutus.Abstract.ContractResponse             (ContractState)
-import qualified Plutus.Abstract.Percentage                   as Percentage
-import           Plutus.Abstract.RemoteData                   (RemoteData)
-import           Plutus.Contract.StateMachine.ThreadToken     (ThreadToken)
-import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
-import qualified Plutus.Contracts.Services.Auction            as Auction
-import qualified Plutus.Contracts.Services.Sale               as Sale
-import           Plutus.PAB.MarketplaceContracts                       (MarketplaceContracts (..))
+import           Control.Monad.Reader                                   (MonadReader)
+import           Data.Proxy                                             (Proxy (Proxy))
+import           Language.PureScript.Bridge                             (BridgePart,
+                                                                         Language (Haskell),
+                                                                         PSType,
+                                                                         SumType,
+                                                                         TypeInfo (TypeInfo),
+                                                                         buildBridge,
+                                                                         equal,
+                                                                         genericShow,
+                                                                         haskType,
+                                                                         mkSumType,
+                                                                         order,
+                                                                         psTypeParameters,
+                                                                         typeModule,
+                                                                         typeName,
+                                                                         writePSTypesWith,
+                                                                         (^==))
+import           Language.PureScript.Bridge.Builder                     (BridgeData)
+import           Language.PureScript.Bridge.TypeParameters              (A, E,
+                                                                         K)
+import           Plutus.Abstract.ContractResponse                       (ContractState)
+import qualified Plutus.Abstract.Percentage                             as Percentage
+import           Plutus.Abstract.RemoteData                             (RemoteData)
+import           Plutus.Contract.StateMachine.ThreadToken               (ThreadToken)
+import qualified Plutus.Contracts.NftMarketplace.Endpoints              as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OffChain.Serialization as Marketplace
+import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Marketplace
+import qualified Plutus.Contracts.Services.Auction                      as Auction
+import qualified Plutus.Contracts.Services.Sale                         as Sale
+import           Plutus.PAB.MarketplaceContracts                        (MarketplaceContracts (..))
 
 psPosixTime :: MonadReader BridgeData m => m PSType
 psPosixTime =

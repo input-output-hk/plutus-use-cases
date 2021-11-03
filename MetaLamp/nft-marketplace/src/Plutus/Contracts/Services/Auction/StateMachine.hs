@@ -39,11 +39,11 @@ import qualified Plutus.Contract.StateMachine           as SM
 import           Plutus.Contract.Util                   (loopM)
 import qualified Plutus.Contracts.Currency              as Currency
 import           Plutus.Contracts.Services.Auction.Core
+import           Plutus.V1.Ledger.Time                  (POSIXTime (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                as Haskell
 import qualified Schema
-import           Plutus.V1.Ledger.Time                                    (POSIXTime (..))
 
 data HighestBid =
     HighestBid

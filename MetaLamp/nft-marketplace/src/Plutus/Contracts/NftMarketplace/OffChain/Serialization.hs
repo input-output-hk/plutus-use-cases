@@ -1,18 +1,18 @@
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE DeriveGeneric #-}
 module Plutus.Contracts.NftMarketplace.OffChain.Serialization where
 
 import qualified Data.Aeson         as J
 import qualified Data.Aeson.Types   as J
 import           Data.Text          (Text)
 import qualified Data.Text.Encoding as T
+import qualified GHC.Generics       as Haskell
 import qualified PlutusTx           as PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude            as Haskell
-import qualified GHC.Generics                                           as Haskell
 
 newtype PlutusBuiltinByteString = PlutusBuiltinByteString { getPlutusBuiltinByteString :: BuiltinByteString }
     deriving (Haskell.Eq, Haskell.Show, Haskell.Generic)

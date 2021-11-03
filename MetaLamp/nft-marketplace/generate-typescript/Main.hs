@@ -28,7 +28,7 @@ import qualified Plutus.Contracts.NftMarketplace.OffChain.Serialization as Marke
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Marketplace
 import qualified Plutus.Contracts.Services.Auction                      as Auction
 import qualified Plutus.Contracts.Services.Sale                         as Sale
-import           Plutus.PAB.MarketplaceContracts                                  (MarketplaceContracts (..))
+import           Plutus.PAB.MarketplaceContracts                        (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Ada                                   (Ada)
 import           Plutus.V1.Ledger.Crypto                                (PubKeyHash)
 import           Plutus.V1.Ledger.Time                                  (DiffMilliSeconds,
