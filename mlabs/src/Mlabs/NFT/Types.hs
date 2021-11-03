@@ -25,6 +25,11 @@ module Mlabs.NFT.Types (
   getDatumValue,
   GenericContract,
   PointInfo (..),
+  AuctionBid (..),
+  AuctionState (..),
+  AuctionOpenParams (..),
+  AuctionBidParams (..),
+  AuctionCloseParams (..),
 ) where
 
 import PlutusTx.Prelude
@@ -196,6 +201,54 @@ instance Eq BuyRequestUser where
   (BuyRequestUser nftId1 price1 newPrice1) == (BuyRequestUser nftId2 price2 newPrice2) =
     nftId1 == nftId2 && price1 == price2 && newPrice1 == newPrice2
 
+data AuctionOpenParams = AuctionOpenParams
+  { -- | nftId
+    op'nftId :: NftId
+  , -- | Auction deadline
+    op'deadline :: POSIXTime
+  , -- | Auction minimum bid in lovelace
+    op'minBid :: Integer
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.unstableMakeIsData ''AuctionOpenParams
+PlutusTx.makeLift ''AuctionOpenParams
+
+instance Eq AuctionOpenParams where
+  {-# INLINEABLE (==) #-}
+  (AuctionOpenParams nftId1 deadline1 minBid1) == (AuctionOpenParams nftId2 deadline2 minBid2) =
+    nftId1 == nftId2 && deadline1 == deadline2 && minBid1 == minBid2
+
+data AuctionBidParams = AuctionBidParams
+  { -- | nftId
+    bp'nftId :: NftId
+  , -- | Bid amount in lovelace
+    bp'bidAmount :: Integer
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.unstableMakeIsData ''AuctionBidParams
+PlutusTx.makeLift ''AuctionBidParams
+
+instance Eq AuctionBidParams where
+  {-# INLINEABLE (==) #-}
+  (AuctionBidParams nftId1 bid1) == (AuctionBidParams nftId2 bid2) =
+    nftId1 == nftId2 && bid1 == bid2
+
+data AuctionCloseParams = AuctionCloseParams
+  { -- | nftId
+    cp'nftId :: NftId
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.unstableMakeIsData ''AuctionCloseParams
+PlutusTx.makeLift ''AuctionCloseParams
+
+instance Eq AuctionCloseParams where
+  {-# INLINEABLE (==) #-}
+  (AuctionCloseParams nftId1) == (AuctionCloseParams nftId2) =
+    nftId1 == nftId2
+
 -- | A datatype used by the QueryContract to return a response
 data QueryResponse
   = QueryCurrentOwner UserId
@@ -211,6 +264,35 @@ PlutusTx.makeLift ''NftId
 
 --------------------------------------------------------------------------------
 -- Validation
+
+data AuctionBid = AuctionBid
+  { -- | Bid in Lovelace
+    ab'bid :: Integer
+  , -- | Bidder's wallet pubkey
+    ab'bidder :: UserId
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.unstableMakeIsData ''AuctionBid
+PlutusTx.makeLift ''AuctionBid
+
+instance Eq AuctionBid where
+  {-# INLINEABLE (==) #-}
+  (AuctionBid bid1 bidder1) == (AuctionBid bid2 bidder2) =
+    bid1 == bid2 && bidder1 == bidder2
+
+data AuctionState = AuctionState
+  { -- | Highest bid
+    as'highestBid :: Maybe AuctionBid
+  , -- | Deadline
+    as'deadline :: POSIXTime
+  , -- | Minimum bid amount
+    as'minBid :: Integer
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.unstableMakeIsData ''AuctionState
+PlutusTx.makeLift ''AuctionState
 
 -- | NFT Information.
 data InformationNft = InformationNft
