@@ -50,8 +50,6 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                        as Haskell
 import qualified Schema
-import qualified Debug.Trace as D
-import           Plutus.V1.Ledger.Time                                    (POSIXTime (..))
 
 data StartAuctionParams = StartAuctionParams {
     sapOwner        :: !PubKeyHash,
@@ -95,8 +93,8 @@ payoutAuction auction = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
 
-    _ <- awaitTime $ POSIXTime 1596059091000
-    -- D.traceM "time awaited"
+    _ <- awaitTime $ aEndTime auction
+
     r <- SM.runStep client Payout
     case r of
         SM.TransitionFailure i            -> logError (TransitionFailed i)

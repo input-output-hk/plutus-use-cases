@@ -149,7 +149,7 @@ auctionTransition getAdditionalPayoutConstraints params@Auction{..} state@State{
         (Ongoing h@HighestBid{highestBidder, highestBid}, Cancel) ->
             let
                 constraints =
-                    Constraints.mustValidateIn (Interval.to $ POSIXTime 1596059091000) -- While the auction hasn't ended,
+                    Constraints.mustValidateIn (Interval.to aEndTime) -- While the auction hasn't ended,
                     <> Constraints.mustPayToPubKey highestBidder (Ada.toValue highestBid) -- and the highest bidder the asset
                     <> Constraints.mustPayToPubKey aOwner aAsset -- and the highest bidder the asset
                 newState = State { stateData = Canceled, stateValue = mempty }
