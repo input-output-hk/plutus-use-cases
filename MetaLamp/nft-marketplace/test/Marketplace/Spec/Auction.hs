@@ -144,16 +144,12 @@ tests =
         cancelAuctionWithBidsTraceB
     ]]
 
--- Setted up for Simulation and Emulators in plutus Ledger.TimeSlot module
-beginningOfTime :: Integer
-beginningOfTime = 1596059091000
-
 -- \/\/\/ "NFT singletons"
 startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (155 * 1000)),
+    Marketplace.saapDuration = 155 * 1000,
     Marketplace.saapInitialPrice = fromInteger $ 5 * Fixtures.oneAdaInLovelace
   }
 
@@ -255,7 +251,7 @@ cancelAuctionWithoutBidsTrace = do
 cancelAuctionWhenTimeIsOverTrace :: Trace.EmulatorTrace ()
 cancelAuctionWhenTimeIsOverTrace = do
   h <- CreateNft.createNftTrace
-  let startAuctionParamsWithLessTime = startAnAuctionParams {Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (5 * 1000))}
+  let startAuctionParamsWithLessTime = startAnAuctionParams {Marketplace.saapDuration = 1 * 1000}
 
   _ <- Trace.callEndpoint @"startAnAuction" h startAuctionParamsWithLessTime
 
@@ -347,7 +343,7 @@ startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    Marketplace.saapEndTime = (POSIXTime beginningOfTime) + fromMilliSeconds (DiffMilliSeconds (300 * 1000)),
+    Marketplace.saapDuration = 142 * 1000,
     Marketplace.saapInitialPrice = fromInteger $ 15 * Fixtures.oneAdaInLovelace
   }
 

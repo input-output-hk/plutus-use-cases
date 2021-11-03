@@ -140,9 +140,9 @@ auctionTransition getAdditionalPayoutConstraints params@Auction{..} state@State{
             let
                 additionalConstraints = getAdditionalPayoutConstraints params state
                 constraints =
-                    Constraints.mustValidateIn (Interval.from aEndTime) -- When the auction has ended,
-                    <> Constraints.mustPayToPubKey highestBidder aAsset -- and the highest bidder the asset
+                    Constraints.mustPayToPubKey highestBidder aAsset -- and the highest bidder the asset
                     <> additionalConstraints
+                    <> Constraints.mustValidateIn (Interval.from aEndTime) -- When the auction has ended,
                 newState = State { stateData = Finished h, stateValue = mempty }
             in Just (constraints, newState)
 

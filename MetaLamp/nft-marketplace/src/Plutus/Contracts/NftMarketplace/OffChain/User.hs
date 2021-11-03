@@ -49,7 +49,7 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID          as Cor
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
 import qualified Plutus.Contracts.Services.Auction                        as Auction
 import qualified Plutus.Contracts.Services.Sale                           as Sale
-import           Plutus.V1.Ledger.Time                                    (POSIXTime (..))
+import           Plutus.V1.Ledger.Time                                    (POSIXTime (..), fromMilliSeconds, DiffMilliSeconds(..))
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
 import           PlutusTx.Prelude                                         hiding
@@ -195,7 +195,7 @@ data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId       :: UserItemId,
     saapInitialPrice :: Ada,
-    saapEndTime      :: POSIXTime
+    saapDuration      :: Integer
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -214,14 +214,15 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currTime <- currentTime
-    when (saapEndTime < currTime) $ throwError "Auction end time is from the past"
-
+    let endTime = currTime + fromMilliSeconds (DiffMilliSeconds saapDuration)
+    
     self <- Ledger.pubKeyHash <$> ownPubKey
     let startAuctionParams = Auction.StartAuctionParams {
       sapOwner = self,
       sapAsset = auctionValue,
       sapInitialPrice = saapInitialPrice,
-      sapEndTime = saapEndTime,
+      sapDuration = saapDuration,
+      sapEndTime = endTime,
       sapAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }
     auction <- mapError (T.pack . Haskell.show) $ Auction.startAuction startAuctionParams
