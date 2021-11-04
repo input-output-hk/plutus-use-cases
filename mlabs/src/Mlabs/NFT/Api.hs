@@ -17,7 +17,10 @@ import Mlabs.NFT.Contract.Buy (buy)
 import Mlabs.NFT.Contract.Init (initApp)
 import Mlabs.NFT.Contract.Mint (mint)
 import Mlabs.NFT.Contract.SetPrice (setPrice)
-import Mlabs.NFT.Types (BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), QueryResponse (..), SetPriceParams (..))
+import Mlabs.NFT.Contract.OpenAuction (openAuction)
+import Mlabs.NFT.Contract.CloseAuction (closeAuction)
+import Mlabs.NFT.Contract.BidAuction (bidAuction)
+import Mlabs.NFT.Types (BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), QueryResponse (..), SetPriceParams (..), AuctionOpenParams (..), AuctionBidParams (..), AuctionCloseParams (..))
 import Mlabs.Plutus.Contract (selectForever)
 
 -- | A common App schema works for now.
@@ -31,6 +34,10 @@ type NFTAppSchema =
     .\/ Endpoint "query-current-owner" NftId
     .\/ Endpoint "query-current-price" NftId
     .\/ Endpoint "query-authentic-nft" NftId
+    -- Auction endpoints
+    .\/ Endpoint "auction-open" AuctionOpenParams
+    .\/ Endpoint "auction-bid" AuctionBidParams
+    .\/ Endpoint "auction-close" AuctionCloseParams
     -- Admin Endpoint
     .\/ Endpoint "app-init" ()
 
@@ -50,6 +57,9 @@ endpoints appSymbol =
     , endpoint @"buy" (buy appSymbol)
     , endpoint @"set-price" (setPrice appSymbol)
     --, endpoint @"query-authentic-nft" NFTContract.queryAuthenticNFT
+    , endpoint @"auction-open" (openAuction appSymbol)
+    , endpoint @"auction-close" (closeAuction appSymbol)
+    , endpoint @"auction-bid" (bidAuction appSymbol)
     ]
 
 -- | Admin Endpoints

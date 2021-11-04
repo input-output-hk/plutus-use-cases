@@ -48,6 +48,7 @@ import Ledger (
   CurrencySymbol,
   PubKeyHash,
   TxOutRef,
+  POSIXTime,
  )
 
 import Ledger.Value (TokenName (..), unAssetClass)
@@ -294,6 +295,11 @@ data AuctionState = AuctionState
 PlutusTx.unstableMakeIsData ''AuctionState
 PlutusTx.makeLift ''AuctionState
 
+instance Eq AuctionState where
+  {-# INLINEABLE (==) #-}
+  (AuctionState bid1 deadline1 minBid1) == (AuctionState bid2 deadline2 minBid2) =
+    bid1 == bid2 && deadline1 == deadline2 && minBid1 == minBid2
+
 -- | NFT Information.
 data InformationNft = InformationNft
   { -- | NFT ID. Represents the key of the Datum. ?could even be taken out of the information?
@@ -319,8 +325,8 @@ PlutusTx.unstableMakeIsData ''InformationNft
 PlutusTx.makeLift ''InformationNft
 instance Eq InformationNft where
   {-# INLINEABLE (==) #-}
-  (InformationNft a b c d e) == (InformationNft a' b' c' d' e') =
-    a == a' && b == b' && c == c' && d == d' && e == e'
+  (InformationNft a b c d e f) == (InformationNft a' b' c' d' e' f') =
+    a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
 
 {- | App Instace is parametrised by the one time nft consumed at the creation of
  the HEAD and the script address.

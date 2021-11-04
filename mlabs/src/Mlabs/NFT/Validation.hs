@@ -248,6 +248,31 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
               && traceIfFalse "Only owner exclusively can set NFT price." ownerSetsPrice
               && traceIfFalse "Datum is not consistent, illegaly altered." consistentDatumSetPrice
+          OpenAuctionAct {} ->
+            True
+            -- traceIfFalse "Can't open auction: already in progress" noAuctionInProgress
+            --   && traceIfFalse "Only owner can open auction" signedByOwner
+          BidAuctionAct {} ->
+            True
+            -- traceIfFalse "Can't bid: No auction is in progress" (not noAuctionInProgress)
+            --   && traceIfFalse "Auction bid is too low" (auctionBidHighEnough act'bid)
+            --   && traceIfFalse "Auction deadline reached" correctAuctionBidSlotInterval
+            --   && traceIfFalse "(change) wrong input value" correctInputValue
+            --   && traceIfFalse "Auction: datum illegally altered" (auctionConsistentDatum act'bid)
+            --   && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
+            --   && traceIfFalse "Incorrect bid refund" correctBidRefund
+          CloseAuctionAct {} ->
+            True
+            -- traceIfFalse "Can't close auction: none in progress" (not noAuctionInProgress)
+            --   && traceIfFalse "Auction deadline not yet reached" auctionDeadlineReached
+            --   && traceIfFalse "Only owner can close auction" signedByOwner
+            --   && traceIfFalse "Auction: new owner set incorrectly" auctionCorrectNewOwner
+            --   && traceIfFalse "Auction: datum illegally altered" auctionConsistentCloseDatum
+            --   && if ownerIsAuthor
+            --     then traceIfFalse "Auction: amount paid to author/owner does not match bid" auctionCorrectPaymentOnlyAuthor
+            --     else
+            --       traceIfFalse "Auction: owner not paid their share" auctionCorrectPaymentOwner
+            --         && traceIfFalse "Auction: author not paid their share" auctionCorrectPaymentAuthor
       where
         !nInfo = node'information node
         oldDatum :: DatumNft = head . getInputDatums $ ctx

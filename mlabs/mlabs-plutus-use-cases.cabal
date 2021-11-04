@@ -165,6 +165,9 @@ library
     Mlabs.NFT.Contract.Aux
     Mlabs.NFT.Contract.SetPrice
     Mlabs.NFT.Contract.Buy
+    Mlabs.NFT.Contract.OpenAuction
+    Mlabs.NFT.Contract.CloseAuction
+    Mlabs.NFT.Contract.BidAuction
 
 executable mlabs-plutus-use-cases
   import:  common-imports
