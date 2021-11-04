@@ -1,4 +1,15 @@
-module Test.NFT.Trace (appInitTrace, testMint, testMint2, testAny, AppInitHandle) where
+module Test.NFT.Trace (
+  AppInitHandle,
+  appInitTrace,
+  mintFail1,
+  mintTrace,
+  setPriceTrace,
+  testAny,
+  testInit,
+  testMint,
+  testMint2,
+  test,
+) where
 
 import PlutusTx.Prelude
 import Prelude qualified as Hask
@@ -15,11 +26,13 @@ import Wallet.Emulator qualified as Emulator
 
 import Mlabs.Utils.Wallet (walletFromNumber)
 
+import Mlabs.NFT.Contract.Aux (hashData)
+
 import Mlabs.NFT.Api
 import Mlabs.NFT.Types
 
 -- | Generic application Trace Handle.
-type AppTraceHandle = Trace.ContractHandle (Last NftId) NFTAppSchema Text
+type AppTraceHandle = Trace.ContractHandle UserWriter NFTAppSchema Text
 
 type AppInitHandle = Trace.ContractHandle (Last NftAppSymbol) NFTAppSchema Text
 
@@ -36,6 +49,21 @@ appInitTrace = do
     Just aS -> return aS
   void $ Trace.waitNSlots 1
   return aSymbol
+
+mintTrace :: NftAppSymbol -> Emulator.Wallet -> EmulatorTrace NftId
+mintTrace aSymb wallet = do
+  h1 :: AppTraceHandle <- activateContractWallet wallet $ endpoints aSymb
+  callEndpoint @"mint" h1 artwork
+  void $ Trace.waitNSlots 1
+  return . NftId . hashData . mp'content $ artwork
+  where
+    artwork =
+      MintParams
+        { mp'content = Content "A painting."
+        , mp'title = Title "Fiona Lisa"
+        , mp'share = 1 % 10
+        , mp'price = Just 5
+        }
 
 -- | Emulator Trace 1. Mints one NFT.
 mint1Trace :: EmulatorTrace ()
@@ -79,6 +107,11 @@ mintTrace2 = do
         , mp'price = Just 5
         }
 
+findNftId :: forall a b. Last (Either a b) -> Maybe a
+findNftId x = case getLast x of
+  Just (Left x') -> Just x'
+  _ -> Nothing
+
 -- | Two users mint the same artwork.  Should Fail
 mintFail1 :: EmulatorTrace ()
 mintFail1 = do
@@ -109,7 +142,7 @@ eTrace1 = do
   -- callEndpoint @"mint" h2 artwork2
   void $ Trace.waitNSlots 1
   oState <- Trace.observableState h1
-  nftId <- case getLast oState of
+  nftId <- case findNftId oState of
     Nothing -> Trace.throwError (Trace.GenericError "NftId not found")
     Just nid -> return nid
   void $ Trace.waitNSlots 1
@@ -134,7 +167,7 @@ setPriceTrace = do
   authMintH <- activateContractWallet wallet1 (endpoints $ error ())
   void $ Trace.waitNSlots 2
   oState <- Trace.observableState authMintH
-  nftId <- case getLast oState of
+  nftId <- case findNftId oState of
     Nothing -> Trace.throwError (Trace.GenericError "NftId not found")
     Just nid -> return nid
   logInfo $ Hask.show nftId
@@ -200,33 +233,23 @@ setPriceTrace = do
 --         , mp'price = Just 100
 --         }
 
-eTrace2 :: EmulatorTrace ()
-eTrace2 = do
-  let wallet1 = walletFromNumber 1 :: Emulator.Wallet
-  _ <- activateContractWallet wallet1 $ endpoints (error ()) --FIXME
-  void $ Trace.waitNSlots 1
-
 -- | Test for initialising the App
 testInit :: Hask.IO ()
 testInit = runEmulatorTraceIO $ void appInitTrace
 
 -- | Test for Minting one token
+testMint :: Hask.IO ()
 testMint = runEmulatorTraceIO mint1Trace
 
+testMint2 :: Hask.IO ()
 testMint2 = runEmulatorTraceIO mintTrace2
 
+testAny :: EmulatorTrace () -> Hask.IO ()
 testAny = runEmulatorTraceIO
 
 -- | Test for prototyping.
 test :: Hask.IO ()
 test = runEmulatorTraceIO eTrace1
-
--- | New Test
-test1 :: Hask.IO ()
-test1 = runEmulatorTraceIO eTrace2
-
--- | Mint Test
-test2 = runEmulatorTraceIO eTrace2
 
 -- testSetPrice :: Hask.IO ()
 -- testSetPrice = runEmulatorTraceIO setPriceTrace

@@ -36,7 +36,7 @@ import Mlabs.NFT.Validation
  Attempts to buy a new NFT by changing the owner, pays the current owner and
  the author, and sets a new price for the NFT.
 -}
-buy :: NftAppSymbol -> BuyRequestUser -> Contract (Last NftId) s Text ()
+buy :: forall s. NftAppSymbol -> BuyRequestUser -> Contract UserWriter s Text ()
 buy symbol BuyRequestUser {..} = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
   ownPkh <- pubKeyHash <$> Contract.ownPubKey
@@ -80,7 +80,7 @@ buy symbol BuyRequestUser {..} = do
                       (Redeemer . PlutusTx.toBuiltinData $ action)
                   ]
           void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
-          Contract.tell . Last . Just $ ur'nftId
+          Contract.tell . Last . Just . Left $ ur'nftId
           Contract.logInfo @Hask.String "buy successful!"
   where
     updateDatum newOwner node =

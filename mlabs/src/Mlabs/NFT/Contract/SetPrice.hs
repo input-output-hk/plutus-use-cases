@@ -39,7 +39,7 @@ import Mlabs.NFT.Validation
 --------------------------------------------------------------------------------
 -- Set Price
 
-setPrice :: NftAppSymbol -> SetPriceParams -> Contract (Last NftId) s Text ()
+setPrice :: NftAppSymbol -> SetPriceParams -> Contract UserWriter s Text ()
 setPrice symbol SetPriceParams {..} = do
   when negativePrice $ Contract.throwError "New price can not be negative"
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
@@ -70,7 +70,7 @@ setPrice symbol SetPriceParams {..} = do
           ]
 
   void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
-  Contract.tell . Last . Just $ sp'nftId
+  Contract.tell . Last . Just . Left $ sp'nftId
   Contract.logInfo @Hask.String "set-price successful!"
   where
     updateDatum node = node {node'information = (node'information node) {info'price = sp'price}}

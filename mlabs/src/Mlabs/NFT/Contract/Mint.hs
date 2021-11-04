@@ -3,7 +3,6 @@
 module Mlabs.NFT.Contract.Mint (
   mint,
   getDatumsTxsOrdered,
-  hashData,
   InsertPoint (..),
 ) where
 
@@ -40,7 +39,7 @@ data InsertPoint = InsertPoint
   }
 
 ---- | Mints an NFT and sends it to the App Address.
-mint :: NftAppSymbol -> MintParams -> Contract (Last NftId) s Text ()
+mint :: forall s. NftAppSymbol -> MintParams -> Contract UserWriter s Text ()
 mint symbol params = do
   user <- getUId
   head' <- getHead symbol
@@ -56,7 +55,7 @@ mint symbol params = do
       let lookups = mconcat [lLk, nLk]
           tx = mconcat [lCx, nCx]
       void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
-      Contract.tell . Last . Just . info'id . node'information $ newNode
+      Contract.tell . Last . Just . Left . info'id . node'information $ newNode
       Contract.logInfo @Hask.String $ printf "mint successful!"
   where
     nftIdInit = NftId . hashData

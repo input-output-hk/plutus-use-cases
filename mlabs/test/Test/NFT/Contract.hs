@@ -2,16 +2,25 @@ module Test.NFT.Contract (
   test,
 ) where
 
+import Prelude qualified as Hask
+
 import PlutusTx.Prelude hiding (check, mconcat)
 import Test.Tasty (TestTree, testGroup)
 import Prelude (mconcat)
+
+import Mlabs.NFT.Contract.Init (createListHead, getAppSymbol, initApp)
+import Mlabs.NFT.Contract.Mint (mint)
 
 import Mlabs.Emulator.Scene (checkScene)
 import Mlabs.NFT.Api (endpoints, queryEndpoints)
 import Mlabs.NFT.Types (
   BuyRequestUser (..),
+  MintParams (..),
+  NftAppSymbol (..),
+  NftId (..),
   QueryResponse (..),
   SetPriceParams (..),
+  UserId (..),
  )
 import Test.NFT.Init (
   artwork1,
@@ -20,16 +29,20 @@ import Test.NFT.Init (
   checkOptions,
   noChangesScene,
   ownsAda,
+  runScript,
   toUserId,
   userBuy,
   userMint,
+  userQueryPrice,
   userSetPrice,
   w1,
   w2,
   w3,
  )
-import Test.NFT.Trace (AppInitHandle)
+import Test.NFT.Trace (AppInitHandle, mintTrace)
 
+import Mlabs.NFT.Contract.Aux (hashData)
+import Mlabs.NFT.Contract.Query (queryCurrentPrice)
 import Plutus.Contract (waitNSlots)
 import Plutus.Trace.Emulator (activateContractWallet, callEndpoint)
 import Plutus.Trace.Emulator.Types (walletInstanceTag)
@@ -120,51 +133,52 @@ testBuyNotEnoughPriceScript = check "Buy not enough price" (checkScene noChanges
       userSetPrice w1 $ SetPriceParams nft1 (Just 1_000_000)
       userBuy w2 $ BuyRequestUser nft1 500_000 Nothing
 
--- testQueryPrice :: TestTree
--- testQueryPrice =
---   checkPredicateOptions checkOptions "Query price"
---     (assertAccumState queryEndpoints (walletInstanceTag w2) predicate "")
---     script
---   where
---     script = do
---       nftId <- callStartNft w1
---
---       nft1 <- userMint w1 artwork1
---       void $ waitNSlots 10
---
---       void $ callEndpoint @"set-price" hdl1 (SetPriceParams nftId (Just 100))
---       void $ waitNSlots 10
---
---       hdl2 <- activateContractWallet w2 queryEndpoints
---       void $ callEndpoint @"query-current-price" hdl2 nftId
---       void $ waitNSlots 10
---
---     predicate = \case
---       QueryCurrentPrice (Just x) -> x == 100
---       _ -> False
+-- | User checks the price of the artwork.
+testQueryPrice :: TestTree
+testQueryPrice = check "Query price" assertState w1 script
+  where
+    contract = do
+      appSymbol <- getAppSymbol <$> createListHead
+      mint appSymbol artwork1
+      let nftId = NftId . hashData . mp'content $ artwork1
+      queryCurrentPrice appSymbol nftId
 
--- testQueryOwner :: TestTree
--- testQueryOwner =
---   checkPredicateOptions
---     checkOptions
---     "Query owner"
---     (assertAccumState queryEndpoints (walletInstanceTag w2) predicate "")
---     script
---   where
---     script = do
---       nftId <- callStartNft w1 mp
---       void $ waitNSlots 10
+    script = do
+      nft1 <- userMint w1 artwork1
+      userQueryPrice w1 nft1
 
---       hdl1 <- activateContractWallet w1 endpoints
---       void $ callEndpoint @"mint" hdl1 mp
---       void $ waitNSlots 10
+    assertState = assertAccumState contract (walletInstanceTag w1) predicate ""
 
---       void $ callEndpoint @"set-price" hdl1 (SetPriceParams nftId (Just 100))
---       void $ waitNSlots 10
+    aSymb = Hask.undefined
 
---       hdl2 <- activateContractWallet w2 queryEndpoints
---       void $ callEndpoint @"query-current-owner" hdl2 nftId
---       void $ waitNSlots 10
---     predicate = \case
---       Last (Just (QueryCurrentOwner (UserId hash))) -> hash == pubKeyHash (walletPubKey w1)
---       _ -> False
+    predicate = \case
+      Last (Just (Right (QueryCurrentPrice (Just p)))) -> p == 100
+      _ -> False
+
+{-
+testQueryOwner :: TestTree
+testQueryOwner =
+  checkPredicateOptions
+    checkOptions
+    "Query owner"
+    (assertAccumState queryEndpoints (walletInstanceTag w2) predicate "")
+    script
+  where
+    script = do
+      nftId <- callStartNft w1 mp
+      void $ waitNSlots 10
+
+      hdl1 <- activateContractWallet w1 endpoints
+      void $ callEndpoint @"mint" hdl1 mp
+      void $ waitNSlots 10
+
+      void $ callEndpoint @"set-price" hdl1 (SetPriceParams nftId (Just 100))
+      void $ waitNSlots 10
+
+      hdl2 <- activateContractWallet w2 queryEndpoints
+      void $ callEndpoint @"query-current-owner" hdl2 nftId
+      void $ waitNSlots 10
+    predicate = \case
+      Last (Just (QueryCurrentOwner (UserId hash))) -> hash == pubKeyHash (walletPubKey w1)
+      _ -> False
+-}
