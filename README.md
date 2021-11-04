@@ -14,7 +14,7 @@ Create a fully functional POC Oracle to bring off chain data on chain to interac
 
 Chain link contracts reference:
 
-[https://github.com/smartcontractkit/chainlink/tree/develop/evm-contracts/src/v0.7](https://github.com/smartcontractkit/chainlink/tree/develop/evm-contracts/src/v0.7)
+[https://github.com/smartcontractkit/chainlink/tree/develop/contracts/src/v0.8](https://github.com/smartcontractkit/chainlink/tree/develop/contracts/src/v0.8)
 
  ### Use case 2: DEX Token Swap, Liquidity and Stake Pools
 
