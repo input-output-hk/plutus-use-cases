@@ -160,4 +160,5 @@ mint symbol params = do
         , info'price = mp'price
         , info'owner = author
         , info'author = author
+        , info'auctionState = Nothing
         }

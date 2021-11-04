@@ -46,9 +46,9 @@ import Ledger (
   AssetClass,
   ChainIndexTxOut,
   CurrencySymbol,
+  POSIXTime,
   PubKeyHash,
   TxOutRef,
-  POSIXTime,
  )
 
 import Ledger.Value (TokenName (..), unAssetClass)
@@ -313,7 +313,7 @@ data InformationNft = InformationNft
   , -- | Price in Lovelace. If Nothing, NFT not for sale.
     info'price :: Maybe Integer
   , -- | Auction state
-    dNft'auctionState :: Maybe AuctionState
+    info'auctionState :: Maybe AuctionState
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)

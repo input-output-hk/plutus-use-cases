@@ -13,14 +13,14 @@ import Playground.Contract (mkSchemaDefinitions)
 import Plutus.Contract (Contract, Endpoint, endpoint, throwError, type (.\/))
 import Prelude as Hask
 
+import Mlabs.NFT.Contract.BidAuction (bidAuction)
 import Mlabs.NFT.Contract.Buy (buy)
+import Mlabs.NFT.Contract.CloseAuction (closeAuction)
 import Mlabs.NFT.Contract.Init (initApp)
 import Mlabs.NFT.Contract.Mint (mint)
-import Mlabs.NFT.Contract.SetPrice (setPrice)
 import Mlabs.NFT.Contract.OpenAuction (openAuction)
-import Mlabs.NFT.Contract.CloseAuction (closeAuction)
-import Mlabs.NFT.Contract.BidAuction (bidAuction)
-import Mlabs.NFT.Types (BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), QueryResponse (..), SetPriceParams (..), AuctionOpenParams (..), AuctionBidParams (..), AuctionCloseParams (..))
+import Mlabs.NFT.Contract.SetPrice (setPrice)
+import Mlabs.NFT.Types (AuctionBidParams (..), AuctionCloseParams (..), AuctionOpenParams (..), BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), QueryResponse (..), SetPriceParams (..))
 import Mlabs.Plutus.Contract (selectForever)
 
 -- | A common App schema works for now.
@@ -56,8 +56,8 @@ endpoints appSymbol =
     [ endpoint @"mint" (mint appSymbol)
     , endpoint @"buy" (buy appSymbol)
     , endpoint @"set-price" (setPrice appSymbol)
-    --, endpoint @"query-authentic-nft" NFTContract.queryAuthenticNFT
-    , endpoint @"auction-open" (openAuction appSymbol)
+    , --, endpoint @"query-authentic-nft" NFTContract.queryAuthenticNFT
+      endpoint @"auction-open" (openAuction appSymbol)
     , endpoint @"auction-close" (closeAuction appSymbol)
     , endpoint @"auction-bid" (bidAuction appSymbol)
     ]
