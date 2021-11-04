@@ -200,7 +200,7 @@ wallets :: [Wallet]
 wallets = [w1, w2, w3]
 
 wAdmin :: Wallet
-wAdmin = w4
+wAdmin = wA
 
 instanceSpec :: [ContractInstanceSpec NftModel]
 instanceSpec = Hask.pure $ ContractInstanceSpec (InitKey wAdmin) w1 adminEndpoints

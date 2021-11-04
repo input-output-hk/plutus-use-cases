@@ -1,6 +1,7 @@
 module Mlabs.NFT.Contract.Init (
   initApp,
   getAppSymbol,
+  createListHead,
 ) where
 
 import PlutusTx.Prelude hiding (mconcat, (<>))

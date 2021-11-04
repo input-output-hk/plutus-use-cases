@@ -6,10 +6,13 @@ module Test.NFT.Init (
   w1,
   w2,
   w3,
+  wA,
   toUserId,
   userBuy,
   userMint,
   userSetPrice,
+  runScript,
+  userQueryPrice,
   artwork1,
   ownsAda,
 ) where
@@ -38,7 +41,14 @@ import Prelude (Applicative (..), String, foldMap)
 
 import Mlabs.Emulator.Scene (Scene, owns)
 import Mlabs.Emulator.Types (adaCoin)
-import Mlabs.NFT.Api
+import Mlabs.NFT.Api (
+  ApiAdminContract,
+  NFTAppSchema,
+  adminEndpoints,
+  endpoints,
+  queryEndpoints,
+  schemas,
+ )
 import Mlabs.NFT.Types (
   BuyRequestUser (..),
   Content (..),
@@ -50,6 +60,13 @@ import Mlabs.NFT.Types (
   UserId (..),
  )
 import Mlabs.Utils.Wallet (walletFromNumber)
+
+-- | Wallets that are used for testing.
+w1, w2, w3, wA :: Wallet
+w1 = walletFromNumber 1
+w2 = walletFromNumber 2
+w3 = walletFromNumber 3
+wA = walletFromNumber 4 -- Admin Wallet
 
 -- | Calls initialisation of state for Nft pool
 callStartNft :: Wallet -> EmulatorTrace NftAppSymbol
@@ -64,19 +81,24 @@ callStartNft wal = do
   void $ waitNSlots 1
   pure aSymbol
 
-type ScriptM a = ReaderT NftAppSymbol (Eff '[RunContract, Waiting, EmulatorControl, EmulatedWalletAPI, LogMsg String, Error EmulatorRuntimeError]) a
+type ScriptM a =
+  ReaderT
+    NftAppSymbol
+    ( Eff
+        '[ RunContract
+         , Waiting
+         , EmulatorControl
+         , EmulatedWalletAPI
+         , LogMsg String
+         , Error EmulatorRuntimeError
+         ]
+    )
+    a
 
 type Script = ScriptM ()
 
 checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
-
--- | Wallets that are used for testing.
-w1, w2, w3, w4 :: Wallet
-w1 = walletFromNumber 1
-w2 = walletFromNumber 2
-w3 = walletFromNumber 3
-w4 = walletFromNumber 4
 
 toUserId :: Wallet -> UserId
 toUserId = UserId . pubKeyHash . walletPubKey
@@ -98,9 +120,14 @@ userMint wal mp = do
     callEndpoint @"mint" hdl mp
     next
     oState <- observableState hdl
-    case getLast oState of
+    case findNftId oState of
       Nothing -> throwError $ GenericError "Could not mint NFT"
       Just nftId -> pure nftId
+  where
+    findNftId :: forall a b. Last (Either a b) -> Maybe a
+    findNftId x = case getLast x of
+      Just (Left x) -> Just x
+      _ -> Nothing
 
 userSetPrice :: Wallet -> SetPriceParams -> Script
 userSetPrice wal sp = do
@@ -116,6 +143,14 @@ userBuy wal br = do
   lift $ do
     hdl <- activateContractWallet wal (endpoints symbol)
     callEndpoint @"buy" hdl br
+    next
+
+userQueryPrice :: Wallet -> NftId -> Script
+userQueryPrice wal nftId = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (queryEndpoints symbol)
+    callEndpoint @"query-current-price" hdl nftId
     next
 
 {- | Initial distribution of wallets for testing.
