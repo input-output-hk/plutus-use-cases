@@ -3,6 +3,7 @@
 module Mlabs.NFT.Contract.Mint (
   mint,
   getDatumsTxsOrdered,
+  mintParamsToInfo,
   InsertPoint (..),
 ) where
 
@@ -58,8 +59,6 @@ mint symbol params = do
       Contract.tell . Last . Just . Left . info'id . node'information $ newNode
       Contract.logInfo @Hask.String $ printf "mint successful!"
   where
-    nftIdInit = NftId . hashData
-
     createNewNode :: NftAppInstance -> MintParams -> UserId -> NftListNode
     createNewNode appInstance mp author =
       NftListNode
@@ -151,12 +150,14 @@ mint symbol params = do
             , Constraints.mustSpendScriptOutput oref redeemer
             ]
 
-    mintParamsToInfo :: MintParams -> UserId -> InformationNft
-    mintParamsToInfo MintParams {..} author =
-      InformationNft
-        { info'id = nftIdInit mp'content
-        , info'share = mp'share
-        , info'price = mp'price
-        , info'owner = author
-        , info'author = author
-        }
+mintParamsToInfo :: MintParams -> UserId -> InformationNft
+mintParamsToInfo MintParams {..} author =
+  InformationNft
+    { info'id = nftIdInit mp'content
+    , info'share = mp'share
+    , info'price = mp'price
+    , info'owner = author
+    , info'author = author
+    }
+  where
+    nftIdInit = NftId . hashData

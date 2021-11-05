@@ -12,6 +12,7 @@ module Test.NFT.Init (
   userMint,
   userQueryPrice,
   userQueryOwner,
+  userQueryListNfts,
   userSetPrice,
   w1,
   w2,
@@ -44,12 +45,9 @@ import Prelude (Applicative (..), String, foldMap)
 import Mlabs.Emulator.Scene (Scene, owns)
 import Mlabs.Emulator.Types (adaCoin)
 import Mlabs.NFT.Api (
-  ApiAdminContract,
-  NFTAppSchema,
   adminEndpoints,
   endpoints,
   queryEndpoints,
-  schemas,
  )
 import Mlabs.NFT.Types (
   BuyRequestUser (..),
@@ -161,6 +159,13 @@ userQueryOwner wal nftId = do
     hdl <- activateContractWallet wal (queryEndpoints symbol)
     callEndpoint @"query-current-owner" hdl nftId
 
+userQueryListNfts :: Wallet -> Script
+userQueryListNfts wal = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (queryEndpoints symbol)
+    callEndpoint @"query-list-nfts" hdl ()
+
 {- | Initial distribution of wallets for testing.
  We have 3 users. All of them get 1000 lovelace at the start.
 -}
@@ -197,7 +202,7 @@ artwork1 =
 artwork2 :: MintParams
 artwork2 =
   MintParams
-    { mp'content = Content "A painting."
+    { mp'content = Content "Another painting."
     , mp'title = Title "Fiona Lisa"
     , mp'share = 1 % 10
     , mp'price = Just 300

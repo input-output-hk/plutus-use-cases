@@ -20,7 +20,7 @@ import Prelude as Hask
 import Mlabs.NFT.Contract.Buy (buy)
 import Mlabs.NFT.Contract.Init (initApp)
 import Mlabs.NFT.Contract.Mint (mint)
-import Mlabs.NFT.Contract.Query (queryCurrentOwner, queryCurrentPrice)
+import Mlabs.NFT.Contract.Query (queryCurrentOwner, queryCurrentPrice, queryListNfts)
 import Mlabs.NFT.Contract.SetPrice (setPrice)
 import Mlabs.NFT.Types (AdminContract, BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), SetPriceParams (..), UserContract)
 import Mlabs.Plutus.Contract (selectForever)
@@ -35,6 +35,7 @@ type NFTAppSchema =
     -- Query Endpoints
     .\/ Endpoint "query-current-owner" NftId
     .\/ Endpoint "query-current-price" NftId
+    .\/ Endpoint "query-list-nfts" ()
     -- Admin Endpoint
     .\/ Endpoint "app-init" ()
 
@@ -69,4 +70,5 @@ queryEndpoints appSymbol =
   selectForever
     [ endpoint @"query-current-price" (void . queryCurrentPrice appSymbol)
     , endpoint @"query-current-owner" (void . queryCurrentOwner appSymbol)
+    , endpoint @"query-list-nfts" (void . const (queryListNfts appSymbol))
     ]

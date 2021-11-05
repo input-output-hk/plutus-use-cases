@@ -9,21 +9,19 @@ import Data.Map qualified as Map
 import Data.Monoid (Last (..))
 import Data.String (IsString (..))
 import Data.Text (Text)
-import Ledger.Crypto (pubKeyHash)
-import Plutus.Contract.Test (Wallet (..), walletPubKey)
-import Plutus.Contract.Test.ContractModel (Action, Actions, ContractInstanceSpec (..), ContractModel (..), contractState, getModelState, propRunActionsWithOptions, transfer, wait, ($=), ($~))
-import Plutus.Trace.Emulator (EmulatorRuntimeError (..), activateContractWallet, callEndpoint, observableState, throwError, waitNSlots)
+import Plutus.Contract.Test (Wallet (..))
+import Plutus.Contract.Test.ContractModel (Action, Actions, ContractInstanceSpec (..), ContractModel (..), contractState, getModelState, propRunActionsWithOptions, transfer, ($=), ($~))
+import Plutus.Trace.Emulator (activateContractWallet, callEndpoint)
 import Plutus.Trace.Emulator qualified as Trace
 import PlutusTx.Prelude hiding (fmap, length, mconcat, unless, (<$>), (<*>), (==))
 import Test.QuickCheck qualified as QC
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-import Prelude (div, fmap, (<$>), (<*>), (==))
+import Prelude ((<$>), (<*>), (==))
 import Prelude qualified as Hask
 
 import Mlabs.NFT.Api
 import Mlabs.NFT.Contract
-import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 import Test.NFT.Init
@@ -77,8 +75,7 @@ instance ContractModel NftModel where
   instanceTag key _ = fromString $ Hask.show key
 
   arbitraryAction model =
-    let invalidNft = NftId "I am invalid"
-        nfts = view nftId <$> Map.elems (model ^. contractState . mMarket)
+    let nfts = view nftId <$> Map.elems (model ^. contractState . mMarket)
         genWallet = QC.elements wallets
         genNonNeg = ((* 100) . (+ 1)) . QC.getNonNegative <$> QC.arbitrary
         genMaybePrice = QC.oneof [Hask.pure Nothing, Just <$> genNonNeg]
@@ -155,7 +152,7 @@ instance ContractModel NftModel where
             transfer (aPerformer action) (nft ^. nftAuthor) authorShare
 
   perform h _ = \case
-    action@ActionInit {} -> do
+    ActionInit {} -> do
       let hAdmin = h $ InitKey wAdmin
       callEndpoint @"app-init" hAdmin ()
       void $ Trace.waitNSlots 2

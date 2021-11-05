@@ -1,8 +1,10 @@
 module Mlabs.NFT.Contract.Query (
   queryCurrentOwnerLog,
   queryCurrentPriceLog,
+  queryListNftsLog,
   queryCurrentPrice,
   queryCurrentOwner,
+  queryListNfts,
   QueryContract,
 ) where
 
@@ -11,13 +13,14 @@ import Control.Monad ()
 import Data.Monoid (Last (..), mconcat)
 import Data.Text (Text)
 import GHC.Base (join)
-import Mlabs.NFT.Contract (getsNftDatum)
+import Mlabs.NFT.Contract (getDatumsTxsOrdered, getsNftDatum)
 import Mlabs.NFT.Types (
   DatumNft (..),
   InformationNft (..),
   NftAppSymbol,
   NftId,
   NftListNode (..),
+  PointInfo (..),
   QueryResponse (..),
   UserWriter,
  )
@@ -43,11 +46,6 @@ queryCurrentPrice appSymb nftId = do
       NodeDatum d -> info'price . node'information $ d
     log price = Contract.logInfo @String $ queryCurrentPriceLog nftId price
 
-{-
-currentPriceLog :: NftId -> Integer -> String
-currentPriceLog nftId price = mconcat ["Current price of: ", show nftId, " is: ", show price]
--}
-
 {- | Query the current owner of a given NFTid. Writes it to the Writer instance
  and also returns it, to be used in other contracts.
 -}
@@ -69,3 +67,22 @@ queryCurrentPriceLog nftId price = mconcat ["Current price of: ", show nftId, " 
 -- | Log msg of Current Owner. Used in testing as well.
 queryCurrentOwnerLog :: NftId -> QueryResponse -> String
 queryCurrentOwnerLog nftId owner = mconcat ["Current owner of: ", show nftId, " is: ", show owner]
+
+-- | Query the list of all NFTs in the app
+queryListNfts :: NftAppSymbol -> QueryContract QueryResponse
+queryListNfts symbol = do
+  datums <- fmap pi'datum <$> getDatumsTxsOrdered symbol
+  let nodes = mapMaybe getNode datums
+      infos = node'information <$> nodes
+  Contract.tell $ wrap infos
+  Contract.logInfo @String $ queryListNftsLog infos
+  return $ QueryListNfts infos
+  where
+    getNode (NodeDatum node) = Just node
+    getNode _ = Nothing
+
+    wrap = Last . Just . Right . QueryListNfts
+
+-- | Log of list of NFTs available in app. Used in testing as well.
+queryListNftsLog :: [InformationNft] -> String
+queryListNftsLog infos = mconcat ["Available NFTs: ", show infos]
