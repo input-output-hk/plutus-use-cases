@@ -4,7 +4,7 @@ module Mlabs.NFT.Contract.BidAuction (
   bidAuction,
 ) where
 
-import PlutusTx.Prelude hiding (mconcat, mempty, (<>), unless)
+import PlutusTx.Prelude hiding (mconcat, mempty, unless, (<>))
 import Prelude (mconcat, (<>))
 import Prelude qualified as Hask
 
@@ -24,14 +24,14 @@ import Ledger (
   Redeemer (..),
   ciTxOutValue,
   pubKeyHash,
-  txId,
   to,
+  txId,
  )
 
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorScript)
-import Plutus.V1.Ledger.Ada qualified as Ada
 import Ledger.Value qualified as Value
+import Plutus.V1.Ledger.Ada qualified as Ada
 
 import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
@@ -60,7 +60,7 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
           , ab'bidder = UserId ownPkh
           }
       newAuctionState =
-        auctionState { as'highestBid = Just newHighestBid }
+        auctionState {as'highestBid = Just newHighestBid}
 
       nftDatum = NodeDatum $ updateDatum newAuctionState node
       nftVal = Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
@@ -82,18 +82,20 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
         case as'highestBid auctionState of
           Nothing -> []
           Just (AuctionBid bid bidder) ->
-             [ Constraints.mustPayToPubKey (getUserId bidder) (Ada.lovelaceValueOf bid)
-             ]
+            [ Constraints.mustPayToPubKey (getUserId bidder) (Ada.lovelaceValueOf bid)
+            ]
       tx =
         mconcat
-          ([ Constraints.mustPayToTheScript nftDatum (nftVal <> (Ada.lovelaceValueOf bidAmount))
-          , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
-          , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
-          , Constraints.mustSpendScriptOutput
-              pi'TOR
-              (Redeemer . PlutusTx.toBuiltinData $ action)
-          , Constraints.mustValidateIn (to $ as'deadline auctionState)
-          ] ++ bidDependentTxConstraints)
+          ( [ Constraints.mustPayToTheScript nftDatum (nftVal <> (Ada.lovelaceValueOf bidAmount))
+            , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
+            , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
+            , Constraints.mustSpendScriptOutput
+                pi'TOR
+                (Redeemer . PlutusTx.toBuiltinData $ action)
+            , Constraints.mustValidateIn (to $ as'deadline auctionState)
+            ]
+              ++ bidDependentTxConstraints
+          )
   ledgerTx <- Contract.submitTxConstraintsWith @NftTrade lookups tx
   Contract.tell . Last . Just $ nftId
   -- void $ Contract.logInfo @Hask.String $ printf " >>>>!! Bidding in auction, new datum: %s" $ Hask.show nftDatum

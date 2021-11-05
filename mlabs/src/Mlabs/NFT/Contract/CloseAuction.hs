@@ -4,12 +4,12 @@ module Mlabs.NFT.Contract.CloseAuction (
   closeAuction,
 ) where
 
-import PlutusTx.Prelude hiding (mconcat, mempty, (<>), unless)
+import PlutusTx.Prelude hiding (mconcat, mempty, unless, (<>))
 import Prelude (mconcat)
 import Prelude qualified as Hask
 
 import Control.Lens ((^.))
-import Control.Monad (void, when, unless)
+import Control.Monad (unless, void, when)
 import Data.Map qualified as Map
 import Data.Monoid (Last (..))
 import Data.Text (Text)
@@ -23,9 +23,9 @@ import Ledger (
   Datum (..),
   Redeemer (..),
   ciTxOutValue,
+  from,
   pubKeyHash,
   txId,
-  from,
  )
 
 import Ledger.Constraints qualified as Constraints
@@ -83,14 +83,16 @@ closeAuction symbol (AuctionCloseParams nftId) = do
                 ]
       tx =
         mconcat
-          ([ Constraints.mustPayToTheScript nftDatum nftVal
-          , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
-          , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
-          , Constraints.mustSpendScriptOutput
-              pi'TOR
-              (Redeemer . PlutusTx.toBuiltinData $ action)
-          , Constraints.mustValidateIn (from $ as'deadline auctionState)
-          ] ++ bidDependentTxConstraints)
+          ( [ Constraints.mustPayToTheScript nftDatum nftVal
+            , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
+            , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
+            , Constraints.mustSpendScriptOutput
+                pi'TOR
+                (Redeemer . PlutusTx.toBuiltinData $ action)
+            , Constraints.mustValidateIn (from $ as'deadline auctionState)
+            ]
+              ++ bidDependentTxConstraints
+          )
   ledgerTx <- Contract.submitTxConstraintsWith @NftTrade lookups tx
   Contract.tell . Last . Just $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Closing auction for %s" $ Hask.show nftVal

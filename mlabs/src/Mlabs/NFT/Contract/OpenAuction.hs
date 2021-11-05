@@ -4,12 +4,12 @@ module Mlabs.NFT.Contract.OpenAuction (
   openAuction,
 ) where
 
-import PlutusTx.Prelude hiding (mconcat, mempty, (<>), unless)
+import PlutusTx.Prelude hiding (mconcat, mempty, unless, (<>))
 import Prelude (mconcat)
 import Prelude qualified as Hask
 
 import Control.Lens ((^.))
-import Control.Monad (void, when, unless)
+import Control.Monad (unless, void, when)
 import Data.Map qualified as Map
 import Data.Monoid (Last (..))
 import Data.Text (Text)

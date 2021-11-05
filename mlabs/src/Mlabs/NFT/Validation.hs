@@ -35,24 +35,27 @@ import Ledger (
   MintingPolicy,
   Redeemer (..),
   ScriptContext (..),
+  TxInInfo (..),
   TxOut (..),
   ValidatorHash,
   Value,
+  contains,
   findDatum,
+  findOwnInput,
+  from,
+  getContinuingOutputs,
   mkMintingPolicyScript,
   ownCurrencySymbol,
   scriptContextTxInfo,
   scriptCurrencySymbol,
+  to,
   txInInfoResolved,
   txInfoInputs,
   txInfoMint,
   txInfoOutputs,
   txInfoSignatories,
-  valuePaidTo,
-  contains,
   txInfoValidRange,
-  from,
-  to,
+  valuePaidTo,
  )
 
 import Ledger.Typed.Scripts (
@@ -71,22 +74,24 @@ import Data.Function (on)
 import Ledger.Value (
   TokenName (..),
   assetClass,
-  valueOf,
   singleton,
+  valueOf,
  )
 import Plutus.V1.Ledger.Value (AssetClass (..), assetClassValueOf, isZero)
 import PlutusTx qualified
 
 import Data.Maybe (catMaybes)
 import Mlabs.NFT.Types (
+  AuctionBid (..),
+  AuctionState (..),
   DatumNft (..),
   InformationNft (
+    info'auctionState,
     info'author,
     info'id,
     info'owner,
     info'price,
-    info'share,
-    info'auctionState
+    info'share
   ),
   MintAct (Initialise, Mint),
   NftAppInstance (appInstance'Address, appInstance'AppAssetClass),
@@ -100,8 +105,6 @@ import Mlabs.NFT.Types (
   getAppInstance,
   getDatumPointer,
   nftTokenName,
-  AuctionState (..),
-  AuctionBid (..),
  )
 
 asRedeemer :: PlutusTx.ToData a => a -> Redeemer
@@ -258,25 +261,26 @@ mkTxPolicy !datum' !act !ctx =
           OpenAuctionAct {} ->
             traceIfFalse "Can't open auction: already in progress" noAuctionInProgress
               && traceIfFalse "Only owner can open auction" signedByOwner
+              && traceIfFalse "Auction: datum illegally altered" auctionConsistentOpenDatum
           BidAuctionAct {..} ->
             traceIfFalse "Can't bid: No auction is in progress" (not noAuctionInProgress)
               && traceIfFalse "Auction bid is too low" (auctionBidHighEnough act'bid)
               && traceIfFalse "Auction deadline reached" correctAuctionBidSlotInterval
-              -- && traceIfFalse "Auction: wrong input value" correctInputValue
+              && traceIfFalse "Auction: wrong input value" correctInputValue
               -- && traceIfFalse "Auction: datum illegally altered" (auctionConsistentDatum act'bid)
-              -- && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
+              && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
               && traceIfFalse "Incorrect bid refund" correctBidRefund
           CloseAuctionAct {} ->
             traceIfFalse "Can't close auction: none in progress" (not noAuctionInProgress)
               && traceIfFalse "Auction deadline not yet reached" auctionDeadlineReached
               && traceIfFalse "Only owner can close auction" signedByOwner
-              -- && traceIfFalse "Auction: new owner set incorrectly" auctionCorrectNewOwner
-              -- && traceIfFalse "Auction: datum illegally altered" auctionConsistentCloseDatum
-              -- && if ownerIsAuthor
-              --   then traceIfFalse "Auction: amount paid to author/owner does not match bid" auctionCorrectPaymentOnlyAuthor
-              --   else
-              --     traceIfFalse "Auction: owner not paid their share" auctionCorrectPaymentOwner
-              --       && traceIfFalse "Auction: author not paid their share" auctionCorrectPaymentAuthor
+              && traceIfFalse "Auction: new owner set incorrectly" auctionCorrectNewOwner
+              && traceIfFalse "Auction: datum illegally altered" auctionConsistentCloseDatum
+              && if ownerIsAuthor
+                then traceIfFalse "Auction: amount paid to author/owner does not match bid" auctionCorrectPaymentOnlyAuthor
+                else
+                  traceIfFalse "Auction: owner not paid their share" auctionCorrectPaymentOwner
+                    && traceIfFalse "Auction: author not paid their share" auctionCorrectPaymentAuthor
       where
         info = scriptContextTxInfo ctx
 
@@ -316,6 +320,27 @@ mkTxPolicy !datum' !act !ctx =
           _ -> Nothing
 
         withAuctionState f = maybe (traceError "Auction state expected") f mauctionState
+
+        convDatum :: Datum -> Maybe DatumNft
+        convDatum (Datum d) = PlutusTx.fromBuiltinData d
+
+        newDatum :: DatumNft
+        newDatum =
+          case getContinuingOutputs ctx of
+            [out] ->
+              case txOutDatumHash out of
+                Nothing -> traceError "getNextDatum: expected datum hash"
+                Just dhash ->
+                  case findDatum dhash info >>= convDatum of
+                    Nothing -> traceError "getNextDatum: expected datum"
+                    Just dt -> dt
+            _ -> traceError "getNextDatum: expected exactly one cont. output"
+
+        newNodeInfo :: InformationNft
+        newNodeInfo =
+          case newDatum of
+            HeadDatum _ -> traceError "nextNodeInfo: expected NodeDatum, got HeadDatum instead"
+            NodeDatum listNode -> node'information $ listNode
 
         ------------------------------------------------------------------------------
         -- Checks
@@ -371,22 +396,55 @@ mkTxPolicy !datum' !act !ctx =
               Just (AuctionBid bid bidder) ->
                 valuePaidTo info (getUserId bidder) == Ada.lovelaceValueOf bid
 
-        -- correctInputValue :: Bool
-        -- correctInputValue =
-        --   case findOwnInput ctx of
-        --     Nothing -> traceError "findOwnInput: Nothing"
-        --     Just (TxInInfo _ out) ->
-        --       case mauctionState of
-        --         Nothing -> traceError "mauctionState: Nothing"
-        --         Just as -> case as'highestBid as of
-        --           Nothing -> tokenValue == txOutValue out
-        --           Just hb -> txOutValue out == (tokenValue <> Ada.lovelaceValueOf (ab'bid hb))
+        correctInputValue :: Bool
+        correctInputValue =
+          case findOwnInput ctx of
+            Nothing -> traceError "findOwnInput: Nothing"
+            Just (TxInInfo _ out) ->
+              case mauctionState of
+                Nothing -> traceError "mauctionState: Nothing"
+                Just as -> case as'highestBid as of
+                  Nothing -> tokenValue == txOutValue out
+                  Just hb -> txOutValue out == (tokenValue <> Ada.lovelaceValueOf (ab'bid hb))
 
-        -- auctionBidValueSupplied :: Integer -> Bool
-        -- auctionBidValueSupplied redeemerBid =
-        --   case getContinuingOutputs ctx of
-        --     [out] -> txOutValue out == tokenValue <> Ada.lovelaceValueOf redeemerBid
-        --     _ -> traceError "auctionBidValueSupplied: expected exactly one cont. output"
+        auctionBidValueSupplied :: Integer -> Bool
+        auctionBidValueSupplied redeemerBid =
+          case getContinuingOutputs ctx of
+            [out] -> txOutValue out == tokenValue <> Ada.lovelaceValueOf redeemerBid
+            _ -> traceError "auctionBidValueSupplied: expected exactly one cont. output"
+
+        auctionCorrectNewOwner :: Bool
+        auctionCorrectNewOwner =
+          withAuctionState $ \auctionState ->
+            case as'highestBid auctionState of
+              Nothing -> True
+              Just (AuctionBid _ bidder) ->
+                bidder == newOwner
+          where
+            newOwner = info'owner newNodeInfo
+
+        auctionConsistentCloseDatum :: Bool
+        auctionConsistentCloseDatum =
+          -- Checking that all fields remain the same except owner
+          info'id newNodeInfo == info'id nInfo
+            && info'share newNodeInfo == info'share nInfo
+            && info'author newNodeInfo == info'author nInfo
+            && info'price newNodeInfo == info'price nInfo
+            && checkOwner
+          where
+            checkOwner = withAuctionState $ \auctionState ->
+              case as'highestBid auctionState of
+                Nothing -> info'owner newNodeInfo == info'owner nInfo
+                _ -> True
+
+        auctionConsistentOpenDatum :: Bool
+        auctionConsistentOpenDatum =
+          -- Checking that all fields remain the same except auctionState
+          info'id newNodeInfo == info'id nInfo
+            && info'share newNodeInfo == info'share nInfo
+            && info'author newNodeInfo == info'author nInfo
+            && info'owner newNodeInfo == info'owner nInfo
+            && info'price newNodeInfo == info'price nInfo
 
         -- Check if changed only owner and price
         !consistentDatumBuy =
