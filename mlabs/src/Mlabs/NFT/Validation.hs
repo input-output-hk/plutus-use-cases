@@ -111,6 +111,7 @@ mkMintPolicy !appInstance !act !ctx =
         && traceIfFalse "Old first node must point to second node." (first `pointsTo'` second)
         && traceIfFalse "New first node must point to new node." (newFirst `pointsTo` newInserted)
         && traceIfFalse "New node must point to second node." (newInserted `pointsTo'` second)
+        && traceIfFalse "New node must be smaller than second node." newIsSmallerThanSecond
         && traceIfFalse "New price cannot be negative." priceNotNegative'
         && traceIfFalse "Currency symbol must match app instance" checkCurrencySymbol
         && traceIfFalse "Minted token must be sent to script address" (checkSentAddress nftid)
@@ -182,6 +183,10 @@ mkMintPolicy !appInstance !act !ctx =
             ( find (\TxOut {..} -> valueOf txOutValue currency tokenName == 1) $
                 txInfoOutputs info
             )
+
+    newIsSmallerThanSecond = case second of
+      Nothing -> True
+      Just ptr -> (> nftTokenName newInserted) . snd . unAssetClass . pointer'assetClass $ ptr
 
     -- Check if currency symbol is consistent
     checkCurrencySymbol =

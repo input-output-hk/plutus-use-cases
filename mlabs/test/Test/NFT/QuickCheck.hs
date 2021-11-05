@@ -115,6 +115,7 @@ instance ContractModel NftModel where
   nextState ActionInit {} = do
     mStarted $= True
   nextState action@ActionMint {} = do
+    s <- view contractState <$> getModelState
     let nft =
           MockNft
             { _nftId = NftId . hashData $ aContent action
@@ -123,8 +124,12 @@ instance ContractModel NftModel where
             , _nftAuthor = aPerformer action
             , _nftShare = aShare action
             }
-    mMarket $~ Map.insert (nft ^. nftId) nft
-    mMintedCount $~ (+ 1)
+    let nft' = s ^. mMarket . at (nft ^. nftId)
+    case nft' of
+      Nothing -> do
+        mMarket $~ Map.insert (nft ^. nftId) nft
+        mMintedCount $~ (+ 1)
+      Just _ -> Hask.pure () -- Nft is already minted
   nextState action@ActionSetPrice {} = do
     s <- view contractState <$> getModelState
     let nft' = s ^. mMarket . at (aNftId action)
