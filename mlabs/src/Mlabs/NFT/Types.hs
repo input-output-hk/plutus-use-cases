@@ -1,6 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Mlabs.NFT.Types (
+  UserContract,
+  UserWriter,
+  AdminContract,
   UserId (..),
   QueryResponse (..),
   NftId (..),
@@ -31,6 +34,8 @@ import PlutusTx.Prelude
 import Prelude qualified as Hask
 
 import Plutus.Contract (Contract)
+
+import Data.Monoid (Last (..))
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
@@ -198,7 +203,7 @@ instance Eq BuyRequestUser where
 
 -- | A datatype used by the QueryContract to return a response
 data QueryResponse
-  = QueryCurrentOwner UserId
+  = QueryCurrentOwner (Maybe UserId)
   | QueryCurrentPrice (Maybe Integer)
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
@@ -435,3 +440,6 @@ instance Hask.Ord PointInfo where
 
 -- Contract types
 type GenericContract a = forall w s. Contract w s Text a
+type UserWriter = Last (Either NftId QueryResponse)
+type UserContract s a = Contract UserWriter s Text a
+type AdminContract s a = Contract (Last NftAppSymbol) s Text a

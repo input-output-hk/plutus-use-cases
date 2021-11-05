@@ -1,83 +1,71 @@
-module Mlabs.NFT.Contract.Query where
+module Mlabs.NFT.Contract.Query (
+  queryCurrentOwnerLog,
+  queryCurrentPriceLog,
+  queryCurrentPrice,
+  queryCurrentOwner,
+  QueryContract,
+) where
 
-import PlutusTx.Prelude hiding (mconcat, (<>))
+import Control.Monad ()
 
--- import Prelude (mconcat, (<>))
--- import Prelude qualified as Hask
-
--- import Control.Lens (filtered, to, traversed, (^.), (^..), _Just, _Right)
--- import Control.Monad (void)
--- import Data.List qualified as L
--- import Data.Map qualified as Map
-import Data.Monoid (Last (..))
+import Data.Monoid (Last (..), mconcat)
 import Data.Text (Text)
-import Plutus.Contract (Contract)
-
--- import Plutus.Contract qualified as Contract
--- import PlutusTx qualified
-
--- import Plutus.Contracts.Currency (CurrencyError, mintContract, mintedValue)
--- import Plutus.Contracts.Currency qualified as MC
--- import Plutus.V1.Ledger.Value (TokenName (..), assetClass, currencySymbol, flattenValue, symbols)
-
---import Ledger (
---  Address,
---  AssetClass,
---  ChainIndexTxOut,
---  Datum (..),
---  Redeemer (..),
---  TxOutRef,
---  Value,
---  ciTxOutDatum,
---  ciTxOutValue,
---  getDatum,
---  pubKeyAddress,
---  pubKeyHash,
---  scriptCurrencySymbol,
---  txId,
--- )
-
--- import Ledger.Constraints qualified as Constraints
--- import Ledger.Typed.Scripts (validatorScript)
--- import Ledger.Value as Value (singleton, unAssetClass, valueOf)
-
+import GHC.Base (join)
+import Mlabs.NFT.Contract (getsNftDatum)
 import Mlabs.NFT.Types (
-  GenericContract,
+  DatumNft (..),
+  InformationNft (..),
   NftAppSymbol,
   NftId,
-  QueryResponse,
+  NftListNode (..),
+  QueryResponse (..),
+  UserWriter,
  )
+import Plutus.Contract (Contract)
+import Plutus.Contract qualified as Contract
+import PlutusTx.Prelude hiding (mconcat, (<>))
+import Prelude (String, show)
 
 -- | A contract used exclusively for query actions.
-type QueryContract a = forall s. Contract QueryResponse s Text a
-
--- | A contract used for all user actions.
-type UserContract a = forall s. Contract (Last NftId) s Text a
+type QueryContract a = forall s. Contract UserWriter s Text a
 
 {- | Query the current price of a given NFTid. Writes it to the Writer instance
  and also returns it, to be used in other contracts.
 -}
-queryCurrentPrice :: NftId -> NftAppSymbol -> QueryContract QueryResponse
-queryCurrentPrice _ _ = error ()
+queryCurrentPrice :: NftAppSymbol -> NftId -> QueryContract QueryResponse
+queryCurrentPrice appSymb nftId = do
+  price <- wrap <$> getsNftDatum extractPrice nftId appSymb
+  Contract.tell (Last . Just . Right $ price) >> log price >> return price
+  where
+    wrap = QueryCurrentPrice . join
+    extractPrice = \case
+      HeadDatum _ -> Nothing
+      NodeDatum d -> info'price . node'information $ d
+    log price = Contract.logInfo @String $ queryCurrentPriceLog nftId price
 
---  price <- wrap <$> getsNftDatum dNft'price nftid
---  Contract.tell price >> log price >> return price
---  where
---    wrap = QueryCurrentPrice . Last . join
---    log price =
---      Contract.logInfo @Hask.String $
---        "Current price of: " <> Hask.show nftid <> " is: " <> Hask.show price
+{-
+currentPriceLog :: NftId -> Integer -> String
+currentPriceLog nftId price = mconcat ["Current price of: ", show nftId, " is: ", show price]
+-}
 
 {- | Query the current owner of a given NFTid. Writes it to the Writer instance
  and also returns it, to be used in other contracts.
 -}
-queryCurrentOwner :: NftId -> NftAppSymbol -> QueryContract QueryResponse
-queryCurrentOwner _ _ = error ()
+queryCurrentOwner :: NftAppSymbol -> NftId -> QueryContract QueryResponse
+queryCurrentOwner appSymb nftId = do
+  owner <- wrap <$> getsNftDatum extractOwner nftId appSymb
+  Contract.tell (Last . Just . Right $ owner) >> log owner >> return owner
+  where
+    wrap = QueryCurrentOwner . join
+    extractOwner = \case
+      HeadDatum _ -> Nothing
+      NodeDatum d -> Just . info'owner . node'information $ d
+    log owner = Contract.logInfo @String $ queryCurrentOwnerLog nftId owner
 
---   ownerResp <- wrap <$> getsNftDatum dNft'owner nftid
---   Contract.tell ownerResp >> log ownerResp >> return ownerResp
---   where
---     wrap = QueryCurrentOwner . Last
---     log owner =
---       Contract.logInfo @Hask.String $
---         "Current owner of: " <> Hask.show nftid <> " is: " <> Hask.show owner
+-- | Log of Current Price. Used in testing as well.
+queryCurrentPriceLog :: NftId -> QueryResponse -> String
+queryCurrentPriceLog nftId price = mconcat ["Current price of: ", show nftId, " is: ", show price]
+
+-- | Log msg of Current Owner. Used in testing as well.
+queryCurrentOwnerLog :: NftId -> QueryResponse -> String
+queryCurrentOwnerLog nftId owner = mconcat ["Current owner of: ", show nftId, " is: ", show owner]
