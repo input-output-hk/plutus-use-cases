@@ -12,7 +12,7 @@ import Mlabs.NFT.Api (endpoints, queryEndpoints)
 import Mlabs.NFT.Contract.Aux (hashData)
 import Mlabs.NFT.Contract.Init (createListHead, getAppSymbol, initApp)
 import Mlabs.NFT.Contract.Mint (mint)
-import Mlabs.NFT.Contract.Query (queryCurrentPrice)
+import Mlabs.NFT.Contract.Query (queryCurrentOwnerLog, queryCurrentPriceLog)
 import Mlabs.NFT.Types (
   BuyRequestUser (..),
   MintParams (..),
@@ -151,7 +151,7 @@ testQueryPrice = check "Query price" assertState w1 script
       where
         nftId = NftId . hashData . mp'content $ artwork2
         price = QueryCurrentPrice . mp'price $ artwork2
-        msg = mconcat ["Current price of: ", show nftId, " is: ", show price]
+        msg = queryCurrentPriceLog nftId price
 
 testQueryOwner :: TestTree
 testQueryOwner = check "Query owner" assertState w1 script
@@ -169,4 +169,4 @@ testQueryOwner = check "Query owner" assertState w1 script
       where
         nftId = NftId . hashData . mp'content $ artwork2
         owner = QueryCurrentOwner . Just . UserId . pubKeyHash . walletPubKey $ w1
-        msg = mconcat ["Current owner of: ", show nftId, " is: ", show owner]
+        msg = queryCurrentOwnerLog nftId owner

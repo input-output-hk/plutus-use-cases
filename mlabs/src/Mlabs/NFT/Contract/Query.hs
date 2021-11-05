@@ -1,4 +1,6 @@
 module Mlabs.NFT.Contract.Query (
+  queryCurrentOwnerLog,
+  queryCurrentPriceLog,
   queryCurrentPrice,
   queryCurrentOwner,
   queryAppSymbol,
@@ -41,7 +43,7 @@ queryCurrentPrice appSymb nftId = do
     extractPrice = \case
       HeadDatum _ -> Nothing
       NodeDatum d -> info'price . node'information $ d
-    log price = Contract.logInfo @String $ mconcat ["Current price of: ", show nftId, " is: ", show price]
+    log price = Contract.logInfo @String $ queryCurrentPriceLog nftId price
 
 {-
 currentPriceLog :: NftId -> Integer -> String
@@ -57,12 +59,18 @@ queryCurrentOwner appSymb nftId = do
   Contract.tell (Last . Just . Right $ owner) >> log owner >> return owner
   where
     wrap = QueryCurrentOwner . join
-
     extractOwner = \case
       HeadDatum _ -> Nothing
       NodeDatum d -> Just . info'owner . node'information $ d
+    log owner = Contract.logInfo @String $ queryCurrentOwnerLog nftId owner
 
-    log owner = Contract.logInfo @String $ mconcat ["Current owner of: ", show nftId, " is: ", show owner]
+-- | Log of Current Price. Used in testing as well.
+queryCurrentPriceLog :: NftId -> QueryResponse -> String
+queryCurrentPriceLog nftId price = mconcat ["Current price of: ", show nftId, " is: ", show price]
+
+-- | Log msg of Current Owner. Used in testing as well.
+queryCurrentOwnerLog :: NftId -> QueryResponse -> String
+queryCurrentOwnerLog nftId owner = mconcat ["Current owner of: ", show nftId, " is: ", show owner]
 
 -- | Returns the App symbol.
 queryAppSymbol :: NftAppInstance -> NftAppSymbol
