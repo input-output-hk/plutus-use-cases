@@ -3,7 +3,6 @@ module Mlabs.NFT.Contract.Query (
   queryCurrentPriceLog,
   queryCurrentPrice,
   queryCurrentOwner,
-  queryAppSymbol,
   QueryContract,
 ) where
 
@@ -12,11 +11,10 @@ import Control.Monad ()
 import Data.Monoid (Last (..), mconcat)
 import Data.Text (Text)
 import GHC.Base (join)
-import Mlabs.NFT.Contract (getAppSymbol, getsNftDatum)
+import Mlabs.NFT.Contract (getsNftDatum)
 import Mlabs.NFT.Types (
   DatumNft (..),
   InformationNft (..),
-  NftAppInstance,
   NftAppSymbol,
   NftId,
   NftListNode (..),
@@ -71,7 +69,3 @@ queryCurrentPriceLog nftId price = mconcat ["Current price of: ", show nftId, " 
 -- | Log msg of Current Owner. Used in testing as well.
 queryCurrentOwnerLog :: NftId -> QueryResponse -> String
 queryCurrentOwnerLog nftId owner = mconcat ["Current owner of: ", show nftId, " is: ", show owner]
-
--- | Returns the App symbol.
-queryAppSymbol :: NftAppInstance -> NftAppSymbol
-queryAppSymbol = getAppSymbol
