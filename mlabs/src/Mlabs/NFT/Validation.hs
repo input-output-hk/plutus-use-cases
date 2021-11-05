@@ -49,6 +49,10 @@ import Ledger (
   txInfoOutputs,
   txInfoSignatories,
   valuePaidTo,
+  contains,
+  txInfoValidRange,
+  from,
+  to,
  )
 
 import Ledger.Typed.Scripts (
@@ -68,6 +72,7 @@ import Ledger.Value (
   TokenName (..),
   assetClass,
   valueOf,
+  singleton,
  )
 import Plutus.V1.Ledger.Value (AssetClass (..), assetClassValueOf, isZero)
 import PlutusTx qualified
@@ -80,7 +85,8 @@ import Mlabs.NFT.Types (
     info'id,
     info'owner,
     info'price,
-    info'share
+    info'share,
+    info'auctionState
   ),
   MintAct (Initialise, Mint),
   NftAppInstance (appInstance'Address, appInstance'AppAssetClass),
@@ -94,6 +100,8 @@ import Mlabs.NFT.Types (
   getAppInstance,
   getDatumPointer,
   nftTokenName,
+  AuctionState (..),
+  AuctionBid (..),
  )
 
 asRedeemer :: PlutusTx.ToData a => a -> Redeemer
@@ -245,34 +253,32 @@ mkTxPolicy !datum' !act !ctx =
             traceIfFalse "Transaction cannot mint." noMint
               && traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." correctDatumSetPrice
               && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
-              && traceIfFalse "Only owner exclusively can set NFT price." ownerSetsPrice
+              && traceIfFalse "Only owner exclusively can set NFT price." signedByOwner
               && traceIfFalse "Datum is not consistent, illegaly altered." consistentDatumSetPrice
           OpenAuctionAct {} ->
-            True
-          -- traceIfFalse "Can't open auction: already in progress" noAuctionInProgress
-          --   && traceIfFalse "Only owner can open auction" signedByOwner
-          BidAuctionAct {} ->
-            True
-          -- traceIfFalse "Can't bid: No auction is in progress" (not noAuctionInProgress)
-          --   && traceIfFalse "Auction bid is too low" (auctionBidHighEnough act'bid)
-          --   && traceIfFalse "Auction deadline reached" correctAuctionBidSlotInterval
-          --   && traceIfFalse "(change) wrong input value" correctInputValue
-          --   && traceIfFalse "Auction: datum illegally altered" (auctionConsistentDatum act'bid)
-          --   && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
-          --   && traceIfFalse "Incorrect bid refund" correctBidRefund
+            traceIfFalse "Can't open auction: already in progress" noAuctionInProgress
+              && traceIfFalse "Only owner can open auction" signedByOwner
+          BidAuctionAct {..} ->
+            traceIfFalse "Can't bid: No auction is in progress" (not noAuctionInProgress)
+              && traceIfFalse "Auction bid is too low" (auctionBidHighEnough act'bid)
+              && traceIfFalse "Auction deadline reached" correctAuctionBidSlotInterval
+              -- && traceIfFalse "Auction: wrong input value" correctInputValue
+              -- && traceIfFalse "Auction: datum illegally altered" (auctionConsistentDatum act'bid)
+              -- && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
+              && traceIfFalse "Incorrect bid refund" correctBidRefund
           CloseAuctionAct {} ->
-            True
+            traceIfFalse "Can't close auction: none in progress" (not noAuctionInProgress)
+              && traceIfFalse "Auction deadline not yet reached" auctionDeadlineReached
+              && traceIfFalse "Only owner can close auction" signedByOwner
+              -- && traceIfFalse "Auction: new owner set incorrectly" auctionCorrectNewOwner
+              -- && traceIfFalse "Auction: datum illegally altered" auctionConsistentCloseDatum
+              -- && if ownerIsAuthor
+              --   then traceIfFalse "Auction: amount paid to author/owner does not match bid" auctionCorrectPaymentOnlyAuthor
+              --   else
+              --     traceIfFalse "Auction: owner not paid their share" auctionCorrectPaymentOwner
+              --       && traceIfFalse "Auction: author not paid their share" auctionCorrectPaymentAuthor
       where
-        -- traceIfFalse "Can't close auction: none in progress" (not noAuctionInProgress)
-        --   && traceIfFalse "Auction deadline not yet reached" auctionDeadlineReached
-        --   && traceIfFalse "Only owner can close auction" signedByOwner
-        --   && traceIfFalse "Auction: new owner set incorrectly" auctionCorrectNewOwner
-        --   && traceIfFalse "Auction: datum illegally altered" auctionConsistentCloseDatum
-        --   && if ownerIsAuthor
-        --     then traceIfFalse "Auction: amount paid to author/owner does not match bid" auctionCorrectPaymentOnlyAuthor
-        --     else
-        --       traceIfFalse "Auction: owner not paid their share" auctionCorrectPaymentOwner
-        --         && traceIfFalse "Auction: author not paid their share" auctionCorrectPaymentAuthor
+        info = scriptContextTxInfo ctx
 
         !nInfo = node'information node
         oldDatum :: DatumNft = head . getInputDatums $ ctx
@@ -280,6 +286,11 @@ mkTxPolicy !datum' !act !ctx =
         oldNode :: NftListNode = case getNode oldDatum of
           Just n -> n
           Nothing -> traceError "Input datum is Head."
+
+        !mauctionState = info'auctionState nInfo
+
+        tokenValue :: Value
+        tokenValue = singleton (app'symbol . act'symbol $ act) (nftTokenName datum') 1
 
         ------------------------------------------------------------------------------
         -- Utility functions.
@@ -292,7 +303,6 @@ mkTxPolicy !datum' !act !ctx =
         -- getter functions. Helper function.
         correctPayment !userIdGetter !shareCalcFn !bid = personGetsAda >= personWantsAda
           where
-            info = scriptContextTxInfo ctx
             personId = getUserId . userIdGetter $ node
             share = info'share . node'information $ node
             personGetsAda = getAda $ valuePaidTo info personId
@@ -305,8 +315,78 @@ mkTxPolicy !datum' !act !ctx =
           NodeDatum n -> Just n
           _ -> Nothing
 
+        withAuctionState f = maybe (traceError "Auction state expected") f mauctionState
+
         ------------------------------------------------------------------------------
         -- Checks
+
+        -- Check whether there's auction in progress and disallow buy/setprice actions.
+        noAuctionInProgress :: Bool
+        noAuctionInProgress = isNothing mauctionState
+
+        auctionBidHighEnough :: Integer -> Bool
+        auctionBidHighEnough amount =
+          withAuctionState $ \auctionState ->
+            case as'highestBid auctionState of
+              Nothing -> amount >= as'minBid auctionState
+              Just highestBid -> amount > ab'bid highestBid
+
+        correctAuctionBidSlotInterval :: Bool
+        correctAuctionBidSlotInterval =
+          withAuctionState $ \auctionState ->
+            (to $ as'deadline auctionState) `contains` txInfoValidRange info
+
+        auctionDeadlineReached :: Bool
+        auctionDeadlineReached =
+          withAuctionState $ \auctionState ->
+            (from $ as'deadline auctionState) `contains` txInfoValidRange info
+
+        auctionCorrectPayment :: (Integer -> Bool) -> Bool
+        auctionCorrectPayment correctPaymentCheck =
+          withAuctionState $ \auctionState ->
+            case as'highestBid auctionState of
+              Nothing -> True
+              Just (AuctionBid bid _bidder) ->
+                correctPaymentCheck bid
+
+        auctionCorrectPaymentOwner :: Bool
+        auctionCorrectPaymentOwner = auctionCorrectPayment correctPaymentOwner
+
+        auctionCorrectPaymentAuthor :: Bool
+        auctionCorrectPaymentAuthor = auctionCorrectPayment correctPaymentAuthor
+
+        auctionCorrectPaymentOnlyAuthor :: Bool
+        auctionCorrectPaymentOnlyAuthor =
+          withAuctionState $ \auctionState ->
+            case as'highestBid auctionState of
+              Nothing -> True
+              Just (AuctionBid bid _) ->
+                correctPaymentOnlyAuthor bid
+
+        correctBidRefund :: Bool
+        correctBidRefund =
+          withAuctionState $ \auctionState ->
+            case as'highestBid auctionState of
+              Nothing -> True
+              Just (AuctionBid bid bidder) ->
+                valuePaidTo info (getUserId bidder) == Ada.lovelaceValueOf bid
+
+        -- correctInputValue :: Bool
+        -- correctInputValue =
+        --   case findOwnInput ctx of
+        --     Nothing -> traceError "findOwnInput: Nothing"
+        --     Just (TxInInfo _ out) ->
+        --       case mauctionState of
+        --         Nothing -> traceError "mauctionState: Nothing"
+        --         Just as -> case as'highestBid as of
+        --           Nothing -> tokenValue == txOutValue out
+        --           Just hb -> txOutValue out == (tokenValue <> Ada.lovelaceValueOf (ab'bid hb))
+
+        -- auctionBidValueSupplied :: Integer -> Bool
+        -- auctionBidValueSupplied redeemerBid =
+        --   case getContinuingOutputs ctx of
+        --     [out] -> txOutValue out == tokenValue <> Ada.lovelaceValueOf redeemerBid
+        --     _ -> traceError "auctionBidValueSupplied: expected exactly one cont. output"
 
         -- Check if changed only owner and price
         !consistentDatumBuy =
@@ -328,7 +408,6 @@ mkTxPolicy !datum' !act !ctx =
         -- Check if author of NFT receives share when is also owner
         correctPaymentOnlyAuthor !bid = authorGetsAda >= bid
           where
-            info = scriptContextTxInfo ctx
             author = getUserId . info'author . node'information $ node
             authorGetsAda = getAda $ valuePaidTo info author
 
@@ -355,7 +434,7 @@ mkTxPolicy !datum' !act !ctx =
             && on (==) (info'id . node'information) oldNode node
 
         -- Check if the price of NFT is changed by the owner of NFT
-        !ownerSetsPrice =
+        !signedByOwner =
           case txInfoSignatories $ scriptContextTxInfo ctx of
             [pkh] -> pkh == getUserId (info'owner $ node'information node)
             _ -> False
