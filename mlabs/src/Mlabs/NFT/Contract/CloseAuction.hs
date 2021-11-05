@@ -30,6 +30,7 @@ import Ledger (
 
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorScript)
+import Ledger.Value qualified as Value
 
 import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
@@ -58,7 +59,7 @@ closeAuction symbol (AuctionCloseParams nftId) = do
           Just (AuctionBid _ bidder) -> bidder
 
       nftDatum = NodeDatum $ updateDatum newOwner node
-      nftVal = pi'CITxO ^. ciTxOutValue
+      nftVal = Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
       action =
         CloseAuctionAct
           { act'symbol = symbol

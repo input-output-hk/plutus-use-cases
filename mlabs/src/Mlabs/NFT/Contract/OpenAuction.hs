@@ -29,6 +29,7 @@ import Ledger (
 
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorScript)
+import Ledger.Value qualified as Value
 
 import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
@@ -51,7 +52,7 @@ openAuction symbol (AuctionOpenParams nftId deadline minBid) = do
 
   userUtxos <- getUserUtxos
   let nftDatum = NodeDatum $ updateDatum node
-      nftVal = pi'CITxO ^. ciTxOutValue
+      nftVal = Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
       action =
         OpenAuctionAct
           { act'symbol = symbol

@@ -5,7 +5,7 @@ module Mlabs.NFT.Contract.BidAuction (
 ) where
 
 import PlutusTx.Prelude hiding (mconcat, mempty, (<>), unless)
-import Prelude (mconcat)
+import Prelude (mconcat, (<>))
 import Prelude qualified as Hask
 
 import Control.Lens ((^.))
@@ -31,6 +31,7 @@ import Ledger (
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorScript)
 import Plutus.V1.Ledger.Ada qualified as Ada
+import Ledger.Value qualified as Value
 
 import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
@@ -62,10 +63,11 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
         auctionState { as'highestBid = Just newHighestBid }
 
       nftDatum = NodeDatum $ updateDatum newAuctionState node
-      nftVal = pi'CITxO ^. ciTxOutValue
+      nftVal = Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
       action =
-        CloseAuctionAct
-          { act'symbol = symbol
+        BidAuctionAct
+          { act'bid = bidAmount
+          , act'symbol = symbol
           }
       lookups =
         mconcat
@@ -84,7 +86,7 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
              ]
       tx =
         mconcat
-          ([ Constraints.mustPayToTheScript nftDatum nftVal
+          ([ Constraints.mustPayToTheScript nftDatum (nftVal <> (Ada.lovelaceValueOf bidAmount))
           , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
           , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
           , Constraints.mustSpendScriptOutput
