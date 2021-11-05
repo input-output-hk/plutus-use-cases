@@ -43,6 +43,11 @@ queryCurrentPrice appSymb nftId = do
       NodeDatum d -> info'price . node'information $ d
     log price = Contract.logInfo @String $ mconcat ["Current price of: ", show nftId, " is: ", show price]
 
+{-
+currentPriceLog :: NftId -> Integer -> String
+currentPriceLog nftId price = mconcat ["Current price of: ", show nftId, " is: ", show price]
+-}
+
 {- | Query the current owner of a given NFTid. Writes it to the Writer instance
  and also returns it, to be used in other contracts.
 -}

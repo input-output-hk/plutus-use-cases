@@ -1,20 +1,22 @@
 module Test.NFT.Init (
-  check,
+  artwork1,
+  artwork2,
   callStartNft,
-  noChangesScene,
+  check,
   checkOptions,
+  noChangesScene,
+  ownsAda,
+  runScript,
+  toUserId,
+  userBuy,
+  userMint,
+  userQueryPrice,
+  userQueryOwner,
+  userSetPrice,
   w1,
   w2,
   w3,
   wA,
-  toUserId,
-  userBuy,
-  userMint,
-  userSetPrice,
-  runScript,
-  userQueryPrice,
-  artwork1,
-  ownsAda,
 ) where
 
 import Control.Lens ((&), (.~))
@@ -126,7 +128,7 @@ userMint wal mp = do
   where
     findNftId :: forall a b. Last (Either a b) -> Maybe a
     findNftId x = case getLast x of
-      Just (Left x) -> Just x
+      Just (Left x') -> Just x'
       _ -> Nothing
 
 userSetPrice :: Wallet -> SetPriceParams -> Script
@@ -151,7 +153,13 @@ userQueryPrice wal nftId = do
   lift $ do
     hdl <- activateContractWallet wal (queryEndpoints symbol)
     callEndpoint @"query-current-price" hdl nftId
-    next
+
+userQueryOwner :: Wallet -> NftId -> Script
+userQueryOwner wal nftId = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (queryEndpoints symbol)
+    callEndpoint @"query-current-owner" hdl nftId
 
 {- | Initial distribution of wallets for testing.
  We have 3 users. All of them get 1000 lovelace at the start.
@@ -184,4 +192,13 @@ artwork1 =
     , mp'title = Title "Fiona Lisa"
     , mp'share = 1 % 10
     , mp'price = Nothing
+    }
+
+artwork2 :: MintParams
+artwork2 =
+  MintParams
+    { mp'content = Content "A painting."
+    , mp'title = Title "Fiona Lisa"
+    , mp'share = 1 % 10
+    , mp'price = Just 300
     }
