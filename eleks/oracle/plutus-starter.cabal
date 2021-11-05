@@ -144,7 +144,7 @@ executable bet-pab
 executable gs
   import: lang
   main-is: GenerateOracleScript.hs
-  hs-source-dirs: pab
+  hs-source-dirs: cli
   ghc-options:  -threaded
   build-depends:        
     aeson, 
@@ -157,7 +157,26 @@ executable gs
     plutus-ledger-api,
     plutus-tx,
     bytestring
-  
+
+
+executable encode-oracle-request
+  import: lang
+  main-is: EncodeOracleRequest.hs
+  hs-source-dirs: cli
+  ghc-options:  -threaded
+  build-depends:        
+    aeson, 
+    base >= 4.9 && < 5,
+    cardano-api, 
+    cardano-crypto,
+    cardano-ledger-alonzo,
+    plutus-starter,
+    plutus-contract,
+    plutus-ledger,
+    plutus-ledger-api,
+    plutus-tx,
+    bytestring
+
 executable gameserver
   import: lang
   main-is: Server.hs

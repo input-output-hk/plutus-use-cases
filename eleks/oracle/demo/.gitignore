@@ -1,0 +1,5 @@
+protocol.json
+tx.raw
+tx.sign
+keys/*
+!keys/.gitkeep

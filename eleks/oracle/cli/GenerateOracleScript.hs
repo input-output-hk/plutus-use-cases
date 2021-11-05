@@ -24,18 +24,19 @@ import           Ledger.Ada                     as Ada
 
 import           Wallet.Emulator.Types          (Wallet (..), walletPubKey)
 
--- cabal exec -- gs 42 1500000 "payment.vkey"
+-- cabal exec -- gs 1500000 1000000 "payment.vkey"
 main :: IO ()
 main = do
     args <- getArgs
     let nargs = length args
-    let scriptnum = if nargs > 0 then read (args!!0) else 42
-    let feeInt = if nargs > 1 then read(args!!1) else 1000000
+    let feeInt = if nargs > 0 then read(args!!0) else 0
         fee = Ada.lovelaceOf feeInt
-        collateral = 1_000_000
+    let collateralInt = if nargs > 1 then read(args!!1) else 0
+        collateral = Ada.lovelaceOf collateralInt
+
     let oracleScriptFile = "oracle.plutus"
         requestTokenScriptFile = "requesttoken.plutus"
-  
+    
     let vkeyPath = if nargs > 2 then args!!2  else ""
     vkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentKey) vkeyPath
     case vkeyEither of 
@@ -45,7 +46,8 @@ main = do
         let pkh = pubKeyHash pk
         putStrLn $ "public key: " ++ show pk
         putStrLn $ "public key hash: " ++ show pkh
-
+        putStrLn $ "fee: " ++ show fee
+        putStrLn $ "collateral: " ++ show collateral 
         let oracleRequestTokenInfo = OracleRequestToken
                 { ortOperator = pkh
                 , ortFee = fee
@@ -59,21 +61,16 @@ main = do
                 , oFee = fee
                 , oCollateral = collateral
                 }
-        let oracleData = OracleData
-              { ovGame = 1
-              , ovRequestAddress = pkh
-              , ovSignedMessage = Nothing
-              }
 
-        writePlutusScript scriptnum oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
-        writePlutusScript scriptnum requestTokenScriptFile (mintingScript oracleRequestTokenInfo) (mintingScriptShortBs oracleRequestTokenInfo)
+        writePlutusScript oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
+        writePlutusScript requestTokenScriptFile (mintingScript oracleRequestTokenInfo) (mintingScriptShortBs oracleRequestTokenInfo)
 
-writePlutusScript :: Integer -> FilePath -> PlutusScript PlutusScriptV1 -> SBS.ShortByteString -> IO ()
-writePlutusScript scriptnum filename scriptSerial scriptSBS =
+writePlutusScript :: FilePath -> PlutusScript PlutusScriptV1 -> SBS.ShortByteString -> IO ()
+writePlutusScript filename scriptSerial scriptSBS =
   do
   case Plutus.defaultCostModelParams of
         Just m ->
-          let Alonzo.Data pData = toAlonzoData (ScriptDataNumber scriptnum)
+          let Alonzo.Data pData = toAlonzoData (ScriptDataNumber 42)
               (logout, e) = Plutus.evaluateScriptCounting Plutus.Verbose m scriptSBS [pData]
           in do print ("Log output" :: String) >> print logout
                 case e of

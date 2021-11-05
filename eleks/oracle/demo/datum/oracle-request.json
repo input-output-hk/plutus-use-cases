@@ -1,0 +1,15 @@
+{
+    "constructor": 0,
+    "fields": [
+        {
+            "int": 1
+        },
+        {
+            "bytes": "ea2f4d586554e59615fbb5fcd653bd03f1958eeab8385bc048226627"
+        },
+        {
+            "constructor": 1,
+            "fields": []
+        }
+    ]
+}
