@@ -14,6 +14,7 @@ module Mlabs.NFT.Contract.Aux (
   entryToPointInfo,
   getDatumsTxsOrdered,
   getHead,
+  getApplicationCurrencySymbol,
 ) where
 
 import PlutusTx.Prelude hiding (mconcat, (<>))
@@ -42,6 +43,8 @@ import Ledger (
   getDatum,
   pubKeyAddress,
   pubKeyHash,
+  toTxOut,
+  txOutValue,
  )
 
 import Ledger.Value as Value (unAssetClass, valueOf)
@@ -198,3 +201,18 @@ getDatumsTxsOrdered nftAS = do
 -- | A hashing function to minimise the data to be attached to the NTFid.
 hashData :: Content -> BuiltinByteString
 hashData (Content b) = sha2_256 b
+
+getApplicationCurrencySymbol :: NftAppInstance -> GenericContract NftAppSymbol
+getApplicationCurrencySymbol appInstance = do
+  utxos <- Contract.utxosAt . appInstance'Address $ appInstance
+  let outs = fmap toTxOut . Map.elems $ utxos
+      (uniqueCurrency, uniqueToken) = unAssetClass . appInstance'AppAssetClass $ appInstance
+      lstHead' = find (\tx -> valueOf (txOutValue tx) uniqueCurrency uniqueToken == 1) outs
+  headUtxo <- case lstHead' of
+    Nothing -> Contract.throwError "Head not found"
+    Just lstHead -> pure lstHead
+  let currencies = filter (uniqueCurrency /=) $ symbols . txOutValue $ headUtxo
+  case currencies of
+    [appSymbol] -> pure . NftAppSymbol $ appSymbol
+    [] -> Contract.throwError "Head does not contain AppSymbol"
+    _ -> Contract.throwError "Head contains more than 2 currencies (Unreachable?)"
