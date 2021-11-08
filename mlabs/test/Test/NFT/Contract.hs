@@ -2,57 +2,47 @@ module Test.NFT.Contract (
   test,
 ) where
 
-import Control.Monad (void)
 import Data.Aeson (Value (..))
-import Data.Monoid (Last (..))
+import Data.List (sortOn)
 import Data.Text qualified as T
 import Ledger.Crypto (pubKeyHash)
+import Plutus.Contract.Test (assertInstanceLog, walletPubKey)
+import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
+import PlutusTx.Prelude hiding (check, mconcat)
+import Test.Tasty (TestTree, testGroup)
+import Wallet.Emulator.MultiAgent (EmulatorTimeEvent (..))
+import Prelude (mconcat)
+import Prelude qualified as Hask
+
 import Mlabs.Emulator.Scene (checkScene)
-import Mlabs.NFT.Api (endpoints, queryEndpoints)
 import Mlabs.NFT.Contract.Aux (hashData)
-import Mlabs.NFT.Contract.Init (createListHead, getAppSymbol, initApp)
-import Mlabs.NFT.Contract.Mint (mint)
-import Mlabs.NFT.Contract.Query (queryCurrentOwnerLog, queryCurrentPriceLog)
+import Mlabs.NFT.Contract.Mint (mintParamsToInfo)
+import Mlabs.NFT.Contract.Query (queryCurrentOwnerLog, queryCurrentPriceLog, queryListNftsLog)
 import Mlabs.NFT.Types (
   BuyRequestUser (..),
+  InformationNft (..),
   MintParams (..),
-  NftAppSymbol (..),
   NftId (..),
   QueryResponse (..),
   SetPriceParams (..),
   UserId (..),
  )
-import Plutus.Contract (waitNSlots)
-import Plutus.Contract.Test (CheckOptions, assertAccumState, assertInstanceLog, assertUserLog, checkPredicateOptions, walletPubKey)
-import Plutus.Trace.Emulator (activateContractWallet, callEndpoint)
-import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), UserThreadMsg (..), walletInstanceTag)
-import PlutusTx.Prelude hiding (check, mconcat)
 import Test.NFT.Init (
   artwork1,
   artwork2,
-  callStartNft,
   check,
-  checkOptions,
   noChangesScene,
   ownsAda,
-  runScript,
-  toUserId,
   userBuy,
   userMint,
+  userQueryListNfts,
   userQueryOwner,
   userQueryPrice,
   userSetPrice,
   w1,
   w2,
   w3,
-  wA,
  )
-import Test.NFT.Trace (AppInitHandle, mintTrace)
-import Test.Tasty (TestTree, testGroup)
-import Wallet.Emulator.MultiAgent (EmulatorTimeEvent (..))
-import Wallet.Emulator.Wallet (walletPubKey)
-import Prelude (mconcat, show)
-import Prelude qualified as Hask
 
 test :: TestTree
 test =
@@ -65,6 +55,7 @@ test =
     , testBuyNotEnoughPriceScript
     , testQueryPrice
     , testQueryOwner
+    , testQueryListNfts
     ]
 
 -- | User 2 buys from user 1
@@ -170,3 +161,27 @@ testQueryOwner = check "Query owner" assertState w1 script
         nftId = NftId . hashData . mp'content $ artwork2
         owner = QueryCurrentOwner . Just . UserId . pubKeyHash . walletPubKey $ w1
         msg = queryCurrentOwnerLog nftId owner
+
+-- | User lists all NFTs in app
+testQueryListNfts :: TestTree
+testQueryListNfts = check "Query list NFTs" assertState w1 script
+  where
+    script = do
+      mapM_ (userMint w1) artworks
+      userQueryListNfts w1
+
+    assertState = assertInstanceLog (walletInstanceTag w1) (any predicate)
+
+    artworks = [artwork1, artwork2]
+
+    nfts =
+      sortOn info'id
+        . fmap (\mp -> mintParamsToInfo mp (UserId . pubKeyHash . walletPubKey $ w1))
+        $ artworks
+
+    predicate = \case
+      (EmulatorTimeEvent _ (ContractInstanceLog (ContractLog (String str)) _ _)) ->
+        T.pack msg Hask.== str
+      _ -> False
+      where
+        msg = queryListNftsLog nfts
