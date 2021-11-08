@@ -267,7 +267,7 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "Auction bid is too low" (auctionBidHighEnough act'bid)
               && traceIfFalse "Auction deadline reached" correctAuctionBidSlotInterval
               && traceIfFalse "Auction: wrong input value" correctInputValue
-              -- && traceIfFalse "Auction: datum illegally altered" (auctionConsistentDatum act'bid)
+              && traceIfFalse "Auction: datum illegally altered" (auctionConsistentDatum act'bid)
               && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
               && traceIfFalse "Incorrect bid refund" correctBidRefund
           CloseAuctionAct {} ->
@@ -334,7 +334,8 @@ mkTxPolicy !datum' !act !ctx =
                   case findDatum dhash info >>= convDatum of
                     Nothing -> traceError "getNextDatum: expected datum"
                     Just dt -> dt
-            _ -> traceError "getNextDatum: expected exactly one cont. output"
+            [] -> traceError "nextDatum: expected exactly one continuing output, got none"
+            _ -> traceError "nextDatum: expected exactly one continuing output, got several instead"
 
         newNodeInfo :: InformationNft
         newNodeInfo =
@@ -411,7 +412,8 @@ mkTxPolicy !datum' !act !ctx =
         auctionBidValueSupplied redeemerBid =
           case getContinuingOutputs ctx of
             [out] -> txOutValue out == tokenValue <> Ada.lovelaceValueOf redeemerBid
-            _ -> traceError "auctionBidValueSupplied: expected exactly one cont. output"
+            [] -> traceError "auctionBidValueSupplied: expected exactly one continuing output, got none"
+            _ -> traceError "auctionBidValueSupplied: expected exactly one continuing output, got several instead"
 
         auctionCorrectNewOwner :: Bool
         auctionCorrectNewOwner =
@@ -445,6 +447,36 @@ mkTxPolicy !datum' !act !ctx =
             && info'author newNodeInfo == info'author nInfo
             && info'owner newNodeInfo == info'owner nInfo
             && info'price newNodeInfo == info'price nInfo
+
+        auctionConsistentDatum :: Integer -> Bool
+        auctionConsistentDatum redeemerBid =
+          let checkAuctionState =
+                case (info'auctionState newNodeInfo, info'auctionState nInfo) of
+                  ( Just (AuctionState _ nextDeadline nextMinBid)
+                    , Just (AuctionState _ deadline minBid)
+                    ) ->
+                    nextDeadline == deadline && nextMinBid == minBid
+                  _ -> traceError "auctionConsistentDatum (checkAauctionState): expected auction state"
+
+              checkHighestBid =
+                case (info'auctionState newNodeInfo, info'auctionState nInfo) of
+                  ( Just (AuctionState (Just (AuctionBid nextBid _)) _ _)
+                    , Just (AuctionState (Just (AuctionBid bid _)) _ _)
+                    ) ->
+                    nextBid > bid && nextBid == redeemerBid
+                  ( Just (AuctionState (Just (AuctionBid nextBid _)) _ _)
+                    , Just (AuctionState Nothing _ minBid)
+                    ) ->
+                    nextBid >= minBid && nextBid == redeemerBid
+                  _ -> traceError "auctionConsistentDatum (checkHighestBid): expected auction state"
+          in
+              info'id newNodeInfo == info'id nInfo
+                && info'share newNodeInfo == info'share nInfo
+                && info'author newNodeInfo == info'author nInfo
+                && info'owner newNodeInfo == info'owner nInfo
+                && info'price newNodeInfo == info'price nInfo
+                && checkAuctionState
+                && checkHighestBid
 
         -- Check if changed only owner and price
         !consistentDatumBuy =
