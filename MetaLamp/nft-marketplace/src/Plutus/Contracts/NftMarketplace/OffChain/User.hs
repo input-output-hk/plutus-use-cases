@@ -42,7 +42,8 @@ import           Plutus.Contracts.Currency                                as Cur
 import           Plutus.Contracts.NftMarketplace.OffChain.ID              (UserItemId (..),
                                                                            toInternalId)
 import           Plutus.Contracts.NftMarketplace.OffChain.Info
-import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString,
+import           Plutus.Contracts.NftMarketplace.OffChain.Serialization   (deserializeByteString, serializeByteString,
+
                                                                            deserializePlutusBuiltinBS)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Core
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID          (InternalId (..))
@@ -61,8 +62,8 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-import           Ext.Plutus.Ledger.Value                         (utxosValue, findNftCurrencyByTokenName)
-import qualified Debug.Trace as Debug
+import           Ext.Plutus.Ledger.Value                         (utxosValue, isOwnerOfNft, suitableTokensList)
+import qualified Debug.Trace as D
 
 getOwnPubKey :: Contract w s Text PubKeyHash
 getOwnPubKey = pubKeyHash <$> ownPubKey
@@ -117,6 +118,7 @@ mintNFT pkh tokenName = do
 
 data ImportNftParams =
   ImportNftParams {
+    inpCurrency       :: Text,
     inpIpfsCid        :: Text,
     inpNftName        :: Text,
     inpNftDescription :: Text,
@@ -140,12 +142,16 @@ importNft marketplace ImportNftParams {..} = do
     let tokenName = V.TokenName ipfsCid
     _ <- when inpMintBeforeImport $ mintNFT pkh tokenName
     value <- utxosValue $ pubKeyHashAddress pkh
-    nftCurrency <- 
-        maybe (throwError "NFT doesn't exist or You are not an owner") pure $ findNftCurrencyByTokenName value tokenName
-    Debug.traceM $ "Values in wallet: " <> Haskell.show nftCurrency
+    let currency = V.currencySymbol . T.encodeUtf8 $ inpCurrency
+    let isOwner = isOwnerOfNft value currency tokenName
+    D.traceM $ "currency: " <> Haskell.show currency <> " tokenName: " <> Haskell.show tokenName 
+    D.traceM $ "tokens in wallet: " <> Haskell.show (V.flattenValue value)
+    D.traceM $ "suitable tokens list: " <> Haskell.show (suitableTokensList value currency tokenName)
+    when (not isOwner) $ throwError "You are not an owner"
+
     let client = Core.marketplaceClient marketplace
     let nftEntry = Core.NftInfo
-            { niCurrency    = nftCurrency
+            { niCurrency    = currency
             , niName        = deserializePlutusBuiltinBS inpNftName
             , niDescription = deserializePlutusBuiltinBS inpNftDescription
             , niCategory = deserializePlutusBuiltinBS <$> inpNftCategory
@@ -153,7 +159,7 @@ importNft marketplace ImportNftParams {..} = do
             }
     void $ mapError' $ runStep client $ Core.ImportNftRedeemer ipfsCidHash nftEntry
 
-    logInfo @Haskell.String $ printf "Imported NFT %s with store entry %s" (Haskell.show nftCurrency) (Haskell.show nftEntry)
+    logInfo @Haskell.String $ printf "Imported NFT %s with store entry %s" (Haskell.show inpCurrency) (Haskell.show nftEntry)
     pure ()
 
 data OpenSaleParams =

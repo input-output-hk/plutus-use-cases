@@ -10,6 +10,9 @@ import qualified Plutus.Contracts.NftMarketplace.Endpoints    as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import           PlutusTx.Builtins                            (sha2_256)
 import           PlutusTx.Prelude                             (BuiltinByteString)
+import qualified Data.Text.Encoding as T
+import Plutus.Contracts.NftMarketplace.OffChain.Serialization
+import qualified PlutusTx.Prelude                        as PlutusTx
 
 cids :: [Text]
 cids = [catTokenIpfsCid, photoTokenIpfsCid]
@@ -32,6 +35,9 @@ bundleDescription = "Collection of visual media"
 
 bundleCategory :: [Text]
 bundleCategory = ["User","Stan"]
+
+catCurrencySymbol :: Text
+catCurrencySymbol = "50b69b375c08e6b43a5deca05e9f10214d86f9f84745594a26b4725e"
 
 catTokenIpfsCid :: Text
 catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"

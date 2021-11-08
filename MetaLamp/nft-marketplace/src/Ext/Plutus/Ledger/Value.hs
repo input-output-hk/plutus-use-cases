@@ -22,13 +22,13 @@ utxosValue address = do
 -- [(CurrencySymbol, TokenName, Integer)]
 -- Value { getValue :: Map.Map CurrencySymbol (Map.Map TokenName Integer) }
 
-findNftCurrencyByTokenName :: Value -> V.TokenName -> Maybe V.CurrencySymbol
-findNftCurrencyByTokenName value tokenName =
-    getCurrency $ V.flattenValue value
+isOwnerOfNft :: Value -> V.CurrencySymbol -> V.TokenName -> Bool
+isOwnerOfNft value currency tokenName =
+    length suitableTokensList == 1
     where
-        getCurrency [] = Nothing
-        getCurrency ((cs,tn,1):items) = 
-            if tn == tokenName 
-                then Just cs
-                else getCurrency items
-        getCurrency (_:items) = getCurrency items
+        suitableTokensList = filter isSuitableToken $ V.flattenValue value
+        isSuitableToken (cs,tn,num) = cs == currency && tn == tokenName && num == 1
+
+suitableTokensList value currency tokenName = filter isSuitableToken $ V.flattenValue value
+    where 
+        isSuitableToken (cs,tn,num) = cs == currency && tn == tokenName && num == 1

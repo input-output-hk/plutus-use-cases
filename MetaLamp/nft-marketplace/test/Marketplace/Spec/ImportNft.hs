@@ -33,12 +33,13 @@ tests =
     [ checkPredicateOptions
         Fixtures.options
         "1 Should create the Marketplace entry hiding issuer"
-        valueCheck
+        (valueCheck .&&. datumsCheck)
         (void importNftTrace)
     ]
 
 importNftParams :: Marketplace.ImportNftParams
 importNftParams = Marketplace.ImportNftParams {
+                        Marketplace.inpCurrency       = Fixtures.catCurrencySymbol,
                         Marketplace.inpIpfsCid        = Fixtures.catTokenIpfsCid,
                         Marketplace.inpNftName        = Fixtures.catTokenName,
                         Marketplace.inpNftDescription = Fixtures.catTokenDescription,
