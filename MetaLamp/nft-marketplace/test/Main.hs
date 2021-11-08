@@ -10,6 +10,7 @@ import qualified Marketplace.Spec.CreateNft as CreateNft
 import qualified Marketplace.Spec.ImportNft as ImportNft
 import qualified Marketplace.Spec.Sale      as Sale
 import qualified Marketplace.Spec.Start     as Start
+import qualified Ext.Value as Value
 import           Test.Tasty
 
 main :: IO ()
@@ -23,4 +24,5 @@ tests =
         "NFT Marketplace"
         [Start.tests, CreateNft.tests, ImportNft.tests, Bundles.tests, Sale.tests, Auction.tests]
     , testGroup "Abstract" [RemoteData.tests, Percentage.tests]
+    , testGroup "Ext" [Value.tests]
     ]

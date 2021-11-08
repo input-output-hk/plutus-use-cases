@@ -176,6 +176,7 @@ test-suite test
     other-modules:
       Abstract.Percentage
       Abstract.RemoteDataSpec 
+      Ext.Value
       Marketplace.Fixtures
       Marketplace.Fixtures.CheckOptions
       Marketplace.Fixtures.NFT

@@ -62,7 +62,7 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-import           Ext.Plutus.Ledger.Value                         (utxosValue, isOwnerOfNft, suitableTokensList)
+import           Ext.Plutus.Ledger.Value                         (utxosValue, isNftInValue)
 import qualified Debug.Trace as D
 
 getOwnPubKey :: Contract w s Text PubKeyHash
@@ -108,7 +108,6 @@ createNft marketplace CreateNftParams {..} = do
     logInfo @Haskell.String $ printf "Created NFT %s with store entry %s" (Haskell.show nft) (Haskell.show nftEntry)
     pure ()
 
-
 mintNFT :: PubKeyHash -> TokenName -> Contract w s Text ()
 mintNFT pkh tokenName = do
     nft <-
@@ -131,6 +130,9 @@ data ImportNftParams =
 
 Lens.makeClassy_ ''ImportNftParams
 
+builtInB :: BuiltinByteString
+builtInB = "50b69b375c08e6b43a5deca05e9f10214d86f9f84745594a26b4725e"
+
 -- | The user adds an existing nft, which follows the same protocol
 importNft :: Core.Marketplace -> ImportNftParams -> Contract w s Text ()
 importNft marketplace ImportNftParams {..} = do
@@ -142,11 +144,13 @@ importNft marketplace ImportNftParams {..} = do
     let tokenName = V.TokenName ipfsCid
     _ <- when inpMintBeforeImport $ mintNFT pkh tokenName
     value <- utxosValue $ pubKeyHashAddress pkh
-    let currency = V.currencySymbol . T.encodeUtf8 $ inpCurrency
-    let isOwner = isOwnerOfNft value currency tokenName
-    D.traceM $ "currency: " <> Haskell.show currency <> " tokenName: " <> Haskell.show tokenName 
+    let currency = V.CurrencySymbol $ deserializeByteString inpCurrency
+    let uncurrency = serializeByteString $ V.unCurrencySymbol currency
+    let uncur = serializeByteString . V.unCurrencySymbol $ V.CurrencySymbol builtInB
+    let isOwner = isNftInValue value currency tokenName
+    D.traceM $ "currency: " <> Haskell.show currency <> " uncurrency: " <> Haskell.show uncurrency 
+    D.traceM $ " uncur: " <> Haskell.show uncur 
     D.traceM $ "tokens in wallet: " <> Haskell.show (V.flattenValue value)
-    D.traceM $ "suitable tokens list: " <> Haskell.show (suitableTokensList value currency tokenName)
     when (not isOwner) $ throwError "You are not an owner"
 
     let client = Core.marketplaceClient marketplace

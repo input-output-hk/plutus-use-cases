@@ -37,7 +37,7 @@ bundleCategory :: [Text]
 bundleCategory = ["User","Stan"]
 
 catCurrencySymbol :: Text
-catCurrencySymbol = "50b69b375c08e6b43a5deca05e9f10214d86f9f84745594a26b4725e"
+catCurrencySymbol = serializeByteString "50b69b375c08e6b43a5deca05e9f10214d86f9f84745594a26b4725e"
 
 catTokenIpfsCid :: Text
 catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
