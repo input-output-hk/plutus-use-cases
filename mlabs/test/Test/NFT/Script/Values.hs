@@ -43,8 +43,25 @@ userOnePkh = Ledger.pubKeyHash userOnePk
 userTwoWallet :: Emu.Wallet
 userTwoWallet = Emu.fromWalletNumber (Emu.WalletNumber 3)
 
+userTwoPk :: Ledger.PubKey
+userTwoPk = Emu.walletPubKey userTwoWallet
+
+userTwoPkh :: Ledger.PubKeyHash
+userTwoPkh = Ledger.pubKeyHash userTwoPk
+
+-- User 3
+userThreeWallet :: Emu.Wallet
+userThreeWallet = Emu.fromWalletNumber (Emu.WalletNumber 4)
+
+userThreePk :: Ledger.PubKey
+userThreePk = Emu.walletPubKey userThreeWallet
+
+userThreePkh :: Ledger.PubKeyHash
+userThreePkh = Ledger.pubKeyHash userThreePk
+
 testTxId :: Ledger.TxId
 testTxId = fromJust $ Aeson.decode "{\"getTxId\" : \"61626364\"}"
+
 testTokenName :: TokenName
 testTokenName = TokenName hData
   where
