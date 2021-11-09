@@ -50,6 +50,7 @@ import           Ledger.Ada                                          (adaSymbol,
 import qualified Ledger.Ada                                          as Ada
 import           Ledger.Constraints
 import qualified Ledger.Constraints.OffChain                         as Constraints
+import           Ledger.TimeSlot                                     (SlotConfig (..))
 import qualified Ledger.Typed.Scripts                                as Scripts
 import           Ledger.Value                                        as Value
 import           Network.HTTP.Client                                 (defaultManagerSettings,
@@ -141,7 +142,7 @@ activateContracts = do
 startMpServer :: IO ()
 startMpServer = do
     beginningOfTime <- convertUtcToPOSIX <$> Time.getCurrentTime
-    void $ Simulator.runSimulationWith handlers $ do
+    void $ Simulator.runSimulationWith (handlers $ slotConfiguration beginningOfTime) $ do
         Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
         shutdown <- Ext.Plutus.PAB.startServer
 
@@ -156,7 +157,8 @@ startMpServer = do
 
 runNftMarketplace :: IO ()
 runNftMarketplace =
-    void $ Simulator.runSimulationWith handlers $ do
+    void $ Simulator.runSimulationWith (handlers def) $ do
+    let simulatorBeginningOfTime = POSIXTime 1596059091000
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
@@ -250,7 +252,7 @@ runNftMarketplace =
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
                         saapInitialPrice = fromInteger $ 5 * oneAdaInLovelace,
-                        saapDuration = 25 * 1000
+                        saapEndTime = simulatorBeginningOfTime + fromMilliSeconds (DiffMilliSeconds (55 * 1000))
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
@@ -332,9 +334,15 @@ runNftMarketplace =
     _ <- liftIO getLine
     shutdown
 
-handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
-handlers =
-    Simulator.mkSimulatorHandlers def def
+slotConfiguration :: POSIXTime -> SlotConfig
+slotConfiguration beginningOfTime = SlotConfig
+        { scSlotLength   = 1000
+        , scSlotZeroTime = beginningOfTime
+        }
+
+handlers :: SlotConfig -> SimulatorEffectHandlers (Builtin MarketplaceContracts)
+handlers slotConfig =
+    Simulator.mkSimulatorHandlers def slotConfig
     $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @MarketplaceContracts))
 
 oneAdaInLovelace :: Integer
