@@ -15,19 +15,17 @@ import           Control.Monad.Reader
 import           GHC.Generics          (Generic)
 import           Servant
 import qualified Data.ByteString.Char8 as B
-import           Ledger                (pubKeyHash, getPubKeyHash, pubKeyAddress, PubKey, Address, PubKeyHash)
+import           Ledger                (pubKeyHash, getPubKeyHash, PubKey, Address, PubKeyHash)
 import           Network.Wai.Handler.Warp
 import           Types.Game
-import           Wallet.Emulator       (walletPubKey, Wallet (..), knownWallet)
+import           Wallet.Emulator       (walletPubKeyHash, Wallet (..), knownWallet)
 import qualified PlutusTx.Prelude      as PlutusTx
 
 type GamesAPI = "wallet" :> Capture "id" Integer :> Get '[JSON] WalletData
 
 data WalletData = WalletData
-  { walletDataPubKey         :: !PubKey
-   , walletDataPubKeyHash    :: !PubKeyHash
-   , walletDataAddress       :: !Address
-   , walletId                :: !Text
+  { walletDataPubKeyHash    :: !PubKeyHash
+  , walletId                :: !Text
   } deriving Generic
 instance FromJSON WalletData
 instance ToJSON WalletData
@@ -42,10 +40,8 @@ mutualBetServer = wallet
     wallet walletId = do
 
       let walletInst = knownWallet $ walletId
-          pubKey = walletPubKey walletInst
-      return WalletData { walletDataPubKey       = pubKey
-                        , walletDataPubKeyHash   = pubKeyHash pubKey
-                        , walletDataAddress      = pubKeyAddress pubKey
+          pubKeyHash = walletPubKeyHash walletInst
+      return WalletData { walletDataPubKeyHash   = pubKeyHash
                         , walletId               = toUrlPiece walletInst
                         }
 

@@ -22,7 +22,7 @@ import           Contracts.Oracle.OnChain
 import           Ledger
 import           Ledger.Ada                     as Ada
 
-import           Wallet.Emulator.Types          (Wallet (..), walletPubKey)
+import           Wallet.Emulator.Types          (Wallet (..))
 
 -- cabal exec -- gs 1500000 1000000 "payment.vkey"
 main :: IO ()

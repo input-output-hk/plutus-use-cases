@@ -70,8 +70,8 @@ import           Schema                    (ToSchema)
 import           Plutus.ChainIndex         ()
 startOracle :: forall w s. OracleParams -> Contract w s Text Oracle
 startOracle op = do
-    pk <- Contract.ownPubKey
-    pkh <- pubKeyHash <$> Contract.ownPubKey
+    let pk = opPublicKey op
+    pkh <- Contract.ownPubKeyHash
     let oracleRequestTokenInfo = OracleRequestToken
             { ortOperator = pkh
             , ortFee = opFees op
@@ -114,7 +114,7 @@ updateOracle oracle operatorPrivateKey params = do
 
                             logInfo ("submit transaction " ++ (show $ oracleData'))
                             ledgerTx <- submitTxConstraintsWith lookups tx
-                            awaitTxConfirmed $ txId ledgerTx
+                            awaitTxConfirmed $ getCardanoTxId ledgerTx
 
 oracleValueFromTxOutTx :: ChainIndexTxOut -> Maybe OracleData
 oracleValueFromTxOutTx o = do
@@ -138,7 +138,7 @@ type OracleSchema = Endpoint "update" UpdateOracleParams
 
 requestOracleForAddress :: forall w s. Oracle -> GameId -> Contract w s Text ()
 requestOracleForAddress oracle gameId = do 
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- Contract.ownPubKeyHash
     let inst = typedOracleValidator oracle
         mrScript = oracleValidator oracle
         tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
@@ -161,7 +161,7 @@ requestOracleForAddress oracle gameId = do
                 <> Constraints.mustMintValueWithRedeemer mintRedeemer forgedToken
 
     ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
 
 --get active request lists for oracle to process
 getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
@@ -265,7 +265,7 @@ useOracle oracle =
   where
     use :: Oracle -> Promise Text UseOracleSchema Text ()
     use oracle = endpoint @"use" $ \oracleParams -> do
-        pkh <- pubKeyHash <$> Contract.ownPubKey
+        pkh <- Contract.ownPubKeyHash
         oracleRequestMaybe <- findOracleRequest oracle (uoGame oracleParams) pkh
         case oracleRequestMaybe of
             Nothing -> throwError "no oracle request"
@@ -287,4 +287,4 @@ useOracle oracle =
                              <> Constraints.mustPayToPubKey pkh collateralValue
 
                 ledgerTx <- submitTxConstraintsWith lookups tx
-                void $ awaitTxConfirmed $ txId ledgerTx
+                void $ awaitTxConfirmed $ getCardanoTxId ledgerTx

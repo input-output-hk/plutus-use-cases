@@ -24,14 +24,14 @@ import           Control.Monad.Freer.Extras.Log     (LogLevel (..))
 import           Control.Monad.IO.Class             (liftIO)
 import           Data.Aeson.Encode                  (encodeToTextBuilder)
 import           Data.Default                       (Default (def))
-import           Data.Maybe                         (listToMaybe, mapMaybe)
+import           Data.Maybe                         (listToMaybe, mapMaybe, fromMaybe)
 import           Data.Monoid                        (Last (..))
 import           Data.Text                          (Text, pack, isInfixOf)
 import           Data.Text.Lazy                     (toStrict)
 import           Data.Text.Lazy.Builder             (toLazyText)
 import           Ledger                             (Ada, Slot (..), Value, pubKeyHash)
 import qualified Ledger.Ada                         as Ada
-import           Ledger.Crypto                      (PrivateKey, privateKey5)
+import           Ledger.Crypto                      (PrivateKey, PubKey)
 import           Ledger.Oracle                      (Observation, SignedMessage, signMessage)
 import           Ledger.TimeSlot                    (SlotConfig)
 import qualified Ledger.TimeSlot                    as TimeSlot
@@ -46,6 +46,7 @@ import           Plutus.Trace.Emulator.Types        (_ContractLog, cilMessage)
 import qualified Streaming.Prelude                  as S
 import           Test.Tasty
 import           Types.Game  
+import           Wallet.Emulator.Wallet             (emptyWalletState, ownPublicKey, ownPrivateKey)
 import qualified Wallet.Emulator.Folds              as Folds
 import qualified Wallet.Emulator.Stream             as Stream
 import           Wallet.Emulator.MultiAgent         (eteEvent)
@@ -56,17 +57,24 @@ slotCfg = def
 oracleCurrency :: CurrencySymbol
 oracleCurrency = "aa"
 
+getWalletPubKey:: Wallet -> PubKey
+getWalletPubKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState
+
+getWalletPrivKey:: Wallet -> PrivateKey
+getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState
+
 oracleParams :: OracleParams 
 oracleParams = OracleParams
     { opSymbol = oracleCurrency
     , opFees = 1_000_000
     , opCollateral = 2_000_000
+    , opPublicKey = getWalletPubKey oracleWallet
     , opSigner = oraclePrivateKey
     } 
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
-    { ortOperator = pubKeyHash $ walletPubKey oracleWallet
+    { ortOperator = walletPubKeyHash oracleWallet
     , ortFee = opFees oracleParams
     , ortCollateral = opCollateral oracleParams
     }
@@ -75,8 +83,8 @@ oracle ::  Oracle
 oracle = Oracle
     { --oSymbol = opSymbol oracleParams,
       oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
-    , oOperator = pubKeyHash $ walletPubKey oracleWallet
-    , oOperatorKey = walletPubKey oracleWallet
+    , oOperator = walletPubKeyHash oracleWallet
+    , oOperatorKey = getWalletPubKey oracleWallet
     , oFee = opFees oracleParams
     , oCollateral = opCollateral oracleParams
     }
@@ -95,7 +103,7 @@ mutualBetParams =
     MutualBetParams
         { mbpGame = gameId
         , mbpOracle = oracle
-        , mbpOwner = pubKeyHash $ walletPubKey betOwnerWallet
+        , mbpOwner = walletPubKeyHash betOwnerWallet
         , mbpTeam1 = team1Id
         , mbpTeam2 = team2Id
         , mbpMinBet = 2_000_000
@@ -129,7 +137,7 @@ bettor3 = w4
 oracleWallet = w5
 
 oraclePrivateKey :: PrivateKey
-oraclePrivateKey = privateKey5
+oraclePrivateKey = getWalletPrivKey oracleWallet
 
 trace1Bettor1Bet :: Integer
 trace1Bettor1Bet = 10_000_000
@@ -193,12 +201,12 @@ mutualBetSuccessTraceFinalState =
         { mutualBetState = Last $ Just $ Finished $
             [
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor2Bet
-                , betBettor = pubKeyHash (walletPubKey bettor2)
+                , betBettor = walletPubKeyHash bettor2
                 , betTeamId = team2Id
                 , betWinShare = Ada.lovelaceOf 0
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor1Bet
-                , betBettor = pubKeyHash (walletPubKey bettor1)
+                , betBettor = walletPubKeyHash bettor1
                 , betTeamId = team1Id
                 , betWinShare = Ada.lovelaceOf trace1Bettor2Bet
                 }
@@ -241,17 +249,17 @@ mutualBetSuccessTrace2FinalState =
         { mutualBetState = Last $ Just $ Finished $
             [
                 Bet{ betAmount = Ada.lovelaceOf trace2Bettor3Bet
-                , betBettor = pubKeyHash (walletPubKey bettor3)
+                , betBettor = walletPubKeyHash bettor3
                 , betTeamId = team1Id
                 , betWinShare = trace2Bettor3WinShare
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace2Bettor2Bet
-                , betBettor = pubKeyHash (walletPubKey bettor2)
+                , betBettor = walletPubKeyHash bettor2
                 , betTeamId = team2Id
                 , betWinShare = trace2Bettor2WinShare
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace2Bettor1Bet
-                , betBettor = pubKeyHash (walletPubKey bettor1)
+                , betBettor = walletPubKeyHash bettor1
                 , betTeamId = team1Id
                 , betWinShare = trace2Bettor1WinShare
                 }
@@ -354,12 +362,12 @@ cancelGameTraceState =
         { mutualBetState = Last $ Just $ Finished $
             [
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor2Bet
-                , betBettor = pubKeyHash (walletPubKey bettor2)
+                , betBettor = walletPubKeyHash bettor2
                 , betTeamId = team2Id
                 , betWinShare = 0
                 },
                 Bet{ betAmount = Ada.lovelaceOf trace1Bettor1Bet
-                , betBettor = pubKeyHash (walletPubKey bettor1)
+                , betBettor = walletPubKeyHash bettor1
                 , betTeamId = team1Id
                 , betWinShare = 0
                 }

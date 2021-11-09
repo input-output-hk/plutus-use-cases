@@ -12,7 +12,7 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# options_ghc -fno-warn-orphans          #-}
 {-# options_ghc -Wno-redundant-constraints #-}
@@ -43,8 +43,8 @@ import           Types.Game                      (GameId, TeamId, FixtureStatusS
 import           Data.ByteString                 (ByteString)
 import qualified Data.OpenApi.Schema             as OpenApi
 import           Plutus.V1.Ledger.Api            (Credential (PubKeyCredential, ScriptCredential))
+import           Ledger.Crypto                   (PrivateKey)
 
-deriving instance OpenApi.ToSchema Ada
 data Oracle = Oracle
     { --oSymbol   :: !CurrencySymbol
       oRequestTokenSymbol :: !CurrencySymbol -- Oracle request token currency symbol
@@ -132,8 +132,9 @@ data OracleParams = OracleParams
     { opSymbol :: !CurrencySymbol
     , opFees   :: !Ada
     , opCollateral :: !Ada
+    , opPublicKey :: PubKey
     , opSigner :: !PrivateKey
-    } deriving (Haskell.Eq, Haskell.Show, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
+    } deriving (Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
 {-# INLINABLE oracleRequestTokenName #-}
 oracleRequestTokenName :: TokenName

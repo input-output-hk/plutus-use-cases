@@ -27,6 +27,7 @@ import           Data.Aeson                          (FromJSON (..), Result (..)
 import qualified Data.ByteString.Char8               as C
 import           Data.Default                        (Default (def))
 import           Data.Either                         (fromRight)
+import           Data.Maybe                          (fromMaybe)
 import           Data.Text                           (Text, pack)
 import qualified Data.Text                           as T
 import qualified Data.Map.Strict                     as Map
@@ -49,22 +50,21 @@ import           Contracts.Oracle
 import           Types.Game    
 import qualified Data.ByteString.Char8               as B
 import           Ledger                              (PubKeyHash(..), pubKeyHash, CurrencySymbol(..), pubKeyAddress)
-import           Ledger.Crypto                       (PrivateKey, privateKey5)
+import           Ledger.Crypto                       (PrivateKey)
 import qualified Ledger.Value                        as Value
 import           Ledger.Value                        (TokenName (..), Value)
 import           Ledger.TimeSlot                     (SlotConfig)
-import           Wallet.API                          (ownPubKey)
 import           Wallet.Emulator.Types
 import           Wallet.Types                        (ContractInstanceId (..))
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
 import qualified GameClient                           as GameClient
-import           Wallet.Emulator                     (Wallet (..), knownWallets, knownWallet, walletPubKey) 
+import           Wallet.Emulator                     (Wallet (..), knownWallets, knownWallet) 
+import           Wallet.Emulator.Types               (Wallet (..), walletPubKeyHash)
 import qualified Data.OpenApi.Schema                 as OpenApi
 import           Playground.Contract                 (ToSchema)
+import           Wallet.Emulator.Wallet             (fromMockWallet, toMockWallet, ownPublicKey, emptyWalletState)
 
-deriving instance OpenApi.ToSchema SlotConfig
-deriving instance OpenApi.ToSchema ThreadToken
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
 initGame oracle game = do
@@ -75,7 +75,7 @@ initGame oracle game = do
     let mutualBetParams = MutualBetParams 
                             { mbpGame   = gameId
                             , mbpOracle = oracle
-                            , mbpOwner = pubKeyHash $ walletPubKey mutualBetOwnerWallet
+                            , mbpOwner  = walletPubKeyHash mutualBetOwnerWallet
                             , mbpTeam1  = team1Id
                             , mbpTeam2  = team2Id 
                             , mbpMinBet = 2_000_000
@@ -149,8 +149,8 @@ data MutualBetContracts =
     | MutualBetStartContract MutualBetParams
     | MutualBetBettorContract SlotConfig ThreadToken MutualBetParams
     | OracleСontract OracleParams
-    deriving (Eq, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
+    deriving (Generic)
+    deriving anyclass (Show, FromJSON, ToJSON, OpenApi.ToSchema)
     
 instance Pretty MutualBetContracts where
     pretty = viaShow
@@ -213,14 +213,14 @@ oracleWallet :: Wallet
 oracleWallet = knownWallet 5
 
 oraclePrivateKey :: PrivateKey
-oraclePrivateKey = privateKey5
+oraclePrivateKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState  $ oracleWallet
 
 slotCfg :: SlotConfig
 slotCfg = def
 
 initContract :: Contract (Last Currency.OneShotCurrency) Currency.CurrencySchema Currency.CurrencyError ()
 initContract = do
-    ownPK <- pubKeyHash <$> Contract.ownPubKey
+    ownPK <- Contract.ownPubKeyHash
     cur   <- Currency.mintContract ownPK [("test", 1)]
     let cs = Currency.currencySymbol cur
     tell $ Last $ Just cur

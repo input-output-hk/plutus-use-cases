@@ -23,12 +23,13 @@ import           Control.Monad.Freer.Extras.Log     (LogLevel (..))
 import           Control.Monad.IO.Class             (liftIO)
 import           Data.Aeson                         (Result (..))
 import           Data.Default                       (Default (def))
+import           Data.Maybe                         (fromMaybe)
 import           Data.Monoid                        (Last (..))
 import           Data.Text                          (Text, pack)
 import           Data.Sort                          (sort)
 import           Ledger                             (Ada, Slot (..), Value, pubKeyHash)
 import qualified Ledger.Ada                         as Ada
-import           Ledger.Crypto                      (PrivateKey, privateKey1)
+import           Ledger.Crypto                      (PrivateKey, PubKey)
 import           Ledger.Index                       (ValidationError (ScriptFailure))
 import           Ledger.Scripts                     (ScriptError (EvaluationError))
 import           Ledger.Oracle                      (Observation, SignedMessage, signMessage, verifySignedMessageOffChain, verifySignedMessageConstraints)
@@ -37,6 +38,7 @@ import           Plutus.Contract.Test               hiding (not)
 import qualified Streaming.Prelude                  as S
 import qualified Wallet.Emulator.Folds              as Folds
 import qualified Wallet.Emulator.Stream             as Stream
+import           Wallet.Emulator.Wallet             (emptyWalletState, ownPublicKey, ownPrivateKey)
 
 import           Ledger.TimeSlot                    (SlotConfig)
 import qualified Ledger.TimeSlot                    as TimeSlot
@@ -49,6 +51,12 @@ import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)
 import           Test.Tasty
 import           Types.Game
+
+getWalletPubKey:: Wallet -> PubKey
+getWalletPubKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState
+
+getWalletPrivKey:: Wallet -> PrivateKey
+getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState
 
 auctionEmulatorCfg :: Trace.EmulatorConfig
 auctionEmulatorCfg =
@@ -69,12 +77,13 @@ oracleParams = OracleParams
     { opSymbol = oracleCurrency
     , opFees = 5_000_000
     , opCollateral = 10_000_000
+    , opPublicKey = getWalletPubKey oracleWallet
     , opSigner = oraclePrivateKey
     } 
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
-    { ortOperator = pubKeyHash $ walletPubKey oracleWallet
+    { ortOperator = walletPubKeyHash oracleWallet
     , ortFee = opFees oracleParams
     , ortCollateral = opCollateral oracleParams
     }
@@ -82,8 +91,8 @@ oracle ::  Oracle
 oracle = Oracle
     { --oSymbol = opSymbol oracleParams,
       oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
-    , oOperator = pubKeyHash $ walletPubKey oracleWallet
-    , oOperatorKey = walletPubKey oracleWallet
+    , oOperator = walletPubKeyHash oracleWallet
+    , oOperatorKey = getWalletPubKey oracleWallet
     , oFee = opFees oracleParams
     , oCollateral = opCollateral oracleParams
     }
@@ -109,7 +118,7 @@ oracleClientWallet = w2
 otherWallet = w3
 
 oraclePrivateKey :: PrivateKey
-oraclePrivateKey = privateKey1
+oraclePrivateKey = getWalletPrivKey oracleWallet
 
 winTeamId:: Integer
 winTeamId = 1
@@ -117,7 +126,7 @@ winTeamId = 1
 requestOracleTestState :: OracleData
 requestOracleTestState = OracleData
     { ovGame = gameId
-    , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
+    , ovRequestAddress = walletPubKeyHash oracleClientWallet
     , ovSignedMessage = Nothing
     }
 
@@ -131,7 +140,7 @@ requestOracleTrace = do
 signOracleTestState :: OracleData
 signOracleTestState = OracleData
     { ovGame = gameId
-    , ovRequestAddress = pubKeyHash $ walletPubKey oracleClientWallet
+    , ovRequestAddress = walletPubKeyHash oracleClientWallet
     , ovSignedMessage = Just $ signMessage OracleSignedMessage{ osmGameId = gameId, osmWinnerId = 0, osmGameStatus = NS } oraclePrivateKey
     }
 

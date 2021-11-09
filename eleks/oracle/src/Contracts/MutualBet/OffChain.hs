@@ -114,7 +114,7 @@ mutualBetStart params = do
     threadToken <- SM.getThreadToken
     --logInfo "bet start thread token" ++ Haskell.show threadToken
     tell $ threadTokenOut threadToken
-    self <- Ledger.pubKeyHash <$> ownPubKey
+    self <- ownPubKeyHash
     let inst         = typedValidator (threadToken, params)
         client       = machineClient inst threadToken params
 
@@ -157,7 +157,7 @@ payout params client GameStateChange{gmsOutRef, gmsOutTx, gmsOracleData, gmsSign
                 , slOtherScripts = Map.singleton (oracleValidatorHash oracle) (oracleValidator oracle)
                 , slOtherData = Map.empty
                 , slTypedValidator = Nothing
-                , slOwnPubkey = Nothing
+                , slOwnPubkeyHash = Nothing
                 }
         constraints = Constraints.mustSpendScriptOutput gmsOutRef redeemer
                     <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestToken)
@@ -198,7 +198,7 @@ cancelGame params client  GameStateChange{gmsOutRef, gmsOutTx}  = do
                 , slOtherScripts = Map.singleton (oracleValidatorHash oracle) (oracleValidator oracle)
                 , slOtherData = Map.empty
                 , slTypedValidator = Nothing
-                , slOwnPubkey = Nothing
+                , slOwnPubkeyHash = Nothing
                 }
         constraints = Constraints.mustSpendScriptOutput gmsOutRef redeemer
                     <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestToken)
@@ -237,9 +237,9 @@ Updates to the user are provided via 'tell'.
 
 -}
 
-isCurrentGame :: Ledger.PubKey -> MutualBetParams -> OracleData -> Either Haskell.String OracleData
-isCurrentGame pk params oracleData
-    | (pubKeyHash pk) /= (ovRequestAddress oracleData) = Left "Not signed by owner wallet"
+isCurrentGame :: Ledger.PubKeyHash -> MutualBetParams -> OracleData -> Either Haskell.String OracleData
+isCurrentGame pkh params oracleData
+    | pkh /= (ovRequestAddress oracleData) = Left "Not signed by owner wallet"
     | (mbpGame params) /= (ovGame oracleData) = Left "Not current game"
     | otherwise = Right oracleData
 
@@ -262,12 +262,12 @@ waitForGameStateChange ::
 waitForGameStateChange params = do
         waitEnd
     where
-        isCurrentGameState pk params GameStateChange{gmsOracleData} = isRight $ isCurrentGame pk params gmsOracleData
+        isCurrentGameState pkh params GameStateChange{gmsOracleData} = isRight $ isCurrentGame pkh params gmsOracleData
         waitEnd = do  
             txs <- mapError OracleError $ awaitNextOracleRequest (mbpOracle params)
-            pk <- ownPubKey
+            pkh <- ownPubKeyHash
             logInfo @Haskell.String "Await next"
-            let currentGameSignedTx = find (isCurrentGameState pk params) . catMaybes . map (mapSignedMessage params) $ txs 
+            let currentGameSignedTx = find (isCurrentGameState pkh params) . catMaybes . map (mapSignedMessage params) $ txs 
             case currentGameSignedTx of
                 Nothing -> do { logInfo @Haskell.String "Not current game state change"; waitEnd; }
                 Just d  -> do { logInfo ("State changes " ++ Haskell.show d); return d; }
@@ -341,7 +341,7 @@ handleEvent client bets change =
             continue s
         MakeBet betParams -> do
             logInfo @Haskell.String "Submitting bet"
-            self <- Ledger.pubKeyHash <$> ownPubKey
+            self <- ownPubKeyHash
             let betAda = Ada.lovelaceOf $ nbpAmount betParams
                 newBetInput = NewBet{ newBet = Bet{ betAmount = betAda, betBettor = self, betTeamId = nbpWinnerId betParams, betWinShare = Ada.lovelaceOf 0}}
             r <- SM.runStep client newBetInput
@@ -355,7 +355,7 @@ handleEvent client bets change =
                 SM.TransitionSuccess (Finished bets) -> logError (MutualBetGameEnded bets) >> stop
         UndoBet betParams -> do
             logInfo @Haskell.String "Cancelling bet"
-            self <- Ledger.pubKeyHash <$> ownPubKey
+            self <- ownPubKeyHash
             let betAda = Ada.lovelaceOf $ nbpAmount betParams
                 cancelBet = CancelBet{ cancelBet = Bet{ betAmount = betAda, betBettor = self, betTeamId = nbpWinnerId betParams, betWinShare = Ada.lovelaceOf 0}}
             r <- SM.runStep client cancelBet
