@@ -455,7 +455,7 @@ mkTxPolicy !datum' !act !ctx =
                   ( Just (AuctionState _ nextDeadline nextMinBid)
                     , Just (AuctionState _ deadline minBid)
                     ) ->
-                    nextDeadline == deadline && nextMinBid == minBid
+                      nextDeadline == deadline && nextMinBid == minBid
                   _ -> traceError "auctionConsistentDatum (checkAauctionState): expected auction state"
 
               checkHighestBid =
@@ -463,14 +463,13 @@ mkTxPolicy !datum' !act !ctx =
                   ( Just (AuctionState (Just (AuctionBid nextBid _)) _ _)
                     , Just (AuctionState (Just (AuctionBid bid _)) _ _)
                     ) ->
-                    nextBid > bid && nextBid == redeemerBid
+                      nextBid > bid && nextBid == redeemerBid
                   ( Just (AuctionState (Just (AuctionBid nextBid _)) _ _)
                     , Just (AuctionState Nothing _ minBid)
                     ) ->
-                    nextBid >= minBid && nextBid == redeemerBid
+                      nextBid >= minBid && nextBid == redeemerBid
                   _ -> traceError "auctionConsistentDatum (checkHighestBid): expected auction state"
-          in
-              info'id newNodeInfo == info'id nInfo
+           in info'id newNodeInfo == info'id nInfo
                 && info'share newNodeInfo == info'share nInfo
                 && info'author newNodeInfo == info'author nInfo
                 && info'owner newNodeInfo == info'owner nInfo
