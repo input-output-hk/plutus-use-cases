@@ -17,12 +17,15 @@ import Playground.Contract (mkSchemaDefinitions)
 import Plutus.Contract (Endpoint, endpoint, type (.\/))
 import Prelude as Hask
 
+import Mlabs.NFT.Contract.BidAuction (bidAuction)
 import Mlabs.NFT.Contract.Buy (buy)
+import Mlabs.NFT.Contract.CloseAuction (closeAuction)
 import Mlabs.NFT.Contract.Init (initApp)
 import Mlabs.NFT.Contract.Mint (mint)
+import Mlabs.NFT.Contract.OpenAuction (openAuction)
 import Mlabs.NFT.Contract.Query (queryCurrentOwner, queryCurrentPrice, queryListNfts)
 import Mlabs.NFT.Contract.SetPrice (setPrice)
-import Mlabs.NFT.Types (AdminContract, BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), SetPriceParams (..), UserContract)
+import Mlabs.NFT.Types (AdminContract, AuctionBidParams (..), AuctionCloseParams (..), AuctionOpenParams (..), BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), SetPriceParams (..), UserContract)
 import Mlabs.Plutus.Contract (selectForever)
 
 -- | A common App schema works for now.
@@ -36,6 +39,10 @@ type NFTAppSchema =
     .\/ Endpoint "query-current-owner" NftId
     .\/ Endpoint "query-current-price" NftId
     .\/ Endpoint "query-list-nfts" ()
+    -- Auction endpoints
+    .\/ Endpoint "auction-open" AuctionOpenParams
+    .\/ Endpoint "auction-bid" AuctionBidParams
+    .\/ Endpoint "auction-close" AuctionCloseParams
     -- Admin Endpoint
     .\/ Endpoint "app-init" ()
 
@@ -54,7 +61,10 @@ endpoints appSymbol =
     [ endpoint @"mint" (mint appSymbol)
     , endpoint @"buy" (buy appSymbol)
     , endpoint @"set-price" (setPrice appSymbol)
-    --, endpoint @"query-authentic-nft" NFTContract.queryAuthenticNFT
+    , --, endpoint @"query-authentic-nft" NFTContract.queryAuthenticNFT
+      endpoint @"auction-open" (openAuction appSymbol)
+    , endpoint @"auction-close" (closeAuction appSymbol)
+    , endpoint @"auction-bid" (bidAuction appSymbol)
     ]
 
 -- | Admin Endpoints

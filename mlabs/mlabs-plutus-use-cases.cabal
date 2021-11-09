@@ -148,6 +148,9 @@ library
     Mlabs.NFT.Contract.Mint
     Mlabs.NFT.Contract.Query
     Mlabs.NFT.Contract.SetPrice
+    Mlabs.NFT.Contract.OpenAuction
+    Mlabs.NFT.Contract.CloseAuction
+    Mlabs.NFT.Contract.BidAuction
     Mlabs.NFT.Types
     Mlabs.NFT.Validation
     Mlabs.Nft.Contract

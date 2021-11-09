@@ -52,6 +52,7 @@ paysDatumToScriptCtx =
                 , info'author = NFT.UserId TestValues.authorPkh
                 , info'owner = NFT.UserId TestValues.authorPkh
                 , info'price = Just (100 * 1_000_000)
+                , info'auctionState = Nothing
                 }
           , node'next = Nothing
           , node'appInstance = TestValues.appInstance
@@ -108,6 +109,7 @@ mismatchingIdCtx =
                 , info'author = NFT.UserId TestValues.authorPkh
                 , info'owner = NFT.UserId TestValues.authorPkh
                 , info'price = Just (100 * 1_000_000)
+                , info'auctionState = Nothing
                 }
           , node'next = Nothing
           , node'appInstance = TestValues.appInstance

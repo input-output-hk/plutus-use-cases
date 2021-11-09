@@ -158,6 +158,7 @@ mintParamsToInfo MintParams {..} author =
     , info'price = mp'price
     , info'owner = author
     , info'author = author
+    , info'auctionState = Nothing
     }
   where
     nftIdInit = NftId . hashData
