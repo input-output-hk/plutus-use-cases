@@ -23,10 +23,9 @@ import Mlabs.NFT.Contract.CloseAuction (closeAuction)
 import Mlabs.NFT.Contract.Init (initApp)
 import Mlabs.NFT.Contract.Mint (mint)
 import Mlabs.NFT.Contract.OpenAuction (openAuction)
-import Mlabs.NFT.Contract.SetPrice (setPrice)
 import Mlabs.NFT.Contract.Query (queryCurrentOwner, queryCurrentPrice, queryListNfts)
 import Mlabs.NFT.Contract.SetPrice (setPrice)
-import Mlabs.NFT.Types (AdminContract, BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), SetPriceParams (..), UserContract, AuctionBidParams(..), AuctionCloseParams(..), AuctionOpenParams(..))
+import Mlabs.NFT.Types (AdminContract, AuctionBidParams (..), AuctionCloseParams (..), AuctionOpenParams (..), BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), SetPriceParams (..), UserContract)
 import Mlabs.Plutus.Contract (selectForever)
 
 -- | A common App schema works for now.

@@ -254,6 +254,7 @@ instance Eq AuctionCloseParams where
   {-# INLINEABLE (==) #-}
   (AuctionCloseParams nftId1) == (AuctionCloseParams nftId2) =
     nftId1 == nftId2
+
 --------------------------------------------------------------------------------
 -- Validation
 
