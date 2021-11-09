@@ -364,7 +364,7 @@ mkTxPolicy !datum' !act !ctx =
         newNodeInfo =
           case newDatum of
             HeadDatum _ -> traceError "nextNodeInfo: expected NodeDatum, got HeadDatum instead"
-            NodeDatum listNode -> node'information $ listNode
+            NodeDatum listNode -> node'information listNode
 
         ------------------------------------------------------------------------------
         -- Checks
@@ -383,12 +383,12 @@ mkTxPolicy !datum' !act !ctx =
         correctAuctionBidSlotInterval :: Bool
         correctAuctionBidSlotInterval =
           withAuctionState $ \auctionState ->
-            (to $ as'deadline auctionState) `contains` txInfoValidRange info
+            to (as'deadline auctionState) `contains` txInfoValidRange info
 
         auctionDeadlineReached :: Bool
         auctionDeadlineReached =
           withAuctionState $ \auctionState ->
-            (from $ as'deadline auctionState) `contains` txInfoValidRange info
+            from (as'deadline auctionState) `contains` txInfoValidRange info
 
         auctionCorrectPayment :: (Integer -> Bool) -> Bool
         auctionCorrectPayment correctPaymentCheck =

@@ -86,7 +86,7 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
             ]
       tx =
         mconcat
-          ( [ Constraints.mustPayToTheScript nftDatum (nftVal <> (Ada.lovelaceValueOf bidAmount))
+          ( [ Constraints.mustPayToTheScript nftDatum (nftVal <> Ada.lovelaceValueOf bidAmount)
             , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
             , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
             , Constraints.mustSpendScriptOutput

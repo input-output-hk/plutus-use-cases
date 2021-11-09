@@ -159,7 +159,7 @@ auctionWithBidAuthorNode =
 
 auctionWithBidAuthorDatum :: NFT.DatumNft
 auctionWithBidAuthorDatum =
-  NFT.NodeDatum $ auctionWithBidAuthorNode
+  NFT.NodeDatum auctionWithBidAuthorNode
 
 auctionCloseInconsistentDatum :: NFT.DatumNft
 auctionCloseInconsistentDatum =
@@ -277,7 +277,7 @@ validSecondBidData = SpendingTest dtm redeemer val
         , act'symbol = TestValues.appSymbol
         }
 
-    val = TestValues.oneNft <> (TestValues.adaValue 300)
+    val = TestValues.oneNft <> TestValues.adaValue 300
 
 validSecondBidContext :: ContextBuilder 'ForSpending
 validSecondBidContext =
