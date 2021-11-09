@@ -49,6 +49,9 @@ instance TypeScript BuiltinByteString where
 instance TypeScript Marketplace.PlutusBuiltinByteString where
   getTypeScriptType _ = "string"
 
+instance TypeScript POSIXTime where
+  getTypeScriptType _ = "integer"
+
 $(deriveTypeScript Aeson.defaultOptions ''TxOutRef)
 $(deriveTypeScript Aeson.defaultOptions ''TxId)
 $(deriveTypeScript Aeson.defaultOptions ''CurrencySymbol)
@@ -72,7 +75,6 @@ instance (TypeScript a, TypeScript b) => TypeScript (RemoteData a b) where
     TSRawDeclaration "export interface IFailure<T> { tag: \"Failure\"; contents: T; }",
     TSRawDeclaration "export interface ISuccess<T> { tag: \"Success\"; contents: T; }"]
 
-$(deriveTypeScript Aeson.defaultOptions ''POSIXTime)
 $(deriveTypeScript Aeson.defaultOptions ''ThreadToken)
 $(deriveTypeScript Aeson.defaultOptions ''DiffMilliSeconds)
 $(deriveTypeScript Aeson.defaultOptions ''MarketplaceContracts)
@@ -117,7 +119,6 @@ formattingOptions = FormattingOptions
 main :: IO ()
 main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @ThreadToken)) <>
-    (getTypeScriptDeclarations (Proxy @POSIXTime)) <>
     (getTypeScriptDeclarations (Proxy @DiffMilliSeconds)) <>
     (getTypeScriptDeclarations (Proxy @MarketplaceContracts)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.Marketplace)) <>
