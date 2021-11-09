@@ -241,7 +241,7 @@ instance Eq AuctionBidParams where
   (AuctionBidParams nftId1 bid1) == (AuctionBidParams nftId2 bid2) =
     nftId1 == nftId2 && bid1 == bid2
 
-data AuctionCloseParams = AuctionCloseParams
+newtype AuctionCloseParams = AuctionCloseParams
   { -- | nftId
     cp'nftId :: NftId
   }
