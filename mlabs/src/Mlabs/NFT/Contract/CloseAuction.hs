@@ -8,7 +8,6 @@ import PlutusTx.Prelude hiding (mconcat, mempty, unless, (<>))
 import Prelude (mconcat)
 import Prelude qualified as Hask
 
-import Control.Lens ((^.))
 import Control.Monad (unless, void, when)
 import Data.Map qualified as Map
 import Data.Monoid (Last (..))
@@ -22,7 +21,6 @@ import PlutusTx qualified
 import Ledger (
   Datum (..),
   Redeemer (..),
-  ciTxOutValue,
   from,
   pubKeyHash,
   txId,
@@ -36,7 +34,7 @@ import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
-closeAuction :: NftAppSymbol -> AuctionCloseParams -> Contract (Last NftId) s Text ()
+closeAuction :: NftAppSymbol -> AuctionCloseParams -> Contract UserWriter s Text ()
 closeAuction symbol (AuctionCloseParams nftId) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
   ownPkh <- pubKeyHash <$> Contract.ownPubKey
@@ -94,7 +92,7 @@ closeAuction symbol (AuctionCloseParams nftId) = do
               ++ bidDependentTxConstraints
           )
   ledgerTx <- Contract.submitTxConstraintsWith @NftTrade lookups tx
-  Contract.tell . Last . Just $ nftId
+  Contract.tell . Last . Just . Left $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Closing auction for %s" $ Hask.show nftVal
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
   void $ Contract.logInfo @Hask.String $ printf "Confirmed close auction for %s" $ Hask.show nftVal

@@ -9,7 +9,7 @@ module Test.NFT.Trace (
   testMint,
   testMint2,
   test,
-  testAuction,
+  testAuction1,
   severalBuysTest,
 ) where
 
@@ -177,7 +177,7 @@ severalBuysTrace = do
   -- callEndpoint @"mint" h2 artwork2
   void $ Trace.waitNSlots 1
   oState <- Trace.observableState h1
-  nftId <- case getLast oState of
+  nftId <- case findNftId oState of
     Nothing -> Trace.throwError (Trace.GenericError "NftId not found")
     Just nid -> return nid
   void $ Trace.waitNSlots 1
@@ -284,7 +284,7 @@ auctionTrace1 = do
 
   void $ Trace.waitNSlots 1
   oState <- Trace.observableState h1
-  nftId <- case getLast oState of
+  nftId <- case findNftId oState of
     Nothing -> Trace.throwError (Trace.GenericError "NftId not found")
     Just nid -> return nid
 

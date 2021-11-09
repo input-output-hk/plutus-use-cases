@@ -8,7 +8,6 @@ import PlutusTx.Prelude hiding (mconcat, mempty, unless, (<>))
 import Prelude (mconcat, (<>))
 import Prelude qualified as Hask
 
-import Control.Lens ((^.))
 import Control.Monad (void, when)
 import Data.Map qualified as Map
 import Data.Monoid (Last (..))
@@ -22,7 +21,6 @@ import PlutusTx qualified
 import Ledger (
   Datum (..),
   Redeemer (..),
-  ciTxOutValue,
   pubKeyHash,
   to,
   txId,
@@ -37,7 +35,7 @@ import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
-bidAuction :: NftAppSymbol -> AuctionBidParams -> Contract (Last NftId) s Text ()
+bidAuction :: NftAppSymbol -> AuctionBidParams -> Contract UserWriter s Text ()
 bidAuction symbol (AuctionBidParams nftId bidAmount) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
   ownPkh <- pubKeyHash <$> Contract.ownPubKey
@@ -50,8 +48,6 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
   when (isNothing mauctionState) $ Contract.throwError "Can't bid: no auction in progress"
   auctionState <- maybe (Contract.throwError "No auction state when expected") pure mauctionState
   when (bidAmount < as'minBid auctionState) (Contract.throwError "Auction bid lower than minimal bid")
-
-  -- void $ Contract.logInfo @Hask.String $ printf " >>>>>> Bidding in auction for %s" $ Hask.show bidAmount
 
   userUtxos <- getUserUtxos
   let newHighestBid =
@@ -97,8 +93,7 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
               ++ bidDependentTxConstraints
           )
   ledgerTx <- Contract.submitTxConstraintsWith @NftTrade lookups tx
-  Contract.tell . Last . Just $ nftId
-  -- void $ Contract.logInfo @Hask.String $ printf " >>>>!! Bidding in auction, new datum: %s" $ Hask.show nftDatum
+  Contract.tell . Last . Just . Left $ nftId
   -- void $ Contract.logInfo @Hask.String $ printf "DEBUG open auction TX: %s" (Hask.show ledgerTx)
   void $ Contract.logInfo @Hask.String $ printf "Bidding in auction for %s" $ Hask.show nftVal
   void $ Contract.awaitTxConfirmed $ txId ledgerTx
