@@ -22,10 +22,12 @@ testDealing = withValidator "Test NFT dealing validator" dealingValidator $ do
   shouldValidate "Author can set price when owner" validSetPriceData validSetPriceContext
   shouldValidate "Owner can set price" ownerUserOneSetPriceData ownerUserOneSetPriceContext
   shouldn'tValidate "Author can't set price when not owner" ownerUserOneSetPriceData authorNotOwnerSetPriceContext
+  shouldn'tValidate "Can't set price if mismatching id" validSetPriceData mismathingIdSetPriceContext
   shouldn'tValidate "Can't buy if not for sale" notForSaleData notForSaleContext
   shouldn'tValidate "Can't buy if bid not high enough" bidNotHighEnoughData bidNotHighEnoughContext
   shouldn'tValidate "Can't buy if author not paid" validBuyData authorNotPaidContext
   shouldn'tValidate "Can't buy if owner not paid" ownerNotPaidData ownerNotPaidContext
+  shouldn'tValidate "Can't buy if mismatching id" validBuyData mismathingIdBuyContext
 
 -- TODO: bring back this test if `tasty-plutus` would allow to change datum order
 -- shouldn'tValidate "Can't buy with inconsistent datum" validBuyData inconsistentDatumContext
@@ -181,6 +183,17 @@ inconsistentDatumContext =
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
     <> paysOther NFT.txValHash oneNft inconsistentDatum
 
+mismathingIdBuyContext :: ContextBuilder 'ForSpending
+mismathingIdBuyContext =
+  paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
+    <> paysOther NFT.txValHash oneNft dtm
+  where
+    dtm =
+      NFT.NodeDatum $
+        initialNode
+          { NFT.node'information = ((NFT.node'information initialNode) {NFT.info'id = NFT.NftId "I AM INVALID"})
+          }
+
 -- SetPrice test cases
 
 validSetPriceData :: TestData 'ForSpending
@@ -224,6 +237,17 @@ authorNotOwnerSetPriceContext :: ContextBuilder 'ForSpending
 authorNotOwnerSetPriceContext =
   signedWith authorPkh
     <> paysOther NFT.txValHash oneNft ownerUserOneDatum
+
+mismathingIdSetPriceContext :: ContextBuilder 'ForSpending
+mismathingIdSetPriceContext =
+  signedWith authorPkh
+    <> paysOther NFT.txValHash oneNft dtm
+  where
+    dtm =
+      NFT.NodeDatum $
+        initialNode
+          { NFT.node'information = ((NFT.node'information initialNode) {NFT.info'id = NFT.NftId "I AM INVALID"})
+          }
 
 dealingValidator :: Ledger.Validator
 dealingValidator =
