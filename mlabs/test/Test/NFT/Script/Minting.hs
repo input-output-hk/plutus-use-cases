@@ -23,6 +23,7 @@ testMinting = localOption (TestCurrencySymbol TestValues.nftCurrencySymbol) $
       shouldn'tValidate "Not minting" validData noMintingCtx
       shouldn'tValidate "No payee" validData noPayeeCtx
       shouldn'tValidate "Pays wrong amount" validData wrongAmountCtx
+      shouldn'tValidate "Mismatching id" validData mismatchingIdCtx
 
 baseCtx :: ContextBuilder 'ForMinting
 baseCtx =
@@ -87,6 +88,32 @@ wrongAmountCtx :: ContextBuilder 'ForMinting
 wrongAmountCtx =
   baseCtx <> mintingCtx <> paysDatumToScriptCtx
     <> paysOther NFT.txValHash (TestValues.oneNft PlutusPrelude.<> TestValues.oneNft) ()
+
+mismatchingIdCtx :: ContextBuilder 'ForMinting
+mismatchingIdCtx =
+  baseCtx
+    <> mintingCtx
+    <> paysNftToScriptCtx
+    <> spendsFromOther NFT.txValHash TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead Nothing TestValues.appInstance)
+    <> paysOther NFT.txValHash mempty nodeDatum
+    <> paysOther NFT.txValHash mempty headDatum
+  where
+    nodeDatum =
+      NFT.NodeDatum $
+        NFT.NftListNode
+          { node'information =
+              NFT.InformationNft
+                { info'id = NFT.NftId "I AM INVALID"
+                , info'share = 1 % 2
+                , info'author = NFT.UserId TestValues.authorPkh
+                , info'owner = NFT.UserId TestValues.authorPkh
+                , info'price = Just (100 * 1_000_000)
+                }
+          , node'next = Nothing
+          , node'appInstance = TestValues.appInstance
+          }
+    ptr = NFT.Pointer $ AssetClass (TestValues.nftCurrencySymbol, TestValues.testTokenName)
+    headDatum = NFT.HeadDatum $ NFT.NftListHead (Just ptr) TestValues.appInstance
 
 nftMintPolicy :: Ledger.MintingPolicy
 nftMintPolicy =

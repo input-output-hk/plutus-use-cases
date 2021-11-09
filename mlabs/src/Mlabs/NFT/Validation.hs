@@ -162,11 +162,7 @@ mkMintPolicy !appInstance !act !ctx =
     checkNodesAddresses =
       let txs :: [TxOut] =
             fmap snd
-              . mapMaybe (\(datum, tx) -> (,) <$> (PlutusTx.fromBuiltinData @DatumNft . getDatum $ datum) <*> pure tx)
-              . mapMaybe (\(hash, tx) -> (,) <$> findDatum hash info <*> pure tx)
-              . mapMaybe (\tx -> (,) <$> txOutDatumHash tx <*> pure tx)
-              . txInfoOutputs
-              . scriptContextTxInfo
+              . getOutputDatumsWithTx @DatumNft
               $ ctx
        in all sentToScript txs
 
@@ -241,7 +237,7 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "Transaction that uses Head as list proof must return it unchanged." True -- todo
               && traceIfFalse "Transaction can only mint one token." True -- todo
               && traceIfFalse "Not all used tokens are returned." True -- todo
-              && traceIfFalse "Returned tokens have mismatching datum." True -- todo
+              && traceIfFalse "Returned Token UTXOs have mismatching datums." checkMissMatchDatumMint
               && traceIfFalse "Minted Token is not sent to correct address." True -- todo
           BuyAct {..} ->
             traceIfFalse "Transaction cannot mint." noMint
@@ -253,7 +249,7 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "Datum is not present in the correct UTXo." True -- todo
               && traceIfFalse "Token from input is not the same as Token in output" True -- todo
               && traceIfFalse "Not all used Tokens are returned." True -- todo
-              && traceIfFalse "Returned Token UTXOs have mismatching datums." True -- todo
+              && traceIfFalse "Returned Token UTXO has mismatching datum." checkMissMatchDatum
               && if ownerIsAuthor
                 then traceIfFalse "Amount paid to author/owner does not match act'bid." (correctPaymentOnlyAuthor act'bid)
                 else
@@ -269,7 +265,7 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "Datum is not present in the correct UTXo - lacking correct Token." True -- todo
               && traceIfFalse "Token from input is not the same as Token in output" True -- todo
               && traceIfFalse "Not all used Tokens are returned." True -- todo
-              && traceIfFalse "Returned Token UTXOs have mismatching datums." True -- todo
+              && traceIfFalse "Returned Token UTXO has mismatching datum." checkMissMatchDatum
       where
         !nInfo = node'information node
         oldDatum :: DatumNft = head . getInputDatums $ ctx
@@ -280,6 +276,8 @@ mkTxPolicy !datum' !act !ctx =
 
         ------------------------------------------------------------------------------
         -- Utility functions.
+
+        sort2On f (x, y) = if f x < f y then (x, y) else (y, x)
 
         containsNft !v = valueOf v (app'symbol . act'symbol $ act) (nftTokenName datum') == 1
 
@@ -301,6 +299,12 @@ mkTxPolicy !datum' !act !ctx =
         getNode = \case
           NodeDatum n -> Just n
           _ -> Nothing
+
+        -- Check if Datum id attached to UTXO with NFT matches its id
+        checkTxDatumMatch nodeDatum tx =
+          let cur = app'symbol . act'symbol $ act
+              tn = TokenName . nftId'contentHash . info'id . node'information $ nodeDatum
+           in valueOf (txOutValue tx) cur tn == 1
 
         ------------------------------------------------------------------------------
         -- Checks
@@ -364,6 +368,18 @@ mkTxPolicy !datum' !act !ctx =
         !tokenSentToCorrectAddress =
           let sentBack tx = txOutAddress tx == (appInstance'Address . node'appInstance $ oldNode)
            in all sentBack $ filter (containsNft . txOutValue) (txInfoOutputs . scriptContextTxInfo $ ctx)
+
+        !checkMissMatchDatumMint = case getOutputDatumsWithTx @DatumNft ctx of
+          [x, y] -> case sort2On fst (x, y) of
+            ((HeadDatum _, _), (NodeDatum datum2, tx2)) -> checkTxDatumMatch datum2 tx2
+            ((NodeDatum datum1, tx1), (NodeDatum datum2, tx2)) ->
+              checkTxDatumMatch datum1 tx1 && checkTxDatumMatch datum2 tx2
+            _ -> False
+          _ -> False
+
+        !checkMissMatchDatum = case getOutputDatumsWithTx @DatumNft ctx of
+          [(NodeDatum datum, tx)] -> checkTxDatumMatch datum tx
+          _ -> False
 
 {-# INLINEABLE catMaybes' #-}
 catMaybes' :: [Maybe a] -> [a]
@@ -459,10 +475,16 @@ getInputDatums ctx =
 
 -- | Retuns datums attached to outputs of transaction
 getOutputDatums :: PlutusTx.FromData a => ScriptContext -> [a]
-getOutputDatums ctx =
-  mapMaybe (PlutusTx.fromBuiltinData . getDatum)
-    . mapMaybe (\hash -> findDatum hash $ scriptContextTxInfo ctx)
-    . mapMaybe txOutDatumHash
+getOutputDatums = fmap fst . getOutputDatumsWithTx
+
+{-# INLINEABLE getOutputDatumsWithTx #-}
+
+-- | Returns datums and coresponding UTXOs attached to outputs of transaction
+getOutputDatumsWithTx :: PlutusTx.FromData a => ScriptContext -> [(a, TxOut)]
+getOutputDatumsWithTx ctx =
+  mapMaybe (\(datum, tx) -> (,) <$> (PlutusTx.fromBuiltinData . getDatum $ datum) <*> pure tx)
+    . mapMaybe (\(hash, tx) -> (,) <$> findDatum hash (scriptContextTxInfo ctx) <*> pure tx)
+    . mapMaybe (\tx -> (,) <$> txOutDatumHash tx <*> pure tx)
     . txInfoOutputs
     . scriptContextTxInfo
     $ ctx
