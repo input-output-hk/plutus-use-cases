@@ -113,11 +113,11 @@ library
     Mlabs.Control.Monad.State
     Mlabs.Data.List
     Mlabs.Data.Ord
+    Mlabs.Demo.Contract.Burn
+    Mlabs.Demo.Contract.Mint
     Mlabs.Deploy.Governance
     Mlabs.Deploy.Nft
     Mlabs.Deploy.Utils
-    Mlabs.Demo.Contract.Burn
-    Mlabs.Demo.Contract.Mint
     Mlabs.Emulator.App
     Mlabs.Emulator.Blockchain
     Mlabs.Emulator.Scene
@@ -130,44 +130,45 @@ library
     Mlabs.Governance.Contract.Validation
     Mlabs.Lending.Contract
     Mlabs.Lending.Contract.Api
-    Mlabs.Lending.Contract.Forge
     Mlabs.Lending.Contract.Emulator.Client
-    Mlabs.Lending.Contract.Simulator.Handler
+    Mlabs.Lending.Contract.Forge
     Mlabs.Lending.Contract.Server
+    Mlabs.Lending.Contract.Simulator.Handler
     Mlabs.Lending.Contract.StateMachine
     Mlabs.Lending.Logic.App
     Mlabs.Lending.Logic.InterestRate
     Mlabs.Lending.Logic.React
     Mlabs.Lending.Logic.State
     Mlabs.Lending.Logic.Types
+    Mlabs.NFT.Api
+    Mlabs.NFT.Contract
+    Mlabs.NFT.Contract.Aux
+    Mlabs.NFT.Contract.Buy
+    Mlabs.NFT.Contract.Init
+    Mlabs.NFT.Contract.Mint
+    Mlabs.NFT.Contract.Query
+    Mlabs.NFT.Contract.SetPrice
+    Mlabs.NFT.Contract.OpenAuction
+    Mlabs.NFT.Contract.CloseAuction
+    Mlabs.NFT.Contract.BidAuction
+    Mlabs.NFT.Types
+    Mlabs.NFT.Validation
+    Mlabs.Nft.Contract
+    Mlabs.Nft.Contract.Api
+    Mlabs.Nft.Contract.Emulator.Client
+    Mlabs.Nft.Contract.Forge
+    Mlabs.Nft.Contract.Server
+    Mlabs.Nft.Contract.Simulator.Handler
+    Mlabs.Nft.Contract.StateMachine
     Mlabs.Nft.Logic.App
     Mlabs.Nft.Logic.React
     Mlabs.Nft.Logic.State
     Mlabs.Nft.Logic.Types
-    Mlabs.Nft.Contract
-    Mlabs.Nft.Contract.Emulator.Client
-    Mlabs.Nft.Contract.Simulator.Handler
-    Mlabs.Nft.Contract.Api
-    Mlabs.Nft.Contract.Forge
-    Mlabs.Nft.Contract.Server
-    Mlabs.Nft.Contract.StateMachine
     Mlabs.Plutus.Contract
     Mlabs.Plutus.PAB
     Mlabs.System.Console.PrettyLogger
     Mlabs.System.Console.Utils
     Mlabs.Utils.Wallet 
-    Mlabs.NFT.Types
-    Mlabs.NFT.Contract
-    Mlabs.NFT.Validation
-    Mlabs.NFT.Api
-    Mlabs.NFT.Contract.Init
-    Mlabs.NFT.Contract.Mint
-    Mlabs.NFT.Contract.Aux
-    Mlabs.NFT.Contract.SetPrice
-    Mlabs.NFT.Contract.Buy
-    Mlabs.NFT.Contract.OpenAuction
-    Mlabs.NFT.Contract.CloseAuction
-    Mlabs.NFT.Contract.BidAuction
 
 executable mlabs-plutus-use-cases
   import:  common-imports

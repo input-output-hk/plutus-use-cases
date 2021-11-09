@@ -3,7 +3,7 @@
 module Mlabs.NFT.Contract.Mint (
   mint,
   getDatumsTxsOrdered,
-  hashData,
+  mintParamsToInfo,
   InsertPoint (..),
 ) where
 
@@ -40,7 +40,7 @@ data InsertPoint = InsertPoint
   }
 
 ---- | Mints an NFT and sends it to the App Address.
-mint :: NftAppSymbol -> MintParams -> Contract (Last NftId) s Text ()
+mint :: forall s. NftAppSymbol -> MintParams -> Contract UserWriter s Text ()
 mint symbol params = do
   user <- getUId
   head' <- getHead symbol
@@ -56,11 +56,9 @@ mint symbol params = do
       let lookups = mconcat [lLk, nLk]
           tx = mconcat [lCx, nCx]
       void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
-      Contract.tell . Last . Just . info'id . node'information $ newNode
+      Contract.tell . Last . Just . Left . info'id . node'information $ newNode
       Contract.logInfo @Hask.String $ printf "mint successful!"
   where
-    nftIdInit = NftId . hashData
-
     createNewNode :: NftAppInstance -> MintParams -> UserId -> NftListNode
     createNewNode appInstance mp author =
       NftListNode
@@ -152,13 +150,15 @@ mint symbol params = do
             , Constraints.mustSpendScriptOutput oref redeemer
             ]
 
-    mintParamsToInfo :: MintParams -> UserId -> InformationNft
-    mintParamsToInfo MintParams {..} author =
-      InformationNft
-        { info'id = nftIdInit mp'content
-        , info'share = mp'share
-        , info'price = mp'price
-        , info'owner = author
-        , info'author = author
-        , info'auctionState = Nothing
-        }
+mintParamsToInfo :: MintParams -> UserId -> InformationNft
+mintParamsToInfo MintParams {..} author =
+  InformationNft
+    { info'id = nftIdInit mp'content
+    , info'share = mp'share
+    , info'price = mp'price
+    , info'owner = author
+    , info'author = author
+    , info'auctionState = Nothing
+    }
+  where
+    nftIdInit = NftId . hashData

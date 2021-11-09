@@ -1,4 +1,6 @@
 module Mlabs.NFT.Api (
+  ApiUserContract,
+  ApiAdminContract,
   NFTAppSchema,
   schemas,
   endpoints,
@@ -6,11 +8,13 @@ module Mlabs.NFT.Api (
   adminEndpoints,
 ) where
 
-import Data.Monoid (Last (..))
-import Data.Text (Text)
+--import Data.Monoid (Last (..))
+--import Data.Text (Text)
+
+import Control.Monad (void)
 
 import Playground.Contract (mkSchemaDefinitions)
-import Plutus.Contract (Contract, Endpoint, endpoint, throwError, type (.\/))
+import Plutus.Contract (Endpoint, endpoint, type (.\/))
 import Prelude as Hask
 
 import Mlabs.NFT.Contract.BidAuction (bidAuction)
@@ -20,7 +24,9 @@ import Mlabs.NFT.Contract.Init (initApp)
 import Mlabs.NFT.Contract.Mint (mint)
 import Mlabs.NFT.Contract.OpenAuction (openAuction)
 import Mlabs.NFT.Contract.SetPrice (setPrice)
-import Mlabs.NFT.Types (AuctionBidParams (..), AuctionCloseParams (..), AuctionOpenParams (..), BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), QueryResponse (..), SetPriceParams (..))
+import Mlabs.NFT.Contract.Query (queryCurrentOwner, queryCurrentPrice, queryListNfts)
+import Mlabs.NFT.Contract.SetPrice (setPrice)
+import Mlabs.NFT.Types (AdminContract, BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), SetPriceParams (..), UserContract, AuctionBidParams(..), AuctionCloseParams(..), AuctionOpenParams(..))
 import Mlabs.Plutus.Contract (selectForever)
 
 -- | A common App schema works for now.
@@ -33,7 +39,7 @@ type NFTAppSchema =
     -- Query Endpoints
     .\/ Endpoint "query-current-owner" NftId
     .\/ Endpoint "query-current-price" NftId
-    .\/ Endpoint "query-authentic-nft" NftId
+    .\/ Endpoint "query-list-nfts" ()
     -- Auction endpoints
     .\/ Endpoint "auction-open" AuctionOpenParams
     .\/ Endpoint "auction-bid" AuctionBidParams
@@ -45,9 +51,9 @@ mkSchemaDefinitions ''NFTAppSchema
 
 -- ENDPOINTS --
 
-type ApiUserContract a = Contract (Last NftId) NFTAppSchema Text a
-type ApiAdminContract a = Contract (Last NftAppSymbol) NFTAppSchema Text a
-type ApiQueryContract a = Contract QueryResponse NFTAppSchema Text a
+type ApiUserContract a = UserContract NFTAppSchema a
+
+type ApiAdminContract a = AdminContract NFTAppSchema a
 
 -- | User Endpoints .
 endpoints :: NftAppSymbol -> ApiUserContract ()
@@ -70,10 +76,10 @@ adminEndpoints =
     ]
 
 -- Query Endpoints are used for Querying, with no on-chain tx generation.
-queryEndpoints :: ApiQueryContract ()
-queryEndpoints = throwError "FIXME"
-
--- selectForever
---   [ endpoint @"query-current-price" NFTContract.queryCurrentPrice
---   , endpoint @"query-current-owner" NFTContract.queryCurrentOwner
---   ]
+queryEndpoints :: NftAppSymbol -> ApiUserContract ()
+queryEndpoints appSymbol =
+  selectForever
+    [ endpoint @"query-current-price" (void . queryCurrentPrice appSymbol)
+    , endpoint @"query-current-owner" (void . queryCurrentOwner appSymbol)
+    , endpoint @"query-list-nfts" (void . const (queryListNfts appSymbol))
+    ]

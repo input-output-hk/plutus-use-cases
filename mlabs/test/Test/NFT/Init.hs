@@ -1,4 +1,24 @@
-module Test.NFT.Init where
+module Test.NFT.Init (
+  artwork1,
+  artwork2,
+  callStartNft,
+  check,
+  checkOptions,
+  noChangesScene,
+  ownsAda,
+  runScript,
+  toUserId,
+  userBuy,
+  userMint,
+  userQueryPrice,
+  userQueryOwner,
+  userQueryListNfts,
+  userSetPrice,
+  w1,
+  w2,
+  w3,
+  wA,
+) where
 
 import Control.Lens ((&), (.~))
 import Control.Monad.Freer (Eff)
@@ -16,7 +36,7 @@ import Plutus.Trace.Effects.Waiting (Waiting)
 import Plutus.Trace.Emulator (EmulatorRuntimeError (GenericError), EmulatorTrace, activateContractWallet, callEndpoint, initialChainState, observableState, throwError, waitNSlots)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
 import Plutus.V1.Ledger.Value (Value, singleton)
-import PlutusTx.Prelude hiding (foldMap, pure)
+import PlutusTx.Prelude hiding (check, foldMap, pure)
 
 import Test.Tasty (TestTree)
 import Test.Utils (next)
@@ -24,7 +44,11 @@ import Prelude (Applicative (..), String, foldMap)
 
 import Mlabs.Emulator.Scene (Scene, owns)
 import Mlabs.Emulator.Types (adaCoin)
-import Mlabs.NFT.Api
+import Mlabs.NFT.Api (
+  adminEndpoints,
+  endpoints,
+  queryEndpoints,
+ )
 import Mlabs.NFT.Types (
   BuyRequestUser (..),
   Content (..),
@@ -36,6 +60,13 @@ import Mlabs.NFT.Types (
   UserId (..),
  )
 import Mlabs.Utils.Wallet (walletFromNumber)
+
+-- | Wallets that are used for testing.
+w1, w2, w3, wA :: Wallet
+w1 = walletFromNumber 1
+w2 = walletFromNumber 2
+w3 = walletFromNumber 3
+wA = walletFromNumber 4 -- Admin Wallet
 
 -- | Calls initialisation of state for Nft pool
 callStartNft :: Wallet -> EmulatorTrace NftAppSymbol
@@ -50,19 +81,24 @@ callStartNft wal = do
   void $ waitNSlots 1
   pure aSymbol
 
-type ScriptM a = ReaderT NftAppSymbol (Eff '[RunContract, Waiting, EmulatorControl, EmulatedWalletAPI, LogMsg String, Error EmulatorRuntimeError]) a
+type ScriptM a =
+  ReaderT
+    NftAppSymbol
+    ( Eff
+        '[ RunContract
+         , Waiting
+         , EmulatorControl
+         , EmulatedWalletAPI
+         , LogMsg String
+         , Error EmulatorRuntimeError
+         ]
+    )
+    a
 
 type Script = ScriptM ()
 
 checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
-
--- | Wallets that are used for testing.
-w1, w2, w3, w4 :: Wallet
-w1 = walletFromNumber 1
-w2 = walletFromNumber 2
-w3 = walletFromNumber 3
-w4 = walletFromNumber 4
 
 toUserId :: Wallet -> UserId
 toUserId = UserId . pubKeyHash . walletPubKey
@@ -84,9 +120,14 @@ userMint wal mp = do
     callEndpoint @"mint" hdl mp
     next
     oState <- observableState hdl
-    case getLast oState of
+    case findNftId oState of
       Nothing -> throwError $ GenericError "Could not mint NFT"
       Just nftId -> pure nftId
+  where
+    findNftId :: forall a b. Last (Either a b) -> Maybe a
+    findNftId x = case getLast x of
+      Just (Left x') -> Just x'
+      _ -> Nothing
 
 userSetPrice :: Wallet -> SetPriceParams -> Script
 userSetPrice wal sp = do
@@ -103,6 +144,27 @@ userBuy wal br = do
     hdl <- activateContractWallet wal (endpoints symbol)
     callEndpoint @"buy" hdl br
     next
+
+userQueryPrice :: Wallet -> NftId -> Script
+userQueryPrice wal nftId = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (queryEndpoints symbol)
+    callEndpoint @"query-current-price" hdl nftId
+
+userQueryOwner :: Wallet -> NftId -> Script
+userQueryOwner wal nftId = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (queryEndpoints symbol)
+    callEndpoint @"query-current-owner" hdl nftId
+
+userQueryListNfts :: Wallet -> Script
+userQueryListNfts wal = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (queryEndpoints symbol)
+    callEndpoint @"query-list-nfts" hdl ()
 
 {- | Initial distribution of wallets for testing.
  We have 3 users. All of them get 1000 lovelace at the start.
@@ -135,4 +197,13 @@ artwork1 =
     , mp'title = Title "Fiona Lisa"
     , mp'share = 1 % 10
     , mp'price = Nothing
+    }
+
+artwork2 :: MintParams
+artwork2 =
+  MintParams
+    { mp'content = Content "Another painting."
+    , mp'title = Title "Fiona Lisa"
+    , mp'share = 1 % 10
+    , mp'price = Just 300
     }

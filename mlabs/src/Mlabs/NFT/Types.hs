@@ -1,6 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Mlabs.NFT.Types (
+  UserContract,
+  UserWriter,
+  AdminContract,
   UserId (..),
   QueryResponse (..),
   NftId (..),
@@ -36,6 +39,8 @@ import PlutusTx.Prelude
 import Prelude qualified as Hask
 
 import Plutus.Contract (Contract)
+
+import Data.Monoid (Last (..))
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
@@ -249,20 +254,6 @@ instance Eq AuctionCloseParams where
   {-# INLINEABLE (==) #-}
   (AuctionCloseParams nftId1) == (AuctionCloseParams nftId2) =
     nftId1 == nftId2
-
--- | A datatype used by the QueryContract to return a response
-data QueryResponse
-  = QueryCurrentOwner UserId
-  | QueryCurrentPrice (Maybe Integer)
-  deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
-
-PlutusTx.unstableMakeIsData ''MintAct
-PlutusTx.unstableMakeIsData ''NftId
-
-PlutusTx.makeLift ''MintAct
-PlutusTx.makeLift ''NftId
-
 --------------------------------------------------------------------------------
 -- Validation
 
@@ -317,6 +308,20 @@ data InformationNft = InformationNft
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
+
+-- | A datatype used by the QueryContract to return a response
+data QueryResponse
+  = QueryCurrentOwner (Maybe UserId)
+  | QueryCurrentPrice (Maybe Integer)
+  | QueryListNfts [InformationNft]
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
+PlutusTx.unstableMakeIsData ''MintAct
+PlutusTx.unstableMakeIsData ''NftId
+
+PlutusTx.makeLift ''MintAct
+PlutusTx.makeLift ''NftId
 
 instance Ord InformationNft where
   x <= y = info'id x <= info'id y
@@ -541,3 +546,6 @@ instance Hask.Ord PointInfo where
 
 -- Contract types
 type GenericContract a = forall w s. Contract w s Text a
+type UserWriter = Last (Either NftId QueryResponse)
+type UserContract s a = Contract UserWriter s Text a
+type AdminContract s a = Contract (Last NftAppSymbol) s Text a

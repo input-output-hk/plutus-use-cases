@@ -118,17 +118,20 @@ mkMintPolicy !appInstance !act !ctx =
   case act of
     Mint nftid ->
       traceIfFalse "Only pointer of first node can change." firstChangedOnlyPtr
-        && traceIfFalse "Excatly one NFT must be minted" (checkMintedAmount nftid)
+        && traceIfFalse "Exactly one NFT must be minted" (checkMintedAmount nftid)
         && traceIfFalse "Old first node must point to second node." (first `pointsTo'` second)
         && traceIfFalse "New first node must point to new node." (newFirst `pointsTo` newInserted)
         && traceIfFalse "New node must point to second node." (newInserted `pointsTo'` second)
+        && traceIfFalse "New node must be smaller than second node." newIsSmallerThanSecond
         && traceIfFalse "New price cannot be negative." priceNotNegative'
         && traceIfFalse "Currency symbol must match app instance" checkCurrencySymbol
         && traceIfFalse "Minted token must be sent to script address" (checkSentAddress nftid)
         && traceIfFalse "Nodes must be sent to script address" checkNodesAddresses
+        && traceIfFalse "Datum is not atttached to UTXo with correct Token" True -- todo
     Initialise ->
       traceIfFalse "The token is not present." True -- todo
         && traceIfFalse "Only One Unique Token Can be Minted" True -- todo
+        && traceIfFalse "Only an Admin can initialise App." True -- todo
         && traceIfFalse "The token is not sent to the right address" True -- todo
   where
     ------------------------------------------------------------------------------
@@ -194,6 +197,10 @@ mkMintPolicy !appInstance !act !ctx =
                 txInfoOutputs info
             )
 
+    newIsSmallerThanSecond = case second of
+      Nothing -> True
+      Just ptr -> (> nftTokenName newInserted) . snd . unAssetClass . pointer'assetClass $ ptr
+
     -- Check if currency symbol is consistent
     checkCurrencySymbol =
       getAppInstance first == appInstance
@@ -240,13 +247,24 @@ mkTxPolicy !datum' !act !ctx =
     NodeDatum node ->
       traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
         && case act of
-          MintAct {} -> True
+          MintAct {} ->
+            traceIfFalse "Transaction can only use one NftListNode element as uniqueness proof." True -- todo
+              && traceIfFalse "Transaction that uses Head as list proof must return it unchanged." True -- todo
+              && traceIfFalse "Transaction can only mint one token." True -- todo
+              && traceIfFalse "Not all used tokens are returned." True -- todo
+              && traceIfFalse "Returned tokens have mismatching datum." True -- todo
+              && traceIfFalse "Minted Token is not sent to correct address." True -- todo
           BuyAct {..} ->
             traceIfFalse "Transaction cannot mint." noMint
               && traceIfFalse "NFT not for sale." nftForSale
               && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
               && traceIfFalse "Act'Bid is too low for the NFT price." (bidHighEnough act'bid)
               && traceIfFalse "Datum is not consistent, illegaly altered." consistentDatumBuy
+              && traceIfFalse "Only one Node is used in a Buy Action." True -- todo
+              && traceIfFalse "Datum is not present in the correct UTXo." True -- todo
+              && traceIfFalse "Token from input is not the same as Token in output" True -- todo
+              && traceIfFalse "Not all used Tokens are returned." True -- todo
+              && traceIfFalse "Returned Token UTXOs have mismatching datums." True -- todo
               && if ownerIsAuthor
                 then traceIfFalse "Amount paid to author/owner does not match act'bid." (correctPaymentOnlyAuthor act'bid)
                 else
@@ -258,6 +276,11 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
               && traceIfFalse "Only owner exclusively can set NFT price." signedByOwner
               && traceIfFalse "Datum is not consistent, illegaly altered." consistentDatumSetPrice
+              && traceIfFalse "Only one Node is used in a SetPrice Action." True -- todo
+              && traceIfFalse "Datum is not present in the correct UTXo - lacking correct Token." True -- todo
+              && traceIfFalse "Token from input is not the same as Token in output" True -- todo
+              && traceIfFalse "Not all used Tokens are returned." True -- todo
+              && traceIfFalse "Returned Token UTXOs have mismatching datums." True -- todo
           OpenAuctionAct {} ->
             traceIfFalse "Can't open auction: already in progress" noAuctionInProgress
               && traceIfFalse "Only owner can open auction" signedByOwner
