@@ -50,7 +50,7 @@ import           Contracts.Oracle
 import           Types.Game    
 import qualified Data.ByteString.Char8               as B
 import           Ledger                              (PubKeyHash(..), pubKeyHash, CurrencySymbol(..), pubKeyAddress)
-import           Ledger.Crypto                       (PrivateKey)
+import           Ledger.Crypto                       (PrivateKey, PubKey)
 import qualified Ledger.Value                        as Value
 import           Ledger.Value                        (TokenName (..), Value)
 import           Ledger.TimeSlot                     (SlotConfig)
@@ -99,15 +99,16 @@ main = void $ Simulator.runSimulationWith handlers $ do
 
     Simulator.logString @(Builtin MutualBetContracts) "Starting mutual bet"
     shutdown <- PAB.Server.startServerDebug
-
-    cidOracleToken <- Simulator.activateContract oracleWallet $ OracleTokenInit
-    currency <- waitForLast cidOracleToken
+    -- cidOracleToken <- Simulator.activateContract oracleWallet $ OracleTokenInit
+    -- Simulator.logString @(Builtin MutualBetContracts) "Uraa1"
+    -- currency <- waitForLast cidOracleToken
     let oracleParams = OracleParams
-                        { opSymbol = Currency.currencySymbol currency
+                        { opSymbol = "aa"
                         , opFees   = 1_500_000
                         , opSigner = oraclePrivateKey
+                        , opPublicKey = oraclePublicKey
                         , opCollateral = 1_000_000
-                        }
+                        }             
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
     oracle <- waitForLastOracle cidOracle
     Simulator.waitForEndpoint cidOracle "update"
@@ -149,8 +150,8 @@ data MutualBetContracts =
     | MutualBetStartContract MutualBetParams
     | MutualBetBettorContract SlotConfig ThreadToken MutualBetParams
     | OracleСontract OracleParams
-    deriving (Generic)
-    deriving anyclass (Show, FromJSON, ToJSON, OpenApi.ToSchema)
+    deriving (Eq, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
     
 instance Pretty MutualBetContracts where
     pretty = viaShow
@@ -214,6 +215,9 @@ oracleWallet = knownWallet 5
 
 oraclePrivateKey :: PrivateKey
 oraclePrivateKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState  $ oracleWallet
+
+oraclePublicKey :: PubKey
+oraclePublicKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState  $ oracleWallet
 
 slotCfg :: SlotConfig
 slotCfg = def

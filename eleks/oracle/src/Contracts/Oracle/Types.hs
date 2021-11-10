@@ -120,6 +120,12 @@ instance ToJSON XPrv where
    toJSON xprv =
         object ["encryptedKey" .= unXPrv xprv]
 
+instance Show XPrv where 
+    show xprv = Haskell.show $ unXPrv xprv
+
+instance Haskell.Eq XPrv where
+    l == r = unXPrv l Haskell.== unXPrv r
+
 data OracleRedeemer = Update | OracleRedeem
     deriving Show
 PlutusTx.makeIsDataIndexed ''OracleRedeemer [('Update, 0), ('OracleRedeem, 1)]
@@ -134,7 +140,7 @@ data OracleParams = OracleParams
     , opCollateral :: !Ada
     , opPublicKey :: PubKey
     , opSigner :: !PrivateKey
-    } deriving (Generic, FromJSON, ToJSON, OpenApi.ToSchema)
+    } deriving (Haskell.Eq, Show, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
 {-# INLINABLE oracleRequestTokenName #-}
 oracleRequestTokenName :: TokenName
