@@ -11,6 +11,7 @@ convertUtcToPOSIX = POSIXTime . utcTimeToMillis
 -- | 'beginningOfTime' corresponds to the Shelley launch date
 -- (2020-07-29T21:44:51Z) which is 1596059091000 in POSIX time
 -- (number of milliseconds since 1970-01-01T00:00:00Z).
+-- It is a hardcoded setting for pab simulation in Plutus code.
 beginningOfTime :: POSIXTime
 beginningOfTime = POSIXTime 1596059091000
 
