@@ -97,7 +97,7 @@ validBuyData = SpendingTest dtm redeemer val
         , act'newPrice = Nothing
         , act'symbol = TestValues.appSymbol
         }
-    val = TestValues.adaValue 100
+    val = TestValues.adaValue 100 <> TestValues.oneNft
 
 notForSaleData :: TestData 'ForSpending
 notForSaleData = SpendingTest dtm redeemer val
