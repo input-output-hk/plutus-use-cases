@@ -49,36 +49,37 @@ common common-imports
 common common-language
     default-extensions:
       BangPatterns
+      DataKinds
+      DeriveAnyClass
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DerivingStrategies
       ExplicitForAll
       FlexibleContexts
-      ScopedTypeVariables
-      DerivingStrategies
-      DeriveAnyClass
-      DeriveGeneric
-      StandaloneDeriving
-      DeriveLift
+      FlexibleInstances
       GeneralizedNewtypeDeriving
-      DeriveFunctor
-      DeriveFoldable
-      DeriveTraversable
+      GADTs
+      ImportQualifiedPost
       LambdaCase
       MonoLocalBinds
       MultiParamTypeClasses
       NoImplicitPrelude
-      RecordWildCards
-      OverloadedStrings
-      TypeFamilies
-      QuasiQuotes
-      TemplateHaskell
-      DataKinds
-      TypeOperators
-      TypeApplications
-      FlexibleInstances
-      TypeSynonymInstances
-      TupleSections
       NumericUnderscores
-      ImportQualifiedPost
+      OverloadedStrings
+      QuasiQuotes
       RankNTypes
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      TypeSynonymInstances
       
 common common-configs
   default-language: Haskell2010
@@ -93,10 +94,10 @@ common common-ghc-options
     -fobject-code
 
 library
-  import:  common-imports
-  import:  common-language
   import:  common-configs
   import:  common-ghc-options
+  import:  common-imports
+  import:  common-language
                   
   Ghc-Options:
     -Wall
@@ -113,6 +114,7 @@ library
   exposed-modules:
     Mlabs.Control.Check
     Mlabs.Control.Monad.State
+    Mlabs.Data.LinkedList
     Mlabs.Data.List
     Mlabs.Data.Ord
     Mlabs.Demo.Contract.Burn
@@ -145,14 +147,16 @@ library
     Mlabs.NFT.Api
     Mlabs.NFT.Contract
     Mlabs.NFT.Contract.Aux
+    Mlabs.NFT.Contract.BidAuction
     Mlabs.NFT.Contract.Buy
+    Mlabs.NFT.Contract.CloseAuction
     Mlabs.NFT.Contract.Init
     Mlabs.NFT.Contract.Mint
+    Mlabs.NFT.Contract.OpenAuction
     Mlabs.NFT.Contract.Query
     Mlabs.NFT.Contract.SetPrice
-    Mlabs.NFT.Contract.OpenAuction
-    Mlabs.NFT.Contract.CloseAuction
-    Mlabs.NFT.Contract.BidAuction
+    Mlabs.NFT.Governance
+    Mlabs.NFT.Governance.Validation
     Mlabs.NFT.PAB.MarketplaceContract
     Mlabs.NFT.PAB.Run
     Mlabs.NFT.PAB.Simulator

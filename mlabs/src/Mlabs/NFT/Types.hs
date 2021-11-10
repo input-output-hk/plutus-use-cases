@@ -1,29 +1,31 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Mlabs.NFT.Types (
-  UserContract,
-  UserWriter,
   AdminContract,
-  UserId (..),
-  QueryResponse (..),
-  NftId (..),
   BuyRequestUser (..),
-  MintParams (..),
-  MintAct (..),
-  SetPriceParams (..),
   Content (..),
-  Title (..),
   DatumNft (..),
-  NftAppInstance (..),
-  UserAct (..),
+  EpochAct (..),
+  GenericContract,
+  GovAct (..),
   InformationNft (..),
-  NftListNode (..),
-  NftListHead (..),
+  MintAct (..),
+  MintParams (..),
+  NftAppInstance (..),
   NftAppSymbol (..),
+  NftId (..),
+  NftListHead (..),
+  NftListNode (..),
+  PointInfo (..),
   Pointer (..),
-  nftTokenName,
+  QueryResponse (..),
+  SetPriceParams (..),
+  Title (..),
+  UserAct (..),
+  UserContract,
+  UserId (..),
+  UserWriter,
   getAppInstance,
-  instanceCurrency,
   getDatumPointer,
   getDatumValue,
   GenericContract,
@@ -33,6 +35,9 @@ module Mlabs.NFT.Types (
   AuctionOpenParams (..),
   AuctionBidParams (..),
   AuctionCloseParams (..),
+  instanceCurrency,
+  nftTokenName,
+  EpochSymbol (..),
 ) where
 
 import PlutusTx.Prelude
@@ -331,9 +336,11 @@ instance Eq InformationNft where
  the HEAD and the script address.
 -}
 data NftAppInstance = NftAppInstance
-  { -- | Script Address where all the NFTs can be found
+  { -- | Script Address where all the NFTs can be found -- dicatets the logic of
+    -- sales/buying/etc.
     appInstance'Address :: Address
-  , -- | AssetClass with which all the NFTs are parametrised - guarantees the proof of uniqueness.
+  , -- | AssetClass with which all the NFTs are parametrised - guarantees the
+    -- proof of uniqueness of the Epoch.
     appInstance'AppAssetClass :: AssetClass
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
@@ -515,6 +522,30 @@ instance Eq UserAct where
   (SetPriceAct newPrice1 symbol1) == (SetPriceAct newPrice2 symbol2) =
     newPrice1 == newPrice2 && symbol1 == symbol2
   _ == _ = False
+
+--------------------------------------------------------------------------------
+-- 
+data AssetP state where
+  AssetP :: state -> AssetP state
+
+--------------------------------------------------------------------------------
+-- GOV
+
+-- | Gov Minting Policy Redeemer
+data GovAct
+  = -- | Mint GOV/xGOV Tokens
+    GovMint
+  | -- | Burn GOV/xGOV Tokens
+    GovBurn
+  | -- | Vote with the GOV/xGOV Tokens
+    GovVote
+  | -- | Claim Rewards with the GOV/xGOV Tokens
+    GovClaim
+  | -- | Call Close
+    GovClose
+
+PlutusTx.makeLift ''GovAct
+PlutusTx.unstableMakeIsData ''GovAct
 
 -- OffChain utility types.
 
