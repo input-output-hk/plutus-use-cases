@@ -37,9 +37,13 @@ tests =
         (void importNftTrace)
     ]
 
+ -- Can't find the currency symbol suitable for testing import
+ -- In the wallet we have `50b69b375c08e6b43a5deca05e9f10214d86f9f84745594a26b4725e` currency symbol
+ -- When I try to make `serializeByteString . unCurrencySymbol` on that CurrencySymbol "50b69b375c08e6b43a5deca05e9f10214d86f9f84745594a26b4725e", it return "50b69b375c08e6b43a5deca05e9f10214d86f9f84745594a26b4725e" 
+ -- But when I call `CurrencySymbol . deserializeByteString on `50b69b375c08e6b43a5deca05e9f10214d86f9f84745594a26b4725e` it returns another value.
 importNftParams :: Marketplace.ImportNftParams
 importNftParams = Marketplace.ImportNftParams {
-                        Marketplace.inpCurrency       = Fixtures.catCurrencySymbol,
+                        Marketplace.inpCurrency       = Fixtures.catCurrencySymbol, 
                         Marketplace.inpIpfsCid        = Fixtures.catTokenIpfsCid,
                         Marketplace.inpNftName        = Fixtures.catTokenName,
                         Marketplace.inpNftDescription = Fixtures.catTokenDescription,
