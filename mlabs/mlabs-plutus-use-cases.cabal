@@ -102,12 +102,12 @@ library
   Ghc-Options:
     -Wall
     -Wcompat
-    -Wincomplete-uni-patterns
-    -Wredundant-constraints
-    -Wmissing-export-lists
-    -Wmissing-deriving-strategies
     -Werror
-
+    -Wincomplete-uni-patterns
+    -Wmissing-deriving-strategies
+    -Wmissing-export-lists
+    -Wredundant-constraints
+    
   hs-source-dirs:
     src/
     
@@ -180,35 +180,34 @@ library
     Mlabs.Utils.Wallet
 
 executable mlabs-plutus-use-cases
-  import:  common-imports
-  import:  common-language
   import:  common-configs
   import:  common-ghc-options
+  import:  common-imports
+  import:  common-language
 
   main-is: app/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable deploy-app
-  import:  common-imports
-  import:  common-language
   import:  common-configs
   import:  common-ghc-options
+  import:  common-imports
+  import:  common-language
 
   main-is: deploy-app/Main.hs
   build-depends: 
       mlabs-plutus-use-cases
+    , cardano-api
     , cardano-ledger-alonzo
-    , cardano-api
     , serialise
-    , cardano-api
 
 executable nft-demo
-  import:  common-imports
-  import:  common-language
   import:  common-configs
   import:  common-ghc-options  
+  import:  common-imports
+  import:  common-language
 
-  main-is: nft-demo/Main.hs
+  main-is:       nft-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable governance-demo
@@ -217,16 +216,16 @@ executable governance-demo
   import:  common-configs
   import:  common-ghc-options  
 
-  main-is: governance-demo/Main.hs
+  main-is:      governance-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable lendex-demo
-  import:  common-imports
-  import:  common-language
   import:  common-configs
   import:  common-ghc-options  
+  import:  common-imports
+  import:  common-language
 
-  main-is: lendex-demo/Main.hs
+  main-is:       lendex-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable nft-marketplace
@@ -239,10 +238,10 @@ executable nft-marketplace
   build-depends: mlabs-plutus-use-cases
 
 Test-suite mlabs-plutus-use-cases-tests
-  import:  common-imports
-  import:  common-language
   import:  common-configs
   import:  common-ghc-options  
+  import:  common-imports
+  import:  common-language
 
   Type:            exitcode-stdio-1.0
   hs-source-dirs:  test
@@ -250,9 +249,8 @@ Test-suite mlabs-plutus-use-cases-tests
   
   Ghc-options:
     -Wall
-    -threaded
     -rtsopts
-    -- -fplugin=RecordDotPreprocessor
+    -threaded
   
   Build-Depends:
     base 
