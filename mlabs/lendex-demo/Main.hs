@@ -17,6 +17,7 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Functor (void)
 import Data.Monoid (Last (..))
 
+import Ledger.CardanoWallet (WalletNumber (..))
 import Ledger.Constraints (mustPayToPubKey)
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Tx (getCardanoTxId)
@@ -26,7 +27,6 @@ import Plutus.Contract hiding (when)
 import Plutus.Contracts.Currency qualified as Currency
 import Plutus.PAB.Simulator qualified as Simulator
 import Wallet.Emulator.Wallet (fromWalletNumber)
-import Ledger.CardanoWallet (WalletNumber (..))
 import Wallet.Emulator.Wallet qualified as Wallet
 
 import Mlabs.Lending.Contract qualified as Contract

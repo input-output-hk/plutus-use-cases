@@ -25,7 +25,7 @@ import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, StartPara
 import Mlabs.Nft.Contract.StateMachine qualified as SM
 import Mlabs.Nft.Logic.Types (Act (UserAct), NftId, initNft, toNftId)
 import Mlabs.Plutus.Contract (getEndpoint, selectForever)
-import Plutus.Contract (Contract, logError, tell, throwError, toContract, utxosAt, ownPubKeyHash)
+import Plutus.Contract (Contract, logError, ownPubKeyHash, tell, throwError, toContract, utxosAt)
 import Plutus.V1.Ledger.Api (Datum)
 import PlutusTx.Prelude hiding ((<>))
 

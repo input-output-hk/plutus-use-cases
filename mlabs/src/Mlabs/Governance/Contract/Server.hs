@@ -24,8 +24,8 @@ import Ledger.Tx (
   TxOutRef,
   ciTxOutDatum,
   ciTxOutValue,
-  toTxOut,
   getCardanoTxId,
+  toTxOut,
   txOutPubKey,
  )
 import Plutus.Contract qualified as Contract

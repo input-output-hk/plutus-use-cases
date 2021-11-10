@@ -41,9 +41,9 @@ import Ledger (
   ciTxOutDatum,
   ciTxOutValue,
   getDatum,
+  pubKeyHashAddress,
   toTxOut,
   txOutValue,
-  pubKeyHashAddress,
  )
 
 import Ledger.Value as Value (unAssetClass, valueOf)

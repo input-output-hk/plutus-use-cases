@@ -7,13 +7,13 @@ import Ledger qualified
 import Ledger.Value (TokenName (..))
 import Ledger.Value qualified as Value
 
+import Ledger.CardanoWallet qualified as CardanoWallet
 import Mlabs.NFT.Contract.Aux qualified as NFT
 import Mlabs.NFT.Types (Content (..), NftAppInstance (..), NftAppSymbol (..), NftId (..))
 import Mlabs.NFT.Validation qualified as NFT
 import Plutus.V1.Ledger.Ada qualified as Ada
 import PlutusTx.Prelude hiding ((<>))
 import Wallet.Emulator.Wallet qualified as Emu
-import Ledger.CardanoWallet qualified as CardanoWallet
 
 -- test values
 

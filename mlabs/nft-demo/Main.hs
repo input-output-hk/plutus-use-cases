@@ -11,12 +11,12 @@ import Prelude
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Functor (void)
+import Ledger.CardanoWallet (WalletNumber (..))
 import Playground.Contract (Wallet (Wallet))
 import Plutus.Contract (ContractInstanceId)
 import Plutus.PAB.Simulator qualified as Simulator
 import PlutusTx.Prelude (BuiltinByteString)
 import Wallet.Emulator.Wallet (fromWalletNumber)
-import Ledger.CardanoWallet (WalletNumber (..))
 
 import Mlabs.Nft.Contract qualified as Nft
 import Mlabs.Nft.Contract.Simulator.Handler qualified as Handler

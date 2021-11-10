@@ -24,9 +24,9 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Functor (void)
 import Data.Monoid (Last)
 import Data.OpenApi.Schema qualified as OpenApi
-import Prettyprinter (Pretty (..), viaShow)
 import GHC.Generics (Generic)
 import Plutus.Contract (Contract, EmptySchema)
+import Prettyprinter (Pretty (..), viaShow)
 
 -- ! import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Effects.Contract.Builtin (

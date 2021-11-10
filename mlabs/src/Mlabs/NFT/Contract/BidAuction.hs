@@ -21,8 +21,8 @@ import PlutusTx qualified
 import Ledger (
   Datum (..),
   Redeemer (..),
-  to,
   getCardanoTxId,
+  to,
  )
 
 import Ledger.Constraints qualified as Constraints
