@@ -39,7 +39,9 @@ import           Data.Text                                           (Text)
 import           Data.Text.Prettyprint.Doc                           (Pretty (..),
                                                                       viaShow)
 import qualified Data.Time.Clock                                     as Time
-import           Ext.Plutus.Ledger.Time                              (convertUtcToPOSIX)
+import           Ext.Plutus.Ledger.Time                              (Seconds (..),
+                                                                      addToBeginningOfTime,
+                                                                      convertUtcToPOSIX)
 import qualified Ext.Plutus.PAB.Webserver.Server                     as Ext.Plutus.PAB
 import           GHC.Generics                                        (Generic)
 import           Ledger
@@ -158,7 +160,6 @@ startMpServer = do
 runNftMarketplace :: IO ()
 runNftMarketplace =
     void $ Simulator.runSimulationWith (handlers def) $ do
-    let simulatorBeginningOfTime = POSIXTime 1596059091000
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
@@ -252,7 +253,7 @@ runNftMarketplace =
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
                         saapInitialPrice = fromInteger $ 5 * oneAdaInLovelace,
-                        saapEndTime = simulatorBeginningOfTime + fromMilliSeconds (DiffMilliSeconds (55 * 1000))
+                        saapEndTime = addToBeginningOfTime $ Seconds 55
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction

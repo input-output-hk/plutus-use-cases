@@ -8,6 +8,7 @@ module Marketplace.Fixtures.CheckOptions where
 import           Control.Lens                                 ((&), (.~))
 import           Data.Default                                 (Default (def))
 import qualified Data.Map                                     as Map
+import           Ext.Plutus.Ledger.Time                       (beginningOfTime)
 import           Ledger                                       (Value)
 import qualified Ledger.Ada                                   as Ada
 import           Ledger.TimeSlot                              (SlotConfig (..))
@@ -18,12 +19,6 @@ import           Plutus.Contract.Trace                        (defaultDist)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Trace                                 as Trace
 import           Plutus.V1.Ledger.Time                        (POSIXTime (..))
-
--- | 'beginningOfTime' corresponds to the Shelley launch date
--- (2020-07-29T21:44:51Z) which is 1596059091000 in POSIX time
--- (number of milliseconds since 1970-01-01T00:00:00Z).
-beginningOfTime :: POSIXTime
-beginningOfTime = POSIXTime 1596059091000
 
 options :: CheckOptions
 options = defaultCheckOptions & emulatorConfig .~ emulatorCfg
