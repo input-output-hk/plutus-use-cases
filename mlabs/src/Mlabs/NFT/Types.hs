@@ -2,10 +2,14 @@
 
 module Mlabs.NFT.Types (
   AdminContract,
+  AuctionBid (..),
+  AuctionBidParams (..),
+  AuctionCloseParams (..),
+  AuctionOpenParams (..),
+  AuctionState (..),
   BuyRequestUser (..),
   Content (..),
   DatumNft (..),
-  EpochAct (..),
   GenericContract,
   GovAct (..),
   InformationNft (..),
@@ -28,16 +32,8 @@ module Mlabs.NFT.Types (
   getAppInstance,
   getDatumPointer,
   getDatumValue,
-  GenericContract,
-  PointInfo (..),
-  AuctionBid (..),
-  AuctionState (..),
-  AuctionOpenParams (..),
-  AuctionBidParams (..),
-  AuctionCloseParams (..),
   instanceCurrency,
   nftTokenName,
-  EpochSymbol (..),
 ) where
 
 import PlutusTx.Prelude
@@ -523,10 +519,6 @@ instance Eq UserAct where
     newPrice1 == newPrice2 && symbol1 == symbol2
   _ == _ = False
 
---------------------------------------------------------------------------------
--- 
-data AssetP state where
-  AssetP :: state -> AssetP state
 
 --------------------------------------------------------------------------------
 -- GOV

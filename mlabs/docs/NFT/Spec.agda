@@ -17,7 +17,44 @@ module NFT.Spec where
     maintainin part ownership of the Artwork via a pre-specified amount of
     shares. Upon the re-selling of the artwork the Author would receive an
     equivalent amount of money to the shares retained in the artwork.
-    
+
+    The administration of the Application is decentralised, through the use of a
+    Governance system. This allows the opperation logic of the application to
+    change over time, and allows the ownership/decisions of the application to
+    be shared with other users in a manner similar to a publicly listed
+    companies - users that own Governance in the application can vote to decide
+    on the future of the application.
+  -}
+  
+  {-
+    ## The Epoch System
+
+    An Application Epoch is a period of time in which the application behaves in
+    a predefined manner. In the Current Epoch the NFT Application will have
+    epoch specific logic: NFT logic, governance logic, epoch Voting Logic, App Income
+    distribution Logic. The epoch system allows the App owners (governance token
+    holders) to change the logic of any of the epoch specific logic.
+
+  -}
+  data Status : Set where
+    Active : Status
+    Passed : Status
+    Genesis : Status
+  
+  data Logic : Set where
+  
+  record Behaviour : Set where
+    field
+      NFTLogic : Logic
+      
+  data Epoch : Status → Set where
+    current  : Epoch Passed → Behaviour → Epoch Active 
+    passed   : Behaviour → Epoch Passed
+
+  today = Epoch Active
+  
+  {-
+    ## The NFT Application
   -}
   
   data DigitalContent : Set where
