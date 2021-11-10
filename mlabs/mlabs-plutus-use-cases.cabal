@@ -26,6 +26,7 @@ common common-imports
     , plutus-tx
     , plutus-ledger-api
     , plutus-chain-index
+    , plutus-chain-index-core
     , plutus-tx-plugin
     , plutus-pab
     , plutus-use-cases
@@ -104,7 +105,7 @@ library
     -Wmissing-export-lists
     -Wmissing-deriving-strategies
     -Werror
-    
+
   hs-source-dirs:
     src/
     

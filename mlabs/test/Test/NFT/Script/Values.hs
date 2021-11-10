@@ -13,51 +13,40 @@ import Mlabs.NFT.Validation qualified as NFT
 import Plutus.V1.Ledger.Ada qualified as Ada
 import PlutusTx.Prelude hiding ((<>))
 import Wallet.Emulator.Wallet qualified as Emu
+import Ledger.CardanoWallet qualified as CardanoWallet
 
 -- test values
 
 -- NFT Author
 authorWallet :: Emu.Wallet
-authorWallet = Emu.fromWalletNumber (Emu.WalletNumber 1)
+authorWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 1)
 
 authorAddr :: Ledger.Address
 authorAddr = Emu.walletAddress authorWallet
 
-authorPk :: Ledger.PubKey
-authorPk = Emu.walletPubKey authorWallet
-
 authorPkh :: Ledger.PubKeyHash
-authorPkh = Ledger.pubKeyHash authorPk
+authorPkh = Emu.walletPubKeyHash authorWallet
 
 -- User 1
 userOneWallet :: Emu.Wallet
-userOneWallet = Emu.fromWalletNumber (Emu.WalletNumber 2)
-
-userOnePk :: Ledger.PubKey
-userOnePk = Emu.walletPubKey userOneWallet
+userOneWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 2)
 
 userOnePkh :: Ledger.PubKeyHash
-userOnePkh = Ledger.pubKeyHash userOnePk
+userOnePkh = Emu.walletPubKeyHash userOneWallet
 
 -- User 2
 userTwoWallet :: Emu.Wallet
-userTwoWallet = Emu.fromWalletNumber (Emu.WalletNumber 3)
-
-userTwoPk :: Ledger.PubKey
-userTwoPk = Emu.walletPubKey userTwoWallet
+userTwoWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 3)
 
 userTwoPkh :: Ledger.PubKeyHash
-userTwoPkh = Ledger.pubKeyHash userTwoPk
+userTwoPkh = Emu.walletPubKeyHash userTwoWallet
 
 -- User 3
 userThreeWallet :: Emu.Wallet
-userThreeWallet = Emu.fromWalletNumber (Emu.WalletNumber 4)
-
-userThreePk :: Ledger.PubKey
-userThreePk = Emu.walletPubKey userThreeWallet
+userThreeWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 4)
 
 userThreePkh :: Ledger.PubKeyHash
-userThreePkh = Ledger.pubKeyHash userThreePk
+userThreePkh = Emu.walletPubKeyHash userThreeWallet
 
 testTxId :: Ledger.TxId
 testTxId = fromJust $ Aeson.decode "{\"getTxId\" : \"61626364\"}"

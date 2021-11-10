@@ -39,7 +39,6 @@ validatorToPlutus file validator = do
     Just m ->
       let getAlonzoData d = case toAlonzoData d of
             Alonzo.Data pData -> pData
-            _ -> error "Should not happen"
           (logout, e) =
             Plutus.evaluateScriptCounting
               Plutus.Verbose

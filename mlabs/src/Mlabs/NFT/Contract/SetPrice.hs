@@ -23,7 +23,6 @@ import PlutusTx qualified
 import Ledger (
   Redeemer (..),
   ciTxOutValue,
-  pubKeyHash,
  )
 
 import Ledger.Constraints qualified as Constraints
@@ -43,7 +42,7 @@ setPrice :: NftAppSymbol -> SetPriceParams -> Contract UserWriter s Text ()
 setPrice symbol SetPriceParams {..} = do
   when negativePrice $ Contract.throwError "New price can not be negative"
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
-  ownPkh <- pubKeyHash <$> Contract.ownPubKey
+  ownPkh <- Contract.ownPubKeyHash
   PointInfo {..} <- findNft sp'nftId symbol
   oldNode <- case pi'datum of
     NodeDatum n -> Hask.pure n

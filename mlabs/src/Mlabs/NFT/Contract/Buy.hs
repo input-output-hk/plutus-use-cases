@@ -22,7 +22,6 @@ import Ledger (
   Datum (..),
   Redeemer (..),
   ciTxOutValue,
-  pubKeyHash,
  )
 
 import Ledger.Constraints qualified as Constraints
@@ -39,7 +38,7 @@ import Mlabs.NFT.Validation
 buy :: forall s. NftAppSymbol -> BuyRequestUser -> Contract UserWriter s Text ()
 buy symbol BuyRequestUser {..} = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
-  ownPkh <- pubKeyHash <$> Contract.ownPubKey
+  ownPkh <- Contract.ownPubKeyHash
   PointInfo {..} <- findNft ur'nftId symbol
   node <- case pi'datum of
     NodeDatum n -> Hask.pure n

@@ -18,15 +18,15 @@ import Data.Functor (void)
 import Data.Monoid (Last (..))
 
 import Ledger.Constraints (mustPayToPubKey)
-import Ledger.Contexts (pubKeyHash)
 import Ledger.Crypto (PubKeyHash (..))
-import Ledger.Tx (txId)
+import Ledger.Tx (getCardanoTxId)
 import Ledger.Value qualified as Value
 import Playground.Contract (TokenName, Wallet (..))
 import Plutus.Contract hiding (when)
 import Plutus.Contracts.Currency qualified as Currency
 import Plutus.PAB.Simulator qualified as Simulator
-import Wallet.Emulator.Wallet (WalletNumber (..), fromWalletNumber)
+import Wallet.Emulator.Wallet (fromWalletNumber)
+import Ledger.CardanoWallet (WalletNumber (..))
 import Wallet.Emulator.Wallet qualified as Wallet
 
 import Mlabs.Lending.Contract qualified as Contract
@@ -116,7 +116,7 @@ main = Handler.runSimulator lendexId initContract $ do
 
 initContract :: Handler.InitContract
 initContract = do
-  ownPK <- pubKeyHash <$> ownPubKey
+  ownPK <- ownPubKeyHash
   logInfo @String "Start forge"
   cur <-
     mapError
@@ -136,10 +136,10 @@ initContract = do
     toVal cs tn = Value.singleton cs tn amount
 
     giveTo ownPK w v = do
-      let pkh = pubKeyHash $ Wallet.walletPubKey w
+      let pkh = Wallet.walletPubKeyHash w
       when (pkh /= ownPK) $ do
         tx <- submitTx $ mustPayToPubKey pkh v
-        awaitTxConfirmed $ txId tx
+        awaitTxConfirmed $ getCardanoTxId tx
 
 -----------------------------------------------------------------------
 -- activate handlers
@@ -217,4 +217,4 @@ toCoin cur tn = Value.AssetClass (cur, tn)
 -- utils
 
 toPubKeyHash :: Wallet -> PubKeyHash
-toPubKeyHash = pubKeyHash . Wallet.walletPubKey
+toPubKeyHash = Wallet.walletPubKeyHash

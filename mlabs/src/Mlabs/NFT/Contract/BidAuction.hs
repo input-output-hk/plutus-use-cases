@@ -21,9 +21,8 @@ import PlutusTx qualified
 import Ledger (
   Datum (..),
   Redeemer (..),
-  pubKeyHash,
   to,
-  txId,
+  getCardanoTxId,
  )
 
 import Ledger.Constraints qualified as Constraints
@@ -38,7 +37,7 @@ import Mlabs.NFT.Validation
 bidAuction :: NftAppSymbol -> AuctionBidParams -> Contract UserWriter s Text ()
 bidAuction symbol (AuctionBidParams nftId bidAmount) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
-  ownPkh <- pubKeyHash <$> Contract.ownPubKey
+  ownPkh <- Contract.ownPubKeyHash
   PointInfo {..} <- findNft nftId symbol
   node <- case pi'datum of
     NodeDatum n -> Hask.pure n
@@ -96,7 +95,7 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
   Contract.tell . Last . Just . Left $ nftId
   -- void $ Contract.logInfo @Hask.String $ printf "DEBUG open auction TX: %s" (Hask.show ledgerTx)
   void $ Contract.logInfo @Hask.String $ printf "Bidding in auction for %s" $ Hask.show nftVal
-  void $ Contract.awaitTxConfirmed $ txId ledgerTx
+  void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
   void $ Contract.logInfo @Hask.String $ printf "Confirmed bid auction for %s" $ Hask.show nftVal
   where
     updateDatum newAuctionState node =

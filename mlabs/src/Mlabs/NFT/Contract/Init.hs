@@ -12,7 +12,7 @@ import Control.Monad (void)
 import Data.Text (Text, pack)
 import Text.Printf (printf)
 
-import Plutus.Contract (Contract, mapError, ownPubKey)
+import Plutus.Contract (Contract, mapError, ownPubKeyHash)
 import Plutus.Contract qualified as Contract
 
 import Plutus.Contracts.Currency (CurrencyError, mintContract)
@@ -22,7 +22,6 @@ import Plutus.V1.Ledger.Value (TokenName (..), assetClass)
 import Ledger (
   AssetClass,
   Value,
-  pubKeyHash,
   scriptCurrencySymbol,
  )
 
@@ -90,7 +89,7 @@ createListHead = do
     -- Contract that mints a unique token to be used in the minting of the head
     generateUniqueToken :: GenericContract (AssetClass, Value)
     generateUniqueToken = do
-      self <- Ledger.pubKeyHash <$> ownPubKey
+      self <- ownPubKeyHash
       let nftTokenName = TokenName "Unique App Token" --PlutusTx.Prelude.emptyByteString
       x <-
         mapError

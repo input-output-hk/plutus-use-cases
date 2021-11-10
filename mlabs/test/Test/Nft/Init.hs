@@ -24,12 +24,12 @@ import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.Reader (ReaderT, ask, lift, runReaderT)
 import Data.Map qualified as M
-import Ledger.Contexts (pubKeyHash)
-import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, walletPubKey)
+import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, walletPubKeyHash)
 import Plutus.Trace.Effects.EmulatedWalletAPI (EmulatedWalletAPI)
 import Plutus.Trace.Effects.EmulatorControl (EmulatorControl)
 import Plutus.Trace.Effects.RunContract (RunContract)
 import Plutus.Trace.Effects.Waiting (Waiting)
+import Plutus.Trace.Effects.Assert (Assert)
 import Plutus.Trace.Emulator (EmulatorRuntimeError, EmulatorTrace, initialChainState)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
 import Plutus.V1.Ledger.Value (Value, singleton)
@@ -53,10 +53,10 @@ w2 = walletFromNumber 2
 w3 = walletFromNumber 3
 
 toUserId :: Wallet -> UserId
-toUserId = UserId . pubKeyHash . walletPubKey
+toUserId = UserId . walletPubKeyHash
 
 -- | Helper to run the scripts for NFT-contract
-type ScriptM a = ReaderT NftId (Eff '[RunContract, Waiting, EmulatorControl, EmulatedWalletAPI, LogMsg String, Error EmulatorRuntimeError]) a
+type ScriptM a = ReaderT NftId (Eff '[RunContract, Assert, Waiting, EmulatorControl, EmulatedWalletAPI, LogMsg String, Error EmulatorRuntimeError]) a
 
 type Script = ScriptM ()
 

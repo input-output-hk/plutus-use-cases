@@ -30,23 +30,24 @@ import Data.Default (Default (def))
 import Data.Monoid (Last (..))
 import Data.OpenApi.Schema qualified as OpenApi
 import Data.Text (Text, pack)
-import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import GHC.Generics (Generic)
 
 import Control.Monad.Freer (interpret)
-import Plutus.Contract (Contract, EmptySchema, awaitTxConfirmed, mapError, ownPubKey, submitTx, tell)
+import Plutus.Contract (Contract, EmptySchema, awaitTxConfirmed, mapError, ownPubKeyHash, submitTx, tell)
 
-import Ledger (CurrencySymbol, PubKeyHash, pubKeyHash, txId)
+import Ledger (CurrencySymbol, PubKeyHash, getCardanoTxId)
 import Ledger.Constraints (mustPayToPubKey)
 import Mlabs.Utils.Wallet (walletFromNumber)
 import Plutus.Contracts.Currency as Currency
 import Plutus.V1.Ledger.Value qualified as Value
-import Wallet.Emulator.Types (Wallet, walletPubKey)
+import Wallet.Emulator.Types (Wallet, walletPubKeyHash)
 
 import Plutus.PAB.Core (EffectHandlers)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (contractHandler), HasDefinitions (..), SomeBuiltin (..), endpointsToSchemas, handleBuiltin)
 import Plutus.PAB.Simulator ()
 import Plutus.PAB.Simulator as Simulator
+
+import Prettyprinter (Pretty (..), viaShow)
 
 -- FIXME this was passed as `BootstrapCfg` before update from calling side,
 --       but now coz `bootstrapGovernance` moved here, had to hardcode them till can figure out better way
@@ -109,18 +110,18 @@ bootstrapGovernance = do
     mintRequredTokens ::
       Contract w EmptySchema Currency.CurrencyError Currency.OneShotCurrency
     mintRequredTokens = do
-      ownPK <- pubKeyHash <$> ownPubKey
+      ownPK <- ownPubKeyHash
       Currency.mintContract ownPK [(govTokenName, govAmount * length wallets)]
 
     distributeGov govPerWallet = do
-      ownPK <- pubKeyHash <$> ownPubKey
+      ownPK <- ownPubKeyHash
       forM_ wallets $ \w -> do
         let pkh = walletPKH w
         when (pkh /= ownPK) $ do
           tx <- submitTx $ mustPayToPubKey pkh govPerWallet
-          awaitTxConfirmed $ txId tx
+          awaitTxConfirmed $ getCardanoTxId tx
 
     toText = pack . show
 
 walletPKH :: Wallet -> PubKeyHash
-walletPKH = pubKeyHash . walletPubKey
+walletPKH = walletPubKeyHash

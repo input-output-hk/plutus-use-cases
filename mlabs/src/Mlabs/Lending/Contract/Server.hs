@@ -27,7 +27,6 @@ import Data.Map qualified as Map
 import Data.Semigroup (Last (..))
 
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
-import Ledger.Crypto (pubKeyHash)
 import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress)
 
 import Plutus.Contract ()
@@ -120,7 +119,7 @@ queryEndpoints lid =
 
 userAction :: Api.IsUserAct a => Types.LendexId -> a -> UserContract ()
 userAction lid input = do
-  pkh <- pubKeyHash <$> Contract.ownPubKey
+  pkh <- Contract.ownPubKeyHash
   act <- getUserAct input
   inputDatum <- findInputStateDatum lid
   let lookups =

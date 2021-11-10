@@ -128,7 +128,7 @@ mintContract (MintParams tn amt) = do
           payVal
           <> Constraints.mustMintValue forgeVal
   ledgerTx <- submitTxConstraintsWith @Void lookups tx
-  void $ awaitTxConfirmed $ Ledger.txId ledgerTx
+  void $ awaitTxConfirmed $ Ledger.getCardanoTxId ledgerTx
 
 mintEndpoints :: Contract () MintSchema Text ()
 -- mintEndpoints = mint >> mintEndpoints where mint = endpoint @"mint" >>= mintContract

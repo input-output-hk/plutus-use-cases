@@ -40,7 +40,7 @@ import Plutus.Contract.Test (
   assertOutcome,
   defaultCheckOptions,
   emulatorConfig,
-  walletPubKey,
+  walletPubKeyHash,
  )
 
 import Plutus.Trace.Emulator (initialChainState)
@@ -78,14 +78,14 @@ xgov wallet =
   where
     (Gov.AssetClassGov cs tn) = acGOV
     mkPkh :: Wallet -> Ledger.PubKeyHash
-    mkPkh = Ledger.pubKeyHash . walletPubKey
+    mkPkh = walletPubKeyHash
 
 xgovEP :: Wallet -> Integer -> [(Ledger.PubKeyHash, Integer)]
 xgovEP wallet value = [(mkPkh wallet, value)]
   where
     (Gov.AssetClassGov cs tn) = acGOV
     mkPkh :: Wallet -> Ledger.PubKeyHash
-    mkPkh = Ledger.pubKeyHash . walletPubKey
+    mkPkh = walletPubKeyHash
 
 -- | Make `Ada` `Value`
 ada :: Integer -> Value

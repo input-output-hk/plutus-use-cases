@@ -25,7 +25,7 @@ import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator (Simulation)
 import Plutus.PAB.Simulator qualified as Simulator
 import Plutus.PAB.Webserver.Server qualified as PWS
-import Wallet.Emulator.Types (Wallet (..), walletPubKey)
+import Wallet.Emulator.Types (Wallet (..), walletPubKeyHash)
 import Wallet.Emulator.Wallet (walletAddress)
 
 import Mlabs.Plutus.PAB (call, waitForLast)
@@ -112,10 +112,10 @@ itializeContracts admin = do
 -- shortcits for endpoint calls
 deposit cid amount = call cid $ Deposit amount
 
-withdraw cid wallet amount = call cid $ Withdraw [(walletPKH wallet, amount)]
+withdraw cid wallet amount = call cid $ Withdraw [(walletPubKeyHash wallet, amount)]
 
 getBalance cid wallet = do
-  call cid $ QueryBalance $ walletPKH wallet
+  call cid $ QueryBalance $ walletPubKeyHash wallet
   govBalance :: Integer <- waitForLast cid
   logAction $ "Balance is " ++ show govBalance
 
@@ -123,8 +123,6 @@ printBalance :: Wallet -> Simulation (Builtin schema) ()
 printBalance wallet = do
   v <- Simulator.valueAt $ walletAddress wallet
   logBalance ("WALLET " <> show wallet) v
-
-walletPKH = pubKeyHash . walletPubKey
 
 -- cfg =
 --   BootstrapCfg

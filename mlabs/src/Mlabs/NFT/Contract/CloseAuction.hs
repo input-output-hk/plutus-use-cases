@@ -22,8 +22,7 @@ import Ledger (
   Datum (..),
   Redeemer (..),
   from,
-  pubKeyHash,
-  txId,
+  getCardanoTxId,
  )
 
 import Ledger.Constraints qualified as Constraints
@@ -37,7 +36,7 @@ import Mlabs.NFT.Validation
 closeAuction :: NftAppSymbol -> AuctionCloseParams -> Contract UserWriter s Text ()
 closeAuction symbol (AuctionCloseParams nftId) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
-  ownPkh <- pubKeyHash <$> Contract.ownPubKey
+  ownPkh <- Contract.ownPubKeyHash
   PointInfo {..} <- findNft nftId symbol
   node <- case pi'datum of
     NodeDatum n -> Hask.pure n
@@ -94,7 +93,7 @@ closeAuction symbol (AuctionCloseParams nftId) = do
   ledgerTx <- Contract.submitTxConstraintsWith @NftTrade lookups tx
   Contract.tell . Last . Just . Left $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Closing auction for %s" $ Hask.show nftVal
-  void $ Contract.awaitTxConfirmed $ txId ledgerTx
+  void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
   void $ Contract.logInfo @Hask.String $ printf "Confirmed close auction for %s" $ Hask.show nftVal
   where
     updateDatum newOwner node =

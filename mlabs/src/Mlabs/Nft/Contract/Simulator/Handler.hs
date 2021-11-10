@@ -25,7 +25,7 @@ import Data.Functor (void)
 import Data.OpenApi.Schema qualified as OpenApi
 
 -- ! import Data.Text (Text, pack)
-import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
+import Prettyprinter (Pretty (..), viaShow)
 import GHC.Generics (Generic)
 
 -- ! import Plutus.Contract (Contract, mapError)

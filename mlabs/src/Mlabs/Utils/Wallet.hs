@@ -3,7 +3,8 @@ module Mlabs.Utils.Wallet (
 ) where
 
 import PlutusTx.Prelude
-import Wallet.Emulator.Wallet (Wallet, WalletNumber (..), fromWalletNumber)
+import Wallet.Emulator.Wallet (Wallet, fromWalletNumber)
+import Ledger.CardanoWallet (WalletNumber (..))
 
 walletFromNumber :: Integer -> Wallet
 walletFromNumber = fromWalletNumber . WalletNumber

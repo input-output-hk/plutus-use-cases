@@ -15,7 +15,8 @@ import Playground.Contract (Wallet (Wallet))
 import Plutus.Contract (ContractInstanceId)
 import Plutus.PAB.Simulator qualified as Simulator
 import PlutusTx.Prelude (BuiltinByteString)
-import Wallet.Emulator.Wallet (WalletNumber (..), fromWalletNumber)
+import Wallet.Emulator.Wallet (fromWalletNumber)
+import Ledger.CardanoWallet (WalletNumber (..))
 
 import Mlabs.Nft.Contract qualified as Nft
 import Mlabs.Nft.Contract.Simulator.Handler qualified as Handler

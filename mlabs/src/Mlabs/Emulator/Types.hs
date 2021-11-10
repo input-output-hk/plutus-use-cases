@@ -15,8 +15,7 @@ import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
-import Ledger.Contexts (pubKeyHash)
-import Plutus.Contract (AsContractError, Contract, ownPubKey)
+import Plutus.Contract (AsContractError, Contract, ownPubKeyHash)
 import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Plutus.V1.Ledger.Value (AssetClass (..))
@@ -47,4 +46,4 @@ PlutusTx.unstableMakeIsData ''UserId
 
 -- | Get user id of the wallet owner.
 ownUserId :: AsContractError e => Contract w s e UserId
-ownUserId = fmap (UserId . pubKeyHash) ownPubKey
+ownUserId = fmap UserId ownPubKeyHash

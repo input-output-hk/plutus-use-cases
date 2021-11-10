@@ -6,7 +6,8 @@ import Data.Aeson (Value (..))
 import Data.List (sortOn)
 import Data.Text qualified as T
 import Ledger.Crypto (pubKeyHash)
-import Plutus.Contract.Test (assertInstanceLog, walletPubKey)
+import Plutus.Contract.Test (assertInstanceLog)
+import Plutus.Contract.Trace (walletPubKeyHash)
 import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
 import PlutusTx.Prelude hiding (check, mconcat)
 import Test.Tasty (TestTree, testGroup)
@@ -159,7 +160,7 @@ testQueryOwner = check "Query owner" assertState w1 script
       _ -> False
       where
         nftId = NftId . hashData . mp'content $ artwork2
-        owner = QueryCurrentOwner . Just . UserId . pubKeyHash . walletPubKey $ w1
+        owner = QueryCurrentOwner . Just . UserId . walletPubKeyHash $ w1
         msg = queryCurrentOwnerLog nftId owner
 
 -- | User lists all NFTs in app
@@ -176,7 +177,7 @@ testQueryListNfts = check "Query list NFTs" assertState w1 script
 
     nfts =
       sortOn info'id
-        . fmap (\mp -> mintParamsToInfo mp (UserId . pubKeyHash . walletPubKey $ w1))
+        . fmap (\mp -> mintParamsToInfo mp (UserId . walletPubKeyHash $ w1))
         $ artworks
 
     predicate = \case

@@ -1,15 +1,15 @@
 { sourcesFile ? ./nix/sources.json, system ? builtins.currentSystem
 , sources ? import ./nix/sources.nix { inherit system sourcesFile; }
 , plutus ? import sources.plutus { }
+, plutus-apps ? import sources.plutus-apps { }
 , plutusShell ? import "${sources.plutus}/shell.nix" { }
 , deferPluginErrors ? true, doCoverage ? true }@args:
 
 let
   project = import ./default.nix args;
   inherit (plutus) pkgs;
-  pab = import ./nix/pab.nix { inherit plutus; };
 
-in project.shellFor (pab.env_variables // {
+in project.shellFor {
   packages = ps: [ ps.mlabs-plutus-use-cases ];
 
   tools.cabal = "latest";
@@ -27,12 +27,10 @@ in project.shellFor (pab.env_variables // {
      inputsFrom = [ plutusShell ];
 
      additional = ps: with ps; [
-       pab.plutus_ledger_with_docs
        playground-common
        plutus-contract
        plutus-core
        plutus-ledger-api
-       plutus-pab
        plutus-tx
        plutus-tx-plugin
        plutus-use-cases
@@ -58,10 +56,6 @@ in project.shellFor (pab.env_variables // {
       # Graphviz Diagrams for documentation
       graphviz
 
-      ### Pab
-      pab.plutus_pab_client
-
       pkg-config libsodium-vrf
-    ] ++ (lib.optionals (!stdenv.isDarwin) [ rPackages.plotly R systemdMinimal ])
-      ++ builtins.attrValues plutus.plutus-pab.pab-exes;
-})
+    ] ++ (lib.optionals (!stdenv.isDarwin) [ rPackages.plotly R systemdMinimal ]);
+}

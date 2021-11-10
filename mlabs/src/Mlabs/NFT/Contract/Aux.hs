@@ -41,10 +41,9 @@ import Ledger (
   ciTxOutDatum,
   ciTxOutValue,
   getDatum,
-  pubKeyAddress,
-  pubKeyHash,
   toTxOut,
   txOutValue,
+  pubKeyHashAddress,
  )
 
 import Ledger.Value as Value (unAssetClass, valueOf)
@@ -60,7 +59,7 @@ getScriptAddrUtxos = utxosTxOutTxAt txScrAddress
 
 -- | Get the current Wallet's publick key.
 getUserAddr :: Contract w s Text Address
-getUserAddr = pubKeyAddress <$> Contract.ownPubKey
+getUserAddr = pubKeyHashAddress <$> Contract.ownPubKeyHash
 
 -- | Get the current wallet's utxos.
 getUserUtxos :: Contract w s Text (Map.Map TxOutRef Ledger.ChainIndexTxOut)
@@ -68,7 +67,7 @@ getUserUtxos = getAddrUtxos =<< getUserAddr
 
 -- | Get the current wallet's userId.
 getUId :: Contract w s Text UserId
-getUId = UserId . pubKeyHash <$> Contract.ownPubKey
+getUId = UserId <$> Contract.ownPubKeyHash
 
 -- | Get the ChainIndexTxOut at an address.
 getAddrUtxos :: Address -> Contract w s Text (Map.Map TxOutRef ChainIndexTxOut)

@@ -15,9 +15,9 @@ import Control.Lens (preview)
 import Control.Monad (forever)
 import Data.Map qualified as M
 import Data.Monoid (Last (..))
-import Ledger.Address (pubKeyAddress)
-import Ledger.Constraints (mintingPolicy, mustIncludeDatum, mustMintValue, mustSpendPubKeyOutput, ownPubKeyHash)
-import Ledger.Crypto (pubKeyHash)
+import Ledger (pubKeyHashAddress)
+import Ledger.Constraints (mintingPolicy, mustIncludeDatum, mustMintValue, mustSpendPubKeyOutput)
+import Ledger.Constraints qualified as Constraints
 import Ledger.Tx (ciTxOutDatum)
 import Mlabs.Data.List (firstJustRight)
 import Mlabs.Emulator.Types (ownUserId)
@@ -25,7 +25,7 @@ import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, StartPara
 import Mlabs.Nft.Contract.StateMachine qualified as SM
 import Mlabs.Nft.Logic.Types (Act (UserAct), NftId, initNft, toNftId)
 import Mlabs.Plutus.Contract (getEndpoint, selectForever)
-import Plutus.Contract (Contract, logError, ownPubKey, tell, throwError, toContract, utxosAt)
+import Plutus.Contract (Contract, logError, tell, throwError, toContract, utxosAt, ownPubKeyHash)
 import Plutus.V1.Ledger.Api (Datum)
 import PlutusTx.Prelude hiding ((<>))
 
@@ -54,12 +54,12 @@ authorEndpoints = forever startNft'
 
 userAction :: IsUserAct a => NftId -> a -> UserContract ()
 userAction nid input = do
-  pkh <- pubKeyHash <$> ownPubKey
+  pkh <- ownPubKeyHash
   act <- getUserAct input
   inputDatum <- findInputStateDatum nid
   let lookups =
         mintingPolicy (SM.nftPolicy nid)
-          <> ownPubKeyHash pkh
+          <> Constraints.ownPubKeyHash pkh
       constraints = mustIncludeDatum inputDatum
   SM.runStepWith nid act lookups constraints
 
@@ -68,7 +68,7 @@ userAction nid input = do
 -}
 startNft :: StartParams -> AuthorContract ()
 startNft StartParams {..} = do
-  orefs <- M.keys <$> (utxosAt . pubKeyAddress =<< ownPubKey)
+  orefs <- M.keys <$> (utxosAt . pubKeyHashAddress =<< ownPubKeyHash)
   case orefs of
     [] -> logError @String "No UTXO found"
     oref : _ -> do

@@ -17,7 +17,7 @@ import Data.Map qualified as Map
 import Data.Semigroup (Last (..), sconcat)
 import Data.Text (Text)
 import Ledger.Constraints qualified as Constraints
-import Ledger.Crypto (PubKeyHash (..), pubKeyHash)
+import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Tx (
   ChainIndexTxOut,
   TxOut (..),
@@ -25,7 +25,7 @@ import Ledger.Tx (
   ciTxOutDatum,
   ciTxOutValue,
   toTxOut,
-  txId,
+  getCardanoTxId,
   txOutPubKey,
  )
 import Plutus.Contract qualified as Contract
@@ -60,7 +60,7 @@ governanceEndpoints gov =
 
 deposit :: AssetClassGov -> Api.Deposit -> GovernanceContract ()
 deposit gov (Api.Deposit amnt) = do
-  ownPkh <- pubKeyHash <$> Contract.ownPubKey
+  ownPkh <- Contract.ownPubKeyHash
   g <- findGovernance ownPkh gov
   let (tx, lookups) = case g of
         Just (datum, utxo, oref) ->
@@ -92,12 +92,12 @@ deposit gov (Api.Deposit amnt) = do
       xGovValue = Validation.xgovSingleton gov ownPkh amnt
 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
-  void $ Contract.awaitTxConfirmed $ txId ledgerTx
+  void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
   Contract.logInfo @String $ printf "deposited %s GOV tokens" (show amnt)
 
 withdraw :: AssetClassGov -> Api.Withdraw -> GovernanceContract ()
 withdraw gov (Api.Withdraw assets) = do
-  ownPkh <- pubKeyHash <$> Contract.ownPubKey
+  ownPkh <- Contract.ownPubKeyHash
   let trav f ~(x NE.:| xs) = (NE.:|) <$> f x <*> traverse f xs
   -- for some reason NonEmpty doesn't have a Traversible instance in scope
   (tx, lookups) <- fmap sconcat . flip trav (NE.fromList assets) $ \ac -> do
@@ -124,7 +124,7 @@ withdraw gov (Api.Withdraw assets) = do
               )
 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
-  void $ Contract.awaitTxConfirmed $ txId ledgerTx
+  void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
   Contract.logInfo @String $ printf "withdrew %s GOV tokens" (show . sum $ map snd assets)
 
 -- TODO fix (works but transaction sizes are HUGE)
@@ -154,7 +154,7 @@ provideRewards gov (Api.ProvideRewards val) = do
           ]
 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
-  void $ Contract.awaitTxConfirmed $ txId ledgerTx
+  void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
   Contract.logInfo @String $ printf "Provided rewards to all xGOV holders"
   where
     err = Contract.throwError "Could not find PublicKeyHash."
