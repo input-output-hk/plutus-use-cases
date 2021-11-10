@@ -197,7 +197,7 @@ data StartAnAuctionParams =
   StartAnAuctionParams {
     saapItemId       :: UserItemId,
     saapInitialPrice :: Ada,
-    saapDuration     :: Integer
+    saapEndTime      :: POSIXTime
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -216,15 +216,14 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
         Core.bundleValue cids <$> getBundleEntry nftStore bundleId
 
     currTime <- currentTime
-    let endTime = currTime + fromMilliSeconds (DiffMilliSeconds saapDuration)
+    when (saapEndTime < currTime) $ throwError "Auction end time is from the past"
 
     self <- Ledger.pubKeyHash <$> ownPubKey
     let startAuctionParams = Auction.StartAuctionParams {
       sapOwner = self,
       sapAsset = auctionValue,
       sapInitialPrice = saapInitialPrice,
-      sapDuration = saapDuration,
-      sapEndTime = endTime,
+      sapEndTime = saapEndTime,
       sapAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
     }
     auction <- mapError (T.pack . Haskell.show) $ Auction.startAuction startAuctionParams

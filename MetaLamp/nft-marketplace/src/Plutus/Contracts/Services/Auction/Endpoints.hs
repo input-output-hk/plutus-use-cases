@@ -55,7 +55,6 @@ data StartAuctionParams = StartAuctionParams {
     sapOwner        :: !PubKeyHash,
     sapAsset        :: !Value,
     sapInitialPrice :: !Ada,
-    sapDuration     :: !Integer,
     sapEndTime      :: !Ledger.POSIXTime,
     sapAuctionFee   :: Maybe AuctionFee
 }
