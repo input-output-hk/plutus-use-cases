@@ -21,7 +21,6 @@ import PlutusTx qualified
 import Ledger (
   Datum (..),
   Redeemer (..),
-  getCardanoTxId,
  )
 
 import Ledger.Constraints qualified as Constraints
@@ -71,11 +70,9 @@ openAuction symbol (AuctionOpenParams nftId deadline minBid) = do
               pi'TOR
               (Redeemer . PlutusTx.toBuiltinData $ action)
           ]
-  ledgerTx <- Contract.submitTxConstraintsWith @NftTrade lookups tx
+  void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
   Contract.tell . Last . Just . Left $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Started auction for %s" $ Hask.show nftVal
-  void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
-  void $ Contract.logInfo @Hask.String $ printf "Confirmed start auction for %s" $ Hask.show nftVal
   where
     newAuctionState =
       AuctionState
@@ -89,5 +86,6 @@ openAuction symbol (AuctionOpenParams nftId deadline minBid) = do
         { node'information =
             (node'information node)
               { info'auctionState = Just newAuctionState
+              , info'price = Nothing
               }
         }

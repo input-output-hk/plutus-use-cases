@@ -22,7 +22,6 @@ import Ledger (
   Datum (..),
   Redeemer (..),
   from,
-  getCardanoTxId,
  )
 
 import Ledger.Constraints qualified as Constraints
@@ -90,11 +89,9 @@ closeAuction symbol (AuctionCloseParams nftId) = do
             ]
               ++ bidDependentTxConstraints
           )
-  ledgerTx <- Contract.submitTxConstraintsWith @NftTrade lookups tx
+  void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
   Contract.tell . Last . Just . Left $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Closing auction for %s" $ Hask.show nftVal
-  void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
-  void $ Contract.logInfo @Hask.String $ printf "Confirmed close auction for %s" $ Hask.show nftVal
   where
     updateDatum newOwner node =
       node

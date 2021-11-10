@@ -298,10 +298,12 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "Only one Node must be used in a SetPrice Action." onlyOneNodeAttached
               && traceIfFalse "Not all used Tokens are returned." checkTokenReturned
               && traceIfFalse "Returned Token UTXO has mismatching datum." checkMissMatchDatum
+              && traceIfFalse "NFT is on auction" True -- todo
           OpenAuctionAct {} ->
             traceIfFalse "Can't open auction: already in progress" noAuctionInProgress
               && traceIfFalse "Only owner can open auction" signedByOwner
               && traceIfFalse "Auction: datum illegally altered" auctionConsistentOpenDatum
+              && traceIfFalse "NFT price must be set to Nothing" True -- todo
           BidAuctionAct {..} ->
             traceIfFalse "Can't bid: No auction is in progress" (not noAuctionInProgress)
               && traceIfFalse "Auction bid is too low" (auctionBidHighEnough act'bid)
@@ -363,21 +365,10 @@ mkTxPolicy !datum' !act !ctx =
 
         withAuctionState f = maybe (traceError "Auction state expected") f mauctionState
 
-        convDatum :: Datum -> Maybe DatumNft
-        convDatum (Datum d) = PlutusTx.fromBuiltinData d
-
-        newDatum :: DatumNft
-        newDatum =
-          case getContinuingOutputs ctx of
-            [out] ->
-              case txOutDatumHash out of
-                Nothing -> traceError "getNextDatum: expected datum hash"
-                Just dhash ->
-                  case findDatum dhash info >>= convDatum of
-                    Nothing -> traceError "getNextDatum: expected datum"
-                    Just dt -> dt
-            [] -> traceError "nextDatum: expected exactly one continuing output, got none"
-            _ -> traceError "nextDatum: expected exactly one continuing output, got several instead"
+        newDatum = case getOutputDatums ctx of
+          [x] -> x
+          [] -> traceError "Expected exactly one input with datums. Receiving none."
+          _ -> traceError "Expected exactly one input with datums. Receiving more."
 
         newNodeInfo :: InformationNft
         newNodeInfo =
@@ -494,7 +485,6 @@ mkTxPolicy !datum' !act !ctx =
             && info'share newNodeInfo == info'share nInfo
             && info'author newNodeInfo == info'author nInfo
             && info'owner newNodeInfo == info'owner nInfo
-            && info'price newNodeInfo == info'price nInfo
 
         auctionConsistentDatum :: Integer -> Bool
         auctionConsistentDatum redeemerBid =
