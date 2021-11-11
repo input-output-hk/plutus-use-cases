@@ -6,15 +6,16 @@ module Mlabs.NFT.Api (
   endpoints,
   queryEndpoints,
   adminEndpoints,
+  nftMarketUserEndpoints,
 ) where
 
---import Data.Monoid (Last (..))
---import Data.Text (Text)
+import Data.Monoid (Last (..))
+import Data.Text (Text)
 
 import Control.Monad (void)
 
 import Playground.Contract (mkSchemaDefinitions)
-import Plutus.Contract (Endpoint, endpoint, type (.\/))
+import Plutus.Contract (Contract, Endpoint, Promise, endpoint, type (.\/))
 import Prelude as Hask
 
 import Mlabs.NFT.Contract.BidAuction (bidAuction)
@@ -25,7 +26,7 @@ import Mlabs.NFT.Contract.Mint (mint)
 import Mlabs.NFT.Contract.OpenAuction (openAuction)
 import Mlabs.NFT.Contract.Query (queryCurrentOwner, queryCurrentPrice, queryListNfts)
 import Mlabs.NFT.Contract.SetPrice (setPrice)
-import Mlabs.NFT.Types (AdminContract, AuctionBidParams (..), AuctionCloseParams (..), AuctionOpenParams (..), BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), SetPriceParams (..), UserContract)
+import Mlabs.NFT.Types (AdminContract, AuctionBidParams (..), AuctionCloseParams (..), AuctionOpenParams (..), BuyRequestUser (..), MintParams (..), NftAppSymbol (..), NftId (..), SetPriceParams (..), UserContract, UserWriter)
 import Mlabs.Plutus.Contract (selectForever)
 
 -- | A common App schema works for now.
@@ -54,31 +55,47 @@ type ApiUserContract a = UserContract NFTAppSchema a
 
 type ApiAdminContract a = AdminContract NFTAppSchema a
 
+-- | Utility function to create endpoints from promises.
+mkEndpoints :: forall w s e a b. (b -> [Promise w s e a]) -> b -> Contract w s e a
+mkEndpoints listCont = selectForever . listCont
+
 -- | User Endpoints .
 endpoints :: NftAppSymbol -> ApiUserContract ()
-endpoints appSymbol =
-  selectForever
-    [ endpoint @"mint" (mint appSymbol)
-    , endpoint @"buy" (buy appSymbol)
-    , endpoint @"set-price" (setPrice appSymbol)
-    , --, endpoint @"query-authentic-nft" NFTContract.queryAuthenticNFT
-      endpoint @"auction-open" (openAuction appSymbol)
-    , endpoint @"auction-close" (closeAuction appSymbol)
-    , endpoint @"auction-bid" (bidAuction appSymbol)
-    ]
+endpoints = mkEndpoints userEndpointsList
+
+-- | Query Endpoints are used for Querying, with no on-chain tx generation.
+queryEndpoints :: NftAppSymbol -> ApiUserContract ()
+queryEndpoints = mkEndpoints queryEndpointsList
 
 -- | Admin Endpoints
 adminEndpoints :: ApiAdminContract ()
-adminEndpoints =
-  selectForever
-    [ endpoint @"app-init" $ Hask.const initApp
-    ]
+adminEndpoints = mkEndpoints (const adminEndpointsList) ()
 
--- Query Endpoints are used for Querying, with no on-chain tx generation.
-queryEndpoints :: NftAppSymbol -> ApiUserContract ()
-queryEndpoints appSymbol =
-  selectForever
-    [ endpoint @"query-current-price" (void . queryCurrentPrice appSymbol)
-    , endpoint @"query-current-owner" (void . queryCurrentOwner appSymbol)
-    , endpoint @"query-list-nfts" (void . const (queryListNfts appSymbol))
-    ]
+-- | Endpoints for NFT marketplace user - combination of user and query endpoints.
+nftMarketUserEndpoints :: NftAppSymbol -> ApiUserContract ()
+nftMarketUserEndpoints = mkEndpoints (userEndpointsList <> queryEndpointsList)
+
+-- | List of User Promises.
+userEndpointsList :: NftAppSymbol -> [Promise UserWriter NFTAppSchema Text ()]
+userEndpointsList appSymbol =
+  [ endpoint @"mint" (mint appSymbol)
+  , endpoint @"buy" (buy appSymbol)
+  , endpoint @"set-price" (setPrice appSymbol)
+  , endpoint @"auction-open" (openAuction appSymbol)
+  , endpoint @"auction-close" (closeAuction appSymbol)
+  , endpoint @"auction-bid" (bidAuction appSymbol)
+  ]
+
+-- | List of Query endpoints.
+queryEndpointsList :: NftAppSymbol -> [Promise UserWriter NFTAppSchema Text ()]
+queryEndpointsList appSymbol =
+  [ endpoint @"query-current-price" (void . queryCurrentPrice appSymbol)
+  , endpoint @"query-current-owner" (void . queryCurrentOwner appSymbol)
+  , endpoint @"query-list-nfts" (void . const (queryListNfts appSymbol))
+  ]
+
+-- | List of admin endpoints.
+adminEndpointsList :: [Promise (Last NftAppSymbol) NFTAppSchema Text ()]
+adminEndpointsList =
+  [ endpoint @"app-init" $ Hask.const initApp
+  ]

@@ -44,6 +44,7 @@ common common-imports
     , cardano-api
     , cardano-ledger-alonzo
     , plutus-extra
+    , purescript-bridge
 
 common common-language
     default-extensions:
@@ -152,6 +153,9 @@ library
     Mlabs.NFT.Contract.OpenAuction
     Mlabs.NFT.Contract.CloseAuction
     Mlabs.NFT.Contract.BidAuction
+    Mlabs.NFT.PAB.MarketplaceContract
+    Mlabs.NFT.PAB.Run
+    Mlabs.NFT.PAB.Simulator
     Mlabs.NFT.Types
     Mlabs.NFT.Validation
     Mlabs.Nft.Contract
@@ -219,6 +223,15 @@ executable lendex-demo
   import:  common-ghc-options  
 
   main-is: lendex-demo/Main.hs
+  build-depends: mlabs-plutus-use-cases
+
+executable nft-marketplace
+  import:  common-imports
+  import:  common-language
+  import:  common-configs
+  import:  common-ghc-options  
+
+  main-is: nft-marketplace/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 Test-suite mlabs-plutus-use-cases-tests

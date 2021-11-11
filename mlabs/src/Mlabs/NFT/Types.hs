@@ -56,6 +56,7 @@ import Ledger (
   TxOutRef,
  )
 
+import Data.OpenApi.Schema qualified as OpenApi
 import Ledger.Value (TokenName (..), unAssetClass)
 import Plutus.ChainIndex (ChainIndexTx)
 import PlutusTx qualified
@@ -356,8 +357,8 @@ instance Eq NftAppInstance where
   (NftAppInstance a b) == (NftAppInstance a' b') = a == a' && b == b'
 
 newtype NftAppSymbol = NftAppSymbol {app'symbol :: CurrencySymbol}
-  deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
+  deriving anyclass (ToJSON, FromJSON, OpenApi.ToSchema)
 
 PlutusTx.unstableMakeIsData ''NftAppSymbol
 PlutusTx.makeLift ''NftAppSymbol
