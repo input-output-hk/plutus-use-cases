@@ -157,6 +157,10 @@ library
     Mlabs.NFT.Contract.SetPrice
     Mlabs.NFT.Governance
     Mlabs.NFT.Governance.Validation
+    Mlabs.NFT.Governance.Types
+    Mlabs.NFT.Epoch
+    Mlabs.NFT.Epoch.Validation
+    Mlabs.NFT.Epoch.Types 
     Mlabs.NFT.PAB.MarketplaceContract
     Mlabs.NFT.PAB.Run
     Mlabs.NFT.PAB.Simulator

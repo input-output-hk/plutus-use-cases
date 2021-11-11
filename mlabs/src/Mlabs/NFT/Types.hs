@@ -519,7 +519,6 @@ instance Eq UserAct where
     newPrice1 == newPrice2 && symbol1 == symbol2
   _ == _ = False
 
-
 --------------------------------------------------------------------------------
 -- GOV
 

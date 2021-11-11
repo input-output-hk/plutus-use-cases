@@ -1,4 +1,2 @@
-module Mlabs.NFT.Governance.Types
-  (
-  )
-where
+module Mlabs.NFT.Governance.Types (
+  ) where
