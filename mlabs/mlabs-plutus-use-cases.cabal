@@ -173,7 +173,7 @@ library
     Mlabs.Plutus.PAB
     Mlabs.System.Console.PrettyLogger
     Mlabs.System.Console.Utils
-    Mlabs.Utils.Wallet 
+    Mlabs.Utils.Wallet
 
 executable mlabs-plutus-use-cases
   import:  common-imports

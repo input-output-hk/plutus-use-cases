@@ -13,6 +13,7 @@ module Test.NFT.Init (
   userQueryPrice,
   userQueryOwner,
   userQueryListNfts,
+  userQueryContent,
   userSetPrice,
   w1,
   w2,
@@ -166,6 +167,13 @@ userQueryListNfts wal = do
   lift $ do
     hdl <- activateContractWallet wal (queryEndpoints symbol)
     callEndpoint @"query-list-nfts" hdl ()
+
+userQueryContent :: Wallet -> Content -> Script
+userQueryContent wal content = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (queryEndpoints symbol)
+    callEndpoint @"query-content" hdl content
 
 {- | Initial distribution of wallets for testing.
  We have 3 users. All of them get 1000 lovelace at the start.

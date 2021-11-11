@@ -6,6 +6,8 @@ module Mlabs.NFT.Contract.Query (
   queryCurrentOwner,
   queryListNfts,
   QueryContract,
+  queryContent,
+  queryContentLog,
 ) where
 
 import Control.Monad ()
@@ -13,12 +15,13 @@ import Control.Monad ()
 import Data.Monoid (Last (..), mconcat)
 import Data.Text (Text)
 import GHC.Base (join)
-import Mlabs.NFT.Contract (getDatumsTxsOrdered, getsNftDatum)
+import Mlabs.NFT.Contract.Aux (getDatumsTxsOrdered, getNftDatum, getsNftDatum, hashData)
 import Mlabs.NFT.Types (
+  Content,
   DatumNft (..),
   InformationNft (..),
   NftAppSymbol,
-  NftId,
+  NftId (..),
   NftListNode (..),
   PointInfo (..),
   QueryResponse (..),
@@ -86,3 +89,24 @@ queryListNfts symbol = do
 -- | Log of list of NFTs available in app. Used in testing as well.
 queryListNftsLog :: [InformationNft] -> String
 queryListNftsLog infos = mconcat ["Available NFTs: ", show infos]
+
+-- | Given an application instance and a `Content` returns the status of the NFT
+queryContent :: NftAppSymbol -> Content -> QueryContract QueryResponse
+queryContent appSymbol content = do
+  let nftId = NftId . hashData $ content
+  datum <- getNftDatum nftId appSymbol
+  status <- wrap $ getStatus datum
+  Contract.tell (Last . Just . Right $ status)
+  log status
+  return status
+  where
+    wrap = return . QueryContent
+    getStatus :: Maybe DatumNft -> Maybe InformationNft
+    getStatus = \case
+      Just (NodeDatum nftListNode) -> Just $ node'information nftListNode
+      _ -> Nothing
+    log status = Contract.logInfo @String $ queryContentLog content status
+
+-- | Log of status of a content. Used in testing as well.
+queryContentLog :: Content -> QueryResponse -> String
+queryContentLog content info = mconcat ["Content status of: ", show content, " is: ", show info]

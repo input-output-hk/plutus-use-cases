@@ -11,6 +11,8 @@ module Test.NFT.Trace (
   test,
   testAuction1,
   severalBuysTest,
+  testGetContent2,
+  testGetContent1,
 ) where
 
 import PlutusTx.Prelude
@@ -39,6 +41,8 @@ import Mlabs.NFT.Types
 type AppTraceHandle = Trace.ContractHandle UserWriter NFTAppSchema Text
 
 type AppInitHandle = Trace.ContractHandle (Last NftAppSymbol) NFTAppSchema Text
+
+--type AppQueryHandle = Trace.ContractHandle (Last QueryResponse) NFTAppSchema Text
 
 -- | Initialise the Application
 appInitTrace :: EmulatorTrace NftAppSymbol
@@ -86,6 +90,76 @@ mint1Trace = do
         , mp'price = Just 5
         }
 
+getContentTrace1 :: EmulatorTrace ()
+getContentTrace1 = do
+  aSymb <- appInitTrace
+  let wallet1 = walletFromNumber 1 :: Emulator.Wallet
+  h1 :: AppTraceHandle <- activateContractWallet wallet1 $ endpoints aSymb
+  callEndpoint @"mint" h1 artwork
+  void $ Trace.waitNSlots 1
+
+  h1' :: AppTraceHandle <- activateContractWallet wallet1 $ queryEndpoints aSymb
+
+  callEndpoint @"query-content" h1' $ Content "A painting."
+  void $ Trace.waitNSlots 1
+
+  oState <- Trace.observableState h1'
+  void $ Trace.waitNSlots 1
+  logInfo $ Hask.show oState
+  void $ Trace.waitNSlots 1
+  where
+    artwork =
+      MintParams
+        { mp'content = Content "A painting."
+        , mp'title = Title "Fiona Lisa"
+        , mp'share = 1 % 10
+        , mp'price = Just 5
+        }
+
+-- | Two users mint two different artworks.
+getContentTrace2 :: EmulatorTrace ()
+getContentTrace2 = do
+  aSymb <- appInitTrace
+  let wallet1 = walletFromNumber 1 :: Emulator.Wallet
+  h1 :: AppTraceHandle <- activateContractWallet wallet1 $ endpoints aSymb
+  void $ Trace.waitNSlots 1
+  h1' :: AppTraceHandle <- activateContractWallet wallet1 $ queryEndpoints aSymb
+
+  callEndpoint @"mint" h1 artwork
+  void $ Trace.waitNSlots 1
+  callEndpoint @"mint" h1 artwork2
+  void $ Trace.waitNSlots 1
+  callEndpoint @"mint" h1 artwork3
+  void $ Trace.waitNSlots 1
+  callEndpoint @"query-content" h1' $ Content "A painting."
+  void $ Trace.waitNSlots 1
+  oState <- Trace.observableState h1'
+  void $ Trace.waitNSlots 1
+  logInfo $ Hask.show oState
+  void $ Trace.waitNSlots 1
+  where
+    artwork =
+      MintParams
+        { mp'content = Content "A painting."
+        , mp'title = Title "Fiona Lisa"
+        , mp'share = 1 % 10
+        , mp'price = Just 5
+        }
+    artwork2 =
+      MintParams
+        { mp'content = Content "Another painting."
+        , mp'title = Title "Fiona Lisa"
+        , mp'share = 1 % 10
+        , mp'price = Just 5
+        }
+    artwork3 =
+      MintParams
+        { mp'content = Content "Another painting2."
+        , mp'title = Title "Fiona Lisa"
+        , mp'share = 1 % 10
+        , mp'price = Just 5
+        }
+
 -- | Two users mint two different artworks.
 mintTrace2 :: EmulatorTrace ()
 mintTrace2 = do
@@ -95,6 +169,7 @@ mintTrace2 = do
   callEndpoint @"mint" h1 artwork
   void $ Trace.waitNSlots 1
   callEndpoint @"mint" h1 artwork2
+  void $ Trace.waitNSlots 1
   where
     artwork =
       MintParams
@@ -271,6 +346,25 @@ setPriceTrace = do
 --         , mp'price = Just 100
 --         }
 
+-- | Test for initialising the App
+testInit :: Hask.IO ()
+testInit = runEmulatorTraceIO $ void appInitTrace
+
+-- | Test for Minting one token
+testMint :: Hask.IO ()
+testMint = runEmulatorTraceIO mint1Trace
+
+testMint2 :: Hask.IO ()
+testMint2 = runEmulatorTraceIO mintTrace2
+
+testAny :: EmulatorTrace () -> Hask.IO ()
+testAny = runEmulatorTraceIO
+
+testGetContent1 :: Hask.IO ()
+testGetContent1 = runEmulatorTraceIO getContentTrace1
+testGetContent2 :: Hask.IO ()
+testGetContent2 = runEmulatorTraceIO getContentTrace2
+
 auctionTrace1 :: EmulatorTrace ()
 auctionTrace1 = do
   aSymb <- appInitTrace
@@ -331,20 +425,6 @@ auctionTrace1 = do
     closeParams nftId = AuctionCloseParams nftId
 
     bidParams = AuctionBidParams
-
--- | Test for initialising the App
-testInit :: Hask.IO ()
-testInit = runEmulatorTraceIO $ void appInitTrace
-
--- | Test for Minting one token
-testMint :: Hask.IO ()
-testMint = runEmulatorTraceIO mint1Trace
-
-testMint2 :: Hask.IO ()
-testMint2 = runEmulatorTraceIO mintTrace2
-
-testAny :: EmulatorTrace () -> Hask.IO ()
-testAny = runEmulatorTraceIO
 
 -- | Test for prototyping.
 test :: Hask.IO ()

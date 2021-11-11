@@ -311,14 +311,6 @@ data InformationNft = InformationNft
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
--- | A datatype used by the QueryContract to return a response
-data QueryResponse
-  = QueryCurrentOwner (Maybe UserId)
-  | QueryCurrentPrice (Maybe Integer)
-  | QueryListNfts [InformationNft]
-  deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON)
-
 PlutusTx.unstableMakeIsData ''MintAct
 PlutusTx.unstableMakeIsData ''NftId
 
@@ -525,6 +517,15 @@ instance Eq UserAct where
   _ == _ = False
 
 -- OffChain utility types.
+
+-- | A datatype used by the QueryContract to return a response
+data QueryResponse
+  = QueryCurrentOwner (Maybe UserId)
+  | QueryCurrentPrice (Maybe Integer)
+  | QueryContent (Maybe InformationNft)
+  | QueryListNfts [InformationNft]
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
 
 -- | Easy type to find and use Nodes by.
 data PointInfo = PointInfo
