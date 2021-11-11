@@ -32,7 +32,6 @@ data MarketplaceContracts =
     MarketplaceStart
     | MarketplaceInfo Marketplace.Marketplace
     | MarketplaceUser Marketplace.Marketplace
-    | MarketplaceController Marketplace.Marketplace
     deriving (Eq, Show, Generic)
     deriving anyclass (J.FromJSON, J.ToJSON, OpenApi.ToSchema)
 
@@ -45,9 +44,7 @@ instance Builtin.HasDefinitions MarketplaceContracts where
         MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
         MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
         MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
-        MarketplaceController _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceControllerSchema
     getContract = \case
         MarketplaceInfo marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.infoEndpoints marketplace
         MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
         MarketplaceStart           -> SomeBuiltin . awaitPromise $ Marketplace.ownerEndpoints
-        MarketplaceController marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.controllerEndpoints marketplace

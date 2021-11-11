@@ -39,7 +39,9 @@ import           Data.Text                                           (Text)
 import           Data.Text.Prettyprint.Doc                           (Pretty (..),
                                                                       viaShow)
 import qualified Data.Time.Clock                                     as Time
-import           Ext.Plutus.Ledger.Time                              (convertUtcToPOSIX)
+import           Ext.Plutus.Ledger.Time                              (Seconds (..),
+                                                                      addToBeginningOfTime,
+                                                                      convertUtcToPOSIX)
 import qualified Ext.Plutus.PAB.Webserver.Server                     as Ext.Plutus.PAB
 import           GHC.Generics                                        (Generic)
 import           Ledger
@@ -50,6 +52,7 @@ import           Ledger.Ada                                          (adaSymbol,
 import qualified Ledger.Ada                                          as Ada
 import           Ledger.Constraints
 import qualified Ledger.Constraints.OffChain                         as Constraints
+import           Ledger.TimeSlot                                     (SlotConfig (..))
 import qualified Ledger.Typed.Scripts                                as Scripts
 import           Ledger.Value                                        as Value
 import           Network.HTTP.Client                                 (defaultManagerSettings,
@@ -63,11 +66,9 @@ import           Plutus.Contract                                     hiding
                                                                      (when)
 import           Plutus.Contracts.Currency                           as Currency
 import qualified Plutus.Contracts.NftMarketplace.Endpoints           as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OffChain.Controller as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OffChain.Owner      as Owner
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core        as Marketplace
 import qualified Plutus.Contracts.Services.Sale                      as Sale
-import           Plutus.PAB.Client                                   (loopController)
 import           Plutus.PAB.Effects.Contract                         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin                 (Builtin,
                                                                       SomeBuiltin (..),
@@ -116,7 +117,7 @@ startMarketplaceParams = Owner.StartMarketplaceParams {
 initialLotPrice :: Value.Value
 initialLotPrice = lovelaceValueOf 100000000 -- 100 ADA
 
-data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId, cidController :: ContractInstanceId }
+data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
 activateContracts :: Simulation (Builtin MarketplaceContracts) ContractIDs
 activateContracts = do
@@ -134,21 +135,18 @@ activateContracts = do
         Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace user contract started for " ++ show w
         return (w, cid)
 
-    cidController <- Simulator.activateContract ownerWallet $ MarketplaceController mp
-
-    pure $ ContractIDs users cidInfo cidController
+    pure $ ContractIDs users cidInfo
 
 startMpServer :: IO ()
 startMpServer = do
     beginningOfTime <- convertUtcToPOSIX <$> Time.getCurrentTime
-    void $ Simulator.runSimulationWith handlers $ do
+    void $ Simulator.runSimulationWith (handlers $ slotConfiguration beginningOfTime) $ do
         Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
         shutdown <- Ext.Plutus.PAB.startServer
 
         ContractIDs {..} <- activateContracts
 
         manager <- liftIO . newManager $ defaultManagerSettings
-        _ <- liftIO . forkIO . void $ loopController (mkClientEnv manager (BaseUrl Http "localhost" 9080 "")) cidController
 
         Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
         _ <- liftIO getLine
@@ -156,7 +154,7 @@ startMpServer = do
 
 runNftMarketplace :: IO ()
 runNftMarketplace =
-    void $ Simulator.runSimulationWith handlers $ do
+    void $ Simulator.runSimulationWith (handlers def) $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
@@ -250,7 +248,7 @@ runNftMarketplace =
     let auction = Marketplace.StartAnAuctionParams {
                         saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
                         saapInitialPrice = fromInteger $ 5 * oneAdaInLovelace,
-                        saapDuration = 25 * 1000
+                        saapEndTime = addToBeginningOfTime $ Seconds 55
                     }
     _  <-
         Simulator.callEndpointOnInstance userCid "startAnAuction" auction
@@ -332,9 +330,15 @@ runNftMarketplace =
     _ <- liftIO getLine
     shutdown
 
-handlers :: SimulatorEffectHandlers (Builtin MarketplaceContracts)
-handlers =
-    Simulator.mkSimulatorHandlers def def
+slotConfiguration :: POSIXTime -> SlotConfig
+slotConfiguration beginningOfTime = SlotConfig
+        { scSlotLength   = 1000
+        , scSlotZeroTime = beginningOfTime
+        }
+
+handlers :: SlotConfig -> SimulatorEffectHandlers (Builtin MarketplaceContracts)
+handlers slotConfig =
+    Simulator.mkSimulatorHandlers def slotConfig
     $ interpret (Builtin.contractHandler (Builtin.handleBuiltin @MarketplaceContracts))
 
 oneAdaInLovelace :: Integer

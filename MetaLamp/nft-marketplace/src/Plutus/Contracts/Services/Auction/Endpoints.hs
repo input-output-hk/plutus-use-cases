@@ -56,7 +56,6 @@ data StartAuctionParams = StartAuctionParams {
     sapOwner        :: !PubKeyHash,
     sapAsset        :: !Value,
     sapInitialPrice :: !Ada,
-    sapDuration     :: !Integer,
     sapEndTime      :: !Ledger.POSIXTime,
     sapAuctionFee   :: Maybe AuctionFee
 }
@@ -94,8 +93,6 @@ payoutAuction :: Auction -> Contract w s AuctionError ()
 payoutAuction auction = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
-
-    _ <- awaitTime $ aEndTime auction
 
     r <- SM.runStep client Payout
     case r of

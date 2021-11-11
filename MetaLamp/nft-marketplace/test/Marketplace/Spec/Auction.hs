@@ -15,6 +15,8 @@ import           Data.Maybe                                   (isNothing)
 import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
+import           Ext.Plutus.Ledger.Time                       (Seconds (..),
+                                                               addToBeginningOfTime)
 import           Ledger                                       (Value)
 import           Ledger.Ada                                   (lovelaceValueOf)
 import qualified Ledger.Value                                 as V
@@ -35,7 +37,6 @@ import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress)
-
 tests :: TestTree
 tests =
   testGroup
@@ -149,7 +150,7 @@ startAnAuctionParams ::        Marketplace.StartAnAuctionParams
 startAnAuctionParams =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-    Marketplace.saapDuration = 155 * 1000,
+    Marketplace.saapEndTime = addToBeginningOfTime $ Seconds 155,
     Marketplace.saapInitialPrice = fromInteger $ 5 * Fixtures.oneAdaInLovelace
   }
 
@@ -251,7 +252,7 @@ cancelAuctionWithoutBidsTrace = do
 cancelAuctionWhenTimeIsOverTrace :: Trace.EmulatorTrace ()
 cancelAuctionWhenTimeIsOverTrace = do
   h <- CreateNft.createNftTrace
-  let startAuctionParamsWithLessTime = startAnAuctionParams {Marketplace.saapDuration = 1 * 1000}
+  let startAuctionParamsWithLessTime = startAnAuctionParams {Marketplace.saapEndTime = addToBeginningOfTime $ Seconds 5}
 
   _ <- Trace.callEndpoint @"startAnAuction" h startAuctionParamsWithLessTime
 
@@ -343,7 +344,7 @@ startAnAuctionParamsB ::        Marketplace.StartAnAuctionParams
 startAnAuctionParamsB =  Marketplace.StartAnAuctionParams
         {
     Marketplace.saapItemId   = Marketplace.UserBundleId Fixtures.cids,
-    Marketplace.saapDuration = 142 * 1000,
+    Marketplace.saapEndTime = addToBeginningOfTime $ Seconds 300,
     Marketplace.saapInitialPrice = fromInteger $ 15 * Fixtures.oneAdaInLovelace
   }
 
