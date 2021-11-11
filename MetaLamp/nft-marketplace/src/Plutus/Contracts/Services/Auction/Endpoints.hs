@@ -50,6 +50,7 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                        as Haskell
 import qualified Schema
+import Plutus.Contract.Request (ownPubKeyHash)
 
 data StartAuctionParams = StartAuctionParams {
     sapOwner        :: !PubKeyHash,
@@ -128,7 +129,7 @@ submitBid :: Auction -> Ada -> Contract w s AuctionError ((Either T.Text ()))
 submitBid auction ada = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
-    self <- Ledger.pubKeyHash <$> ownPubKey
+    self <- ownPubKeyHash
     let bid = Bid{newBid = ada, newBidder = self}
     result <- SM.runStep client bid
     case result of

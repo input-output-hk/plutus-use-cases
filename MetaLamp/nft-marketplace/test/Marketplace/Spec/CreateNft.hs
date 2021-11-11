@@ -25,7 +25,7 @@ import qualified Plutus.Trace                                 as Trace
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
-import           Wallet.Emulator.Wallet                       (walletAddress)
+import           Wallet.Emulator.Wallet                       (walletAddress, walletPubKeyHash)
 
 tests :: TestTree
 tests =
@@ -86,7 +86,7 @@ datumsCheck' =
     (Utils.checkOneDatum (containsNft . Marketplace.mdSingletons))
     where
       containsNft = maybe False (\t -> (t ^. Marketplace._nftLot & isNothing) &&
-                                t ^. Marketplace._nftRecord . Marketplace._niIssuer == Just (Utils.walletPkh Fixtures.userWallet) &&
+                                t ^. Marketplace._nftRecord . Marketplace._niIssuer == Just (walletPubKeyHash Fixtures.userWallet) &&
                                 (t ^. Marketplace._nftRecord & Fixtures.hasCatTokenRecord)) .
                     AssocMap.lookup Fixtures.catTokenIpfsCidHash
 

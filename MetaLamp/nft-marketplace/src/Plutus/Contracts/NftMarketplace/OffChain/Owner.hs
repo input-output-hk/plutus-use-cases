@@ -38,6 +38,7 @@ import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import qualified Schema
 import           Text.Printf                                  (printf)
+import Plutus.Contract.Request (ownPubKeyHash)
 
 data StartMarketplaceParams = StartMarketplaceParams {
     creationFee :: Integer,  -- fee by minting and bundling
@@ -49,7 +50,7 @@ data StartMarketplaceParams = StartMarketplaceParams {
 -- | Starts the NFT Marketplace protocol: minting protocol NFT, creating empty nft storage
 start :: StartMarketplaceParams -> Contract w s Text Core.Marketplace
 start StartMarketplaceParams {..} = do
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- ownPubKeyHash
     saleFeePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage saleFee
     let marketplace = Core.Marketplace pkh (lovelaceValueOf creationFee) saleFeePercentage
     let client = Core.marketplaceClient marketplace

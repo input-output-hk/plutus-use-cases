@@ -10,11 +10,6 @@ in
     nativeBuildInputs = with plutus-starter; [
       hlint
       cabal-install
-      nodejs
-      purs
-      spago
-      purty
-      fix-purty
       fix-stylish-haskell
       haskell-language-server
       stylish-haskell

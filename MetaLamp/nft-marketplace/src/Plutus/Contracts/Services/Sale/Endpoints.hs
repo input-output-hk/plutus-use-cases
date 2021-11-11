@@ -39,6 +39,7 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
+import Plutus.Contract.Request (ownPubKeyHash)
 
 data OpenSaleParams =
   OpenSaleParams {
@@ -55,7 +56,7 @@ PlutusTx.makeLift ''OpenSaleParams
 -- | Starts the Sale protocol and mints protocol NFT
 openSale :: OpenSaleParams -> Contract w s Text Core.Sale
 openSale OpenSaleParams {..} = do
-    pkh <- getOwnPubKey
+    pkh <- ownPubKeyHash
     saleToken <- mapError (T.pack . Haskell.show @SMContractError) $ getThreadToken
     let sale = Core.Sale
                 { saleProtocolToken = saleToken,
@@ -73,7 +74,7 @@ openSale OpenSaleParams {..} = do
 -- | The user buys sale value paying sale price
 buyLot :: Core.Sale -> Contract w s Text ()
 buyLot sale = do
-    pkh <- getOwnPubKey
+    pkh <- ownPubKeyHash
     let client = Core.saleClient sale
     void $ mapError' $ runStep client $ Core.Buy pkh
 
@@ -83,15 +84,12 @@ buyLot sale = do
 -- | The user redeems sale value and sale protocol token
 redeemLot :: Core.Sale -> Contract w s Text ()
 redeemLot sale = do
-    pkh <- getOwnPubKey
+    pkh <- ownPubKeyHash
     let client = Core.saleClient sale
     void $ mapError' $ runStep client Core.Redeem
 
     logInfo @Haskell.String $ printf "User %s redeemed lot from sale %s" (Haskell.show pkh) (Haskell.show sale)
     pure ()
-
-getOwnPubKey :: Contract w s Text PubKeyHash
-getOwnPubKey = pubKeyHash <$> ownPubKey
 
 mapError' :: Contract w s SMContractError a -> Contract w s Text a
 mapError' = mapError $ T.pack . Haskell.show

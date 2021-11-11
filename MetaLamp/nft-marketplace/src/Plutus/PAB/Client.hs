@@ -29,8 +29,8 @@ loopController env contractId = forever $ do
     runController env contractId
 
 runController :: ClientEnv -> ContractInstanceId -> IO ()
-runController env (ContractInstanceId contractId) = do
-    let InstanceClient {..} = (instanceClient (pabClient @MarketplaceContracts @Integer)) (Text.pack . show $ contractId)
+runController env contractId = do
+    let InstanceClient {..} = (instanceClient (pabClient @MarketplaceContracts @Integer)) contractId
     res <- runClientM (callInstanceEndpoint "collect" (toJSON ())) env
     print res
     pure ()
