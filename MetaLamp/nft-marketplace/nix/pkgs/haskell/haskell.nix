@@ -19,10 +19,10 @@ let
     inherit compiler-nix-name;
 
     sha256map = {
-      "https://github.com/input-output-hk/plutus-apps.git"."plutus-starter-devcontainer/v1.0.14" = "0j3hphj4b21vwdj900233d67qsaj91mppwsx1vv0ichnmnw2bmir";
+      "https://github.com/input-output-hk/plutus-apps.git"."v2021-11-05" = "00pv5ds99lf6lmws3a3ipsn9amg56ayc9b0wqki2gky464dm6gzr";
       "https://github.com/Quid2/flat.git"."ee59880f47ab835dbd73bea0847dab7869fc20d8" = "1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm";
-      "https://github.com/input-output-hk/purescript-bridge.git"."6a92d7853ea514be8b70bab5e72077bf5a510596" = "13j64vv116in3c204qsl1v0ajphac9fqvsjp7x3zzfr7n7g61drb";
-      "https://github.com/input-output-hk/servant-purescript.git"."a0c7c7e37c95564061247461aef4be505a853538" = "177na04jf6wf18kandzsah40lw3xswmmccpr3hkb8wb4hypcffnf";
+      "https://github.com/input-output-hk/purescript-bridge.git"."366fc70b341e2633f3ad0158a577d52e1cd2b138" = "18j0rysfccbmfpbw2d1rsjkpd5h84alpsn6b5rwzdxw9h5vqi9m5";
+      "https://github.com/input-output-hk/servant-purescript.git"."ebea59c7bdfc0338d83fca772b9a57e28560bcde" = "0gjcq4y61kwb4w70pnswn5dp23wd13dac8d9hz84j374cm1kshsn";
       "https://github.com/input-output-hk/cardano-base"."4ea7e2d927c9a7f78ddc69738409a5827ab66b98" = "0n0hxbr0l95cdc25jmmgs7apmmw17i91chhj5rzzv1k7f3iymf6d";
       "https://github.com/input-output-hk/cardano-crypto.git"."07397f0e50da97eaa0575d93bee7ac4b2b2576ec" = "06sdx5ndn2g722jhpicmg96vsrys89fl81k8290b3lr6b1b0w4m3";
       "https://github.com/input-output-hk/cardano-ledger-specs"."bf008ce028751cae9fb0b53c3bef20f07c06e333" = "0my3801w1vinc0kf5yh9lxl6saqxgwm6ccg0vvzi104pafcwwcqx";
@@ -37,6 +37,7 @@ let
       "https://github.com/input-output-hk/cardano-wallet"."ae7569293e94241ef6829139ec02bd91abd069df" = "1mv1dhpkdj9ridm1fvq6jc85qs6zvbp172228rq72gyawjwrgvi6";
       "https://github.com/input-output-hk/cardano-addresses"."d2f86caa085402a953920c6714a0de6a50b655ec" = "0p6jbnd7ky2yf7bwb1350k8880py8dgqg39k49q02a6ij4ld01ay";
       "https://github.com/input-output-hk/plutus"."3f089ccf0ca746b399c99afe51e063b0640af547" = "1nx8xmdgwmnsla4qg4k67f5md8vm3p1p9i25ndalrqdg40z90486";
+      "https://github.com/j-mueller/cardano-wallet"."6be73ab852c0592713dfe78218856d4a8a0ee69e" = "0rx5hvmbdv5dwb4qq39vyhisj0v75j21jbiivn3s3q9za6m6x1p4";
     };
 
     modules = [
