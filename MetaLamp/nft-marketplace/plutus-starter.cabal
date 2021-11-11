@@ -51,7 +51,6 @@ library
       Plutus.Contracts.NftMarketplace.Endpoints
       Plutus.Contracts.NftMarketplace.OffChain.ID
       Plutus.Contracts.NftMarketplace.OffChain.Info
-      Plutus.Contracts.NftMarketplace.OffChain.Controller
       Plutus.Contracts.NftMarketplace.OffChain.Owner
       Plutus.Contracts.NftMarketplace.OffChain.Serialization
       Plutus.Contracts.NftMarketplace.OffChain.User
@@ -69,9 +68,8 @@ library
       Plutus.Contracts.Services.Sale.Endpoints
       Plutus.Contracts.Services.Sale.StateMachine
       Plutus.PAB.Simulation
-      Plutus.PAB.Client
       Plutus.PAB.MarketplaceContracts
-      
+
     build-depends:
       QuickCheck,
       aeson,
@@ -175,7 +173,7 @@ test-suite test
     hs-source-dirs: test
     other-modules:
       Abstract.Percentage
-      Abstract.RemoteDataSpec 
+      Abstract.RemoteDataSpec
       Marketplace.Fixtures
       Marketplace.Fixtures.CheckOptions
       Marketplace.Fixtures.NFT

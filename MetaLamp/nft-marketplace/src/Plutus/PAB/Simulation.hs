@@ -66,11 +66,9 @@ import           Plutus.Contract                                     hiding
                                                                      (when)
 import           Plutus.Contracts.Currency                           as Currency
 import qualified Plutus.Contracts.NftMarketplace.Endpoints           as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OffChain.Controller as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OffChain.Owner      as Owner
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core        as Marketplace
 import qualified Plutus.Contracts.Services.Sale                      as Sale
-import           Plutus.PAB.Client                                   (loopController)
 import           Plutus.PAB.Effects.Contract                         (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin                 (Builtin,
                                                                       SomeBuiltin (..),
@@ -119,7 +117,7 @@ startMarketplaceParams = Owner.StartMarketplaceParams {
 initialLotPrice :: Value.Value
 initialLotPrice = lovelaceValueOf 100000000 -- 100 ADA
 
-data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId, cidController :: ContractInstanceId }
+data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
 activateContracts :: Simulation (Builtin MarketplaceContracts) ContractIDs
 activateContracts = do
@@ -137,9 +135,7 @@ activateContracts = do
         Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace user contract started for " ++ show w
         return (w, cid)
 
-    cidController <- Simulator.activateContract ownerWallet $ MarketplaceController mp
-
-    pure $ ContractIDs users cidInfo cidController
+    pure $ ContractIDs users cidInfo
 
 startMpServer :: IO ()
 startMpServer = do
@@ -151,7 +147,6 @@ startMpServer = do
         ContractIDs {..} <- activateContracts
 
         manager <- liftIO . newManager $ defaultManagerSettings
-        _ <- liftIO . forkIO . void $ loopController (mkClientEnv manager (BaseUrl Http "localhost" 9080 "")) cidController
 
         Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
         _ <- liftIO getLine

@@ -93,8 +93,6 @@ payoutAuction auction = do
     let inst         = typedValidator auction
         client       = machineClient inst auction
 
-    _ <- awaitTime $ aEndTime auction
-
     r <- SM.runStep client Payout
     case r of
         SM.TransitionFailure i            -> logError (TransitionFailed i)
