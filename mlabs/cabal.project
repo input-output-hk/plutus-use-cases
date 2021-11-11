@@ -7,8 +7,8 @@ packages: ./.
 
 source-repository-package
   type: git
-  location: https://github.com/ngua/plutus-extra.git
-  tag: cc6fa1cffc503e02555e228b5616f32b6b3c2ce9
+  location: https://github.com/Liqwid-Labs/plutus-extra.git
+  tag: cf3d12645fd461a73ef64471852092d215399e86
   subdir: plutus-extra
           tasty-plutus
           plutus-pretty

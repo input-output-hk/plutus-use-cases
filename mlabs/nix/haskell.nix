@@ -88,7 +88,7 @@ in pkgs.haskell-nix.cabalProject rec {
       sources.Win32-network.sha256;
     "https://github.com/input-output-hk/optparse-applicative"."${sources.optparse-applicative.rev}" =
       sources.optparse-applicative.sha256;
-    "https://github.com/ngua/plutus-extra.git"."${sources.plutus-extra.rev}" =
+    "https://github.com/Liqwid-Labs/plutus-extra.git"."${sources.plutus-extra.rev}" =
       sources.plutus-extra.sha256;
   };
 }

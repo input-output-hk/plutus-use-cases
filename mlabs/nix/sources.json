@@ -230,12 +230,12 @@
         "branch": "master",
         "description": "Helper libraries for Plutus.",
         "homepage": "",
-        "owner": "ngua",
+        "owner": "Liqwid-Labs",
         "repo": "plutus-extra",
-        "rev": "cc6fa1cffc503e02555e228b5616f32b6b3c2ce9",
-        "sha256": "0bwd3k0hl8hcr3x1mdmaamvrl0w14j8j75m9049ymzvnf91nkfz3",
+        "rev": "cf3d12645fd461a73ef64471852092d215399e86",
+        "sha256": "0pxxnhrqdy3yfxf7p0cy028gk1wy6x8mfj8c45ygazapg210mjxy",
         "type": "tarball",
-        "url": "https://github.com/ngua/plutus-extra/archive/cc6fa1cffc503e02555e228b5616f32b6b3c2ce9.tar.gz",
+        "url": "https://github.com/Liqwid-Labs/plutus-extra/archive/cf3d12645fd461a73ef64471852092d215399e86.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "purescript-bridge": {
