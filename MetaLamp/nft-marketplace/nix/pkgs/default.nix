@@ -6,7 +6,7 @@
 let
   gitignore-nix = pkgs.callPackage plutus."gitignore.nix" { };
 
-  compiler-nix-name = plutus.plutus.haskell.compiler-nix-name;
+  compiler-nix-name = plutus.plutus-apps.haskell.compiler-nix-name;
 
   haskell = pkgs.callPackage ./haskell {
     inherit gitignore-nix sources haskell-nix;
@@ -14,27 +14,27 @@ let
     inherit (pkgs) libsodium-vrf;
   };
 
-  hlint = plutus.plutus.hlint;
+  hlint = plutus.plutus-apps.hlint;
 
-  cabal-install = plutus.plutus.cabal-install;
+  cabal-install = plutus.plutus-apps.cabal-install;
 
   nodejs = plutus.pkgs.nodejs;
 
-  purs = plutus.plutus.purs;
+  purs = plutus.plutus-apps.purs;
 
-  spago = plutus.plutus.spago;
+  spago = plutus.plutus-apps.spago;
 
-  purty = plutus.plutus.purty;
+  purty = plutus.plutus-apps.purty;
 
-  fix-purty = plutus.plutus.fixPurty;
+  fix-purty = plutus.plutus-apps.fixPurty;
 
-  fix-stylish-haskell = plutus.plutus.fixStylishHaskell;
+  fix-stylish-haskell = plutus.plutus-apps.fixStylishHaskell;
 
-  stylish-haskell = plutus.plutus.stylish-haskell;
+  stylish-haskell = plutus.plutus-apps.stylish-haskell;
 
-  haskell-language-server = plutus.plutus.haskell-language-server;
+  haskell-language-server = plutus.plutus-apps.haskell-language-server;
 
-  cardano-repo-tool = plutus.plutus.cardano-repo-tool;
+  cardano-repo-tool = plutus.plutus-apps.cardano-repo-tool;
 in
 {
   inherit nodejs purs spago purty fix-purty;
