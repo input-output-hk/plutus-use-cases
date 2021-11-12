@@ -273,7 +273,7 @@ validSecondBidData = SpendingTest dtm redeemer val
 
 validSecondBidContext :: ContextBuilder 'ForSpending
 validSecondBidContext =
-    paysOther NFT.txValHash (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
+  paysOther NFT.txValHash (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
     <> paysToWallet TestValues.userTwoWallet (TestValues.adaValue 300)
 
 closeAuctionWithBidData :: TestData 'ForSpending
