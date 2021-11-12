@@ -1,0 +1,120 @@
+cabal-version:      2.4
+name:               dex
+version:            0.1.0.0
+author:             jankun
+maintainer:         michal.jankun@icsolutions.pl
+extra-source-files: CHANGELOG.md
+
+library
+  hs-source-dirs: src
+  exposed-modules: Dex.OnChain
+                 , Dex.OffChain
+                 , Dex.Types
+                 , Dex.Manual
+                 , Dex.Trace
+                 , Dex.WalletHistory
+                 , Dex.LiquidityPool.PoolParts
+  build-depends:       aeson
+                     , base ^>=4.14.1.0
+                     , containers
+                     , data-default
+                     , freer-extras
+                     , freer-simple
+                     , playground-common
+                     , plutus-contract
+                     , plutus-ledger
+                     , plutus-ledger-api
+                     , plutus-tx-plugin
+                     , plutus-tx
+                     , plutus-use-cases
+                     , prettyprinter
+                     , text
+                     , bytestring
+                     , ghc-prim
+                     , lens
+                     , lens-aeson
+                     , freer-simple
+                     , random
+                     , splitmix
+                     , uuid
+                     , cardano-api
+  default-language:    Haskell2010
+  ghc-options:       -Wall -Werror -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr -fno-specialise
+
+executable dex-pab
+  main-is: Main.hs
+  hs-source-dirs: pab
+  ghc-options:
+    -threaded -Werror -Wall
+  build-depends: base >= 4.9 && < 5
+               , plutus-contract -any
+               , plutus-pab -any
+               , dex -any
+               , aeson -any
+               , freer-simple -any
+               , prettyprinter -any
+               , filemanip -any
+               , freer-extras -any
+               , plutus-ledger -any
+               , aeson -any
+               , containers -any
+               , text -any
+               , plutus-use-cases -any
+               , plutus-ledger-api -any
+               , bytestring
+               , data-default
+               , openapi3
+
+executable profiling
+  main-is: Main.hs
+  hs-source-dirs: profiling
+  ghc-options:
+    -fplugin-opt PlutusTx.Plugin:profile-all -threaded -Werror -Wall
+
+  build-depends: base >= 4.9 && < 5
+               , plutus-contract -any
+               , plutus-pab -any
+               , dex -any
+               , aeson -any
+               , freer-simple -any
+               , prettyprinter -any
+               , filemanip -any
+               , freer-extras -any
+               , plutus-ledger -any
+               , aeson -any
+               , containers -any
+               , text -any
+               , plutus-ledger-api -any
+               , cardano-api -any
+               , bytestring
+               , data-default
+               , openapi3
+
+test-suite dex-test
+  type:           exitcode-stdio-1.0
+  main-is:        Spec.hs
+  hs-source-dirs: test
+  other-modules:  Spec.UseCases
+  ghc-options:    -fplugin-opt PlutusTx.Plugin:profile-all -threaded -Werror -Wall
+
+  build-depends:  base >= 4.9 && < 5
+                , aeson -any
+                , aeson -any
+                , bytestring
+                , cardano-api -any
+                , containers -any
+                , data-default
+                , dex -any
+                , filemanip -any
+                , freer-extras -any
+                , freer-simple -any
+                , openapi3
+                , plutus-contract -any
+                , plutus-ledger -any
+                , plutus-ledger-api -any
+                , plutus-pab -any
+                , prettyprinter -any
+                , tasty
+                , tasty-hunit
+                , tasty-quickcheck
+                , text -any

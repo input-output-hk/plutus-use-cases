@@ -1,0 +1,38 @@
+{
+  "easy-purescript-nix": {
+    "branch": "master",
+    "description": "Easy PureScript (and other tools) with Nix",
+    "homepage": "",
+    "owner": "justinwoo",
+    "repo": "easy-purescript-nix",
+    "rev": "eb64583e3e15749b3ae56573b2aebbaa9cbab4eb",
+    "sha256": "0hr7smk7avdgc5nm1r3drq91j1hf8wimp7sg747832345c8vq19a",
+    "type": "tarball",
+    "url": "https://github.com/justinwoo/easy-purescript-nix/archive/eb64583e3e15749b3ae56573b2aebbaa9cbab4eb.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "plutus": {
+    "branch": "master",
+    "description": "The Plutus language implementation and tools",
+    "homepage": "",
+    "owner": "input-output-hk",
+    "repo": "plutus",
+    "rev": "plutus-pab/v0.0.2",
+    "sha256": "0aicyg6skqhpfciakwn68b9ppkpm95j1x3d4sj3xmc542sr6932g",
+    "type": "tarball",
+    "url": "https://github.com/input-output-hk/plutus/archive/refs/tags/plutus-pab/v0.0.2.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/refs/tags/<rev>.tar.gz"
+  },
+  "pre-commit-hooks-nix": {
+    "branch": "master",
+    "description": "Seamless integration of https://pre-commit.com git hooks with Nix.",
+    "homepage": "",
+    "owner": "cachix",
+    "repo": "pre-commit-hooks.nix",
+    "rev": "397f0713d007250a2c7a745e555fa16c5dc8cadb",
+    "sha256": "0hjbq4pf8a2qdndx0xdb3yjhx9l3l5grk4mlk78vw4zm32fgyrq2",
+    "type": "tarball",
+    "url": "https://github.com/cachix/pre-commit-hooks.nix/archive/397f0713d007250a2c7a745e555fa16c5dc8cadb.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  }
+}

@@ -1,0 +1,9 @@
+.pre-commit-config.yaml
+tmp
+*/dist-newstyle/
+tags
+uniswap/.hpc
+.DS_Store
+.psc-ide-port
+dist-newstyle
+TAGS
