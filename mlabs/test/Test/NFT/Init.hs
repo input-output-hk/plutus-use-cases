@@ -73,7 +73,7 @@ wA = walletFromNumber 4 -- Admin Wallet
 callStartNft :: Wallet -> EmulatorTrace NftAppSymbol
 callStartNft wal = do
   hAdmin <- activateContractWallet wal adminEndpoints
-  callEndpoint @"app-init" hAdmin ()
+  callEndpoint @"app-init" hAdmin [UserId . walletPubKeyHash $ wal]
   void $ waitNSlots 2
   oState <- observableState hAdmin
   aSymbol <- case getLast oState of
@@ -184,6 +184,7 @@ initialDistribution =
     [ (w1, val 1000_000_000)
     , (w2, val 1000_000_000)
     , (w3, val 1000_000_000)
+    , (wA, val 1000_000_000)
     ]
   where
     val x = singleton adaSymbol adaToken x

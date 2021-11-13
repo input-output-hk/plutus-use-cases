@@ -34,6 +34,7 @@ import Mlabs.NFT.Types (
   NftAppInstance (..),
   NftAppSymbol (..),
   NftListHead (..),
+  UserId (..),
  )
 
 import Data.Monoid (Last (..))
@@ -48,9 +49,9 @@ type InitContract a = forall s. Contract (Last NftAppSymbol) s Text a
 --------------------------------------------------------------------------------
 -- Init --
 
-initApp :: InitContract ()
-initApp = do
-  appInstance <- createListHead
+initApp :: [UserId] -> InitContract ()
+initApp admins = do
+  appInstance <- createListHead admins
   let appSymbol = getAppSymbol appInstance
   Contract.tell . Last . Just $ appSymbol
   Contract.logInfo @Hask.String $ printf "Finished Initialisation: App symbol: %s" (Hask.show appSymbol)
@@ -58,10 +59,10 @@ initApp = do
 {- | Initialise the application at the address of the script by creating the
  HEAD of the list, and coupling the one time token with the Head of the list.
 -}
-createListHead :: GenericContract NftAppInstance
-createListHead = do
+createListHead :: [UserId] -> GenericContract NftAppInstance
+createListHead admins = do
   (uniqueToken, uniqueTokenValue) <- generateUniqueToken
-  let appInstance = NftAppInstance txScrAddress uniqueToken
+  let appInstance = NftAppInstance txScrAddress uniqueToken admins
   headDatum <- nftHeadInit appInstance
   mintListHead appInstance uniqueTokenValue headDatum
   return appInstance

@@ -9,7 +9,7 @@ import Data.Map qualified as Map
 import Data.Monoid (Last (..))
 import Data.String (IsString (..))
 import Data.Text (Text)
-import Plutus.Contract.Test (Wallet (..))
+import Plutus.Contract.Test (Wallet (..), walletPubKeyHash)
 import Plutus.Contract.Test.ContractModel (Action, Actions, ContractInstanceSpec (..), ContractModel (..), contractState, getModelState, propRunActionsWithOptions, transfer, ($=), ($~))
 import Plutus.Trace.Emulator (activateContractWallet, callEndpoint)
 import Plutus.Trace.Emulator qualified as Trace
@@ -154,7 +154,7 @@ instance ContractModel NftModel where
   perform h _ = \case
     ActionInit {} -> do
       let hAdmin = h $ InitKey wAdmin
-      callEndpoint @"app-init" hAdmin ()
+      callEndpoint @"app-init" hAdmin [UserId . walletPubKeyHash $ wAdmin]
       void $ Trace.waitNSlots 2
       void getSymbol
     action@ActionMint {} -> do
@@ -205,7 +205,7 @@ wAdmin :: Wallet
 wAdmin = wA
 
 instanceSpec :: [ContractInstanceSpec NftModel]
-instanceSpec = Hask.pure $ ContractInstanceSpec (InitKey wAdmin) w1 adminEndpoints
+instanceSpec = Hask.pure $ ContractInstanceSpec (InitKey wAdmin) wA adminEndpoints
 
 propContract :: Actions NftModel -> QC.Property
 propContract =

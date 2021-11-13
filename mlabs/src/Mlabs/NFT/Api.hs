@@ -39,6 +39,7 @@ import Mlabs.NFT.Types (
   SetPriceParams (..),
   UserContract,
   UserWriter,
+  UserId,
  )
 import Mlabs.Plutus.Contract (selectForever)
 
@@ -59,7 +60,7 @@ type NFTAppSchema =
     .\/ Endpoint "auction-bid" AuctionBidParams
     .\/ Endpoint "auction-close" AuctionCloseParams
     -- Admin Endpoint
-    .\/ Endpoint "app-init" ()
+    .\/ Endpoint "app-init" [UserId]
 
 mkSchemaDefinitions ''NFTAppSchema
 
@@ -112,5 +113,5 @@ queryEndpointsList appSymbol =
 -- | List of admin endpoints.
 adminEndpointsList :: [Promise (Last NftAppSymbol) NFTAppSchema Text ()]
 adminEndpointsList =
-  [ endpoint @"app-init" $ Hask.const initApp
+  [ endpoint @"app-init" initApp
   ]

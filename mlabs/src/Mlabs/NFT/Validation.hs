@@ -95,7 +95,7 @@ import Mlabs.NFT.Types (
     info'share
   ),
   MintAct (Initialise, Mint),
-  NftAppInstance (appInstance'Address, appInstance'AppAssetClass),
+  NftAppInstance (..),
   NftAppSymbol (app'symbol),
   NftId (..),
   NftListHead (head'appInstance),
@@ -106,6 +106,7 @@ import Mlabs.NFT.Types (
   getAppInstance,
   getDatumPointer,
   nftTokenName,
+  UserId (..),
  )
 
 asRedeemer :: PlutusTx.ToData a => a -> Redeemer
@@ -133,7 +134,7 @@ mkMintPolicy !appInstance !act !ctx =
       traceIfFalse "The token is not present." headTokenIsPresent
         && traceIfFalse "Only one Unique Token can be minted" headTokenIsUnique
         && traceIfFalse "The token is not sent to the right address" headTokenToRightAddress
-        && traceIfFalse "Only an Admin can initialise App." True -- todo
+        && traceIfFalse "Only an admin can initialise app." checkAdminSig
   where
     ------------------------------------------------------------------------------
     -- Helpers
@@ -262,6 +263,11 @@ mkMintPolicy !appInstance !act !ctx =
       let validValue (sym, _, v) = (sym == ownCurrencySymbol ctx) && (v == 1)
           validHeadToken tx = (sentToScript tx) && (any validValue $ flattenValue . txOutValue $ tx)
       in any (validHeadToken . snd) outputsWithHeadDatum
+
+    -- Check an admin signed the transaction
+    checkAdminSig =
+      let admins = appInstance'Admins appInstance
+      in any (`elem` admins) $ fmap UserId $ txInfoSignatories info
 
 
 mintPolicy :: NftAppInstance -> MintingPolicy
