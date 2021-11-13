@@ -335,8 +335,8 @@ data NftAppInstance = NftAppInstance
     appInstance'Address :: Address
   , -- | AssetClass with which all the NFTs are parametrised - guarantees the proof of uniqueness.
     appInstance'AppAssetClass :: AssetClass
-    -- | List of admins who can initiate the application
-  , appInstance'Admins :: [UserId]
+  , -- | List of admins who can initiate the application
+    appInstance'Admins :: [UserId]
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)

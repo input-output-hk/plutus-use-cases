@@ -102,11 +102,10 @@ import Mlabs.NFT.Types (
   NftListNode (node'appInstance, node'information, node'next),
   Pointer (pointer'assetClass),
   UserAct (..),
-  UserId (getUserId),
+  UserId (..),
   getAppInstance,
   getDatumPointer,
   nftTokenName,
-  UserId (..),
  )
 
 asRedeemer :: PlutusTx.ToData a => a -> Redeemer
@@ -239,36 +238,39 @@ mkMintPolicy !appInstance !act !ctx =
 
     !outputsWithHeadDatum =
       filter
-      (  \(datum, _) ->
-           case datum of
-             HeadDatum _ -> True
-             _ -> False
-      )
-      $ getOutputDatumsWithTx ctx
+        ( \(datum, _) ->
+            case datum of
+              HeadDatum _ -> True
+              _ -> False
+        )
+        $ getOutputDatumsWithTx ctx
 
     -- Check if the head token is present
     headTokenIsPresent =
       let validValue (sym, _, _) = sym == ownCurrencySymbol ctx
           validHeadToken tx = any validValue $ flattenValue . txOutValue $ tx
-      in any (validHeadToken . snd) outputsWithHeadDatum
+       in any (validHeadToken . snd) outputsWithHeadDatum
 
-     -- Check if the head token is spent to the right address
+    -- Check if the head token is spent to the right address
     headTokenToRightAddress =
       let validValue (sym, _, _) = sym == ownCurrencySymbol ctx
-          validHeadToken tx = (sentToScript tx) && (any validValue $ flattenValue . txOutValue $ tx)
-      in any (validHeadToken . snd) outputsWithHeadDatum
+          validHeadToken tx =
+            sentToScript tx
+              && any validValue (flattenValue . txOutValue $ tx)
+       in any (validHeadToken . snd) outputsWithHeadDatum
 
     -- Check the uniqueness of minted head token
     headTokenIsUnique =
       let validValue (sym, _, v) = (sym == ownCurrencySymbol ctx) && (v == 1)
-          validHeadToken tx = (sentToScript tx) && (any validValue $ flattenValue . txOutValue $ tx)
-      in any (validHeadToken . snd) outputsWithHeadDatum
+          validHeadToken tx =
+            sentToScript tx
+              && any validValue (flattenValue . txOutValue $ tx)
+       in any (validHeadToken . snd) outputsWithHeadDatum
 
     -- Check an admin signed the transaction
     checkAdminSig =
       let admins = appInstance'Admins appInstance
-      in any (`elem` admins) $ fmap UserId $ txInfoSignatories info
-
+       in any (`elem` admins) $ UserId <$> txInfoSignatories info
 
 mintPolicy :: NftAppInstance -> MintingPolicy
 mintPolicy appInstance =

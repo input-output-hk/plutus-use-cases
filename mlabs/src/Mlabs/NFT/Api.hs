@@ -38,8 +38,8 @@ import Mlabs.NFT.Types (
   NftId (..),
   SetPriceParams (..),
   UserContract,
-  UserWriter,
   UserId,
+  UserWriter,
  )
 import Mlabs.Plutus.Contract (selectForever)
 
