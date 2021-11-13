@@ -130,10 +130,10 @@ mkMintPolicy !appInstance !act !ctx =
         && traceIfFalse "Nodes must be sent to script address" checkNodesAddresses
         && traceIfFalse "Datum is not atttached to UTXo with correct Token" (checkAttachedDatum nftid)
     Initialise ->
-      traceIfFalse "The token is not present." True -- todo
-        && traceIfFalse "Only One Unique Token Can be Minted" True -- todo
+      traceIfFalse "The token is not present." headTokenIsPresent
+        && traceIfFalse "Only one Unique Token can be minted" headTokenIsUnique
+        && traceIfFalse "The token is not sent to the right address" headTokenToRightAddress
         && traceIfFalse "Only an Admin can initialise App." True -- todo
-        && traceIfFalse "The token is not sent to the right address" True -- todo
   where
     ------------------------------------------------------------------------------
     -- Helpers
@@ -235,6 +235,34 @@ mkMintPolicy !appInstance !act !ctx =
             NodeDatum node ->
               let datumId = info'id . node'information $ node
                in mintedId == datumId && datumId == nftId
+
+    !outputsWithHeadDatum =
+      filter
+      (  \(datum, _) ->
+           case datum of
+             HeadDatum _ -> True
+             _ -> False
+      )
+      $ getOutputDatumsWithTx ctx
+
+    -- Check if the head token is present
+    headTokenIsPresent =
+      let validValue (sym, _, _) = sym == ownCurrencySymbol ctx
+          validHeadToken tx = any validValue $ flattenValue . txOutValue $ tx
+      in any (validHeadToken . snd) outputsWithHeadDatum
+
+     -- Check if the head token is spent to the right address
+    headTokenToRightAddress =
+      let validValue (sym, _, _) = sym == ownCurrencySymbol ctx
+          validHeadToken tx = (sentToScript tx) && (any validValue $ flattenValue . txOutValue $ tx)
+      in any (validHeadToken . snd) outputsWithHeadDatum
+
+    -- Check the uniqueness of minted head token
+    headTokenIsUnique =
+      let validValue (sym, _, v) = (sym == ownCurrencySymbol ctx) && (v == 1)
+          validHeadToken tx = (sentToScript tx) && (any validValue $ flattenValue . txOutValue $ tx)
+      in any (validHeadToken . snd) outputsWithHeadDatum
+
 
 mintPolicy :: NftAppInstance -> MintingPolicy
 mintPolicy appInstance =
@@ -599,7 +627,7 @@ mkTxPolicy !datum' !act !ctx =
           [(NodeDatum datum, tx)] -> checkTxDatumMatch datum tx
           _ -> False
 
-        -- Check if all tokens from input and mint are returnded
+        -- Check if all tokens from input and mint are returned
         !checkTokenReturned =
           let cur = app'symbol . act'symbol $ act
               fst3 (x, _, _) = x
@@ -707,13 +735,13 @@ calculateAuthorShare x y = snd $ calculateShares x y
 
 {-# INLINEABLE getInputDatums #-}
 
--- | Retuns datums attached to inputs of transaction
+-- | Returns datums attached to inputs of transaction
 getInputDatums :: PlutusTx.FromData a => ScriptContext -> [a]
 getInputDatums = fmap fst . getInputDatumsWithTx
 
 {-# INLINEABLE getInputDatumsWithTx #-}
 
--- | Retuns datums aand corresponding UTXOs attached to inputs of transaction
+-- | Returns datums and corresponding UTXOs attached to inputs of transaction
 getInputDatumsWithTx :: PlutusTx.FromData a => ScriptContext -> [(a, TxOut)]
 getInputDatumsWithTx ctx =
   mapMaybe (\(datum, tx) -> (,) <$> (PlutusTx.fromBuiltinData . getDatum $ datum) <*> pure tx)
@@ -725,7 +753,7 @@ getInputDatumsWithTx ctx =
 
 {-# INLINEABLE getOutputDatums #-}
 
--- | Retuns datums attached to outputs of transaction
+-- | Returns datums attached to outputs of transaction
 getOutputDatums :: PlutusTx.FromData a => ScriptContext -> [a]
 getOutputDatums = fmap fst . getOutputDatumsWithTx
 
