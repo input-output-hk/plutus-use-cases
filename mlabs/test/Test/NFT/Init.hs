@@ -90,12 +90,6 @@ callStartNftFail wal = do
     hAdmin <- activateContractWallet wal adminEndpoints
     callEndpoint @"app-init" hAdmin [toUserId w5]
     next
---  oState <- observableState hAdmin
---  aSymbol <- case getLast oState of
---    Nothing -> throwError $ GenericError "App Symbol Could not be established."
---    Just aS -> pure aS
---  void $ waitNSlots 1
---  pure aSymbol
 
 type ScriptM a =
   ReaderT

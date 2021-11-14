@@ -6,9 +6,9 @@ import Data.Aeson (Value (..))
 import Data.List (sortOn)
 import Data.Text qualified as T
 import Ledger.Crypto (pubKeyHash)
-import Ledger.Scripts (ScriptError (..))
 import Ledger.Index (ValidationError (..))
-import Plutus.Contract.Test (assertInstanceLog, assertFailedTransaction)
+import Ledger.Scripts (ScriptError (..))
+import Plutus.Contract.Test (assertFailedTransaction, assertInstanceLog)
 import Plutus.Contract.Trace (walletPubKeyHash)
 import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
 import PlutusTx.Prelude hiding (check, mconcat)
@@ -34,10 +34,11 @@ import Mlabs.NFT.Types (
 import Test.NFT.Init (
   artwork1,
   artwork2,
+  callStartNftFail,
   check,
   noChangesScene,
   ownsAda,
-  callStartNftFail,
+  toUserId,
   userBuy,
   userMint,
   userQueryContent,
@@ -49,7 +50,6 @@ import Test.NFT.Init (
   w2,
   w3,
   wA,
-  toUserId,
  )
 
 test :: TestTree
@@ -73,14 +73,14 @@ testInitApp :: TestTree
 testInitApp = check "Init app" assertState wA script
   where
     script = callStartNftFail wA
-    assertState = assertFailedTransaction
-      (\_ vEr _ ->
-        case vEr of
-          (ScriptFailure (EvaluationError (er:_) _)) -> msg Hask.== T.unpack er
-          _ -> False
-      )
+    assertState =
+      assertFailedTransaction
+        ( \_ vEr _ ->
+            case vEr of
+              (ScriptFailure (EvaluationError (er : _) _)) -> msg Hask.== T.unpack er
+              _ -> False
+        )
     msg = "Only an admin can initialise app."
-
 
 -- | User 2 buys from user 1
 testBuyOnce :: TestTree
