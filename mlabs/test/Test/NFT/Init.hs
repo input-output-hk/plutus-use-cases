@@ -2,6 +2,7 @@ module Test.NFT.Init (
   artwork1,
   artwork2,
   callStartNft,
+  callStartNftFail,
   check,
   checkOptions,
   noChangesScene,
@@ -81,6 +82,20 @@ callStartNft wal = do
     Just aS -> pure aS
   void $ waitNSlots 1
   pure aSymbol
+
+callStartNftFail :: Wallet -> ScriptM ()
+callStartNftFail wal = do
+  let w5 = walletFromNumber 5
+  lift $ do
+    hAdmin <- activateContractWallet wal adminEndpoints
+    callEndpoint @"app-init" hAdmin [toUserId w5]
+    next
+--  oState <- observableState hAdmin
+--  aSymbol <- case getLast oState of
+--    Nothing -> throwError $ GenericError "App Symbol Could not be established."
+--    Just aS -> pure aS
+--  void $ waitNSlots 1
+--  pure aSymbol
 
 type ScriptM a =
   ReaderT

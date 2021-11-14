@@ -6,7 +6,9 @@ import Data.Aeson (Value (..))
 import Data.List (sortOn)
 import Data.Text qualified as T
 import Ledger.Crypto (pubKeyHash)
-import Plutus.Contract.Test (assertInstanceLog)
+import Ledger.Scripts (ScriptError (..))
+import Ledger.Index (ValidationError (..))
+import Plutus.Contract.Test (assertInstanceLog, assertFailedTransaction)
 import Plutus.Contract.Trace (walletPubKeyHash)
 import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
 import PlutusTx.Prelude hiding (check, mconcat)
@@ -35,6 +37,7 @@ import Test.NFT.Init (
   check,
   noChangesScene,
   ownsAda,
+  callStartNftFail,
   userBuy,
   userMint,
   userQueryContent,
@@ -45,13 +48,16 @@ import Test.NFT.Init (
   w1,
   w2,
   w3,
+  wA,
+  toUserId,
  )
 
 test :: TestTree
 test =
   testGroup
     "Contract"
-    [ testBuyOnce
+    [ testInitApp
+    , testBuyOnce
     , testBuyTwice
     , testChangePriceWithoutOwnership
     , testBuyLockedScript
@@ -61,6 +67,20 @@ test =
     , testQueryListNfts
     , testQueryContent
     ]
+
+-- | Test initialisation of an app instance
+testInitApp :: TestTree
+testInitApp = check "Init app" assertState wA script
+  where
+    script = callStartNftFail wA
+    assertState = assertFailedTransaction
+      (\_ vEr _ ->
+        case vEr of
+          (ScriptFailure (EvaluationError (er:_) _)) -> msg Hask.== T.unpack er
+          _ -> False
+      )
+    msg = "Only an admin can initialise app."
+
 
 -- | User 2 buys from user 1
 testBuyOnce :: TestTree
@@ -153,7 +173,7 @@ testQueryOwner = check "Query owner" assertState w1 script
     assertState = assertInstanceLog (walletInstanceTag w1) (any $ queryLogPredicate msg)
       where
         nftId = NftId . hashData . mp'content $ artwork2
-        owner = QueryCurrentOwner . Just . UserId . walletPubKeyHash $ w1
+        owner = QueryCurrentOwner . Just . toUserId $ w1
         msg = queryCurrentOwnerLog nftId owner
 
 -- | User lists all NFTs in app
@@ -172,7 +192,7 @@ testQueryListNfts = check "Query list NFTs" assertState w1 script
 
     nfts =
       sortOn info'id
-        . fmap (\mp -> mintParamsToInfo mp (UserId . walletPubKeyHash $ w1))
+        . fmap (\mp -> mintParamsToInfo mp (toUserId w1))
         $ artworks
 
 testQueryContent :: TestTree
@@ -186,11 +206,11 @@ testQueryContent = check "Query content" assertState w1 script
       where
         content = mp'content artwork2
         msg = queryContentLog content $ QueryContent $ Just infoNft
-        userId = UserId . walletPubKeyHash $ w1
+        userId = toUserId w1
         infoNft = mintParamsToInfo artwork2 userId
 
-{- | Predicate that checks that the last logged mesage by the contract is the
- same as a given mesage.
+{- | Predicate that checks that the last logged message by the contract is the
+ same as a given message.
 -}
 queryLogPredicate :: Hask.String -> EmulatorTimeEvent ContractInstanceLog -> Bool
 queryLogPredicate msg = \case
