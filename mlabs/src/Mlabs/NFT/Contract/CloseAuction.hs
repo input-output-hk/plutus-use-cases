@@ -8,7 +8,7 @@ import PlutusTx.Prelude hiding (mconcat, mempty, unless, (<>))
 import Prelude (mconcat)
 import Prelude qualified as Hask
 
-import Control.Monad (unless, void, when)
+import Control.Monad (void)
 import Data.Map qualified as Map
 import Data.Monoid (Last (..))
 import Data.Text (Text)
@@ -35,18 +35,14 @@ import Mlabs.NFT.Validation
 closeAuction :: NftAppSymbol -> AuctionCloseParams -> Contract UserWriter s Text ()
 closeAuction symbol (AuctionCloseParams nftId) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
-  ownPkh <- Contract.ownPubKeyHash
   PointInfo {..} <- findNft nftId symbol
   node <- case pi'datum of
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "NFT not found"
 
   let mauctionState = info'auctionState . node'information $ node
-      isOwner = ownPkh == (getUserId . info'owner . node'information) node
 
-  when (isNothing mauctionState) $ Contract.throwError "Can't close: no auction in progress"
-  auctionState <- maybe (Contract.throwError "No auction state when expected") pure mauctionState
-  unless isOwner $ Contract.throwError "Only owner can close auction"
+  auctionState <- maybe (Contract.throwError "Can't close: no auction in progress") pure mauctionState
 
   userUtxos <- getUserUtxos
   let newOwner =
