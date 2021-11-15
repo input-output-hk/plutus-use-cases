@@ -9,12 +9,13 @@ import Data.Text qualified as T
 import Ledger.Crypto (pubKeyHash)
 import Ledger.Index (ValidationError (..))
 import Ledger.Scripts (ScriptError (..))
-import Plutus.Contract.Test (assertFailedTransaction, assertInstanceLog)
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
+import Plutus.Contract.Test (assertFailedTransaction, assertInstanceLog)
 import Plutus.Contract.Trace (walletPubKeyHash)
 import PlutusTx.Prelude hiding (check, mconcat)
 import Test.Tasty (TestTree, testGroup)
 import Prelude (mconcat)
+import Prelude qualified as Hask
 
 import Mlabs.Emulator.Scene (checkScene)
 import Mlabs.NFT.Contract.Aux (hashData)
@@ -41,8 +42,8 @@ import Test.NFT.Init (
   containsLog,
   noChangesScene,
   ownsAda,
-  userBidAuction,
   toUserId,
+  userBidAuction,
   userBuy,
   userCloseAuction,
   userMint,

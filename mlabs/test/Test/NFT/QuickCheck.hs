@@ -11,7 +11,7 @@ import Data.Monoid (Last (..))
 import Data.String (IsString (..))
 import Data.Text (Text)
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
-import Plutus.Contract.Test (Wallet (..), walletPubKeyHash)
+import Plutus.Contract.Test (Wallet (..))
 import Plutus.Contract.Test.ContractModel (
   Action,
   Actions,
@@ -287,7 +287,7 @@ instance ContractModel NftModel where
   perform h _ = \case
     ActionInit {} -> do
       let hAdmin = h $ InitKey wAdmin
-      callEndpoint @"app-init" hAdmin [UserId . walletPubKeyHash $ wAdmin]
+      callEndpoint @"app-init" hAdmin [toUserId wAdmin]
       void $ Trace.waitNSlots 2
       void getSymbol
     action@ActionMint {} -> do

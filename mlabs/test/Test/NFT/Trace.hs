@@ -13,6 +13,7 @@ module Test.NFT.Trace (
   severalBuysTest,
   testGetContent2,
   testGetContent1,
+  test2Admins,
 ) where
 
 import PlutusTx.Prelude
