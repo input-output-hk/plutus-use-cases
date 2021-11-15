@@ -5,11 +5,17 @@ module Test.NFT.Contract (
 import Control.Monad (void)
 import Data.Default (def)
 import Data.List (sortOn)
+import Data.Text qualified as T
+import Ledger.Crypto (pubKeyHash)
+import Ledger.Index (ValidationError (..))
+import Ledger.Scripts (ScriptError (..))
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
+import Plutus.Contract.Test (assertFailedTransaction, assertInstanceLog)
 import Plutus.Contract.Trace (walletPubKeyHash)
 import PlutusTx.Prelude hiding (check, mconcat)
 import Test.Tasty (TestTree, testGroup)
 import Prelude (mconcat)
+import Prelude qualified as Hask
 
 import Mlabs.Emulator.Scene (checkScene)
 import Mlabs.NFT.Contract.Aux (hashData)
@@ -31,10 +37,12 @@ import Mlabs.NFT.Types (
 import Test.NFT.Init (
   artwork1,
   artwork2,
+  callStartNftFail,
   check,
   containsLog,
   noChangesScene,
   ownsAda,
+  toUserId,
   userBidAuction,
   userBuy,
   userCloseAuction,
@@ -49,13 +57,15 @@ import Test.NFT.Init (
   w1,
   w2,
   w3,
+  wA,
  )
 
 test :: TestTree
 test =
   testGroup
     "Contract"
-    [ testBuyOnce
+    [ testInitApp
+    , testBuyOnce
     , testBuyTwice
     , testChangePriceWithoutOwnership
     , testBuyLockedScript
@@ -77,6 +87,20 @@ test =
         , testQueryContent
         ]
     ]
+
+-- | Test initialisation of an app instance
+testInitApp :: TestTree
+testInitApp = check "Init app" assertState wA script
+  where
+    script = callStartNftFail wA
+    assertState =
+      assertFailedTransaction
+        ( \_ vEr _ ->
+            case vEr of
+              (ScriptFailure (EvaluationError (er : _) _)) -> msg Hask.== T.unpack er
+              _ -> False
+        )
+    msg = "Only an admin can initialise app."
 
 -- | User 2 buys from user 1
 testBuyOnce :: TestTree
@@ -264,7 +288,7 @@ testQueryOwner = check "Query owner" (containsLog w1 msg) w1 script
       userQueryOwner w1 nft2
 
     nftId = NftId . hashData . mp'content $ artwork2
-    owner = QueryCurrentOwner . Just . UserId . walletPubKeyHash $ w1
+    owner = QueryCurrentOwner . Just . toUserId $ w1
     msg = queryCurrentOwnerLog nftId owner
 
 -- | User lists all NFTs in app
@@ -279,7 +303,7 @@ testQueryListNfts = check "Query list NFTs" (containsLog w1 msg) w1 script
 
     nfts =
       sortOn info'id
-        . fmap (\mp -> mintParamsToInfo mp (UserId . walletPubKeyHash $ w1))
+        . fmap (\mp -> mintParamsToInfo mp (toUserId w1))
         $ artworks
 
     msg = queryListNftsLog nfts
@@ -293,5 +317,5 @@ testQueryContent = check "Query content" (containsLog w1 msg) w1 script
 
     content = mp'content artwork2
     msg = queryContentLog content $ QueryContent $ Just infoNft
-    userId = UserId . walletPubKeyHash $ w1
+    userId = toUserId w1
     infoNft = mintParamsToInfo artwork2 userId

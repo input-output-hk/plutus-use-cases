@@ -335,6 +335,8 @@ data NftAppInstance = NftAppInstance
     appInstance'Address :: Address
   , -- | AssetClass with which all the NFTs are parametrised - guarantees the proof of uniqueness.
     appInstance'AppAssetClass :: AssetClass
+  , -- | List of admins who can initiate the application
+    appInstance'Admins :: [UserId]
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
@@ -346,7 +348,7 @@ instanceCurrency = fst . unAssetClass . appInstance'AppAssetClass
 PlutusTx.unstableMakeIsData ''NftAppInstance
 PlutusTx.makeLift ''NftAppInstance
 instance Eq NftAppInstance where
-  (NftAppInstance a b) == (NftAppInstance a' b') = a == a' && b == b'
+  (NftAppInstance a b c) == (NftAppInstance a' b' c') = a == a' && b == b' && c == c'
 
 newtype NftAppSymbol = NftAppSymbol {app'symbol :: CurrencySymbol}
   deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)

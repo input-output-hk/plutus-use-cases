@@ -287,7 +287,7 @@ instance ContractModel NftModel where
   perform h _ = \case
     ActionInit {} -> do
       let hAdmin = h $ InitKey wAdmin
-      callEndpoint @"app-init" hAdmin ()
+      callEndpoint @"app-init" hAdmin [toUserId wAdmin]
       void $ Trace.waitNSlots 2
       void getSymbol
     action@ActionMint {} -> do
@@ -365,7 +365,7 @@ wAdmin :: Wallet
 wAdmin = wA
 
 instanceSpec :: [ContractInstanceSpec NftModel]
-instanceSpec = Hask.pure $ ContractInstanceSpec (InitKey wAdmin) w1 adminEndpoints
+instanceSpec = Hask.pure $ ContractInstanceSpec (InitKey wAdmin) wA adminEndpoints
 
 propContract :: Actions NftModel -> QC.Property
 propContract =

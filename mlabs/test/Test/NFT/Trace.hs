@@ -13,6 +13,7 @@ module Test.NFT.Trace (
   severalBuysTest,
   testGetContent2,
   testGetContent1,
+  test2Admins,
 ) where
 
 import PlutusTx.Prelude
@@ -47,9 +48,9 @@ type AppInitHandle = Trace.ContractHandle (Last NftAppSymbol) NFTAppSchema Text
 -- | Initialise the Application
 appInitTrace :: EmulatorTrace NftAppSymbol
 appInitTrace = do
-  let admin = walletFromNumber 3 :: Emulator.Wallet
+  let admin = walletFromNumber 4 :: Emulator.Wallet
   hAdmin :: AppInitHandle <- activateContractWallet admin adminEndpoints
-  callEndpoint @"app-init" hAdmin ()
+  callEndpoint @"app-init" hAdmin [UserId . Emulator.walletPubKeyHash $ admin]
   void $ Trace.waitNSlots 2
   oState <- Trace.observableState hAdmin
   aSymbol <- case getLast oState of
@@ -356,6 +357,9 @@ testMint = runEmulatorTraceIO mint1Trace
 
 testMint2 :: Hask.IO ()
 testMint2 = runEmulatorTraceIO mintTrace2
+
+test2Admins :: Hask.IO ()
+test2Admins = runEmulatorTraceIO mintTrace2
 
 testAny :: EmulatorTrace () -> Hask.IO ()
 testAny = runEmulatorTraceIO

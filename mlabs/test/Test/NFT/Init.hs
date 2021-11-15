@@ -2,6 +2,7 @@ module Test.NFT.Init (
   artwork1,
   artwork2,
   callStartNft,
+  callStartNftFail,
   check,
   checkOptions,
   noChangesScene,
@@ -105,7 +106,7 @@ wA = walletFromNumber 4 -- Admin Wallet
 callStartNft :: Wallet -> EmulatorTrace NftAppSymbol
 callStartNft wal = do
   hAdmin <- activateContractWallet wal adminEndpoints
-  callEndpoint @"app-init" hAdmin ()
+  callEndpoint @"app-init" hAdmin [UserId . walletPubKeyHash $ wal]
   void $ waitNSlots 2
   oState <- observableState hAdmin
   aSymbol <- case getLast oState of
@@ -113,6 +114,14 @@ callStartNft wal = do
     Just aS -> pure aS
   void $ waitNSlots 1
   pure aSymbol
+
+callStartNftFail :: Wallet -> ScriptM ()
+callStartNftFail wal = do
+  let w5 = walletFromNumber 5
+  lift $ do
+    hAdmin <- activateContractWallet wal adminEndpoints
+    callEndpoint @"app-init" hAdmin [toUserId w5]
+    next
 
 type ScriptM a =
   ReaderT
@@ -243,6 +252,7 @@ initialDistribution =
     [ (w1, val 1000_000_000)
     , (w2, val 1000_000_000)
     , (w3, val 1000_000_000)
+    , (wA, val 1000_000_000)
     ]
   where
     val x = singleton adaSymbol adaToken x
