@@ -74,14 +74,14 @@ have `jq` installed.
 1. Build the PAB executable:
 
 ```
-cabal build nft-market-pab
+cabal build simulator-nft-market-pab
 ```
 
 2. Run the PAB binary:
 
 ```
-cabal exec -- nft-market-pab
-````
+cabal exec -- simulator-nft-market-pab
+```
 
 This will then start up the server on port 8080. The devcontainer process will then automatically expose this port so that you can connect to it from any terminal (it doesn't have to be a terminal running in the devcontainer).
 
@@ -231,3 +231,28 @@ Run next command in the console of the root directory of the current project and
 ```
 cabal test
 ```
+
+
+## Testnet
+1. Start pab
+  If it's the first time your running, you'll need to ask the PAB to make the
+  database:
+  ```
+  cabal exec -- testnet-oracle-pab --config pab-testnet/owner-config.yml migrate
+  ```
+
+  Then, run the PAB
+
+  ```
+  cabal exec -- testnet-nft-pab \
+    --config pab-testnet/owner-config.yml webserver \
+    --passphrase pab123456789
+  ```
+
+2. Activate nft market
+
+  ```
+ curl -H "Content-Type: application/json" -v -X POST -d \
+    "{\"caID\":{\"tag\":\"NFTStartContract\", \"contents\": 2000000 },\"caWallet\":{\"getWalletId\":\"$WALLET_ID\"}}" \
+    localhost:9080/api/contract/activate
+  ```

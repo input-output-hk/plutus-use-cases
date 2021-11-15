@@ -16,12 +16,30 @@ license-files: LICENSE
 author:             Your name
 maintainer:         Your email
 
+flag defer-plugin-errors
+  description:
+      Defer errors from the plugin, useful for things like Haddock that can't handle it.
+  default: False
+  manual: True
+
+common lang
+  default-language:   Haskell2010
+  ghc-options:
+    -Wall -Wnoncanonical-monad-instances
+    -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -rtsopts
+    -- See Plutus Tx readme
+    -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+  if flag(defer-plugin-errors)
+      ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
 -- A copyright notice.
 -- copyright:
 -- category:
 -- extra-source-files: CHANGELOG.md
 
 library
+    import: lang
     exposed-modules:
       Contracts.NFT
       Contracts.NFT.Types
@@ -46,11 +64,9 @@ library
       plutus-use-cases,
     hs-source-dirs: src src/Contracts/NFT
     default-language: Haskell2010
-    ghc-options:
-            -- See Plutus Tx readme
-            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
 
 test-suite plutus-example-projects-test
+  import: lang
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   hs-source-dirs: src/test
@@ -59,16 +75,12 @@ test-suite plutus-example-projects-test
     Spec.MockNFTCurrency
     Spec.Helper
   default-language: Haskell2010
-  ghc-options: -Wall -Wnoncanonical-monad-instances
-              -Wincomplete-uni-patterns -Wincomplete-record-updates
-              -Wredundant-constraints -Widentities -rtsopts
-              -- See Plutus Tx readme
-              -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
   build-depends:
     plutus-starter -any,
     playground-common,
     plutus-tx -any,
     plutus-tx-plugin,
+    plutus-ledger-api,
     plutus-contract -any,
     plutus-ledger -any,
     plutus-use-cases -any
@@ -84,9 +96,10 @@ test-suite plutus-example-projects-test
     tasty-hunit -any,
     tasty-hedgehog >=0.2.0.0
 
-executable nft-market-pab
+executable simulator-nft-market-pab
+  import: lang
   main-is: Main.hs
-  hs-source-dirs: pab
+  hs-source-dirs: pab-simulator
   ghc-options:
     -threaded
   build-depends:
@@ -109,16 +122,31 @@ executable nft-market-pab
     plutus-ledger -any,
     stm -any,
 
--- executable create-build
-  -- hs-source-dirs: 
-  --   app
-  -- main-is: build.hs
-  -- ghc-options:
-  --   -threaded
-  -- build-depends:  
-  --   base >= 4.9 && < 5,      
-  --   cardano-api,
-  --   cardano-ledger-alonzo,
-  --   plutus-starter -any,
-  --   plutus-ledger-api,
-  --   bytestring
+executable testnet-nft-pab
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs: pab-testnet
+  other-modules:
+    Contracts
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    bytestring,
+    data-default -any,
+    containers -any,
+    text -any,
+    openapi3 -any,
+    plutus-starter,
+    playground-common -any,
+    plutus-contract -any,
+    plutus-pab -any,
+    plutus-use-cases -any,
+    prettyprinter -any,
+    purescript-bridge,
+    row-types,
+    servant-purescript,
+    aeson -any,
+    freer-simple -any,
+    freer-extras -any,
+    plutus-ledger -any,

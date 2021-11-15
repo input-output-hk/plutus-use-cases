@@ -56,7 +56,8 @@ import qualified Data.Text                        as T
 import           Data.Void                        (Void, absurd)
 import           Ledger                           hiding (singleton)
 import qualified Ledger.Ada                       as Ada
-import           Ledger.Constraints               as Constraints
+import qualified Ledger.Constraints               as Constraints
+import           Ledger.Constraints               (adjustUnbalancedTx)
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import           Ledger.Scripts                   (unitRedeemer)
@@ -74,7 +75,7 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..), unless
 import           Prelude                          (Semigroup (..), String, Char, read, show)
 import qualified Prelude
 import           Text.Printf                      (printf)
-import           Wallet.Emulator                  (walletPubKey, knownWallets, knownWallet)
+import           Wallet.Emulator                  (walletPubKeyHash, knownWallets, knownWallet)
 
 marketplaceTokenName :: TokenName
 marketplaceTokenName = "NFTMarketplace"
@@ -148,7 +149,9 @@ start ::
     -> Integer
     -> Contract w s Text NFTMarket
 start forgeNft fee = do
-    pkh <- pubKeyHash <$> ownPubKey
+    when (fee < 2_000_000) $ throwError "fee should be grater than min ada"
+
+    pkh <- ownPubKeyHash
     cs  <- forgeNft marketplaceTokenName pkh
     let c = assetClass cs marketplaceTokenName
         nftTokenCur = mkNFTCurrency c
@@ -156,8 +159,8 @@ start forgeNft fee = do
         market   = marketplace cs nftTokenCur nftTokenMetaCur fee pkh
         inst = marketInstance market
         tx   = mustPayToTheScript (Factory []) $ assetClassValue c 1
-    ledgerTx <- submitTxConstraints inst tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    mkTxConstraints (Constraints.typedValidatorLookups inst) tx
+      >>= submitTxConfirmed . adjustUnbalancedTx
 
     logInfo @String $ printf "started Market %s at address %s" (show market) (show $ marketAddress market)
     return market
@@ -170,7 +173,7 @@ create ::
 create market CreateParams{..} = do
     (oref, o, nftMetas) <- findNFTMarketFactory market
     let tokenName = fromString cpTokenName
-    ownPK <- pubKeyHash <$> ownPubKey
+    ownPK <- ownPubKeyHash
 
     let nftTokenCur = mkNFTCurrency $ marketId market
         nftTokenPolicy = nftMonetrayPolicy nftTokenCur
@@ -213,9 +216,7 @@ create market CreateParams{..} = do
                    <> Constraints.mustMintValue nftTokenForgedValue
                    <> Constraints.mustMintValue nftTokenMetaForgedValue
 
-
-    ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     let nftMetaDto = nftMetadataToDto nftMetadata
     logInfo $ "created NFT: " ++ show nftMetaDto
     return nftMetaDto
@@ -226,7 +227,7 @@ sell ::
     -> SellParams 
     -> Contract w s Text NFTMetadataDto
 sell market SellParams{..} = do
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- ownPubKeyHash
     let tokenName = fromString spTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (spSellPrice <= 0) $ throwError "sell price should be greater than zero"
@@ -243,8 +244,8 @@ sell market SellParams{..} = do
 
         tx      = Constraints.mustPayToTheScript nftMetadataDatum values
                   <> Constraints.mustSpendScriptOutput oref redeemer
-    ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+                  
+    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo $ "selling datum: " ++ show nftMetadataDatum
     let nftMetaDto = nftMetadataToDto nftMetadata'
     logInfo $ "selling NFT: " ++ show nftMetaDto
@@ -256,7 +257,7 @@ cancelSell ::
     -> CancelSellParams 
     -> Contract w s Text NFTMetadataDto
 cancelSell market CancelSellParams{..} = do
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- ownPubKeyHash
     let tokenName = fromString cspTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
@@ -277,8 +278,8 @@ cancelSell market CancelSellParams{..} = do
         tx      = Constraints.mustPayToTheScript nftMetadataDatum nftMetadataValue
                   <> Constraints.mustSpendScriptOutput oref redeemer
                   <> Constraints.mustPayToPubKey pkh nftValue
-    ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+
+    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     let nftMetaDto = nftMetadataToDto nftMetadata'
     logInfo $ "cancel sell NFT: " ++ show nftMetaDto
     return nftMetaDto
@@ -289,7 +290,7 @@ buy ::
     -> BuyParams 
     -> Contract w s Text NFTMetadataDto
 buy market BuyParams{..} = do
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- ownPubKeyHash
     let tokenName = fromString bpTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
@@ -306,7 +307,7 @@ buy market BuyParams{..} = do
         nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
         nftMetadataValue = getNftValue (nftMetaTokenSymbol nftMetadata) (nftMetaTokenName nftMetadata)
         nftSellPriceValue = Ada.lovelaceValueOf $ (nftSellPrice nftMetadata - mFee)
- 
+     
         lookups = Constraints.typedValidatorLookups marketInst
                   <> Constraints.otherScript mrScript
                   <> Constraints.unspentOutputs (Map.singleton oref o)
@@ -316,8 +317,9 @@ buy market BuyParams{..} = do
                   <> Constraints.mustPayToPubKey pkh nftValue
                   <> Constraints.mustPayToPubKey nftSeller' nftSellPriceValue
                   <> Constraints.mustPayToPubKey mOwner mFeeValue
-    ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    logInfo $ "nftSellPriceValue: " ++ show nftSellPriceValue
+    logInfo $ "mFeeValue: " ++ show mFeeValue
+    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     let nftMetaDto = nftMetadataToDto nftMetadata'
     logInfo $ "buying NFT: " ++ show nftMetaDto
     return nftMetaDto
@@ -328,12 +330,12 @@ transfer ::
     -> TransferParams 
     -> Contract w s Text NFTMetadataDto
 transfer market TransferParams{..} = do
-    let sendToKeyHash = pubKeyHash $ walletPubKey $ knownWallet tpReceiverWallet
+    let sendToKeyHash = walletPubKeyHash $ knownWallet tpReceiverWallet
     let tokenName = fromString tpTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     let nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
     tx <- submitTx $ mustPayToPubKey sendToKeyHash nftValue
-    awaitTxConfirmed $ txId tx
+    awaitTxConfirmed $ getCardanoTxId tx
     let nftMetaDto = nftMetadataToDto nftMetadata
     logInfo $ "transfer NFT: " ++ show nftMetaDto
     return nftMetaDto
@@ -447,7 +449,7 @@ queryNftMetadatas market = do
 userPubKeyHash :: forall w s. Contract w s Text [Char]
 userPubKeyHash = do
     logInfo @String $ printf "start getting userPubKeyHash"
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- ownPubKeyHash
     return $ byteStrToDto . getPubKeyHash $ pkh
  
 -- | Gets the caller's NFTs.
@@ -456,7 +458,7 @@ userNftTokens ::
     -> Contract w s Text [NFTMetadataDto]
 userNftTokens market = do
     logInfo @String $ printf "start userNftTokens"
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- ownPubKeyHash
     let ownAddress = pubKeyHashAddress pkh
     ownerUtxos <- utxosAt ownAddress
     let os = map snd $ Map.toList ownerUtxos

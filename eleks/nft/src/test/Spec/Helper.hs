@@ -14,10 +14,23 @@ import           Data.Text              (Text)
 import           Data.Void              (Void)
 import qualified Spec.MockNFTCurrency   as MockCurrency
 import           Ledger                 (PubKeyHash, pubKeyHash)
-import           Ledger.Value           (CurrencySymbol(..), TokenName (..), AssetClass(..), toString)
+import           Ledger.Ada              as Ada
+import           Ledger.Value           (Value(..), CurrencySymbol(..), TokenName (..), AssetClass(..), toString)
 import qualified Plutus.Trace.Emulator  as Trace
 import           PlutusTx.Prelude       (toBuiltin)
-import           Wallet.Emulator        (Wallet(..), walletPubKey)
+import           Wallet.Emulator        (Wallet(..), walletPubKeyHash)
+
+minUtxo:: Ada
+minUtxo = 2_000_000
+
+minUtxoVal:: Value
+minUtxoVal = Ada.toValue minUtxo
+
+marketUtxoVal:: Value
+marketUtxoVal = Ada.toValue minUtxo
+
+minUtxoValN:: Ada -> Value
+minUtxoValN n = Ada.toValue (n * minUtxo)
 
 ownerWallet' :: Wallet
 ownerWallet' = w5
@@ -34,8 +47,8 @@ nftMarketMock = NFTMarket
     , marketTokenSymbol = nftCurrencySymbol mockNftCurrency
     , marketTokenMetaSymbol = nftCurrencySymbol mockNftCurrency
     , marketTokenMetaNameSuffix = toBuiltin . B.pack $  metadataTokenNamePrefix
-    , marketFee = 500000
-    , marketOwner = pubKeyHash $ walletPubKey ownerWallet'
+    , marketFee = 2_000_000
+    , marketOwner = walletPubKeyHash ownerWallet'
     } 
 
 data TestTokenMeta = TestTokenMeta
@@ -71,7 +84,7 @@ createTestToken tokenName = TestTokenMeta
 
 makeSellingTestToken:: TestTokenMeta -> Wallet -> Integer -> TestTokenMeta
 makeSellingTestToken testToken wallet price =
-    testToken{testTokenSellPrice = nftMaketSellPrice, testTokenSeller = Just $ pubKeyHash $ walletPubKey wallet }
+    testToken{testTokenSellPrice = nftMaketSellPrice, testTokenSeller = Just $ walletPubKeyHash wallet }
 
 testToken1 = createTestToken "token1"
 testToken1Meta = createNftMeta testToken1
@@ -90,10 +103,10 @@ createMarketTokenMock:: TokenName -> AssetClass
 createMarketTokenMock tokenName = AssetClass (getMarketTokenSymbol tokenName, tokenName)
 
 nftMaketSellPrice:: Integer
-nftMaketSellPrice = 2000000
+nftMaketSellPrice = 10_000_000
 
 sellPriceLowerThanFee:: Integer
-sellPriceLowerThanFee = 40000
+sellPriceLowerThanFee = 40_000
 
 nftMarketFee :: Integer
 nftMarketFee = marketFee nftMarketMock 

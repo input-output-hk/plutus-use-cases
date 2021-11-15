@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 module Main(main) where
 
@@ -27,7 +28,7 @@ import qualified Data.Text                           as T
 import qualified Data.ByteString.Char8               as C
 import           Data.Aeson                          (FromJSON (..), Result (..), ToJSON (..), genericToJSON, genericParseJSON
                                                      , defaultOptions, Options(..), decode, encode, parseJSON, fromJSON)
-import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
+import           Prettyprinter                       (Pretty (..), viaShow)
 import           GHC.Generics                        (Generic)
 import           Plutus.Contract                     (ContractError)
 import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
@@ -44,7 +45,6 @@ import           Wallet.Emulator.Types               (Wallet (..))
 import qualified Data.ByteString.Char8               as B
 import qualified Ledger.Value                        as Value
 import           Ledger.Value                        (TokenName (..), Value)
-import           Wallet.API                          (ownPubKey)
 import           Ledger                              (CurrencySymbol(..), pubKeyAddress)
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
@@ -60,15 +60,16 @@ main = void $ Simulator.runSimulationWith handlers $ do
     shutdown <- PAB.Server.startServerDebug' defaultWebServerConfig{ baseUrl = BaseUrl Http "localhost" 8080 ""}
 
     let w1 = knownWallet 1
-    w1Address <- pubKeyAddress <$> Simulator.handleAgentThread w1 ownPubKey
 
-    nftMarketInstance1 <- Simulator.activateContract w1 NFTStartContract
-    void $ Simulator.callEndpointOnInstance nftMarketInstance1 "start" ()
+    nftMarketInstance <- Simulator.activateContract w1 NFTStartContract
+    Simulator.logString @(Builtin NFTMarketContracts) $ "URa"
+    void $ Simulator.callEndpointOnInstance nftMarketInstance "start" ()
+    Simulator.logString @(Builtin NFTMarketContracts) $ "URa1"
     Simulator.waitNSlots 10
-    market       <- flip Simulator.waitForState nftMarketInstance1 $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.NFTMarket))) of
+    market       <- flip Simulator.waitForState nftMarketInstance $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text NFTMarket.NFTMarket))) of
                     Success (Monoid.Last (Just (Right market))) -> Just market
                     _                                             -> Nothing
-
+    Simulator.logString @(Builtin NFTMarketContracts) $ "URa2"
     Simulator.logString @(Builtin NFTMarketContracts) $ "NFT Marketplace instance created: " ++ show market
     cids <- fmap Map.fromList $ forM walletsIndexes $ \wIndex -> do
         let w = knownWallet wIndex
@@ -105,7 +106,7 @@ instance HasDefinitions NFTMarketContracts where
         NFTUserContract market -> SomeBuiltin (NFTMarket.userEndpoints market)
 
 nftMarketFee :: Integer
-nftMarketFee = 500000
+nftMarketFee = 2_000_000
 
 handlers :: SimulatorEffectHandlers (Builtin NFTMarketContracts)
 handlers =

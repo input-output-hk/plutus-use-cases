@@ -34,9 +34,13 @@ import           PlutusTx.Prelude        hiding (Monoid (..), Semigroup (..))
 import           Plutus.Contract         as Contract
 import           Ledger                  (CurrencySymbol, PubKeyHash, pubKeyHash,
                                           scriptCurrencySymbol, txId)
-import qualified Ledger.Constraints      as Constraints
+import qualified Ledger.Constraints               as Constraints
+import           Ledger.Constraints.OnChain       as Constraints
+import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Contexts         as V
 import           Ledger.Scripts
+import           Ledger.Tx (getCardanoTxId)
+
 import qualified PlutusTx                as PlutusTx
 
 import qualified Ledger.Typed.Scripts    as Scripts
@@ -105,7 +109,7 @@ forgeContract _ tokenName = do
         lookups = Constraints.mintingPolicy curVali
     let forgeTx = Constraints.mustMintValue (forgedValue theNftCurrency)
     tx <- submitTxConstraintsWith @Scripts.Any lookups forgeTx
-    _ <- awaitTxConfirmed (txId tx)
+    _ <- awaitTxConfirmed $ getCardanoTxId tx
     pure theNftCurrency
 
 -- | Miniting policy for a currency that has a fixed amount of tokens issued
@@ -124,7 +128,7 @@ type CurrencySchema =
 forgeNftToken
     :: Promise (Maybe (Last MockNFTCurrency)) CurrencySchema Text ()
 forgeNftToken = endpoint @"create" $ \ForgeNftParams{fnpTokenName} -> do
-    ownPK <- pubKeyHash <$> ownPubKey
+    ownPK <- ownPubKeyHash
     cur <- forgeContract ownPK fnpTokenName
     tell (Just (Last cur))
     
