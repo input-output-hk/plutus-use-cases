@@ -15,10 +15,15 @@ module Test.NFT.Init (
   userQueryListNfts,
   userQueryContent,
   userSetPrice,
+  containsLog,
   w1,
   w2,
   w3,
   wA,
+  userBidAuction,
+  userStartAuction,
+  userCloseAuction,
+  userWait,
 ) where
 
 import Control.Lens ((&), (.~))
@@ -26,22 +31,46 @@ import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Control.Monad.Reader (ReaderT, ask, lift, runReaderT, void)
+import Data.Aeson (Value (String))
 import Data.Map qualified as M
 import Data.Monoid (Last (..))
-import Plutus.Contract.Test (CheckOptions, TracePredicate, Wallet (..), checkPredicateOptions, defaultCheckOptions, emulatorConfig, walletPubKeyHash)
+import Data.Text qualified as T
+import Numeric.Natural (Natural)
+import Plutus.Contract.Test (
+  CheckOptions,
+  TracePredicate,
+  Wallet (..),
+  assertInstanceLog,
+  checkPredicateOptions,
+  defaultCheckOptions,
+  emulatorConfig,
+  walletPubKeyHash,
+ )
 import Plutus.Trace.Effects.Assert (Assert)
 import Plutus.Trace.Effects.EmulatedWalletAPI (EmulatedWalletAPI)
 import Plutus.Trace.Effects.EmulatorControl (EmulatorControl)
 import Plutus.Trace.Effects.RunContract (RunContract)
 import Plutus.Trace.Effects.Waiting (Waiting)
-import Plutus.Trace.Emulator (EmulatorRuntimeError (GenericError), EmulatorTrace, activateContractWallet, callEndpoint, initialChainState, observableState, throwError, waitNSlots)
+import Plutus.Trace.Emulator (
+  EmulatorRuntimeError (GenericError),
+  EmulatorTrace,
+  activateContractWallet,
+  callEndpoint,
+  initialChainState,
+  observableState,
+  throwError,
+  waitNSlots,
+ )
+import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
 import Plutus.V1.Ledger.Value (Value, singleton)
 import PlutusTx.Prelude hiding (check, foldMap, pure)
+import Wallet.Emulator.MultiAgent (EmulatorTimeEvent (..))
+import Prelude (Applicative (..), String, foldMap)
+import Prelude qualified as Hask
 
 import Test.Tasty (TestTree)
 import Test.Utils (next)
-import Prelude (Applicative (..), String, foldMap)
 
 import Mlabs.Emulator.Scene (Scene, owns)
 import Mlabs.Emulator.Types (adaCoin)
@@ -51,6 +80,9 @@ import Mlabs.NFT.Api (
   queryEndpoints,
  )
 import Mlabs.NFT.Types (
+  AuctionBidParams,
+  AuctionCloseParams,
+  AuctionOpenParams,
   BuyRequestUser (..),
   Content (..),
   MintParams (..),
@@ -175,10 +207,37 @@ userQueryContent wal content = do
     hdl <- activateContractWallet wal (queryEndpoints symbol)
     callEndpoint @"query-content" hdl content
 
+userStartAuction :: Wallet -> AuctionOpenParams -> Script
+userStartAuction wal params = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (endpoints symbol)
+    callEndpoint @"auction-open" hdl params
+    next
+
+userBidAuction :: Wallet -> AuctionBidParams -> Script
+userBidAuction wal params = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (endpoints symbol)
+    callEndpoint @"auction-bid" hdl params
+    next
+
+userCloseAuction :: Wallet -> AuctionCloseParams -> Script
+userCloseAuction wal params = do
+  symbol <- ask
+  lift $ do
+    hdl <- activateContractWallet wal (endpoints symbol)
+    callEndpoint @"auction-close" hdl params
+    next
+
+userWait :: Natural -> Script
+userWait = lift . void . waitNSlots
+
 {- | Initial distribution of wallets for testing.
  We have 3 users. All of them get 1000 lovelace at the start.
 -}
-initialDistribution :: M.Map Wallet Value
+initialDistribution :: M.Map Wallet Plutus.V1.Ledger.Value.Value
 initialDistribution =
   M.fromList
     [ (w1, val 1000_000_000)
@@ -198,6 +257,14 @@ check msg assertions wal script = checkPredicateOptions checkOptions msg asserti
 -- | Scene without any transfers
 noChangesScene :: Scene
 noChangesScene = foldMap (`ownsAda` 0) [w1, w2, w3]
+
+containsLog :: Wallet -> String -> TracePredicate
+containsLog wal expected = assertInstanceLog (walletInstanceTag wal) (any predicate)
+  where
+    predicate = \case
+      (EmulatorTimeEvent _ (ContractInstanceLog (ContractLog (String actual)) _ _)) ->
+        T.pack expected Hask.== actual
+      _ -> False
 
 artwork1 :: MintParams
 artwork1 =

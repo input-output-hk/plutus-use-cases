@@ -9,10 +9,8 @@ import Ledger qualified
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Mlabs.NFT.Types qualified as NFT
 import Mlabs.NFT.Validation qualified as NFT
-import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Interval qualified as Interval
 import PlutusTx qualified
-import PlutusTx.IsData.Class (ToData (toBuiltinData))
 import PlutusTx.Prelude hiding ((<>))
 import PlutusTx.Prelude qualified as PlutusPrelude
 import Test.NFT.Script.Values as TestValues
@@ -36,10 +34,8 @@ testAuctionBeforeDeadline = localOption (TestTxId TestValues.testTxId) $
       shouldn'tValidate "Author can't close auction if not owner" closeAuctionData1 closeAuctionContext1
       shouldValidate "Owner can start auction" validOpenAuctionData validOpenAuctionContext
       shouldn'tValidate "Owner can't close auction before deadline" validCloseAuctionData validCloseAuctionContext
-
--- FIXME
--- shouldValidate "Can bid before deadline" validBidData validBidContext
--- shouldValidate "Can make higher bid" validSecondBidData validSecondBidContext
+      shouldValidate "Can bid before deadline" validBidData validBidContext
+      shouldValidate "Can make higher bid" validSecondBidData validSecondBidContext
 
 testAuctionAfterDeadline :: TestTree
 testAuctionAfterDeadline = localOption (TimeRange $ Interval.from slotElevenTime) $
@@ -61,7 +57,7 @@ initialNode =
           , info'share = 1 % 2
           , info'author = NFT.UserId TestValues.authorPkh
           , info'owner = NFT.UserId TestValues.authorPkh
-          , info'price = Just (100 * 1_000_000)
+          , info'price = Nothing
           , info'auctionState = Nothing
           }
     , node'next = Nothing
@@ -225,7 +221,6 @@ validOpenAuctionData = SpendingTest dtm redeemer val
 validOpenAuctionContext :: ContextBuilder 'ForSpending
 validOpenAuctionContext =
   paysOther NFT.txValHash TestValues.oneNft ownerUserOneAuctionOpenDatum
-    <> paysSelf mempty ownerUserOneAuctionOpenDatum
     <> signedWith userOnePkh
 
 -- case 4
@@ -245,8 +240,6 @@ validCloseAuctionContext :: ContextBuilder 'ForSpending
 validCloseAuctionContext =
   paysOther NFT.txValHash TestValues.oneNft ownerUserOneDatum
     <> signedWith userOnePkh
-    -- a hack to get `getContinuingOutputs` working
-    <> paysSelf mempty ownerUserOneDatum
 
 validBidData :: TestData 'ForSpending
 validBidData = SpendingTest dtm redeemer val
@@ -263,8 +256,7 @@ validBidData = SpendingTest dtm redeemer val
 
 validBidContext :: ContextBuilder 'ForSpending
 validBidContext =
-  paysOther NFT.txValHash TestValues.oneNft ownerUserOneDatum
-    <> paysSelf (mempty PlutusPrelude.<> TestValues.adaValue 300) ownerUserOneAuctionBidDatum
+  paysOther NFT.txValHash (TestValues.oneNft <> TestValues.adaValue 300) ownerUserOneAuctionBidDatum
 
 validSecondBidData :: TestData 'ForSpending
 validSecondBidData = SpendingTest dtm redeemer val
@@ -281,8 +273,7 @@ validSecondBidData = SpendingTest dtm redeemer val
 
 validSecondBidContext :: ContextBuilder 'ForSpending
 validSecondBidContext =
-  paysOther NFT.txValHash TestValues.oneNft ownerUserOneAuctionSecondBidDatum
-    <> paysSelf (mempty PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
+  paysOther NFT.txValHash (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
     <> paysToWallet TestValues.userTwoWallet (TestValues.adaValue 300)
 
 closeAuctionWithBidData :: TestData 'ForSpending
@@ -301,7 +292,6 @@ closeAuctionWithBidData = SpendingTest dtm redeemer val
 closeAuctionWithBidContext :: ContextBuilder 'ForSpending
 closeAuctionWithBidContext =
   paysOther NFT.txValHash TestValues.oneNft auctionWithBidCloseDatum
-    <> paysSelf mempty auctionWithBidCloseDatum
     <> signedWith userOnePkh
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
     <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
