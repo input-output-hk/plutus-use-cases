@@ -42,7 +42,6 @@ import Ledger (
   findDatum,
   findOwnInput,
   from,
-  getContinuingOutputs,
   mkMintingPolicyScript,
   ownCurrencySymbol,
   scriptContextTxInfo,
@@ -334,16 +333,18 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "Only one Node must be used in a SetPrice Action." onlyOneNodeAttached
               && traceIfFalse "Not all used Tokens are returned." checkTokenReturned
               && traceIfFalse "Returned Token UTXO has mismatching datum." checkMissMatchDatum
+              && traceIfFalse "NFT is on auction" checkIsNotOnAuction
           OpenAuctionAct {} ->
             traceIfFalse "Can't open auction: already in progress" noAuctionInProgress
               && traceIfFalse "Only owner can open auction" signedByOwner
-              && traceIfFalse "Auction: datum illegally altered" auctionConsistentOpenDatum
+              && traceIfFalse "Open Auction: datum illegally altered" auctionConsistentOpenDatum
+              && traceIfFalse "NFT price must be set to Nothing" checkPriceIsNothing
           BidAuctionAct {..} ->
             traceIfFalse "Can't bid: No auction is in progress" (not noAuctionInProgress)
               && traceIfFalse "Auction bid is too low" (auctionBidHighEnough act'bid)
               && traceIfFalse "Auction deadline reached" correctAuctionBidSlotInterval
               && traceIfFalse "Auction: wrong input value" correctInputValue
-              && traceIfFalse "Auction: datum illegally altered" (auctionConsistentDatum act'bid)
+              && traceIfFalse "Bid Auction: datum illegally altered" (auctionConsistentDatum act'bid)
               && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
               && traceIfFalse "Incorrect bid refund" correctBidRefund
           CloseAuctionAct {} ->
@@ -351,7 +352,7 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "Auction deadline not yet reached" auctionDeadlineReached
               && traceIfFalse "Only owner can close auction" signedByOwner
               && traceIfFalse "Auction: new owner set incorrectly" auctionCorrectNewOwner
-              && traceIfFalse "Auction: datum illegally altered" auctionConsistentCloseDatum
+              && traceIfFalse "Close Auction: datum illegally altered" auctionConsistentCloseDatum
               && if ownerIsAuthor
                 then traceIfFalse "Auction: amount paid to author/owner does not match bid" auctionCorrectPaymentOnlyAuthor
                 else
@@ -399,21 +400,10 @@ mkTxPolicy !datum' !act !ctx =
 
         withAuctionState f = maybe (traceError "Auction state expected") f mauctionState
 
-        convDatum :: Datum -> Maybe DatumNft
-        convDatum (Datum d) = PlutusTx.fromBuiltinData d
-
-        newDatum :: DatumNft
-        newDatum =
-          case getContinuingOutputs ctx of
-            [out] ->
-              case txOutDatumHash out of
-                Nothing -> traceError "getNextDatum: expected datum hash"
-                Just dhash ->
-                  case findDatum dhash info >>= convDatum of
-                    Nothing -> traceError "getNextDatum: expected datum"
-                    Just dt -> dt
-            [] -> traceError "nextDatum: expected exactly one continuing output, got none"
-            _ -> traceError "nextDatum: expected exactly one continuing output, got several instead"
+        newDatum = case getOutputDatums ctx of
+          [x] -> x
+          [] -> traceError "Expected exactly one input with datums. Receiving none."
+          _ -> traceError "Expected exactly one input with datums. Receiving more."
 
         newNodeInfo :: InformationNft
         newNodeInfo =
@@ -494,7 +484,7 @@ mkTxPolicy !datum' !act !ctx =
 
         auctionBidValueSupplied :: Integer -> Bool
         auctionBidValueSupplied redeemerBid =
-          case getContinuingOutputs ctx of
+          case fmap snd . getOutputDatumsWithTx @DatumNft $ ctx of
             [out] -> txOutValue out == tokenValue <> Ada.lovelaceValueOf redeemerBid
             [] -> traceError "auctionBidValueSupplied: expected exactly one continuing output, got none"
             _ -> traceError "auctionBidValueSupplied: expected exactly one continuing output, got several instead"
@@ -530,7 +520,8 @@ mkTxPolicy !datum' !act !ctx =
             && info'share newNodeInfo == info'share nInfo
             && info'author newNodeInfo == info'author nInfo
             && info'owner newNodeInfo == info'owner nInfo
-            && info'price newNodeInfo == info'price nInfo
+
+        checkPriceIsNothing = isNothing . info'price $ newNodeInfo
 
         auctionConsistentDatum :: Integer -> Bool
         auctionConsistentDatum redeemerBid =
@@ -600,6 +591,8 @@ mkTxPolicy !datum' !act !ctx =
             && on (==) (info'owner . node'information) oldNode node
             && on (==) (info'share . node'information) oldNode node
             && on (==) (info'id . node'information) oldNode node
+
+        !checkIsNotOnAuction = isNothing . info'auctionState . node'information $ node
 
         -- Check if the price of NFT is changed by the owner of NFT
         !signedByOwner =

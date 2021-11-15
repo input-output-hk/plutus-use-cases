@@ -49,6 +49,9 @@ setPrice symbol SetPriceParams {..} = do
     _ -> Contract.throwError "NFT not found"
   when (getUserId ((info'owner . node'information) oldNode) /= ownPkh) $
     Contract.throwError "Only owner can set price"
+  when (isJust . info'auctionState . node'information $ oldNode) $
+    Contract.throwError "Can't set price auction is already in progress"
+
   let nftDatum = NodeDatum $ updateDatum oldNode
       nftVal = pi'CITxO ^. ciTxOutValue
       action = SetPriceAct sp'price symbol

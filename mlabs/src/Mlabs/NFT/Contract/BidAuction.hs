@@ -21,7 +21,6 @@ import PlutusTx qualified
 import Ledger (
   Datum (..),
   Redeemer (..),
-  getCardanoTxId,
   to,
  )
 
@@ -46,7 +45,11 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
   let mauctionState = info'auctionState . node'information $ node
   when (isNothing mauctionState) $ Contract.throwError "Can't bid: no auction in progress"
   auctionState <- maybe (Contract.throwError "No auction state when expected") pure mauctionState
-  when (bidAmount < as'minBid auctionState) (Contract.throwError "Auction bid lower than minimal bid")
+  case as'highestBid auctionState of
+    Nothing ->
+      when (bidAmount < as'minBid auctionState) (Contract.throwError "Auction bid lower than minimal bid")
+    Just (AuctionBid bid _) ->
+      when (bidAmount < bid) (Contract.throwError "Auction bid lower than previous bid")
 
   userUtxos <- getUserUtxos
   let newHighestBid =
@@ -91,12 +94,9 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
             ]
               ++ bidDependentTxConstraints
           )
-  ledgerTx <- Contract.submitTxConstraintsWith @NftTrade lookups tx
+  void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
   Contract.tell . Last . Just . Left $ nftId
-  -- void $ Contract.logInfo @Hask.String $ printf "DEBUG open auction TX: %s" (Hask.show ledgerTx)
-  void $ Contract.logInfo @Hask.String $ printf "Bidding in auction for %s" $ Hask.show nftVal
-  void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
-  void $ Contract.logInfo @Hask.String $ printf "Confirmed bid auction for %s" $ Hask.show nftVal
+  void $ Contract.logInfo @Hask.String $ printf "Bidding %s in auction for %s" (Hask.show bidAmount) (Hask.show nftVal)
   where
     updateDatum newAuctionState node =
       node
