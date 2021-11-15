@@ -13,9 +13,9 @@ function main() {
     mintRequestToken $PAYMENT_ADDRESS $PAYMENT_SIGN_KEY $ORACLE_OWNER
 
     #todo bette way to wait for transaction completion
-    sleep 15
+    #sleep 15
     echo 'redeem'
-    redeemRequestToken $PAYMENT_ADDRESS $PAYMENT_SIGN_KEY
+    #redeemRequestToken $PAYMENT_ADDRESS $PAYMENT_SIGN_KEY
 }
 
 function mintRequestToken() {
@@ -24,6 +24,8 @@ function mintRequestToken() {
     oracleOwnerAddress=$3
 
     updatePayUtxo $paymentAddress
+    cabal exec -- encode-oracle-request 1 "$dir/keys/client/payment.vkey" > $dir/test.txt
+
     datumHash=$(cardano-cli transaction hash-script-data --script-data-file $dir/datum/oracle-request.json)
     cardano-cli transaction build \
     --alonzo-era \
@@ -49,7 +51,7 @@ function redeemRequestToken() {
     updatePayUtxo $paymentAddress
     expectedHash=$(cardano-cli transaction hash-script-data --script-data-file $dir/datum/oracle-request.json)
     set -x
-    oracleUtxo=$(cardano-cli query utxo --testnet-magic $TESTNET_MAGIC --address "$ORACLE_SCRIPT_ADDRESS" | grep $expectedHash )
+    oracleUtxo=$(cardano-cli query utxo --testnet-magic $TESTNET_MAGIC --address "$ORACLE_SCRIPT_ADDRESS" | grep $expectedHash || true } )
     set +x
     if [ -z "$oracleUtxo" ]; then
         echo "oracle utxo not found"

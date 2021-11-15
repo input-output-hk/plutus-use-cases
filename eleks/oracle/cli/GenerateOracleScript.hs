@@ -24,7 +24,7 @@ import           Ledger.Ada                     as Ada
 
 import           Wallet.Emulator.Types          (Wallet (..))
 
--- cabal exec -- gs 1500000 1000000 "payment.vkey"
+-- cabal exec -- gs 1500000 1000000 "demo/keys/oracle/payment.vkey"
 main :: IO ()
 main = do
     args <- getArgs
@@ -48,6 +48,17 @@ main = do
         putStrLn $ "public key hash: " ++ show pkh
         putStrLn $ "fee: " ++ show fee
         putStrLn $ "collateral: " ++ show collateral 
+
+        let oracleParams = OracleParams1
+                { --opSymbol = "aa",
+                  opFees1   = 1_500_000
+                -- , opPublicKey1 = pk
+                -- , opCollateral1 = 1_000_000
+                } 
+
+        putStrLn $ "uraa"
+        putStrLn $ show $ encode oracleParams
+
         let oracleRequestTokenInfo = OracleRequestToken
                 { ortOperator = pkh
                 , ortFee = fee
@@ -81,3 +92,23 @@ writePlutusScript filename scriptSerial scriptSBS =
   case result of
     Left err -> print $ displayError err
     Right () -> return ()
+
+
+
+ {-
+readBech32Bip32SigningKeyFile
+  :: SigningKeyFile
+  -> IO (Either (FileError CardanoAddressSigningKeyConversionError) Crypto.XPrv)
+readBech32Bip32SigningKeyFile (SigningKeyFile fp) = do
+  eStr <- Exception.try $ readFile fp
+  case eStr of
+    Left e -> pure . Left $ FileIOError fp e
+    Right str ->
+      case decodeBech32 (Text.concat $ Text.words str) of
+        Left err ->
+          pure $ Left $
+            FileError fp (CardanoAddressSigningKeyBech32DecodeError err)
+        Right (_hrPart, _dataPart, bs) ->
+          pure $ first (FileError fp) (convertBip32SigningKey bs)
+
+-}
