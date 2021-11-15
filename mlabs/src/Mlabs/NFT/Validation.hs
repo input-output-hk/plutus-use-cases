@@ -313,7 +313,6 @@ mkTxPolicy !datum' !act !ctx =
           CloseAuctionAct {} ->
             traceIfFalse "Can't close auction: none in progress" (not noAuctionInProgress)
               && traceIfFalse "Auction deadline not yet reached" auctionDeadlineReached
-              && traceIfFalse "Only owner can close auction" signedByOwner
               && traceIfFalse "Auction: new owner set incorrectly" auctionCorrectNewOwner
               && traceIfFalse "Auction: datum illegally altered" auctionConsistentCloseDatum
               && if ownerIsAuthor
