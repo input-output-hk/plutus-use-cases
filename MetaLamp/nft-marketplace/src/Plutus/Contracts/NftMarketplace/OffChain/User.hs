@@ -60,9 +60,7 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-
-getOwnPubKey :: Contract w s Text PubKeyHash
-getOwnPubKey = pubKeyHash <$> ownPubKey
+import Plutus.Contract.Request (ownPubKeyHash)
 
 data CreateNftParams =
   CreateNftParams {
@@ -86,7 +84,7 @@ createNft marketplace CreateNftParams {..} = do
     nftStore <- Core.mdSingletons <$> marketplaceStore marketplace
     when (isJust $ AssocMap.lookup ipfsCidHash nftStore) $ throwError "Nft entry already exists"
 
-    pkh <- getOwnPubKey
+    pkh <- ownPubKeyHash
     let tokenName = V.TokenName ipfsCid
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
@@ -218,7 +216,7 @@ startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
     currTime <- currentTime
     when (saapEndTime < currTime) $ throwError "Auction end time is from the past"
 
-    self <- Ledger.pubKeyHash <$> ownPubKey
+    self <- ownPubKeyHash
     let startAuctionParams = Auction.StartAuctionParams {
       sapOwner = self,
       sapAsset = auctionValue,
@@ -374,7 +372,7 @@ balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
 balanceAt pkh asset = flip V.assetClassValueOf asset <$> fundsAt pkh
 
 ownPubKeyBalance :: Contract w s Text Value
-ownPubKeyBalance = getOwnPubKey >>= fundsAt
+ownPubKeyBalance = ownPubKeyHash >>= fundsAt
 
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
@@ -420,5 +418,5 @@ userEndpoints marketplace =
     `select` withContractResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
     `select` withContractResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
     `select` withContractResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
-    `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const getOwnPubKey)
+    `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const ownPubKeyHash)
     `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints marketplace

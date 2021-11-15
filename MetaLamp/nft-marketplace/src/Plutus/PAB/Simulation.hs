@@ -91,7 +91,7 @@ import           Servant.Client                                      (BaseUrl (.
                                                                       Scheme (..),
                                                                       mkClientEnv)
 import           Wallet.Emulator.Types                               (WalletNumber (..),
-                                                                      walletPubKey)
+                                                                      walletPubKeyHash)
 import           Wallet.Emulator.Wallet                              (Wallet (..),
                                                                       fromWalletNumber)
 import           Wallet.Types                                        (ContractInstanceId)
@@ -159,7 +159,7 @@ runNftMarketplace =
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
     let userCid = cidUser Map.! wallet2
-        sender = pubKeyHash . walletPubKey $ wallet2
+        sender = walletPubKeyHash $ wallet2
     let catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
     let photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
 
@@ -195,7 +195,7 @@ runNftMarketplace =
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful openSale"
 
     let buyerCid = cidUser Map.! wallet3
-        buyer = pubKeyHash . walletPubKey $ wallet3
+        buyer = walletPubKeyHash wallet3
 
     _  <-
         Simulator.callEndpointOnInstance buyerCid "buyItem" Marketplace.CloseLotParams {
