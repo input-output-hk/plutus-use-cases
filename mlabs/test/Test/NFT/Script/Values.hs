@@ -9,7 +9,10 @@ import Ledger.Value qualified as Value
 
 import Ledger.CardanoWallet qualified as CardanoWallet
 import Mlabs.NFT.Contract.Aux qualified as NFT
+
+import Mlabs.NFT.Governance qualified as Gov
 import Mlabs.NFT.Types (Content (..), NftAppInstance (..), NftAppSymbol (..), NftId (..), UserId (..))
+
 import Mlabs.NFT.Validation qualified as NFT
 import Plutus.V1.Ledger.Ada qualified as Ada
 import PlutusTx.Prelude hiding ((<>))
@@ -85,7 +88,7 @@ testStateAddr = NFT.txScrAddress
    the initial state UTxOs to something other than the default.
 -}
 appInstance :: NftAppInstance
-appInstance = NftAppInstance testStateAddr (Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", "Unique App Token")) [UserId userOnePkh]
+appInstance = NftAppInstance testStateAddr (Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", "Unique App Token")) Gov.govScrAddress [UserId userOnePkh]
 
 appSymbol :: NftAppSymbol
 appSymbol = NftAppSymbol . NFT.curSymbol $ appInstance

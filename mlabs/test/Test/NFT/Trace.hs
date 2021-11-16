@@ -31,19 +31,16 @@ import Plutus.Trace.Emulator (EmulatorTrace, activateContractWallet, callEndpoin
 import Plutus.Trace.Emulator qualified as Trace
 import Wallet.Emulator qualified as Emulator
 
-import Mlabs.Utils.Wallet (walletFromNumber)
-
-import Mlabs.NFT.Contract.Aux (hashData)
-
 import Mlabs.NFT.Api
+import Mlabs.NFT.Contract.Aux (hashData)
 import Mlabs.NFT.Types
+import Mlabs.Utils.Wallet (walletFromNumber)
 
 -- | Generic application Trace Handle.
 type AppTraceHandle = Trace.ContractHandle UserWriter NFTAppSchema Text
 
+-- | Initialisation Trace Handle.
 type AppInitHandle = Trace.ContractHandle (Last NftAppSymbol) NFTAppSchema Text
-
---type AppQueryHandle = Trace.ContractHandle (Last QueryResponse) NFTAppSchema Text
 
 -- | Initialise the Application
 appInitTrace :: EmulatorTrace NftAppSymbol

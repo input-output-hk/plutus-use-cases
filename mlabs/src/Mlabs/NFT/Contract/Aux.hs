@@ -3,6 +3,7 @@ module Mlabs.NFT.Contract.Aux (
   getUserAddr,
   getUserUtxos,
   getUId,
+  toDatum,
   getAddrUtxos,
   getAddrValidUtxos,
   serialiseDatum,
@@ -56,6 +57,10 @@ getScriptAddrUtxos :: Contract w s Text (Map.Map TxOutRef (ChainIndexTxOut, Chai
 getScriptAddrUtxos = utxosTxOutTxAt txScrAddress
 
 -- HELPER FUNCTIONS AND CONTRACTS --
+
+-- | Convert to Datum
+toDatum :: PlutusTx.ToData a => a -> Datum
+toDatum = Datum . PlutusTx.toBuiltinData
 
 -- | Get the current Wallet's publick key.
 getUserAddr :: Contract w s Text Address

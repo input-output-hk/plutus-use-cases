@@ -282,6 +282,7 @@ mintPolicy appInstance =
 -- | A validator script for the user actions.
 mkTxPolicy :: DatumNft -> UserAct -> ScriptContext -> Bool
 mkTxPolicy !datum' !act !ctx =
+  --  traceIfFalse "Fees must be paid" proofPaidBack &&
   case datum' of
     HeadDatum headDat -> case act of
       MintAct {} ->
