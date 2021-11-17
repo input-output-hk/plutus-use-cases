@@ -135,12 +135,17 @@ data OracleRequestRedeemer = Request | RedeemToken
 PlutusTx.makeIsDataIndexed ''OracleRequestRedeemer [('Request, 0), ('RedeemToken, 1)]
 
 data OracleParams = OracleParams
-    { opSymbol :: !CurrencySymbol
-    , opFees   :: !Ada
+    { --opSymbol :: !CurrencySymbol,
+      opFees   :: !Ada
     , opCollateral :: !Ada
     , opPublicKey :: PubKey
     , opSigner :: !PrivateKey
     } deriving (Haskell.Eq, Show, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
+
+data OracleParams1 = OracleParams1
+    { --opSymbol :: !CurrencySymbol,
+      opFees1   :: !Ada
+    } deriving (Haskell.Eq, Show, Haskell.Ord, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
 {-# INLINABLE oracleRequestTokenName #-}
 oracleRequestTokenName :: TokenName

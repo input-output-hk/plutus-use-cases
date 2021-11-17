@@ -16,15 +16,15 @@ source-repository-package
   subdir:
     freer-extras
     playground-common
-    plutus-contract
     plutus-chain-index
+    plutus-chain-index-core
+    plutus-contract
     plutus-ledger
     plutus-pab
     plutus-use-cases
     quickcheck-dynamic
-  tag: plutus-starter-devcontainer/v1.0.14
-
-
+    web-ghc
+  tag: d57556516d008a2bfb5545b4f431e1d4c8f21887
 -- The following sections are copied from the 'plutus-apps' repository cabal.project at the revision
 -- given above.
 -- This is necessary because the  'plutus-apps' libraries depend on a number of other libraries which are
@@ -58,6 +58,9 @@ constraints:
   -- ones they reuse the one from 'some', but there isn't e.g. a proper version
   -- constraint from dependent-sum-template (which is the library we actually use).
   , dependent-sum > 0.6.2.0
+  -- Newer Hashable have instances for Set, which breaks beam-migrate
+  -- which declares its own instances of Hashable Set
+  , hashable < 1.3.4.0
 
 -- These packages appear in our dependency tree and are very slow to build.
 -- Empirically, turning off optimization shaves off ~50% build time.
@@ -78,16 +81,16 @@ source-repository-package
   location: https://github.com/Quid2/flat.git
   tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
 
--- Needs some patches, but upstream seems to be fairly dead (no activity in > 1 year)
+-- TODO replace with something more sustainable (and maintained)
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/purescript-bridge.git
-  tag: 6a92d7853ea514be8b70bab5e72077bf5a510596
+  tag: 366fc70b341e2633f3ad0158a577d52e1cd2b138
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/servant-purescript.git
-  tag: a0c7c7e37c95564061247461aef4be505a853538
+  tag: ebea59c7bdfc0338d83fca772b9a57e28560bcde
 
 -- Copied from plutus-core
 source-repository-package
@@ -127,17 +130,22 @@ source-repository-package
   tag: d2f86caa085402a953920c6714a0de6a50b655ec
   subdir:
     core
+    command-line
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/cardano-wallet
-  tag: ae7569293e94241ef6829139ec02bd91abd069df
+  location: https://github.com/j-mueller/cardano-wallet
+  tag: 6be73ab852c0592713dfe78218856d4a8a0ee69e
   subdir:
     lib/text-class
     lib/strict-non-empty-containers
     lib/core
     lib/test-utils
     lib/numeric
+    lib/launcher
+    lib/core-integration
+    lib/cli
+    lib/shelley
 
 source-repository-package
   type: git
@@ -200,8 +208,12 @@ source-repository-package
     eras/byron/ledger/impl/test
     eras/shelley/impl
     eras/shelley-ma/impl
+    eras/shelley/chain-and-ledger/executable-spec
+    eras/shelley/test-suite
+    shelley/chain-and-ledger/shelley-spec-ledger-test
     libs/non-integral
     libs/small-steps
+    libs/cardano-ledger-pretty
     semantics/small-steps-test
 
 -- A lot of plutus-apps dependencies have to be synchronized with the dependencies of

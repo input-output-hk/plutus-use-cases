@@ -103,8 +103,8 @@ main = void $ Simulator.runSimulationWith handlers $ do
     -- Simulator.logString @(Builtin MutualBetContracts) "Uraa1"
     -- currency <- waitForLast cidOracleToken
     let oracleParams = OracleParams
-                        { opSymbol = "aa"
-                        , opFees   = 1_500_000
+                        { --opSymbol = "aa",
+                          opFees   = 1_500_000
                         , opSigner = oraclePrivateKey
                         , opPublicKey = oraclePublicKey
                         , opCollateral = 1_000_000

@@ -158,4 +158,26 @@ curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:9080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 
-  76d5e1291d51f16eb442267faccd0ab51a3b0c4a21eb6b8f72d5f0a4ca467189ac5f70a018c6df3f632b48fd8ead1b68f39a44de06f5a5de42a6a131af0f085d44becd56fa30041efea5ff2637205181837dffd03545d3db1c11e6dcbbd3415ce8f85aad41776b99eb62a797b8c5abbe82061e1634efc4c7d5ac6fff3ca94d7f
+## Testnet
+1. Start pab
+  If it's the first time your running, you'll need to ask the PAB to make the
+  database:
+  ```
+  cabal exec -- testnet-oracle-pab --config pab-testnet/config.yml migrate
+  ```
+
+  Then, run the PAB
+
+  ```
+  cabal exec -- testnet-oracle-pab \
+    --config pab-testnet/config.yml webserver \
+    --passphrase pab123456789
+  ```
+
+2. Activate oracle
+
+  ```
+ curl -H "Content-Type: application/json" -v -X POST -d \
+    "{\"caID\":{\"tag\":\"OracleContract\"},\"caWallet\":{\"getWalletId\":\"$WALLET_ID\"}}" \
+    localhost:9080/api/contract/activate
+  ```s

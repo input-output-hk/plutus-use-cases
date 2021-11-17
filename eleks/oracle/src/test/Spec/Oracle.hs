@@ -52,6 +52,18 @@ import           PlutusTx.Monoid                    (inv)
 import           Test.Tasty
 import           Types.Game
 
+minUtxo:: Ada
+minUtxo = 2_000_000
+
+minUtxoVal:: Value
+minUtxoVal = Ada.toValue minUtxo
+
+marketUtxoVal:: Value
+marketUtxoVal = Ada.toValue minUtxo
+
+minUtxoValN:: Ada -> Value
+minUtxoValN n = Ada.toValue (n * minUtxo)
+
 getWalletPubKey:: Wallet -> PubKey
 getWalletPubKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState
 
@@ -74,9 +86,9 @@ oracleCurrency = "aa"
 
 oracleParams :: OracleParams 
 oracleParams = OracleParams
-    { opSymbol = oracleCurrency
-    , opFees = 5_000_000
-    , opCollateral = 10_000_000
+    { --opSymbol = oracleCurrency,
+      opFees = 5_000_000
+    , opCollateral = 3_000_000
     , opPublicKey = getWalletPubKey oracleWallet
     , opSigner = oraclePrivateKey
     } 
@@ -263,9 +275,11 @@ tests =
         (
         assertNoFailedTransactions
         .&&. valueAtAddress (oracleAddress oracle)
-            (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1)
+            (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1
+                <> Ada.toValue(oCollateral oracle)
+                )
             )
-        .&&. walletFundsChange oracleWallet ((Ada.toValue (oFee oracle + oCollateral oracle)))
+        .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
         .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle + oCollateral oracle)))
         .&&. dataAtAddress (oracleAddress oracle) (== [requestOracleTestState])
         )
@@ -276,7 +290,8 @@ tests =
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
                 (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1 
-                    <> Ada.toValue (oCollateral oracle))    
+                    <> Ada.toValue (oCollateral oracle)
+                    )    
                 )
             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
             -- .&&. dataAtAddress (oracleAddress oracle) (== signOracleTestState)

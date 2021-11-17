@@ -131,8 +131,8 @@ deleteFirstOccurence bet (x:xs)
 {-# INLINABLE mutualBetTransition #-}
 -- | The transitions of the mutual bet state machine.
 mutualBetTransition :: MutualBetParams -> State MutualBetState -> MutualBetInput -> Maybe (TxConstraints Void Void, State MutualBetState)
-mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State{stateData=oldState} input =
-    case (oldState, input) of
+mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State{stateData=oldStateData, stateValue=oldStateValue} input =
+    case (oldStateData, input) of
         (Ongoing bets, NewBet{newBet}) 
             | isValidBet params newBet ->
                 let constraints = Constraints.mustPayToPubKey mbpOwner $ Ada.toValue mbpBetFee
@@ -140,7 +140,7 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                     newState =
                         State
                             { stateData = Ongoing newBets
-                            , stateValue = Ada.toValue $ betsValueAmount newBets
+                            , stateValue = oldStateValue <> (Ada.toValue $ betAmount newBet)
                             }
                 in Just (constraints, newState)
         (Ongoing bets, CancelBet{cancelBet}) 
@@ -150,7 +150,7 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                     newState =
                         State
                             { stateData = Ongoing newBets
-                            , stateValue = Ada.toValue $ betsValueAmount newBets
+                            , stateValue = oldStateValue <> inv (Ada.toValue $ betAmount cancelBet)
                             }
                 in Just (constraints, newState)
         (Ongoing bets, FinishBetting{oracleSigned})
@@ -159,7 +159,7 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                     newState =
                         State
                             { stateData = BettingClosed bets
-                            , stateValue = Ada.toValue $ betsValueAmount bets
+                            , stateValue = oldStateValue
                             }
                 in Just (constraints, newState)
         (Ongoing bets, CancelGame) ->

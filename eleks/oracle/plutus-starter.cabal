@@ -27,15 +27,15 @@ flag defer-plugin-errors
 -- extra-source-files: CHANGELOG.md
 
 common lang
-    default-language:   Haskell2010
-    ghc-options:
-      -Wall -Wnoncanonical-monad-instances
-      -Wincomplete-uni-patterns -Wincomplete-record-updates
-      -Wredundant-constraints -Widentities -rtsopts
-      -- See Plutus Tx readme
-      -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    if flag(defer-plugin-errors)
-        ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+  default-language:   Haskell2010
+  ghc-options:
+    -Wall -Wnoncanonical-monad-instances
+    -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -rtsopts
+    -- See Plutus Tx readme
+    -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+  if flag(defer-plugin-errors)
+      ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 library
     import: lang
@@ -71,6 +71,7 @@ library
       plutus-ledger,
       plutus-ledger-api,
       plutus-chain-index,
+      plutus-chain-index-core,
       plutus-use-cases,
 
     hs-source-dirs: src src/Contracts/MutualBet
@@ -86,6 +87,7 @@ test-suite plutus-example-projects-test
   hs-source-dirs: src/test
   other-modules:
     Spec.MutualBet
+    Spec.Oracle
   build-depends:
     plutus-starter -any,
     playground-common,
@@ -128,7 +130,7 @@ executable bet-pab
     text -any,
     lens -any,
     openapi3 -any,
-    playground-common,
+    playground-common -any,
     plutus-contract -any,
     plutus-pab -any,
     plutus-starter,
@@ -140,6 +142,35 @@ executable bet-pab
     plutus-use-cases,
     stm -any,
     req -any,
+
+executable testnet-oracle-pab
+  import: lang 
+  main-is: Main.hs
+  hs-source-dirs: pab-testnet
+  other-modules:
+    Contracts
+  ghc-options:
+    -threaded
+  build-depends:
+      base >= 4.9 && < 5,
+      bytestring,
+      data-default -any,
+      containers -any,
+      text -any,
+      openapi3 -any,
+      plutus-starter,
+      playground-common -any,
+      plutus-contract -any,
+      plutus-pab -any,
+      plutus-use-cases -any,
+      prettyprinter -any,
+      purescript-bridge,
+      row-types,
+      servant-purescript,
+      aeson -any,
+      freer-simple -any,
+      freer-extras -any,
+      plutus-ledger -any,
 
 executable gs
   import: lang
@@ -157,7 +188,6 @@ executable gs
     plutus-ledger-api,
     plutus-tx,
     bytestring
-
 
 executable encode-oracle-request
   import: lang
@@ -198,19 +228,6 @@ executable gameserver
     text -any,
     utf8-string,
     warp
- 
--- executable gamesclient
---   import: lang
---   main-is: GameClient.hs
---   hs-source-dirs: pab
---   ghc-options:  -threaded
---   build-depends:        
---     aeson, 
---     base >= 4.9 && < 5,
---     bytestring,
---     plutus-starter,
---     text -any,
---     req
 
 executable mutualbetserver
   import: lang

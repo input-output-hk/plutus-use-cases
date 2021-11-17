@@ -31,6 +31,7 @@ module Contracts.Oracle.OffChain
     , UpdateOracleParams (..)
     , OracleContractState (..)
     , useOracle
+    , startOracle1
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1) 
@@ -88,6 +89,26 @@ startOracle op = do
     logInfo @String $ "started oracle " ++ show oracle
     return oracle
 
+startOracle1 :: Contract () Empty Text ()
+startOracle1 = do
+    --let pk = opPublicKey1 op
+    pkh <- Contract.ownPubKeyHash
+    -- let oracleRequestTokenInfo = OracleRequestToken
+    --         { ortOperator = pkh
+    --         , ortFee = opFees1 op
+    --         , ortCollateral = opCollateral1 op
+    --         }
+    -- let oracle = Oracle
+    --         { --oSymbol = opSymbol op
+    --           oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
+    --         , oOperator = pkh
+    --         , oOperatorKey = pk
+    --         , oFee = opFees1 op
+    --         , oCollateral = opCollateral1 op
+    --         }
+    logInfo @String $ "started oracle "-- ++ show oracle
+    -- return oracle
+
 updateOracle :: forall w s. Oracle -> PrivateKey -> UpdateOracleParams -> Contract w s Text ()
 updateOracle oracle operatorPrivateKey params = do
     let gameId = uoGameId params
@@ -113,8 +134,7 @@ updateOracle oracle operatorPrivateKey params = do
                                         <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
 
                             logInfo ("submit transaction " ++ (show $ oracleData'))
-                            ledgerTx <- submitTxConstraintsWith lookups tx
-                            awaitTxConfirmed $ getCardanoTxId ledgerTx
+                            mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
 
 oracleValueFromTxOutTx :: ChainIndexTxOut -> Maybe OracleData
 oracleValueFromTxOutTx o = do
@@ -156,12 +176,11 @@ requestOracleForAddress oracle gameId = do
                 <> Constraints.otherScript mrScript
                 <> Constraints.mintingPolicy tokenMintingPolicy
 
-        tx      = Constraints.mustPayToTheScript oracleData forgedToken
-                <> Constraints.mustPayToPubKey (oOperator oracle) (feeVal <> collateralVal)
+        tx      = Constraints.mustPayToTheScript oracleData (forgedToken <> collateralVal)
+                <> Constraints.mustPayToPubKey (oOperator oracle) (feeVal)
                 <> Constraints.mustMintValueWithRedeemer mintRedeemer forgedToken
 
-    ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
+    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
 
 --get active request lists for oracle to process
 getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
@@ -286,5 +305,4 @@ useOracle oracle =
                              <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestTokenVal)
                              <> Constraints.mustPayToPubKey pkh collateralValue
 
-                ledgerTx <- submitTxConstraintsWith lookups tx
-                void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
+                mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx

@@ -29,7 +29,7 @@ import           Data.Monoid                        (Last (..))
 import           Data.Text                          (Text, pack, isInfixOf)
 import           Data.Text.Lazy                     (toStrict)
 import           Data.Text.Lazy.Builder             (toLazyText)
-import           Ledger                             (Ada, Slot (..), Value, pubKeyHash)
+import           Ledger                             (Ada, Slot (..), Value, pubKeyHash, minAdaTxOut)
 import qualified Ledger.Ada                         as Ada
 import           Ledger.Crypto                      (PrivateKey, PubKey)
 import           Ledger.Oracle                      (Observation, SignedMessage, signMessage)
@@ -65,9 +65,9 @@ getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . empty
 
 oracleParams :: OracleParams 
 oracleParams = OracleParams
-    { opSymbol = oracleCurrency
-    , opFees = 1_000_000
-    , opCollateral = 2_000_000
+    { --opSymbol = oracleCurrency,
+      opFees = 3_000_000
+    , opCollateral = 2_500_000
     , opPublicKey = getWalletPubKey oracleWallet
     , opSigner = oraclePrivateKey
     } 
@@ -106,8 +106,8 @@ mutualBetParams =
         , mbpOwner = walletPubKeyHash betOwnerWallet
         , mbpTeam1 = team1Id
         , mbpTeam2 = team2Id
-        , mbpMinBet = 2_000_000
-        , mbpBetFee = 2_000_000
+        , mbpMinBet = 4_000_000
+        , mbpBetFee = 5_000_000
         }
 
 -- | 'EmulatorConfig' that includes 'theToken' in the initial distribution of Wallet 1.
@@ -486,12 +486,12 @@ tests =
         [ 
         checkPredicateOptions options "success games 1 winner 1 lost"
         (assertDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) (const True) "mutual bet contract should be done"
-        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
-        .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
-        .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) mutualBetSuccessTraceFinalState ) "final state should be OK"
-        .&&. walletFundsChange bettor1 (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet - (mbpBetFee mutualBetParams))
-        .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams))
+          .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
+          .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
+          .&&. assertAccumState (bettorContract threadToken) (Trace.walletInstanceTag bettor1) ((==) mutualBetSuccessTraceFinalState ) "final state should be OK"
+          .&&. walletFundsChange bettor1 (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet - (mbpBetFee mutualBetParams))
+          .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet + (mbpBetFee mutualBetParams)))
+          .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams))
         )
         mutualBetSuccessTrace
         ,
@@ -533,7 +533,7 @@ tests =
         (assertNotDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) "mutual bet contract should not be done"
         .&&. assertNotDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) "bettor 1 contract should not be done"
         .&&. assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
-        .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams + opCollateral oracleParams))
+        .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams + opCollateral oracleParams + minAdaTxOut))
         )
         inProgressBetFailTrace
         ,
@@ -555,7 +555,7 @@ tests =
         (
         walletFundsChange bettor1 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut))
         )
         cancelBetTrace
         ,
@@ -563,7 +563,7 @@ tests =
         (
         walletFundsChange bettor1 (inv (Ada.toValue $ (2 * mbpBetFee mutualBetParams) + (Ada.lovelaceOf cancelBettorBet) ))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (3 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (3 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut))
         )
         cancelBetWhenDuplicateTrace
         ,
@@ -571,7 +571,7 @@ tests =
         (
         walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut))
         .&&. assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
         )
         cancelBetLiveGameFailTrace
