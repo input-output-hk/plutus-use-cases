@@ -18,7 +18,7 @@ type Fractional = (Integer, Integer)
 newtype Percentage =
       Percentage
       {getPercentage :: Fractional}
-      deriving stock (Eq, Show, Generic)
+      deriving stock (Eq, Show, Ord, Generic)
       deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''Percentage

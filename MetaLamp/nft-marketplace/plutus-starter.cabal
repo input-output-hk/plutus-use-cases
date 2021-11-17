@@ -114,6 +114,17 @@ executable pab
     base >= 4.9 && < 5,
     plutus-starter
 
+executable pab-app
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs: pab-app
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter,
+    plutus-pab
+
 executable pab-simulation
   import: lang
   main-is: Main.hs

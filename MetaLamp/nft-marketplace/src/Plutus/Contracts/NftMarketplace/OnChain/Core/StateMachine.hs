@@ -38,6 +38,7 @@ import           PlutusTx.Prelude                                         hiding
                                                                           (Semigroup (..))
 import           Prelude                                                  (Semigroup (..))
 import qualified Prelude                                                  as Haskell
+import Ledger.Ada (toValue)
 
 data RemoveLotRedeemerValue =
   RemoveNftLotRedeemer IpfsCidHash
@@ -157,7 +158,7 @@ transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Ma
 transition marketplace@Marketplace{..} state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
         -> Just ( mustBeSignedByIssuer nftEntry <>
-                  Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
+                  Constraints.mustPayToPubKey marketplaceOperator (toValue marketplaceNFTFee)
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )
     PutLotRedeemer (PutNftLotRedeemer (InternalNftId ipfsCidHash ipfsCid) lot)
@@ -185,7 +186,7 @@ transition marketplace@Marketplace{..} state redeemer = case redeemer of
                     , State (insertBundle bundleId newEntry nftStore) currStateValue
                     )
     BundleUpRedeemer nftIds bundleId bundleInfo
-        -> Just ( Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
+        -> Just ( Constraints.mustPayToPubKey marketplaceOperator (toValue marketplaceNFTFee)
                 , State (bundleUpDatum nftIds bundleId bundleInfo nftStore) currStateValue
                 )
     UnbundleRedeemer bundleId

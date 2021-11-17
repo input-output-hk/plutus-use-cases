@@ -27,13 +27,17 @@ import           Plutus.PAB.Effects.Contract.Builtin          (Builtin,
                                                                SomeBuiltin (..),
                                                                type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin          as Builtin
+import Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
 
 data MarketplaceContracts =
     MarketplaceStart
     | MarketplaceInfo Marketplace.Marketplace
     | MarketplaceUser Marketplace.Marketplace
-    deriving (Eq, Show, Generic)
+    deriving (Eq, Show, Generic, Ord)
     deriving anyclass (J.FromJSON, J.ToJSON, OpenApi.ToSchema)
+
+instance HasPSTypes MarketplaceContracts where
+    psTypes = []
 
 instance Pretty MarketplaceContracts where
     pretty = viaShow
