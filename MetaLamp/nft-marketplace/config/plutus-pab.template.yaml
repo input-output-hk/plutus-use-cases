@@ -1,5 +1,5 @@
 dbConfig:
-    dbConfigFile: pab-core.db
+    dbConfigFile: <NODE_PATH>/pab-core.db
     dbConfigPoolSize: 20
 
 pabWebserverConfig:
@@ -18,9 +18,9 @@ walletServerConfig:
 
 nodeServerConfig:
   mscBaseUrl: http://localhost:9082
-  mscSocketPath: /media/hdd/cardano/purple-1.30.1/configuration/sockets/node.socket
+  mscSocketPath: <NODE_PATH>/configuration/sockets/node.socket
   mscKeptBlocks: 100
-  mscNetworkId: "8" # Testnet network ID (main net = empty string)
+  mscNetworkId: "1097911063" # Testnet network ID (main net = empty string)
   mscSlotConfig:
     scSlotZeroTime: 1591566291000 # Wednesday, July 29, 2020 21:44:51 - shelley launch time in milliseconds
     scSlotLength: 1000 # In milliseconds

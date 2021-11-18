@@ -2,11 +2,12 @@
 
 export NODE_TAG=$1
 export NODE_PATH=$2
-CONFIG=https://hydra.iohk.io/build/7366583/download/1/alonzo-purple-config.json
-BYRON_GENESIS=https://hydra.iohk.io/build/7366583/download/1/alonzo-purple-byron-genesis.json
-SHELLEY_GENESIS=https://hydra.iohk.io/build/7366583/download/1/alonzo-purple-shelley-genesis.json
-ALONZO_GENESIS=https://hydra.iohk.io/build/7366583/download/1/alonzo-purple-alonzo-genesis.json
-TOPOLOGY=https://hydra.iohk.io/build/7189190/download/1/alonzo-purple-topology.json
+
+CONFIG=https://hydra.iohk.io/build/7366583/download/1/testnet-config.json
+BYRON_GENESIS=https://hydra.iohk.io/build/7366583/download/1/testnet-byron-genesis.json
+SHELLEY_GENESIS=https://hydra.iohk.io/build/7366583/download/1/testnet-shelley-genesis.json
+ALONZO_GENESIS=https://hydra.iohk.io/build/7366583/download/1/testnet-alonzo-genesis.json
+TOPOLOGY=https://hydra.iohk.io/build/7189190/download/1/testnet-topology.json
 
 ##Making some folders
 mkdir -p ${NODE_PATH}/configuration/config/

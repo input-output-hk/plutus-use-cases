@@ -9,10 +9,7 @@ services:
           - ${NODE_PATH}/configuration/topology:/app/cardano/topology
           - ${NODE_PATH}/configuration/sockets:/app/cardano/sockets
           - ${NODE_PATH}/database:/db
-          - ~/testnet/keys:/data/keys
-          - ~/testnet/exercises-data:/data/excercises
-          - ./../scripts:/deployment/scripts
-        command: "run --topology /app/cardano/topology/alonzo-purple-topology.json --config /app/cardano/config/alonzo-purple-config.json --port 3001 --host-addr 0.0.0.0 --database-path /db --socket-path /app/cardano/sockets/node.socket"
+        command: "run --topology /app/cardano/topology/testnet-topology.json --config /app/cardano/config/testnet-config.json --port 3001 --host-addr 0.0.0.0 --database-path /db --socket-path /app/cardano/sockets/node.socket"
         ports:
           - 3001
         environment:
@@ -28,7 +25,7 @@ services:
           - 8090:8090
         entrypoint: []
         command: bash -c "
-            ($$CMD --testnet /app/cardano/config/alonzo-purple-byron-genesis.json)
+            ($$CMD --testnet /app/cardano/config/testnet-byron-genesis.json)
           "
         environment:
           CMD: "cardano-wallet serve --node-socket /app/cardano/sockets/node.socket --database /wallet-db --listen-address 0.0.0.0"
