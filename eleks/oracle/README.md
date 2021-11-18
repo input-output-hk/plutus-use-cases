@@ -173,11 +173,18 @@ curl -H "Content-Type: application/json" \
     --config pab-testnet/config.yml webserver \
     --passphrase pab123456789
   ```
+2. Get wallet id 
+  ```
+  curl -H "content-type: application/json" -XGET \
+    localhost:8090/v2/wallets
+  ```
+  export it - export WALLET_ID=88cc0e42b4a4f29d192c8b05967c386cb4c2aeaa
 
-2. Activate oracle
+  
+3. Activate oracle
 
   ```
  curl -H "Content-Type: application/json" -v -X POST -d \
-    "{\"caID\":{\"tag\":\"OracleContract\"},\"caWallet\":{\"getWalletId\":\"$WALLET_ID\"}}" \
+    "{\"caID\":{\"tag\":\"OracleContract\", \"contents\": {\"opFees1\":{\"getLovelace\":1500000},\"opPublicKey1\":{\"getPubKey\":\"a2709b7f683084f5f3dcb9197afbc8528282449a38bdc3b240894e7a63823b81\"},\"opCollateral1\":{\"getLovelace\":1000000}}},\"caWallet\":{\"getWalletId\":\"$WALLET_ID\"}}" \
     localhost:9080/api/contract/activate
-  ```s
+  ```

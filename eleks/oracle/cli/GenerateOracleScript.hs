@@ -24,7 +24,7 @@ import           Ledger.Ada                     as Ada
 
 import           Wallet.Emulator.Types          (Wallet (..))
 
--- cabal exec -- gs 1500000 1000000 "demo/keys/oracle/payment.vkey"
+-- cabal exec -- gs 1500000 1000000 "cli-demo/keys/oracle/payment.vkey"
 main :: IO ()
 main = do
     args <- getArgs
@@ -52,8 +52,8 @@ main = do
         let oracleParams = OracleParams1
                 { --opSymbol = "aa",
                   opFees1   = 1_500_000
-                -- , opPublicKey1 = pk
-                -- , opCollateral1 = 1_000_000
+                , opPublicKey1 = pk
+                , opCollateral1 = 1_000_000
                 } 
 
         putStrLn $ "uraa"

@@ -36,8 +36,8 @@ import           Schema (FormSchema)
 import           Contracts.Oracle
 
 data OracleContracts = 
-    OracleContract 
-    | OracleContract1
+    OracleContract OracleParams1 
+    | OracleContract1 OracleParams1
     deriving (Eq, Ord, Show, Generic)
     deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
@@ -56,13 +56,13 @@ instance HasDefinitions OracleContracts where
 
 getOracleContractsSchema :: OracleContracts -> [FunctionSchema FormSchema]
 getOracleContractsSchema = \case
-    OracleContract     -> Builtin.endpointsToSchemas @Builtin.Empty
-    OracleContract1{}  -> Builtin.endpointsToSchemas @Builtin.Empty
+    OracleContract _    -> Builtin.endpointsToSchemas @Builtin.Empty
+    OracleContract1 _ -> Builtin.endpointsToSchemas @Builtin.Empty
 
 getOracleContracts :: OracleContracts -> SomeBuiltin
 getOracleContracts = \case
-    OracleContract -> SomeBuiltin startOracle1
-    OracleContract1 -> SomeBuiltin startOracle1
+    OracleContract v -> SomeBuiltin $ startOracle1 v
+    OracleContract1 v -> SomeBuiltin $ startOracle1 v
 
 handlers :: SimulatorEffectHandlers (Builtin OracleContracts)
 handlers =

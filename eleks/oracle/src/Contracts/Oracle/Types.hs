@@ -145,6 +145,8 @@ data OracleParams = OracleParams
 data OracleParams1 = OracleParams1
     { --opSymbol :: !CurrencySymbol,
       opFees1   :: !Ada
+    , opCollateral1 :: !Ada
+    , opPublicKey1 :: PubKey
     } deriving (Haskell.Eq, Show, Haskell.Ord, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
 {-# INLINABLE oracleRequestTokenName #-}

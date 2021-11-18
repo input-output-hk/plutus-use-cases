@@ -32,12 +32,12 @@ import           System.IO                      (hPutStrLn, stderr)
 {-
 First request 
 cabal exec -- encode-oracle-request 1 \
-"demo/keys/client/payment.vkey" 
+"cli-demo/keys/client/payment.vkey" 
 
 Oracle Update
 cabal exec -- encode-oracle-request 1 \
-"demo/keys/client/payment.vkey" \
-"demo/keys/oracle/payment.skey" \
+"cli-demo/keys/client/payment.vkey" \
+"cli-demo/keys/oracle/payment.skey" \
 0 FT
 
 -}

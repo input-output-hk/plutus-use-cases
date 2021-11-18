@@ -89,8 +89,8 @@ startOracle op = do
     logInfo @String $ "started oracle " ++ show oracle
     return oracle
 
-startOracle1 :: Contract () Empty Text ()
-startOracle1 = do
+startOracle1 :: OracleParams1 -> Contract () Empty Text ()
+startOracle1 d = do
     --let pk = opPublicKey1 op
     pkh <- Contract.ownPubKeyHash
     -- let oracleRequestTokenInfo = OracleRequestToken
@@ -106,7 +106,7 @@ startOracle1 = do
     --         , oFee = opFees1 op
     --         , oCollateral = opCollateral1 op
     --         }
-    logInfo @String $ "started oracle "-- ++ show oracle
+    void $ logInfo @String $ "started oracle "-- ++ show oracle
     -- return oracle
 
 updateOracle :: forall w s. Oracle -> PrivateKey -> UpdateOracleParams -> Contract w s Text ()
