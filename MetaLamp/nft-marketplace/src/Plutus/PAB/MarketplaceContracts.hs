@@ -27,7 +27,7 @@ import           Plutus.PAB.Effects.Contract.Builtin          (Builtin,
                                                                SomeBuiltin (..),
                                                                type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin          as Builtin
-import Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
+import           Plutus.PAB.Run.PSGenerator                   (HasPSTypes (..))
 
 data MarketplaceContracts =
     MarketplaceStart

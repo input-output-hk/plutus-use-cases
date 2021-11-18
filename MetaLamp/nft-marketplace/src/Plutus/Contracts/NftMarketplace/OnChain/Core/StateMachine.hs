@@ -21,6 +21,7 @@ import qualified Data.Aeson                                               as J
 import qualified Data.Text                                                as T
 import qualified GHC.Generics                                             as Haskell
 import           Ledger
+import           Ledger.Ada                                               (toValue)
 import qualified Ledger.Constraints                                       as Constraints
 import qualified Ledger.Typed.Scripts                                     as Scripts
 import qualified Ledger.Value                                             as V
@@ -38,7 +39,6 @@ import           PlutusTx.Prelude                                         hiding
                                                                           (Semigroup (..))
 import           Prelude                                                  (Semigroup (..))
 import qualified Prelude                                                  as Haskell
-import Ledger.Ada (toValue)
 
 data RemoveLotRedeemerValue =
   RemoveNftLotRedeemer IpfsCidHash
