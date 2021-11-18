@@ -104,10 +104,10 @@ library
       plutus-use-cases
     hs-source-dirs: src
 
-executable pab
+executable pab-demo
   import: lang
   main-is: Main.hs
-  hs-source-dirs: pab
+  hs-source-dirs: pab-demo
   ghc-options:
     -threaded
   build-depends:
