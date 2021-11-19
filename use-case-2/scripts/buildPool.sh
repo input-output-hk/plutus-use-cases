@@ -21,13 +21,13 @@ liquidityCoinValue=${14}
 outFile="./buildPool-tx-signed"
 #tokenAValue="e41bbd4c8c419c825945d05499ba41cc53181b44b8ac056d24dbdb42.PikaCoin"
 tokenAValue=${15}
-./cardano-cli/bin/cardano-cli query protocol-parameters --testnet-magic 8 > $protocolparams
+./cardano-cli/bin/cardano-cli query protocol-parameters --testnet-magic 1097911063 > $protocolparams
 
 echo "queried and set protocolparams $protocolparams"
 
 ./cardano-cli/bin/cardano-cli transaction build \
     --alonzo-era \
-    --testnet-magic 8 \
+    --testnet-magic 1097911063 \
     --tx-in $1 \
     --tx-in $2 \
     --tx-in $3 \
@@ -50,13 +50,13 @@ echo "queried and set protocolparams $protocolparams"
 ./cardano-cli/bin/cardano-cli transaction sign \
     --tx-body-file $bodyFile \
     --signing-key-file $skey \
-    --testnet-magic 8 \
+    --testnet-magic 1097911063 \
     --out-file $outFile
 
 echo "signed transaction and saved as $outFile"
 
 ./cardano-cli/bin/cardano-cli transaction submit \
-    --testnet-magic 8 \
+    --testnet-magic 1097911063 \
     --tx-file $outFile
 
 echo "submitted transaction"

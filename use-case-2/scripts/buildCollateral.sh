@@ -23,14 +23,14 @@ function mkcollateraltx {
     --tx-in "${utxo}#${idx}" \
     --tx-out $toAddress+$collateralAmount \
     --change-address $changeAddress \
-    --testnet-magic 8 \
+    --testnet-magic 1097911063 \
     --out-file $txcollateralraw
   cat $txcollateralraw
 
   echo " -> Signing collateral"
   ./cardano-cli/bin/cardano-cli transaction sign --tx-body-file $txcollateralraw --signing-key-file $paymentskey --out-file $txcollateralsign
   echo " -> Submit collateral"
-  ./cardano-cli/bin/cardano-cli transaction submit --testnet-magic 8 --tx-file $txcollateralsign
+  ./cardano-cli/bin/cardano-cli transaction submit --testnet-magic 1097911063 --tx-file $txcollateralsign
 } 
 
 mkcollateraltx

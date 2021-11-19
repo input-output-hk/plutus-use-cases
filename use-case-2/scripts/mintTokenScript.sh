@@ -5,7 +5,7 @@
 set -euo pipefail
 
 export PATH=$(pwd)/cardano-cli/bin:$PATH
-magic="--testnet-magic=8"
+magic="--testnet-magic=1097911063"
 
 workdir=$(pwd)/dumpdir
 walletdir=$(pwd)
