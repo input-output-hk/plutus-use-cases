@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "cardano-node",
-  "branch": "ll-is-cardano-node-bump",
+  "branch": "alonzo-1_31_0",
   "private": false,
-  "rev": "fab29f71a060e919560d6a463edb870c2dadb387",
-  "sha256": "0qsdkaxpkizdnpwm0hja0115vvsa5igb5b3y0amkmjv5i12vcaqj"
+  "rev": "2cbe363874d0261bc62f52185cf23ed492cf4859",
+  "sha256": "0x5j0cynlc9kiyj9w7casax477z3fb74pfsyfl373dn7rv1grg4d"
 }
