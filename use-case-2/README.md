@@ -75,6 +75,43 @@ Production deployments of the application should work in all major browsers, inc
   1. Ok! Less talking, more poking user interfaces! While PAB is running and listening on port 8080, in a different terminal, run `ob run --no-interpret ./dep/plutus-starter`
     This will start up an interactive repl that will refresh itself anytime you make changes to the 3 component folders I've mentioned above (frontend, common, and backend). If everything compiled, the DApp should now be running on localhost:8000. Have fun!
 
+##  TEST NET CARDANO-NODE AND CARDANO-WALLET SETUP:
+
+This section outlines how to setup a cardano-node and cardano-wallet to perform transactions against testnet.
+
+Startup the Alonzo Testnet Node
+
+```
+ob thunk unpack dep/cardano-node
+cd dep/cardano-node
+nix-build -A scripts.testnet.node -o result/alonzo-testnet/cardano-node-alonzo-testnet
+nix-build -A cardano-cli -o result/alonzo-testnet/cardano-cli
+cd result/alonzo-testnet/
+./cardano-node-alonzo-testnet/bin/cardano-node-testnet
+```
+
+Setup & Run Cardano Wallet with Testnet Genesis Node
+
+```
+ob thunk unpack dep/cardano-node
+cd dep/cardano-wallet
+nix-build -A cardano-wallet -o result
+```
+
+ - create a symlink to cardano-node's node socket cardano-wallet's directory with the following command:
+
+`ln -s ../cardano-node/result/alonzo-testnet/state-node-alonzo-purple/node.socket .`
+
+ - download contest of https://hydra.iohk.io/build/7654130/download/1/testnet-byron-genesis.json to testnet-byron-genesis.json in this directory. Note: testnet magic number can be edited in this file
+
+ - run the following command to launch a cardano-wallet on port 8090.
+
+```
+./result/bin/cardano-wallet serve --node-socket node.socket --testnet ./testnet-byron-genesis.json --database wallet-data --listen-address 0.0.0.0 --port 8090
+```
+
+cardano-wallet API endpoints are now available for use against testnet. See documentation here for more information about cardano-wallet endpoints: https://input-output-hk.github.io/cardano-wallet/api/edge/#tag/Wallets
+
 ##  NEXT UP: Deploy Contracts to a real Alonzo Node (WORK IN PROGRESS)
 
 Build and Run Alonzo Purple Node
