@@ -38,6 +38,7 @@ import           Ledger.Value                                   (AssetClass)
 import qualified Plutus.Abstract.Percentage                     as Percentage
 import qualified Plutus.Abstract.PercentageInterface            as Percentage
 import           Plutus.Contract
+import           Plutus.Contract.Request                        (ownPubKeyHash)
 import           Plutus.Contract.StateMachine                   hiding
                                                                 (mkValidator,
                                                                  typedValidator)
@@ -50,7 +51,6 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                                        as Haskell
 import qualified Schema
-import Plutus.Contract.Request (ownPubKeyHash)
 
 data StartAuctionParams = StartAuctionParams {
     sapOwner        :: !PubKeyHash,

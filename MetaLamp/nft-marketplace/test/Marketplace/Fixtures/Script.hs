@@ -6,7 +6,7 @@ module Marketplace.Fixtures.Script where
 import           Ledger                                       (Address,
                                                                CurrencySymbol,
                                                                pubKeyHash)
-import           Ledger.Ada                                   (lovelaceValueOf)
+import           Ledger.Ada                                   (Ada (..))
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures.Wallet                  as Fixtures
 import           Plutus.Abstract.Percentage                   (Percentage (..))
@@ -19,7 +19,7 @@ marketplace =
   Marketplace.Marketplace {
     Marketplace.marketplaceOperator = walletPubKeyHash Fixtures.ownerWallet,
     Marketplace.marketplaceSaleFee = percentage,
-    Marketplace.marketplaceNFTFee = lovelaceValueOf 100000  -- 0.1 ADA
+    Marketplace.marketplaceNFTFee = Lovelace 100000  -- 0.1 ADA
   }
 
 percentage :: Percentage

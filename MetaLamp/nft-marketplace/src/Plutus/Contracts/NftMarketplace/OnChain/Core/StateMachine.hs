@@ -21,6 +21,7 @@ import qualified Data.Aeson                                               as J
 import qualified Data.Text                                                as T
 import qualified GHC.Generics                                             as Haskell
 import           Ledger
+import           Ledger.Ada                                               (toValue)
 import qualified Ledger.Constraints                                       as Constraints
 import qualified Ledger.Typed.Scripts                                     as Scripts
 import qualified Ledger.Value                                             as V
@@ -157,7 +158,7 @@ transition :: Marketplace -> State MarketplaceDatum -> MarketplaceRedeemer -> Ma
 transition marketplace@Marketplace{..} state redeemer = case redeemer of
     CreateNftRedeemer ipfsCidHash nftEntry
         -> Just ( mustBeSignedByIssuer nftEntry <>
-                  Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
+                  Constraints.mustPayToPubKey marketplaceOperator (toValue marketplaceNFTFee)
                 , State (insertNft ipfsCidHash (NFT nftEntry Nothing) nftStore) currStateValue
                 )
     PutLotRedeemer (PutNftLotRedeemer (InternalNftId ipfsCidHash ipfsCid) lot)
@@ -185,7 +186,7 @@ transition marketplace@Marketplace{..} state redeemer = case redeemer of
                     , State (insertBundle bundleId newEntry nftStore) currStateValue
                     )
     BundleUpRedeemer nftIds bundleId bundleInfo
-        -> Just ( Constraints.mustPayToPubKey marketplaceOperator marketplaceNFTFee
+        -> Just ( Constraints.mustPayToPubKey marketplaceOperator (toValue marketplaceNFTFee)
                 , State (bundleUpDatum nftIds bundleId bundleInfo nftStore) currStateValue
                 )
     UnbundleRedeemer bundleId

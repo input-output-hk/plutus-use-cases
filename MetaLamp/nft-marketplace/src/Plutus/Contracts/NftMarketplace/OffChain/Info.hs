@@ -66,7 +66,7 @@ data MarketplaceSettingsInfo = MarketplaceSettingsInfo {
 marketplaceSettings :: Core.Marketplace -> Contract w s Text MarketplaceSettingsInfo
 marketplaceSettings Core.Marketplace {..} =
   pure MarketplaceSettingsInfo {
-      msCreationFee = getLovelace . fromValue $ marketplaceNFTFee,
+      msCreationFee = getLovelace marketplaceNFTFee,
       msSaleFee = marketplaceSaleFee
     }
 

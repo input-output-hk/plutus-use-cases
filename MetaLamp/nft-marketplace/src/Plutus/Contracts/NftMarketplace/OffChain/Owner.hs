@@ -18,7 +18,7 @@ import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
 import qualified GHC.Generics                                 as Haskell
 import           Ledger
-import           Ledger.Ada                                   (lovelaceValueOf)
+import           Ledger.Ada                                   (Ada (..))
 import qualified Ledger.Typed.Scripts                         as Scripts
 import           Ledger.Value
 import           Plutus.Abstract.ContractResponse             (ContractResponse,
@@ -27,6 +27,7 @@ import           Plutus.Abstract.Percentage                   (Fractional,
                                                                mkPercentage)
 import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract
+import           Plutus.Contract.Request                      (ownPubKeyHash)
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
@@ -38,7 +39,6 @@ import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import qualified Schema
 import           Text.Printf                                  (printf)
-import Plutus.Contract.Request (ownPubKeyHash)
 
 data StartMarketplaceParams = StartMarketplaceParams {
     creationFee :: Integer,  -- fee by minting and bundling
@@ -52,7 +52,7 @@ start :: StartMarketplaceParams -> Contract w s Text Core.Marketplace
 start StartMarketplaceParams {..} = do
     pkh <- ownPubKeyHash
     saleFeePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage saleFee
-    let marketplace = Core.Marketplace pkh (lovelaceValueOf creationFee) saleFeePercentage
+    let marketplace = Core.Marketplace pkh (Lovelace creationFee) saleFeePercentage
     let client = Core.marketplaceClient marketplace
     void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
 

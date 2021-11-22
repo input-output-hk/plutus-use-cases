@@ -17,10 +17,10 @@ import           Prelude
 data Marketplace =
   Marketplace
     { marketplaceOperator :: PubKeyHash,
-      marketplaceNFTFee   :: Value,  -- fixed fee by minting and bundling
+      marketplaceNFTFee   :: Ada,  -- fixed fee by minting and bundling
       marketplaceSaleFee  :: Percentage -- percentage by selling on the Sale or Auction
     }
-  deriving stock (Eq, Show, Generic)
+  deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (J.ToJSON, J.FromJSON, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''Marketplace

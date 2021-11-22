@@ -36,6 +36,7 @@ import           Plutus.Abstract.ContractResponse                         (Contr
                                                                            withContractResponse)
 import           Plutus.Abstract.RemoteData                               (RemoteData)
 import           Plutus.Contract
+import           Plutus.Contract.Request                                  (ownPubKeyHash)
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                                as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID              (UserItemId (..),
@@ -60,7 +61,6 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-import Plutus.Contract.Request (ownPubKeyHash)
 
 data CreateNftParams =
   CreateNftParams {

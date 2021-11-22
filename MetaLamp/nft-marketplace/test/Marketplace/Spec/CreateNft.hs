@@ -25,7 +25,8 @@ import qualified Plutus.Trace                                 as Trace
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
-import           Wallet.Emulator.Wallet                       (walletAddress, walletPubKeyHash)
+import           Wallet.Emulator.Wallet                       (walletAddress,
+                                                               walletPubKeyHash)
 
 tests :: TestTree
 tests =
