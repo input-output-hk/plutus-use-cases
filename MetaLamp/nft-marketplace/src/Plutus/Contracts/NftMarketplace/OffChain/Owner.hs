@@ -39,6 +39,8 @@ import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import qualified Schema
 import           Text.Printf                                  (printf)
+import Plutus.V1.Ledger.Ada (lovelaceValueOf)
+import Ext.Plutus.Ledger.Value (minAdaValue)
 
 data StartMarketplaceParams = StartMarketplaceParams {
     creationFee :: Integer,  -- fee by minting and bundling
@@ -54,7 +56,7 @@ start StartMarketplaceParams {..} = do
     saleFeePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage saleFee
     let marketplace = Core.Marketplace pkh (Lovelace creationFee) saleFeePercentage
     let client = Core.marketplaceClient marketplace
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) minAdaValue
 
     logInfo @Haskell.String $ printf "started Marketplace %s at address %s" (Haskell.show marketplace) (Haskell.show $ Core.marketplaceAddress marketplace)
     pure marketplace
