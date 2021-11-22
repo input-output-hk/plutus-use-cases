@@ -88,7 +88,9 @@ testStateAddr = NFT.txScrAddress
    the initial state UTxOs to something other than the default.
 -}
 appInstance :: NftAppInstance
-appInstance = NftAppInstance testStateAddr (Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", "Unique App Token")) Gov.govScrAddress [UserId userOnePkh]
+appInstance = NftAppInstance testStateAddr uniqueAsset (Gov.govScrAddress uniqueAsset) [UserId userOnePkh]
+  where
+    uniqueAsset = Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", "Unique App Token")
 
 appSymbol :: NftAppSymbol
 appSymbol = NftAppSymbol . NFT.curSymbol $ appInstance

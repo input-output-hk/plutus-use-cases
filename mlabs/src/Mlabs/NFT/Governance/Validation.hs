@@ -23,7 +23,7 @@ import Ledger.Typed.Scripts (
  )
 
 import Mlabs.NFT.Governance.Types (GovAct (..), GovDatum)
-import Mlabs.NFT.Types (NftAppInstance)
+import Mlabs.NFT.Types (NftAppInstance, UniqueToken)
 import PlutusTx qualified
 import PlutusTx.Prelude (Bool (True), ($), (.))
 
@@ -62,8 +62,8 @@ govMintPolicy x =
 {-# INLINEABLE mkGovScript #-}
 
 -- | Minting policy for GOV and xGOV tokens.
-mkGovScript :: GovDatum -> GovAct -> ScriptContext -> Bool
-mkGovScript _ act _ =
+mkGovScript :: UniqueToken -> GovDatum -> GovAct -> ScriptContext -> Bool
+mkGovScript _ _ act _ =
   case act of
     InitialiseGov ->
       True
@@ -81,10 +81,10 @@ mkGovScript _ act _ =
       -- their stake out of the app).
 
 {-# INLINEABLE govScript #-}
-govScript :: TypedValidator GovManage
-govScript =
+govScript :: UniqueToken -> TypedValidator GovManage
+govScript x =
   mkTypedValidator @GovManage
-    $$(PlutusTx.compile [||mkGovScript||])
+    ($$(PlutusTx.compile [||mkGovScript||]) `PlutusTx.applyCode` PlutusTx.liftCode x)
     $$(PlutusTx.compile [||wrap||])
   where
     wrap = wrapValidator @GovDatum @GovAct
@@ -92,5 +92,5 @@ govScript =
 {-# INLINEABLE govScrAddress #-}
 
 -- | Address of Gov Script Logic.
-govScrAddress :: Ledger.Address
-govScrAddress = validatorAddress govScript
+govScrAddress :: UniqueToken -> Ledger.Address
+govScrAddress = validatorAddress . govScript

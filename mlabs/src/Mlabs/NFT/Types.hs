@@ -33,6 +33,7 @@ module Mlabs.NFT.Types (
   AuctionOpenParams (..),
   AuctionBidParams (..),
   AuctionCloseParams (..),
+  UniqueToken,
 ) where
 
 import PlutusTx.Prelude
@@ -327,14 +328,17 @@ instance Eq InformationNft where
   (InformationNft a b c d e f) == (InformationNft a' b' c' d' e' f') =
     a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
 
-{- | App Instace is parametrised by the one time nft consumed at the creation of
- the HEAD and the script address.
+-- | Unique Token is an AssetClass.
+type UniqueToken = AssetClass
+
+{- | App Instace is parametrised by the Unique Token located in the head of the
+ list.
 -}
 data NftAppInstance = NftAppInstance
   { -- | Script Address where all the NFTs can be found
     appInstance'Address :: Address
   , -- | AssetClass with which all the NFTs are parametrised - guarantees the proof of uniqueness.
-    appInstance'AppAssetClass :: AssetClass
+    appInstance'AppAssetClass :: UniqueToken
   , -- | Governance Address
     appInstance'Governance :: Address
   , -- | List of admins who can initiate the application
