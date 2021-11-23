@@ -26,7 +26,7 @@ source-repository-package
     plutus-use-cases
     quickcheck-dynamic
     web-ghc
-  tag: 7333e3c3ae62c955c5db7799dbf1c1f58593325d
+  tag: v2021-11-22
 
 
 -- The following sections are copied from the 'plutus-apps' repository cabal.project at the revision
