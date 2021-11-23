@@ -41,6 +41,7 @@ common lang
 library
     import: lang
     exposed-modules:
+      Ext.Plutus.Ledger.Index
       Ext.Plutus.Ledger.Time
       Ext.Plutus.Ledger.Value
       Ext.Plutus.PAB.Webserver.Server

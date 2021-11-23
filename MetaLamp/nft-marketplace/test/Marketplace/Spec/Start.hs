@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 module Marketplace.Spec.Start
   ( tests, startTrace
@@ -18,6 +19,8 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
 import qualified Plutus.Trace                                   as Trace
 import qualified PlutusTx.AssocMap                              as AssocMap
 import           Test.Tasty
+import           Ledger.Ada                                   (toValue, Ada(..))
+import Ledger.Index (minAdaTxOut)
 
 tests :: TestTree
 tests =
@@ -26,7 +29,7 @@ tests =
     [ checkPredicateOptions
         Fixtures.options
         "Should start a new marketplace with empty store"
-        datumsCheck
+        (datumsCheck .&&. marketplaceOpenedWithMinAdaTxOut .&&. marketplaceOperatorPayedMinAdaTxOut)
         startTrace
     ]
 
@@ -38,7 +41,7 @@ startTrace = do
 
 startMarketplaceParams :: StartMarketplaceParams
 startMarketplaceParams = StartMarketplaceParams {
-    creationFee = 100000,  -- 0.1 ADA
+    creationFee = getLovelace $ Fixtures.marketplaceCreationFee,
     saleFee = getPercentage Fixtures.percentage
 }
 
@@ -51,3 +54,11 @@ datumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
     (== [Marketplace.MarketplaceDatum AssocMap.empty AssocMap.empty])
+
+marketplaceOpenedWithMinAdaTxOut :: TracePredicate
+marketplaceOpenedWithMinAdaTxOut = 
+  valueAtAddress Fixtures.marketplaceAddress (toValue minAdaTxOut ==)
+
+marketplaceOperatorPayedMinAdaTxOut :: TracePredicate
+marketplaceOperatorPayedMinAdaTxOut =
+  walletFundsChange Fixtures.ownerWallet $ toValue (- minAdaTxOut)

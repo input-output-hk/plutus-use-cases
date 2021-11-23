@@ -31,3 +31,4 @@ mkPercentage percentage@(numerator, denominator) =
       if denominator /= 0 && 0 <= roundedPercentage && roundedPercentage <= 100
             then pure $ Percentage percentage
             else Nothing
+

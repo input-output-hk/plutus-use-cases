@@ -13,7 +13,7 @@ import           Control.Monad                                (void)
 import           Data.Maybe                                   (isNothing)
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
-import           Ledger.Ada                                   (lovelaceValueOf)
+import           Ledger.Ada                                   (toValue)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
@@ -27,6 +27,7 @@ import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress,
                                                                walletPubKeyHash)
+import Ledger.Index (minAdaTxOut)
 
 tests :: TestTree
 tests =
@@ -35,12 +36,12 @@ tests =
     [ checkPredicateOptions
         Fixtures.options
         "Should mint NFT token into the user wallet and create the Marketplace entry hiding issuer"
-        (datumsCheck .&&. valueCheck .&&. marketplaceOperatorFeeCheck)
+        (datumsCheck .&&. valueCheck .&&. marketplaceOperatorFundsCheck)
         (void createNftTrace),
       checkPredicateOptions
         Fixtures.options
         "Should mint NFT token into the user wallet and create the Marketplace entry revealing issuer"
-        (datumsCheck' .&&. valueCheck .&&. marketplaceOperatorFeeCheck)
+        (datumsCheck' .&&. valueCheck .&&. marketplaceOperatorFundsCheck)
         createNftTrace'
     ]
 
@@ -99,6 +100,6 @@ valueCheck =
     where
       hasNft v = (v ^. _2 & V.unTokenName) == Fixtures.catTokenIpfsCidBs
 
-marketplaceOperatorFeeCheck :: TracePredicate
-marketplaceOperatorFeeCheck =
-  walletFundsChange Fixtures.ownerWallet $ lovelaceValueOf 100000
+marketplaceOperatorFundsCheck :: TracePredicate
+marketplaceOperatorFundsCheck =
+  walletFundsChange Fixtures.ownerWallet $ toValue (Fixtures.marketplaceCreationFee - minAdaTxOut)
