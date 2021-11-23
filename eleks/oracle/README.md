@@ -91,7 +91,16 @@ curl -v -X PUT -H "Content-Type: application/json" \
 curl -v -X PUT -H "Content-Type: application/json" \
     -d '{"ugpTeam": 55}' \
     http://localhost:8081/games/1/score
+## Oracle rest server 
 
+1. Build the game rest server:
+```
+cabal build oraclegameserver
+```
+2. Run the Games server:
+```
+cabal exec -- oraclegameserver
+```
 ## Mutual bet rest server 
 
 1. Build the game rest server:

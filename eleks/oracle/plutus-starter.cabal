@@ -136,12 +136,14 @@ executable bet-pab
     plutus-starter,
     aeson -any,
     freer-simple -any,
+    purescript-bridge,
     prettyprinter -any,
     freer-extras -any,
     plutus-ledger -any,
     plutus-use-cases,
     stm -any,
     req -any,
+    row-types,
 
 executable testnet-oracle-pab
   import: lang 
@@ -228,6 +230,42 @@ executable gameserver
     text -any,
     utf8-string,
     warp
+
+executable oraclegameserver
+  import: lang
+  main-is: OracleGameServer.hs
+  other-modules:
+    GameClient
+  hs-source-dirs: pab
+  ghc-options:  -threaded
+  build-depends:        
+    aeson, 
+    aeson-pretty,
+    base >= 4.9 && < 5,
+    bytestring,
+    data-default -any,
+    row-types,
+    either,
+    freer-simple,
+    lens,
+    mtl,
+    openapi3,
+    plutus-contract,
+    plutus-starter,
+    plutus-ledger,
+    plutus-use-cases,
+    playground-common,
+    plutus-pab,
+    prettyprinter,
+    purescript-bridge,
+    req,
+    servant-server -any,
+    text -any,
+    row-types,
+    uuid,
+    utf8-string,
+    warp
+
 
 executable mutualbetserver
   import: lang
