@@ -87,8 +87,8 @@ oracleCurrency = "aa"
 oracleParams :: OracleParams 
 oracleParams = OracleParams
     { --opSymbol = oracleCurrency,
-      opFees = 5_000_000
-    , opCollateral = 3_000_000
+      opFees = 2_000_000
+    , opCollateral = 2_000_000
     , opPublicKey = getWalletPubKey oracleWallet
     , opSigner = oraclePrivateKey
     } 

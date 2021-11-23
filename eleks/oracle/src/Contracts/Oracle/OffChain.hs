@@ -73,6 +73,8 @@ startOracle :: forall w s. OracleParams -> Contract w s Text Oracle
 startOracle op = do
     let pk = opPublicKey op
     pkh <- Contract.ownPubKeyHash
+    when (opFees op < minAdaTxOut) $ throwError "fee should be grater than min ada"
+    when (opCollateral op < minAdaTxOut) $ throwError "collateral should be grater than min ada"
     let oracleRequestTokenInfo = OracleRequestToken
             { ortOperator = pkh
             , ortFee = opFees op

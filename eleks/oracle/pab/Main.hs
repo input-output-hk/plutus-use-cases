@@ -58,13 +58,13 @@ import           Wallet.Emulator.Types
 import           Wallet.Types                        (ContractInstanceId (..))
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
-import qualified GameClient                           as GameClient
+import qualified GameClient                          as GameClient
 import           Wallet.Emulator                     (Wallet (..), knownWallets, knownWallet) 
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKeyHash)
 import qualified Data.OpenApi.Schema                 as OpenApi
 import           Playground.Contract                 (ToSchema)
-import           Wallet.Emulator.Wallet             (fromMockWallet, toMockWallet, ownPublicKey, emptyWalletState)
-
+import           Wallet.Emulator.Wallet              (fromMockWallet, toMockWallet, ownPublicKey, emptyWalletState)
+import           PabContracts                        (MutualBetContracts(..), handlers)
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
 initGame oracle game = do
@@ -104,12 +104,13 @@ main = void $ Simulator.runSimulationWith handlers $ do
     -- currency <- waitForLast cidOracleToken
     let oracleParams = OracleParams
                         { --opSymbol = "aa",
-                          opFees   = 1_500_000
+                          opFees   = 3_000_000
                         , opSigner = oraclePrivateKey
                         , opPublicKey = oraclePublicKey
-                        , opCollateral = 1_000_000
+                        , opCollateral = 2_000_000
                         }             
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
+    liftIO $ writeFile "oracle.cid" $ show $ unContractInstanceId cidOracle
     oracle <- waitForLastOracle cidOracle
     Simulator.waitForEndpoint cidOracle "update"
     games <- liftIO $ fromRight [] <$> GameClient.getGames
@@ -118,61 +119,12 @@ main = void $ Simulator.runSimulationWith handlers $ do
         Simulator.waitNSlots 1
         initGame oracle game
 
-    forever $ do
-        Simulator.logString @(Builtin MutualBetContracts) $ "query active games"
-        cidAwaitOracleRequest <- Simulator.callEndpointOnInstance cidOracle "games" ()
-        activeGamesIds <- waitForLastGameIds cidOracle   
-        Simulator.logString @(Builtin MutualBetContracts) $ "loaded active games" ++ show activeGamesIds
-        void $ forM activeGamesIds $ \gameId -> do
-            gameM <- liftIO $ GameClient.getGameById gameId
-            case gameM of 
-                Left err -> do
-                    Simulator.logString @(Builtin MutualBetContracts) $ "Game not found " ++ show err
-                Right game -> do
-                    Simulator.logString @(Builtin MutualBetContracts) $ "Run for game" ++ show gameId
-                    let winnerId = fromRight 0 $ getWinnerTeamId game
-                    let gameStatus = game ^. fixture . status . short 
-                    let updateParams = UpdateOracleParams 
-                                        { uoGameId   = gameId
-                                        , uoWinnerId = winnerId
-                                        , uoGameStatus = gameStatus
-                                        }     
-                    void $ Simulator.callEndpointOnInstance cidOracle "update" updateParams
-                    void $ liftIO $ threadDelay 1_000_000
-
-        Simulator.logString @(Builtin MutualBetContracts) $ "wait 10 seconds"
-
-        -- todo query active games and create contract
-        void $ liftIO $ threadDelay 10_000_000
-
-data MutualBetContracts =
-    OracleTokenInit
-    | MutualBetStartContract MutualBetParams
-    | MutualBetBettorContract SlotConfig ThreadToken MutualBetParams
-    | OracleСontract OracleParams
-    deriving (Eq, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
-    
-instance Pretty MutualBetContracts where
-    pretty = viaShow
-
-instance HasDefinitions MutualBetContracts where
-    getDefinitions = []
-    getSchema = \case
-        OracleTokenInit               -> Builtin.endpointsToSchemas @Empty
-        MutualBetStartContract _      -> Builtin.endpointsToSchemas @MutualBetStartSchema
-        MutualBetBettorContract _ _ _ -> Builtin.endpointsToSchemas @BettorSchema
-        OracleСontract _              -> Builtin.endpointsToSchemas @OracleSchema
-    getContract = \case
-        OracleTokenInit                   -> SomeBuiltin initContract
-        MutualBetStartContract params     -> SomeBuiltin $ mutualBetStart params
-        MutualBetBettorContract conf threadToken params -> SomeBuiltin $ mutualBetBettor conf threadToken params
-        OracleСontract params             -> SomeBuiltin $ runOracle params
-
-handlers :: SimulatorEffectHandlers (Builtin MutualBetContracts)
-handlers =
-    Simulator.mkSimulatorHandlers def def
-    $ interpret (contractHandler (Builtin.handleBuiltin @MutualBetContracts))
+    void $ liftIO getLine
+    void $ liftIO getLine
+    Simulator.logString @(Builtin MutualBetContracts) "Balances at the end of the simulation"
+    b <- Simulator.currentBalances
+    Simulator.logBalances @(Builtin MutualBetContracts) b
+    shutdown
 
 waitForLast :: FromJSON a => ContractInstanceId -> Simulator.Simulation t a
 waitForLast cid =
@@ -221,10 +173,3 @@ oraclePublicKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWa
 
 slotCfg :: SlotConfig
 slotCfg = def
-
-initContract :: Contract (Last Currency.OneShotCurrency) Currency.CurrencySchema Currency.CurrencyError ()
-initContract = do
-    ownPK <- Contract.ownPubKeyHash
-    cur   <- Currency.mintContract ownPK [("test", 1)]
-    let cs = Currency.currencySymbol cur
-    tell $ Last $ Just cur
