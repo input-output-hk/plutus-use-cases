@@ -6,6 +6,7 @@ module Mlabs.NFT.Contract.Aux (
   toDatum,
   getAddrUtxos,
   getAddrValidUtxos,
+  getGovHead,
   serialiseDatum,
   getNftDatum,
   getsNftDatum,
@@ -14,7 +15,8 @@ module Mlabs.NFT.Contract.Aux (
   fstUtxoAt,
   entryToPointInfo,
   getDatumsTxsOrdered,
-  getHead,
+  getDatumsTxsOrderedFromAddr,
+  getNftHead,
   getApplicationCurrencySymbol,
 ) where
 
@@ -50,6 +52,7 @@ import Ledger (
 import Ledger.Value as Value (unAssetClass, valueOf)
 import Mlabs.Plutus.Contract (readDatum')
 
+import Mlabs.NFT.Governance.Types
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
@@ -124,14 +127,14 @@ getsNftDatum :: (DatumNft -> b) -> NftId -> NftAppSymbol -> Contract a s Text (M
 getsNftDatum f nftId = fmap (fmap f) . getNftDatum nftId
 
 -- | Find NFTs at a specific Address. Will throw an error if none or many are found.
-findNft :: NftId -> NftAppSymbol -> GenericContract PointInfo
+findNft :: NftId -> NftAppSymbol -> GenericContract (PointInfo DatumNft)
 findNft nftId cSymbol = do
   utxos <- getAddrValidUtxos cSymbol
   case findData utxos of
     [v] -> do
-      Contract.logInfo @Hask.String $ Hask.show $ "NFT Found:" <> Hask.show v
+      Contract.logInfo @Hask.String $ Hask.show $ "findNft: NFT Found:" <> Hask.show v
       pure $ pointInfo v
-    [] -> Contract.throwError $ "DatumNft not found for " <> (pack . Hask.show) nftId
+    [] -> Contract.throwError $ "findNft: DatumNft not found for " <> (pack . Hask.show) nftId
     _ ->
       Contract.throwError $
         "Should not happen! More than one DatumNft found for "
@@ -162,44 +165,77 @@ fstUtxoAt address = do
     [] -> Contract.throwError @Text "No utxo found at address."
     x : _ -> pure x
 
--- | Get the Head of the List
-getHead :: NftAppSymbol -> GenericContract (Maybe PointInfo)
-getHead aSym = do
-  headX <- filter (isHead . pi'datum) <$> getDatumsTxsOrdered aSym
+-- | Get the Head of the NFT List
+getNftHead :: NftAppSymbol -> GenericContract (Maybe (PointInfo DatumNft))
+getNftHead aSym = do
+  headX <- filter (isHead . pi'data) <$> getDatumsTxsOrdered aSym
   case headX of
     [] -> pure Nothing
     [x] -> pure $ Just x
     _ -> do
-      utxos <- getDatumsTxsOrdered aSym
+      utxos <- getDatumsTxsOrdered @DatumNft aSym
       Contract.throwError $
         mconcat
           [ "This should have not happened! More than one Head Datums. Datums are: "
-          , pack . Hask.show . fmap pi'datum $ utxos
+          , pack . Hask.show . fmap pi'data $ utxos
           ]
   where
     isHead = \case
       HeadDatum _ -> True
       NodeDatum _ -> False
 
-entryToPointInfo :: (TxOutRef, (ChainIndexTxOut, ChainIndexTx)) -> GenericContract PointInfo
-entryToPointInfo (oref, (out, tx)) = case readDatum' @DatumNft out of
-  Nothing -> Contract.throwError "Datum not found"
+-- | Get the Head of the Gov List
+getGovHead :: Address -> GenericContract (Maybe (PointInfo GovDatum))
+getGovHead addr = do
+  headX <- filter (isHead . gov'list . pi'data) <$> getDatumsTxsOrderedFromAddr @GovDatum addr
+  case headX of
+    [] -> pure Nothing
+    [x] -> pure $ Just x
+    _ -> do
+      utxos <- getDatumsTxsOrderedFromAddr @GovDatum addr
+      Contract.throwError $
+        mconcat
+          [ "This should have not happened! More than one Head Datums. Datums are: "
+          , pack . Hask.show . fmap pi'data $ utxos
+          ]
+  where
+    isHead = \case
+      HeadLList {} -> True
+      _ -> False
+
+entryToPointInfo :: (PlutusTx.FromData a) => (TxOutRef, (ChainIndexTxOut, ChainIndexTx)) -> GenericContract (PointInfo a)
+entryToPointInfo (oref, (out, tx)) = case readDatum' out of
+  Nothing -> Contract.throwError "entryToPointInfo: Datum not found"
   Just d -> pure $ PointInfo d oref out tx
 
 {- | Get `DatumNft` together with`TxOutRef` and `ChainIndexTxOut`
  for particular `NftAppSymbol` and return them sorted by `DatumNft`'s `Pointer`:
  head node first, list nodes ordered by pointer
 -}
-getDatumsTxsOrdered :: NftAppSymbol -> Contract w s Text [PointInfo]
+getDatumsTxsOrdered :: forall a w s. (PlutusTx.FromData a, Ord a, Hask.Eq a) => NftAppSymbol -> Contract w s Text [PointInfo a]
 getDatumsTxsOrdered nftAS = do
   utxos <- Map.toList <$> getAddrValidUtxos nftAS
-  datums <- mapM withDatum utxos
+  let datums = mapMaybe toPointInfo utxos
   let sortedDatums = L.sort datums
-  return sortedDatums
+  case sortedDatums of
+    [] -> Contract.throwError "getDatumsTxsOrdered: Datum not found"
+    ds -> return ds
   where
-    withDatum :: (TxOutRef, (ChainIndexTxOut, ChainIndexTx)) -> Contract w s Text PointInfo
-    withDatum (oref, (out, tx)) = case readDatum' @DatumNft out of
-      Nothing -> Contract.throwError "Datum not found"
+    toPointInfo (oref, (out, tx)) = case readDatum' @a out of
+      Nothing -> Nothing
+      Just d -> pure $ PointInfo d oref out tx
+
+getDatumsTxsOrderedFromAddr :: forall a w s. (PlutusTx.FromData a, Ord a, Hask.Eq a) => Address -> Contract w s Text [PointInfo a]
+getDatumsTxsOrderedFromAddr addr = do
+  utxos <- Map.toList <$> utxosTxOutTxAt addr
+  let datums = mapMaybe toPointInfo utxos
+  let sortedDatums = L.sort datums
+  case sortedDatums of
+    [] -> Contract.throwError "getDatumsTxsOrderedFromAddr: Datum not found"
+    ds -> return ds
+  where
+    toPointInfo (oref, (out, tx)) = case readDatum' @a out of
+      Nothing -> Nothing
       Just d -> pure $ PointInfo d oref out tx
 
 -- | A hashing function to minimise the data to be attached to the NTFid.

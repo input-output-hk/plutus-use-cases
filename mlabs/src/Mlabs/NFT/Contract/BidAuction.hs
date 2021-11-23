@@ -42,7 +42,7 @@ bidAuction symbol (AuctionBidParams nftId bidAmount) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
   ownPkh <- Contract.ownPubKeyHash
   PointInfo {..} <- findNft nftId symbol
-  node <- case pi'datum of
+  node <- case pi'data of
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "NFT not found"
 

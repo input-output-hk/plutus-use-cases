@@ -15,27 +15,39 @@ import PlutusTx qualified
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
+import PlutusTx.Prelude
 
 -- | Datum for utxo containing GovLList Head token.
-data GovLHead = GovLHead
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+newtype GovLHead = GovLHead
+  { govLHead'feeRate :: Rational
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''GovLHead
 PlutusTx.makeLift ''GovLHead
 
+instance Eq GovLHead where
+  {-# INLINEABLE (==) #-}
+  (GovLHead a) == (GovLHead a') = a == a'
+
 -- | Datum for utxo containing GovLList Head token.
 data GovLNode = GovLNode
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''GovLNode
 PlutusTx.makeLift ''GovLNode
 
+instance Eq GovLNode where
+  {-# INLINEABLE (==) #-}
+  _ == _ = True
+
 type GovLList = LList UserId GovLHead GovLNode
 
 newtype GovDatum = GovDatum {gov'list :: GovLList}
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
+  deriving newtype (Eq, Ord)
   deriving anyclass (ToJSON, FromJSON)
 PlutusTx.unstableMakeIsData ''GovDatum
 PlutusTx.makeLift ''GovDatum

@@ -74,7 +74,7 @@ queryCurrentOwnerLog nftId owner = mconcat ["Current owner of: ", show nftId, " 
 -- | Query the list of all NFTs in the app
 queryListNfts :: NftAppSymbol -> QueryContract QueryResponse
 queryListNfts symbol = do
-  datums <- fmap pi'datum <$> getDatumsTxsOrdered symbol
+  datums <- fmap pi'data <$> getDatumsTxsOrdered symbol
   let nodes = mapMaybe getNode datums
       infos = node'information <$> nodes
   Contract.tell $ wrap infos

@@ -45,7 +45,7 @@ setPrice symbol SetPriceParams {..} = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
   ownPkh <- Contract.ownPubKeyHash
   PointInfo {..} <- findNft sp'nftId symbol
-  oldNode <- case pi'datum of
+  oldNode <- case pi'data of
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "NFT not found"
   when (getUserId ((info'owner . node'information) oldNode) /= ownPkh) $

@@ -21,6 +21,7 @@ import Plutus.Contracts.Currency (CurrencyError, mintContract)
 import Plutus.Contracts.Currency qualified as MC
 import Plutus.V1.Ledger.Value (TokenName (..), assetClass, assetClassValue)
 import PlutusTx.Prelude hiding (mconcat, (<>))
+import PlutusTx.Ratio qualified as R
 
 import Mlabs.Data.LinkedList (LList (..))
 import Mlabs.NFT.Contract.Aux (toDatum)
@@ -112,7 +113,7 @@ createListHead admins = do
     govHeadInit =
       GovDatum $
         HeadLList
-          { _head'info = GovLHead
+          { _head'info = GovLHead (5 R.% 1000)
           , _head'next = Nothing
           }
 

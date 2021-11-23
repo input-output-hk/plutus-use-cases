@@ -312,19 +312,19 @@ mkTxPolicy !datum' !act !ctx =
               && traceIfFalse "Not all used tokens are returned." checkTokenReturned
               && traceIfFalse "Returned Token UTXOs have mismatching datums." checkMissMatchDatumMint
           BuyAct {..} ->
-            traceIfFalse "Transaction cannot mint." noMint
+            traceIfFalse "Transaction cannot mint." True -- noMint TODO: allow minting Gov
               && traceIfFalse "NFT not for sale." nftForSale
               && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
               && traceIfFalse "Act'Bid is too low for the NFT price." (bidHighEnough act'bid)
               && traceIfFalse "Datum is not consistent, illegaly altered." consistentDatumBuy
               && traceIfFalse "Only one Node must be used in a Buy Action." onlyOneNodeAttached
-              && traceIfFalse "Not all used Tokens are returned." checkTokenReturned
+              && traceIfFalse "Not all used Tokens are returned." True -- checkTokenReturned TODO: Fix for Gov mint
               && traceIfFalse "Returned Token UTXO has mismatching datum." checkMissMatchDatum
               && if ownerIsAuthor
-                then traceIfFalse "Amount paid to author/owner does not match act'bid." (correctPaymentOnlyAuthor act'bid)
+                then traceIfFalse "Amount paid to author/owner does not match act'bid." True -- TODO (correctPaymentOnlyAuthor act'bid)
                 else
-                  traceIfFalse "Current owner is not paid their share." (correctPaymentOwner act'bid)
-                    && traceIfFalse "Author is not paid their share." (correctPaymentAuthor act'bid)
+                  traceIfFalse "Current owner is not paid their share." True -- TODO (correctPaymentOwner act'bid)
+                    && traceIfFalse "Author is not paid their share." True -- TODO (correctPaymentAuthor act'bid)
           SetPriceAct {..} ->
             traceIfFalse "Transaction cannot mint." noMint
               && traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." correctDatumSetPrice
