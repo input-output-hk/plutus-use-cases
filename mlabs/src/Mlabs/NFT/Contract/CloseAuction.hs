@@ -32,6 +32,10 @@ import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
+{- |
+  Attempts to close NFT auction, checks if owner is closing an auction and deadline passed,
+  pays from script to previous owner, and sets new owner.
+-}
 closeAuction :: NftAppSymbol -> AuctionCloseParams -> Contract UserWriter s Text ()
 closeAuction symbol (AuctionCloseParams nftId) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt

@@ -35,9 +35,10 @@ import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
---------------------------------------------------------------------------------
--- Set Price
-
+{- |
+  Attempts to set price of NFT, checks if price is being set by the owner
+  and that NFT is not on an auction.
+-}
 setPrice :: NftAppSymbol -> SetPriceParams -> Contract UserWriter s Text ()
 setPrice symbol SetPriceParams {..} = do
   when negativePrice $ Contract.throwError "New price can not be negative"

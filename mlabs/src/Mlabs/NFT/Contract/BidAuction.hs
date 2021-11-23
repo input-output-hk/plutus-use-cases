@@ -33,6 +33,10 @@ import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
+{- |
+  Attempts to bid on NFT auction, locks new bid in the script, returns previous bid to previous bidder,
+  and sets new bid for the NFT.
+-}
 bidAuction :: NftAppSymbol -> AuctionBidParams -> Contract UserWriter s Text ()
 bidAuction symbol (AuctionBidParams nftId bidAmount) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt

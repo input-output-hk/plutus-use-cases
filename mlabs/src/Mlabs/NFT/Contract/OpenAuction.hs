@@ -31,6 +31,9 @@ import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
+{- |
+  Attempts to start NFT auction, removes current price from NFT and starts auction.
+-}
 openAuction :: NftAppSymbol -> AuctionOpenParams -> Contract UserWriter s Text ()
 openAuction symbol (AuctionOpenParams nftId deadline minBid) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt

@@ -30,8 +30,11 @@ import Plutus.V1.Ledger.Value (CurrencySymbol (..))
  For concrete endpoints see `getContract`
 -}
 data MarketplaceContracts
-  = NftAdminContract
-  | UserContract NftAppSymbol
+  = -- | Contract for initialising NFT marketplace.
+    NftAdminContract
+  | -- | Contracts for NFT marketplace user - contracts for
+    -- buying/selling NFT, auctions, and query.
+    UserContract NftAppSymbol
   deriving stock (Hask.Eq, Hask.Ord, Hask.Show, Generic)
   deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
