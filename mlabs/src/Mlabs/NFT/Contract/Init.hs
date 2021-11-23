@@ -17,8 +17,15 @@ import Ledger.Typed.Scripts (validatorHash)
 import Ledger.Value as Value (singleton)
 import Plutus.Contract (Contract, mapError, ownPubKeyHash)
 import Plutus.Contract qualified as Contract
+
+{- Drop-in replacement for
 import Plutus.Contracts.Currency (CurrencyError, mintContract)
 import Plutus.Contracts.Currency qualified as MC
+till it will be fixed, see `Mlabs.Plutus.Contracts.Currency.mintContract`
+for details -}
+import Mlabs.Plutus.Contracts.Currency (CurrencyError, mintContract)
+import Mlabs.Plutus.Contracts.Currency qualified as MC
+
 import Plutus.V1.Ledger.Value (TokenName (..), assetClass, assetClassValue)
 import PlutusTx.Prelude hiding (mconcat, (<>))
 
