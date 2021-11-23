@@ -37,8 +37,8 @@ import Mlabs.NFT.Types (
 import Test.NFT.Init (
   artwork1,
   artwork2,
-  callStartNftFail,
   callStartNft,
+  callStartNftFail,
   check,
   containsLog,
   noChangesScene,
@@ -90,6 +90,7 @@ test =
     ]
 
 -- | Test initialisation of an app instance
+
 {- `check` performs app initialization first,
    so this test checks two cases:
    - when admin initiates contract
