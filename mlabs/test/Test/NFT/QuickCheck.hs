@@ -288,7 +288,7 @@ instance ContractModel NftModel where
     ActionInit {} -> do
       let hAdmin = h $ InitKey wAdmin
       callEndpoint @"app-init" hAdmin [toUserId wAdmin]
-      void $ Trace.waitNSlots 2
+      waitInit
       void getSymbol
     action@ActionMint {} -> do
       aSymbol <- getSymbol

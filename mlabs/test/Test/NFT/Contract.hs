@@ -37,6 +37,7 @@ import Mlabs.NFT.Types (
 import Test.NFT.Init (
   artwork1,
   artwork2,
+  callStartNft,
   callStartNftFail,
   check,
   containsLog,
@@ -90,6 +91,12 @@ test =
     ]
 
 -- | Test initialisation of an app instance
+
+{- `check` performs app initialization first,
+   so this test checks two cases:
+   - when admin initiates contract
+   - when not admin initiates contract
+-}
 testInitApp :: TestTree
 testInitApp = check "Init app" assertState wA script
   where
