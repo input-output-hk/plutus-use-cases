@@ -15,6 +15,7 @@ module Plutus.Contracts.Services.Sale.StateMachine where
 import qualified Control.Lens                        as Lens
 import qualified Data.Aeson                          as J
 import qualified Data.Text                           as T
+import           Ext.Plutus.Ledger.Index             (minAdaTxOutValue)
 import qualified GHC.Generics                        as Haskell
 import           Ledger
 import qualified Ledger.Ada                          as Ada
@@ -33,7 +34,6 @@ import           PlutusTx.Prelude                    hiding (Semigroup (..))
 import           Prelude                             (Semigroup (..), (/))
 import qualified Prelude                             as Haskell
 import qualified Schema
-import Ext.Plutus.Ledger.Index (minAdaTxOutValue)
 
 data SaleRedeemer
   = Buy Buyer
@@ -72,12 +72,13 @@ transition :: GetAdditionalConstraints -> Sale -> State SaleDatum -> SaleRedeeme
 transition additionalConstraints sale@Sale{..} state redeemer = case (stateData state, redeemer) of
     (SaleOngoing, Redeem)
         -> Just ( Constraints.mustBeSignedBy saleOwner <>
-                  Constraints.mustPayToPubKey saleOwner val
+                  Constraints.mustPayToPubKey saleOwner saleValueWithMinAdaTxOut
                 , State SaleClosed mempty
                 )
     (SaleOngoing, Buy buyer) | saleValueWithMinAdaTxOut == val
         -> Just ( Constraints.mustBeSignedBy buyer <>
-                  Constraints.mustPayToPubKey buyer saleValueWithMinAdaTxOut <>  -- TODO: is it okay that buyer receive additional 2ADA? Should we initially add them to the sale price?
+                  Constraints.mustPayToPubKey buyer saleValueWithMinAdaTxOut <>
+                  -- TODO: is it okay that buyer receive additional 2ADA? Should we initially add them to the sale price?
                   additionalConstraints sale
                 , State SaleClosed mempty
                 )

@@ -14,6 +14,7 @@ import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
 import           Ledger.Ada                                   (toValue)
+import           Ledger.Index                                 (minAdaTxOut)
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
 import           Plutus.Abstract.ContractResponse             (ContractResponse)
@@ -24,7 +25,6 @@ import qualified Plutus.Trace                                 as Trace
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
-import Ledger.Index (minAdaTxOut)
 
 tests :: TestTree
 tests =

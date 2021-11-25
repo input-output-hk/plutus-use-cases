@@ -15,7 +15,10 @@ import           Data.Maybe                                   (isNothing)
 import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
-import           Ledger.Ada                                   (lovelaceValueOf)
+import           Ledger.Ada                                   (Ada (..),
+                                                               lovelaceValueOf,
+                                                               toValue)
+import           Ledger.Index                                 (minAdaTxOut)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Bundles                     as Bundles
@@ -31,8 +34,6 @@ import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress)
-import           Ledger.Ada                                   (Ada(..), toValue)
-import Ledger.Index (minAdaTxOut)
 
 tests :: TestTree
 tests =
@@ -335,36 +336,30 @@ buyItemValueCheckB =
 
 marketplaceOperatorFeeCheck :: TracePredicate
 marketplaceOperatorFeeCheck =
-  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + saleFee - openMarketplaceFee)
+  walletFundsChange Fixtures.ownerWallet $ toValue (Fixtures.marketplaceCreationFee + saleFee - minAdaTxOut)
   where
-    totalMintingFee = Fixtures.marketplaceCreationFee
     saleFee = Lovelace $ Fixtures.roundedPercentage singletonNftPrice
-    openMarketplaceFee = minAdaTxOut
 
 sellersProfitWithPayingFeeCheck :: TracePredicate
 sellersProfitWithPayingFeeCheck =
-  walletFundsChange Fixtures.userWallet $ toValue (nftPriceAda - saleFee - totalMintingFee - openSaleFee)
+  walletFundsChange Fixtures.userWallet $ toValue (nftPriceAda - saleFee - Fixtures.marketplaceCreationFee - minAdaTxOut)
   where
-    totalMintingFee = Fixtures.marketplaceCreationFee
     nftPriceAda = Lovelace singletonNftPrice
     saleFee = Lovelace $ Fixtures.roundedPercentage singletonNftPrice
-    openSaleFee = minAdaTxOut
 
 marketplaceOperatorFeeCheckB :: TracePredicate
 marketplaceOperatorFeeCheckB =
-  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + totalBundlingFee + saleFee - openMarketplaceFee)
+  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + totalBundlingFee + saleFee - minAdaTxOut)
   where
     totalMintingFee = Fixtures.marketplaceCreationFee * 2
     totalBundlingFee = Fixtures.marketplaceCreationFee
     saleFee = Lovelace $ Fixtures.roundedPercentage bundleNftPrice
-    openMarketplaceFee = minAdaTxOut
 
 sellersProfitWithPayingFeeCheckB :: TracePredicate
 sellersProfitWithPayingFeeCheckB =
-  walletFundsChange Fixtures.userWallet $ toValue (bundlePriceAda - totalMintingFee - totalBundlingFee - openSaleFee - saleFee)
+  walletFundsChange Fixtures.userWallet $ toValue (bundlePriceAda - totalMintingFee - totalBundlingFee - minAdaTxOut - saleFee)
   where
     totalMintingFee = Fixtures.marketplaceCreationFee * 2
     totalBundlingFee = Fixtures.marketplaceCreationFee
     saleFee = Lovelace $ Fixtures.roundedPercentage bundleNftPrice
     bundlePriceAda = Lovelace bundleNftPrice
-    openSaleFee = minAdaTxOut

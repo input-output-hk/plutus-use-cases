@@ -19,6 +19,7 @@ import           Data.Aeson                             (FromJSON, ToJSON)
 import qualified Data.Aeson                             as J
 import           Data.Monoid                            (Last (..))
 import           Data.Semigroup.Generic                 (GenericSemigroupMonoid (..))
+import           Ext.Plutus.Ledger.Index                (minAdaTxOutValue)
 import           GHC.Generics                           (Generic)
 import           Ledger                                 (Ada, PubKeyHash, Slot,
                                                          Value)
@@ -140,7 +141,7 @@ auctionTransition getAdditionalPayoutConstraints params@Auction{..} state@State{
             let
                 additionalConstraints = getAdditionalPayoutConstraints params state
                 constraints =
-                    Constraints.mustPayToPubKey highestBidder aAsset -- and the highest bidder the asset
+                    Constraints.mustPayToPubKey highestBidder (aAsset + minAdaTxOutValue) -- and the highest bidder the asset
                     <> additionalConstraints
                     <> Constraints.mustValidateIn (Interval.from aEndTime) -- When the auction has ended,
                 newState = State { stateData = Finished h, stateValue = mempty }
@@ -151,7 +152,8 @@ auctionTransition getAdditionalPayoutConstraints params@Auction{..} state@State{
                 constraints =
                     Constraints.mustValidateIn (Interval.to aEndTime) -- While the auction hasn't ended,
                     <> Constraints.mustPayToPubKey highestBidder (Ada.toValue highestBid) -- and the highest bidder the asset
-                    <> Constraints.mustPayToPubKey aOwner aAsset -- and the highest bidder the asset
+                    <> Constraints.mustPayToPubKey aOwner (aAsset + minAdaTxOutValue) -- and the highest bidder the asset
+                    -- TODO: is it okay that buyer receive additional 2ADA? Should we initially add them to the bid price?
                 newState = State { stateData = Canceled, stateValue = mempty }
             in Just (constraints, newState)
 

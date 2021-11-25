@@ -14,6 +14,7 @@ import           Data.Maybe                                   (isNothing)
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
 import           Ledger.Ada                                   (toValue)
+import           Ledger.Index                                 (minAdaTxOut)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
@@ -27,7 +28,6 @@ import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress,
                                                                walletPubKeyHash)
-import Ledger.Index (minAdaTxOut)
 
 tests :: TestTree
 tests =

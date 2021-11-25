@@ -31,6 +31,7 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Mar
 import qualified Plutus.Contracts.Services.Sale.Core                      as Core
 import qualified Plutus.Contracts.Services.Sale.StateMachine              as Core
 
+import           Ext.Plutus.Ledger.Index                                  (minAdaTxOutValue)
 import           Plutus.Contract.Request                                  (ownPubKeyHash)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
@@ -40,7 +41,6 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
-import Ext.Plutus.Ledger.Index (minAdaTxOutValue)
 
 data OpenSaleParams =
   OpenSaleParams {

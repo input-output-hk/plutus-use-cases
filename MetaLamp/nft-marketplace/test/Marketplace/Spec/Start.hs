@@ -1,6 +1,6 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE OverloadedStrings  #-}
 
 module Marketplace.Spec.Start
   ( tests, startTrace
@@ -8,6 +8,9 @@ module Marketplace.Spec.Start
 
 import           Control.Monad                                  (void)
 import           Data.Text                                      (Text)
+import           Ledger.Ada                                     (Ada (..),
+                                                                 toValue)
+import           Ledger.Index                                   (minAdaTxOut)
 import qualified Ledger.Value                                   as V
 import qualified Marketplace.Fixtures                           as Fixtures
 import           Plutus.Abstract.Percentage                     (getPercentage)
@@ -19,8 +22,6 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
 import qualified Plutus.Trace                                   as Trace
 import qualified PlutusTx.AssocMap                              as AssocMap
 import           Test.Tasty
-import           Ledger.Ada                                   (toValue, Ada(..))
-import Ledger.Index (minAdaTxOut)
 
 tests :: TestTree
 tests =
@@ -56,7 +57,7 @@ datumsCheck =
     (== [Marketplace.MarketplaceDatum AssocMap.empty AssocMap.empty])
 
 marketplaceOpenedWithMinAdaTxOut :: TracePredicate
-marketplaceOpenedWithMinAdaTxOut = 
+marketplaceOpenedWithMinAdaTxOut =
   valueAtAddress Fixtures.marketplaceAddress (toValue minAdaTxOut ==)
 
 marketplaceOperatorPayedMinAdaTxOut :: TracePredicate

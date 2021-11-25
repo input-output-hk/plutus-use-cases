@@ -1,6 +1,6 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE OverloadedStrings  #-}
 module Marketplace.Fixtures.Script where
 
 import           Ledger                                       (Address,
@@ -10,10 +10,10 @@ import           Ledger.Ada                                   (Ada (..))
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures.Wallet                  as Fixtures
 import           Plutus.Abstract.Percentage                   (Percentage (..))
+import           Plutus.Abstract.PercentageInterface          (calculatePercentageRounded)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKeyHash)
-import Plutus.Abstract.PercentageInterface (calculatePercentageRounded)
 
 marketplace :: Marketplace.Marketplace
 marketplace =

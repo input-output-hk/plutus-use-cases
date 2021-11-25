@@ -16,6 +16,7 @@ import qualified Data.Aeson                                   as J
 import           Data.Proxy                                   (Proxy (..))
 import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
+import           Ext.Plutus.Ledger.Index                      (minAdaTxOutValue)
 import qualified GHC.Generics                                 as Haskell
 import           Ledger
 import           Ledger.Ada                                   (Ada (..))
@@ -31,6 +32,7 @@ import           Plutus.Contract.Request                      (ownPubKeyHash)
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
+import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           PlutusTx.Prelude                             hiding
@@ -39,8 +41,6 @@ import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import qualified Schema
 import           Text.Printf                                  (printf)
-import Plutus.V1.Ledger.Ada (lovelaceValueOf)
-import Ext.Plutus.Ledger.Index (minAdaTxOutValue)
 
 data StartMarketplaceParams = StartMarketplaceParams {
     creationFee :: Integer,  -- fee by minting and bundling

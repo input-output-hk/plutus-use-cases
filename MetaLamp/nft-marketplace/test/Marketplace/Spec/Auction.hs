@@ -18,6 +18,10 @@ import           Data.Void                                    (Void)
 import           Ext.Plutus.Ledger.Time                       (Seconds (..),
                                                                addToBeginningOfTime)
 import           Ledger                                       (Value)
+import           Ledger.Ada                                   (Ada (..),
+                                                               lovelaceValueOf,
+                                                               toValue)
+import           Ledger.Index                                 (minAdaTxOut)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Bundles                     as Bundles
@@ -36,8 +40,6 @@ import qualified PlutusTx.AssocMap                            as AssocMap
 import           Test.Tasty
 import qualified Utils
 import           Wallet.Emulator.Wallet                       (walletAddress)
-import           Ledger.Ada                                   (Ada(..), toValue, lovelaceValueOf)
-import Ledger.Index (minAdaTxOut)
 
 
 tests :: TestTree
@@ -505,19 +507,16 @@ buyOnAuctionValueCheckB =
 
 marketplaceOperatorFeeCheck :: TracePredicate
 marketplaceOperatorFeeCheck =
-  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + auctionFee - minAdaTxOut)
+  walletFundsChange Fixtures.ownerWallet $ toValue (Fixtures.marketplaceCreationFee + auctionFee - minAdaTxOut)
   where
-    totalMintingFee = Fixtures.marketplaceCreationFee
     auctionFee = Lovelace $ Fixtures.roundedPercentage highestBid
 
 sellerProfitWithFeeCheck :: TracePredicate
 sellerProfitWithFeeCheck =
-  walletFundsChange Fixtures.userWallet $ toValue (highestBidAda - totalMintingFee - openAuctionMinAdaTxOut - auctionFee)
+  walletFundsChange Fixtures.userWallet $ toValue (highestBidAda - Fixtures.marketplaceCreationFee - minAdaTxOut - auctionFee)
   where
-    totalMintingFee = Fixtures.marketplaceCreationFee
     auctionFee = Lovelace $ Fixtures.roundedPercentage highestBid
     highestBidAda = Lovelace highestBid
-    openAuctionMinAdaTxOut = minAdaTxOut
 
 marketplaceOperatorFeeCheckB :: TracePredicate
 marketplaceOperatorFeeCheckB =
@@ -529,10 +528,9 @@ marketplaceOperatorFeeCheckB =
 
 sellerProfitWithFeeCheckB :: TracePredicate
 sellerProfitWithFeeCheckB =
-  walletFundsChange Fixtures.userWallet $ toValue (highestBidAda - totalMintingFee - totalBundlingFee - openAuctionMinAdaTxOut - auctionFee)
+  walletFundsChange Fixtures.userWallet $ toValue (highestBidAda - totalMintingFee - totalBundlingFee - minAdaTxOut - auctionFee)
   where
     totalMintingFee = Fixtures.marketplaceCreationFee * 2
     totalBundlingFee = Fixtures.marketplaceCreationFee
     auctionFee = Lovelace $ Fixtures.roundedPercentage highestBidB
     highestBidAda = Lovelace highestBidB
-    openAuctionMinAdaTxOut = minAdaTxOut
