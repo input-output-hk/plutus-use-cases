@@ -11,3 +11,5 @@ result*
 *#
 plutus-pab.yaml
 pab-core.db
+.direnv/
+.envrc

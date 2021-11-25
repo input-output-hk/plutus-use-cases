@@ -1,9 +1,13 @@
-{ sourcesFile ? ./nix/sources.json, system ? builtins.currentSystem
-, sources ? import ./nix/sources.nix { inherit system sourcesFile; }
-, plutus ? import sources.plutus { }, deferPluginErrors ? true
-, doCoverage ? true }:
-let
-  project = import ./nix/haskell.nix {
-    inherit sourcesFile system sources plutus deferPluginErrors doCoverage;
-  };
-in project
+(
+  import (
+    let
+      lock = builtins.fromJSON (builtins.readFile ./flake.lock);
+    in
+      fetchTarball {
+        url = "https://github.com/edolstra/flake-compat/archive/${lock.nodes.flake-compat.locked.rev}.tar.gz";
+        sha256 = lock.nodes.flake-compat.locked.narHash;
+      }
+  ) {
+    src = ./.;
+  }
+).defaultNix
