@@ -33,6 +33,7 @@ import           PlutusTx.Prelude                    hiding (Semigroup (..))
 import           Prelude                             (Semigroup (..), (/))
 import qualified Prelude                             as Haskell
 import qualified Schema
+import Ext.Plutus.Ledger.Index (minAdaTxOutValue)
 
 data SaleRedeemer
   = Buy Buyer
@@ -74,15 +75,16 @@ transition additionalConstraints sale@Sale{..} state redeemer = case (stateData 
                   Constraints.mustPayToPubKey saleOwner val
                 , State SaleClosed mempty
                 )
-    (SaleOngoing, Buy buyer) | saleValue == val
+    (SaleOngoing, Buy buyer) | saleValueWithMinAdaTxOut == val
         -> Just ( Constraints.mustBeSignedBy buyer <>
-                  Constraints.mustPayToPubKey buyer saleValue <>
+                  Constraints.mustPayToPubKey buyer saleValueWithMinAdaTxOut <>  -- TODO: is it okay that buyer receive additional 2ADA? Should we initially add them to the sale price?
                   additionalConstraints sale
                 , State SaleClosed mempty
                 )
     _                                        -> Nothing
   where
     val = stateValue state
+    saleValueWithMinAdaTxOut = saleValue + minAdaTxOutValue
 
 {-# INLINABLE isFinal #-}
 isFinal :: SaleDatum -> Bool

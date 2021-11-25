@@ -70,48 +70,48 @@ tests =
         Fixtures.options
         "Should not sell NFT if it has no lot"
         errorCheckBuyer
-        buyItemTrace'
-      -- checkPredicateOptions
-      --   Fixtures.options
-      --   "Should sell NFT and pay fee to marketplace operator"
-      --   (marketplaceOperatorFeeCheck .&&. sellersProfitWithPayingFeeCheck)
-      --   buyItemTrace
+        buyItemTrace',
+      checkPredicateOptions
+        Fixtures.options
+        "Should sell NFT and pay fee to marketplace operator"
+        (marketplaceOperatorFeeCheck .&&. sellersProfitWithPayingFeeCheck)
+        buyItemTrace
+    ],
+  testGroup
+    "NFT bundles"
+    [
+      checkPredicateOptions
+        Fixtures.options
+        "Should put on sale NFT bundle locking bundle value in sale script & saving link"
+        (openSaleValueCheckB .&&. openSaleDatumsCheckB)
+        (void openSaleTraceB),
+      checkPredicateOptions
+        Fixtures.options
+        "Should not put on sale if bundle does not exist"
+        errorCheckOpen
+        openSaleTraceB',
+      checkPredicateOptions
+        Fixtures.options
+        "Should close sale and pay locked bundle value back"
+        (closeSaleValueCheckB .&&. completeSaleDatumsCheckB)
+        closeSaleTraceB,
+      checkPredicateOptions
+        Fixtures.options
+        "Should sell bundle and pay its value to buyer"
+        (buyItemValueCheckB .&&. completeSaleDatumsCheckB)
+        buyItemTraceB,
+      checkPredicateOptions
+        Fixtures.options
+        "Should sell bundle and pay fee to marketplace operator"
+        (marketplaceOperatorFeeCheckB .&&. sellersProfitWithPayingFeeCheckB)
+        buyItemTraceB
     ]]
-  --   ,
-  -- testGroup
-  --   "NFT bundles"
-  --   [
-  --     checkPredicateOptions
-  --       Fixtures.options
-  --       "Should put on sale NFT bundle locking bundle value in sale script & saving link"
-  --       (openSaleValueCheckB .&&. openSaleDatumsCheckB)
-  --       (void openSaleTraceB),
-  --     checkPredicateOptions
-  --       Fixtures.options
-  --       "Should not put on sale if bundle does not exist"
-  --       errorCheckOpen
-  --       openSaleTraceB',
-  --     checkPredicateOptions
-  --       Fixtures.options
-  --       "Should close sale and pay locked bundle value back"
-  --       (closeSaleValueCheckB .&&. completeSaleDatumsCheckB)
-  --       closeSaleTraceB,
-  --     checkPredicateOptions
-  --       Fixtures.options
-  --       "Should sell bundle and pay its value to buyer"
-  --       (buyItemValueCheckB .&&. completeSaleDatumsCheckB)
-  --       buyItemTraceB,
-  --     checkPredicateOptions
-  --       Fixtures.options
-  --       "Should sell bundle and pay fee to marketplace operator"
-  --       (marketplaceOperatorFeeCheckB .&&. sellersProfitWithPayingFeeCheckB)
-  --       buyItemTraceB
-  --   ]]
+
+-- \/\/\/ "NFT singletons"
 
 singletonNftPrice :: Integer
 singletonNftPrice = 60 * Fixtures.oneAdaInLovelace
 
--- \/\/\/ "NFT singletons"
 openSaleParams ::        Marketplace.OpenSaleParams
 openSaleParams =  Marketplace.OpenSaleParams {
                     Marketplace.ospItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
@@ -232,11 +232,16 @@ errorCheckClose = Utils.assertCrError (Proxy @"closeSale") (Marketplace.userEndp
 errorCheckBuyer :: TracePredicate
 errorCheckBuyer = Utils.assertCrError (Proxy @"buyItem") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
 
+
 -- \/\/\/ "NFT bundles"
+
+bundleNftPrice :: Integer
+bundleNftPrice = 85 * Fixtures.oneAdaInLovelace
+
 openSaleParamsB ::        Marketplace.OpenSaleParams
 openSaleParamsB =  Marketplace.OpenSaleParams {
                     Marketplace.ospItemId   = Marketplace.UserBundleId Fixtures.cids,
-                    Marketplace.ospSalePrice = 65 * Fixtures.oneAdaInLovelace
+                    Marketplace.ospSalePrice = bundleNftPrice
                    }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
@@ -330,36 +335,36 @@ buyItemValueCheckB =
 
 marketplaceOperatorFeeCheck :: TracePredicate
 marketplaceOperatorFeeCheck =
-  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + saleFee - minAdaTxOut)
-  -- 60_000_000 * 3.5 /100 = 2_100_000 - fee by complete sale
-  -- 2_100_000 - fee by minting token
-  -- 2_000_000 - minAdaTxOut by starting marketplace
-  -- (2_100_000 + 2_100_000 - 2_000_000) = 2_200_000
+  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + saleFee - openMarketplaceFee)
   where
     totalMintingFee = Fixtures.marketplaceCreationFee
     saleFee = Lovelace $ Fixtures.roundedPercentage singletonNftPrice
+    openMarketplaceFee = minAdaTxOut
 
 sellersProfitWithPayingFeeCheck :: TracePredicate
 sellersProfitWithPayingFeeCheck =
-  walletFundsChange Fixtures.userWallet $ toValue (nftPriceAda - saleFee - totalMintingFee)
-  -- 44000000 - 1200000 = 42800000 - seller's profit
+  walletFundsChange Fixtures.userWallet $ toValue (nftPriceAda - saleFee - totalMintingFee - openSaleFee)
   where
-    saleFee = Lovelace $ Fixtures.roundedPercentage singletonNftPrice
     totalMintingFee = Fixtures.marketplaceCreationFee
     nftPriceAda = Lovelace singletonNftPrice
+    saleFee = Lovelace $ Fixtures.roundedPercentage singletonNftPrice
+    openSaleFee = minAdaTxOut
 
 marketplaceOperatorFeeCheckB :: TracePredicate
 marketplaceOperatorFeeCheckB =
-  walletFundsChange Fixtures.ownerWallet $ lovelaceValueOf 1925000
-  -- 65_000_000 * 3.5 /100 = 1_625_000 - fee by complete sale
-  -- 100_000 * 2 = 200000 - fee by minting 2 tokens
-  -- 100_000 - fee by bundling
+  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + totalBundlingFee + saleFee - openMarketplaceFee)
   where
     totalMintingFee = Fixtures.marketplaceCreationFee * 2
     totalBundlingFee = Fixtures.marketplaceCreationFee
-    
+    saleFee = Lovelace $ Fixtures.roundedPercentage bundleNftPrice
+    openMarketplaceFee = minAdaTxOut
 
 sellersProfitWithPayingFeeCheckB :: TracePredicate
 sellersProfitWithPayingFeeCheckB =
-  walletFundsChange Fixtures.userWallet $ lovelaceValueOf 63075000
-  -- 65000000 - 1925000 = 63075000
+  walletFundsChange Fixtures.userWallet $ toValue (bundlePriceAda - totalMintingFee - totalBundlingFee - openSaleFee - saleFee)
+  where
+    totalMintingFee = Fixtures.marketplaceCreationFee * 2
+    totalBundlingFee = Fixtures.marketplaceCreationFee
+    saleFee = Lovelace $ Fixtures.roundedPercentage bundleNftPrice
+    bundlePriceAda = Lovelace bundleNftPrice
+    openSaleFee = minAdaTxOut

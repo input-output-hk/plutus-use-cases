@@ -40,6 +40,7 @@ import           Prelude                                                  (Semig
 import qualified Prelude                                                  as Haskell
 import qualified Schema
 import           Text.Printf                                              (printf)
+import Ext.Plutus.Ledger.Index (minAdaTxOutValue)
 
 data OpenSaleParams =
   OpenSaleParams {
@@ -66,7 +67,7 @@ openSale OpenSaleParams {..} = do
                   saleOperatorFee   = ospSaleFee
                 }
     let client = Core.saleClient sale
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing ospSaleValue
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing (ospSaleValue + minAdaTxOutValue)
 
     logInfo @Haskell.String $ printf "Opened Sale %s at address %s" (Haskell.show sale) (Haskell.show $ Core.saleAddress sale)
     pure sale

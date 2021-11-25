@@ -8,6 +8,3 @@ import Plutus.V1.Ledger.Ada (Ada, lovelaceValueOf, fromValue, toValue)
 -- Read minUTxOValue from `testnet-shelley-genesis.json` cardano-node config
 minAdaTxOutValue :: Value
 minAdaTxOutValue = toValue minAdaTxOut
-
-withMinAdaTxOutValue :: Ada -> Value
-withMinAdaTxOutValue initialTxOut = toValue (initialTxOut + minAdaTxOut)
