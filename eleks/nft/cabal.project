@@ -14,19 +14,18 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus-apps.git
   subdir:
-    freer-extras
-    playground-common
-    plutus-chain-index
-    plutus-chain-index-core
-    plutus-contract
-    plutus-ledger
-    plutus-pab
-    plutus-playground-server
-    plutus-use-cases
-    quickcheck-dynamic
-    web-ghc
-
-  tag: d57556516d008a2bfb5545b4f431e1d4c8f21887
+     freer-extras
+          playground-common
+          plutus-chain-index
+          plutus-chain-index-core
+          plutus-contract
+          plutus-ledger
+          plutus-pab
+          plutus-playground-server
+          plutus-use-cases
+          quickcheck-dynamic
+          web-ghc
+  tag: a78e858f77cd3ecb76877351e0832ee5643f09a9
 
 -- We never, ever, want this.
 write-ghc-environment-files: never
@@ -70,6 +69,16 @@ package ouroboros-consensus-shelley
 package ouroboros-consensus-cardano
   optimization: False
 package cardano-api
+  optimization: False
+package cardano-wallet
+  optimization: False
+package cardano-wallet-core
+  optimization: False
+package cardano-wallet-cli
+  optimization: False
+package cardano-wallet-launcher
+  optimization: False
+package cardano-wallet-core-integration
   optimization: False
 
 -- Copied from plutus-core
