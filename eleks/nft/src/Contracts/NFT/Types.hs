@@ -22,16 +22,20 @@
 module Contracts.NFT.Types
   where
 
-import qualified Data.OpenApi.Schema as OpenApi
+import qualified Data.OpenApi.Schema        as OpenApi
 import           Ledger
-import           Ledger.Value        (AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
-import           Playground.Contract (Show, FromJSON, Generic, ToJSON, ToSchema)
+import           Ledger.Value               (AssetClass (..), assetClass, assetClassValue, assetClassValueOf, unTokenName)
+import           Playground.Contract        (Show, FromJSON, Generic, ToJSON, ToSchema)
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude
-import           Prelude             (String)
-import           Text.Printf         (PrintfArg)
-
+import           Prelude                    (String)
+import           Text.Printf                (PrintfArg)
+import qualified Data.ByteString.Base16     as B16
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as T
+import qualified Data.ByteString.Char8      as B
+import           Data.String                (fromString)
 -- | An nft market
 data NFTMarket = NFTMarket
     { marketId :: AssetClass
@@ -122,3 +126,12 @@ isMarketToken v ac = assetClassValueOf v ac == 1
 {-# INLINABLE valueWithin #-}
 valueWithin :: TxInInfo -> Value
 valueWithin = txOutValue . txInInfoResolved
+
+encodeTokenString:: String -> String
+encodeTokenString = T.unpack . T.decodeUtf8 . B16.encode . B.pack
+
+tokenEncode:: String -> TokenName
+tokenEncode = fromString . encodeTokenString
+
+tokenDecode:: TokenName -> String 
+tokenDecode tokenName = B.unpack . B16.decodeLenient . fromBuiltin . unTokenName $ tokenName

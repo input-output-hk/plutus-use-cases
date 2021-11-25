@@ -408,7 +408,7 @@ createNftTokenTrace ::
     -> EmulatorTrace NFTMetadataDto
 createNftTokenTrace hdl testToken = do
     let nftTokenParams = NFTMarket.CreateParams { 
-        cpTokenName = read . show $ testTokenName testToken
+        cpTokenName = read . show $ testDisplayTokenName testToken
         , cpDescription = testTokenDesciption testToken
         , cpAuthor = testTokenAuthor testToken
         , cpFile = testTokenFile testToken }

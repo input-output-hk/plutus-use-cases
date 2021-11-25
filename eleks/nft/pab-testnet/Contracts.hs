@@ -75,6 +75,3 @@ handlers :: SimulatorEffectHandlers (Builtin NFTMarketContracts)
 handlers =
     Simulator.mkSimulatorHandlers def def
     $ interpret (contractHandler Builtin.handleBuiltin)
-
-nftMarketFee :: Integer
-nftMarketFee = 2_000_000

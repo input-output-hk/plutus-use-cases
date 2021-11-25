@@ -1,5 +1,6 @@
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE NumericUnderscores   #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 
 module Spec.Helper
     where
@@ -15,7 +16,7 @@ import           Data.Void              (Void)
 import qualified Spec.MockNFTCurrency   as MockCurrency
 import           Ledger                 (PubKeyHash, pubKeyHash)
 import           Ledger.Ada              as Ada
-import           Ledger.Value           (Value(..), CurrencySymbol(..), TokenName (..), AssetClass(..), toString)
+import           Ledger.Value           (Value(..), CurrencySymbol(..), TokenName (..), AssetClass(..), toString, unTokenName)
 import qualified Plutus.Trace.Emulator  as Trace
 import           PlutusTx.Prelude       (toBuiltin)
 import           Wallet.Emulator        (Wallet(..), walletPubKeyHash)
@@ -46,41 +47,45 @@ nftMarketMock = NFTMarket
     { marketId = mockMarketId
     , marketTokenSymbol = nftCurrencySymbol mockNftCurrency
     , marketTokenMetaSymbol = nftCurrencySymbol mockNftCurrency
-    , marketTokenMetaNameSuffix = toBuiltin . B.pack $  metadataTokenNamePrefix
+    , marketTokenMetaNameSuffix = toBuiltin . B.pack . encodeTokenString $  metadataTokenNamePrefix
     , marketFee = 2_000_000
     , marketOwner = walletPubKeyHash ownerWallet'
     } 
 
 data TestTokenMeta = TestTokenMeta
     { testTokenName:: TokenName
+    , testDisplayTokenName:: String
     , testTokenSymbol:: CurrencySymbol
     , testTokenClass:: AssetClass
     , testTokenDesciption:: String
     , testTokenAuthor:: String
     , testTokenFile:: String
     , testTokenMetaName :: TokenName
+    , testDisplayTokenMetaName :: String
     , testTokenMetaSymbol :: CurrencySymbol
     , testTokenMetaClass :: AssetClass
     , testTokenSeller :: Maybe PubKeyHash
     , testTokenSellPrice :: Integer
     }
 
-createTestToken:: TokenName -> TestTokenMeta
+createTestToken::String -> TestTokenMeta
 createTestToken tokenName = TestTokenMeta
-    { testTokenName = tokenName
+    { testTokenName = tokenEncode tokenName
+    , testDisplayTokenName = tokenName
     , testTokenSymbol = marketTokenSymbol nftMarketMock
-    , testTokenClass = AssetClass (NFTMarket.marketTokenSymbol nftMarketMock, tokenName)
+    , testTokenClass = AssetClass (NFTMarket.marketTokenSymbol nftMarketMock, tokenEncode tokenName)
     , testTokenDesciption = "testTokenDescrition"
     , testTokenAuthor = "testTokenAuthor"
     , testTokenFile = "testTokenFile"
-    , testTokenMetaName = tokenMetaName
+    , testTokenMetaName = tokenEncode tokenMetaName
+    , testDisplayTokenMetaName = tokenMetaName
     , testTokenMetaSymbol = NFTMarket.marketTokenMetaSymbol nftMarketMock
-    , testTokenMetaClass = AssetClass ( NFTMarket.marketTokenMetaSymbol nftMarketMock, tokenMetaName)
+    , testTokenMetaClass = AssetClass ( NFTMarket.marketTokenMetaSymbol nftMarketMock, tokenEncode tokenMetaName)
     , testTokenSeller = Nothing
     , testTokenSellPrice = 0
     } 
     where
-        tokenMetaName = fromString $ (toString tokenName) ++ "Metadata"
+        tokenMetaName :: String  = tokenName ++ "Metadata"
 
 makeSellingTestToken:: TestTokenMeta -> Wallet -> Integer -> TestTokenMeta
 makeSellingTestToken testToken wallet price =

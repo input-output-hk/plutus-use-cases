@@ -46,6 +46,7 @@ library
       Contracts.NFT.OnChain
       Contracts.NFT.OffChain
       Contracts.NFT.NFTCurrency
+      Contracts.NFT.Currency
     build-depends:
       base >= 4.9 && < 5,
       aeson,
@@ -55,12 +56,15 @@ library
       text -any,
       lens -any,
       openapi3 -any,
+      base16-bytestring,
       playground-common,
+      text-class,
       plutus-contract,
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
       plutus-ledger-api,
+      cardano-wallet-core,
       plutus-use-cases,
     hs-source-dirs: src src/Contracts/NFT
     default-language: Haskell2010

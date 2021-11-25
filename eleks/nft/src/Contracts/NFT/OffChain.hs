@@ -44,6 +44,7 @@ import           Contracts.NFT.NFTCurrency
 import           Control.Lens                     (view)
 import           Control.Monad                    hiding (fmap)
 import qualified Data.ByteString.Base64           as B64
+import qualified Data.ByteString.Base16           as B16
 import qualified Data.ByteString.Char8            as B
 import           Data.List                        (sortOn)
 import qualified Data.Map                         as Map
@@ -53,6 +54,7 @@ import           Data.Ord                         (comparing)
 import           Data.Proxy                       (Proxy (..))
 import           Data.Text                        (Text, pack)
 import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as T
 import           Data.Void                        (Void, absurd)
 import           Ledger                           hiding (singleton)
 import qualified Ledger.Ada                       as Ada
@@ -69,13 +71,15 @@ import qualified Ledger.Value                     as Value
 import qualified Ledger.Contexts                  as Validation
 import           Playground.Contract
 import           Plutus.Contract                  hiding (when)
-import qualified Plutus.Contracts.Currency        as Currency
+import qualified Contracts.NFT.Currency        as Currency
+--import qualified Plutus.Contracts.Currency        as Currency
 import qualified PlutusTx
 import           PlutusTx.Prelude                 hiding (Semigroup (..), unless)
 import           Prelude                          (Semigroup (..), String, Char, read, show)
 import qualified Prelude
 import           Text.Printf                      (printf)
 import           Wallet.Emulator                  (walletPubKeyHash, knownWallets, knownWallet)
+import           Data.Text.Class ( FromText (..), TextDecodingError (..), ToText (..) )
 
 marketplaceTokenName :: TokenName
 marketplaceTokenName = "NFTMarketplace"
@@ -120,7 +124,7 @@ data TransferParams = TransferParams
 
 nftMetadataToDto:: NFTMetadata -> NFTMetadataDto
 nftMetadataToDto nftMeta = NFTMetadataDto 
-    { nftDtoTokenName = read.show . nftTokenName $ nftMeta
+    { nftDtoTokenName = tokenDecode . nftTokenName $ nftMeta
     , nftDtoMetaDescription = B.unpack . fromBuiltin . nftMetaDescription $ nftMeta
     , nftDtoMetaAuthor = B.unpack . fromBuiltin . nftMetaAuthor $ nftMeta
     , nftDtoMetaFile = B.unpack . fromBuiltin . nftMetaFile $ nftMeta
@@ -149,16 +153,20 @@ start ::
     -> Integer
     -> Contract w s Text NFTMarket
 start forgeNft fee = do
-    when (fee < 2_000_000) $ throwError "fee should be grater than min ada"
-
+    logInfo @String $ "Ura0"
+    when (Ada.lovelaceOf fee < minAdaTxOut) $ throwError "fee should be grater than min ada"
+    logInfo @String $ "Ura1"
     pkh <- ownPubKeyHash
     cs  <- forgeNft marketplaceTokenName pkh
+    logInfo @String $ "Ura2"
     let c = assetClass cs marketplaceTokenName
         nftTokenCur = mkNFTCurrency c
         nftTokenMetaCur = mkNFTCurrency c
         market   = marketplace cs nftTokenCur nftTokenMetaCur fee pkh
         inst = marketInstance market
         tx   = mustPayToTheScript (Factory []) $ assetClassValue c 1
+
+    logInfo @String $ "Ura3"
     mkTxConstraints (Constraints.typedValidatorLookups inst) tx
       >>= submitTxConfirmed . adjustUnbalancedTx
 
@@ -172,7 +180,7 @@ create ::
     -> Contract w s Text NFTMetadataDto
 create market CreateParams{..} = do
     (oref, o, nftMetas) <- findNFTMarketFactory market
-    let tokenName = fromString cpTokenName
+    let tokenName :: TokenName = tokenEncode cpTokenName
     ownPK <- ownPubKeyHash
 
     let nftTokenCur = mkNFTCurrency $ marketId market
@@ -180,7 +188,7 @@ create market CreateParams{..} = do
         nftTokenSymbol = nftCurrencySymbol nftTokenCur
         nftTokenForgedValue = nftForgedValue nftTokenCur tokenName
     
-    let metadataTokenName = fromString $ (toString tokenName) ++ metadataTokenNamePrefix
+    let metadataTokenName :: TokenName = tokenEncode $ cpTokenName ++ metadataTokenNamePrefix
     let nftTokenMetaCur = mkNFTCurrency $ marketId market
         nftTokenMetaPolicy = nftMonetrayPolicy nftTokenMetaCur
         nftTokenMetaSymbol = nftCurrencySymbol nftTokenMetaCur
@@ -228,7 +236,7 @@ sell ::
     -> Contract w s Text NFTMetadataDto
 sell market SellParams{..} = do
     pkh <- ownPubKeyHash
-    let tokenName = fromString spTokenName
+    let tokenName = tokenEncode spTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (spSellPrice <= 0) $ throwError "sell price should be greater than zero"
     let marketInst = marketInstance market
@@ -258,7 +266,7 @@ cancelSell ::
     -> Contract w s Text NFTMetadataDto
 cancelSell market CancelSellParams{..} = do
     pkh <- ownPubKeyHash
-    let tokenName = fromString cspTokenName
+    let tokenName = tokenEncode cspTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
         throwError $ pack $ printf "NFT token is not on sale"
@@ -291,7 +299,7 @@ buy ::
     -> Contract w s Text NFTMetadataDto
 buy market BuyParams{..} = do
     pkh <- ownPubKeyHash
-    let tokenName = fromString bpTokenName
+    let tokenName = tokenEncode bpTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     when (PlutusTx.Prelude.isNothing $ nftSeller nftMetadata) $
         throwError $ pack $ printf "NFT token is not on sale"
@@ -331,7 +339,7 @@ transfer ::
     -> Contract w s Text NFTMetadataDto
 transfer market TransferParams{..} = do
     let sendToKeyHash = walletPubKeyHash $ knownWallet tpReceiverWallet
-    let tokenName = fromString tpTokenName
+    let tokenName = tokenEncode tpTokenName
     (_, (oref, o, nftMetadata)) <- findMarketFactoryAndNftMeta market tokenName
     let nftValue = getNftValue (nftTokenSymbol nftMetadata) (nftTokenName nftMetadata)
     tx <- submitTx $ mustPayToPubKey sendToKeyHash nftValue
@@ -346,7 +354,7 @@ marketplace cs tokenCur metaTokenCur fee pkh =
     marketId = assetClass cs marketplaceTokenName
     , marketTokenSymbol = nftCurrencySymbol tokenCur
     , marketTokenMetaSymbol = nftCurrencySymbol metaTokenCur
-    , marketTokenMetaNameSuffix = toBuiltin . B.pack $ metadataTokenNamePrefix 
+    , marketTokenMetaNameSuffix = toBuiltin . B.pack . encodeTokenString $ metadataTokenNamePrefix 
     , marketFee = fee
     , marketOwner = pkh
     }
