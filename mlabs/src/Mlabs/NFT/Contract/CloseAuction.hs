@@ -108,8 +108,12 @@ closeAuction uT (AuctionCloseParams nftId) = do
             (amountPaidToOwner, amountPaidToAuthor) =
               calculateShares (bid - feeValue) (info'share . node'information $ node)
             payTx =
-              [ Constraints.mustPayToPubKey (getUserId . info'owner . node'information $ node) amountPaidToOwner
-              , Constraints.mustPayToPubKey (getUserId . info'author . node'information $ node) amountPaidToAuthor
+              [ Constraints.mustPayToPubKey
+                  (getUserId . info'owner . node'information $ node)
+                  amountPaidToOwner
+              , Constraints.mustPayToPubKey
+                  (getUserId . info'author . node'information $ node)
+                  amountPaidToAuthor
               ]
-        (govTx, govLookups) <- getFeesConstraints uT nftId bid
+        (govTx, govLookups) <- getFeesConstraints uT nftId bid _bidder
         Hask.pure (govTx <> payTx, govLookups)

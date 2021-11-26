@@ -14,6 +14,7 @@ import Data.Monoid (Last (..))
 import Data.Text (Text)
 import Text.Printf (printf)
 
+import Plutus.ChainIndex.Tx (txOutRefMapForAddr)
 import Plutus.Contract (Contract)
 import Plutus.Contract qualified as Contract
 import PlutusTx qualified
@@ -22,11 +23,11 @@ import Ledger (
   Datum (..),
   Redeemer (..),
   to,
+  txOutValue,
  )
 
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorScript)
-import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Ada qualified as Ada
 
 import Mlabs.NFT.Contract.Aux
@@ -67,7 +68,12 @@ bidAuction uT (AuctionBidParams nftId bidAmount) = do
         auctionState {as'highestBid = Just newHighestBid}
 
       nftDatum = NodeDatum $ updateDatum newAuctionState node
-      nftVal = Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
+      scriptAddr = appInstance'Address . node'appInstance $ node
+      nftVal =
+        txOutValue
+          . fst
+          $ (txOutRefMapForAddr scriptAddr pi'CITx Map.! pi'TOR)
+      -- Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
       action =
         BidAuctionAct
           { act'bid = bidAmount

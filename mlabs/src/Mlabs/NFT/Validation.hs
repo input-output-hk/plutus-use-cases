@@ -1,6 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unused-local-binds -Wno-unused-matches #-}
 
+-- TODO remove after implementig fees
 module Mlabs.NFT.Validation (
   DatumNft (..),
   NftTrade,
@@ -40,6 +42,8 @@ import Ledger (
   ValidatorHash,
   contains,
   findDatum,
+  -- findOwnInput,
+
   findOwnInput,
   from,
   mkMintingPolicyScript,
@@ -365,10 +369,10 @@ mkTxPolicy _ !datum' !act !ctx =
           && traceIfFalse "Auction: new owner set incorrectly" (auctionCorrectNewOwner node)
           && traceIfFalse "Close Auction: datum illegally altered" (auctionConsistentCloseDatum node)
           && if ownerIsAuthor
-            then traceIfFalse "Auction: amount paid to author/owner does not match bid" (auctionCorrectPaymentOnlyAuthor node)
+            then traceIfFalse "Auction: amount paid to author/owner does not match bid" True -- TODO (auctionCorrectPaymentOnlyAuthor node)
             else
-              traceIfFalse "Auction: owner not paid their share" (auctionCorrectPaymentOwner node)
-                && traceIfFalse "Auction: author not paid their share" (auctionCorrectPaymentAuthor node)
+              traceIfFalse "Auction: owner not paid their share" True -- TODO (auctionCorrectPaymentOwner node)
+                && traceIfFalse "Auction: author not paid their share" True -- TODO (auctionCorrectPaymentAuthor node)
       HeadDatum _ ->
         traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
   where
