@@ -1,4 +1,6 @@
 {
+  description = "mlabs-plutus-use-cases";
+
   inputs = {
     flake-utils = {
       type = "github";
@@ -72,29 +74,19 @@
 
         devShell = perSystem (system: self.flake.${system}.devShell);
 
-        # NOTE `nix flake check` will not work at the moment due to use of
-        # IFD in haskell.nix
-        checks = perSystem (
+        # This will build all of the project's executables and the tests
+        check = perSystem (
           system:
-            let
-              flakePkgs = self.flake.${system}.packages;
-            in
-              {
-                tests =
-                  flakePkgs."mlabs-plutus-use-cases:test:mlabs-plutus-use-cases-tests";
-                deploy-app =
-                  flakePkgs."mlabs-plutus-use-cases:exe:deploy-app";
-                governance-demo =
-                  flakePkgs."mlabs-plutus-use-cases:exe:governance-demo";
-                lendex-demo =
-                  flakePkgs."mlabs-plutus-use-cases:exe:lendex-demo";
-                mlabs-plutus-use-cases =
-                  flakePkgs."mlabs-plutus-use-cases:exe:mlabs-plutus-use-cases";
-                nft-demo = flakePkgs."mlabs-plutus-use-cases:exe:nft-demo";
-                nft-marketplace =
-                  flakePkgs."mlabs-plutus-use-cases:exe:nft-marketplace";
-              }
+            (nixpkgsFor system).runCommand "combined-executables" {
+              nativeBuildInputs = builtins.attrValues self.checks.${system};
+            } "touch $out"
         );
 
+        # NOTE `nix flake check` will not work at the moment due to use of
+        # IFD in haskell.nix
+        #
+        # Includes all of the packages in the `checks`, otherwise only the
+        # test suite would be included
+        checks = perSystem (system: self.flake.${system}.packages);
       };
 }
