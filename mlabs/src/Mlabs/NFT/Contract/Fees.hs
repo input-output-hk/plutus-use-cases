@@ -36,9 +36,9 @@ import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
 -- | Get fee rate from GOV HEAD
-getCurrFeeRate :: forall w s. NftAppSymbol -> Contract w s Text Rational
-getCurrFeeRate symbol = do
-  nftHead' <- getNftHead symbol
+getCurrFeeRate :: forall w s. UniqueToken -> Contract w s Text Rational
+getCurrFeeRate uT = do
+  nftHead' <- getNftHead uT
   nftHead <- case pi'data <$> nftHead' of
     Just (HeadDatum x) -> Hask.pure x
     _ -> Contract.throwError "getCurrFeeRate: NFT HEAD not found"
@@ -51,20 +51,20 @@ getCurrFeeRate symbol = do
   Hask.pure $ govLHead'feeRate govHead
 
 -- | Returns constraints for minting GOV tokens, and paying transaction fee for given NFT
-getFeesConstraints :: forall s. NftAppSymbol -> NftId -> Integer -> Contract UserWriter s Text ([Constraints.TxConstraints UserAct DatumNft], [Constraints.ScriptLookups NftTrade])
-getFeesConstraints symbol nftId price = do
+getFeesConstraints :: forall s. UniqueToken -> NftId -> Integer -> Contract UserWriter s Text ([Constraints.TxConstraints UserAct DatumNft], [Constraints.ScriptLookups NftTrade])
+getFeesConstraints uT nftId price = do
   user <- getUId
   ownPkh <- Contract.ownPubKeyHash
-  nftPi <- findNft nftId symbol
+  nftPi <- findNft nftId uT
   node <- case pi'data nftPi of
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "getFeesConstraints:NFT not found"
   let newGovDatum = GovDatum $ NodeLList user GovLNode Nothing
       govAddr = appInstance'Governance . node'appInstance $ node
-      govValidator = govScript . appInstance'AppAssetClass . node'appInstance $ node
+      govValidator = govScript . appInstance'UniqueToken . node'appInstance $ node
       govScriptHash = validatorHash govValidator
 
-  feeRate <- getCurrFeeRate symbol
+  feeRate <- getCurrFeeRate uT
   govHead' <- getGovHead govAddr
   govHead <- case govHead' of
     Just x -> Hask.pure x

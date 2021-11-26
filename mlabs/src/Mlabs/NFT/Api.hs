@@ -1,12 +1,12 @@
 module Mlabs.NFT.Api (
-  ApiUserContract,
-  ApiAdminContract,
-  NFTAppSchema,
-  schemas,
-  endpoints,
-  queryEndpoints,
   adminEndpoints,
+  ApiAdminContract,
+  ApiUserContract,
+  endpoints,
+  NFTAppSchema,
   nftMarketUserEndpoints,
+  queryEndpoints,
+  schemas,
 ) where
 
 import Data.Monoid (Last (..))
@@ -34,9 +34,10 @@ import Mlabs.NFT.Types (
   BuyRequestUser (..),
   Content,
   MintParams (..),
-  NftAppSymbol (..),
+  NftAppInstance (..),
   NftId (..),
   SetPriceParams (..),
+  UniqueToken,
   UserContract,
   UserId,
   UserWriter,
@@ -75,11 +76,11 @@ mkEndpoints :: forall w s e a b. (b -> [Promise w s e a]) -> b -> Contract w s e
 mkEndpoints listCont = selectForever . listCont
 
 -- | User Endpoints .
-endpoints :: NftAppSymbol -> ApiUserContract ()
+endpoints :: UniqueToken -> ApiUserContract ()
 endpoints = mkEndpoints userEndpointsList
 
 -- | Query Endpoints are used for Querying, with no on-chain tx generation.
-queryEndpoints :: NftAppSymbol -> ApiUserContract ()
+queryEndpoints :: UniqueToken -> ApiUserContract ()
 queryEndpoints = mkEndpoints queryEndpointsList
 
 -- | Admin Endpoints
@@ -87,31 +88,31 @@ adminEndpoints :: ApiAdminContract ()
 adminEndpoints = mkEndpoints (const adminEndpointsList) ()
 
 -- | Endpoints for NFT marketplace user - combination of user and query endpoints.
-nftMarketUserEndpoints :: NftAppSymbol -> ApiUserContract ()
+nftMarketUserEndpoints :: UniqueToken -> ApiUserContract ()
 nftMarketUserEndpoints = mkEndpoints (userEndpointsList <> queryEndpointsList)
 
 -- | List of User Promises.
-userEndpointsList :: NftAppSymbol -> [Promise UserWriter NFTAppSchema Text ()]
-userEndpointsList appSymbol =
-  [ endpoint @"mint" (mint appSymbol)
-  , endpoint @"buy" (buy appSymbol)
-  , endpoint @"set-price" (setPrice appSymbol)
-  , endpoint @"auction-open" (openAuction appSymbol)
-  , endpoint @"auction-close" (closeAuction appSymbol)
-  , endpoint @"auction-bid" (bidAuction appSymbol)
+userEndpointsList :: UniqueToken -> [Promise UserWriter NFTAppSchema Text ()]
+userEndpointsList uT =
+  [ endpoint @"mint" (mint uT)
+  , endpoint @"buy" (buy uT)
+  , endpoint @"set-price" (setPrice uT)
+  , endpoint @"auction-open" (openAuction uT)
+  , endpoint @"auction-close" (closeAuction uT)
+  , endpoint @"auction-bid" (bidAuction uT)
   ]
 
 -- | List of Query endpoints.
-queryEndpointsList :: NftAppSymbol -> [Promise UserWriter NFTAppSchema Text ()]
-queryEndpointsList appSymbol =
-  [ endpoint @"query-current-price" (void . queryCurrentPrice appSymbol)
-  , endpoint @"query-current-owner" (void . queryCurrentOwner appSymbol)
-  , endpoint @"query-list-nfts" (void . const (queryListNfts appSymbol))
-  , endpoint @"query-content" (void . queryContent appSymbol)
+queryEndpointsList :: UniqueToken -> [Promise UserWriter NFTAppSchema Text ()]
+queryEndpointsList uT =
+  [ endpoint @"query-current-price" (void . queryCurrentPrice uT)
+  , endpoint @"query-current-owner" (void . queryCurrentOwner uT)
+  , endpoint @"query-list-nfts" (void . const (queryListNfts uT))
+  , endpoint @"query-content" (void . queryContent uT)
   ]
 
 -- | List of admin endpoints.
-adminEndpointsList :: [Promise (Last NftAppSymbol) NFTAppSchema Text ()]
+adminEndpointsList :: [Promise (Last NftAppInstance) NFTAppSchema Text ()]
 adminEndpointsList =
   [ endpoint @"app-init" initApp
   ]

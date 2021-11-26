@@ -35,11 +35,11 @@ import Mlabs.NFT.Validation
  Attempts to buy a new NFT by changing the owner, pays the current owner and
  the author, and sets a new price for the NFT.
 -}
-buy :: forall s. NftAppSymbol -> BuyRequestUser -> Contract UserWriter s Text ()
-buy symbol BuyRequestUser {..} = do
+buy :: forall s. UniqueToken -> BuyRequestUser -> Contract UserWriter s Text ()
+buy uT BuyRequestUser {..} = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
   ownPkh <- Contract.ownPubKeyHash
-  nftPi <- findNft ur'nftId symbol
+  nftPi <- findNft ur'nftId uT
   node <- case pi'data nftPi of
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "NFT not found"
@@ -51,9 +51,11 @@ buy symbol BuyRequestUser {..} = do
     Contract.logError @Hask.String "Bid price is too low."
 
   userUtxos <- getUserUtxos
-  feeRate <- getCurrFeeRate symbol
+  feeRate <- getCurrFeeRate uT
 
-  (govTx, govLookups) <- getFeesConstraints symbol ur'nftId ur'price
+  (govTx, govLookups) <- getFeesConstraints uT ur'nftId ur'price
+
+  symbol <- getNftAppSymbol uT
 
   let feeValue = round $ fromInteger ur'price * feeRate
       (paidToOwner, paidToAuthor) =
@@ -71,8 +73,8 @@ buy symbol BuyRequestUser {..} = do
           [ Constraints.unspentOutputs userUtxos
           , Constraints.unspentOutputs $ Map.fromList [ownOrefTxOut]
           , Constraints.unspentOutputs $ Map.fromList [(pi'TOR nftPi, pi'CITxO nftPi)]
-          , Constraints.typedValidatorLookups txPolicy
-          , Constraints.otherScript (validatorScript txPolicy)
+          , Constraints.typedValidatorLookups (txPolicy uT)
+          , Constraints.otherScript (validatorScript $ txPolicy uT)
           ]
             <> govLookups
       tx =

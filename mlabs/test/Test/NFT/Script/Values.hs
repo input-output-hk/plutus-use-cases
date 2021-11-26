@@ -8,10 +8,11 @@ import Ledger.Value (TokenName (..))
 import Ledger.Value qualified as Value
 
 import Ledger.CardanoWallet qualified as CardanoWallet
-import Mlabs.NFT.Contract.Aux qualified as NFT
 
+import Mlabs.NFT.Contract.Aux qualified as NFT
+import Mlabs.NFT.Contract.Init (uniqueTokenName)
 import Mlabs.NFT.Governance qualified as Gov
-import Mlabs.NFT.Types (Content (..), NftAppInstance (..), NftAppSymbol (..), NftId (..), UserId (..))
+import Mlabs.NFT.Types (Content (..), NftAppInstance (..), NftAppSymbol (..), NftId (..), UniqueToken, UserId (..))
 
 import Mlabs.NFT.Validation qualified as NFT
 import Plutus.V1.Ledger.Ada qualified as Ada
@@ -77,8 +78,14 @@ oneAda = Ada.lovelaceValueOf 1_000_000
 adaValue :: Integer -> Value.Value
 adaValue = Ada.lovelaceValueOf . (* 1_000_000)
 
-testStateAddr :: Ledger.Address
+testStateAddr :: UniqueToken -> Ledger.Address
 testStateAddr = NFT.txScrAddress
+
+appInstance :: NftAppInstance
+appInstance = NftAppInstance (testStateAddr uniqueAsset) uniqueAsset (Gov.govScrAddress uniqueAsset) [UserId userOnePkh]
+
+appSymbol :: NftAppSymbol
+appSymbol = NftAppSymbol . NFT.curSymbol $ appInstance
 
 {-
    We can't get rid of hard-coding the CurrencySymbol of UniqueToken at the moment since the mintContract produces it
@@ -87,10 +94,8 @@ testStateAddr = NFT.txScrAddress
    We can almost make sure that this value won't change unless upgrading weird things in plutus, or predetermining
    the initial state UTxOs to something other than the default.
 -}
-appInstance :: NftAppInstance
-appInstance = NftAppInstance testStateAddr uniqueAsset (Gov.govScrAddress uniqueAsset) [UserId userOnePkh]
-  where
-    uniqueAsset = Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", "Unique App Token")
 
-appSymbol :: NftAppSymbol
-appSymbol = NftAppSymbol . NFT.curSymbol $ appInstance
+-- | Hardcoded UniqueToken
+{-# INLINEABLE uniqueAsset #-}
+uniqueAsset :: UniqueToken
+uniqueAsset = Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", TokenName uniqueTokenName)

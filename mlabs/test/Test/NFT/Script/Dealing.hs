@@ -7,10 +7,9 @@ import Ledger qualified
 import Mlabs.NFT.Types qualified as NFT
 import Mlabs.NFT.Validation qualified as NFT
 
-import PlutusTx qualified
-
 import PlutusTx.Prelude hiding ((<>))
 
+import PlutusTx qualified
 import Test.NFT.Script.Values as TestValues
 import Test.Tasty (TestTree)
 import Test.Tasty.Plutus.Context
@@ -155,39 +154,39 @@ inconsistentDatumData = SpendingTest dtm redeemer val
 validBuyContext :: ContextBuilder 'ForSpending
 validBuyContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
-    <> paysOther NFT.txValHash oneNft initialAuthorDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft initialAuthorDatum
 
 bidNotHighEnoughContext :: ContextBuilder 'ForSpending
 bidNotHighEnoughContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 90)
-    <> paysOther NFT.txValHash oneNft initialAuthorDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft initialAuthorDatum
 
 notForSaleContext :: ContextBuilder 'ForSpending
 notForSaleContext =
   paysToWallet TestValues.userOneWallet TestValues.oneNft
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
-    <> paysOther NFT.txValHash oneNft notForSaleDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft notForSaleDatum
 
 authorNotPaidContext :: ContextBuilder 'ForSpending
 authorNotPaidContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 5)
-    <> paysOther NFT.txValHash oneNft initialAuthorDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft initialAuthorDatum
 
 ownerNotPaidContext :: ContextBuilder 'ForSpending
 ownerNotPaidContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 50)
-    <> paysOther NFT.txValHash oneNft ownerNotPaidDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft ownerNotPaidDatum
 
 inconsistentDatumContext :: ContextBuilder 'ForSpending
 inconsistentDatumContext =
   paysToWallet TestValues.userOneWallet TestValues.oneNft
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
-    <> paysOther NFT.txValHash oneNft inconsistentDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft inconsistentDatum
 
 mismathingIdBuyContext :: ContextBuilder 'ForSpending
 mismathingIdBuyContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
-    <> paysOther NFT.txValHash oneNft dtm
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft dtm
   where
     dtm =
       NFT.NodeDatum $
@@ -225,24 +224,24 @@ validSetPriceContext :: ContextBuilder 'ForSpending
 validSetPriceContext =
   signedWith authorPkh
     -- TODO: choose between `paysOther NFT.txValHash` and `output` (see below)
-    <> paysOther NFT.txValHash oneNft initialAuthorDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft initialAuthorDatum
 
 -- <> (output $ Output (OwnType $ toBuiltinData initialAuthorDatum) TestValues.oneNft)
 
 ownerUserOneSetPriceContext :: ContextBuilder 'ForSpending
 ownerUserOneSetPriceContext =
   signedWith userOnePkh
-    <> paysOther NFT.txValHash oneNft ownerUserOneDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft ownerUserOneDatum
 
 authorNotOwnerSetPriceContext :: ContextBuilder 'ForSpending
 authorNotOwnerSetPriceContext =
   signedWith authorPkh
-    <> paysOther NFT.txValHash oneNft ownerUserOneDatum
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft ownerUserOneDatum
 
 mismathingIdSetPriceContext :: ContextBuilder 'ForSpending
 mismathingIdSetPriceContext =
   signedWith authorPkh
-    <> paysOther NFT.txValHash oneNft dtm
+    <> paysOther (NFT.txValHash uniqueAsset) oneNft dtm
   where
     dtm =
       NFT.NodeDatum $
@@ -250,11 +249,12 @@ mismathingIdSetPriceContext =
           { NFT.node'information = ((NFT.node'information initialNode) {NFT.info'id = NFT.NftId "I AM INVALID"})
           }
 
+-- todo: fix parametrisation/hard-coding
 dealingValidator :: Ledger.Validator
 dealingValidator =
   Ledger.mkValidatorScript $
     $$(PlutusTx.compile [||wrap||])
-      `PlutusTx.applyCode` $$(PlutusTx.compile [||NFT.mkTxPolicy||])
+      `PlutusTx.applyCode` ($$(PlutusTx.compile [||NFT.mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode uniqueAsset)
   where
     wrap ::
       (NFT.DatumNft -> NFT.UserAct -> Ledger.ScriptContext -> Bool) ->

@@ -39,12 +39,13 @@ import Mlabs.NFT.Validation
   Attempts to set price of NFT, checks if price is being set by the owner
   and that NFT is not on an auction.
 -}
-setPrice :: NftAppSymbol -> SetPriceParams -> Contract UserWriter s Text ()
-setPrice symbol SetPriceParams {..} = do
+setPrice :: UniqueToken -> SetPriceParams -> Contract UserWriter s Text ()
+setPrice ut SetPriceParams {..} = do
+  aSymbol <- getNftAppSymbol ut
   when negativePrice $ Contract.throwError "New price can not be negative"
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
   ownPkh <- Contract.ownPubKeyHash
-  PointInfo {..} <- findNft sp'nftId symbol
+  PointInfo {..} <- findNft sp'nftId ut
   oldNode <- case pi'data of
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "NFT not found"
@@ -55,13 +56,13 @@ setPrice symbol SetPriceParams {..} = do
 
   let nftDatum = NodeDatum $ updateDatum oldNode
       nftVal = pi'CITxO ^. ciTxOutValue
-      action = SetPriceAct sp'price symbol
+      action = SetPriceAct sp'price aSymbol
       lookups =
         mconcat
           [ Constraints.unspentOutputs $ Map.fromList [ownOrefTxOut]
           , Constraints.unspentOutputs $ Map.fromList [(pi'TOR, pi'CITxO)]
-          , Constraints.typedValidatorLookups txPolicy
-          , Constraints.otherScript (validatorScript txPolicy)
+          , Constraints.typedValidatorLookups (txPolicy ut)
+          , Constraints.otherScript (validatorScript . txPolicy $ ut)
           ]
       tx =
         mconcat

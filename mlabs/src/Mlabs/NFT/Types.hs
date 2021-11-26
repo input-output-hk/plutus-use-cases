@@ -1,43 +1,57 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Mlabs.NFT.Types (
-  UserContract,
-  UserWriter,
   AdminContract,
-  UserId (..),
-  QueryResponse (..),
-  NftId (..),
-  BuyRequestUser (..),
-  MintParams (..),
-  MintAct (..),
-  SetPriceParams (..),
-  Content (..),
-  Title (..),
-  DatumNft (..),
-  NftAppInstance (..),
-  UserAct (..),
-  InformationNft (..),
-  NftListNode (..),
-  NftListHead (..),
-  NftAppSymbol (..),
-  Pointer (..),
-  nftTokenName,
-  getAppInstance,
-  instanceCurrency,
-  getDatumPointer,
-  getDatumValue,
-  GenericContract,
-  PointInfo (..),
   AuctionBid (..),
-  AuctionState (..),
-  AuctionOpenParams (..),
   AuctionBidParams (..),
   AuctionCloseParams (..),
-  UniqueToken,
+  AuctionOpenParams (..),
+  AuctionState (..),
+  BuyRequestUser (..),
+  Content (..),
+  DatumNft (..),
+  GenericContract,
+  getAppInstance,
+  getDatumPointer,
+  getDatumValue,
+  InformationNft (..),
   InsertPoint (..),
+  instanceCurrency,
+  MintAct (..),
+  MintParams (..),
+  NftAppInstance (..),
+  NftAppSymbol (..),
+  NftId (..),
+  NftListHead (..),
+  NftListNode (..),
+  nftTokenName,
+  Pointer (..),
+  PointInfo (..),
+  QueryResponse (..),
+  SetPriceParams (..),
+  Title (..),
+  UniqueToken,
+  UserAct (..),
+  UserContract,
+  UserId (..),
+  UserWriter,
 ) where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude (
+  Bool (False, True),
+  BuiltinByteString,
+  Either,
+  Eq (..),
+  Integer,
+  Maybe,
+  Ord (compare, (<=)),
+  Rational,
+  emptyByteString,
+  fst,
+  ($),
+  (&&),
+  (.),
+ )
 import Prelude qualified as Hask
 
 import Plutus.Contract (Contract)
@@ -344,7 +358,7 @@ data NftAppInstance = NftAppInstance
   { -- | Script Address where all the NFTs can be found
     appInstance'Address :: Address
   , -- | AssetClass with which all the NFTs are parametrised - guarantees the proof of uniqueness.
-    appInstance'AppAssetClass :: UniqueToken
+    appInstance'UniqueToken :: UniqueToken
   , -- | Governance Address
     appInstance'Governance :: Address
   , -- | List of admins who can initiate the application
@@ -355,7 +369,7 @@ data NftAppInstance = NftAppInstance
 
 -- | Get `CurrencySumbol` of `NftAppInstance`
 instanceCurrency :: NftAppInstance -> CurrencySymbol
-instanceCurrency = fst . unAssetClass . appInstance'AppAssetClass
+instanceCurrency = fst . unAssetClass . appInstance'UniqueToken
 
 PlutusTx.unstableMakeIsData ''NftAppInstance
 PlutusTx.makeLift ''NftAppInstance
@@ -581,4 +595,4 @@ data InsertPoint a = InsertPoint
 type GenericContract a = forall w s. Contract w s Text a
 type UserWriter = Last (Either NftId QueryResponse)
 type UserContract s a = Contract UserWriter s Text a
-type AdminContract s a = Contract (Last NftAppSymbol) s Text a
+type AdminContract s a = Contract (Last NftAppInstance) s Text a

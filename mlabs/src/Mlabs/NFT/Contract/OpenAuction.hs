@@ -34,11 +34,12 @@ import Mlabs.NFT.Validation
 {- |
   Attempts to start NFT auction, removes current price from NFT and starts auction.
 -}
-openAuction :: NftAppSymbol -> AuctionOpenParams -> Contract UserWriter s Text ()
-openAuction symbol (AuctionOpenParams nftId deadline minBid) = do
+openAuction :: UniqueToken -> AuctionOpenParams -> Contract UserWriter s Text ()
+openAuction uT (AuctionOpenParams nftId deadline minBid) = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
+  symbol <- getNftAppSymbol uT
   ownPkh <- Contract.ownPubKeyHash
-  PointInfo {..} <- findNft nftId symbol
+  PointInfo {..} <- findNft nftId uT
   node <- case pi'data of
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "NFT not found"
@@ -61,8 +62,8 @@ openAuction symbol (AuctionOpenParams nftId deadline minBid) = do
           [ Constraints.unspentOutputs userUtxos
           , Constraints.unspentOutputs $ Map.fromList [ownOrefTxOut]
           , Constraints.unspentOutputs $ Map.fromList [(pi'TOR, pi'CITxO)]
-          , Constraints.typedValidatorLookups txPolicy
-          , Constraints.otherScript (validatorScript txPolicy)
+          , Constraints.typedValidatorLookups (txPolicy uT)
+          , Constraints.otherScript (validatorScript $ txPolicy uT)
           ]
       tx =
         mconcat

@@ -34,13 +34,13 @@ mintingCtx :: ContextBuilder 'ForMinting
 mintingCtx = mintsWithSelf TestValues.testTokenName 1
 
 paysNftToScriptCtx :: ContextBuilder 'ForMinting
-paysNftToScriptCtx = paysOther NFT.txValHash TestValues.oneNft ()
+paysNftToScriptCtx = paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ()
 
 paysDatumToScriptCtx :: ContextBuilder 'ForMinting
 paysDatumToScriptCtx =
-  spendsFromOther NFT.txValHash TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead Nothing TestValues.appInstance)
-    <> paysOther NFT.txValHash mempty nodeDatum
-    <> paysOther NFT.txValHash mempty headDatum
+  spendsFromOther (NFT.txValHash uniqueAsset) TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead Nothing TestValues.appInstance)
+    <> paysOther (NFT.txValHash uniqueAsset) mempty nodeDatum
+    <> paysOther (NFT.txValHash uniqueAsset) mempty headDatum
   where
     nodeDatum =
       NFT.NodeDatum $
@@ -64,7 +64,7 @@ paysWrongAmountCtx :: ContextBuilder 'ForMinting
 paysWrongAmountCtx =
   baseCtx <> mintingCtx
     <> paysOther
-      NFT.txValHash
+      (NFT.txValHash uniqueAsset)
       (TestValues.oneNft PlutusPrelude.<> TestValues.oneNft)
       TestValues.testNftId
 
@@ -82,22 +82,22 @@ validData = MintingTest (NFT.Mint TestValues.testNftId)
 
 nonMintingCtx :: ContextBuilder 'ForMinting
 nonMintingCtx =
-  paysOther NFT.txValHash TestValues.oneNft TestValues.testNftId
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft TestValues.testNftId
     <> input (Input (PubKeyType TestValues.authorPkh) TestValues.oneAda)
 
 wrongAmountCtx :: ContextBuilder 'ForMinting
 wrongAmountCtx =
   baseCtx <> mintingCtx <> paysDatumToScriptCtx
-    <> paysOther NFT.txValHash (TestValues.oneNft PlutusPrelude.<> TestValues.oneNft) ()
+    <> paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft PlutusPrelude.<> TestValues.oneNft) ()
 
 mismatchingIdCtx :: ContextBuilder 'ForMinting
 mismatchingIdCtx =
   baseCtx
     <> mintingCtx
     <> paysNftToScriptCtx
-    <> spendsFromOther NFT.txValHash TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead Nothing TestValues.appInstance)
-    <> paysOther NFT.txValHash mempty nodeDatum
-    <> paysOther NFT.txValHash mempty headDatum
+    <> spendsFromOther (NFT.txValHash uniqueAsset) TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead Nothing TestValues.appInstance)
+    <> paysOther (NFT.txValHash uniqueAsset) mempty nodeDatum
+    <> paysOther (NFT.txValHash uniqueAsset) mempty headDatum
   where
     nodeDatum =
       NFT.NodeDatum $

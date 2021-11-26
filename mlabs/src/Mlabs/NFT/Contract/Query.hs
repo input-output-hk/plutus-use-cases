@@ -20,11 +20,11 @@ import Mlabs.NFT.Types (
   Content,
   DatumNft (..),
   InformationNft (..),
-  NftAppSymbol,
   NftId (..),
   NftListNode (..),
   PointInfo (..),
   QueryResponse (..),
+  UniqueToken,
   UserWriter,
  )
 import Plutus.Contract (Contract)
@@ -38,9 +38,9 @@ type QueryContract a = forall s. Contract UserWriter s Text a
 {- | Query the current price of a given NFTid. Writes it to the Writer instance
  and also returns it, to be used in other contracts.
 -}
-queryCurrentPrice :: NftAppSymbol -> NftId -> QueryContract QueryResponse
-queryCurrentPrice appSymb nftId = do
-  price <- wrap <$> getsNftDatum extractPrice nftId appSymb
+queryCurrentPrice :: UniqueToken -> NftId -> QueryContract QueryResponse
+queryCurrentPrice uT nftId = do
+  price <- wrap <$> getsNftDatum extractPrice nftId uT
   Contract.tell (Last . Just . Right $ price) >> log price >> return price
   where
     wrap = QueryCurrentPrice . join
@@ -52,9 +52,9 @@ queryCurrentPrice appSymb nftId = do
 {- | Query the current owner of a given NFTid. Writes it to the Writer instance
  and also returns it, to be used in other contracts.
 -}
-queryCurrentOwner :: NftAppSymbol -> NftId -> QueryContract QueryResponse
-queryCurrentOwner appSymb nftId = do
-  owner <- wrap <$> getsNftDatum extractOwner nftId appSymb
+queryCurrentOwner :: UniqueToken -> NftId -> QueryContract QueryResponse
+queryCurrentOwner uT nftId = do
+  owner <- wrap <$> getsNftDatum extractOwner nftId uT
   Contract.tell (Last . Just . Right $ owner) >> log owner >> return owner
   where
     wrap = QueryCurrentOwner . join
@@ -72,9 +72,9 @@ queryCurrentOwnerLog :: NftId -> QueryResponse -> String
 queryCurrentOwnerLog nftId owner = mconcat ["Current owner of: ", show nftId, " is: ", show owner]
 
 -- | Query the list of all NFTs in the app
-queryListNfts :: NftAppSymbol -> QueryContract QueryResponse
-queryListNfts symbol = do
-  datums <- fmap pi'data <$> getDatumsTxsOrdered symbol
+queryListNfts :: UniqueToken -> QueryContract QueryResponse
+queryListNfts uT = do
+  datums <- fmap pi'data <$> getDatumsTxsOrdered uT
   let nodes = mapMaybe getNode datums
       infos = node'information <$> nodes
   Contract.tell $ wrap infos
@@ -91,10 +91,10 @@ queryListNftsLog :: [InformationNft] -> String
 queryListNftsLog infos = mconcat ["Available NFTs: ", show infos]
 
 -- | Given an application instance and a `Content` returns the status of the NFT
-queryContent :: NftAppSymbol -> Content -> QueryContract QueryResponse
-queryContent appSymbol content = do
+queryContent :: UniqueToken -> Content -> QueryContract QueryResponse
+queryContent uT content = do
   let nftId = NftId . hashData $ content
-  datum <- getNftDatum nftId appSymbol
+  datum <- getNftDatum nftId uT
   status <- wrap $ getStatus datum
   Contract.tell (Last . Just . Right $ status)
   log status

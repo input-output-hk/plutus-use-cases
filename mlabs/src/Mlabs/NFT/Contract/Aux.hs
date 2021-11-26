@@ -1,23 +1,24 @@
 module Mlabs.NFT.Contract.Aux (
-  getScriptAddrUtxos,
-  getUserAddr,
-  getUserUtxos,
-  getUId,
-  toDatum,
-  getAddrUtxos,
-  getAddrValidUtxos,
-  getGovHead,
-  serialiseDatum,
-  getNftDatum,
-  getsNftDatum,
-  hashData,
+  entryToPointInfo,
   findNft,
   fstUtxoAt,
-  entryToPointInfo,
+  getAddrUtxos,
+  getAddrValidUtxos,
+  getApplicationCurrencySymbol,
   getDatumsTxsOrdered,
   getDatumsTxsOrderedFromAddr,
+  getGovHead,
+  getNftAppSymbol,
+  getNftDatum,
   getNftHead,
-  getApplicationCurrencySymbol,
+  getScriptAddrUtxos,
+  getsNftDatum,
+  getUId,
+  getUserAddr,
+  getUserUtxos,
+  hashData,
+  serialiseDatum,
+  toDatum,
 ) where
 
 import PlutusTx.Prelude hiding (mconcat, (<>))
@@ -30,11 +31,11 @@ import Data.Map qualified as Map
 import Data.Text (Text, pack)
 
 import Plutus.ChainIndex.Tx (ChainIndexTx)
-import Plutus.Contract (Contract, utxosTxOutTxAt)
+import Plutus.Contract (utxosTxOutTxAt)
 import Plutus.Contract qualified as Contract
 import PlutusTx qualified
 
-import Plutus.V1.Ledger.Value (symbols)
+import Plutus.V1.Ledger.Value (assetClassValueOf, symbols)
 
 import Ledger (
   Address,
@@ -56,8 +57,10 @@ import Mlabs.NFT.Governance.Types
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
-getScriptAddrUtxos :: Contract w s Text (Map.Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
-getScriptAddrUtxos = utxosTxOutTxAt txScrAddress
+getScriptAddrUtxos ::
+  UniqueToken ->
+  GenericContract (Map.Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
+getScriptAddrUtxos = utxosTxOutTxAt . txScrAddress
 
 -- HELPER FUNCTIONS AND CONTRACTS --
 
@@ -66,35 +69,76 @@ toDatum :: PlutusTx.ToData a => a -> Datum
 toDatum = Datum . PlutusTx.toBuiltinData
 
 -- | Get the current Wallet's publick key.
-getUserAddr :: Contract w s Text Address
+getUserAddr :: GenericContract Address
 getUserAddr = pubKeyHashAddress <$> Contract.ownPubKeyHash
 
 -- | Get the current wallet's utxos.
-getUserUtxos :: Contract w s Text (Map.Map TxOutRef Ledger.ChainIndexTxOut)
+getUserUtxos :: GenericContract (Map.Map TxOutRef Ledger.ChainIndexTxOut)
 getUserUtxos = getAddrUtxos =<< getUserAddr
 
 -- | Get the current wallet's userId.
-getUId :: Contract w s Text UserId
+getUId :: GenericContract UserId
 getUId = UserId <$> Contract.ownPubKeyHash
 
 -- | Get the ChainIndexTxOut at an address.
-getAddrUtxos :: Address -> Contract w s Text (Map.Map TxOutRef ChainIndexTxOut)
+getAddrUtxos :: Address -> GenericContract (Map.Map TxOutRef ChainIndexTxOut)
 getAddrUtxos adr = Map.map fst <$> utxosTxOutTxAt adr
 
--- | Get the ChainIndexTxOut at an address.
-getAddrValidUtxos :: NftAppSymbol -> Contract w s Text (Map.Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
-getAddrValidUtxos appSymbol = Map.filter validTx <$> utxosTxOutTxAt txScrAddress
+{- | Get the Head of the List, by filtering away all the utxos that don't
+ contain the unique token.
+-}
+getHead :: UniqueToken -> GenericContract (Maybe (PointInfo NftListHead))
+getHead uT = do
+  utxos <- utxosTxOutTxAt $ txScrAddress uT
+  let headUtxos = Map.toList . Map.filter containUniqueToken $ utxos
+  case headUtxos of
+    [] -> pure Nothing
+    [(oRef, (xOut, x))] -> do
+      case readDatum' @DatumNft xOut of
+        Just (HeadDatum datum) ->
+          pure . Just $ PointInfo datum oRef xOut x
+        _ -> Contract.throwError "Head has corrupted datum!"
+    _ -> do
+      Contract.throwError $
+        mconcat
+          [ "This should have not happened! More than one Heads with Unique Tokens."
+          --, pack . Hask.show . fmap pi'data $ utxos
+          ]
   where
-    validTx (cIxTxOut, _) = elem (app'symbol appSymbol) $ symbols (cIxTxOut ^. ciTxOutValue)
+    containUniqueToken = (/= 0) . flip assetClassValueOf uT . (^. ciTxOutValue) . fst
+
+-- | Get the  Symbol
+getNftAppSymbol :: UniqueToken -> GenericContract NftAppSymbol
+getNftAppSymbol uT = do
+  lHead <- getHead uT
+  case lHead of
+    Nothing -> err
+    Just headInfo -> do
+      let uTCS = fst . unAssetClass $ uT
+      let val = filter (\x -> x /= uTCS && x /= "") . symbols $ pi'CITxO headInfo ^. ciTxOutValue
+      case val of
+        [x] -> pure $ NftAppSymbol x
+        [] -> Contract.throwError "Could not establish App Symbol. Does it exist in the HEAD?"
+        _ -> Contract.throwError "Could not establish App Symbol. Too many symbols to distinguish from."
+  where
+    err = Contract.throwError "Could not establish App Symbol."
+
+-- | Get the ChainIndexTxOut at an address.
+getAddrValidUtxos :: UniqueToken -> GenericContract (Map.Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
+getAddrValidUtxos ut = do
+  appSymbol <- getNftAppSymbol ut
+  Map.filter (validTx appSymbol) <$> utxosTxOutTxAt (txScrAddress ut)
+  where
+    validTx appSymbol (cIxTxOut, _) = elem (app'symbol appSymbol) $ symbols (cIxTxOut ^. ciTxOutValue)
 
 -- | Serialise Datum
 serialiseDatum :: PlutusTx.ToData a => a -> Datum
 serialiseDatum = Datum . PlutusTx.toBuiltinData
 
 -- | Returns the Datum of a specific nftId from the Script address.
-getNftDatum :: NftId -> NftAppSymbol -> Contract w s Text (Maybe DatumNft)
-getNftDatum nftId appSymbol = do
-  utxos :: [Ledger.ChainIndexTxOut] <- fmap fst . Map.elems <$> getAddrValidUtxos appSymbol
+getNftDatum :: NftId -> UniqueToken -> GenericContract (Maybe DatumNft)
+getNftDatum nftId ut = do
+  utxos :: [Ledger.ChainIndexTxOut] <- fmap fst . Map.elems <$> getAddrValidUtxos ut
   let datums :: [DatumNft] =
         utxos
           ^.. traversed . Ledger.ciTxOutDatum
@@ -123,13 +167,13 @@ getNftDatum nftId appSymbol = do
 {- | Gets the Datum of a specific nftId from the Script address, and applies an
   extraction function to it.
 -}
-getsNftDatum :: (DatumNft -> b) -> NftId -> NftAppSymbol -> Contract a s Text (Maybe b)
+getsNftDatum :: (DatumNft -> b) -> NftId -> UniqueToken -> GenericContract (Maybe b)
 getsNftDatum f nftId = fmap (fmap f) . getNftDatum nftId
 
 -- | Find NFTs at a specific Address. Will throw an error if none or many are found.
-findNft :: NftId -> NftAppSymbol -> GenericContract (PointInfo DatumNft)
-findNft nftId cSymbol = do
-  utxos <- getAddrValidUtxos cSymbol
+findNft :: NftId -> UniqueToken -> GenericContract (PointInfo DatumNft)
+findNft nftId ut = do
+  utxos <- getAddrValidUtxos ut
   case findData utxos of
     [v] -> do
       Contract.logInfo @Hask.String $ Hask.show $ "findNft: NFT Found:" <> Hask.show v
@@ -166,14 +210,14 @@ fstUtxoAt address = do
     x : _ -> pure x
 
 -- | Get the Head of the NFT List
-getNftHead :: NftAppSymbol -> GenericContract (Maybe (PointInfo DatumNft))
-getNftHead aSym = do
-  headX <- filter (isHead . pi'data) <$> getDatumsTxsOrdered aSym
+getNftHead :: UniqueToken -> GenericContract (Maybe (PointInfo DatumNft))
+getNftHead ut = do
+  headX <- filter (isHead . pi'data) <$> getDatumsTxsOrdered ut
   case headX of
     [] -> pure Nothing
     [x] -> pure $ Just x
     _ -> do
-      utxos <- getDatumsTxsOrdered @DatumNft aSym
+      utxos <- getDatumsTxsOrdered @DatumNft ut
       Contract.throwError $
         mconcat
           [ "This should have not happened! More than one Head Datums. Datums are: "
@@ -187,7 +231,7 @@ getNftHead aSym = do
 -- | Get the Head of the Gov List
 getGovHead :: Address -> GenericContract (Maybe (PointInfo GovDatum))
 getGovHead addr = do
-  headX <- filter (isHead . gov'list . pi'data) <$> getDatumsTxsOrderedFromAddr @GovDatum addr
+  headX <- filter f <$> getDatumsTxsOrderedFromAddr @GovDatum addr
   case headX of
     [] -> pure Nothing
     [x] -> pure $ Just x
@@ -199,11 +243,16 @@ getGovHead addr = do
           , pack . Hask.show . fmap pi'data $ utxos
           ]
   where
+    f = isHead . gov'list . pi'data
+
     isHead = \case
       HeadLList {} -> True
       _ -> False
 
-entryToPointInfo :: (PlutusTx.FromData a) => (TxOutRef, (ChainIndexTxOut, ChainIndexTx)) -> GenericContract (PointInfo a)
+entryToPointInfo ::
+  (PlutusTx.FromData a) =>
+  (TxOutRef, (ChainIndexTxOut, ChainIndexTx)) ->
+  GenericContract (PointInfo a)
 entryToPointInfo (oref, (out, tx)) = case readDatum' out of
   Nothing -> Contract.throwError "entryToPointInfo: Datum not found"
   Just d -> pure $ PointInfo d oref out tx
@@ -212,9 +261,13 @@ entryToPointInfo (oref, (out, tx)) = case readDatum' out of
  for particular `NftAppSymbol` and return them sorted by `DatumNft`'s `Pointer`:
  head node first, list nodes ordered by pointer
 -}
-getDatumsTxsOrdered :: forall a w s. (PlutusTx.FromData a, Ord a, Hask.Eq a) => NftAppSymbol -> Contract w s Text [PointInfo a]
-getDatumsTxsOrdered nftAS = do
-  utxos <- Map.toList <$> getAddrValidUtxos nftAS
+getDatumsTxsOrdered ::
+  forall a.
+  (PlutusTx.FromData a, Ord a, Hask.Eq a) =>
+  UniqueToken ->
+  GenericContract [PointInfo a]
+getDatumsTxsOrdered ut = do
+  utxos <- Map.toList <$> getAddrValidUtxos ut
   let datums = mapMaybe toPointInfo utxos
   let sortedDatums = L.sort datums
   case sortedDatums of
@@ -225,7 +278,11 @@ getDatumsTxsOrdered nftAS = do
       Nothing -> Nothing
       Just d -> pure $ PointInfo d oref out tx
 
-getDatumsTxsOrderedFromAddr :: forall a w s. (PlutusTx.FromData a, Ord a, Hask.Eq a) => Address -> Contract w s Text [PointInfo a]
+getDatumsTxsOrderedFromAddr ::
+  forall a.
+  (PlutusTx.FromData a, Ord a, Hask.Eq a) =>
+  Address ->
+  GenericContract [PointInfo a]
 getDatumsTxsOrderedFromAddr addr = do
   utxos <- Map.toList <$> utxosTxOutTxAt addr
   let datums = mapMaybe toPointInfo utxos
@@ -246,7 +303,7 @@ getApplicationCurrencySymbol :: NftAppInstance -> GenericContract NftAppSymbol
 getApplicationCurrencySymbol appInstance = do
   utxos <- Contract.utxosAt . appInstance'Address $ appInstance
   let outs = fmap toTxOut . Map.elems $ utxos
-      (uniqueCurrency, uniqueToken) = unAssetClass . appInstance'AppAssetClass $ appInstance
+      (uniqueCurrency, uniqueToken) = unAssetClass . appInstance'UniqueToken $ appInstance
       lstHead' = find (\tx -> valueOf (txOutValue tx) uniqueCurrency uniqueToken == 1) outs
   headUtxo <- case lstHead' of
     Nothing -> Contract.throwError "Head not found"

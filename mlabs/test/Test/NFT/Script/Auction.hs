@@ -184,7 +184,7 @@ openAuctionData1 = SpendingTest dtm redeemer val
 
 openAuctionContext1 :: ContextBuilder 'ForSpending
 openAuctionContext1 =
-  paysOther NFT.txValHash TestValues.oneNft ownerUserOneAuctionOpenDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
     <> paysSelf mempty ownerUserOneAuctionOpenDatum
 
 -- case 2
@@ -202,7 +202,7 @@ closeAuctionData1 = SpendingTest dtm redeemer val
 
 closeAuctionContext1 :: ContextBuilder 'ForSpending
 closeAuctionContext1 =
-  paysOther NFT.txValHash TestValues.oneNft ownerUserOneDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
     <> paysSelf mempty ownerUserOneDatum
 
 -- case 3
@@ -220,7 +220,7 @@ validOpenAuctionData = SpendingTest dtm redeemer val
 
 validOpenAuctionContext :: ContextBuilder 'ForSpending
 validOpenAuctionContext =
-  paysOther NFT.txValHash TestValues.oneNft ownerUserOneAuctionOpenDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
     <> signedWith userOnePkh
 
 -- case 4
@@ -238,7 +238,7 @@ validCloseAuctionData = SpendingTest dtm redeemer val
 
 validCloseAuctionContext :: ContextBuilder 'ForSpending
 validCloseAuctionContext =
-  paysOther NFT.txValHash TestValues.oneNft ownerUserOneDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
     <> signedWith userOnePkh
 
 validBidData :: TestData 'ForSpending
@@ -256,7 +256,7 @@ validBidData = SpendingTest dtm redeemer val
 
 validBidContext :: ContextBuilder 'ForSpending
 validBidContext =
-  paysOther NFT.txValHash (TestValues.oneNft <> TestValues.adaValue 300) ownerUserOneAuctionBidDatum
+  paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft <> TestValues.adaValue 300) ownerUserOneAuctionBidDatum
 
 validSecondBidData :: TestData 'ForSpending
 validSecondBidData = SpendingTest dtm redeemer val
@@ -273,7 +273,7 @@ validSecondBidData = SpendingTest dtm redeemer val
 
 validSecondBidContext :: ContextBuilder 'ForSpending
 validSecondBidContext =
-  paysOther NFT.txValHash (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
+  paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
     <> paysToWallet TestValues.userTwoWallet (TestValues.adaValue 300)
 
 closeAuctionWithBidData :: TestData 'ForSpending
@@ -291,21 +291,21 @@ closeAuctionWithBidData = SpendingTest dtm redeemer val
 
 closeAuctionWithBidContext :: ContextBuilder 'ForSpending
 closeAuctionWithBidContext =
-  paysOther NFT.txValHash TestValues.oneNft auctionWithBidCloseDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
     <> signedWith userOnePkh
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
     <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
 
 closeAuctionWithBidNoAuthorContext :: ContextBuilder 'ForSpending
 closeAuctionWithBidNoAuthorContext =
-  paysOther NFT.txValHash TestValues.oneNft auctionWithBidCloseDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
     <> paysSelf mempty auctionWithBidCloseDatum
     <> signedWith userOnePkh
     <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
 
 closeAuctionWithBidNoOwnerContext :: ContextBuilder 'ForSpending
 closeAuctionWithBidNoOwnerContext =
-  paysOther NFT.txValHash TestValues.oneNft auctionWithBidCloseDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
     <> paysSelf mempty auctionWithBidCloseDatum
     <> signedWith userOnePkh
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
@@ -324,7 +324,7 @@ closeAuctionWithBidAuthorData = SpendingTest dtm redeemer val
 
 closeAuctionWithBidAuthorContext :: ContextBuilder 'ForSpending
 closeAuctionWithBidAuthorContext =
-  paysOther NFT.txValHash TestValues.oneNft auctionWithBidCloseDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
     <> paysSelf mempty auctionWithBidCloseDatum
     <> signedWith authorPkh
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
@@ -343,7 +343,7 @@ closeAuctionInconsistentData = SpendingTest dtm redeemer val
 
 closeAuctionInconsistentContext :: ContextBuilder 'ForSpending
 closeAuctionInconsistentContext =
-  paysOther NFT.txValHash TestValues.oneNft auctionCloseInconsistentDatum
+  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionCloseInconsistentDatum
     <> paysSelf mempty auctionCloseInconsistentDatum
     <> signedWith authorPkh
 
@@ -351,7 +351,7 @@ dealingValidator :: Ledger.Validator
 dealingValidator =
   Ledger.mkValidatorScript $
     $$(PlutusTx.compile [||wrap||])
-      `PlutusTx.applyCode` $$(PlutusTx.compile [||NFT.mkTxPolicy||])
+      `PlutusTx.applyCode` ($$(PlutusTx.compile [||NFT.mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode uniqueAsset)
   where
     wrap ::
       (NFT.DatumNft -> NFT.UserAct -> Ledger.ScriptContext -> Bool) ->
