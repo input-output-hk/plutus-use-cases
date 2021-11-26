@@ -187,8 +187,12 @@ executable gs
     plutus-starter,
     plutus-contract,
     plutus-ledger,
+    base16-bytestring,
     plutus-ledger-api,
+    text-class,
+    text,
     plutus-tx,
+    cardano-wallet-core,
     bytestring
 
 executable encode-oracle-request

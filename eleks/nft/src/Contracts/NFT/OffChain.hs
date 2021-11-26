@@ -82,8 +82,7 @@ import           Wallet.Emulator                  (walletPubKeyHash, knownWallet
 import           Data.Text.Class ( FromText (..), TextDecodingError (..), ToText (..) )
 
 marketplaceTokenName :: TokenName
-marketplaceTokenName = "NFTMarketplace"
-metadataTokenName = "NFTMetadata"
+marketplaceTokenName =  tokenEncode "NFTMarketplace"
 metadataTokenNamePrefix = "Metadata"
 
 marketScript :: NFTMarket -> Validator
@@ -159,6 +158,7 @@ start forgeNft fee = do
     pkh <- ownPubKeyHash
     cs  <- forgeNft marketplaceTokenName pkh
     logInfo @String $ "Ura2"
+    logInfo @String $ "marketToken: " ++ show marketplaceTokenName
     let c = assetClass cs marketplaceTokenName
         nftTokenCur = mkNFTCurrency c
         nftTokenMetaCur = mkNFTCurrency c
@@ -167,6 +167,7 @@ start forgeNft fee = do
         tx   = mustPayToTheScript (Factory []) $ assetClassValue c 1
 
     logInfo @String $ "Ura3"
+    logInfo @String $ "assetClass: " ++ show c
     mkTxConstraints (Constraints.typedValidatorLookups inst) tx
       >>= submitTxConfirmed . adjustUnbalancedTx
 
@@ -210,7 +211,7 @@ create market CreateParams{..} = do
         marketFactoryData   = Factory $ nftMetadata : nftMetas
         nftMetadataData   = NFTMeta nftMetadata
         marketVal    = assetClassValue (marketId market) 1
-   
+
         lookups  = Constraints.typedValidatorLookups marketInst 
                    <> Constraints.otherScript mrScript
                    <> Constraints.unspentOutputs (Map.singleton oref o)
@@ -223,7 +224,7 @@ create market CreateParams{..} = do
                    <> Constraints.mustPayToPubKey ownPK nftTokenForgedValue
                    <> Constraints.mustMintValue nftTokenForgedValue
                    <> Constraints.mustMintValue nftTokenMetaForgedValue
-
+    logInfo @String $ "marketVal: " ++ show marketVal            
     mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     let nftMetaDto = nftMetadataToDto nftMetadata
     logInfo $ "created NFT: " ++ show nftMetaDto
@@ -383,13 +384,24 @@ findNFTMartketInstance market asset f = do
     let addr = marketAddress market
     logInfo @String $ printf "looking for NFTMarket instance at address %s containing asset %s " (show addr) (show asset)
     utxos <- utxosAt addr
+    logInfo @String $ printf "utoxs %s " (show utxos)
+    let (_, o1) = head $ Map.toList utxos
+    logInfo @String $ printf "valueOf: %s " (show (assetClassValueOf (view ciTxOutValue o1) asset))
+    logInfo @String $ printf "value: %s " (show (view ciTxOutValue o1))
+    logInfo @String $ printf "array: %s " (show [x | x@(_, o) <- Map.toList utxos, assetClassValueOf (view ciTxOutValue o) asset == 1])
     go  [x | x@(_, o) <- Map.toList utxos, assetClassValueOf (view ciTxOutValue o) asset == 1]
   where
-    go [] = throwError "NFTMarket instance not found"
+    go [] = do
+        logInfo @String $ printf "NFTMarket instance not found"
+        throwError "NFTMarket instance not found"
     go ((oref, o) : xs) = do
+        logInfo @String $ printf "getNFTMarketDatum"
         d <- getNFTMarketDatum o
+        logInfo @String $ printf "value: %s " (show  d)
         case f d of
-            Nothing -> go xs
+            Nothing -> do
+                logInfo @String $ printf "not found utoxs %s " (show o)
+                go xs
             Just a  -> do
                 logInfo @String $ printf "found NFTMarket instance with datum: %s" (show d)
                 return (oref, o, a)
@@ -436,6 +448,7 @@ queryNftMetadatas ::
 queryNftMetadatas market = do
     (_, _, nftMarketMetas) <- findNFTMarketFactory market
     utxos <- utxosAt (marketAddress market)
+    logInfo $ "utxos: " ++ show utxos
     query nftMarketMetas $ snd <$> Map.toList utxos
   where
     query :: [NFTMetadata] -> [ChainIndexTxOut] -> Contract w s Text [NFTMetadata]
@@ -451,7 +464,9 @@ queryNftMetadatas market = do
                         logInfo $ "found nftMetadata: " ++ show nftMeta
                         nftMetas <- query nftMarketMetas os
                         return $ nftMeta : nftMetas
-            else query nftMarketMetas os
+            else do
+                logInfo $ "utxos not found: " ++ show 0
+                query nftMarketMetas os
 
 -- | Gets the caller's public key hash.
 userPubKeyHash :: forall w s. Contract w s Text [Char]
@@ -498,7 +513,6 @@ ownerEndpoint ::
     -> Contract (Last (Either Text NFTMarket)) MarketOwnerSchema ContractError ()
 ownerEndpoint forgeNft fee = do
     e <- mapError absurd $ runError $ start forgeNft fee
-    void $ waitNSlots 1
     tell $ Last $ Just e
 
 type MarketOwnerSchema =
