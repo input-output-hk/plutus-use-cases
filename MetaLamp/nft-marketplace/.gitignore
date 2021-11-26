@@ -23,4 +23,5 @@ cabal.project.local~
 .ghc.environment.*
 .psc-ide-port
 config/plutus-pab.local.yaml
+config/chain-index-config.local.json
 deployment/env/env.local.sh

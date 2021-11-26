@@ -34,25 +34,21 @@ docker  exec -ti cardano-node bash
 
 ### Start chain-index
 
-Go to another terminal tab and export variables
+Copy `./config/chain-index-config.template.json` to the `./config/chain-index-config.local.json`, and change <NODE_PATH> to your node path directory.
 
-```
-source env/env.local.sh
-```
-
-Go to the `plutus-apps` project and run chain-index:
+Go to the `plutus-apps` project from new terminal window and run chain-index:
 
 ```
 cd plutus-apps
 
 nix build -f default.nix plutus-apps.haskell.packages.plutus-chain-index.components.exes.plutus-chain-index
 
-./result/bin/plutus-chain-index --socket-path ${NODE_PATH}/configuration/sockets/node.socket --db-path ${NODE_PATH}/chain-index.db --network-id 1097911063 start-index
+./result/bin/plutus-chain-index --config ../plutus-use-cases/MetaLamp/nft-marketplace/config/chain-index-config.local.json start-index
 ```
 
 ### Set up the PAB
 
-Copy `./config/plutus-pab.template.yaml` to the `plutus-pab.local.yaml`, and change <NODE_PATH> to your node path directory.
+Copy `./config/plutus-pab.template.yaml` to the `./config/plutus-pab.local.yaml`, and change <NODE_PATH> to your node path directory.
 
 ### Create a wallet
 
@@ -61,10 +57,10 @@ Save a wallet passphrase, it is required for the next step.
 
 ### Run Dapp
 
-Go to the `plutus-use-cases/MetaLamp/nft-marketplace`, enter the nix shell and run the `pab-app`:
+Go to the `plutus-use-cases/MetaLamp/nft-marketplace`, enter the nix shell and run migrations to create pab database, then run the PAB application itself:
 
 ```
-cabal exec pab-app -- --config ./config/plutus-pab.local.yaml migrate (creates database)  
+cabal exec pab-app -- --config ./config/plutus-pab.local.yaml migrate 
 
 cabal exec pab-app -- --config ./config/plutus-pab.local.yaml --passphrase "WALLET_PASSPHRASE" webserver  
 ```
