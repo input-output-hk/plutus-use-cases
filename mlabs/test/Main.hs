@@ -1,7 +1,7 @@
 module Main (main) where
 
 import PlutusTx.Prelude
-import Prelude (IO)
+import Prelude (IO, replicate)
 
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
@@ -30,11 +30,15 @@ main =
           ]
       , testGroup
           "NFT"
-          [ NFT.Size.test
-          , NFT.Script.test
-          , contract NFT.Contract.test
-          , contract NFT.QuickCheck.test
-          ]
+          $ [ NFT.Size.test
+            , NFT.Script.test
+            , contract NFT.Contract.test
+            ]
+            -- HACK
+            -- Doing it this way relieves some of the time +
+            -- memory usage issues with the QuickCheck tests.
+            -- This will run 100 tests
+            <> replicate 10 (contract NFT.QuickCheck.test)
       , testGroup
           "Lending"
           [ Lending.Logic.test

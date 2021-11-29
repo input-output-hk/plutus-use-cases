@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE StrictData #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Test.NFT.QuickCheck where
@@ -6,8 +7,8 @@ module Test.NFT.QuickCheck where
 import Control.Lens (at, makeLenses, set, view, (^.))
 import Control.Monad (void, when)
 import Data.Default (def)
-import Data.Map (Map)
-import Data.Map qualified as Map
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Monoid (Last (..))
 import Data.String (IsString (..))
 import Data.Text (Text)
@@ -111,29 +112,29 @@ instance ContractModel NftModel where
         }
     | ActionSetPrice
         { aPerformer :: Wallet
-        , aNftId :: NftId
+        , aNftId :: ~NftId
         , aNewPrice :: Maybe Integer
         }
     | ActionBuy
         { aPerformer :: Wallet
-        , aNftId :: NftId
+        , aNftId :: ~NftId
         , aPrice :: Integer
         , aNewPrice :: Maybe Integer
         }
     | ActionAuctionOpen
         { aPerformer :: Wallet
-        , aNftId :: NftId
+        , aNftId :: ~NftId
         , aDeadline :: Slot
         , aMinBid :: Integer
         }
     | ActionAuctionBid
         { aPerformer :: Wallet
-        , aNftId :: NftId
+        , aNftId :: ~NftId
         , aBid :: Integer
         }
     | ActionAuctionClose
         { aPerformer :: Wallet
-        , aNftId :: NftId
+        , aNftId :: ~NftId
         }
     deriving (Hask.Show, Hask.Eq)
 
@@ -431,8 +432,11 @@ instanceSpec =
 
 propContract :: Actions NftModel -> QC.Property
 propContract =
-  QC.withMaxSuccess 50
-    . propRunActionsWithOptions -- Keeping 50 tests limits time to ~1m, 100 tests took ~8m
+  -- HACK
+  -- 10 test runs execute relatively quickly, which we can then
+  -- run multiple times in 'test/Main.hs'
+  QC.withMaxSuccess 10
+    . propRunActionsWithOptions
       checkOptions
       instanceSpec
       (const $ Hask.pure True)
