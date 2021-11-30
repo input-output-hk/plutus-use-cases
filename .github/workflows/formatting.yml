@@ -2,9 +2,9 @@ name: Formatting
 
 on:
   push:
-    branches: [ main, staging ]
+    branches: [main, staging]
   pull_request:
-    branches: [ main, staging ]
+    branches: [main, staging]
   workflow_dispatch:
 
 jobs:
@@ -12,16 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
-      - uses: actions/cache@v2.1.4
-        name: Cache Stack
+      - uses: cachix/install-nix-action@v13
+        name: Set up nix
         with:
-          path: ~/.stack
-          key: ${{ runner.os }}-stack-formatting
-          restore-keys: ${{ runner.os }}-stack-
+          extra_nix_config: experimental-features = nix-command flakes
 
-      - run: stack install fourmolu
-        name: Setup
-
-      - run: ./.github/format.sh
+      - run: nix shell nixpkgs#haskellPackages.fourmolu -c ./.github/format.sh
         name: "Run fourmolu"
