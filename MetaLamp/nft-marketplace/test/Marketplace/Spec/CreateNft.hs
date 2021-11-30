@@ -4,7 +4,9 @@
 {-# LANGUAGE TypeApplications  #-}
 
 module Marketplace.Spec.CreateNft
-  ( tests, createNftTrace
+  ( tests
+  , createNftTrace
+  , createNftTrace'
   ) where
 
 import           Control.Lens                                 (_2, (&), (.~),

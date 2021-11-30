@@ -5,6 +5,12 @@
 
 module Marketplace.Spec.Sale
   ( tests
+  , openSaleTrace
+  , openSaleTrace'
+  , closeSaleTrace
+  , closeSaleTrace'
+  , buyItemTrace
+  , buyItemTrace'
   ) where
 
 import           Control.Lens                                 (_2, _Left, (&),

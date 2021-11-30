@@ -25,3 +25,4 @@ cabal.project.local~
 config/plutus-pab.local.yaml
 config/chain-index-config.local.json
 deployment/env/env.local.sh
+tmp

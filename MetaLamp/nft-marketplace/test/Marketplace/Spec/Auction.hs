@@ -5,6 +5,16 @@
 
 module Marketplace.Spec.Auction
   ( tests
+  , startAnAuctionTrace
+  , startAnAuctionTrace'
+  , completeAnAuctionTrace
+  , completeAnAuctionTrace'
+  , bidOnAuctionTrace
+  , bidOnAuctionTrace'
+  , buyOnAuctionTrace
+  , cancelAuctionWithBidsTrace
+  , cancelAuctionWithoutBidsTrace
+  , cancelAuctionWhenTimeIsOverTrace
   ) where
 
 import           Control.Lens                                 (_2, _Right, (&),
