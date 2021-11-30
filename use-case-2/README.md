@@ -100,7 +100,7 @@ nix-build -A cardano-wallet -o result
 
  - create a symlink to cardano-node's node socket cardano-wallet's directory with the following command:
 
-`ln -s ../cardano-node/result/alonzo-testnet/state-node-alonzo-purple/node.socket .`
+`ln -s ../cardano-node/result/alonzo-testnet/state-node-testnet/node.socket .`
 
  - download contest of https://hydra.iohk.io/build/7654130/download/1/testnet-byron-genesis.json to testnet-byron-genesis.json in this directory. Note: testnet magic number can be edited in this file
 
@@ -162,7 +162,7 @@ export CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-purple/node.socket
 mkdir dumpdir
 touch issue.addr
 echo '{"constructor":0,"fields":[]}' >> redeemerScript.0
-./mintTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX] [PATH TO SCRIPT]
+./mintUniswapTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX] [PATH TO SCRIPT]
 ```
 
 Give the node some time to mine the transaction.
@@ -217,7 +217,7 @@ Once submitted successfully, moments later when querying the uniswap contract ad
 Now we're ready to perform a swap. In the terminal running ghci against plutus-use-cases, run the following command to generate the redeemer and pool script datum that will be used when building the cardano-cli transaction
 
 ```
-:l Plutus.Contracts.CompileCurrency
+:l Plutus.Contracts.RawSwap
 main [(CURRENCY SYMBOL,TOKEN NAME)] [AMOUNT] [(CURRENCY SYMBOL,TOKEN NAME)] [AMOUNT] [POOL DATUM FILE PATH]
 ```
 

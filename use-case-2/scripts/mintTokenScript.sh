@@ -40,9 +40,9 @@ echo -e '\n\n'
 
 currencysymbol=$(cardano-cli transaction policyid --script-file $mintingpolicyjson)
 
-amount=1
+amount=3000000
 tokenList=""
-tokens=(Uniswap)
+tokens=(PikaCoin)
 for i in "${!tokens[@]}"; do
   tokenList="${tokenList}"+"${amount} ${currencysymbol}.${tokens[i]}"
 done
@@ -60,7 +60,7 @@ cardano-cli transaction build \
     --alonzo-era \
 		--protocol-params-file $protocolparams\
     --tx-in $txhash#$txix \
-		--tx-in-collateral $txhash#1\
+		--tx-in-collateral $txhash#$txix\
     --tx-out $paymentaddr+2000000+"$tokenList" \
     --mint "$tokenList" \
     --mint-script-file $mintingpolicyjson \

@@ -2,7 +2,7 @@
 
 set -euox pipefail
 
-../../../../scripts/handleSwap.sh "a323bab8336a5ae89109efff139e6237fd3df36b2eb73ce64c4198d386e4b94b#0" \
+../../../../scripts/handleSwapRaw.sh "a323bab8336a5ae89109efff139e6237fd3df36b2eb73ce64c4198d386e4b94b#0" \
 ~/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/uniswapPlutusScript.plutus \
 ~/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/firstRawSwap/poolDatum.plutus \
 ~/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/rawSwap-redeemer \

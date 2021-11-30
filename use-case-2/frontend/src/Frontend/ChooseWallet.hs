@@ -75,8 +75,8 @@ chooseWallet = do
                 (e,_) <- elAttr' "li" ("class" =: "list-group-item list-group-item-dark" <> "style" =: "cursor:pointer") $ text wid
                 setRoute $ (FrontendRoute_WalletRoute :/ (wid, WalletRoute_Swap :/ ())) <$ domEvent Click e
       elClass "h3" "display-5 fw-bold" $ text "Real Node Static Smart Contract Transaction"
-      el "p" $ text "Use the button below to perform static swap using Nami Wallet against a real Alonzo Node with a smart contract that is deployed to test net magic 8!"
-      staticSwapEv <- button "Swap ADA for PikaCoin"
+      el "p" $ text "Use the button below to perform static swap using Nami Wallet against a real Alonzo Node with a smart contract that is deployed to testnet!"
+      staticSwapEv <- button "Swap ADA for PikaCoin using Nami Wallet"
       ----------------------
       (utxosEv, utxosTrigger) <- newTriggerEvent
       dynWalletUtxo <- holdDyn "" utxosEv

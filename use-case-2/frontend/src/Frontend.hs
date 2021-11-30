@@ -54,6 +54,10 @@ frontend = Frontend
       -- during prerendering and a different widget to run on the client with
       -- JavaScript. The following will generate a `blank` widget on the server and
       -- print "Hello, World!" on the client.
+      -- TODO: Determine if you'd like to request Nami wallet permission as soon as user arrives on the webpage.
+      prerender_ blank $ liftJSM $ void $ eval ("window.cardano.enable();" :: T.Text)
+      -- Note: this signTx line is used to test cbor transaction to see if they are sign-able by nami wallet
+      -- prerender_ blank $ liftJSM $ void $ eval ("window.cardano.signTx('');" :: T.Text)
       let errorLeft e = case e of
             Left _ -> error "runFrontend: Unexpected non-app ObeliskRoute reached the frontend. This shouldn't happen."
             Right x -> x
