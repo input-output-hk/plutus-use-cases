@@ -9,7 +9,7 @@ Use nixfmt (provided by the shell) to format the nix sources.
 
 # Pinning git dependencies
 
-Use `niv` to update the git dependencies in `cabal.project`.
+Use `niv` to update the git dependencies in `haskell-nix-cabal.project`.
 
 - to update a pinned dependency:
 

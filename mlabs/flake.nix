@@ -54,9 +54,15 @@
         let
           pkgs = nixpkgsFor system;
           plutus = import plutusSrc { inherit system; };
+          fakeSrc = pkgs.runCommand "real-src" {} ''
+            cp -rT ${self}/mlabs $out || cp -rT ${self} $out
+            chmod u+w $out/cabal.project
+            cat $out/nix/haskell-nix-cabal.project >> $out/cabal.project
+          '';
+          src = fakeSrc.outPath;
         in
           import ./nix/haskell.nix {
-            inherit system pkgs plutus;
+            inherit src pkgs plutus system;
           };
 
     in
