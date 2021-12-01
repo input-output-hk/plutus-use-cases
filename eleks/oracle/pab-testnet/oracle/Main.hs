@@ -4,7 +4,7 @@ module Main
     ( main
     ) where
 
-import           Contracts                     (OracleContracts)
+import           PabContracts.OracleContracts        (OracleContracts)
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import           Plutus.PAB.Run                      (runWith)
 

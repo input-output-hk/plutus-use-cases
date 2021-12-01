@@ -51,6 +51,8 @@ library
       Contracts.MutualBet.OffChain
       Contracts.MutualBet.StateMachine
       PabContracts.SimulatorPabContracts
+      PabContracts.MutualBetContracts
+      PabContracts.OracleContracts
       Services.GameClient
       Types.Game
     build-depends:

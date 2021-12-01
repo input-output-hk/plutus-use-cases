@@ -4,7 +4,7 @@ module Main
     ( main
     ) where
 
-import           Contracts                     (MutualBetContracts)
+import           PabContracts.MutualBetContracts     (MutualBetContracts)
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import           Plutus.PAB.Run                      (runWith)
 
