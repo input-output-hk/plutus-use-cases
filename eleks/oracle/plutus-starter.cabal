@@ -306,8 +306,6 @@ executable gameserver
 executable oraclegameserver
   import: lang
   main-is: OracleGameServer.hs
-  other-modules:
-    GameClient
   hs-source-dirs: servers/oracle
   ghc-options:  -threaded
   build-depends:        

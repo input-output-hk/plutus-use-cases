@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 
 module Contracts(
-    OracleContracts(..)
+    MutualBetContracts(..)
     , handlers
     ) where
 
@@ -20,9 +20,10 @@ import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Default (Default (def))
 import           GHC.Generics (Generic)
 import           Prettyprinter
-
+import           Data.Default                       (Default (def))
 import           Language.PureScript.Bridge (argonaut, equal, genericShow, mkSumType, order)
 import           Language.PureScript.Bridge.TypeParameters (A)
+import           Ledger.TimeSlot (SlotConfig)
 import           Data.Row
 import qualified Data.OpenApi.Schema as OpenApi
 import           Data.Text (Text)
@@ -37,10 +38,15 @@ import           Schema (FormSchema)
 import           Contracts.MutualBet
 import           Plutus.Contract (Contract)
 import           Types.Game (GameId)
+import           Plutus.Contract.StateMachine     (ThreadToken(..))
+
+--todo https://github.com/input-output-hk/plutus-apps/issues/157
+instance Ord ThreadToken where 
+    (ThreadToken xRef xSymb) `compare` (ThreadToken yRef ySymb) = xRef `compare` yRef
 
 data MutualBetContracts = 
-    MutualBetOwner OracleParams
-    | MutualBetUser Oracle
+    MutualBetOwner MutualBetParams
+    | MutualBetUser ThreadToken MutualBetParams
     deriving (Eq, Ord, Show, Generic)
     deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
@@ -59,15 +65,18 @@ instance HasDefinitions MutualBetContracts where
 
 getMutualBetContractsSchema :: MutualBetContracts -> [FunctionSchema FormSchema]
 getMutualBetContractsSchema = \case
-    MutualBetOwner _    -> Builtin.endpointsToSchemas @OracleSchema
-    MutualBetUser _ -> Builtin.endpointsToSchemas @Empty
+    MutualBetOwner _    -> Builtin.endpointsToSchemas @MutualBetStartSchema
+    MutualBetUser _ _ -> Builtin.endpointsToSchemas @BettorSchema
 
 getMutualBetContracts :: MutualBetContracts -> SomeBuiltin
 getMutualBetContracts = \case
-    MutualBetOwner params -> SomeBuiltin $ runOracle params
-    MutualBetUser oracle -> SomeBuiltin $ (requestOracleForAddress oracle 1 :: Contract () Empty Text ())
+    MutualBetOwner params -> SomeBuiltin $ mutualBetStart params
+    MutualBetUser threadToken params -> SomeBuiltin $ (mutualBetBettor slotCfg threadToken params)
 
 handlers :: SimulatorEffectHandlers (Builtin MutualBetContracts)
 handlers =
     Simulator.mkSimulatorHandlers def def
     $ interpret (contractHandler Builtin.handleBuiltin)
+
+slotCfg :: SlotConfig
+slotCfg = def

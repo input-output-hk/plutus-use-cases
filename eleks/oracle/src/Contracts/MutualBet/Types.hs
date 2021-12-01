@@ -47,7 +47,7 @@ data MutualBetParams
         , mbpMinBet :: Ada -- Minimum bet allowed
         , mbpBetFee :: Ada -- Platform fee, for each bet you need additionally to pay the fee, fee is no returned if game in case game cancelled or no one wins
         }
-        deriving stock (Haskell.Eq, Haskell.Show, Generic)
+        deriving stock (Haskell.Eq, Haskell.Ord, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON, ToSchema, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''MutualBetParams
