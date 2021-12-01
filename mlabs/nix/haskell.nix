@@ -1,4 +1,5 @@
-{ pkgs
+{ src
+, pkgs
 , plutus
 , doCoverage ? false
 , deferPluginErrors ? true
@@ -6,11 +7,6 @@
 }:
 
 let
-  src = pkgs.haskell-nix.haskellLib.cleanGit {
-    name = "mlabs-plutus-use-cases";
-    src = ./..;
-  };
-
   plutusPkgs = plutus.pkgs;
 
   sources = import ./sources.nix {};
@@ -19,6 +15,8 @@ pkgs.haskell-nix.cabalProject {
   inherit src;
 
   name = "mlabs-plutus-use-cases";
+
+  cabalProjectFileName = "cabal.project";
 
   # Plutus uses a patched GHC. And so shall we.
   compiler-nix-name = "ghc810420210212";
@@ -29,6 +27,7 @@ pkgs.haskell-nix.cabalProject {
   #   nix-build default.nix 2>&1 | grep -om1 '/nix/store/.*-updateMaterialized' | bash
   # plan-sha256 = "0000000000000000000000000000000000000000000000000000";
   # materialized = ./materialization/mlabs-plutus-use-cases.materialized;
+
   shell = {
     # putting packages here will make them available in the hoogle index generated
     # by the shell
@@ -58,6 +57,8 @@ pkgs.haskell-nix.cabalProject {
     withHoogle = true;
 
     tools.cabal = "latest";
+
+    exactDeps = true;
 
     nativeBuildInputs = with pkgs;
       [
@@ -117,12 +118,6 @@ pkgs.haskell-nix.cabalProject {
           plutusPkgs.lib.mkForce [ [ plutusPkgs.libsodium-vrf ] ];
         cardano-crypto-class.components.library.pkgconfig =
           plutusPkgs.lib.mkForce [ [ plutusPkgs.libsodium-vrf ] ];
-
-        # This allows us to generate .tix coverage files, which could be useful?
-        "${src.name}".components.library = {
-          doHoogle = deferPluginErrors;
-          doCoverage = doCoverage;
-        };
       };
     }
   ];

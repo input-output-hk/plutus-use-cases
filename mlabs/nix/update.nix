@@ -8,13 +8,15 @@ in
   let
     cabalProjectParser = import "${sources."haskell.nix".outPath}/lib/cabal-project-parser.nix" { pkgs = plutus.pkgs; };
 
-    projectFile = builtins.readFile ./../cabal.project;
+    projectFile = builtins.readFile ./haskell-nix-cabal.project;
     cabalProjectFileName = "cabal.project";
     lookupSha256 = _: null;
 
     blocks = pkgs.lib.splitString "\nsource-repository-package\n" ("\n" + projectFile);
-    repoBlocks = builtins.map (pkgs.haskell-nix.haskellLib.parseBlock cabalProjectFileName
-  lookupSha256) (pkgs.lib.lists.drop 1 blocks);
+    repoBlocks = builtins.map (
+      pkgs.haskell-nix.haskellLib.parseBlock cabalProjectFileName
+        lookupSha256
+    ) (pkgs.lib.lists.drop 1 blocks);
     sourceRepoData = pkgs.lib.lists.map (x: x.sourceRepo) repoBlocks;
 
     extractSourceNameForNiv = repoUrl:
