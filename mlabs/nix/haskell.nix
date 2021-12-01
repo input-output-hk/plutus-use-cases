@@ -56,6 +56,8 @@ pkgs.haskell-nix.cabalProject {
 
     withHoogle = true;
 
+    tools.cabal = "latest";
+
     exactDeps = true;
 
     nativeBuildInputs = with pkgs;
