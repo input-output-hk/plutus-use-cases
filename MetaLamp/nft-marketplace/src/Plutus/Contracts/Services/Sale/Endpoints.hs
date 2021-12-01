@@ -31,6 +31,7 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Mar
 import qualified Plutus.Contracts.Services.Sale.Core                      as Core
 import qualified Plutus.Contracts.Services.Sale.StateMachine              as Core
 
+import           Ext.Plutus.Ledger.Index                                  (minAdaTxOutValue)
 import           Plutus.Contract.Request                                  (ownPubKeyHash)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
@@ -66,7 +67,7 @@ openSale OpenSaleParams {..} = do
                   saleOperatorFee   = ospSaleFee
                 }
     let client = Core.saleClient sale
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing ospSaleValue
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client Core.SaleOngoing (ospSaleValue + minAdaTxOutValue)
 
     logInfo @Haskell.String $ printf "Opened Sale %s at address %s" (Haskell.show sale) (Haskell.show $ Core.saleAddress sale)
     pure sale

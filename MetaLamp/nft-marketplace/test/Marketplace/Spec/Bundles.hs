@@ -13,7 +13,8 @@ import           Data.Maybe                                   (isNothing)
 import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
-import           Ledger.Ada                                   (lovelaceValueOf)
+import           Ledger.Ada                                   (toValue)
+import           Ledger.Index                                 (minAdaTxOut)
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Start                       as Start
 import           Plutus.Abstract.ContractResponse             (ContractResponse)
@@ -33,7 +34,7 @@ tests =
       checkPredicateOptions
         Fixtures.options
         "Should create a bundle for two NFTs transforming Marketplace store"
-        (bundleDatumsCheck .&&. marketplaceOperatorFeeCheck)
+        (bundleDatumsCheck .&&. marketplaceOperatorFundsCheck)
         (void bundleTrace),
       checkPredicateOptions
         Fixtures.options
@@ -150,8 +151,9 @@ unbundleDatumsCheck =
                        maybe False (Fixtures.hasPhotoTokenRecord . Marketplace.nftRecord)
                        (AssocMap.lookup Fixtures.photoTokenIpfsCidHash store)
 
-marketplaceOperatorFeeCheck :: TracePredicate
-marketplaceOperatorFeeCheck =
-  walletFundsChange Fixtures.ownerWallet $ lovelaceValueOf 300000
--- 100000 * 2 = 200000 - fee by minting 2 tokens
--- 100000 - fee by bundling
+marketplaceOperatorFundsCheck :: TracePredicate
+marketplaceOperatorFundsCheck =
+  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + totalBundlingFee - minAdaTxOut)
+  where
+    totalBundlingFee = Fixtures.marketplaceCreationFee
+    totalMintingFee = Fixtures.marketplaceCreationFee * 2

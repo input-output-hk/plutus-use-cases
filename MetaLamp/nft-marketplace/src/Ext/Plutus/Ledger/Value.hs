@@ -1,3 +1,4 @@
+{-# LANGUAGE NumericUnderscores #-}
 module Ext.Plutus.Ledger.Value where
 
 import           Control.Lens           (view)

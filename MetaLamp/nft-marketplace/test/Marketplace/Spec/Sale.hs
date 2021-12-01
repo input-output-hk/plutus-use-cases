@@ -15,7 +15,10 @@ import           Data.Maybe                                   (isNothing)
 import           Data.Proxy
 import           Data.Text                                    (Text)
 import           Data.Void                                    (Void)
-import           Ledger.Ada                                   (lovelaceValueOf)
+import           Ledger.Ada                                   (Ada (..),
+                                                               lovelaceValueOf,
+                                                               toValue)
+import           Ledger.Index                                 (minAdaTxOut)
 import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures                         as Fixtures
 import qualified Marketplace.Spec.Bundles                     as Bundles
@@ -106,10 +109,14 @@ tests =
     ]]
 
 -- \/\/\/ "NFT singletons"
+
+singletonNftPrice :: Integer
+singletonNftPrice = 60 * Fixtures.oneAdaInLovelace
+
 openSaleParams ::        Marketplace.OpenSaleParams
 openSaleParams =  Marketplace.OpenSaleParams {
                     Marketplace.ospItemId   = Marketplace.UserNftId Fixtures.catTokenIpfsCid,
-                    Marketplace.ospSalePrice = 44 * Fixtures.oneAdaInLovelace
+                    Marketplace.ospSalePrice = singletonNftPrice
                    }
 
 closeLotParams ::        Marketplace.CloseLotParams
@@ -226,11 +233,16 @@ errorCheckClose = Utils.assertCrError (Proxy @"closeSale") (Marketplace.userEndp
 errorCheckBuyer :: TracePredicate
 errorCheckBuyer = Utils.assertCrError (Proxy @"buyItem") (Marketplace.userEndpoints Fixtures.marketplace) (Trace.walletInstanceTag Fixtures.buyerWallet)
 
+
 -- \/\/\/ "NFT bundles"
+
+bundleNftPrice :: Integer
+bundleNftPrice = 85 * Fixtures.oneAdaInLovelace
+
 openSaleParamsB ::        Marketplace.OpenSaleParams
 openSaleParamsB =  Marketplace.OpenSaleParams {
                     Marketplace.ospItemId   = Marketplace.UserBundleId Fixtures.cids,
-                    Marketplace.ospSalePrice = 65 * Fixtures.oneAdaInLovelace
+                    Marketplace.ospSalePrice = bundleNftPrice
                    }
 
 closeLotParamsB ::        Marketplace.CloseLotParams
@@ -324,23 +336,30 @@ buyItemValueCheckB =
 
 marketplaceOperatorFeeCheck :: TracePredicate
 marketplaceOperatorFeeCheck =
-  walletFundsChange Fixtures.ownerWallet $ lovelaceValueOf 1200000
-  -- 44000000 * 2.5 /100 = 1100000 - fee by complete sale
-  -- 100000 - fee by minting token
+  walletFundsChange Fixtures.ownerWallet $ toValue (Fixtures.marketplaceCreationFee + saleFee - minAdaTxOut)
+  where
+    saleFee = Lovelace $ Fixtures.roundedPercentage singletonNftPrice
 
 sellersProfitWithPayingFeeCheck :: TracePredicate
 sellersProfitWithPayingFeeCheck =
-  walletFundsChange Fixtures.userWallet $ lovelaceValueOf 42800000
-  -- 44000000 - 1200000 = 42800000 - seller's profit
+  walletFundsChange Fixtures.userWallet $ toValue (nftPriceAda - saleFee - Fixtures.marketplaceCreationFee - minAdaTxOut)
+  where
+    nftPriceAda = Lovelace singletonNftPrice
+    saleFee = Lovelace $ Fixtures.roundedPercentage singletonNftPrice
 
 marketplaceOperatorFeeCheckB :: TracePredicate
 marketplaceOperatorFeeCheckB =
-  walletFundsChange Fixtures.ownerWallet $ lovelaceValueOf 1925000
-  -- 65000000 * 2.5 /100 = 1625000 - fee by complete sale
-  -- 100000 * 2 = 200000 - fee by minting 2 tokens
-  -- 100000 - fee by bundling
+  walletFundsChange Fixtures.ownerWallet $ toValue (totalMintingFee + totalBundlingFee + saleFee - minAdaTxOut)
+  where
+    totalMintingFee = Fixtures.marketplaceCreationFee * 2
+    totalBundlingFee = Fixtures.marketplaceCreationFee
+    saleFee = Lovelace $ Fixtures.roundedPercentage bundleNftPrice
 
 sellersProfitWithPayingFeeCheckB :: TracePredicate
 sellersProfitWithPayingFeeCheckB =
-  walletFundsChange Fixtures.userWallet $ lovelaceValueOf 63075000
-  -- 65000000 - 1925000 = 63075000
+  walletFundsChange Fixtures.userWallet $ toValue (bundlePriceAda - totalMintingFee - totalBundlingFee - minAdaTxOut - saleFee)
+  where
+    totalMintingFee = Fixtures.marketplaceCreationFee * 2
+    totalBundlingFee = Fixtures.marketplaceCreationFee
+    saleFee = Lovelace $ Fixtures.roundedPercentage bundleNftPrice
+    bundlePriceAda = Lovelace bundleNftPrice

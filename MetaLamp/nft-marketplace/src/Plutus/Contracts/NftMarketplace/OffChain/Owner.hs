@@ -16,6 +16,7 @@ import qualified Data.Aeson                                   as J
 import           Data.Proxy                                   (Proxy (..))
 import           Data.Text                                    (Text)
 import qualified Data.Text                                    as T
+import           Ext.Plutus.Ledger.Index                      (minAdaTxOutValue)
 import qualified GHC.Generics                                 as Haskell
 import           Ledger
 import           Ledger.Ada                                   (Ada (..))
@@ -31,6 +32,7 @@ import           Plutus.Contract.Request                      (ownPubKeyHash)
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.Currency                    as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
+import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                            as AssocMap
 import           PlutusTx.Prelude                             hiding
@@ -54,7 +56,7 @@ start StartMarketplaceParams {..} = do
     saleFeePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage saleFee
     let marketplace = Core.Marketplace pkh (Lovelace creationFee) saleFeePercentage
     let client = Core.marketplaceClient marketplace
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) mempty
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) minAdaTxOutValue
 
     logInfo @Haskell.String $ printf "started Marketplace %s at address %s" (Haskell.show marketplace) (Haskell.show $ Core.marketplaceAddress marketplace)
     pure marketplace

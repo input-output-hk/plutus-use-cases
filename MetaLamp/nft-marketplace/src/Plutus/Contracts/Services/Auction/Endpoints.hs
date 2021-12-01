@@ -23,6 +23,7 @@ import qualified Data.Aeson                                     as J
 import           Data.Monoid                                    (Last (..))
 import           Data.Semigroup.Generic                         (GenericSemigroupMonoid (..))
 import qualified Data.Text                                      as T
+import           Ext.Plutus.Ledger.Index                        (minAdaTxOutValue)
 import           GHC.Generics                                   (Generic)
 import           Ledger                                         (Ada,
                                                                  PubKeyHash,
@@ -83,7 +84,7 @@ startAuction StartAuctionParams{..} = do
 
     _ <- handleError
             (\e -> do { logError (AuctionFailed e); throwError (StateMachineContractError e) })
-            (SM.runInitialise client (initialState aOwner) aAsset)
+            (SM.runInitialise client (initialState aOwner) (aAsset + minAdaTxOutValue))
 
     logInfo $ AuctionStarted auction
     pure auction

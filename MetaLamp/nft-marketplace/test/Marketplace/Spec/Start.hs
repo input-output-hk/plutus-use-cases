@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE OverloadedStrings  #-}
 
 module Marketplace.Spec.Start
   ( tests, startTrace
@@ -7,6 +8,9 @@ module Marketplace.Spec.Start
 
 import           Control.Monad                                  (void)
 import           Data.Text                                      (Text)
+import           Ledger.Ada                                     (Ada (..),
+                                                                 toValue)
+import           Ledger.Index                                   (minAdaTxOut)
 import qualified Ledger.Value                                   as V
 import qualified Marketplace.Fixtures                           as Fixtures
 import           Plutus.Abstract.Percentage                     (getPercentage)
@@ -26,7 +30,7 @@ tests =
     [ checkPredicateOptions
         Fixtures.options
         "Should start a new marketplace with empty store"
-        datumsCheck
+        (datumsCheck .&&. marketplaceOpenedWithMinAdaTxOut .&&. marketplaceOperatorPayedMinAdaTxOut)
         startTrace
     ]
 
@@ -38,7 +42,7 @@ startTrace = do
 
 startMarketplaceParams :: StartMarketplaceParams
 startMarketplaceParams = StartMarketplaceParams {
-    creationFee = 100000,  -- 0.1 ADA
+    creationFee = getLovelace $ Fixtures.marketplaceCreationFee,
     saleFee = getPercentage Fixtures.percentage
 }
 
@@ -51,3 +55,11 @@ datumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
     (== [Marketplace.MarketplaceDatum AssocMap.empty AssocMap.empty])
+
+marketplaceOpenedWithMinAdaTxOut :: TracePredicate
+marketplaceOpenedWithMinAdaTxOut =
+  valueAtAddress Fixtures.marketplaceAddress (toValue minAdaTxOut ==)
+
+marketplaceOperatorPayedMinAdaTxOut :: TracePredicate
+marketplaceOperatorPayedMinAdaTxOut =
+  walletFundsChange Fixtures.ownerWallet $ toValue (- minAdaTxOut)

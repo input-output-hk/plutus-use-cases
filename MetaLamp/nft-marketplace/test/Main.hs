@@ -20,6 +20,6 @@ tests =
     "All tests"
     [ testGroup
         "NFT Marketplace"
-        [Start.tests, CreateNft.tests, Bundles.tests, Sale.tests, Auction.tests]
+        [Start.tests, CreateNft.tests, Bundles.tests, Auction.tests, Sale.tests]
     , testGroup "Abstract" [RemoteData.tests, Percentage.tests]
     ]
