@@ -128,12 +128,12 @@ have `jq` installed.
 
 1. Build the PAB executable:
 ```
-cabal build bet-pab
+cabal build pab-simulator
 ```
 
 2. Run the PAB binary:
 ```
-cabal exec -- bet-pab
+cabal exec -- pab-simulator
 ```
 
 ### Pab Queries

@@ -44,26 +44,34 @@ library
       Contracts.Oracle.RequestToken
       Contracts.Oracle.OnChain
       Contracts.Oracle.OffChain
+      Contracts.Oracle.Conversion
       Contracts.Oracle
       Contracts.MutualBet
       Contracts.MutualBet.Types
       Contracts.MutualBet.OffChain
       Contracts.MutualBet.StateMachine
+      PabContracts.SimulatorPabContracts
+      Services.GameClient
       Types.Game
     build-depends:
       aeson,
       base >= 4.9 && < 5,
       bytestring,
       base64-bytestring,
+      bech32,
+      cardano-addresses,
       cardano-api -any,
       cardano-crypto -any,
       containers -any,
       data-default -any,
+      freer-simple,
       text -any,
       lens -any,
       openapi3 -any,
       semigroups -any,
       serialise,
+      row-types,
+      req,
       playground-common,
       plutus-contract,
       plutus-tx-plugin,
@@ -72,6 +80,9 @@ library
       plutus-ledger-api,
       plutus-chain-index,
       plutus-chain-index-core,
+      plutus-pab,
+      purescript-bridge,
+      prettyprinter,
       plutus-use-cases,
 
     hs-source-dirs: src src/Contracts/MutualBet
@@ -113,12 +124,10 @@ test-suite plutus-example-projects-test
     tasty-hunit -any,
     tasty-hedgehog >=0.2.0.0
 
-executable bet-pab
+executable pab-simulator
   import: lang 
   main-is: Main.hs
-  hs-source-dirs: pab
-  other-modules:
-    GameClient
+  hs-source-dirs: pab-simulator
   ghc-options:
     -threaded
   build-depends:
@@ -142,13 +151,41 @@ executable bet-pab
     plutus-ledger -any,
     plutus-use-cases,
     stm -any,
-    req -any,
     row-types,
 
 executable testnet-oracle-pab
   import: lang 
   main-is: Main.hs
-  hs-source-dirs: pab-testnet
+  hs-source-dirs: pab-testnet/oracle
+  other-modules:
+    Contracts
+  ghc-options:
+    -threaded
+  build-depends:
+      base >= 4.9 && < 5,
+      bytestring,
+      data-default -any,
+      containers -any,
+      text -any,
+      openapi3 -any,
+      plutus-starter,
+      playground-common -any,
+      plutus-contract -any,
+      plutus-pab -any,
+      plutus-use-cases -any,
+      prettyprinter -any,
+      purescript-bridge,
+      row-types,
+      servant-purescript,
+      aeson -any,
+      freer-simple -any,
+      freer-extras -any,
+      plutus-ledger -any,
+
+executable testnet-mutual-bet-pab
+  import: lang 
+  main-is: Main.hs
+  hs-source-dirs: pab-testnet/mutual-bet
   other-modules:
     Contracts
   ghc-options:
@@ -204,13 +241,44 @@ executable encode-oracle-request
     aeson, 
     base >= 4.9 && < 5,
     cardano-api, 
+    cardano-node,
     cardano-crypto,
+    cardano-addresses,
+    cardano-addresses-cli,
     cardano-ledger-alonzo,
     plutus-starter,
+    cardano-ledger-core,
     plutus-contract,
+    cardano-crypto-class,
     plutus-ledger,
     plutus-ledger-api,
     plutus-tx,
+    bytestring
+
+executable encode-oracle-keys
+  import: lang
+  main-is: EncodeOracleKeys.hs
+  hs-source-dirs: pab-testnet/oracle
+  ghc-options:  -threaded
+  build-depends:        
+    aeson, 
+    base >= 4.9 && < 5,
+    bech32,
+    freer-simple,
+    cardano-api, 
+    cardano-node,
+    cardano-crypto,
+    cardano-addresses,
+    cardano-addresses-cli,
+    cardano-ledger-alonzo,
+    plutus-starter,
+    cardano-ledger-core,
+    plutus-contract,
+    cardano-crypto-class,
+    plutus-ledger,
+    plutus-ledger-api,
+    plutus-tx,
+    text,
     bytestring
 
 executable gameserver
@@ -218,7 +286,7 @@ executable gameserver
   main-is: Server.hs
   other-modules:
     Service
-  hs-source-dirs: gameserver
+  hs-source-dirs: servers/game
   ghc-options:  -threaded
   build-depends:        
     aeson, 
@@ -240,7 +308,7 @@ executable oraclegameserver
   main-is: OracleGameServer.hs
   other-modules:
     GameClient
-  hs-source-dirs: pab
+  hs-source-dirs: servers/oracle
   ghc-options:  -threaded
   build-depends:        
     aeson, 
@@ -274,7 +342,7 @@ executable oraclegameserver
 executable mutualbetserver
   import: lang
   main-is: MutualBetServer.hs
-  hs-source-dirs: pab
+  hs-source-dirs: servers/mutual-bet
   ghc-options:  -threaded
   build-depends:        
     aeson, 

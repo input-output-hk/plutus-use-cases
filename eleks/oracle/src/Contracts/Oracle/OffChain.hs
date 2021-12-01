@@ -31,29 +31,32 @@ module Contracts.Oracle.OffChain
     , UpdateOracleParams (..)
     , OracleContractState (..)
     , useOracle
-    , startOracle1
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1) 
 import           Control.Lens              (view)
 import           Control.Monad             hiding (fmap)
+import           Contracts.Oracle.Conversion
 import           Contracts.Oracle.Types
 import           Contracts.Oracle.RequestToken
 import           Contracts.Oracle.OnChain
 import           Codec.Serialise
 import           Data.Aeson                (FromJSON, ToJSON)
+import           Data.Void                 (absurd)
 import qualified Data.ByteString.Short     as SBS
 import qualified Data.ByteString.Lazy      as LBS
+import           Data.Either               (fromRight, rights)
 import qualified Data.Map                  as Map
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               (Last (..))
-import           Data.Text                 (Text, pack)
+import           Data.Text                 (Text, pack, unpack)
 import qualified Data.List.NonEmpty        as NonEmpty
 import           GHC.Generics              (Generic)
 import           Plutus.Contract           as Contract
 import qualified PlutusTx
 import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton, MintingPolicyHash)
+import           Ledger.Crypto             (toPublicKey, pubKeyHash)
 import qualified Ledger.Scripts            as LedgerScripts
 import qualified Ledger.Tx                 as LedgerScripts
 import           Ledger.Constraints        as Constraints
@@ -64,14 +67,15 @@ import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
 import           Types.Game
 import           Plutus.Contracts.Currency as Currency
-import           Plutus.Contract.Types     (Promise (..))
+import           Plutus.Contract.Types     (Promise (..), _OtherError)
 import           Prelude                   (Semigroup (..), Show (..), String)
 import qualified Prelude                   as Haskell
 import           Schema                    (ToSchema)
 import           Plutus.ChainIndex         ()
-startOracle :: forall w s. OracleParams -> Contract w s Text Oracle
-startOracle op = do
-    let pk = opPublicKey op
+import           Cardano.Crypto.Wallet     (xprv, xpub, XPrv, XPub)
+
+startOracle :: forall w s. OracleParams -> PubKey -> Contract w s Text Oracle
+startOracle op pk = do
     pkh <- Contract.ownPubKeyHash
     when (opFees op < minAdaTxOut) $ throwError "fee should be grater than min ada"
     when (opCollateral op < minAdaTxOut) $ throwError "collateral should be grater than min ada"
@@ -90,26 +94,6 @@ startOracle op = do
             }
     logInfo @String $ "started oracle " ++ show oracle
     return oracle
-
-startOracle1 :: OracleParams1 -> Contract () Empty Text ()
-startOracle1 d = do
-    --let pk = opPublicKey1 op
-    pkh <- Contract.ownPubKeyHash
-    -- let oracleRequestTokenInfo = OracleRequestToken
-    --         { ortOperator = pkh
-    --         , ortFee = opFees1 op
-    --         , ortCollateral = opCollateral1 op
-    --         }
-    -- let oracle = Oracle
-    --         { --oSymbol = opSymbol op
-    --           oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
-    --         , oOperator = pkh
-    --         , oOperatorKey = pk
-    --         , oFee = opFees1 op
-    --         , oCollateral = opCollateral1 op
-    --         }
-    void $ logInfo @String $ "started oracle "-- ++ show oracle
-    -- return oracle
 
 updateOracle :: forall w s. Oracle -> PrivateKey -> UpdateOracleParams -> Contract w s Text ()
 updateOracle oracle operatorPrivateKey params = do
@@ -160,6 +144,7 @@ type OracleSchema = Endpoint "update" UpdateOracleParams
 
 requestOracleForAddress :: forall w s. Oracle -> GameId -> Contract w s Text ()
 requestOracleForAddress oracle gameId = do 
+    logInfo @Haskell.String "Request oracle for address"
     pkh <- Contract.ownPubKeyHash
     let inst = typedOracleValidator oracle
         mrScript = oracleValidator oracle
@@ -182,13 +167,30 @@ requestOracleForAddress oracle gameId = do
                 <> Constraints.mustPayToPubKey (oOperator oracle) (feeVal)
                 <> Constraints.mustMintValueWithRedeemer mintRedeemer forgedToken
 
-    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+    --mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+    --logInfo @Haskell.String "Requested oracle for address"
+    --result <-  either (pure . Left) (runError $  submitTxConstraintsWith @Oracling lookups tx)
+
+    --handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ void $ mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+    result <- runError @_ @_ @Text $ submitTxConstraintsWith @Oracling lookups tx
+    case result of
+        Left err -> do
+            logWarn @Haskell.String "An error occurred. Request oracle for address failed."
+            logWarn err
+        Right tx -> do
+            let txi = getCardanoTxId tx
+            logInfo @Haskell.String $ "Waiting for tx " <> Haskell.show txi <> " to complete"
+            awaitTxConfirmed txi
+            logInfo @Haskell.String "Tx confirmed. Request oracle for address complete."
 
 --get active request lists for oracle to process
 getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
 getActiveOracleRequests oracle = do
     xs <- utxosAt (oracleAddress oracle)
-    let requests = filter (isActiveRequest oracle) . filterOracleRequest oracle . Map.toList $ xs
+    logInfo @Haskell.String ("Get active utxos: " ++ show xs)
+    let filtered = filterOracleRequest oracle . Map.toList $ xs
+    logInfo @Haskell.String ("Filtered: " ++ show filtered)
+    let requests = filter (isActiveRequest oracle) . rights $ filtered
     return requests 
 
 getActiveGames:: Oracle -> Contract w s Text ([GameId])
@@ -207,20 +209,27 @@ awaitNextOracleRequest oracle =
         utxos <- awaitUtxoProduced $ oracleAddress oracle
         let txs = map (\tx -> map convertChainIndexOut $ chainIndexTxOutsWithRef tx) (NonEmpty.toList $ utxos)
         let filterValidTx = catMaybes . concat
-        let filtered = filterOracleRequest oracle . filterValidTx $ txs
+        let filtered = rights . filterOracleRequest oracle . filterValidTx $ txs
         return filtered
             
 runOracle :: OracleParams -> Contract (Last OracleContractState) OracleSchema Text ()
 runOracle op = do
-    oracle <- startOracle op
+    let signKeyE:: Either String XPrv = decodeKeyFromDto $ opSigner op
+    signKey <- either (throwError . pack) pure signKeyE
+    let pk = toPublicKey signKey
+    let pkh = pubKeyHash pk
+    ownPkh <- Contract.ownPubKeyHash
+    when(ownPkh /= pkh) $ throwError "private key not equal to pab starter"
+    oracle <- startOracle op pk
+
     tell $ Last $ Just $ OracleState oracle
-    forever $ selectList[(update oracle), (games oracle)]
+    forever $ selectList[(update oracle signKey), (games oracle)]
   where
-    update :: Oracle -> Promise (Last OracleContractState) OracleSchema Text ()
-    update oracle = endpoint @"update" $ \updateOracleParams -> do
+    update :: Oracle -> PrivateKey -> Promise (Last OracleContractState) OracleSchema Text ()
+    update oracle signKey = endpoint @"update" $ \updateOracleParams -> do
         logInfo @String "update called"
         logInfo $ show updateOracleParams
-        updateOracle oracle (opSigner op) updateOracleParams
+        updateOracle oracle signKey updateOracleParams
         tell $ Last $ Just $ Updated $ uoGameId updateOracleParams
     games :: Oracle -> Promise (Last OracleContractState) OracleSchema Text ()
     games oracle = endpoint @"games" $ \_ -> do
@@ -234,13 +243,13 @@ hasOracleRequestToken oracle (oref, o) =
 hasOracelRequestDatum :: (TxOutRef, ChainIndexTxOut) -> Bool
 hasOracelRequestDatum (oref, o) = isJust . oracleValueFromTxOutTx $ o
 
-filterOracleRequest :: Oracle -> [(TxOutRef, ChainIndexTxOut)] -> [(TxOutRef, ChainIndexTxOut, OracleData)]
-filterOracleRequest oracle txs = catMaybes . map mapDatum . filter (hasOracleRequestToken oracle) $ txs
+filterOracleRequest :: Oracle -> [(TxOutRef, ChainIndexTxOut)] -> [Either Text (TxOutRef, ChainIndexTxOut, OracleData)]
+filterOracleRequest oracle txs = map mapDatum . filter (hasOracleRequestToken oracle) $ txs
 
-mapDatum :: (TxOutRef, ChainIndexTxOut) -> Maybe (TxOutRef, ChainIndexTxOut, OracleData)
+mapDatum :: (TxOutRef, ChainIndexTxOut) -> Either Text (TxOutRef, ChainIndexTxOut, OracleData)
 mapDatum (oref, o) = case oracleValueFromTxOutTx o of
-    Just datum -> Just (oref, o, datum)
-    Nothing -> Nothing
+    Just datum -> Right (oref, o, datum)
+    Nothing -> Left "No datum"
 
 isGameOracleRequest :: GameId -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
 isGameOracleRequest gameId (_, _, od) = gameId == (ovGame od) 
@@ -268,7 +277,7 @@ findOracleRequest ::
 findOracleRequest oracle gameId owner = do
     xs <- utxosAt (oracleAddress oracle)
     let findCriteria = find (\tx -> isOwnerOracleRequest owner tx && isGameOracleRequest gameId tx)
-    let request = findCriteria . filterOracleRequest oracle . Map.toList $ xs
+    let request = findCriteria . rights .filterOracleRequest oracle . Map.toList $ xs
     pure request 
 
 data UseOracleParams = UseOracleParams

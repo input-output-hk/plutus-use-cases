@@ -22,6 +22,7 @@ module Contracts.Oracle.OnChain
     , oracleScriptAsShortBs
     , oraclePlutusScript
     , verifyOracleValueSigned
+    , Oracling
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)

@@ -113,18 +113,6 @@ instance Eq OracleData where
              (ovRequestAddress l == ovRequestAddress r) &&
              (ovSignedMessage l PlutusTx.Prelude.== ovSignedMessage r)
 
-instance FromJSON XPrv where
-    parseJSON (Object v) = (v .: "encryptedKey" :: Parser ByteString) >>= (\s -> case (xprv s) of Left _ -> mzero; Right r -> return r) 
-      
-instance ToJSON XPrv where 
-   toJSON xprv =
-        object ["encryptedKey" .= unXPrv xprv]
-
-instance Show XPrv where 
-    show xprv = Haskell.show $ unXPrv xprv
-
-instance Haskell.Eq XPrv where
-    l == r = unXPrv l Haskell.== unXPrv r
 
 data OracleRedeemer = Update | OracleRedeem
     deriving Show
@@ -136,17 +124,9 @@ PlutusTx.makeIsDataIndexed ''OracleRequestRedeemer [('Request, 0), ('RedeemToken
 
 data OracleParams = OracleParams
     { --opSymbol :: !CurrencySymbol,
-      opFees   :: !Ada
+      opFees    :: !Ada
     , opCollateral :: !Ada
-    , opPublicKey :: PubKey
-    , opSigner :: !PrivateKey
-    } deriving (Haskell.Eq, Show, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
-
-data OracleParams1 = OracleParams1
-    { --opSymbol :: !CurrencySymbol,
-      opFees1   :: !Ada
-    , opCollateral1 :: !Ada
-    , opPublicKey1 :: PubKey
+    , opSigner :: !Haskell.String
     } deriving (Haskell.Eq, Show, Haskell.Ord, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
 {-# INLINABLE oracleRequestTokenName #-}

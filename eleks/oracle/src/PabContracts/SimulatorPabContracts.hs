@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
 
-module PabContracts(
+module PabContracts.SimulatorPabContracts(
     MutualBetContracts(..)
     , handlers
     ) where

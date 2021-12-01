@@ -20,8 +20,8 @@ import           Data.Text                                  (Text, pack)
 import           Data.Monoid                                (Last (..))
 import           Data.UUID
 import           Network.HTTP.Req
-import           GameClient
-import           PabContracts                               (MutualBetContracts, handlers)
+import           Services.GameClient
+import           PabContracts.SimulatorPabContracts          (MutualBetContracts(..))
 import           Types.Game    
 import           Contracts.Oracle
 import           Plutus.PAB.Events.ContractInstanceState    (PartiallyDecodedResponse (..))

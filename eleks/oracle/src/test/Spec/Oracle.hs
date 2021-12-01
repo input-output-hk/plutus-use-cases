@@ -89,8 +89,7 @@ oracleParams = OracleParams
     { --opSymbol = oracleCurrency,
       opFees = 2_000_000
     , opCollateral = 2_000_000
-    , opPublicKey = getWalletPubKey oracleWallet
-    , opSigner = oraclePrivateKey
+    , opSigner = encodeKeyToDto $ oraclePrivateKey
     } 
 
 oracleRequestToken :: OracleRequestToken

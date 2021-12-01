@@ -25,6 +25,7 @@ import           Language.PureScript.Bridge (argonaut, equal, genericShow, mkSum
 import           Language.PureScript.Bridge.TypeParameters (A)
 import           Data.Row
 import qualified Data.OpenApi.Schema as OpenApi
+import           Data.Text (Text)
 import           Ledger (TxId)
 import           Playground.Types (FunctionSchema)
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (..), HasDefinitions (..), SomeBuiltin (..))
@@ -34,10 +35,12 @@ import qualified Plutus.PAB.Simulator as Simulator
 import           Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
 import           Schema (FormSchema)
 import           Contracts.Oracle
+import           Plutus.Contract (Contract)
+import           Types.Game (GameId)
 
 data OracleContracts = 
-    OracleContract OracleParams1 
-    | OracleContract1 OracleParams1
+    OracleContract OracleParams
+    | OracleRequest Oracle
     deriving (Eq, Ord, Show, Generic)
     deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
@@ -56,13 +59,13 @@ instance HasDefinitions OracleContracts where
 
 getOracleContractsSchema :: OracleContracts -> [FunctionSchema FormSchema]
 getOracleContractsSchema = \case
-    OracleContract _    -> Builtin.endpointsToSchemas @Builtin.Empty
-    OracleContract1 _ -> Builtin.endpointsToSchemas @Builtin.Empty
+    OracleContract _    -> Builtin.endpointsToSchemas @OracleSchema
+    OracleRequest _ -> Builtin.endpointsToSchemas @Empty
 
 getOracleContracts :: OracleContracts -> SomeBuiltin
 getOracleContracts = \case
-    OracleContract v -> SomeBuiltin $ startOracle1 v
-    OracleContract1 v -> SomeBuiltin $ startOracle1 v
+    OracleContract params -> SomeBuiltin $ runOracle params
+    OracleRequest oracle -> SomeBuiltin $ (requestOracleForAddress oracle 1 :: Contract () Empty Text ())
 
 handlers :: SimulatorEffectHandlers (Builtin OracleContracts)
 handlers =

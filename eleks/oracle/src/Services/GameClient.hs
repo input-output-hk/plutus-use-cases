@@ -5,7 +5,7 @@
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DeriveAnyClass  #-}
 
-module GameClient
+module Services.GameClient
     ( getGames
     , getGameById
     ) where

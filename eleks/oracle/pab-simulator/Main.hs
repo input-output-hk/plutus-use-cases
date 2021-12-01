@@ -58,13 +58,13 @@ import           Wallet.Emulator.Types
 import           Wallet.Types                        (ContractInstanceId (..))
 import qualified Ledger.Typed.Scripts                as Scripts
 import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
-import qualified GameClient                          as GameClient
+import qualified Services.GameClient                          as GameClient
 import           Wallet.Emulator                     (Wallet (..), knownWallets, knownWallet) 
 import           Wallet.Emulator.Types               (Wallet (..), walletPubKeyHash)
 import qualified Data.OpenApi.Schema                 as OpenApi
 import           Playground.Contract                 (ToSchema)
 import           Wallet.Emulator.Wallet              (fromMockWallet, toMockWallet, ownPublicKey, emptyWalletState)
-import           PabContracts                        (MutualBetContracts(..), handlers)
+import           PabContracts.SimulatorPabContracts   (MutualBetContracts(..), handlers)
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
 initGame oracle game = do
@@ -105,8 +105,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     let oracleParams = OracleParams
                         { --opSymbol = "aa",
                           opFees   = 3_000_000
-                        , opSigner = oraclePrivateKey
-                        , opPublicKey = oraclePublicKey
+                        , opSigner = encodeKeyToDto $ oraclePrivateKey
                         , opCollateral = 2_000_000
                         }             
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
