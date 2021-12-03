@@ -1,8 +1,8 @@
+{-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications   #-}
 module Marketplace.Spec.Start
   ( tests, startTrace
   ) where
