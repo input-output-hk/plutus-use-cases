@@ -2,7 +2,7 @@
 
 ### Set up local environment
 
-- Cd to `./env` and create a file with local env variables `env.local.sh` from the `env.local.sh`.
+- Cd to `./env` and create a file with local env variables `env.local.sh` from the `env.template.sh`.
 
 - export your environment variables:
 
@@ -11,6 +11,8 @@ source env/env.local.sh
 ```
 
 ### Run cardano-node and cardano-wallet
+
+Cd to the `./deployment` directory.
 
 If it is your first start, you haven't download testnet configs, run: 
 
@@ -44,6 +46,12 @@ cd plutus-apps
 nix build -f default.nix plutus-apps.haskell.packages.plutus-chain-index.components.exes.plutus-chain-index
 
 ./result/bin/plutus-chain-index --config ../plutus-use-cases/MetaLamp/nft-marketplace/config/chain-index-config.local.json start-index
+```
+
+Sometimes the error with `node.socket` permission can occur, you can change file permissions to read, write and execute for all:
+
+```
+sudo chmod 777 ${NODE_PATH}/configuration/sockets/node.socket
 ```
 
 ### Set up the PAB

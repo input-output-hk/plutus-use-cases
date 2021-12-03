@@ -97,7 +97,7 @@ payoutAuction auction = do
 
     r <- SM.runStep client Payout
     case r of
-        SM.TransitionFailure i            -> logError (TransitionFailed i)
+        SM.TransitionFailure i            -> logError (TransitionFailed i) >> throwError InvalidAuctionTransition
         SM.TransitionSuccess (Finished h) -> logInfo $ AuctionEnded h
         SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
 
@@ -107,7 +107,7 @@ cancelAuction auction = do
         client       = machineClient inst auction
     r <- SM.runStep client Cancel
     case r of
-        SM.TransitionFailure i            -> logError (TransitionFailed i)
+        SM.TransitionFailure i            -> logError (TransitionFailed i) >> throwError InvalidAuctionTransition
         SM.TransitionSuccess Canceled -> logInfo $ AuctionCanceled
         SM.TransitionSuccess s            -> logWarn ("Unexpected state after Payout transition: " <> Haskell.show s)
 
@@ -136,6 +136,7 @@ submitBid auction ada = do
             pure $ Right ()
         _ -> do
             logInfo @Haskell.String $ "Auction bid failed"
+            throwError InvalidAuctionTransition
             pure $ Left "Auction bid failed"
 
 data AuctionLog =
@@ -152,6 +153,7 @@ data AuctionLog =
 data AuctionError =
     StateMachineContractError SM.SMContractError -- ^ State machine operation failed
     | AuctionContractError ContractError -- ^ Endpoint, coin selection, etc. failed
+    | InvalidAuctionTransition
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
