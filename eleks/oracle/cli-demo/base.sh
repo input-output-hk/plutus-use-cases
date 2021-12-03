@@ -4,11 +4,13 @@ dir=$(dirname "$0")
 
 function setEnv() {
   export TESTNET_MAGIC=1097911063
-  export ORACLE_FEE=1500000
-  export ORACLE_COLLATERAL=1000000
+  export ORACLE_FEE=2000000
+  export ORACLE_COLLATERAL=3500000
   export MIN_UTXO=2000000
-  export ORACLE_TOKEN_NAME="oracleRequestTokenName"
+  export ORACLE_TOKEN_NAME="ortk"
   export CARDANO_NODE_SOCKET_PATH=$dir/node/db/node.socket
+  #export CARDANO_NODE_SOCKET_PATH=~/projects/plutus/plutus-apps/plutus-pab/test-node/testnet/node.sock
+
   export PROTOCOL_PATH=$dir/protocol.json
   export TX_RAW_PATH=$dir/tx.raw
   export TX_SIGN_PATH=$dir/tx.sign
@@ -42,9 +44,8 @@ function updatePayUtxo() {
 }
 
 function makeScriptAddress() {
-  SCRIPT_FILE_BASE=$dir/..
-  export MINT_SCRIPT_FILE=$SCRIPT_FILE_BASE/requesttoken.plutus
-  export ORACLE_SCRIPT_FILE=$SCRIPT_FILE_BASE/oracle.plutus
+  export MINT_SCRIPT_FILE=$dir/requesttoken.plutus
+  export ORACLE_SCRIPT_FILE=$dir/oracle.plutus
   export MINT_SCRIPT_ADDRESS=$(cardano-cli address build --payment-script-file $MINT_SCRIPT_FILE --testnet-magic $TESTNET_MAGIC)
   echo "MINT_SCRIPT_ADDRESS $MINT_SCRIPT_ADDRESS"
 

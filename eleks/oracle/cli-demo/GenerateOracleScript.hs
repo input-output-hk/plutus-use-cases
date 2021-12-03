@@ -10,6 +10,7 @@ import           Cardano.Api
 import           Cardano.Api.Shelley
 
 import qualified Cardano.Ledger.Alonzo.Data     as Alonzo
+import           Cardano.Crypto.Wallet          (xprv, xpub, XPub)
 import qualified Plutus.V1.Ledger.Api           as Plutus
 
 import qualified Data.ByteString.Short          as SBS
@@ -24,7 +25,7 @@ import           Ledger.Ada                     as Ada
 
 import           Wallet.Emulator.Types          (Wallet (..))
 
--- cabal exec -- gs 1500000 1000000 "cli-demo/keys/oracle/payment.vkey"
+-- cabal exec -- gs 2000000 2000000 "keys/oracle/payment.vkey"
 main :: IO ()
 main = do
     args <- getArgs
@@ -38,43 +39,37 @@ main = do
         requestTokenScriptFile = "requesttoken.plutus"
     
     let vkeyPath = if nargs > 2 then args!!2  else ""
-    vkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentKey) vkeyPath
+    vkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentExtendedKey) vkeyPath
     case vkeyEither of 
       Left _  -> putStrLn $ "Vkey not fouund"
       Right vkey -> do
-        let pk = PubKey $ Plutus.fromBytes $ serialiseToRawBytes vkey
-        let pkh = pubKeyHash pk
-        putStrLn $ "public key: " ++ show pk
-        putStrLn $ "public key hash: " ++ show pkh
-        putStrLn $ "fee: " ++ show fee
-        putStrLn $ "collateral: " ++ show collateral 
+        let pkE = xpub $ serialiseToRawBytes vkey
+        case pkE of
+          Left err -> putStrLn $ "XPub not found" ++ show err
+          Right pkPub -> do
+            let pk = xPubToPublicKey pkPub
+            let pkh = pubKeyHash pk
+            putStrLn $ "public key: " ++ show pk
+            putStrLn $ "public key hash: " ++ show pkh
+            putStrLn $ "fee: " ++ show fee
+            putStrLn $ "collateral: " ++ show collateral 
 
-        let oracleParams = OracleParams1
-                { --opSymbol = "aa",
-                  opFees1   = 1_500_000
-                , opPublicKey1 = pk
-                , opCollateral1 = 1_000_000
-                } 
+            let oracleRequestTokenInfo = OracleRequestToken
+                  { ortOperator = pkh
+                  , ortFee = fee
+                  , ortCollateral = collateral
+                  }
+            let oracle = Oracle
+                    { --oSymbol = opSymbol op
+                      oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
+                    , oOperator = pkh
+                    , oOperatorKey = pk
+                    , oFee = fee
+                    , oCollateral = collateral
+                    }
 
-        putStrLn $ "uraa"
-        putStrLn $ show $ encode oracleParams
-
-        let oracleRequestTokenInfo = OracleRequestToken
-                { ortOperator = pkh
-                , ortFee = fee
-                , ortCollateral = collateral
-                }
-        let oracle = Oracle
-                { --oSymbol = opSymbol op
-                  oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
-                , oOperator = pkh
-                , oOperatorKey = pk
-                , oFee = fee
-                , oCollateral = collateral
-                }
-
-        writePlutusScript oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
-        writePlutusScript requestTokenScriptFile (mintingScript oracleRequestTokenInfo) (mintingScriptShortBs oracleRequestTokenInfo)
+            writePlutusScript oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
+            writePlutusScript requestTokenScriptFile (mintingScript oracleRequestTokenInfo) (mintingScriptShortBs oracleRequestTokenInfo)
 
 writePlutusScript :: FilePath -> PlutusScript PlutusScriptV1 -> SBS.ShortByteString -> IO ()
 writePlutusScript filename scriptSerial scriptSBS =

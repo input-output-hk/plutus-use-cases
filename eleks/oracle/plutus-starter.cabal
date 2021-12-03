@@ -216,12 +216,13 @@ executable testnet-mutual-bet-pab
 executable gs
   import: lang
   main-is: GenerateOracleScript.hs
-  hs-source-dirs: cli
+  hs-source-dirs: cli-demo
   ghc-options:  -threaded
   build-depends:        
     aeson, 
     base >= 4.9 && < 5,
     cardano-api, 
+    cardano-crypto,
     cardano-ledger-alonzo,
     plutus-starter,
     plutus-contract,
@@ -237,7 +238,7 @@ executable gs
 executable encode-oracle-request
   import: lang
   main-is: EncodeOracleRequest.hs
-  hs-source-dirs: cli
+  hs-source-dirs: cli-demo
   ghc-options:  -threaded
   build-depends:        
     aeson, 
@@ -255,7 +256,9 @@ executable encode-oracle-request
     plutus-ledger,
     plutus-ledger-api,
     plutus-tx,
-    bytestring
+    bytestring,
+    text,
+    utf8-string
 
 executable encode-oracle-keys
   import: lang
@@ -361,3 +364,59 @@ executable mutualbetserver
     text -any,
     utf8-string,
     warp,
+
+executable plutus-use-cases-scripts
+    main-is: Main.hs
+    hs-source-dirs:
+        scripts
+        src/test
+    default-language: Haskell2010
+    default-extensions: ImportQualifiedPost
+    other-modules:
+        Spec.Oracle
+    ghc-options: -Wall -Wnoncanonical-monad-instances
+                 -Wincomplete-uni-patterns -Wincomplete-record-updates
+                 -Wredundant-constraints -Widentities -rtsopts
+                 -- See Plutus Tx readme
+                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    build-depends:
+        base >= 4.9 && <5,
+        aeson -any,
+        plutus-starter,
+        bytestring -any,
+        sort,
+        cardano-crypto-class -any,
+        containers -any,
+        data-default -any,
+        flat -any,
+        freer-extras -any,
+        hedgehog -any,
+        prettyprinter -any,
+        QuickCheck -any,
+        tasty -any,
+        tasty-hunit -any,
+        tasty-golden -any,
+        tasty-quickcheck -any,
+        text -any,
+        lens -any,
+        mtl -any,
+        row-types -any,
+        freer-simple -any,
+        foldl -any,
+        streaming -any,
+        directory -any,
+        filepath -any,
+        serialise -any,
+        plutus-core -any,
+        plutus-ledger-api -any,
+        plutus-tx -any,
+        plutus-contract -any,
+        plutus-chain-index-core -any,
+        plutus-ledger -any,
+        plutus-use-cases -any,
+        optparse-applicative -any,
+        aeson-pretty -any,
+        cardano-api -any,
+        cardano-binary -any,
+        cborg -any,
+        memory -any

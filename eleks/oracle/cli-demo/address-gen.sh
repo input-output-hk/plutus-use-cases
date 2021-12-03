@@ -17,6 +17,7 @@ function generateAddress() {
     folder=$baseFolder/$1
     mkdir -p $folder
     cardano-cli address key-gen \
+     --extended-key \
     --verification-key-file $folder/payment.vkey \
     --signing-key-file $folder/payment.skey
 
@@ -34,3 +35,9 @@ function generateAddress() {
 }
 
 main
+
+
+#    cardano-cli address key-gen \
+#      --extended-key \
+#     --verification-key-file payment.vkey \
+#     --signing-key-file payment.skey
