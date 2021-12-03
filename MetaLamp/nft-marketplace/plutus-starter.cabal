@@ -157,7 +157,7 @@ executable generate-typescript
     plutus-contract,
     plutus-ledger-api,
     plutus-tx
-
+        
 test-suite test
     import: lang
     type: exitcode-stdio-1.0

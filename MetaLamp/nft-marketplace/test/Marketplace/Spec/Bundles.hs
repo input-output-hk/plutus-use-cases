@@ -4,7 +4,11 @@
 {-# LANGUAGE TypeApplications  #-}
 
 module Marketplace.Spec.Bundles
-  ( tests, bundleTrace
+  ( tests
+  , bundleTrace
+  , bundleErrorTrace
+  , unbundleTrace
+  , unbundleErrorTrace
   ) where
 
 import           Control.Lens                                 ((^.), (^?))

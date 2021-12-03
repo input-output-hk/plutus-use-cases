@@ -1,7 +1,8 @@
+{-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
-
+{-# LANGUAGE TypeApplications   #-}
 module Marketplace.Spec.Start
   ( tests, startTrace
   ) where
@@ -36,7 +37,8 @@ tests =
 
 startTrace :: Trace.EmulatorTrace ()
 startTrace = do
-  _ <- Trace.activateContractWallet Fixtures.ownerWallet $ void startContract
+  h <- Trace.activateContractWallet Fixtures.ownerWallet Marketplace.ownerEndpoints
+  _ <- Trace.callEndpoint @"start" h startMarketplaceParams
   _ <- Trace.waitNSlots 50
   pure ()
 
