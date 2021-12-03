@@ -9,6 +9,7 @@ import Mlabs.NFT.Validation qualified as NFT
 
 import PlutusTx.Prelude hiding ((<>))
 
+import Mlabs.NFT.Governance
 import PlutusTx qualified
 import Test.NFT.Script.Values as TestValues
 import Test.Tasty (TestTree)
@@ -155,38 +156,45 @@ validBuyContext :: ContextBuilder 'ForSpending
 validBuyContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
     <> paysOther (NFT.txValHash uniqueAsset) oneNft initialAuthorDatum
+    <> includeGovHead
 
 bidNotHighEnoughContext :: ContextBuilder 'ForSpending
 bidNotHighEnoughContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 90)
     <> paysOther (NFT.txValHash uniqueAsset) oneNft initialAuthorDatum
+    <> includeGovHead
 
 notForSaleContext :: ContextBuilder 'ForSpending
 notForSaleContext =
   paysToWallet TestValues.userOneWallet TestValues.oneNft
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
     <> paysOther (NFT.txValHash uniqueAsset) oneNft notForSaleDatum
+    <> includeGovHead
 
 authorNotPaidContext :: ContextBuilder 'ForSpending
 authorNotPaidContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 5)
     <> paysOther (NFT.txValHash uniqueAsset) oneNft initialAuthorDatum
+    <> includeGovHead
 
 ownerNotPaidContext :: ContextBuilder 'ForSpending
 ownerNotPaidContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 50)
     <> paysOther (NFT.txValHash uniqueAsset) oneNft ownerNotPaidDatum
+    <> includeGovHead
 
 inconsistentDatumContext :: ContextBuilder 'ForSpending
 inconsistentDatumContext =
   paysToWallet TestValues.userOneWallet TestValues.oneNft
     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
     <> paysOther (NFT.txValHash uniqueAsset) oneNft inconsistentDatum
+    <> includeGovHead
 
 mismathingIdBuyContext :: ContextBuilder 'ForSpending
 mismathingIdBuyContext =
   paysToWallet TestValues.authorWallet (TestValues.adaValue 100)
     <> paysOther (NFT.txValHash uniqueAsset) oneNft dtm
+    <> includeGovHead
   where
     dtm =
       NFT.NodeDatum $

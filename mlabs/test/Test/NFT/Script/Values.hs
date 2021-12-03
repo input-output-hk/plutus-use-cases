@@ -8,9 +8,11 @@ import Ledger.Value (TokenName (..))
 import Ledger.Value qualified as Value
 
 import Ledger.CardanoWallet qualified as CardanoWallet
+import Test.Tasty.Plutus.Context
 
 import Mlabs.NFT.Contract.Aux qualified as NFT
 import Mlabs.NFT.Contract.Init (uniqueTokenName)
+import Mlabs.NFT.Governance
 import Mlabs.NFT.Governance qualified as Gov
 import Mlabs.NFT.Types (Content (..), NftAppInstance (..), NftAppSymbol (..), NftId (..), UniqueToken, UserId (..))
 
@@ -99,3 +101,7 @@ appSymbol = NftAppSymbol . NFT.curSymbol $ appInstance
 {-# INLINEABLE uniqueAsset #-}
 uniqueAsset :: UniqueToken
 uniqueAsset = Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", TokenName uniqueTokenName)
+
+includeGovHead = paysOther (NFT.txValHash uniqueAsset) (Value.assetClassValue uniqueAsset 1) govHeadDatum
+  where
+    govHeadDatum = GovDatum $ HeadLList (GovLHead (5 % 1000) "") Nothing

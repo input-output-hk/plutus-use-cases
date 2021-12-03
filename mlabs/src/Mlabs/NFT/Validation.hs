@@ -1,8 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-unused-local-binds -Wno-unused-matches #-}
 
--- TODO remove after implementig fees
 module Mlabs.NFT.Validation (
   DatumNft (..),
   NftTrade,
@@ -21,14 +19,6 @@ module Mlabs.NFT.Validation (
   curSymbol,
 ) where
 
-import PlutusTx.Prelude
-
-import Plutus.V1.Ledger.Ada qualified as Ada (
-  adaSymbol,
-  adaToken,
-  lovelaceValueOf,
- )
-
 import Ledger (
   Address,
   AssetClass,
@@ -42,8 +32,6 @@ import Ledger (
   ValidatorHash,
   contains,
   findDatum,
-  -- findOwnInput,
-
   findOwnInput,
   from,
   mkMintingPolicyScript,
@@ -59,7 +47,6 @@ import Ledger (
   txInfoValidRange,
   valuePaidTo,
  )
-
 import Ledger.Typed.Scripts (
   DatumType,
   RedeemerType,
@@ -71,8 +58,6 @@ import Ledger.Typed.Scripts (
   wrapMintingPolicy,
   wrapValidator,
  )
-
-import Data.Function (on)
 import Ledger.Value (
   TokenName (..),
   assetClass,
@@ -80,11 +65,21 @@ import Ledger.Value (
   singleton,
   valueOf,
  )
-import Plutus.V1.Ledger.Value (AssetClass (..), Value (..), assetClassValueOf, isZero)
+import Plutus.V1.Ledger.Ada (lovelaceValueOf)
+import Plutus.V1.Ledger.Ada qualified as Ada (
+  adaSymbol,
+  adaToken,
+  lovelaceValueOf,
+ )
+import Plutus.V1.Ledger.Value (AssetClass (..), Value (..), assetClassValueOf)
 import PlutusTx qualified
+import PlutusTx.Prelude
 
+import Data.Function (on)
 import Data.Maybe (catMaybes)
 import Data.Tuple.Extra (uncurry3)
+
+import Mlabs.NFT.Governance.Types
 import Mlabs.NFT.Types (
   AuctionBid (..),
   AuctionState (..),
@@ -315,19 +310,19 @@ mkTxPolicy _ !datum' !act !ctx =
     BuyAct {..} -> case datum' of
       NodeDatum node ->
         traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
-          && traceIfFalse "Transaction cannot mint." True -- noMint TODO: allow minting Gov
+          && traceIfFalse "Transaction cannot mint." noMint
           && traceIfFalse "NFT not for sale." nftForSale
           && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
           && traceIfFalse "Act'Bid is too low for the NFT price." (bidHighEnough act'bid)
           && traceIfFalse "Datum is not consistent, illegally altered." (consistentDatumBuy node)
           && traceIfFalse "Only one Node must be used in a Buy Action." onlyOneNodeAttached
-          && traceIfFalse "Not all used Tokens are returned." True -- checkTokenReturned TODO: Fix for Gov mint
+          && traceIfFalse "Not all used Tokens are returned." checkTokenReturned
           && traceIfFalse "Returned Token UTXO has mismatching datum." checkMissMatchDatum
           && if ownerIsAuthor
-            then traceIfFalse "Amount paid to author/owner does not match act'bid." True -- TODO (correctPaymentOnlyAuthor act'bid)
+            then traceIfFalse "Amount paid to author/owner does not match act'bid." (correctPaymentOnlyAuthor node act'bid)
             else
-              traceIfFalse "Current owner is not paid their share." True -- TODO (correctPaymentOwner act'bid)
-                && traceIfFalse "Author is not paid their share." True -- TODO (correctPaymentAuthor act'bid)
+              traceIfFalse "Current owner is not paid their share." (correctPaymentOwner node act'bid)
+                && traceIfFalse "Author is not paid their share." (correctPaymentAuthor node act'bid)
       HeadDatum _ ->
         traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
     SetPriceAct {..} -> case datum' of
@@ -358,7 +353,7 @@ mkTxPolicy _ !datum' !act !ctx =
           && traceIfFalse "Auction deadline reached" (correctAuctionBidSlotInterval node)
           && traceIfFalse "Auction: wrong input value" (correctInputValue node)
           && traceIfFalse "Bid Auction: datum illegally altered" (auctionConsistentDatum node act'bid)
-          && traceIfFalse "Auction bid value not supplied" True -- TODO (auctionBidValueSupplied act'bid)
+          && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
           && traceIfFalse "Incorrect bid refund" (correctBidRefund node)
       HeadDatum _ ->
         traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
@@ -369,10 +364,10 @@ mkTxPolicy _ !datum' !act !ctx =
           && traceIfFalse "Auction: new owner set incorrectly" (auctionCorrectNewOwner node)
           && traceIfFalse "Close Auction: datum illegally altered" (auctionConsistentCloseDatum node)
           && if ownerIsAuthor
-            then traceIfFalse "Auction: amount paid to author/owner does not match bid" True -- TODO (auctionCorrectPaymentOnlyAuthor node)
+            then traceIfFalse "Auction: amount paid to author/owner does not match bid" (auctionCorrectPaymentOnlyAuthor node)
             else
-              traceIfFalse "Auction: owner not paid their share" True -- TODO (auctionCorrectPaymentOwner node)
-                && traceIfFalse "Auction: author not paid their share" True -- TODO (auctionCorrectPaymentAuthor node)
+              traceIfFalse "Auction: owner not paid their share" (auctionCorrectPaymentOwner node)
+                && traceIfFalse "Auction: author not paid their share" (auctionCorrectPaymentAuthor node)
       HeadDatum _ ->
         traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
   where
@@ -392,10 +387,26 @@ mkTxPolicy _ !datum' !act !ctx =
 
     ------------------------------------------------------------------------------
     -- Utility functions.
+    nftCurr = app'symbol . act'symbol $ act
+
+    feeRate :: Rational
+    feeRate
+      | [GovLHead {..}] <- mapMaybe (getHead . gov'list . fst) $ getOutputDatumsWithTx @GovDatum ctx =
+        govLHead'feeRate
+      | otherwise = traceError "Must provide one GOV HEAD"
+      where
+        getHead HeadLList {..} = Just _head'info
+        getHead _ = Nothing
+
+    subtractFee price = price - calcFee price
+
+    calcFee price = round (fromInteger price * feeRate)
 
     sort2On f (x, y) = if f x < f y then (x, y) else (y, x)
 
-    containsNft !v = valueOf v (app'symbol . act'symbol $ act) (nftTokenName datum') == 1
+    fst3 (x, _, _) = x
+
+    containsNft !v = valueOf v nftCurr (nftTokenName datum') == 1
 
     !getAda = flip assetClassValueOf $ assetClass Ada.adaSymbol Ada.adaToken
 
@@ -406,7 +417,7 @@ mkTxPolicy _ !datum' !act !ctx =
         personId = getUserId . userIdGetter $ node
         share = info'share . node'information $ node
         personGetsAda = getAda $ valuePaidTo info personId
-        personWantsAda = getAda $ shareCalcFn bid share
+        personWantsAda = subtractFee . getAda $ shareCalcFn bid share
 
     ownerIsAuthor =
       (info'owner . node'information $ oldNode) == (info'author . node'information $ oldNode)
@@ -436,6 +447,11 @@ mkTxPolicy _ !datum' !act !ctx =
 
     ------------------------------------------------------------------------------
     -- Checks
+    extractCurr c =
+      mconcat
+        . fmap (uncurry3 singleton)
+        . filter ((== c) . fst3)
+        . flattenValue
 
     -- Check whether there's auction in progress and disallow buy/setprice actions.
     noAuctionInProgress :: NftListNode -> Bool
@@ -592,10 +608,7 @@ mkTxPolicy _ !datum' !act !ctx =
     correctPaymentOwner node = correctPayment node (info'owner . node'information) calculateOwnerShare
 
     -- Check if author of NFT receives share when is also owner
-    correctPaymentOnlyAuthor node !bid = authorGetsAda >= bid
-      where
-        author = getUserId . info'author . node'information $ node
-        authorGetsAda = getAda $ valuePaidTo info author
+    correctPaymentOnlyAuthor node = correctPayment node (info'owner . node'information) (\v _ -> lovelaceValueOf v)
 
     -- Check if buy bid is higher or equal than price
     bidHighEnough !bid = case info'price . node'information $ oldNode of
@@ -623,7 +636,9 @@ mkTxPolicy _ !datum' !act !ctx =
         _ -> False
 
     -- Check if no new token is minted.
-    noMint = isZero . txInfoMint . scriptContextTxInfo $ ctx
+    !noMint = all ((nftCurr /=) . fst3) . flattenValue $ minted
+      where
+        minted = txInfoMint . scriptContextTxInfo $ ctx
 
     -- Check if the NFT is sent to the correct address.
     tokenSentToCorrectAddress =
@@ -652,13 +667,8 @@ mkTxPolicy _ !datum' !act !ctx =
 
     -- Check if all tokens from input and mint are returned
     checkTokenReturned =
-      let cur = app'symbol . act'symbol $ act
-          fst3 (x, _, _) = x
-          getNfts =
-            mconcat
-              . fmap (uncurry3 singleton)
-              . filter ((== cur) . fst3)
-              . flattenValue
+      let getNfts =
+            extractCurr nftCurr
               . mconcat
               . fmap txOutValue
           inNfts =
@@ -673,7 +683,8 @@ mkTxPolicy _ !datum' !act !ctx =
               . scriptContextTxInfo
               $ ctx
           mintedNfts =
-            txInfoMint
+            extractCurr nftCurr
+              . txInfoMint
               . scriptContextTxInfo
               $ ctx
        in (inNfts <> mintedNfts) == outNfts
