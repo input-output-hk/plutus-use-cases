@@ -1,0 +1,39 @@
+version: '3.3'
+services:
+    cardano-node:
+        image: inputoutput/cardano-node:${NODE_TAG}
+        container_name: cardano-node
+        restart: always
+        volumes:
+          - ${NODE_PATH}/configuration/config:/app/cardano/config
+          - ${NODE_PATH}/configuration/topology:/app/cardano/topology
+          - ${NODE_PATH}/configuration/sockets:/app/cardano/sockets
+          - ${NODE_PATH}/database:/db
+        command: "run --topology /app/cardano/topology/testnet-topology.json --config /app/cardano/config/testnet-config.json --port 3001 --host-addr 0.0.0.0 --database-path /db --socket-path /app/cardano/sockets/node.socket"
+        ports:
+          - 3001
+        environment:
+          - CARDANO_NODE_SOCKET_PATH=/app/cardano/sockets/node.socket
+    cardano-wallet:
+        image: inputoutput/cardano-wallet:2021.11.11
+        container_name: cardano-wallet
+        volumes:
+          - ${NODE_PATH}/wallet/wallet-db:/wallet-db
+          - ${NODE_PATH}/configuration/sockets:/app/cardano/sockets
+          - ${NODE_PATH}/configuration/config:/app/cardano/config
+        ports:
+          - 8090:8090
+        entrypoint: []
+        command: bash -c "
+            ($$CMD --testnet /app/cardano/config/testnet-byron-genesis.json)
+          "
+        environment:
+          CMD: "cardano-wallet serve --node-socket /app/cardano/sockets/node.socket --database /wallet-db --listen-address 0.0.0.0"
+          NETWORK:
+        restart: on-failure
+        logging:
+          driver: "json-file"
+          options:
+            compress: "true"
+            max-file: "10"
+            max-size: "50m"

@@ -1,0 +1,2 @@
+fmt:
+	fix-stylish-haskell
