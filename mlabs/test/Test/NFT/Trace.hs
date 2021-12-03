@@ -46,9 +46,10 @@ type AppInitHandle = Trace.ContractHandle (Last NftAppInstance) NFTAppSchema Tex
 appInitTrace :: EmulatorTrace NftAppInstance
 appInitTrace = do
   let admin = walletFromNumber 4 :: Emulator.Wallet
+  let params = InitParams [UserId . Emulator.walletPubKeyHash $ admin] (5 % 1000) (Emulator.walletPubKeyHash admin)
   hAdmin :: AppInitHandle <- activateContractWallet admin adminEndpoints
-  callEndpoint @"app-init" hAdmin [UserId . Emulator.walletPubKeyHash $ admin]
-  void $ Trace.waitNSlots 2
+  callEndpoint @"app-init" hAdmin params
+  void $ Trace.waitNSlots 3
   oState <- Trace.observableState hAdmin
   appInstace <- case getLast oState of
     Nothing -> Trace.throwError $ Trace.GenericError "App Instance Could not be established."
@@ -251,7 +252,7 @@ severalBuysTrace :: EmulatorTrace ()
 severalBuysTrace = do
   let wallet1 = walletFromNumber 1 :: Emulator.Wallet
       wallet2 = walletFromNumber 2 :: Emulator.Wallet
-      wallet3 = walletFromNumber 4 :: Emulator.Wallet
+      wallet3 = walletFromNumber 3 :: Emulator.Wallet
 
   appInstance <- appInitTrace
   let uniqueToken = appInstance'UniqueToken appInstance

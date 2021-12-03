@@ -1,12 +1,10 @@
-module Mlabs.NFT.Contract.Fees (
+module Mlabs.NFT.Contract.Gov.Fees (
   getFeesConstraints,
-  getCurrFeeRate,
 ) where
 
 import Prelude qualified as Hask
 
 import Data.Map qualified as Map
-import Data.Maybe (fromJust)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 
@@ -30,25 +28,12 @@ import Ledger.Value as Value (TokenName (..), singleton)
 
 import Mlabs.Data.LinkedList
 import Mlabs.NFT.Contract.Aux
+import Mlabs.NFT.Contract.Gov.Aux
+import Mlabs.NFT.Contract.Gov.Query
 import Mlabs.NFT.Governance.Types
 import Mlabs.NFT.Governance.Validation (govMintPolicy, govScript)
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
-
--- | Get fee rate from GOV HEAD
-getCurrFeeRate :: forall w s. UniqueToken -> Contract w s Text Rational
-getCurrFeeRate uT = do
-  nftHead' <- getNftHead uT
-  nftHead <- case pi'data <$> nftHead' of
-    Just (HeadDatum x) -> Hask.pure x
-    _ -> Contract.throwError "getCurrFeeRate: NFT HEAD not found"
-
-  let govAddr = appInstance'Governance . head'appInstance $ nftHead
-  govHead' <- getGovHead govAddr
-  govHead <- case gov'list . pi'data <$> govHead' of
-    Just (HeadLList x _) -> Hask.pure x
-    _ -> Contract.throwError "getCurrFeeRate: GOV HEAD not found"
-  Hask.pure $ govLHead'feeRate govHead
 
 -- | Returns constraints for minting GOV tokens, and paying transaction fee for given NFT
 getFeesConstraints ::
@@ -69,40 +54,39 @@ getFeesConstraints uT nftId price user = do
       govValidator = govScript . appInstance'UniqueToken . node'appInstance $ node
       govScriptHash = validatorHash govValidator
 
-  feeRate <- getCurrFeeRate uT
+  feeRate <- queryCurrFeeRate uT
+  feePkh <- queryFeePkh uT
   govHead' <- getGovHead govAddr
   govHead <- case govHead' of
     Just x -> Hask.pure x
     Nothing -> Contract.throwError "getFeesConstraints: GOV HEAD not found"
 
-  govPi' <- findInsertPoint govAddr newGovDatum
+  govPi' <- findGovInsertPoint govAddr newGovDatum
   Contract.logInfo @Hask.String $ Hask.show $ "Gov found: " <> Hask.show govPi'
   let feeValue = round $ fromInteger price * feeRate
       mkGov name =
         Value.singleton
           (scriptCurrencySymbol govPolicy)
-          (TokenName . ((name <>) . getPubKeyHash) $ ownPkh)
+          (TokenName . (name <>) . getPubKeyHash $ ownPkh)
           feeValue
       mintedFreeGov = mkGov "freeGov"
       mintedListGov = mkGov "listGov"
       appInstance = node'appInstance node
       govPolicy = govMintPolicy appInstance
       govRedeemer = asRedeemer MintGov
-      headPrevValue =
-        txOutValue
-          . fst
-          $ (txOutRefMapForAddr govAddr (pi'CITx govHead) Map.! pi'TOR govHead)
-      payFeeToHead =
+      headPrevValue = piValue govAddr govHead
+      spendHead =
         Hask.mconcat
           [ Constraints.mustSpendScriptOutput (pi'TOR govHead) govRedeemer
           , Constraints.mustPayToOtherScript
               govScriptHash
               (toDatum $ pi'data govHead)
-              (Ada.lovelaceValueOf feeValue <> headPrevValue)
+              headPrevValue
           ]
       sharedGovTx =
         [ Constraints.mustMintValueWithRedeemer govRedeemer (mintedFreeGov <> mintedListGov)
         , Constraints.mustPayToPubKey ownPkh mintedFreeGov
+        , Constraints.mustPayToPubKey feePkh (Ada.lovelaceValueOf feeValue)
         ]
       sharedGovLookup =
         [ Constraints.mintingPolicy govPolicy
@@ -122,7 +106,7 @@ getFeesConstraints uT nftId price user = do
                   govScriptHash
                   (toDatum . pi'data $ govPi)
                   (mintedListGov <> prevValue)
-              , payFeeToHead
+              , spendHead
               ]
         -- Inserting new Node
         Right govIp ->
@@ -132,27 +116,14 @@ getFeesConstraints uT nftId price user = do
                 txOutValue
                   . fst
                   $ (txOutRefMapForAddr govAddr (pi'CITx . prev $ govIp) Map.! (pi'TOR . prev $ govIp))
-           in [ case gov'list updatedPrevNode of
-                  -- When inserting new node after Head, we add fee value to Head
-                  HeadLList {} ->
-                    Hask.mconcat
-                      [ Constraints.mustSpendScriptOutput (pi'TOR . prev $ govIp) govRedeemer
-                      , Constraints.mustPayToOtherScript
-                          govScriptHash
-                          (toDatum updatedPrevNode)
-                          (prevValue <> Ada.lovelaceValueOf feeValue)
-                      ]
-                  -- When inserting new node after another Node (not Head), we
-                  -- need to send fee to Head separately
-                  NodeLList {} ->
-                    Hask.mconcat
-                      [ Constraints.mustSpendScriptOutput (pi'TOR . prev $ govIp) govRedeemer
-                      , Constraints.mustPayToOtherScript
-                          govScriptHash
-                          (toDatum updatedPrevNode)
-                          prevValue
-                      , payFeeToHead
-                      ]
+           in [ Constraints.mustSpendScriptOutput (pi'TOR . prev $ govIp) govRedeemer
+              , Constraints.mustPayToOtherScript
+                  govScriptHash
+                  (toDatum updatedPrevNode)
+                  prevValue
+              , case gov'list updatedPrevNode of
+                  HeadLList {} -> Hask.mempty
+                  NodeLList {} -> spendHead
               , -- Create new Node
                 Constraints.mustPayToOtherScript
                   govScriptHash
@@ -167,25 +138,19 @@ getFeesConstraints uT nftId price user = do
           [ Constraints.unspentOutputs $ Map.singleton (pi'TOR . prev $ govIp) (pi'CITxO . prev $ govIp)
           ]
   Hask.pure (govTx <> sharedGovTx, govLookups <> sharedGovLookup)
+
+findGovInsertPoint :: Address -> GovDatum -> GenericContract (Either (PointInfo GovDatum) (InsertPoint GovDatum))
+findGovInsertPoint addr node = do
+  list <- getDatumsTxsOrderedFromAddr @GovDatum addr
+  Contract.logInfo @Hask.String $ Hask.show $ "GOV LIST: " <> Hask.show (Hask.fmap pi'data list)
+  case list of
+    [] -> Contract.throwError "This should never happen." -- Unreachable
+    x : xs -> findPoint x xs
   where
-    findInsertPoint :: Address -> GovDatum -> GenericContract (Either (PointInfo GovDatum) (InsertPoint GovDatum))
-    findInsertPoint addr node = do
-      list <- getDatumsTxsOrderedFromAddr @GovDatum addr
-      case list of
-        [] -> Contract.throwError "This should never happen." -- Unreachable
-        x : xs -> findPoint x xs
-      where
-        findPoint x = \case
-          [] -> pure $ Right $ InsertPoint x Nothing
-          (y : ys) ->
-            case Hask.compare (pi'data y) node of
-              LT -> findPoint y ys
-              EQ -> pure $ Left y
-              GT -> pure $ Right $ InsertPoint x (Just y)
-
--- `fromJust` is safe here due to on-chain constraints.
-pointNodeTo' :: GovDatum -> GovDatum -> GovDatum
-pointNodeTo' a b = GovDatum . fromJust $ pointNodeTo (gov'list a) (gov'list b)
-
-pointNodeToMaybe' :: GovDatum -> Maybe GovDatum -> GovDatum
-pointNodeToMaybe' a b = GovDatum . fromJust $ pointNodeToMaybe (gov'list a) (fmap gov'list b)
+    findPoint x = \case
+      [] -> pure $ Right $ InsertPoint x Nothing
+      (y : ys) ->
+        case Hask.compare (pi'data y) node of
+          LT -> findPoint y ys
+          EQ -> pure $ Left y
+          GT -> pure $ Right $ InsertPoint x (Just y)

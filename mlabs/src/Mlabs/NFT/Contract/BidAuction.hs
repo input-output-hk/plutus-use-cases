@@ -69,11 +69,14 @@ bidAuction uT (AuctionBidParams nftId bidAmount) = do
 
       nftDatum = NodeDatum $ updateDatum newAuctionState node
       scriptAddr = appInstance'Address . node'appInstance $ node
+      prevVal = Ada.lovelaceValueOf $ case as'highestBid auctionState of
+        Nothing -> 0
+        Just (AuctionBid bid _) -> - bid
       nftVal =
-        txOutValue
+        (prevVal <>)
+          . txOutValue
           . fst
           $ (txOutRefMapForAddr scriptAddr pi'CITx Map.! pi'TOR)
-      -- Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
       action =
         BidAuctionAct
           { act'bid = bidAmount

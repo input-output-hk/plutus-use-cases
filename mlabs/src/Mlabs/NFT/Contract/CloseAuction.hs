@@ -29,7 +29,8 @@ import Ledger.Typed.Scripts (validatorScript)
 import Ledger.Value qualified as Value
 
 import Mlabs.NFT.Contract.Aux
-import Mlabs.NFT.Contract.Fees
+import Mlabs.NFT.Contract.Gov.Fees
+import Mlabs.NFT.Contract.Gov.Query
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
@@ -103,7 +104,7 @@ closeAuction uT (AuctionCloseParams nftId) = do
     getBidDependentConstraints auctionState node = case as'highestBid auctionState of
       Nothing -> Hask.pure ([], [])
       Just (AuctionBid bid _bidder) -> do
-        feeRate <- getCurrFeeRate uT
+        feeRate <- queryCurrFeeRate uT
         let feeValue = round $ fromInteger bid * feeRate
             (amountPaidToOwner, amountPaidToAuthor) =
               calculateShares (bid - feeValue) (info'share . node'information $ node)

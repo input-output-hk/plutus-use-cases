@@ -26,6 +26,9 @@ module Test.NFT.Init (
   userCloseAuction,
   userWait,
   waitInit,
+  mkFreeGov,
+  getFreeGov,
+  appSymbol,
 ) where
 
 import Control.Lens ((&), (.~))
@@ -37,6 +40,7 @@ import Data.Aeson (Value (String))
 import Data.Map qualified as M
 import Data.Monoid (Last (..))
 import Data.Text qualified as T
+import Ledger (getPubKeyHash)
 import Numeric.Natural (Natural)
 import Plutus.Contract.Test (
   CheckOptions,
@@ -65,7 +69,7 @@ import Plutus.Trace.Emulator (
  )
 import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
-import Plutus.V1.Ledger.Value (Value, singleton)
+import Plutus.V1.Ledger.Value (AssetClass (..), TokenName (..), Value, assetClassValue, singleton, valueOf)
 import PlutusTx.Prelude hiding (check, foldMap, pure)
 import Wallet.Emulator.MultiAgent (EmulatorTimeEvent (..))
 import Prelude (Applicative (..), String, foldMap)
@@ -87,6 +91,7 @@ import Mlabs.NFT.Types (
   AuctionOpenParams,
   BuyRequestUser (..),
   Content (..),
+  InitParams (..),
   MintParams (..),
   NftAppInstance (appInstance'UniqueToken),
   NftAppSymbol (..),
@@ -117,7 +122,12 @@ waitInit = void $ waitNSlots 3
 callStartNft :: Wallet -> EmulatorTrace NftAppInstance
 callStartNft wal = do
   hAdmin <- activateContractWallet wal adminEndpoints
-  callEndpoint @"app-init" hAdmin [UserId . walletPubKeyHash $ wal]
+  let params =
+        InitParams
+          [UserId . walletPubKeyHash $ wal]
+          (5 % 1000)
+          (walletPubKeyHash wal)
+  callEndpoint @"app-init" hAdmin params
   waitInit
   oState <- observableState hAdmin
   appInstance <- case getLast oState of
@@ -129,9 +139,14 @@ callStartNft wal = do
 callStartNftFail :: Wallet -> ScriptM ()
 callStartNftFail wal = do
   let w5 = walletFromNumber 5
+      params =
+        InitParams
+          [UserId . walletPubKeyHash $ w5]
+          (5 % 1000)
+          (walletPubKeyHash wal)
   lift $ do
     hAdmin <- activateContractWallet wal adminEndpoints
-    callEndpoint @"app-init" hAdmin [toUserId w5]
+    callEndpoint @"app-init" hAdmin params
     waitInit
 
 type ScriptM a =
@@ -304,3 +319,18 @@ artwork2 =
     , mp'share = 1 % 10
     , mp'price = Just 300
     }
+
+mkFreeGov :: Wallet -> Integer -> Plutus.V1.Ledger.Value.Value
+mkFreeGov wal = assetClassValue (AssetClass (govCurrency, tn))
+  where
+    tn = TokenName . ("freeGov" <>) . getPubKeyHash . getUserId . toUserId $ wal
+
+govCurrency = "8fe3a8799d69c2852500ccf31abc0a129f668cfd9e905b3d75447a32"
+
+getFreeGov :: Wallet -> Plutus.V1.Ledger.Value.Value -> Integer
+getFreeGov wal val = valueOf val govCurrency tn
+  where
+    tn = TokenName . ("freeGov" <>) . getPubKeyHash . getUserId . toUserId $ wal
+
+appSymbol :: UniqueToken
+appSymbol = AssetClass ("038ecf2f85dcb99b41d7ebfcbc0d988f4ac2971636c3e358aa8d6121", "Unique App Token")

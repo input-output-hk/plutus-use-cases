@@ -15,11 +15,13 @@ import PlutusTx qualified
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
+import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import PlutusTx.Prelude
 
 -- | Datum for utxo containing GovLList Head token.
-newtype GovLHead = GovLHead
+data GovLHead = GovLHead
   { govLHead'feeRate :: Rational
+  , govLHead'pkh :: PubKeyHash
   }
   deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (ToJSON, FromJSON)
@@ -29,7 +31,7 @@ PlutusTx.makeLift ''GovLHead
 
 instance Eq GovLHead where
   {-# INLINEABLE (==) #-}
-  (GovLHead a) == (GovLHead a') = a == a'
+  (GovLHead a b) == (GovLHead a' b') = a == a' && b == b'
 
 -- | Datum for utxo containing GovLList Head token.
 data GovLNode = GovLNode

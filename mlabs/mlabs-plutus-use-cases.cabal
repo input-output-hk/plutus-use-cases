@@ -149,7 +149,10 @@ library
     Mlabs.NFT.Contract.BidAuction
     Mlabs.NFT.Contract.Buy
     Mlabs.NFT.Contract.CloseAuction
-    Mlabs.NFT.Contract.Fees
+    Mlabs.NFT.Contract.Gov
+    Mlabs.NFT.Contract.Gov.Aux
+    Mlabs.NFT.Contract.Gov.Fees
+    Mlabs.NFT.Contract.Gov.Query
     Mlabs.NFT.Contract.Init
     Mlabs.NFT.Contract.Mint
     Mlabs.NFT.Contract.OpenAuction

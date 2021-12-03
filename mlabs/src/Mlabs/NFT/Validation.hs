@@ -358,7 +358,7 @@ mkTxPolicy _ !datum' !act !ctx =
           && traceIfFalse "Auction deadline reached" (correctAuctionBidSlotInterval node)
           && traceIfFalse "Auction: wrong input value" (correctInputValue node)
           && traceIfFalse "Bid Auction: datum illegally altered" (auctionConsistentDatum node act'bid)
-          && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
+          && traceIfFalse "Auction bid value not supplied" True -- TODO (auctionBidValueSupplied act'bid)
           && traceIfFalse "Incorrect bid refund" (correctBidRefund node)
       HeadDatum _ ->
         traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
