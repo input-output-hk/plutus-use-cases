@@ -157,66 +157,6 @@ executable generate-typescript
     plutus-contract,
     plutus-ledger-api,
     plutus-tx
-
-executable script-analyzer
-  main-is: Main.hs
-  hs-source-dirs:
-    script-analyzer
-    test
-  other-modules:
-    Marketplace.Fixtures.NFT
-    Marketplace.Fixtures.Script
-    Marketplace.Fixtures.Wallet
-    Marketplace.Spec.Start
-    Marketplace.Spec.CreateNft
-    Marketplace.Spec.Bundles
-    Marketplace.Spec.Sale
-    Marketplace.Spec.Auction
-    Marketplace.Fixtures
-    Marketplace.Fixtures.CheckOptions
-    Utils
-    Utils.Data
-    Utils.Trace
-  build-depends:
-    base >= 4.9 && <5,
-    aeson -any,
-    bytestring -any,
-    cardano-crypto-class -any,
-    containers -any,
-    data-default -any,
-    flat -any,
-    freer-extras -any,
-    hedgehog -any,
-    prettyprinter -any,
-    QuickCheck -any,
-    tasty -any,
-    tasty-hunit -any,
-    tasty-golden -any,
-    tasty-quickcheck -any,
-    text -any,
-    lens -any,
-    mtl -any,
-    row-types -any,
-    freer-simple -any,
-    foldl -any,
-    streaming -any,
-    directory -any,
-    filepath -any,
-    serialise -any,
-    plutus-core -any,
-    plutus-ledger-api -any,
-    plutus-tx -any,
-    plutus-contract -any,
-    plutus-chain-index-core -any,
-    plutus-ledger -any,
-    plutus-use-cases -any,
-    plutus-starter,
-    optparse-applicative -any,
-    aeson-pretty -any,
-    cardano-api -any,
-    cardano-binary -any,
-    cborg -any,
-    memory -any
         
 test-suite test
     import: lang
