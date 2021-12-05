@@ -12,14 +12,14 @@ import           Cardano.Api.Shelley
 
 import qualified Cardano.Ledger.Alonzo.Data     as Alonzo
 import qualified Plutus.V1.Ledger.Api           as Plutus
-
+import           Plutus.V1.Ledger.Bytes ( LedgerBytes (..))
 import qualified Data.ByteString.Short          as SBS
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy.Char8     as LB8
 import           Data.Text                      (Text, pack)
 import           Contracts.Oracle.RequestToken
 import           Contracts.Oracle.Types
-import           Ledger.Oracle                  (SignedMessage(..), signMessage)
+import           Ledger.Oracle                  (SignedMessage(..), signMessage, verifySignedMessageConstraints, checkHashConstraints)
 import           Types.Game
 import           Contracts.Oracle.OnChain
 import           Ledger
@@ -66,7 +66,8 @@ main = do
       case pkE of
         Left err -> exitWithErrorMessage $ "XPub not found" ++ show err
         Right pkPub -> do
-          let pkh = pubKeyHash $ xPubToPublicKey pkPub
+          let pk = xPubToPublicKey pkPub
+          let pkh = pubKeyHash $ pk
           if oracleSignKey == "" 
             then showData gameId pkh Nothing
             else 
@@ -77,15 +78,23 @@ main = do
                   case signKeyE of 
                     Left error -> exitWithErrorMessage error
                     Right signKey -> do
-                      let pkhPriv = pubKeyHash $ toPublicKey signKey
+                      let privPub = toPublicKey signKey
+                      let pkhPriv = pubKeyHash $ privPub
+
+                      --exitWithErrorMessage $ "pkh: " ++ show pkh ++ " privPkh: " ++ show pkhPriv
                       let message = OracleSignedMessage{
                           osmWinnerId = winnerId,
                           osmGameId = gameId,
                           osmGameStatus = status
                       }
-                      let signedMessage = Just $ signMessage message signKey
-                      showData gameId pkh signedMessage
-            
+                      let signedMessage = signMessage message signKey
+
+                      -- case verifySignedMessageConstraints privPub signedMessage of
+                      --   Left err                 -> exitWithErrorMessage $ "verify error: " ++ show err
+                      --   Right (osm, constraints) -> exitWithErrorMessage $ "verify success" --Just (osm, constraints)
+
+                      showData gameId pkh (Just signedMessage)
+
 showData:: GameId -> PubKeyHash -> Maybe (SignedMessage OracleSignedMessage) -> IO ()
 showData gameId pkh signeMessage = do
     let od = OracleData { 

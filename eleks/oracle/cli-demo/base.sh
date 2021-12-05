@@ -6,17 +6,16 @@ function setEnv() {
   export TESTNET_MAGIC=1097911063
   export ORACLE_FEE=2000000
   export ORACLE_COLLATERAL=3500000
-  export MIN_UTXO=2000000
-  export ORACLE_TOKEN_NAME="ortk"
-  export CARDANO_NODE_SOCKET_PATH=$dir/node/db/node.socket
+  export MIN_UTXO=2000000 
+  export ORACLE_TOKEN_NAME="6f72746b" #orkt in base16
+  #export CARDANO_NODE_SOCKET_PATH=$dir/node/db/node.socket
+  export CARDANO_NODE_SOCKET_PATH=/tmp/node.socket
   #export CARDANO_NODE_SOCKET_PATH=~/projects/plutus/plutus-apps/plutus-pab/test-node/testnet/node.sock
 
   export PROTOCOL_PATH=$dir/protocol.json
   export TX_RAW_PATH=$dir/tx.raw
   export TX_SIGN_PATH=$dir/tx.sign
   cardano-cli query protocol-parameters --testnet-magic $TESTNET_MAGIC --out-file $PROTOCOL_PATH
-
-  makeScriptAddress
 } 
 
 function makeDatumBytes() {
