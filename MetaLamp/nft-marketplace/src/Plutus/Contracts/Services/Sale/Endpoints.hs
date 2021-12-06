@@ -26,7 +26,6 @@ import           Ledger.Value
 import qualified Plutus.Abstract.Percentage                               as Percentage
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                                as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
 import qualified Plutus.Contracts.Services.Sale.Core                      as Core
 import qualified Plutus.Contracts.Services.Sale.StateMachine              as Core

@@ -38,7 +38,6 @@ import           Plutus.Contract.StateMachine           hiding (mkValidator,
                                                          typedValidator)
 import qualified Plutus.Contract.StateMachine           as SM
 import           Plutus.Contract.Util                   (loopM)
-import qualified Plutus.Contracts.Currency              as Currency
 import           Plutus.Contracts.Services.Auction.Core
 import           Plutus.V1.Ledger.Time                  (POSIXTime (..))
 import qualified PlutusTx

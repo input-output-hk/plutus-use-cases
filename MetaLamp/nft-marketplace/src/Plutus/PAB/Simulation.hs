@@ -60,7 +60,6 @@ import           Plutus.Abstract.ContractResponse               (ContractRespons
                                                                  ContractState (..))
 import           Plutus.Abstract.RemoteData                     (RemoteData (..))
 import           Plutus.Contract                                hiding (when)
-import           Plutus.Contracts.Currency                      as Currency
 import qualified Plutus.Contracts.NftMarketplace.Endpoints      as Marketplace
 import qualified Plutus.Contracts.NftMarketplace.OffChain.Owner as Owner
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
@@ -90,6 +89,7 @@ import           Wallet.Emulator.Types                          (WalletNumber (.
 import           Wallet.Emulator.Wallet                         (Wallet (..),
                                                                  fromWalletNumber)
 import           Wallet.Types                                   (ContractInstanceId)
+import           Ledger.Index           (minAdaTxOut)
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1
@@ -105,8 +105,8 @@ userWallets = fromWalletNumber <$> [WalletNumber i | i <- [2 .. 4]]
 
 startMarketplaceParams :: Owner.StartMarketplaceParams
 startMarketplaceParams = Owner.StartMarketplaceParams {
-    creationFee = 100000,  -- 0.1 ADA
-    saleFee = (5, 2)
+    creationFee = Ada.getLovelace minAdaTxOut,
+    saleFee = (7, 2)
 }
 
 initialLotPrice :: Value.Value
@@ -288,6 +288,8 @@ runNftMarketplace =
         _                                       -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful bundleUp"
 
+    _ <- Simulator.waitNSlots 10
+
     _  <-
         Simulator.callEndpointOnInstance userCid "unbundle" $
             Marketplace.UnbundleParams {
@@ -298,6 +300,8 @@ runNftMarketplace =
         _                                         -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful unbundle"
 
+    _ <- Simulator.waitNSlots 10
+    
     _ <- Simulator.callEndpointOnInstance cidInfo "fundsAt" buyer
     v <- flip Simulator.waitForState cidInfo $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.InfoContractState)) of
             J.Success (Last (Just (ContractState _ (Success (Marketplace.FundsAt v))))) -> Just v

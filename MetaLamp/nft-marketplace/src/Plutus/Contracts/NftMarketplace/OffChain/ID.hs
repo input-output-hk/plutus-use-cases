@@ -23,7 +23,6 @@ import           Ledger
 import qualified Ledger.Typed.Scripts                                   as Scripts
 import           Ledger.Value
 import           Plutus.Contract
-import           Plutus.Contracts.Currency                              as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Core
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID        (InternalId (..))

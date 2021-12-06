@@ -8,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeOperators #-}
 module Plutus.Contracts.NftMarketplace.OffChain.Owner where
 
 import qualified Control.Lens                                 as Lens
@@ -30,7 +31,6 @@ import           Plutus.Abstract.RemoteData                   (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.Request                      (ownPubKeyHash)
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                    as Currency
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Core
 import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import qualified PlutusTx
@@ -41,6 +41,22 @@ import           Prelude                                      (Semigroup (..))
 import qualified Prelude                                      as Haskell
 import qualified Schema
 import           Text.Printf                                  (printf)
+import qualified Data.Map  as Map
+import qualified Cardano.Api  as C
+import Ledger.Tx.CardanoAPI (toCardanoAddress)
+---
+import qualified Ledger.Constraints                                       as Constraints
+import Plutus.V1.Ledger.Scripts (Datum (..))
+import Plutus.V1.Ledger.Api (toData, dataToBuiltinData)
+import Plutus.Contract.Request (utxosTxOutTxAt, datumFromHash)
+import qualified Data.Map  as Map
+import           PlutusTx.Builtins.Internal                             (BuiltinByteString)
+
+-- imports for debug
+import qualified Cardano.Api  as C
+import Ledger.Tx.CardanoAPI (toCardanoAddress)
+import Ledger.Scripts (datumHash)
+---
 
 data StartMarketplaceParams = StartMarketplaceParams {
     creationFee :: Integer,  -- fee by minting and bundling
@@ -56,15 +72,23 @@ start StartMarketplaceParams {..} = do
     saleFeePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage saleFee
     let marketplace = Core.Marketplace pkh (Lovelace creationFee) saleFeePercentage
     let client = Core.marketplaceClient marketplace
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) minAdaTxOutValue
 
+    -- Debug info
+    let realMarketplaceAddress = C.serialiseAddress <$> toCardanoAddress (C.Testnet $ C.NetworkMagic 1097911063) (Core.marketplaceAddress marketplace) 
+    logInfo @Haskell.String $ printf "Marketplace address in testnet: %s" (Haskell.show realMarketplaceAddress)
+
+    utxoTx <- utxosAt (Core.marketplaceAddress marketplace)
+    logInfo @Haskell.String $ printf "Utxos : %s" (Haskell.show utxoTx)
+
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) minAdaTxOutValue
     logInfo @Haskell.String $ printf "started Marketplace %s at address %s" (Haskell.show marketplace) (Haskell.show $ Core.marketplaceAddress marketplace)
     pure marketplace
 
 type MarketplaceOwnerSchema =
     Endpoint "start" StartMarketplaceParams
 
-data OwnerContractState = Started Core.Marketplace
+data OwnerContractState = 
+    Started Core.Marketplace
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 

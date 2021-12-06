@@ -9,7 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
-
+{-# LANGUAGE NamedFieldPuns #-}
 module Plutus.Contracts.NftMarketplace.OnChain.Core.StateMachine where
 
 import           Control.Lens                                             ((&),
@@ -185,14 +185,6 @@ transition marketplace@Marketplace{..} state redeemer = case redeemer of
            in  Just ( mempty
                     , State (insertBundle bundleId newEntry nftStore) currStateValue
                     )
-    BundleUpRedeemer nftIds bundleId bundleInfo
-        -> Just ( Constraints.mustPayToPubKey marketplaceOperator (toValue marketplaceNFTFee)
-                , State (bundleUpDatum nftIds bundleId bundleInfo nftStore) currStateValue
-                )
-    UnbundleRedeemer bundleId
-        -> Just ( mempty
-                , State (unbundleDatum bundleId nftStore) currStateValue
-                )
     _                                        -> trace "Invalid transition" Nothing
   where
     nftStore :: MarketplaceDatum

@@ -36,7 +36,6 @@ import qualified Ledger.Typed.Scripts             as Scripts
 import           Playground.Contract
 import           Plutus.Abstract.RemoteData       (RemoteData (..))
 import           Plutus.Contract                  hiding (when)
-import           Plutus.Contracts.Currency        as Currency
 import           Plutus.V1.Ledger.Ada             (adaValueOf, lovelaceValueOf)
 import qualified Plutus.V1.Ledger.Address         as Addr
 import           Plutus.V1.Ledger.Value           as Value

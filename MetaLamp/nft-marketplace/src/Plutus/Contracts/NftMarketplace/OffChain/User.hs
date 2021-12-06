@@ -38,7 +38,7 @@ import           Plutus.Abstract.RemoteData                               (Remot
 import           Plutus.Contract
 import           Plutus.Contract.Request                                  (ownPubKeyHash)
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                                as Currency
+import qualified Ext.Plutus.Contracts.Currency as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID              (UserItemId (..),
                                                                            toInternalId)
 import           Plutus.Contracts.NftMarketplace.OffChain.Info

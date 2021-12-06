@@ -37,7 +37,6 @@ import           Plutus.Abstract.Percentage                      (Percentage)
 import           Plutus.Abstract.RemoteData                      (RemoteData)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.Currency                       as Currency
 import           Plutus.Contracts.NftMarketplace.OffChain.ID
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core    as Core
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalId (..))

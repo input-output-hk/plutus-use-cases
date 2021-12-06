@@ -41,6 +41,7 @@ common lang
 library
     import: lang
     exposed-modules:
+      Ext.Plutus.Contracts.Currency
       Ext.Plutus.Ledger.Index
       Ext.Plutus.Ledger.Time
       Ext.Plutus.Ledger.Value
@@ -95,6 +96,7 @@ library
       wai-cors,
       openapi3 -any,
       -- Plutus:
+      cardano-api,
       playground-common,
       plutus-contract,
       plutus-ledger,
