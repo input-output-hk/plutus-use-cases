@@ -15,8 +15,8 @@ import Test.NFT.Contract qualified as NFT.Contract
 import Test.NFT.QuickCheck qualified as NFT.QuickCheck
 import Test.NFT.Script.Main qualified as NFT.Script
 import Test.NFT.Size qualified as NFT.Size
-import Test.Nft.Contract qualified as Nft.Contract
-import Test.Nft.Logic qualified as Nft.Logic
+import Test.NftStateMachine.Contract qualified as Nft.Contract
+import Test.NftStateMachine.Logic qualified as Nft.Logic
 
 main :: IO ()
 main =

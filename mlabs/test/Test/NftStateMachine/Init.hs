@@ -2,7 +2,7 @@
 {-# LANGUAGE NumericUnderscores #-}
 
 -- | Init blockchain state for tests
-module Test.Nft.Init (
+module Test.NftStateMachine.Init (
   Script,
   runScript,
   checkOptions,

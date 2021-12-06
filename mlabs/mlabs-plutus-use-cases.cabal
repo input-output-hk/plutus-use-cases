@@ -298,9 +298,9 @@ Test-suite mlabs-plutus-use-cases-tests
     Test.Lending.Init
     Test.Lending.Logic
     Test.Lending.QuickCheck
-    Test.Nft.Contract
-    Test.Nft.Init
-    Test.Nft.Logic
+    Test.NftStateMachine.Contract
+    Test.NftStateMachine.Init
+    Test.NftStateMachine.Logic
     Test.Utils
     Test.NFT.Init
     Test.NFT.Trace

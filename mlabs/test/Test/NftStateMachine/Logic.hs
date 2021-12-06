@@ -1,5 +1,5 @@
 -- | Tests for logic of state transitions for aave prototype
-module Test.Nft.Logic (
+module Test.NftStateMachine.Logic (
   test,
 ) where
 
