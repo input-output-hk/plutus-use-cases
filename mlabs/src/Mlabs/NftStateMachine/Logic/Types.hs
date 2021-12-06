@@ -13,7 +13,7 @@
 {-# OPTIONS_GHC -fobject-code #-}
 
 -- | Datatypes for NFT state machine.
-module Mlabs.Nft.Logic.Types (
+module Mlabs.NftStateMachine.Logic.Types (
   Nft (..),
   NftId (..),
   initNft,

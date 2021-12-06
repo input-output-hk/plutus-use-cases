@@ -6,9 +6,9 @@ import System.Exit (die)
 import Prelude (IO, String, error, print, undefined)
 
 import Mlabs.Emulator.Types (UserId (..))
-import Mlabs.Nft.Contract.Forge as F
-import Mlabs.Nft.Contract.StateMachine as SM
-import Mlabs.Nft.Logic.Types (Act (..), Nft (..), NftId (..), UserAct (..), initNft, toNftId)
+import Mlabs.NftStateMachine.Contract.Forge as F
+import Mlabs.NftStateMachine.Contract.StateMachine as SM
+import Mlabs.NftStateMachine.Logic.Types (Act (..), Nft (..), NftId (..), UserAct (..), initNft, toNftId)
 
 import Cardano.Api
 import Cardano.Api.Shelley

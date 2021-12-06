@@ -7,7 +7,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Contract API for Lendex application
-module Mlabs.Nft.Contract.Api (
+module Mlabs.NftStateMachine.Contract.Api (
   Buy (..),
   SetPrice (..),
   StartParams (..),
@@ -22,7 +22,7 @@ import Plutus.Contract (type (.\/))
 import PlutusTx.Prelude (BuiltinByteString, Integer, Maybe, Rational)
 import Prelude qualified as Hask (Eq, Show)
 
-import Mlabs.Nft.Logic.Types (UserAct (BuyAct, SetPriceAct))
+import Mlabs.NftStateMachine.Logic.Types (UserAct (BuyAct, SetPriceAct))
 import Mlabs.Plutus.Contract (Call, IsEndpoint (..))
 
 ----------------------------------------------------------------------

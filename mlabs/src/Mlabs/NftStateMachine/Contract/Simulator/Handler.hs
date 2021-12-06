@@ -1,5 +1,5 @@
 -- | Handlers for PAB simulator
-module Mlabs.Nft.Contract.Simulator.Handler (
+module Mlabs.NftStateMachine.Contract.Simulator.Handler (
   Sim,
   NftContracts (..),
   runSimulator,
@@ -43,10 +43,10 @@ import Plutus.PAB.Simulator qualified as Simulator
 -- ! import Plutus.PAB.Types (PABError (..))
 import Plutus.PAB.Webserver.Server qualified as PAB.Server
 
-import Mlabs.Nft.Contract.Api qualified as Nft
+import Mlabs.NftStateMachine.Contract.Api qualified as Nft
 
--- ! import Mlabs.Nft.Contract.Server qualified as Nft
-import Mlabs.Nft.Logic.Types (NftId)
+-- ! import Mlabs.NftStateMachine.Contract.Server qualified as Nft
+import Mlabs.NftStateMachine.Logic.Types (NftId)
 
 -- | Shortcut for Simulator monad for NFT case
 type Sim a = Simulation (Builtin NftContracts) a

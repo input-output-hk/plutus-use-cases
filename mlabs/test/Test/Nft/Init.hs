@@ -37,9 +37,9 @@ import PlutusTx.Prelude (BuiltinByteString)
 import Test.Utils (next)
 
 import Mlabs.Emulator.Types (UserId (..), adaCoin)
-import Mlabs.Nft.Contract qualified as N
-import Mlabs.Nft.Contract.Emulator.Client qualified as N
-import Mlabs.Nft.Logic.Types (NftId, UserAct (..))
+import Mlabs.NftStateMachine.Contract qualified as N
+import Mlabs.NftStateMachine.Contract.Emulator.Client qualified as N
+import Mlabs.NftStateMachine.Logic.Types (NftId, UserAct (..))
 import Mlabs.Utils.Wallet (walletFromNumber)
 import PlutusTx.Ratio qualified as R
 

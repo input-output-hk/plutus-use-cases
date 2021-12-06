@@ -1,4 +1,4 @@
-module Mlabs.Nft.Contract.Server (
+module Mlabs.NftStateMachine.Contract.Server (
   -- * Contracts
   UserContract,
   AuthorContract,
@@ -21,9 +21,9 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Tx (ciTxOutDatum)
 import Mlabs.Data.List (firstJustRight)
 import Mlabs.Emulator.Types (ownUserId)
-import Mlabs.Nft.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, StartParams (..), UserSchema, toUserAct)
-import Mlabs.Nft.Contract.StateMachine qualified as SM
-import Mlabs.Nft.Logic.Types (Act (UserAct), NftId, initNft, toNftId)
+import Mlabs.NftStateMachine.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPrice, StartParams (..), UserSchema, toUserAct)
+import Mlabs.NftStateMachine.Contract.StateMachine qualified as SM
+import Mlabs.NftStateMachine.Logic.Types (Act (UserAct), NftId, initNft, toNftId)
 import Mlabs.Plutus.Contract (getEndpoint, selectForever)
 import Plutus.Contract (Contract, logError, ownPubKeyHash, tell, throwError, toContract, utxosAt)
 import Plutus.V1.Ledger.Api (Datum)

@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Mlabs.Nft.Contract.StateMachine (
+module Mlabs.NftStateMachine.Contract.StateMachine (
   NftMachine,
   NftMachineClient,
   NftError,
@@ -38,9 +38,9 @@ import PlutusTx.Prelude qualified as Plutus
 
 import Mlabs.Emulator.Blockchain (toConstraints, updateRespValue)
 import Mlabs.Emulator.Types (UserId (..))
-import Mlabs.Nft.Contract.Forge qualified as Forge
-import Mlabs.Nft.Logic.React (react)
-import Mlabs.Nft.Logic.Types (Act (UserAct), Nft (nft'id), NftId (nftId'token))
+import Mlabs.NftStateMachine.Contract.Forge qualified as Forge
+import Mlabs.NftStateMachine.Logic.React (react)
+import Mlabs.NftStateMachine.Logic.Types (Act (UserAct), Nft (nft'id), NftId (nftId'token))
 
 type NftMachine = SM.StateMachine Nft Act
 type NftMachineClient = SM.StateMachineClient Nft Act

@@ -10,7 +10,7 @@ import Test.Nft.Init (Script, adaCoin, checkOptions, runScript, userAct, w1, w2,
 import Test.Tasty (TestTree, testGroup)
 
 import Mlabs.Emulator.Scene (Scene, checkScene, owns)
-import Mlabs.Nft.Logic.Types (UserAct (..))
+import Mlabs.NftStateMachine.Logic.Types (UserAct (..))
 
 test :: TestTree
 test =

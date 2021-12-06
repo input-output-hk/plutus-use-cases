@@ -1,5 +1,5 @@
 -- | Client functions to test contracts in EmulatorTrace monad.
-module Mlabs.Nft.Contract.Emulator.Client (
+module Mlabs.NftStateMachine.Contract.Emulator.Client (
   callUserAct,
   callStartNft,
 ) where
@@ -11,9 +11,9 @@ import Data.Monoid (Last (..))
 import Plutus.Trace.Emulator (EmulatorRuntimeError (..), EmulatorTrace, activateContractWallet, observableState, throwError, waitNSlots)
 import Wallet.Emulator (Wallet)
 
-import Mlabs.Nft.Contract.Api (Buy (..), SetPrice (..), StartParams)
-import Mlabs.Nft.Contract.Server (authorEndpoints, userEndpoints)
-import Mlabs.Nft.Logic.Types qualified as Types
+import Mlabs.NftStateMachine.Contract.Api (Buy (..), SetPrice (..), StartParams)
+import Mlabs.NftStateMachine.Contract.Server (authorEndpoints, userEndpoints)
+import Mlabs.NftStateMachine.Logic.Types qualified as Types
 import Mlabs.Plutus.Contract (callEndpoint')
 
 ---------------------------------------------------------

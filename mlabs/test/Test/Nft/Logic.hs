@@ -13,7 +13,7 @@ import Test.Tasty.HUnit (testCase)
 import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
 import Mlabs.Emulator.Blockchain (BchWallet (..))
 import Mlabs.Emulator.Types (UserId (UserId), adaCoin)
-import Mlabs.Nft.Logic.App (Script, buy, defaultAppCfg, runNftApp, setPrice)
+import Mlabs.NftStateMachine.Logic.App (Script, buy, defaultAppCfg, runNftApp, setPrice)
 
 -- | Test suite for a logic of lending application
 test :: TestTree

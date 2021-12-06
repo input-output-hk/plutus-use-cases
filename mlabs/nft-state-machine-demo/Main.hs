@@ -18,9 +18,9 @@ import Plutus.PAB.Simulator qualified as Simulator
 import PlutusTx.Prelude (BuiltinByteString)
 import Wallet.Emulator.Wallet (fromWalletNumber)
 
-import Mlabs.Nft.Contract qualified as Nft
-import Mlabs.Nft.Contract.Simulator.Handler qualified as Handler
-import Mlabs.Nft.Logic.Types (NftId)
+import Mlabs.NftStateMachine.Contract qualified as Nft
+import Mlabs.NftStateMachine.Contract.Simulator.Handler qualified as Handler
+import Mlabs.NftStateMachine.Logic.Types (NftId)
 import Mlabs.Plutus.PAB (call, printBalance, waitForLast)
 import Mlabs.System.Console.PrettyLogger (logNewLine)
 import Mlabs.System.Console.Utils (logAction, logMlabs)

@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 
 -- | Validation of forge for NFTs
-module Mlabs.Nft.Contract.Forge (
+module Mlabs.NftStateMachine.Contract.Forge (
   currencyPolicy,
   currencySymbol,
 ) where
@@ -16,7 +16,7 @@ import Plutus.V1.Ledger.Scripts qualified as Scripts
 import Plutus.V1.Ledger.Value qualified as Value
 import PlutusTx qualified
 
-import Mlabs.Nft.Logic.Types (NftId (NftId))
+import Mlabs.NftStateMachine.Logic.Types (NftId (NftId))
 
 {-# INLINEABLE validate #-}
 

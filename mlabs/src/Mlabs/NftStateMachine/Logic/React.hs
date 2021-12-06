@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -fobject-code #-}
 
 -- | Transition function for NFTs
-module Mlabs.Nft.Logic.React (react, checkInputs) where
+module Mlabs.NftStateMachine.Logic.React (react, checkInputs) where
 
 import Control.Monad.State.Strict (gets, modify')
 
@@ -14,8 +14,8 @@ import PlutusTx.Prelude
 import Mlabs.Control.Check (isPositive)
 import Mlabs.Emulator.Blockchain (Resp (Move))
 import Mlabs.Lending.Logic.Types (adaCoin)
-import Mlabs.Nft.Logic.State (St, getAuthorShare, isOwner, isRightPrice)
-import Mlabs.Nft.Logic.Types (
+import Mlabs.NftStateMachine.Logic.State (St, getAuthorShare, isOwner, isRightPrice)
+import Mlabs.NftStateMachine.Logic.Types (
   Act (..),
   Nft (nft'author, nft'owner, nft'price),
   UserAct (BuyAct, SetPriceAct),

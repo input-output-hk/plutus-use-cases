@@ -7,7 +7,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Application for testing NFT logic.
-module Mlabs.Nft.Logic.App (
+module Mlabs.NftStateMachine.Logic.App (
   NftApp,
   runNftApp,
   AppCfg (..),
@@ -30,8 +30,8 @@ import Mlabs.Emulator.App (App (..), runApp)
 import Mlabs.Emulator.Blockchain (BchState (BchState), BchWallet (..), defaultBchWallet)
 import Mlabs.Emulator.Script qualified as S
 import Mlabs.Emulator.Types (UserId (..), adaCoin)
-import Mlabs.Nft.Logic.React (react)
-import Mlabs.Nft.Logic.Types (Act (..), Nft, UserAct (BuyAct, SetPriceAct), initNft)
+import Mlabs.NftStateMachine.Logic.React (react)
+import Mlabs.NftStateMachine.Logic.Types (Act (..), Nft, UserAct (BuyAct, SetPriceAct), initNft)
 import PlutusTx.Ratio qualified as R
 
 -- | NFT test emulator. We use it test the logic.

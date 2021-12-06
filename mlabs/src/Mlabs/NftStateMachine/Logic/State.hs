@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -fobject-code #-}
 
 -- | State transitions for NFT app
-module Mlabs.Nft.Logic.State (
+module Mlabs.NftStateMachine.Logic.State (
   St,
   isOwner,
   isRightPrice,
@@ -16,7 +16,7 @@ import PlutusTx.Prelude
 
 import Mlabs.Control.Monad.State (PlutusState, gets, guardError)
 import Mlabs.Lending.Logic.Types (UserId)
-import Mlabs.Nft.Logic.Types (Nft (nft'owner, nft'price, nft'share))
+import Mlabs.NftStateMachine.Logic.Types (Nft (nft'owner, nft'price, nft'share))
 import PlutusTx.Ratio qualified as R
 
 -- | State update of NFT

@@ -15,7 +15,7 @@ re-sold, a royalty to the artist can be enforced
 prerequisite: none
 
 input:
-Mlabs.Nft.Contract.Api.StartParams
+Mlabs.NftStateMachine.Contract.Api.StartParams
 (content, share, price)
 
 behavior: instantiates the 'User' Contract, which represents an asset described
@@ -37,7 +37,7 @@ Prerequiste: none beyond contract instantiation
 must be the current owner
 
 input:
-Mlabs.Nft.Contract.Api.SetPrice
+Mlabs.NftStateMachine.Contract.Api.SetPrice
 
 behavior:  
 updates the `price` parameter needed for the `Buy` endpoint
@@ -49,7 +49,7 @@ asking price specified by a call to either `StartParams` or `SetPrice` must be a
 Just.   if it is a Nothing, then the asset is not for sale.
 
 input:
-Mlabs.Nft.Contract.Api.Buy
+Mlabs.NftStateMachine.Contract.Api.Buy
 (price, newprice)
 
 behavior:

@@ -166,17 +166,17 @@ library
     Mlabs.NFT.PAB.Simulator
     Mlabs.NFT.Types
     Mlabs.NFT.Validation
-    Mlabs.Nft.Contract
-    Mlabs.Nft.Contract.Api
-    Mlabs.Nft.Contract.Emulator.Client
-    Mlabs.Nft.Contract.Forge
-    Mlabs.Nft.Contract.Server
-    Mlabs.Nft.Contract.Simulator.Handler
-    Mlabs.Nft.Contract.StateMachine
-    Mlabs.Nft.Logic.App
-    Mlabs.Nft.Logic.React
-    Mlabs.Nft.Logic.State
-    Mlabs.Nft.Logic.Types
+    Mlabs.NftStateMachine.Contract
+    Mlabs.NftStateMachine.Contract.Api
+    Mlabs.NftStateMachine.Contract.Emulator.Client
+    Mlabs.NftStateMachine.Contract.Forge
+    Mlabs.NftStateMachine.Contract.Server
+    Mlabs.NftStateMachine.Contract.Simulator.Handler
+    Mlabs.NftStateMachine.Contract.StateMachine
+    Mlabs.NftStateMachine.Logic.App
+    Mlabs.NftStateMachine.Logic.React
+    Mlabs.NftStateMachine.Logic.State
+    Mlabs.NftStateMachine.Logic.Types
     Mlabs.Plutus.Contract
     Mlabs.Plutus.PAB
     Mlabs.System.Console.PrettyLogger
@@ -207,13 +207,13 @@ executable deploy-app
     , serialise
     , cardano-api
 
-executable nft-demo
+executable nft-state-machine-demo
   import:  common-imports
   import:  common-language
   import:  common-configs
   import:  common-ghc-options  
 
-  main-is: nft-demo/Main.hs
+  main-is: nft-state-machine-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable governance-demo
