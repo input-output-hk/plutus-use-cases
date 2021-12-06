@@ -41,6 +41,7 @@ import           Types.Game (GameId)
 data OracleContracts = 
     OracleContract OracleParams
     | OracleRequest Oracle
+    | OracleUse Oracle
     deriving (Eq, Ord, Show, Generic)
     deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
@@ -61,11 +62,13 @@ getOracleContractsSchema :: OracleContracts -> [FunctionSchema FormSchema]
 getOracleContractsSchema = \case
     OracleContract _    -> Builtin.endpointsToSchemas @OracleSchema
     OracleRequest _ -> Builtin.endpointsToSchemas @Empty
+    OracleUse _ -> Builtin.endpointsToSchemas @UseOracleSchema
 
 getOracleContracts :: OracleContracts -> SomeBuiltin
 getOracleContracts = \case
     OracleContract params -> SomeBuiltin $ runOracle params
     OracleRequest oracle -> SomeBuiltin $ (requestOracleForAddress oracle 1 :: Contract () Empty Text ())
+    OracleUse oracle -> SomeBuiltin $ (useOracle oracle)
 
 handlers :: SimulatorEffectHandlers (Builtin OracleContracts)
 handlers =

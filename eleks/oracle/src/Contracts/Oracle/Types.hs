@@ -31,7 +31,8 @@ import           Data.Aeson.Types
 import           Data.Either                     (fromRight)
 import           Data.Map                        (lookup)
 import           Ledger                          hiding (txOutRefs)
-import           Ledger.Oracle                   (SignedMessage(..))
+import           Ledger.Crypto                   (pubKeyHash)
+import           Plutus.Contract.Oracle          (SignedMessage(..))
 import           Ledger.Value                    (TokenName (..), AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
 import           Playground.Contract             (Show, FromJSON, Generic, ToJSON, ToSchema)
 import           Plutus.ChainIndex.Tx            (txOutRefs, ChainIndexTx (..), ChainIndexTxOutputs (..))
@@ -129,9 +130,14 @@ data OracleParams = OracleParams
     , opSigner :: !Haskell.String
     } deriving (Haskell.Eq, Show, Haskell.Ord, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
+data UseOracleParams = UseOracleParams
+    { uoGame           :: Integer -- use owned oracle request
+    }
+    deriving (Haskell.Eq, Show, Haskell.Ord, Generic, ToSchema, FromJSON, ToJSON, OpenApi.ToSchema)
+
 {-# INLINABLE oracleRequestTokenName #-}
 oracleRequestTokenName :: TokenName
-oracleRequestTokenName = TokenName "oracleRequestTokenName"
+oracleRequestTokenName = TokenName "ortk"
 
 {-# INLINABLE oracleValue #-}
 oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe OracleData

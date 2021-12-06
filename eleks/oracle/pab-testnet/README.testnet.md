@@ -1,44 +1,68 @@
 ## Local
+### Restore wallet 
+curl -H "content-type: application/json" -XPOST \
+    -d @pab-testnet/oracle/restore-wallet.json \
+    localhost:8090/v2/wallets
+88cc0e42b4a4f29d192c8b05967c386cb4c2aeaa
+
+curl -H "content-type: application/json" -XPOST \
+    -d @pab-testnet/oracle/client-wallet.json \
+    localhost:8090/v2/wallets
+
+    d6c363f6bb216612ea38646341a7322df0b915ff
 ### Oracle 
 1. Start pab
   If it's the first time your running, you'll need to ask the PAB to make the
   database:
   ```
-  cabal exec -- testnet-oracle-pab --config pab-testnet/oracle/local-cluster-config.yml migrate
+  cabal exec -- testnet-oracle-pab --config pab-testnet/oracle/testnet-config.yml migrate
   ```
 
   Then, run the PAB
 
   ```
   cabal exec -- testnet-oracle-pab \
-    --config pab-testnet/oracle/local-cluster-config.yml webserver \
-    --passphrase cardano-wallet
+    --config pab-testnet/oracle/testnet-config.yml webserver \
+    --passphrase pab123456789
   ```
 
 #local
 
- export WALLET_ID=2d4cc31a4b3116ab86bfe529d30d9c362acd0b44
+ export OWNER_WALLET_ID=88cc0e42b4a4f29d192c8b05967c386cb4c2aeaa
  curl -H "Content-Type: application/json" -v -X POST -d \
     "{\"caID\":{\"tag\":\"OracleContract\", \"contents\": 
-    {\"opSigner\":\"SCYrlxVqkH2FAfCCS4DyEX77x78ahDVxTwBhmF3010QmecWIArrBTVFHpkN7K5fWW+YYqQ2SjSlSRg7VLBWU1MFbmQNEEisSSUpe3RAg2esy40sPgmkfjjFkXdq3Ev8r4NaUHxjedKQzDZWqLU9JSxBq4i24kaOdu6dek8mtl5U=\",\"opFees\":{\"getLovelace\":2000000},\"opCollateral\":{\"getLovelace\":2000000}}
-     },\"caWallet\":{\"getWalletId\":\"$WALLET_ID\"}}" \
+    {\"opSigner\":\"QA6cMN4QqEQJqHtGFrCLmzTL9XzQjw86PISr8cuuMEn5OMzbiK/ENAtHl+TS9mtY7F2MqGOD2m1srKUGUvTB5Hm4MeksJ0HhAQelN4eyTeobJxwmn85oEmr113fbGsXacq7e/K2fHpaZh4vzy/rq6pKKqgrgwDCKTTG9LLSlrAI=\",\"opFees\":{\"getLovelace\":2000000},\"opCollateral\":{\"getLovelace\":2000000}}
+     },\"caWallet\":{\"getWalletId\":\"$OWNER_WALLET_ID\"}}" \
     localhost:9085/api/contract/activate
   ```
 
   query markte params
   ```
-  export OWNER_INSTANCE_ID=a42fa95e-2f90-408b-ae05-ca720e5a4154
+  export OWNER_INSTANCE_ID=40fcc86f-556e-4c67-bf13-80117e6a677d
   curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:9085/api/contract/instance/$OWNER_INSTANCE_ID/status | jq '.cicCurrentState.observableState.contents'
 
 
+2. Start client
 
+  cabal exec -- testnet-oracle-pab --config pab-testnet/oracle/client-testnet-config.yml migrate
+  ```
+
+  Then, run the PAB
+
+  ```
+  cabal exec -- testnet-oracle-pab \
+    --config pab-testnet/oracle/client-testnet-config.yml webserver \
+    --passphrase clientwallet
+
+3. Request token
+export CLIENT_WALLET=d6c363f6bb216612ea38646341a7322df0b915ff
 curl -H "Content-Type: application/json" -v -X POST -d \
     '{"caID":{"tag":"OracleRequest", "contents": 
 {
   "oOperator": {
-    "getPubKeyHash": "9ed7d88109a20fc0ffe82926040f0768a6bd1dbeceb8124a9050ff85"
+    "getPubKeyHash": "519ccb9453513f5165a661281819dbb487581a25cba373c6d51bcd8c"
   },
   "oCollateral": {
     "getLovelace": 2000000
@@ -47,22 +71,24 @@ curl -H "Content-Type: application/json" -v -X POST -d \
     "getLovelace": 2000000
   },
   "oRequestTokenSymbol": {
-    "unCurrencySymbol": "fffa2c704f23301bb411fb28ab626d1c5cdcd4de13bac9814bb45dd7"
+    "unCurrencySymbol": "0dacdaeb4026ba9eeec5c4c26fe853eb9115f27100cbbac6ada7f841"
   },
   "oOperatorKey": {
-    "getPubKey": "c15b990344122b12494a5edd1020d9eb32e34b0f82691f8e31645ddab712ff2b"
+    "getPubKey": "79b831e92c2741e10107a53787b24dea1b271c269fce68126af5d777db1ac5da"
   }
 }
 
-  },"caWallet":{"getWalletId":"2d4cc31a4b3116ab86bfe529d30d9c362acd0b44"}}' \
-    localhost:9085/api/contract/activate
+  },"caWallet":{"getWalletId":"d6c363f6bb216612ea38646341a7322df0b915ff"}}' \
+    localhost:9087/api/contract/activate
     
-export CLIENT_INSTANCE_ID=a038139c-af8a-4389-937a-424c31cace2d
+export INSTANCE_ID=18a28461-2b7f-4f56-b76a-c0ae5cad7365
   curl -H "Content-Type: application/json" \
   --request GET \
-  http://localhost:9085/api/contract/instance/$CLIENT_INSTANCE_ID/status | jq '.cicCurrentState'
+  http://localhost:9087/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState'
 
-
+38de6c1dfd313615897ba388e4cd502e85f71c610ef43b3fd3677a4
+38de6c1dfd313615897ba388e4cd502e85f71c610ef43b3fd3677a4
+4. Query games by owner
 curl -H "Content-Type: application/json" \
   --request POST \
   --data '[]' \
@@ -75,51 +101,6 @@ curl -H "Content-Type: application/json" \
 curl -H "content-type: application/json" \
       -XGET localhost:46493/v2/wallets/$WALLET_ID | jq '.'
 
-
-Update  Live
-curl -H "Content-Type: application/json" \
-  --request POST \
-  --data "{\"uoGameStatus\":\"LIVE\",\"uoGameId\":1,\"uoWinnerId\":0}" \
-  http://localhost:9085/api/contract/instance/$OWNER_INSTANCE_ID/endpoint/update
-
-update Finish
-curl -H "Content-Type: application/json" \
-  --request POST \
-  --data "{\"uoGameStatus\":\"FT\",\"uoGameId\":1,\"uoWinnerId\":55}" \
-  http://localhost:9085/api/contract/instance/$OWNER_INSTANCE_ID/endpoint/update
-
-
-
-Redeem
-
-
-curl -H "Content-Type: application/json" -v -X POST -d \
-    '{"caID":{"tag":"OracleUse", "contents": 
-{
-  "oOperator": {
-    "getPubKeyHash": "9ed7d88109a20fc0ffe82926040f0768a6bd1dbeceb8124a9050ff85"
-  },
-  "oCollateral": {
-    "getLovelace": 2000000
-  },
-  "oFee": {
-    "getLovelace": 2000000
-  },
-  "oRequestTokenSymbol": {
-    "unCurrencySymbol": "fffa2c704f23301bb411fb28ab626d1c5cdcd4de13bac9814bb45dd7"
-  },
-  "oOperatorKey": {
-    "getPubKey": "c15b990344122b12494a5edd1020d9eb32e34b0f82691f8e31645ddab712ff2b"
-  }
-}
-
-  },"caWallet":{"getWalletId":"2d4cc31a4b3116ab86bfe529d30d9c362acd0b44"}}' \
-    localhost:9085/api/contract/activate
-
-curl -H "Content-Type: application/json" \
-  --request POST \
-  --data "{\"uoGame\":1}" \
-  http://localhost:9085/api/contract/instance/$CLIENT_INSTANCE_ID/endpoint/use
 
 
 
@@ -161,14 +142,12 @@ curl -H "Content-Type: application/json" -v -X POST -d \
     "getLovelace": 2000000
   },
   "oRequestTokenSymbol": {
-    "unCurrencySymbol": "fffa2c704f23301bb411fb28ab626d1c5cdcd4de13bac9814bb45dd7"
+    "unCurrencySymbol": "9f093fbc47a14b082e1699551fe9cec5a6512f2fb912e112e2f6c2df"
   },
   "oOperatorKey": {
     "getPubKey": "c15b990344122b12494a5edd1020d9eb32e34b0f82691f8e31645ddab712ff2b"
   }
 }
-
-
     , 
     "mbpOwner":{ "getPubKeyHash": "9ed7d88109a20fc0ffe82926040f0768a6bd1dbeceb8124a9050ff85"}, 
     "mbpTeam1":55, 
@@ -243,7 +222,10 @@ curl -H "Content-Type: application/json" -v -X POST -d \
 
 
 
-curl -vk -H "Content-Type: application/json" -XPOST http://localhost:9083/from-hash/datum -d '"6da1eae2947ed534e647ba39e3053a928f9a6b4a1ed0ce14d55c60f6000f7ef1"'
+curl -vk -H "Content-Type: application/json" -XPOST http://localhost:9083/from-hash/datum -d '"38de6c1dfd313615897ba388e4cd502e85f71c610ef43b3fd3677a49"'
 
 
 curl -H "Content-Type: application/json" -XGET http://localhost:9083/tip
+
+
+

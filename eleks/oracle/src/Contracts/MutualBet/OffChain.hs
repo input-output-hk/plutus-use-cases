@@ -52,7 +52,7 @@ import qualified Ledger.Constraints               as Constraints
 import           Ledger.Constraints               (ScriptLookups (..))
 import           Ledger.Constraints.TxConstraints (TxConstraints)
 import qualified Ledger.Interval                  as Interval
-import qualified Ledger.Oracle                    as Oracle
+import qualified Plutus.Contract.Oracle           as Oracle
 import           Ledger.TimeSlot                  (SlotConfig)
 import qualified Ledger.TimeSlot                  as TimeSlot
 import qualified Ledger.Typed.Scripts             as Scripts
@@ -112,7 +112,7 @@ machineClient inst threadToken mutualBetParams =
 mutualBetStart :: MutualBetParams -> Contract MutualBetOutput MutualBetStartSchema MutualBetError ()
 mutualBetStart params = do
     threadToken <- SM.getThreadToken
-    --logInfo "bet start thread token" ++ Haskell.show threadToken
+    logInfo ("bet start thread token" ++ Haskell.show threadToken)
     tell $ threadTokenOut threadToken
     self <- ownPubKeyHash
     let inst         = typedValidator (threadToken, params)

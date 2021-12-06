@@ -40,7 +40,7 @@ import qualified Ledger.Ada                       as Ada
 import qualified Ledger.Constraints               as Constraints
 import           Ledger.Constraints.TxConstraints (TxConstraints)
 import qualified Ledger.Interval                  as Interval
-import qualified Ledger.Oracle                    as Oracle
+import qualified Plutus.Contract.Oracle           as Oracle
 import qualified Ledger.Value                     as Value
 import           Ledger.TimeSlot                  (SlotConfig)
 import qualified Ledger.TimeSlot                  as TimeSlot

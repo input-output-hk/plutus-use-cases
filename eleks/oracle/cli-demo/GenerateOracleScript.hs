@@ -20,11 +20,12 @@ import qualified  Data.ByteString.Lazy.Char8    as LB8
 import           Contracts.Oracle.RequestToken
 import           Contracts.Oracle.Types
 import           Contracts.Oracle.OnChain
+import           Contracts.Oracle.OffChain (UpdateOracleParams(..), UseOracleParams(..))
 import           Ledger
 import           Ledger.Ada                     as Ada
 
 import           Wallet.Emulator.Types          (Wallet (..))
-
+import           Types.Game
 -- cabal exec -- gs 2000000 2000000 "keys/oracle/payment.vkey"
 main :: IO ()
 main = do
@@ -54,6 +55,17 @@ main = do
             putStrLn $ "fee: " ++ show fee
             putStrLn $ "collateral: " ++ show collateral 
 
+            let updatePr =  UpdateOracleParams
+                            { uoGameId  = 1   
+                            , uoWinnerId = 55
+                            , uoGameStatus = LIVE
+                            }
+
+            putStrLn $ show $ encode  updatePr
+
+            let useOr = UseOracleParams 
+                         { uoGame = 1}
+            putStrLn $ show $ encode useOr
             let oracleRequestTokenInfo = OracleRequestToken
                   { ortOperator = pkh
                   , ortFee = fee

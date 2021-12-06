@@ -1,10 +1,9 @@
-
 dbConfig:
-    dbConfigFile: pab-testnet/mutual-bet/local-pab.db
+    dbConfigFile: pab-testnet/oracle/testnet-client-pab.db
     dbConfigPoolSize: 20
 
 pabWebserverConfig:
-  baseUrl: http://localhost:9086
+  baseUrl: http://localhost:9087
   staticDir: pab-testnet/plutus-pab-client/dist
   permissiveCorsPolicy: False
   # Optional timeout (in seconds) for calls to endpoints that are not currently
@@ -15,13 +14,13 @@ pabWebserverConfig:
 walletServerConfig:
   tag: LocalWalletConfig
   walletSettings:
-    baseUrl: http://localhost:46493
+    baseUrl: http://localhost:8090
 
 nodeServerConfig:
-  mscSocketPath: /private/tmp/test-cluster63220/node/node.socket
-  mscBaseUrl: http://localhost:9082
-  mscKeptBlocks: 100
-  mscNetworkId: "" # Testnet network ID (main net = empty string)
+  mscSocketPath: /Users/volodymyr.derecha/projects/plutus/plutus-apps/plutus-pab/test-node/testnet/node.sock
+  mscBaseUrl: "localhost"
+  mscKeptBlocks: 2160
+  mscNetworkId: "1097911063" # Testnet network ID (main net = empty string)
   mscSlotConfig:
     scSlotZeroTime: 1596059091000 # Wednesday, July 29, 2020 21:44:51 - shelley launch time in milliseconds
     scSlotLength: 1000 # In milliseconds
@@ -31,13 +30,21 @@ nodeServerConfig:
     fcScriptsFeeFactor: 1.0 # Factor by which to multiply size-dependent scripts fee in lovelace
   mscInitialTxWallets: []
   mscNodeMode: AlonzoNode
-       
+
 chainIndexConfig:
   ciBaseUrl: http://localhost:9083
   ciWatchedAddresses: []
 
 requestProcessingConfig:
   requestProcessingInterval: 1
+
+signingProcessConfig:
+  spBaseUrl: http://localhost:9084
+  spWallet:
+    getWallet: 1
+
+metadataServerConfig:
+  mdBaseUrl: http://localhost:9085
 
 # Optional EKG Server Config
 # ----

@@ -47,7 +47,7 @@ import qualified Ledger.Scripts            as LedgerScripts
 import qualified Ledger.Tx                 as LedgerScripts
 import           Ledger.Constraints        as Constraints
 import qualified Ledger.Contexts           as Validation
-import           Ledger.Oracle             (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), verifySignedMessageConstraints)
+import           Plutus.Contract.Oracle    (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), verifySignedMessageConstraints)
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
@@ -62,15 +62,15 @@ import Contracts.Oracle.RequestToken
 {-# INLINABLE mkOracleValidator #-}
 mkOracleValidator :: Oracle -> OracleData -> OracleRedeemer -> ScriptContext -> Bool
 mkOracleValidator oracle oracleData r ctx =
-    traceIfFalse "request token missing from input" inputHasRequestToken  &&
+    traceIfFalse "request token missing from input" inputHasRequestToken 
+    &&
     case r of
         OracleRedeem    -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
-                  && traceIfFalse "value signed by oracle" (isCurrentValueSigned)
+                  -- && traceIfFalse "value signed by oracle" (isCurrentValueSigned)
                   && traceIfFalse "should redeem request token" (requestTokenValOf forged == -1)
-        Update -> traceIfFalse "operator signature missing" (txSignedBy info $ oOperator oracle) 
-                  && traceIfFalse "invalid output datum" validOutputDatum
-                  && traceIfFalse "update data is invalid" isUpdateValid
-
+        Update -> traceIfFalse "operator signature missing" (txSignedBy info $ (oOperator oracle)) 
+                 && traceIfFalse "invalid output datum" validOutputDatum
+                 && traceIfFalse "update data is invalid" isUpdateValid
   where
     info :: TxInfo
     info = scriptContextTxInfo ctx

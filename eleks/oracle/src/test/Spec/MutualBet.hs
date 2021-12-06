@@ -32,7 +32,7 @@ import           Data.Text.Lazy.Builder             (toLazyText)
 import           Ledger                             (Ada, Slot (..), Value, pubKeyHash, minAdaTxOut)
 import qualified Ledger.Ada                         as Ada
 import           Ledger.Crypto                      (PrivateKey, PubKey)
-import           Ledger.Oracle                      (Observation, SignedMessage, signMessage)
+import           Plutus.Contract.Oracle             (Observation, SignedMessage, signMessage)
 import           Ledger.TimeSlot                    (SlotConfig)
 import qualified Ledger.TimeSlot                    as TimeSlot
 import qualified Ledger.Value                       as Value

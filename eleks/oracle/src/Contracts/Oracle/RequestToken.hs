@@ -62,8 +62,9 @@ checkRequesTokenPolicy :: OracleRequestToken -> OracleRequestRedeemer -> ScriptC
 checkRequesTokenPolicy requestToken r ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}, scriptContextPurpose=Minting _} = 
     case r of
         Request     -> traceIfFalse "Should forge one token" (forgedCount == 1)
-                    && traceIfFalse "Is forged with collateral" (isForgedWithCollateral)
-                    && traceIfFalse "Is fee paid" (isFeePaid (Just $ ortOperator requestToken))
+                    -- todo: https://github.com/input-output-hk/plutus-apps/issues/161
+                    -- && traceIfFalse "Is forged with collateral" (isForgedWithCollateral)
+                    -- && traceIfFalse "Is fee paid" (isFeePaid (Just $ ortOperator requestToken))
         RedeemToken -> traceIfFalse "Should redeem one token" (forgedCount == -1)
     where
         ownSymbol = ownCurrencySymbol ctx

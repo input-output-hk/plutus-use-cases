@@ -40,10 +40,6 @@ import           Plutus.Contract (Contract)
 import           Types.Game (GameId)
 import           Plutus.Contract.StateMachine     (ThreadToken(..))
 
---todo https://github.com/input-output-hk/plutus-apps/issues/157
-instance Ord ThreadToken where 
-    (ThreadToken xRef xSymb) `compare` (ThreadToken yRef ySymb) = xRef `compare` yRef
-
 data MutualBetContracts = 
     MutualBetOwner MutualBetParams
     | MutualBetUser ThreadToken MutualBetParams

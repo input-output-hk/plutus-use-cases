@@ -26,7 +26,7 @@ import           Contracts.Oracle.Types
 import           Data.Monoid                      (Last (..))
 import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
 import           Ledger
-import           Ledger.Oracle
+import           Plutus.Contract.Oracle 
 import           Ledger.Value     
 import           Playground.Contract              (Show, FromJSON, Generic, ToJSON, ToSchema)
 import qualified Plutus.Contract.StateMachine     as SM

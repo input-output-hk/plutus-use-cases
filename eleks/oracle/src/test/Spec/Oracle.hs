@@ -10,7 +10,8 @@
 {-# LANGUAGE TypeFamilies       #-}
 
 module Spec.Oracle
-    ( tests
+    ( tests,
+      requestOracleTrace
     ) where
 
 import           Control.Lens
@@ -32,7 +33,7 @@ import qualified Ledger.Ada                         as Ada
 import           Ledger.Crypto                      (PrivateKey, PubKey)
 import           Ledger.Index                       (ValidationError (ScriptFailure))
 import           Ledger.Scripts                     (ScriptError (EvaluationError))
-import           Ledger.Oracle                      (Observation, SignedMessage, signMessage, verifySignedMessageOffChain, verifySignedMessageConstraints)
+import           Plutus.Contract.Oracle             (Observation, SignedMessage, signMessage, verifySignedMessageOffChain, verifySignedMessageConstraints)
 import           Plutus.Contract                    hiding (currentSlot)
 import           Plutus.Contract.Test               hiding (not)
 import qualified Streaming.Prelude                  as S
@@ -374,3 +375,13 @@ tests =
         )
         getInProgressGameAsActiveTrace
         ]
+
+
+--    requestOracleTrace
+--             checkPredicateOptions options "request oracle token"
+--             (
+--             assertNoFailedTransactions
+--             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
+--             .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle)) <> (Value.assetClassValue (requestTokenClassFromOracle oracle) 1))
+--             )
+--             requestOracleTrace
