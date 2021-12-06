@@ -99,6 +99,7 @@ library
       plutus-contract,
       plutus-ledger,
       plutus-ledger-api,
+      plutus-ledger-constraints,
       plutus-pab,
       plutus-tx,
       plutus-tx-plugin,
