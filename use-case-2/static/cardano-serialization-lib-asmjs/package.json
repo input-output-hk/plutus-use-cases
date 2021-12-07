@@ -1,0 +1,57 @@
+{
+  "_from": "@emurgo/cardano-serialization-lib-asmjs",
+  "_id": "@emurgo/cardano-serialization-lib-asmjs@9.1.0",
+  "_inBundle": false,
+  "_integrity": "sha512-Cp7exVqXRxFydUEfnmIVY89O+biX1zwnSLiG+hFwIQl8OTrqWmQZpNgq2in9LDf/r3K//LmtGamG0T+Nnm+M6A==",
+  "_location": "/@emurgo/cardano-serialization-lib-asmjs",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "@emurgo/cardano-serialization-lib-asmjs",
+    "name": "@emurgo/cardano-serialization-lib-asmjs",
+    "escapedName": "@emurgo%2fcardano-serialization-lib-asmjs",
+    "scope": "@emurgo",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/@emurgo/cardano-serialization-lib-asmjs/-/cardano-serialization-lib-asmjs-9.1.0.tgz",
+  "_shasum": "0a2101120c52b555142a5a238077518788da3526",
+  "_spec": "@emurgo/cardano-serialization-lib-asmjs",
+  "_where": "/home/divam/tmpstuff",
+  "author": {
+    "name": "EMURGO"
+  },
+  "bugs": {
+    "url": "https://github.com/Emurgo/cardano-serialization-lib/issues"
+  },
+  "bundleDependencies": false,
+  "collaborators": [
+    "EMURGO"
+  ],
+  "deprecated": false,
+  "description": "(De)serialization functions for the Cardano blockchain along with related utility functions",
+  "files": [
+    "cardano_serialization_lib.asm.js",
+    "cardano_serialization_lib.js",
+    "cardano_serialization_lib.d.ts",
+    "cardano_serialization_lib.js.flow",
+    "cardano_serialization_lib_bg.js"
+  ],
+  "homepage": "https://github.com/Emurgo/cardano-serialization-lib#readme",
+  "license": "MIT",
+  "module": "cardano_serialization_lib.js",
+  "name": "@emurgo/cardano-serialization-lib-asmjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Emurgo/cardano-serialization-lib.git"
+  },
+  "sideEffects": "false",
+  "types": "cardano_serialization_lib.d.ts",
+  "version": "9.1.0"
+}

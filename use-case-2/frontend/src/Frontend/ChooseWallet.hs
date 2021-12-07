@@ -76,30 +76,15 @@ chooseWallet = do
                 setRoute $ (FrontendRoute_WalletRoute :/ (wid, WalletRoute_Swap :/ ())) <$ domEvent Click e
       elClass "h3" "display-5 fw-bold" $ text "Real Node Static Smart Contract Transaction"
       el "p" $ text "Use the button below to perform static swap using Nami Wallet against a real Alonzo Node with a smart contract that is deployed to testnet!"
+      -- pabDEMV :: Dynamic t (Event t (Maybe Aeson.Value)) <- prerender (return never) $
+      --   _webSocket_recv <$> jsonWebSocket ("ws://localhost:9080/ws/3af11025-ff3a-4001-866c-739a5851742c") (def :: WebSocketConfig t Aeson.Value)
+      -- let pabEMV :: Event t (Maybe Aeson.Value) = switch $ current pabDEMV
       staticSwapEv <- button "Swap ADA for PikaCoin using Nami Wallet"
       ----------------------
-      (utxosEv, utxosTrigger) <- newTriggerEvent
-      dynWalletUtxo <- holdDyn "" utxosEv
-      (collateralEv, collateralTrigger) <- newTriggerEvent
-      dynCollateralUtxo <- holdDyn "" collateralEv
       (addressEv, addressTrigger) <- newTriggerEvent
       dynAddress <- holdDyn "" addressEv
       staticSwapRequestEv <- prerender (pure never) $ liftJSM $ do
-        let getUtxosCallback :: JSCallAsFunction
-            getUtxosCallback = fun $ \_ _ args -> case args of
-              (i:_) -> do
-                fromJSVal i >>= \case
-                  Just (a :: Text) -> liftIO (utxosTrigger a)
-                  _ -> pure ()
-              _ -> pure ()
-            getCollateralCallback :: JSCallAsFunction
-            getCollateralCallback = fun $ \_ _ args -> case args of
-              (i:_) -> do
-                fromJSVal i >>= \case
-                  Just (a :: Text) -> liftIO (collateralTrigger a)
-                  _ -> pure ()
-              _ -> pure ()
-            getAddressCallback :: JSCallAsFunction
+        let getAddressCallback :: JSCallAsFunction
             getAddressCallback = fun $ \_ _ args -> case args of
               (i:_) -> do
                 fromJSVal i >>= \case
@@ -107,20 +92,73 @@ chooseWallet = do
                   _ -> pure ()
               _ -> pure ()
         jsWalletAddress <- eval
-          ("(async function foo (someparam) { let x = await window.cardano.getUsedAddresses(); console.log(x[0]); someparam(x[0]); })" :: Text)
+          ("(async function foo (someparam) { let x = await window.cardano.getUsedAddresses(); \
+            \ y = CardanoWasm.BaseAddress.from_address(CardanoWasm.Address.from_bytes(buffer.Buffer.from(x[0], 'hex'))); \
+            \ console.log(y.to_address().to_bech32()); \
+            \ someparam(y.to_address().to_bech32()); })" :: Text)
         _ <- call jsWalletAddress jsWalletAddress (getAddressCallback)
         walletAddress <- valToText jsWalletAddress -- Note: can throw an exception
-        jsWalletUtxo2 <- eval ("(async function foo (someparam) { let x = await window.cardano.getUtxos(); console.log(x[0]); someparam(x[0]); })" :: Text)
-        _ <- call jsWalletUtxo2 jsWalletUtxo2 (getUtxosCallback)
-        jsCollateralUtxo2 <- eval ("(async function foo (someparam) { let x = await window.cardano.getCollateral(); console.log(x); someparam(x); })" :: Text)
-        _ <- call jsCollateralUtxo2 jsCollateralUtxo2 (getCollateralCallback)
-        let requestLoad = (\w c a -> Api_BuildStaticSwapTransaction w c a)
-               <$> dynWalletUtxo
-               <*> dynCollateralUtxo
-               <*> dynAddress
+        let requestLoad = (\addr -> Api_BuildStaticSwapTransaction addr)
+               <$> dynAddress
         return $ tagPromptlyDyn requestLoad staticSwapEv
       let newEv = switchDyn staticSwapRequestEv
       staticSwapResponse <- requestingIdentity newEv
+      dynEitherCborTx <- holdDyn (Left "CborTx not received") staticSwapResponse
+      let cborHexEv :: Event t Text = updated $ fmap (\a -> either (\err-> T.pack $ show err) (\ch -> ch) a) dynEitherCborTx
+      -- TODO: Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
+      (signedTxEv, signTrigger) <- newTriggerEvent
+      -- (submitTxEv, submitTrigger) <- newTriggerEvent
+      dynHexWitness :: Dynamic t Text <- holdDyn "" signedTxEv
+      -- display dynHexWitness
+      prerender_ blank $ liftJSM $ void $ do
+        let getSignTxCallback :: JSCallAsFunction
+            getSignTxCallback = fun $ \_ _ args -> case args of
+              (i:_) -> do
+                fromJSVal i >>= \case
+                  Just (a :: Text) -> liftIO (signTrigger a)
+                  _ -> pure ()
+              _ -> pure ()
+      --       getSubmitTxCallback :: JSCallAsFunction
+      --       getSubmitTxCallback = fun $ \_ _ args -> case args of
+      --         (i:_) -> do
+      --           fromJSVal i >>= \case
+      --             Just (a :: Text) -> liftIO (submitTrigger a)
+      --             _ -> pure ()
+      --         _ -> pure ()
+      --       contract = ""
+      --       datum = ""
+      --       redeemer = ""
+      -------------------------------------------------------------------------------------------
+        --TODO: How can you force this to async function to fire given a reflex event?
+        _ <- return $ ffor dynEitherCborTx $ \case
+          Left _ -> return ()
+          Right cborHexTx -> do
+            signedTx <- eval ("window.cardano.signTx('" <> cborHexTx <> "');" :: T.Text)
+            _ <- call signedTx signedTx (getSignTxCallback)
+            return ()
+      -------------------------------------------------------------------------------------------
+      --   -- TODO: Replace contract, datums, and redeemers with values when setting TransactionWitnessSet
+      --   submitTxRes <- return $ ffor dynHexWitness $ \(hexWitness :: Text) -> do
+      --         submitTx <- eval("txWitness = buffer.Buffer.from("<> hexWitness <> ", 'hex'); \
+      --           \ txVkeyWitnesses = CardanoWasm.TransactionWitnessSet.from_bytes(txWitness); \
+      --           \ transactionWitnessSet = CardanoWasm.TransactionWitnessSet.new(); \
+      --           \ transactionWitnessSet.set_plutus_scripts(" <> contract <> "); \
+      -- 					\ transactionWitnessSet.set_plutus_data(" <> datum <> "); \
+      --           \ transactionWitnessSet.set_redeemers(" <> redeemer <> "); \
+      --           \ transactionWitnessSet.set_vkeys(txVkeyWitnesses.vkeys()); \
+      --           \ const signedTx = Loader.Cardano.Transaction.new( \
+      --           \   tx.body(), \
+      --           \   transactionWitnessSet, \
+      --           \   tx.auxiliary_data()); \
+      --           \ txHash = Buffer.from(signedTx.to_bytes()).toString('hex'); \
+      --           \ window.cardano.submitTx(txHash);")
+      --         _ <- call submitTx submitTx (getSubmitTxCallback)
+      --         return ()
+      --   -- submitTx <- ffor hexSignedTx $ \txHash -> eval ("window.cardano.submitTx('" <> txHash <> "');" :: T.Text)
+        return ()
+      -- dynSubmitTxRes <- holdDyn "" submitTxEv
+      -- display dynSubmitTxRes
+        -------------------------------------------------------------------------------------------
       widgetHold blank $ ffor staticSwapResponse $ \case
         Left err -> text $ T.pack err
         Right sth -> text sth

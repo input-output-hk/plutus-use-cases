@@ -24,17 +24,16 @@ poolStateCurrencySymbol=${12}
 ./cardano-cli/bin/cardano-cli transaction build \
     --alonzo-era \
     --testnet-magic 1097911063 \
-    --tx-in "1d7a5f1a4e1b47fb336a7907d7d94c1e252f0e6334697e046c0113653302ff76#0" \
     --tx-in $1 \
     --tx-in $additionalFunds \
     --tx-in $poolUtxo \
     --tx-in-script-file $scriptFile \
     --tx-in-datum-file $uniPoolDatumFile \
     --tx-in-redeemer-file $redeemerUniswapAction \
-    --tx-in-collateral $collateral \
+    --tx-in-collateral "555d92eb7e540ffc4d9b6a80becce5429737a5787c54d0f28c8ecb5f9d174774#0" \
     --tx-out "$scriptAddr + 7000000 lovelace + 1 $poolStateCurrencySymbol  + 716 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin" \
     --tx-out-datum-embed-file $uniPoolDatumFile \
-    --tx-out "$changeAddress + 958811813 lovelace + 999118 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin + 70711 75a70a2a2e897886839a7a30935c2aa36a27406c5e67d21d8f749df5.PikaCoinPikaCoin + 8944272 a4139e51066d2f0bcc852befdc106e469b9fa31ca607e81bf93ff21e.PikaCoinPikaCoin" \
+    --tx-out "$changeAddress + 1344798 lovelace + 118 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin" \
     --change-address $changeAddress \
     --protocol-params-file $protocolparams \
     --out-file $bodyFile

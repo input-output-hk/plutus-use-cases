@@ -76,10 +76,8 @@ data Api :: * -> * where
     -> Api Integer
 
   Api_BuildStaticSwapTransaction
-    :: Text -- Take a UTXO Hash and Index formatted "TXHASH#TXIX"
-    -> Text -- Collateral UTXO Hash "TXHASH#TXIX"
-    -> Text -- Change Address (Wallet Address)
-    -> Api (Either String Text) -- Either Error Transaction (Needs to be CBOR encoded transaction)
+    :: Text -- Change Address (Wallet Address)
+    -> Api (Either String Text) -- Either Error (CBOR encoded transaction)
 
 data SmartContractAction = SmartContractAction_Swap
   deriving (Eq, Ord, Show, Generic)

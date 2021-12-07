@@ -21,6 +21,7 @@ library
                , dense-linear-algebra
                , dependent-sum
                , dependent-sum-template
+               , directory
                , frontend
                , gargoyle-postgresql
                , gargoyle-postgresql-connect
