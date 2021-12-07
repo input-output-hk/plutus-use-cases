@@ -29,29 +29,47 @@ pkgs.haskell-nix.cabalProject {
   # materialized = ./materialization/mlabs-plutus-use-cases.materialized;
 
   shell = {
-    # putting packages here will make them available in the hoogle index generated
-    # by the shell
+    # Make sure to keep this list updated after upgrading git dependencies!
     additional = ps: with ps; [
-      plutus-core
-      plutus-ledger-api
-      plutus-tx
-      plutus-tx-plugin
-      word-array
-      prettyprinter-configurable
       plutus-extra
       tasty-plutus
       plutus-pretty
       plutus-numeric
+      base-deriving-via
+      cardano-addresses
+      cardano-addresses-cli
+      cardano-binary
+      cardano-crypto
+      cardano-crypto-class
+      cardano-crypto-praos
+      cardano-crypto-wrapper
+      cardano-ledger-alonzo
+      cardano-ledger-byron
+      cardano-ledger-core
+      cardano-ledger-pretty
+      cardano-ledger-shelley
+      cardano-ledger-shelley-ma
+      cardano-prelude
+      cardano-slotting
+      flat
+      freer-extras
+      goblins
+      measures
+      orphans-deriving-via
       playground-common
-      plutus-chain-index
-      plutus-chain-index-core
       plutus-contract
+      plutus-core
       plutus-ledger
+      plutus-ledger-api
       plutus-pab
       plutus-playground-server
+      plutus-tx
+      plutus-tx-plugin
       plutus-use-cases
+      prettyprinter-configurable
       quickcheck-dynamic
-      web-ghc
+      Win32-network
+      word-array
     ];
 
     withHoogle = true;
