@@ -38,6 +38,7 @@ library
                , rhyolite-backend-notification-postgres
                , rhyolite-common
                , scientific
+               , snap-core
                , statistics
                , text
                , time

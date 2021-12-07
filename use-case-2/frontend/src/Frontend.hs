@@ -52,7 +52,8 @@ frontend = Frontend
         <> "integrity" =: "sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x"
         <> "crossorigin" =: "anonymous"
         ) blank
-      el "script" $ text "var CardanoWasm = null;"
+      elAttr "script" ("src" =: "wasm/main.js") blank
+      el "script" $ text "var CardanoWasm = null;" -- TODO: Do we need this anymore?
       elAttr "script" ("src" =: $(static "import-lib.js") <> "type" =: "module") blank
       elAttr "script" ("src" =: "https://bundle.run/buffer@6.0.3" <> "type" =: "module") blank
   , _frontend_body = do

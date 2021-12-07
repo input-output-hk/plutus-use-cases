@@ -102,66 +102,58 @@ chooseWallet = do
                <$> dynAddress
         return $ tagPromptlyDyn requestLoad staticSwapEv
       let newEv = switchDyn staticSwapRequestEv
-      staticSwapResponse <- requestingIdentity newEv
-      dynEitherCborTx <- holdDyn (Left "CborTx not received") staticSwapResponse
+      txBuildResponse <- requestingIdentity newEv
+
+      widgetHold_ blank $ ffor txBuildResponse  $ \case
+        Left err -> text $ T.pack err
+        Right sth -> text sth
+
+      dynEitherCborTx <- holdDyn (Left "CborTx not received") txBuildResponse
       let cborHexEv :: Event t Text = updated $ fmap (\a -> either (\err-> T.pack $ show err) (\ch -> ch) a) dynEitherCborTx
       -- TODO: Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
       (signedTxEv, signTrigger) <- newTriggerEvent
-      -- (submitTxEv, submitTrigger) <- newTriggerEvent
+      (submitTxEv, submitTxTrigger) <- newTriggerEvent
+      dynCborHex :: Dynamic t Text <- holdDyn "" cborHexEv
       dynHexWitness :: Dynamic t Text <- holdDyn "" signedTxEv
-      -- display dynHexWitness
-      prerender_ blank $ liftJSM $ void $ do
-        let getSignTxCallback :: JSCallAsFunction
-            getSignTxCallback = fun $ \_ _ args -> case args of
-              (i:_) -> do
-                fromJSVal i >>= \case
-                  Just (a :: Text) -> liftIO (signTrigger a)
-                  _ -> pure ()
-              _ -> pure ()
-      --       getSubmitTxCallback :: JSCallAsFunction
-      --       getSubmitTxCallback = fun $ \_ _ args -> case args of
-      --         (i:_) -> do
-      --           fromJSVal i >>= \case
-      --             Just (a :: Text) -> liftIO (submitTrigger a)
-      --             _ -> pure ()
-      --         _ -> pure ()
-      --       contract = ""
-      --       datum = ""
-      --       redeemer = ""
-      -------------------------------------------------------------------------------------------
-        --TODO: How can you force this to async function to fire given a reflex event?
-        _ <- return $ ffor dynEitherCborTx $ \case
-          Left _ -> return ()
-          Right cborHexTx -> do
-            signedTx <- eval ("window.cardano.signTx('" <> cborHexTx <> "');" :: T.Text)
-            _ <- call signedTx signedTx (getSignTxCallback)
-            return ()
-      -------------------------------------------------------------------------------------------
-      --   -- TODO: Replace contract, datums, and redeemers with values when setting TransactionWitnessSet
-      --   submitTxRes <- return $ ffor dynHexWitness $ \(hexWitness :: Text) -> do
-      --         submitTx <- eval("txWitness = buffer.Buffer.from("<> hexWitness <> ", 'hex'); \
-      --           \ txVkeyWitnesses = CardanoWasm.TransactionWitnessSet.from_bytes(txWitness); \
-      --           \ transactionWitnessSet = CardanoWasm.TransactionWitnessSet.new(); \
-      --           \ transactionWitnessSet.set_plutus_scripts(" <> contract <> "); \
-      -- 					\ transactionWitnessSet.set_plutus_data(" <> datum <> "); \
-      --           \ transactionWitnessSet.set_redeemers(" <> redeemer <> "); \
-      --           \ transactionWitnessSet.set_vkeys(txVkeyWitnesses.vkeys()); \
-      --           \ const signedTx = Loader.Cardano.Transaction.new( \
-      --           \   tx.body(), \
-      --           \   transactionWitnessSet, \
-      --           \   tx.auxiliary_data()); \
-      --           \ txHash = Buffer.from(signedTx.to_bytes()).toString('hex'); \
-      --           \ window.cardano.submitTx(txHash);")
-      --         _ <- call submitTx submitTx (getSubmitTxCallback)
-      --         return ()
-      --   -- submitTx <- ffor hexSignedTx $ \txHash -> eval ("window.cardano.submitTx('" <> txHash <> "');" :: T.Text)
+
+      let getSignTxCallback :: JSCallAsFunction
+          getSignTxCallback = fun $ \_ _ args -> case args of
+            (i:_) -> do
+              fromJSVal i >>= \case
+                Just (a :: Text) -> liftIO (signTrigger a)
+                _ -> pure ()
+            _ -> pure ()
+
+          getSubmitTxResultCallback :: JSCallAsFunction
+          getSubmitTxResultCallback = fun $ \_ _ args -> case args of
+            (i:_) -> do
+              fromJSVal i >>= \case
+                Just (a :: Text) -> liftIO (submitTxTrigger a)
+                _ -> pure ()
+            _ -> pure ()
+
+      -- when the backend responds with a build transaction, have Nami Wallet sign the transaction
+      prerender_ blank $ performEvent_ $ (\cborHexTx -> liftJSM $ do
+        signedTx <-
+          eval ("(async function foo (someparam) { let x = await window.cardano.signTx('" <> cborHexTx <> "', true); console.log(x); someparam(x); })" :: T.Text)
+        _ <- call signedTx signedTx (getSignTxCallback)
         return ()
-      -- dynSubmitTxRes <- holdDyn "" submitTxEv
-      -- display dynSubmitTxRes
-        -------------------------------------------------------------------------------------------
-      widgetHold blank $ ffor staticSwapResponse $ \case
-        Left err -> text $ T.pack err
-        Right sth -> text sth
+        ) <$> cborHexEv
+
+      let dynTxSubmissionInput :: Dynamic t (Text, Text) = ffor2 dynCborHex dynHexWitness $ \txHex txWit -> (txHex, txWit)
+          txSubmissionEv = tagPromptlyDyn dynTxSubmissionInput signedTxEv
+
+      -- append new txWitness after signing and submit tx to chain
+      prerender_ blank $ performEvent_ $ (\(initialTxHash, txWitness) -> liftJSM $ do
+        submitTxResult <-
+          eval ("(async function foo (someparam) { let x = await appendAndSubmit('" <> initialTxHash <> "','" <> txWitness <> "'); console.log(x); someparam(x); })" :: T.Text)
+        _ <- call submitTxResult submitTxResult (getSubmitTxResultCallback)
+        return ()
+        ) <$> txSubmissionEv
+
+
+      display dynHexWitness
+      widgetHold_ blank $ ffor submitTxEv $ \msg -> el "p" $ text msg
       return ()
 
 viewContracts

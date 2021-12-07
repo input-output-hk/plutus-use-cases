@@ -229,3 +229,14 @@ Note: be sure to use this script from within ./dep/cardano-node/result/alonzo-pu
 ```
 # ../../../../scripts/handleSwap.sh [TXHASH#TXIX] [UNISWAP SCRIPT FILE] [UNIPOOL DATUM FILE] [REDEEMER FILE] [COLLATERAL ADDRESS] [UNISWAP SCRIPT ADDRESS] [COIN TO BE SWAPPED - CURRENCYSYMBOL.TOKENNAME] [SKEY FILE] [ADDITIONAL FUNDS - TXHASH#TXIX] [POOL UTXO - TXHASH#TXIX] [POOL STATE CURRENCYSYMBOL.TOKENNAME]
 ```
+##  WASM: Cardano Serialization Libs
+
+To generate or develop cardano serialization functions here's what you can do:
+
+```
+ob thunk unpack dep/minimal-webpack5-wasm-demo
+cd dep/minimal-webpack5-wasm-demo
+# Make changes to desired src files
+nix-shell
+yarn webpack && cp -v dist/*.wasm dist/main.js ../../static
+```

@@ -53,6 +53,7 @@ import Rhyolite.Backend.DB.Serializable
 import Rhyolite.Backend.Listen
 import Rhyolite.Concurrent
 import Safe (lastMay, headMay)
+import Snap.Util.FileServe
 import Statistics.Regression
 import System.Directory
 import System.Exit
@@ -87,6 +88,16 @@ backend = Backend
           vesselPipeline -- (tracePipeline "==> " . vesselPipeline)
         flip finally (stopSyncPooledTokens >> stopSyncUniswapUsers >> finalizeServeDb) $ serve $ \case
           BackendRoute_Listen :/ () -> handleListen
+          BackendRoute_WASM :/ path -> do
+            let (_, extension) = T.breakOn "." $ fromMaybe mempty $ listToMaybe $ reverse path
+                mimetype = case extension of
+                  ".js" -> "text/javascript"
+                  ".wasm" -> "application/wasm"
+                  ".module.wasm" -> "application/wasm"
+                  _ -> mempty
+            serveFileAs mimetype $ T.unpack $ "static/" <> T.intercalate "/" path
+          _ -> return ()
+
           _ -> return ()
   , _backend_routeEncoder = fullRouteEncoder
   }
