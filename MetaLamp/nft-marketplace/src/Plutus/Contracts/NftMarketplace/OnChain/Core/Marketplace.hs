@@ -13,10 +13,12 @@ import           Ledger
 import           Plutus.Abstract.Percentage (Percentage)
 import qualified PlutusTx
 import           Prelude
+import           PlutusTx.Builtins.Internal                             (BuiltinByteString)
 
 data Marketplace =
   Marketplace
     { marketplaceOperator :: PubKeyHash,
+      marketplaceName     :: BuiltinByteString,
       marketplaceNFTFee   :: Ada,  -- fixed fee by minting and bundling
       marketplaceSaleFee  :: Percentage -- percentage by selling on the Sale
     }

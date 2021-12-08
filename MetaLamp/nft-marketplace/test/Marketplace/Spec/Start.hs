@@ -44,6 +44,7 @@ startTrace = do
 
 startMarketplaceParams :: StartMarketplaceParams
 startMarketplaceParams = StartMarketplaceParams {
+    marketplaceName = "Metalamp nft marketplace",
     creationFee = getLovelace $ Fixtures.marketplaceCreationFee,
     saleFee = getPercentage Fixtures.percentage
 }

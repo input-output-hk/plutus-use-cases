@@ -90,6 +90,7 @@ import           Wallet.Emulator.Wallet                         (Wallet (..),
                                                                  fromWalletNumber)
 import           Wallet.Types                                   (ContractInstanceId)
 import           Ledger.Index           (minAdaTxOut)
+import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1
@@ -105,6 +106,7 @@ userWallets = fromWalletNumber <$> [WalletNumber i | i <- [2 .. 4]]
 
 startMarketplaceParams :: Owner.StartMarketplaceParams
 startMarketplaceParams = Owner.StartMarketplaceParams {
+    marketplaceName = "Metalamp nft marketplace",
     creationFee = Ada.getLovelace minAdaTxOut,
     saleFee = (7, 2)
 }
