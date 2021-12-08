@@ -18,7 +18,7 @@ data Marketplace =
   Marketplace
     { marketplaceOperator :: PubKeyHash,
       marketplaceNFTFee   :: Ada,  -- fixed fee by minting and bundling
-      marketplaceSaleFee  :: Percentage -- percentage by selling on the Sale or Auction
+      marketplaceSaleFee  :: Percentage -- percentage by selling on the Sale
     }
   deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (J.ToJSON, J.FromJSON, OpenApi.ToSchema)

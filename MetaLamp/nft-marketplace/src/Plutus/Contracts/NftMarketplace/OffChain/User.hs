@@ -48,7 +48,6 @@ import qualified Plutus.Contracts.NftMarketplace.OnChain.Core             as Cor
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID          (InternalId (..))
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.ID          as Core
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
-import qualified Plutus.Contracts.Services.Auction                        as Auction
 import qualified Plutus.Contracts.Services.Sale                           as Sale
 import           Plutus.V1.Ledger.Time                                    (DiffMilliSeconds (..),
                                                                            POSIXTime (..),
@@ -120,8 +119,6 @@ openSale marketplace@Core.Marketplace{..} OpenSaleParams {..} = do
     saleValue <- case internalId of
       NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
         Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
-      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) ->
-        Core.bundleValue cids <$> getBundleEntry nftStore bundleId
     let openSaleParams = Sale.OpenSaleParams {
                   ospSalePrice = ospSalePrice,
                   ospSaleValue = saleValue,
@@ -155,10 +152,6 @@ buyItem marketplace CloseLotParams {..} = do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on sale") pure $
             Core.getSaleFromNFT nftEntry
-      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
-        bundleEntry <- getBundleEntry nftStore bundleId
-        maybe (throwError "Bundle has not been put on sale") pure $
-            Core.getSaleFromBundle bundleEntry
 
     _ <- Sale.buyLot sale
 
@@ -178,10 +171,6 @@ closeSale marketplace CloseLotParams {..} = do
         nftEntry <- getNftEntry nftStore nftId
         maybe (throwError "NFT has not been put on sale") pure $
             Core.getSaleFromNFT nftEntry
-      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
-        bundleEntry <- getBundleEntry nftStore bundleId
-        maybe (throwError "Bundle has not been put on sale") pure $
-            Core.getSaleFromBundle bundleEntry
 
     _ <- Sale.redeemLot sale
 
@@ -189,183 +178,6 @@ closeSale marketplace CloseLotParams {..} = do
     void $ mapError' $ runStep client $ Core.mkRemoveLotRedeemer internalId
 
     logInfo @Haskell.String $ printf "Closed lot sale %s" (Haskell.show sale)
-    pure ()
-
-data StartAnAuctionParams =
-  StartAnAuctionParams {
-    saapItemId       :: UserItemId,
-    saapInitialPrice :: Ada,
-    saapEndTime      :: POSIXTime
-  }
-    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
-    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
-
-Lens.makeClassy_ ''StartAnAuctionParams
-
--- | The user starts an auction for specified NFT
-startAnAuction :: Core.Marketplace -> StartAnAuctionParams -> Contract w s Text ()
-startAnAuction marketplace@Core.Marketplace{..} StartAnAuctionParams {..} = do
-    let internalId = toInternalId saapItemId
-    nftStore <- marketplaceStore marketplace
-    auctionValue <- case internalId of
-      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) ->
-        Core.nftValue ipfsCid <$> getNftEntry nftStore nftId
-      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) ->
-        Core.bundleValue cids <$> getBundleEntry nftStore bundleId
-
-    currTime <- currentTime
-    when (saapEndTime < currTime) $ throwError "Auction end time is from the past"
-
-    self <- ownPubKeyHash
-    let startAuctionParams = Auction.StartAuctionParams {
-      sapOwner = self,
-      sapAsset = auctionValue,
-      sapInitialPrice = saapInitialPrice,
-      sapEndTime = saapEndTime,
-      sapAuctionFee = Just $ Auction.AuctionFee marketplaceOperator marketplaceSaleFee
-    }
-    auction <- mapError (T.pack . Haskell.show) $ Auction.startAuction startAuctionParams
-
-    let client = Core.marketplaceClient marketplace
-    let lot = Core.AuctionLotLink auction
-    void $ mapError' $ runStep client $ Core.mkPutLotRedeemer internalId lot
-
-    logInfo @Haskell.String $ printf "Started an auction %s" (Haskell.show auction)
-    pure ()
-
--- | The user completes the auction for specified NFT
-completeAnAuction :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
-completeAnAuction marketplace CloseLotParams {..} = do
-    let internalId = toInternalId clpItemId
-    nftStore <- marketplaceStore marketplace
-    auction <- case internalId of
-      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
-        nftEntry <- getNftEntry nftStore nftId
-        maybe (throwError "NFT has not been put on auction") pure $
-            Core.getAuctionFromNFT nftEntry
-      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
-        bundleEntry <- getBundleEntry nftStore bundleId
-        maybe (throwError "Bundle has not been put on auction") pure $
-            Core.getAuctionFromBundle bundleEntry
-    _ <- mapError (T.pack . Haskell.show) $ Auction.payoutAuction auction
-
-    let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.mkRemoveLotRedeemer internalId
-
-    logInfo @Haskell.String $ printf "Completed an auction %s" (Haskell.show auction)
-    pure ()
-
-data BidOnAuctionParams =
-  BidOnAuctionParams {
-    boapItemId :: UserItemId,
-    boapBid    :: Ada
-  }
-    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
-    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
-
-Lens.makeClassy_ ''BidOnAuctionParams
-
--- | The user submits a bid on the auction for specified NFT
-bidOnAuction :: Core.Marketplace -> BidOnAuctionParams -> Contract w s Text ()
-bidOnAuction marketplace BidOnAuctionParams {..} = do
-    let internalId = toInternalId boapItemId
-    nftStore <- marketplaceStore marketplace
-    auction <- case internalId of
-      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
-        nftEntry <- getNftEntry nftStore nftId
-        maybe (throwError "NFT has not been put on auction") pure $
-            Core.getAuctionFromNFT nftEntry
-      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
-        bundleEntry <- getBundleEntry nftStore bundleId
-        maybe (throwError "Bundle has not been put on auction") pure $
-            Core.getAuctionFromBundle bundleEntry
-
-    currTime <- currentTime
-    when (currTime > (Auction.aEndTime auction)) $ throwError "Auction has expired."
-
-    _ <- mapError (T.pack . Haskell.show) $ Auction.submitBid auction boapBid
-
-    logInfo @Haskell.String $ printf "Submitted bid for auction %s" (Haskell.show auction)
-    pure ()
-
-data BundleUpParams =
-  BundleUpParams {
-    bupIpfsCids    :: [Text],
-    bupName        :: Text,
-    bupDescription :: Text,
-    bupCategory    :: [Text]
-  }
-    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
-    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
-
-Lens.makeClassy_ ''BundleUpParams
-
--- | The user cancel the auction for specified NFT
-cancelAnAuction :: Core.Marketplace -> CloseLotParams -> Contract w s Text ()
-cancelAnAuction marketplace CloseLotParams {..} = do
-    let internalId = toInternalId clpItemId
-    nftStore <- marketplaceStore marketplace
-    auction <- case internalId of
-      NftInternalId nftId@(Core.InternalNftId ipfsCidHash ipfsCid) -> do
-        nftEntry <- getNftEntry nftStore nftId
-        maybe (throwError "NFT has not been put on auction") pure $
-            Core.getAuctionFromNFT nftEntry
-      BundleInternalId bundleId@(Core.InternalBundleId bundleHash cids) -> do
-        bundleEntry <- getBundleEntry nftStore bundleId
-        maybe (throwError "Bundle has not been put on auction") pure $
-            Core.getAuctionFromBundle bundleEntry
-    currTime <- currentTime
-
-    when (currTime > Auction.aEndTime auction) $ throwError "Auction time is over, can't cancel"
-
-    _ <- mapError (T.pack . Haskell.show) $ Auction.cancelAuction auction
-
-    let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.mkRemoveLotRedeemer internalId
-
-    logInfo @Haskell.String $ printf "Canceled an auction %s" (Haskell.show auction)
-    pure ()
-
--- | The user creates a bundle from specified NFTs
-bundleUp :: forall w s. Core.Marketplace -> BundleUpParams -> Contract w s Text ()
-bundleUp marketplace BundleUpParams {..} = do
-    let ipfsCids = deserializeByteString <$> bupIpfsCids
-    let bundleId = Core.calcBundleIdHash ipfsCids
-    bundles <- Core.mdBundles <$> marketplaceStore marketplace
-    when (isJust $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry already exists"
-    let nftIds = sha2_256 <$> ipfsCids
-    let bundleInfo = Core.BundleInfo
-          { biName        = deserializePlutusBuiltinBS bupName
-          , biDescription = deserializePlutusBuiltinBS bupDescription
-          , biCategory    = deserializePlutusBuiltinBS <$> bupCategory
-          }
-
-    let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.BundleUpRedeemer nftIds bundleId bundleInfo
-
-    logInfo @Haskell.String $ printf "Created a bundle %s" (Haskell.show bundleInfo)
-    pure ()
-
-data UnbundleParams =
-  UnbundleParams {
-    upIpfsCids :: [Text]
-  }
-    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
-    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
-
-Lens.makeClassy_ ''UnbundleParams
-
--- | The user unbundles specified NFTs
-unbundle :: Core.Marketplace -> UnbundleParams -> Contract w s Text ()
-unbundle marketplace UnbundleParams {..} = do
-    let bundleId = Core.calcBundleIdHash $ fmap deserializeByteString upIpfsCids
-    bundles <- Core.mdBundles <$> marketplaceStore marketplace
-    when (isNothing $ AssocMap.lookup bundleId bundles) $ throwError "Bundle entry does not exist"
-
-    let client = Core.marketplaceClient marketplace
-    void $ mapError' $ runStep client $ Core.UnbundleRedeemer bundleId
-
-    logInfo @Haskell.String $ printf "Removed bundle by id %s" (Haskell.show bundleId)
     pure ()
 
 balanceAt :: PubKeyHash -> AssetClass -> Contract w s Text Integer
@@ -379,12 +191,6 @@ type MarketplaceUserSchema =
     .\/ Endpoint "openSale" OpenSaleParams
     .\/ Endpoint "buyItem" CloseLotParams
     .\/ Endpoint "closeSale" CloseLotParams
-    .\/ Endpoint "startAnAuction" StartAnAuctionParams
-    .\/ Endpoint "completeAnAuction" CloseLotParams
-    .\/ Endpoint "cancelAnAuction" CloseLotParams
-    .\/ Endpoint "bidOnAuction" BidOnAuctionParams
-    .\/ Endpoint "bundleUp" BundleUpParams
-    .\/ Endpoint "unbundle" UnbundleParams
     .\/ Endpoint "ownPubKey" ()
     .\/ Endpoint "ownPubKeyBalance" ()
 
@@ -393,12 +199,6 @@ data UserContractState =
     | OpenedSale
     | NftBought
     | ClosedSale
-    | AuctionStarted
-    | AuctionComplete
-    | AuctionCanceled
-    | BidSubmitted
-    | Bundled
-    | Unbundled
     | GetPubKey PubKeyHash
     | GetPubKeyBalance Value
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
@@ -412,11 +212,5 @@ userEndpoints marketplace =
     `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
     `select` withContractResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)
     `select` withContractResponse (Proxy @"closeSale") (const ClosedSale) (closeSale marketplace)
-    `select` withContractResponse (Proxy @"startAnAuction") (const AuctionStarted) (startAnAuction marketplace)
-    `select` withContractResponse (Proxy @"completeAnAuction") (const AuctionComplete) (completeAnAuction marketplace)
-    `select` withContractResponse (Proxy @"cancelAnAuction") (const AuctionCanceled) (cancelAnAuction marketplace)
-    `select` withContractResponse (Proxy @"bidOnAuction") (const BidSubmitted) (bidOnAuction marketplace)
-    `select` withContractResponse (Proxy @"bundleUp") (const Bundled) (bundleUp marketplace)
-    `select` withContractResponse (Proxy @"unbundle") (const Unbundled) (unbundle marketplace)
     `select` withContractResponse (Proxy @"ownPubKey") GetPubKey (const ownPubKeyHash)
     `select` withContractResponse (Proxy @"ownPubKeyBalance") GetPubKeyBalance (const ownPubKeyBalance)) <> userEndpoints marketplace

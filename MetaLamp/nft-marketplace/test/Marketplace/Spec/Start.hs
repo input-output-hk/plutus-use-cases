@@ -56,7 +56,7 @@ datumsCheck :: TracePredicate
 datumsCheck =
   dataAtAddress
     Fixtures.marketplaceAddress
-    (== [Marketplace.MarketplaceDatum AssocMap.empty AssocMap.empty])
+    (== [Marketplace.MarketplaceDatum AssocMap.empty])
 
 marketplaceOpenedWithMinAdaTxOut :: TracePredicate
 marketplaceOpenedWithMinAdaTxOut =

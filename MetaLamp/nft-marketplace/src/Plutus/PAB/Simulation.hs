@@ -240,66 +240,6 @@ runNftMarketplace =
         _                                          -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful closeSale"
 
-    let auction = Marketplace.StartAnAuctionParams {
-                        saapItemId  = Marketplace.UserNftId photoTokenIpfsCid,
-                        saapInitialPrice = fromInteger $ 5 * oneAdaInLovelace,
-                        saapEndTime = addToBeginningOfTime $ Seconds 55
-                    }
-    _  <-
-        Simulator.callEndpointOnInstance userCid "startAnAuction" auction
-    _ <- flip Simulator.waitForState userCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
-        J.Success (Last (Just (ContractState _ (Success Marketplace.AuctionStarted)))) -> Just ()
-        _                                              -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "Started An Auction"
-
-    _  <-
-        Simulator.callEndpointOnInstance buyerCid "bidOnAuction" Marketplace.BidOnAuctionParams {
-                                                                        boapItemId = Marketplace.UserNftId photoTokenIpfsCid,
-                                                                        boapBid     = fromInteger $ 15 * oneAdaInLovelace
-                                                                    }
-    _ <- flip Simulator.waitForState buyerCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
-        J.Success (Last (Just (ContractState _ (Success Marketplace.BidSubmitted)))) -> Just ()
-        _                                            -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful bidOnAuction"
-
-    _ <- Simulator.callEndpointOnInstance cidInfo "getAuctionState" $ Marketplace.UserNftId photoTokenIpfsCid
-    s <- flip Simulator.waitForState cidInfo $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.InfoContractState)) of
-            J.Success (Last (Just (ContractState _ (Success (Marketplace.AuctionState s))))) -> Just s
-            _                                                -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "Final auction state: " <> show s
-
-    _  <-
-        Simulator.callEndpointOnInstance buyerCid "completeAnAuction" $ Marketplace.CloseLotParams $ Marketplace.UserNftId photoTokenIpfsCid
-    _ <- flip Simulator.waitForState buyerCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
-        J.Success (Last (Just (ContractState _ (Success Marketplace.AuctionComplete)))) -> Just ()
-        _                                               -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful holdAnAuction"
-
-    _  <-
-        Simulator.callEndpointOnInstance userCid "bundleUp" $
-            Marketplace.BundleUpParams {
-                        bupIpfsCids        = [photoTokenIpfsCid,catTokenIpfsCid],
-                        bupName        = "Picture gallery",
-                        bupDescription = "Collection of visual media",
-                        bupCategory = ["User","Stan"]
-                    }
-    flip Simulator.waitForState userCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
-        J.Success (Last (Just (ContractState _ (Success Marketplace.Bundled)))) -> Just ()
-        _                                       -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful bundleUp"
-
-    _ <- Simulator.waitNSlots 10
-
-    _  <-
-        Simulator.callEndpointOnInstance userCid "unbundle" $
-            Marketplace.UnbundleParams {
-                        upIpfsCids        = [photoTokenIpfsCid,catTokenIpfsCid]
-                    }
-    flip Simulator.waitForState userCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
-        J.Success (Last (Just (ContractState _ (Success Marketplace.Unbundled)))) -> Just ()
-        _                                         -> Nothing
-    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful unbundle"
-
     _ <- Simulator.waitNSlots 10
     
     _ <- Simulator.callEndpointOnInstance cidInfo "fundsAt" buyer

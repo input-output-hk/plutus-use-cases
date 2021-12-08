@@ -14,25 +14,6 @@ import           PlutusTx.Prelude                             (BuiltinByteString
 cids :: [Text]
 cids = [catTokenIpfsCid, photoTokenIpfsCid]
 
-bundleId :: Marketplace.BundleId
-bundleId = Marketplace.calcBundleIdHash $ fmap Marketplace.deserializeByteString cids
-
-bundleInfo :: Marketplace.BundleInfo
-bundleInfo = Marketplace.BundleInfo
-    { biName        = Marketplace.deserializePlutusBuiltinBS bundleName
-    , biDescription = Marketplace.deserializePlutusBuiltinBS bundleDescription
-    , biCategory    = Marketplace.deserializePlutusBuiltinBS <$> bundleCategory
-    }
-
-bundleName :: Text
-bundleName        = "Picture gallery"
-
-bundleDescription :: Text
-bundleDescription = "Collection of visual media"
-
-bundleCategory :: [Text]
-bundleCategory = ["User","Stan"]
-
 catTokenIpfsCid :: Text
 catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
 

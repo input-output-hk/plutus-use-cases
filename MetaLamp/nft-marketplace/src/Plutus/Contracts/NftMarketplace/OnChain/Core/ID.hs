@@ -32,7 +32,6 @@ import qualified Ledger.Value                                     as V
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
-import qualified Plutus.Contracts.Services.Auction                as Auction
 import qualified Plutus.Contracts.Services.Sale                   as Sale
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                as AssocMap
@@ -52,20 +51,8 @@ PlutusTx.unstableMakeIsData ''InternalNftId
 
 PlutusTx.makeLift ''InternalNftId
 
-data InternalBundleId = InternalBundleId {
-  ibiBundleId :: !BundleId,
-  ibiIpfsCids :: !(AssocMap.Map IpfsCidHash IpfsCid)
-}
-    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
-    deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''InternalBundleId
-
-PlutusTx.makeLift ''InternalBundleId
-
 data InternalId =
   NftInternalId InternalNftId
-  | BundleInternalId InternalBundleId
   deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 

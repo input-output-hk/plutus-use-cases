@@ -40,9 +40,6 @@ import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import qualified Plutus.Contract.StateMachine                           as SM
 import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (PlutusBuiltinByteString (..))
-import           Plutus.Contracts.Services.Auction.Core                 (Auction (..),
-                                                                         AuctionFee)
-import qualified Plutus.Contracts.Services.Auction.Core                 as Auction
 import qualified Plutus.Contracts.Services.Sale                         as Sale
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                      as AssocMap
@@ -57,11 +54,9 @@ import qualified Prelude                                                as Haske
 type IpfsCid = BuiltinByteString
 type IpfsCidHash = BuiltinByteString
 type Category = [PlutusBuiltinByteString]
-type BundleId = BuiltinByteString
 
 data LotLink =
   SaleLotLink Sale.Sale
-  | AuctionLotLink Auction.Auction
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)
 
@@ -73,7 +68,6 @@ Lens.makePrisms ''LotLink
 
 getLotValue :: LotLink -> V.Value
 getLotValue (SaleLotLink sale)       = Sale.saleValue sale
-getLotValue (AuctionLotLink auction) = Auction.aAsset auction
 
 data NftInfo =
   NftInfo
@@ -106,97 +100,8 @@ PlutusTx.makeLift ''NFT
 
 Lens.makeClassy_ ''NFT
 
-getAuctionFromNFT :: NFT -> Maybe Auction.Auction
-getAuctionFromNFT nft = nft ^. _nftLot ^? traverse . _2 . _AuctionLotLink
-
 getSaleFromNFT :: NFT -> Maybe Sale.Sale
 getSaleFromNFT nft =  nft ^. _nftLot ^? traverse . _2 . _SaleLotLink
-
-data Bundle
-  = NoLot  !(AssocMap.Map IpfsCidHash NftInfo)
-  | HasLot !(AssocMap.Map IpfsCidHash (IpfsCid, NftInfo)) !LotLink
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''Bundle
-
-PlutusTx.makeLift ''Bundle
-
-Lens.makeClassyPrisms ''Bundle
-
-data BundleInfo =
-  BundleInfo
-    { biName        :: !PlutusBuiltinByteString
-    , biDescription :: !PlutusBuiltinByteString
-    , biCategory    :: !Category
-    }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''BundleInfo
-
-PlutusTx.makeLift ''BundleInfo
-
-Lens.makeClassy_ ''BundleInfo
-
-data NftBundle =
-  NftBundle
-    { nbRecord :: !BundleInfo
-    , nbTokens :: !Bundle
-    }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
-  deriving anyclass (J.ToJSON, J.FromJSON)
-
-PlutusTx.unstableMakeIsData ''NftBundle
-
-PlutusTx.makeLift ''NftBundle
-
-Lens.makeClassy_ ''NftBundle
-
-getAuctionFromBundle :: NftBundle -> Maybe Auction.Auction
-getAuctionFromBundle nftBundle = nftBundle ^. _nbTokens ^? _HasLot . _2 . _AuctionLotLink
-
-getSaleFromBundle :: NftBundle -> Maybe Sale.Sale
-getSaleFromBundle nftBundle = nftBundle ^. _nbTokens ^? _HasLot . _2 . _SaleLotLink
-
--- Calculates a hash of a list of ByteStrings,
--- the result does not depend on the order of ByteStrings inside a list
-calcBundleIdHash :: [IpfsCid] -> BundleId
-calcBundleIdHash = BA.convert . Hash.hashUpdates alg . HL.sort
-  where
-    alg = Hash.hashInit @Hash.SHA256
-
-{-# INLINABLE makeBundle #-}
-makeBundle :: AssocMap.Map IpfsCidHash NFT -> [IpfsCidHash] -> BundleInfo -> NftBundle
-makeBundle singletons nftIds bundleInfo =
-  NftBundle
-    { nbRecord        = bundleInfo
-    , nbTokens      = NoLot $ foldr insert AssocMap.empty nftIds
-    }
-  where
-    insert nftId store = case AssocMap.lookup nftId singletons of
-                                Just n -> AssocMap.insert nftId (nftRecord n) store
-                                Nothing -> store
-
-{-# INLINABLE bundleValue #-}
-bundleValue :: AssocMap.Map IpfsCidHash IpfsCid -> NftBundle -> Value
-bundleValue cids bundle = case nbTokens bundle of
-      NoLot tokens    -> foldMap getValueNoLot $ AssocMap.toList tokens
-      HasLot tokens _ -> foldMap getValueHasLot tokens
-    where
-      getValueHasLot :: (IpfsCid, NftInfo) -> Value
-      getValueHasLot (ipfsCid, nft) = V.singleton (niCurrency nft) (V.TokenName ipfsCid) 1
-
-      getValueNoLot :: (IpfsCidHash, NftInfo) -> Value
-      getValueNoLot (ipfsCidHash, nft) = case AssocMap.lookup ipfsCidHash cids of
-                                Just ipfsCid -> V.singleton (niCurrency nft) (V.TokenName ipfsCid) 1
-                                Nothing -> mempty
-
-{-# INLINABLE hasLotBundle #-}
-hasLotBundle :: NftBundle -> Bool
-hasLotBundle bundle = case nbTokens bundle of
-  HasLot _ _ -> True
-  _          -> False
 
 {-# INLINABLE nftValue #-}
 nftValue :: IpfsCid -> NFT -> Value

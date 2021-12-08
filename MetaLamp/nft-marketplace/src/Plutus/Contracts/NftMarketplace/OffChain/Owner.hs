@@ -60,7 +60,7 @@ import Ledger.Scripts (datumHash)
 
 data StartMarketplaceParams = StartMarketplaceParams {
     creationFee :: Integer,  -- fee by minting and bundling
-    saleFee     :: Fractional  -- fee by sale and auction
+    saleFee     :: Fractional  -- fee by sale
 }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
@@ -80,7 +80,7 @@ start StartMarketplaceParams {..} = do
     utxoTx <- utxosAt (Core.marketplaceAddress marketplace)
     logInfo @Haskell.String $ printf "Utxos : %s" (Haskell.show utxoTx)
 
-    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty AssocMap.empty) minAdaTxOutValue
+    void $ mapError (T.pack . Haskell.show @SMContractError) $ runInitialise client (Core.MarketplaceDatum AssocMap.empty) minAdaTxOutValue
     logInfo @Haskell.String $ printf "started Marketplace %s at address %s" (Haskell.show marketplace) (Haskell.show $ Core.marketplaceAddress marketplace)
     pure marketplace
 

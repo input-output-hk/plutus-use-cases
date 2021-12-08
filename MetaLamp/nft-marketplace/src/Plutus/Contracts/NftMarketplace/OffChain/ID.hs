@@ -34,7 +34,8 @@ import           Prelude                                                (Semigro
 import qualified Prelude                                                as Haskell
 import qualified Schema
 import           Text.Printf                                            (printf)
-data UserItemId = UserNftId Text | UserBundleId [Text]
+
+data UserItemId = UserNftId Text
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
@@ -48,8 +49,4 @@ toInternalId (UserNftId (deserializeByteString -> ipfsCid)) = NftInternalId
       Core.iniIpfsCidHash = sha2_256 ipfsCid,
       Core.iniIpfsCid = ipfsCid
     }
-toInternalId (UserBundleId (fmap deserializeByteString -> cids)) = BundleInternalId
-  Core.InternalBundleId {
-      Core.ibiIpfsCids = AssocMap.fromList $ (\cid -> (sha2_256 cid, cid)) <$> cids,
-      Core.ibiBundleId = Core.calcBundleIdHash cids
-    }
+
