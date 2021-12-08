@@ -50,6 +50,10 @@ library
       Contracts.MutualBet.Types
       Contracts.MutualBet.OffChain
       Contracts.MutualBet.StateMachine
+      Contracts.MutualBetNew
+      Contracts.MutualBetNew.Types
+      Contracts.MutualBetNew.OffChain
+      Contracts.MutualBetNew.OnChain
       PabContracts.SimulatorPabContracts
       PabContracts.MutualBetContracts
       PabContracts.OracleContracts
@@ -115,6 +119,7 @@ test-suite plutus-example-projects-test
     base >=4.9 && <5,
     base64-bytestring,
     bytestring,
+    cardano-crypto-class,
     data-default,
     foldl,
     freer-extras,
