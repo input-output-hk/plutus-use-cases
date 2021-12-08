@@ -51,7 +51,7 @@ chooseWallet = do
       elClass "h2" "display-5 fw-bold" $ text "Welcome to POKE-DEX!"
       elClass "h3" "display-5 fw-bold" $ text "Real Node Static Smart Contract Transaction"
       el "p" $ text "Use the button below to perform static swap using Nami Wallet against a real Alonzo Node with a smart contract that is deployed to testnet!"
-      staticSwapEv <- button "Swap ADA for PikaCoin using Nami Wallet"
+      staticSwapEv <- button "Swap 1 ADA to receive PikaCoin"
       ----------------------
       (addressEv, addressTrigger) <- newTriggerEvent
       dynAddress <- holdDyn "" addressEv
@@ -77,53 +77,54 @@ chooseWallet = do
 
       widgetHold_ blank $ ffor txBuildResponse  $ \case
         Left err -> text $ T.pack err
-        Right sth -> text sth
+        -- TODO: since Right cborTxHex is exposed... refactor subsequent code using dynCborHex to use  cborTxHex instead
+        Right _cborTxHex -> do
+          dynEitherCborTx <- holdDyn (Left "CborTx not received") txBuildResponse
+          let cborHexEv :: Event t Text = updated $ fmap (\a -> either (\err-> T.pack $ show err) (\ch -> ch) a) dynEitherCborTx
+          -- TODO: Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
+          (signedTxEv, signTrigger) <- newTriggerEvent
+          (submitTxEv, submitTxTrigger) <- newTriggerEvent
+          dynCborHex :: Dynamic t Text <- holdDyn "" cborHexEv
+          dynHexWitness :: Dynamic t Text <- holdDyn "" signedTxEv
 
-      dynEitherCborTx <- holdDyn (Left "CborTx not received") txBuildResponse
-      let cborHexEv :: Event t Text = updated $ fmap (\a -> either (\err-> T.pack $ show err) (\ch -> ch) a) dynEitherCborTx
-      -- TODO: Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
-      (signedTxEv, signTrigger) <- newTriggerEvent
-      (submitTxEv, submitTxTrigger) <- newTriggerEvent
-      dynCborHex :: Dynamic t Text <- holdDyn "" cborHexEv
-      dynHexWitness :: Dynamic t Text <- holdDyn "" signedTxEv
-
-      let getSignTxCallback :: JSCallAsFunction
-          getSignTxCallback = fun $ \_ _ args -> case args of
-            (i:_) -> do
-              fromJSVal i >>= \case
-                Just (a :: Text) -> liftIO (signTrigger a)
+          -- helper functions to return js callback results as Text
+          let getSignTxCallback :: JSCallAsFunction
+              getSignTxCallback = fun $ \_ _ args -> case args of
+                (i:_) -> do
+                  fromJSVal i >>= \case
+                    Just (a :: Text) -> liftIO (signTrigger a)
+                    _ -> pure ()
                 _ -> pure ()
-            _ -> pure ()
 
-          getSubmitTxResultCallback :: JSCallAsFunction
-          getSubmitTxResultCallback = fun $ \_ _ args -> case args of
-            (i:_) -> do
-              fromJSVal i >>= \case
-                Just (a :: Text) -> liftIO (submitTxTrigger a)
+              getSubmitTxResultCallback :: JSCallAsFunction
+              getSubmitTxResultCallback = fun $ \_ _ args -> case args of
+                (i:_) -> do
+                  fromJSVal i >>= \case
+                    Just (a :: Text) -> liftIO (submitTxTrigger a)
+                    _ -> pure ()
                 _ -> pure ()
-            _ -> pure ()
 
-      -- when the backend responds with a build transaction, have Nami Wallet sign the transaction
-      prerender_ blank $ performEvent_ $ (\cborHexTx -> liftJSM $ do
-        signedTx <-
-          eval ("(async function foo (someparam) { let x = await window.cardano.signTx('" <> cborHexTx <> "', true); console.log(x); someparam(x); })" :: T.Text)
-        _ <- call signedTx signedTx (getSignTxCallback)
-        return ()
-        ) <$> cborHexEv
+          -- when the backend responds with a build transaction, have Nami Wallet sign the transaction
+          prerender_ blank $ performEvent_ $ (\cborHexTx -> liftJSM $ do
+            signedTx <-
+              eval ("(async function foo (someparam) { let x = await window.cardano.signTx('" <> cborHexTx <> "', true); console.log(x); someparam(x); })" :: T.Text)
+            _ <- call signedTx signedTx (getSignTxCallback)
+            return ()
+            ) <$> cborHexEv
 
-      let dynTxSubmissionInput :: Dynamic t (Text, Text) = ffor2 dynCborHex dynHexWitness $ \txHex txWit -> (txHex, txWit)
-          txSubmissionEv = tagPromptlyDyn dynTxSubmissionInput signedTxEv
+          let dynTxSubmissionInput :: Dynamic t (Text, Text) = ffor2 dynCborHex dynHexWitness $ \txHex txWit -> (txHex, txWit)
+              txSubmissionEv = tagPromptlyDyn dynTxSubmissionInput signedTxEv
 
-      -- append new txWitness after signing and submit tx to chain
-      prerender_ blank $ performEvent_ $ (\(initialTxHash, txWitness) -> liftJSM $ do
-        submitTxResult <-
-          eval ("(async function foo (someparam) { let x = await appendAndSubmit('" <> initialTxHash <> "','" <> txWitness <> "'); console.log(x); someparam(x); })" :: T.Text)
-        _ <- call submitTxResult submitTxResult (getSubmitTxResultCallback)
-        return ()
-        ) <$> txSubmissionEv
+          -- append new txWitness after signing and submit tx to chain
+          prerender_ blank $ performEvent_ $ (\(initialTxHash, txWitness) -> liftJSM $ do
+            submitTxResult <-
+              eval ("(async function foo (someparam) { let x = await appendAndSubmit('" <> initialTxHash <> "','" <> txWitness <> "'); console.log(x); someparam(x); })" :: T.Text)
+            _ <- call submitTxResult submitTxResult (getSubmitTxResultCallback)
+            return ()
+            ) <$> txSubmissionEv
 
 
-      display dynHexWitness
-      widgetHold_ blank $ ffor submitTxEv $ \msg -> el "p" $ text msg
-      return ()
+          display dynHexWitness
+          widgetHold_ blank $ ffor submitTxEv $ \msg -> el "p" $ text msg
+          return ()
 

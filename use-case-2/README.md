@@ -218,7 +218,7 @@ Now we're ready to perform a swap. In the terminal running ghci against plutus-u
 
 ```
 :l Plutus.Contracts.RawSwap
-main [(CURRENCY SYMBOL,TOKEN NAME)] [AMOUNT] [(CURRENCY SYMBOL,TOKEN NAME)] [AMOUNT] [POOL DATUM FILE PATH]
+main [(CURRENCY SYMBOL,TOKEN NAME)] [AMOUNT] [(CURRENCY SYMBOL,TOKEN NAME)] [AMOUNT] [POOL DATUM FILE PATH] [CARDANO-CLI EXE PATH] [CARDANO-NODE NODE SOCKET PATH]
 ```
 
 That will generate a directory called `rawSwap` that has the redeemer used to tell the uniswap script which contract action to be performed and the pool datum that reports the state of the uniswap liquidity pools

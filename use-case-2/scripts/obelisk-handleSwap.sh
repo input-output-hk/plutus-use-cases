@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# ./handleSwap.sh [TXHASH#TXIX] [UNISWAP SCRIPT FILE] [UNIPOOL DATUM FILE] [REDEEMER FILE] [COLLATERAL ADDRESS] [UNISWAP SCRIPT ADDRESS] [COIN TO BE SWAPPED - CURRENCYSYMBOL.TOKENNAME] [SKEY FILE] [ADDITIONAL FUNDS - TXHASH#TXIX] [POOL UTXO - TXHASH#TXIX] [POOL STATE CURRENCYSYMBOL.TOKENNAME]
+# ./handleSwap.sh [TXHASH#TXIX] [UNISWAP SCRIPT FILE] [UNIPOOL DATUM FILE] [REDEEMER FILE] [COLLATERAL ADDRESS] [UNISWAP SCRIPT ADDRESS] [COIN TO BE SWAPPED - CURRENCYSYMBOL.TOKENNAME] [SKEY FILE] [ADDITIONAL FUNDS - TXHASH#TXIX] [POOL UTXO - TXHASH#TXIX] [POOL STATE CURRENCYSYMBOL.TOKENNAME] [NAMI WALLET CLIENT'S EXPECTED TXOUT]
 
 set -euox pipefail
 
@@ -18,6 +18,7 @@ outFile="./obelisk-rawSwap-tx-signed"
 additionalFunds=${10}
 poolUtxo=${11}
 poolStateCurrencySymbol=${12}
+clientTxOutBalance=${13}
 
 /home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/cardano-node/result/alonzo-testnet/cardano-cli/bin/cardano-cli query protocol-parameters --testnet-magic 1097911063 > $protocolparams
 
@@ -25,14 +26,15 @@ poolStateCurrencySymbol=${12}
     --alonzo-era \
     --testnet-magic 1097911063 \
     --tx-in $1 \
+    --tx-in $additionalFunds \
     --tx-in $poolUtxo \
     --tx-in-script-file $scriptFile \
     --tx-in-datum-file $uniPoolDatumFile \
     --tx-in-redeemer-file $redeemerUniswapAction \
     --tx-in-collateral $collateral \
-    --tx-out "$scriptAddr + 7000000 lovelace + 1 $poolStateCurrencySymbol  + 716 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin" \
+    --tx-out "$scriptAddr + 8000000 lovelace + 1 $poolStateCurrencySymbol  + 627 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin" \
     --tx-out-datum-embed-file $uniPoolDatumFile \
-    --tx-out "$changeAddress + 1344798 lovelace + 118 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin" \
+    --tx-out "$changeAddress $clientTxOutBalance" \
     --change-address $changeAddress \
     --protocol-params-file $protocolparams \
     --out-file $bodyFile
