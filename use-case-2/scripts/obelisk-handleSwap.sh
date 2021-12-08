@@ -25,12 +25,11 @@ poolStateCurrencySymbol=${12}
     --alonzo-era \
     --testnet-magic 1097911063 \
     --tx-in $1 \
-    --tx-in $additionalFunds \
     --tx-in $poolUtxo \
     --tx-in-script-file $scriptFile \
     --tx-in-datum-file $uniPoolDatumFile \
     --tx-in-redeemer-file $redeemerUniswapAction \
-    --tx-in-collateral "555d92eb7e540ffc4d9b6a80becce5429737a5787c54d0f28c8ecb5f9d174774#0" \
+    --tx-in-collateral $collateral \
     --tx-out "$scriptAddr + 7000000 lovelace + 1 $poolStateCurrencySymbol  + 716 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin" \
     --tx-out-datum-embed-file $uniPoolDatumFile \
     --tx-out "$changeAddress + 1344798 lovelace + 118 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin" \

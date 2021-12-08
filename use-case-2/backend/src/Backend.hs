@@ -8,7 +8,6 @@
 
 module Backend where
 
-import Cardano.Binary
 import Control.Applicative
 import Control.Concurrent
 import Control.Exception
@@ -32,7 +31,6 @@ import Data.Scientific (coefficient)
 import Data.Semigroup (First(..))
 import Data.Text (Text)
 import Data.Text.Read (decimal)
-import qualified Data.Text.Encoding as T
 import Data.Time.Clock
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -51,7 +49,6 @@ import Rhyolite.Backend.App
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.Serializable
 import Rhyolite.Backend.Listen
-import Rhyolite.Concurrent
 import Safe (lastMay, headMay)
 import Snap.Util.FileServe
 import Statistics.Regression
@@ -76,8 +73,6 @@ backend = Backend
       httpManager <- newManager defaultManagerSettings
       withDb "db" $ \pool -> do
         withResource pool runMigrations
-        stopSyncUniswapUsers <- worker (1000 * 1000 * 5) $ syncUniswapUsers httpManager pool
-        stopSyncPooledTokens <- worker (1000 * 1000 * 5) $ syncPooledTokens httpManager pool
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
           pool
           (requestHandler httpManager pool)
@@ -86,16 +81,16 @@ backend = Backend
           (QueryHandler $ \q -> fmap (fromMaybe emptyV) $ mapDecomposedV (queryHandler pool) q)
           vesselFromWire
           vesselPipeline -- (tracePipeline "==> " . vesselPipeline)
-        flip finally (stopSyncPooledTokens >> stopSyncUniswapUsers >> finalizeServeDb) $ serve $ \case
+        flip finally (finalizeServeDb) $ serve $ \case
           BackendRoute_Listen :/ () -> handleListen
-          BackendRoute_WASM :/ path -> do
-            let (_, extension) = T.breakOn "." $ fromMaybe mempty $ listToMaybe $ reverse path
+          BackendRoute_WASM :/ fpath -> do
+            let (_, extension) = T.breakOn "." $ fromMaybe mempty $ listToMaybe $ reverse fpath
                 mimetype = case extension of
                   ".js" -> "text/javascript"
                   ".wasm" -> "application/wasm"
                   ".module.wasm" -> "application/wasm"
                   _ -> mempty
-            serveFileAs mimetype $ T.unpack $ "static/" <> T.intercalate "/" path
+            serveFileAs mimetype $ T.unpack $ "static/" <> T.intercalate "/" fpath
           _ -> return ()
 
           _ -> return ()
@@ -607,12 +602,12 @@ buildStaticSwapTransaction changeAddress = do
   dir <- getCurrentDirectory
   print $ "buildStaticSwapTransaction: Start, current dir is " <> (T.pack $ show dir)
   print $ "buildStaticSwapTransaction: value of changeAddress is " <> changeAddress
-  -- use cardano-cli to query for utxos at given address
   let cardanoCliExe = "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/cardano-node/result/alonzo-testnet/cardano-cli/bin/cardano-cli"
       testnetMagic = "1097911063"
-      nodeSocketPath =
-        "./node.sock"
-  (_, cliOut, cliErr) <- readCreateProcessWithExitCode
+      nodeSocketPath = "./node.sock"
+
+  -- query cli for available utxos from client's provided address
+  (_, cliOut, _) <- readCreateProcessWithExitCode
     (CreateProcess
       {
         cmdspec = RawCommand
@@ -623,6 +618,7 @@ buildStaticSwapTransaction changeAddress = do
                    ,nodeSocketPath)]
       , std_in = Inherit
       , std_out = Inherit
+      , std_err = Inherit
       , close_fds = False
       , create_group = False
       , delegate_ctlc = False
@@ -636,45 +632,34 @@ buildStaticSwapTransaction changeAddress = do
   print $ "buildStaticSwapTransaction: value of cliOut is " <> (T.pack $ show cliOut)
   let nodeQueryResults = catMaybes $ flip map (map T.pack $ lines cliOut) $ \utxoInfo -> do
         case T.words utxoInfo of
-          txHash:txix:amount:unit:_ -> Just (txHash <> "#" <> txix, amount, unit)
+          utxoHandle:txix:amount:unit:_ -> Just (utxoHandle <> "#" <> txix, amount, unit)
           _ -> Nothing
       -- Nami Wallet creates a collateral Utxo with 5 ada. This will search for the collateral utxo and return it's transaction hash and index
-      collateralTxHash :: Text = maybe ""  (\(a, _, _) -> a)  $ headMay $ filter (\(txHashIx, amount, unit) -> amount == ("5000000" :: Text) && unit == ("lovelace" :: Text)) nodeQueryResults
+      collateralTxHash :: Text = maybe ""  (\(a, _, _) -> a)  $
+        headMay $ filter (\(_, amount, unit) -> amount == ("5000000" :: Text) && unit == ("lovelace" :: Text)) nodeQueryResults
       -- Get transaction hash of utxo with highest lovelace balance
-      highestBalance = maximum $ flip map (filter (\(_,_,unit) -> unit == "lovelace") nodeQueryResults) $ \(_, amt, _) -> case decimal amt  of
+      highestBalance :: Integer = maximum $ flip map (filter (\(_,_,unit) -> unit == "lovelace") nodeQueryResults) $ \(_, amt, _) -> case decimal amt  of
         Right (amt', _) -> amt'
         Left _ -> 0
-      txHash =  maybe "" (\(a, _, _) -> a) $ headMay $ flip filter nodeQueryResults $ \(txHashIdx, amt, unit) -> amt == (T.pack $ show highestBalance) && unit == "lovelace"
+      txHash =  maybe "" (\(a, _, _) -> a) $ headMay $ flip filter nodeQueryResults $ \(_, amt, unit) ->
+        amt == (T.pack $ show highestBalance) && unit == "lovelace"
   -- drop leading txHash and txIndex, keep balances of what is being held at the utxo handle
   print $ "buildStaticSwapTransaction: value of collateralTxHash is " <> collateralTxHash
   print $ "buildStaticSwapTransaction: value of txHash is " <> txHash
 
-  -- TODO: uniswapPlutusScript should come from a config file
-  -- TODO: rawSwap-redeemer should come from a config file
-  -- TODO: poolDatums should come from cardano-cli query or SQL database(the former is better) should come from a config file
-  -- TODO: any hardcoded utxo handles need to be auto selected or passed in
-  (exitCode, stdIn, err) <- readCreateProcessWithExitCode
+  -- Fetch Pool Utxo and PoolState
+  (_, poolCliOut, _) <- readCreateProcessWithExitCode
     (CreateProcess
       {
         cmdspec = RawCommand
-          "./scripts/obelisk-handleSwap.sh"
-          [(T.unpack txHash)
-          , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/uniswapPlutusScript.plutus"
-          , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/firstRawSwap/poolDatum.plutus"
-          , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/rawSwap-redeemer"
-          , (T.unpack collateralTxHash)
-          , (T.unpack uniswapScriptAddress)
-          , "lovelace"
-          , (T.unpack changeAddress)
-          , "./keys/payment.skey"
-          , "555d92eb7e540ffc4d9b6a80becce5429737a5787c54d0f28c8ecb5f9d174774#1"
-          , "3fe5e587c36a29b6151154fd6cf3b0226d172984196c9bf8350d8962e7aa5710#1"
-          , "75a70a2a2e897886839a7a30935c2aa36a27406c5e67d21d8f749df5.PoolState"
-          ]
+          cardanoCliExe
+          ["query", "utxo", "--address", (T.unpack uniswapScriptAddress), "--testnet-magic", testnetMagic]
       , cwd = Nothing
-      , env = Just $ [(("CARDANO_NODE_SOCKET_PATH" :: String) ,nodeSocketPath)]
+      , env = Just $ [(("CARDANO_NODE_SOCKET_PATH" :: String)
+                   ,nodeSocketPath)]
       , std_in = Inherit
       , std_out = Inherit
+      , std_err = Inherit
       , close_fds = False
       , create_group = False
       , delegate_ctlc = False
@@ -685,20 +670,78 @@ buildStaticSwapTransaction changeAddress = do
       , child_user = Nothing
       , use_process_jobs = False
       }) []
-  case exitCode of
-    ExitFailure _ -> do
-      print $ show err
-      -- TODO: Based on the exit code, determine whether to return Right or Left
-      return $ Left $ "Transaction not built: " ++ (show err)
-    ExitSuccess -> do
-      -- open file to fetch cbor hash from file generated by cardano-cli during handleSwap script
-      builtTxBytes <- LBS.readFile "obelisk-rawSwap-tx-signed"
-      let eBuiltTx :: Either String BuiltTx = Aeson.eitherDecode builtTxBytes
-      case eBuiltTx of
-        Left err -> return $ Left err
-        -- Return the CBOR TxHash to be passed into Nami Wallet
-        Right builtTx -> do
-          let cborHex =  _builtTx_cborHex builtTx
-          print $ "buildStaticSwapTransaction: value of cborHex is " <> cborHex
-          return $ Right cborHex
+  -- TODO: This could be the source a bug if the hash prepending "PoolState" is not specified AND there are multiple pools
+  let poolNodeQueryResults = catMaybes $ flip map (flip filter (map T.pack $ lines poolCliOut) $ \utxoLine -> T.isInfixOf "PoolState" utxoLine) $ \utxoInfo -> do
+        case T.words utxoInfo of
+          utxoHandle:txix:otherAmounts -> do
+            let poolState = headMay $ flip filter otherAmounts $ \assets -> T.isSuffixOf "PoolState" assets
+            Just ((utxoHandle <> "#" <> txix), poolState)
+          _ -> Nothing
+      -- Note: For POC there is only one pool
+      demoPool = headMay poolNodeQueryResults
+
+  -- TODO: Determine the TxOut for the Uniswap smart contract - This should come from Plutus.Contracts.RawSwap
+  -- TODO: Determine the TxOut for the client's wallet
+  -- ----------------------------------------------------------
+
+  -- TODO: uniswapPlutusScript should come from a config file
+  -- TODO: rawSwap-redeemer should come from a config file
+  -- TODO: poolDatums should come from cardano-cli query or SQL database(the former is better) should come from a config file
+  -- TODO: any hardcoded utxo handles need to be auto selected or passed in
+  case demoPool of
+    Nothing -> return $ Left "PoolState not found"
+    Just (poolUtxo, mPoolStateSymbol) -> do
+      case mPoolStateSymbol of
+        Nothing -> return $ Left "PoolStateSymbol not found"
+        Just poolStateSymbol -> do
+          print $ "buildStaticSwapTransaction: value of poolUtxo is " <> poolUtxo
+          (exitCode, _, errOut) <- readCreateProcessWithExitCode
+            (CreateProcess
+              {
+                cmdspec = RawCommand
+                  "./scripts/obelisk-handleSwap.sh"
+                  [(T.unpack txHash)
+                  , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/uniswapPlutusScript.plutus"
+                  , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/firstRawSwap/poolDatum.plutus"
+                  , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/rawSwap-redeemer"
+                  , (T.unpack collateralTxHash)
+                  , (T.unpack uniswapScriptAddress)
+                  , "lovelace"
+                  , (T.unpack changeAddress)
+                  , "./keys/payment.skey"
+                  , "555d92eb7e540ffc4d9b6a80becce5429737a5787c54d0f28c8ecb5f9d174774#1" -- TODO: Why do we need additional funds?
+                  , (T.unpack poolUtxo)
+                  , (T.unpack poolStateSymbol)
+                  ]
+              , cwd = Nothing
+              , env = Just $ [(("CARDANO_NODE_SOCKET_PATH" :: String) ,nodeSocketPath)]
+              , std_in = Inherit
+              , std_out = Inherit
+              , std_err = Inherit
+              , close_fds = False
+              , create_group = False
+              , delegate_ctlc = False
+              , detach_console = False
+              , create_new_console = False
+              , new_session = False
+              , child_group = Nothing
+              , child_user = Nothing
+              , use_process_jobs = False
+              }) []
+          case exitCode of
+            ExitFailure _ -> do
+              print $ show errOut
+              -- TODO: Based on the exit code, determine whether to return Right or Left
+              return $ Left $ "Transaction not built: " ++ (show errOut)
+            ExitSuccess -> do
+              -- open file to fetch cbor hash from file generated by cardano-cli during handleSwap script
+              builtTxBytes <- LBS.readFile "obelisk-rawSwap-tx-signed"
+              let eBuiltTx :: Either String BuiltTx = Aeson.eitherDecode builtTxBytes
+              case eBuiltTx of
+                Left err -> return $ Left err
+                -- Return the CBOR TxHash to be passed into Nami Wallet
+                Right builtTx -> do
+                  let cborHex =  _builtTx_cborHex builtTx
+                  print $ "buildStaticSwapTransaction: value of cborHex is " <> cborHex
+                  return $ Right cborHex
 
