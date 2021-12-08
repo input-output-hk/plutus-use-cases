@@ -44,6 +44,8 @@ import           Text.Printf                                  (printf)
 import qualified Data.Map  as Map
 import qualified Cardano.Api  as C
 import Ledger.Tx.CardanoAPI (toCardanoAddress)
+import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
+
 ---
 import qualified Ledger.Constraints                                       as Constraints
 import Plutus.V1.Ledger.Scripts (Datum (..))
@@ -59,6 +61,7 @@ import Ledger.Scripts (datumHash)
 ---
 
 data StartMarketplaceParams = StartMarketplaceParams {
+    marketplaceName :: T.Text,
     creationFee :: Integer,  -- fee by minting and bundling
     saleFee     :: Fractional  -- fee by sale
 }
@@ -70,7 +73,7 @@ start :: StartMarketplaceParams -> Contract w s Text Core.Marketplace
 start StartMarketplaceParams {..} = do
     pkh <- ownPubKeyHash
     saleFeePercentage <- maybe (throwError "Operator's fee value should be in [0, 100]") pure $ mkPercentage saleFee
-    let marketplace = Core.Marketplace pkh (Lovelace creationFee) saleFeePercentage
+    let marketplace = Core.Marketplace pkh (deserializeByteString marketplaceName) (Lovelace creationFee) saleFeePercentage
     let client = Core.marketplaceClient marketplace
 
     -- Debug info

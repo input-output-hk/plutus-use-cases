@@ -14,11 +14,13 @@ import           Plutus.Abstract.PercentageInterface          (calculatePercenta
 import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import           Wallet.Emulator.Types                        (Wallet (..),
                                                                walletPubKeyHash)
+import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
 
 marketplace :: Marketplace.Marketplace
 marketplace =
   Marketplace.Marketplace {
     Marketplace.marketplaceOperator = walletPubKeyHash Fixtures.ownerWallet,
+    Marketplace.marketplaceName = deserializeByteString "Metalamp nft marketplace",
     Marketplace.marketplaceSaleFee = percentage,
     Marketplace.marketplaceNFTFee = marketplaceCreationFee
   }
