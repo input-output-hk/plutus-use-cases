@@ -551,7 +551,7 @@ tests =
         ,
         checkPredicateOptions options "in progress game bet should fail"
         (  walletFundsChange bettor1 (inv (Ada.toValue 0))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut) <> inv theToken)
+          .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams + opCollateral oracleParams + minAdaTxOut) <> inv theToken)
         )
         inProgressBetFailTrace
         ,
@@ -587,7 +587,7 @@ tests =
         ,
         checkPredicateOptions options "could not cancel bet for Live game"
         (
-        walletFundsChange bettor1 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
+        walletFundsChange bettor1 (inv (Ada.toValue $ (mbpBetFee mutualBetParams)))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
         .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut) <> inv theToken)
         )

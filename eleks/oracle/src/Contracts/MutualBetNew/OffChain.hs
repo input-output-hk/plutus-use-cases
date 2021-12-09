@@ -223,7 +223,7 @@ cancelBet mbParams betParams = do
             betWinShare = Ada.lovelaceOf 0
             }
     when (not (cancelBet `elem` bets)) $ throwError "bet not exists"
-    logInfo $ "bet canceled1: " ++ show cancelBet
+    logInfo $ "bet canceled: " ++ show cancelBet
     let inst = typedMutualBetValidator mbParams
         mrScript = mutualBetValidator mbParams
         bets' = (deleteFirstOccurence cancelBet bets)
