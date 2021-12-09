@@ -16,9 +16,7 @@ module Frontend where
 import Prelude hiding (filter)
 
 import Control.Applicative
-import Control.Lens
 import Control.Monad
-import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as T
 import Obelisk.Frontend
 import Obelisk.Route
@@ -30,9 +28,6 @@ import Rhyolite.Frontend.App
 import Common.Api
 import Common.Route
 import Frontend.ChooseWallet
-import Frontend.Pool
-import Frontend.Swap
-import Frontend.Portfolio
 
 import Language.Javascript.JSaddle
 
@@ -73,16 +68,9 @@ app
   :: forall t m js
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
      , Prerender js t m
-     , MonadIO (Performable m)
      , SetRoute t (R FrontendRoute) m
      )
   => RoutedT t (R FrontendRoute) m ()
 app = subRoute_ $ \case
   FrontendRoute_ChooseWallet -> chooseWallet
-  FrontendRoute_WalletRoute -> do
-    dAddr <- fmap fst <$> askRoute
-    withRoutedT (fmap $ view _2) $ subRoute_ $ \case
-      WalletRoute_Swap -> dyn_ $ swapDashboard <$> dAddr
-      WalletRoute_Portfolio -> dyn_ $ portfolioDashboard <$> dAddr
-      WalletRoute_Pool -> dyn_ $ poolDashboard <$> dAddr
-
+  _ -> chooseWallet

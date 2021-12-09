@@ -4,6 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Backend where
@@ -106,6 +107,14 @@ data BuiltTx = BuiltTx
   , _builtTx_description :: Text
   , _builtTx_cborHex :: Text
   } deriving (Show, Generic)
+
+data RecentPoolBalance = RecentPoolBalance
+  { pcA :: Integer
+  , pcB :: Integer
+  } deriving (Show, Generic)
+
+instance FromJSON RecentPoolBalance
+instance ToJSON RecentPoolBalance
 
 instance FromJSON BuiltTx where
   parseJSON (Aeson.Object v) =
@@ -649,7 +658,7 @@ buildStaticSwapTransaction changeAddress = do
   print $ "buildStaticSwapTransaction: value of txHash is " <> txHash
 
   -- Fetch Pool Utxo and PoolState
-  (_, poolCliOut, _) <- readCreateProcessWithExitCode
+  (_, poolCliOut, poolErr) <- readCreateProcessWithExitCode
     (CreateProcess
       {
         cmdspec = RawCommand
@@ -690,99 +699,155 @@ buildStaticSwapTransaction changeAddress = do
   -- TODO: poolDatums should come from cardano-cli query or SQL database(the former is better) should come from a config file
   -- TODO: any hardcoded utxo handles need to be auto selected or passed in
   case demoPool of
-    Nothing -> return $ Left "PoolState not found"
+    Nothing -> do
+      print $ "buildStaticSwapTransaction: value of poolErr is " <> (show poolErr)
+      return $ Left "PoolState not found"
     Just (poolUtxo, mPoolStateSymbol) -> do
       case mPoolStateSymbol of
         Nothing -> return $ Left "PoolStateSymbol not found"
         Just poolStateSymbol -> do
-          let handleSwapProcess namiTxOut = CreateProcess
-                { cmdspec = RawCommand
-                    "./scripts/obelisk-handleSwap.sh"
-                    [(T.unpack txHash)
-                    , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/uniswapPlutusScript.plutus"
-                    , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap-2/poolDatum.plutus"
-                    , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/rawSwap-redeemer"
-                    , (T.unpack collateralTxHash)
-                    , (T.unpack uniswapScriptAddress)
-                    , "lovelace"
-                    , (T.unpack changeAddress)
-                    , "./keys/payment.skey"
-                    , "9502aa61684bd443d69eba5999a138e4dc4186d7335efc14a51db46ac3f1f2b6#1" -- TODO: Why do we need additional funds? Because cardano-cli is wierd...
-                    , (T.unpack poolUtxo)
-                    , (T.unpack poolStateSymbol)
-                    , namiTxOut
-                    ]
-                , cwd = Nothing
-                , env = Just $ [(("CARDANO_NODE_SOCKET_PATH" :: String) ,nodeSocketPath)]
-                , std_in = Inherit
-                , std_out = Inherit
-                , std_err = Inherit
-                , close_fds = False
-                , create_group = False
-                , delegate_ctlc = False
-                , detach_console = False
-                , create_new_console = False
-                , new_session = False
-                , child_group = Nothing
-                , child_user = Nothing
-                , use_process_jobs = False
-                }
-          -- txout lovelace balance used to cause cardano-cli to correct itself and we retreive the correct txout balances in subsequent cardano cli request
-          let initLovelacePlaceholder = "+ 1 lovelace"
-          print $ "buildStaticSwapTransaction: value of poolUtxo is " <> poolUtxo
-          -- NOTE: There are no automatic transaction balancing libs or tools that can be trusted at the moment. The idea here is to
-            -- allow cardano-cli to say what the transaction outputs should be by trail and error of the cardano-cli command itself.
-            -- The plan is to run cardano-cli 4 times, each iteration gets us closer to what the nami wallet client's txout is expected to be.
-          -- First Attempt to build transaction, expecting to fail and extract the minimum required lovelace for this tx
-          (_, _, errOut1) <- readCreateProcessWithExitCode (handleSwapProcess initLovelacePlaceholder) []
-          -- retreive minimumRequiredUtxo from stdErr
-          let mMinimumRequiredUtxo = fmap (T.unwords . reverse . T.words . T.toLower . T.dropWhile (\c -> c /= 'L')) $ headMay $ 
-                flip filter (T.lines $ T.pack errOut1) $ \out -> T.isPrefixOf "Minimum required UTxO" out
-          case mMinimumRequiredUtxo of
-            Nothing -> return $ Left "Minimum required utxo for Nami Wallet Client TxOut could not be established"
-            Just minimumRequiredUtxo -> do
-              print $ "buildStaticSwapTransaction: value of minimumRequiredUtxo  is " <> (T.pack $ show minimumRequiredUtxo)
-              -- Second Attempt to build transaction, expecting to fail and extract the unbalanced ada and non-ada assets
-              (_, _, errOut2) <- readCreateProcessWithExitCode (handleSwapProcess $ " + " <> (T.unpack minimumRequiredUtxo)) []
-              let mBalancedAssets = fmap (T.dropWhile (\c -> not $ isNumber c)) $ headMay $ flip filter (T.lines $ T.pack errOut2) $ \out -> T.isPrefixOf "Command failed" out
-              print $ "buildStaticSwapTransaction: value of mBalancedAssets  is " <> (T.pack $ show mBalancedAssets)
-              case mBalancedAssets of
-                Nothing -> return $ Left "Unable to balance Nami Wallet Client TxOut assets"
-                Just balancedAssets -> do
-                  let minimumLovelace :: Integer = either (\_ -> 0) fst $ decimal $ T.takeWhile (\c -> isNumber c) minimumRequiredUtxo
-                      balancedLovelace :: Integer = either (\_ -> 0) fst $ decimal $ T.takeWhile (\c -> isNumber c) balancedAssets 
-                      summedLovelace = minimumLovelace + balancedLovelace --TODO: At risk of overflow?
-                      remainingAssets = T.dropWhile (\c -> isNumber c) balancedAssets
-                  print $ "buildStaticSwapTransaction: value of minimumLovelace  is " <> (T.pack $ show minimumLovelace)
-                  print $ "buildStaticSwapTransaction: value of balancedLovelace  is " <> (T.pack $ show balancedLovelace)
-                  print $ "buildStaticSwapTransaction: value of summedLovelace  is " <> (T.pack $ show summedLovelace)
-                  print $ "buildStaticSwapTransaction: value of remainingAssets  is " <> (T.pack $ show remainingAssets)
-                  -- Third Attempt to build transaction, expecting to fail to get what might be the tx fee
-                  (_, _, errOut3) <- readCreateProcessWithExitCode (handleSwapProcess $ " + " <> (show summedLovelace) <> (T.unpack remainingAssets)) []
-                  let mTxFee = fmap ((T.takeWhile (\c -> isNumber c)) . (T.dropWhile (\c -> not $ isNumber c))) $ 
-                        headMay $ flip filter (T.lines $ T.pack errOut3) $ \out -> T.isPrefixOf "Command failed" out
-                  print $ "buildStaticSwapTransaction: value of txFeeError  is " <> (T.pack $ show mTxFee)
-                  case mTxFee of
-                    Nothing -> return $ Left "Unable to determine tx fee"
-                    Just txFee -> do
-                      let namiClientLovelaceAmount = summedLovelace - (either (\_ -> 0) fst $ decimal $ txFee)
-                      print $ "buildStaticSwapTransaction: value of namiClientLovelaceAmount  is " <> (T.pack $ show namiClientLovelaceAmount)
-                      -- Fourth Attempt to build transaction, expecting to succeed
-                      (exitCode, _, errOut) <- readCreateProcessWithExitCode (handleSwapProcess $ " + " <> (show namiClientLovelaceAmount) <> (T.unpack remainingAssets)) []
-                      case exitCode of
-                        ExitFailure _ -> do
-                          print $ show errOut
-                          -- TODO: Based on the exit code, determine whether to return Right or Left
-                          return $ Left $ "Transaction not built: " ++ (show errOut)
-                        ExitSuccess -> do
-                          -- open file to fetch cbor hash from file generated by cardano-cli during handleSwap script
-                          builtTxBytes <- LBS.readFile "obelisk-rawSwap-tx-signed"
-                          let eBuiltTx :: Either String BuiltTx = Aeson.eitherDecode builtTxBytes
-                          case eBuiltTx of
-                            Left err -> return $ Left err
-                            -- Return the CBOR TxHash to be passed into Nami Wallet
-                            Right builtTx -> do
-                              let cborHex =  _builtTx_cborHex builtTx
-                              print $ "buildStaticSwapTransaction: value of cborHex is " <> cborHex
-                              return $ Right cborHex
+          -- run Uniswap Validator to figure out which assets are suppose to be returned to the uniswap smart contract
+          currentDir <- getCurrentDirectory
+          let validatorExe = currentDir ++ "/static/plutus-raw-swap" -- TODO: get abs path of plutus-raw-swap exe better than this -- $(static "./static/plutus-raw-swap")
+          print $ "buildStaticSwapTransaction: value of validatorExe is " <> (show validatorExe)
+          (_, validatorOut, validatorErr) <- readCreateProcessWithExitCode
+            (CreateProcess
+              {
+                cmdspec = RawCommand
+                  validatorExe
+                  [ ""
+                  , ""
+                  , "1000000"
+                  , "17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8"
+                  , "PikaCoin"
+                  , "0"
+                  , "./dep/plutus/plutus-use-cases/rawSwap-3/poolDatum.plutus"
+                  , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/cardano-node/result/alonzo-testnet/cardano-cli/bin/cardano-cli"
+                  , "./node.sock"
+                  , "addr_test1wqwtftz4r7ly8e8qkkt9h4dhjmhe5zpq4cmx4tdepsqx7psx88h7z"
+                  , "1097911063"
+                  ]
+              , cwd = Nothing
+              , env = Just $ [(("CARDANO_NODE_SOCKET_PATH" :: String)
+                           ,nodeSocketPath)]
+              , std_in = Inherit
+              , std_out = Inherit
+              , std_err = Inherit
+              , close_fds = False
+              , create_group = False
+              , delegate_ctlc = False
+              , detach_console = False
+              , create_new_console = False
+              , new_session = False
+              , child_group = Nothing
+              , child_user = Nothing
+              , use_process_jobs = False
+              }) []
+          print $ "buildStaticSwapTransaction: value of validatorOut is " <> (show validatorOut)
+          print $ "buildStaticSwapTransaction: value of validatorErr is " <> (show validatorErr)
+          -- TODO: open recentPoolBalance.json file generated by validator and retreive expected token pool balances for txOut
+          recentPoolBalanceBytes <- LBS.readFile "./rawSwap/recentPoolBalance.json"
+          let eRecentPoolBalance :: Either String RecentPoolBalance = Aeson.eitherDecode recentPoolBalanceBytes
+          case eRecentPoolBalance of
+            Left err -> return $ Left err
+            -- Return the CBOR TxHash to be passed into Nami Wallet
+            Right recentPoolBalance -> do
+              let contractTxOut = T.unpack $ (T.pack $ show $ pcA recentPoolBalance)
+                    <> " lovelace + "
+                    <> (T.pack $ show $ pcB recentPoolBalance)
+                    <> " 17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8.PikaCoin"
+              print $ "buildStaticSwapTransaction: value of contractTxOut is " <> (show contractTxOut)
+          -- ---------------------------------------------------------------------------------------------------------------
+              let handleSwapProcess namiTxOut uniswapTxOut = CreateProcess
+                    { cmdspec = RawCommand
+                        "./scripts/obelisk-handleSwap.sh"
+                        [(T.unpack txHash)
+                        , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/uniswapPlutusScript.plutus"
+                        , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap-2/poolDatum.plutus"
+                        , "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/rawSwap-redeemer"
+                        , "555d92eb7e540ffc4d9b6a80becce5429737a5787c54d0f28c8ecb5f9d174774#0" -- (T.unpack collateralTxHash)
+                        , (T.unpack uniswapScriptAddress)
+                        , "lovelace"
+                        , (T.unpack changeAddress)
+                        , "./keys/payment.skey"
+                        , "9502aa61684bd443d69eba5999a138e4dc4186d7335efc14a51db46ac3f1f2b6#1" -- TODO: Why do we need additional funds? Because cardano-cli is wierd...
+                        , (T.unpack poolUtxo)
+                        , (T.unpack poolStateSymbol)
+                        , namiTxOut
+                        , uniswapTxOut
+                        ]
+                    , cwd = Nothing
+                    , env = Just $ [(("CARDANO_NODE_SOCKET_PATH" :: String) ,nodeSocketPath)]
+                    , std_in = Inherit
+                    , std_out = Inherit
+                    , std_err = Inherit
+                    , close_fds = False
+                    , create_group = False
+                    , delegate_ctlc = False
+                    , detach_console = False
+                    , create_new_console = False
+                    , new_session = False
+                    , child_group = Nothing
+                    , child_user = Nothing
+                    , use_process_jobs = False
+                    }
+              -- txout lovelace balance used to cause cardano-cli to correct itself and we retreive the correct txout balances in subsequent cardano cli request
+              let initLovelacePlaceholder = "+ 1 lovelace"
+              print $ "buildStaticSwapTransaction: value of poolUtxo is " <> poolUtxo
+              -- NOTE: There are no automatic transaction balancing libs or tools that can be trusted at the moment. The idea here is to
+                -- allow cardano-cli to say what the transaction outputs should be by trail and error of the cardano-cli command itself.
+                -- The plan is to run cardano-cli 4 times, each iteration gets us closer to what the nami wallet client's txout is expected to be.
+              -- First Attempt to build transaction, expecting to fail and extract the minimum required lovelace for this tx
+              (_, _, errOut1) <- readCreateProcessWithExitCode (handleSwapProcess initLovelacePlaceholder contractTxOut) []
+              -- retreive minimumRequiredUtxo from stdErr
+              print $ "buildStaticSwapTransaction: value of errOut1 is " <> errOut1
+              let mMinimumRequiredUtxo = fmap (T.unwords . reverse . T.words . T.toLower . T.dropWhile (\c -> c /= 'L')) $ headMay $
+                    flip filter (T.lines $ T.pack errOut1) $ \out -> T.isPrefixOf "Minimum required UTxO" out
+              case mMinimumRequiredUtxo of
+                Nothing -> return $ Left "Minimum required utxo for Nami Wallet Client TxOut could not be established"
+                Just minimumRequiredUtxo -> do
+                  print $ "buildStaticSwapTransaction: value of minimumRequiredUtxo  is " <> (T.pack $ show minimumRequiredUtxo)
+                  -- Second Attempt to build transaction, expecting to fail and extract the unbalanced ada and non-ada assets
+                  (_, _, errOut2) <- readCreateProcessWithExitCode (handleSwapProcess (" + " <> (T.unpack minimumRequiredUtxo)) contractTxOut) []
+                  let mBalancedAssets = fmap (T.dropWhile (\c -> not $ isNumber c)) $ headMay $ flip filter (T.lines $ T.pack errOut2) $ \out -> T.isPrefixOf "Command failed" out
+                  print $ "buildStaticSwapTransaction: value of mBalancedAssets  is " <> (T.pack $ show mBalancedAssets)
+                  case mBalancedAssets of
+                    Nothing -> return $ Left "Unable to balance Nami Wallet Client TxOut assets"
+                    Just balancedAssets -> do
+                      let minimumLovelace :: Integer = either (\_ -> 0) fst $ decimal $ T.takeWhile (\c -> isNumber c) minimumRequiredUtxo
+                          balancedLovelace :: Integer = either (\_ -> 0) fst $ decimal $ T.takeWhile (\c -> isNumber c) balancedAssets
+                          summedLovelace = minimumLovelace + balancedLovelace --TODO: At risk of overflow?
+                          remainingAssets = T.dropWhile (\c -> isNumber c) balancedAssets
+                      print $ "buildStaticSwapTransaction: value of minimumLovelace  is " <> (T.pack $ show minimumLovelace)
+                      print $ "buildStaticSwapTransaction: value of balancedLovelace  is " <> (T.pack $ show balancedLovelace)
+                      print $ "buildStaticSwapTransaction: value of summedLovelace  is " <> (T.pack $ show summedLovelace)
+                      print $ "buildStaticSwapTransaction: value of remainingAssets  is " <> (T.pack $ show remainingAssets)
+                      -- Third Attempt to build transaction, expecting to fail to get what might be the tx fee
+                      (_, _, errOut3) <- readCreateProcessWithExitCode (handleSwapProcess (" + " <> (show summedLovelace) <> (T.unpack remainingAssets)) contractTxOut) []
+                      let mTxFee = fmap ((T.takeWhile (\c -> isNumber c)) . (T.dropWhile (\c -> not $ isNumber c))) $
+                            headMay $ flip filter (T.lines $ T.pack errOut3) $ \out -> T.isPrefixOf "Command failed" out
+                      print $ "buildStaticSwapTransaction: value of txFeeError  is " <> (T.pack $ show mTxFee)
+                      case mTxFee of
+                        Nothing -> return $ Left "Unable to determine tx fee"
+                        Just txFee -> do
+                          let namiClientLovelaceAmount = summedLovelace - (either (\_ -> 0) fst $ decimal $ txFee)
+                          print $ "buildStaticSwapTransaction: value of namiClientLovelaceAmount  is " <> (T.pack $ show namiClientLovelaceAmount)
+                          -- Fourth Attempt to build transaction, expecting to succeed
+                          (exitCode, _, errOut) <- readCreateProcessWithExitCode (handleSwapProcess (" + " <> (show namiClientLovelaceAmount) <> (T.unpack remainingAssets)) contractTxOut) []
+                          case exitCode of
+                            ExitFailure _ -> do
+                              print $ show errOut
+                              -- TODO: Based on the exit code, determine whether to return Right or Left
+                              return $ Left $ "Transaction not built: " ++ (show errOut)
+                            ExitSuccess -> do
+                              -- open file to fetch cbor hash from file generated by cardano-cli during handleSwap script
+                              builtTxBytes <- LBS.readFile "obelisk-rawSwap-tx-signed"
+                              let eBuiltTx :: Either String BuiltTx = Aeson.eitherDecode builtTxBytes
+                              case eBuiltTx of
+                                Left err -> return $ Left err
+                                -- Return the CBOR TxHash to be passed into Nami Wallet
+                                Right builtTx -> do
+                                  let cborHex =  _builtTx_cborHex builtTx
+                                  print $ "buildStaticSwapTransaction: value of cborHex is " <> cborHex
+                                  return $ Right cborHex
 

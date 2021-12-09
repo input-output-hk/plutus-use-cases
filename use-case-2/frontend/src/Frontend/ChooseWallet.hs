@@ -18,7 +18,7 @@ module Frontend.ChooseWallet
 import Prelude hiding (id, (.), filter)
 
 import Control.Applicative
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (liftIO)
 import Data.Text (Text)
 import qualified Data.Text as T
 -- import Data.Vessel
@@ -40,7 +40,6 @@ chooseWallet
   :: forall t m js
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
      , Prerender js t m
-     , MonadIO (Performable m)
      , SetRoute t (R FrontendRoute) m
      )
   => m ()
@@ -74,57 +73,56 @@ chooseWallet = do
         return $ tagPromptlyDyn requestLoad staticSwapEv
       let newEv = switchDyn staticSwapRequestEv
       txBuildResponse <- requestingIdentity newEv
+      let (txBuildFailEv, cborHexEv) = fanEither txBuildResponse
 
-      widgetHold_ blank $ ffor txBuildResponse  $ \case
-        Left err -> text $ T.pack err
-        -- TODO: since Right cborTxHex is exposed... refactor subsequent code using dynCborHex to use  cborTxHex instead
-        Right _cborTxHex -> do
-          dynEitherCborTx <- holdDyn (Left "CborTx not received") txBuildResponse
-          let cborHexEv :: Event t Text = updated $ fmap (\a -> either (\err-> T.pack $ show err) (\ch -> ch) a) dynEitherCborTx
-          -- TODO: Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
-          (signedTxEv, signTrigger) <- newTriggerEvent
-          (submitTxEv, submitTxTrigger) <- newTriggerEvent
-          dynCborHex :: Dynamic t Text <- holdDyn "" cborHexEv
-          dynHexWitness :: Dynamic t Text <- holdDyn "" signedTxEv
+      widgetHold_ blank $ ffor txBuildFailEv  $ \errMsg -> el "p" $ text $ T.pack errMsg
+      widgetHold_ blank $ ffor cborHexEv  $ \_ -> el "p" $ text $ T.pack "Transaction built"
+      -- TODO: since Right cborTxHex is exposed... refactor subsequent code using dynCborHex to use  cborTxHex instead
+      -- TODO: Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
+      (signedTxEv, signTrigger) <- newTriggerEvent
+      (submitTxEv, submitTxTrigger) <- newTriggerEvent
+      dynCborHex :: Dynamic t Text <- holdDyn "" cborHexEv
+      dynHexWitness :: Dynamic t Text <- holdDyn "" signedTxEv
 
-          -- helper functions to return js callback results as Text
-          let getSignTxCallback :: JSCallAsFunction
-              getSignTxCallback = fun $ \_ _ args -> case args of
-                (i:_) -> do
-                  fromJSVal i >>= \case
-                    Just (a :: Text) -> liftIO (signTrigger a)
-                    _ -> pure ()
+      -- helper functions to return js callback results as Text
+      let getSignTxCallback :: JSCallAsFunction
+          getSignTxCallback = fun $ \_ _ args -> case args of
+            (i:_) -> do
+              fromJSVal i >>= \case
+                Just (a :: Text) -> liftIO (signTrigger a)
                 _ -> pure ()
+            _ -> pure ()
 
-              getSubmitTxResultCallback :: JSCallAsFunction
-              getSubmitTxResultCallback = fun $ \_ _ args -> case args of
-                (i:_) -> do
-                  fromJSVal i >>= \case
-                    Just (a :: Text) -> liftIO (submitTxTrigger a)
-                    _ -> pure ()
+          getSubmitTxResultCallback :: JSCallAsFunction
+          getSubmitTxResultCallback = fun $ \_ _ args -> case args of
+            (i:_) -> do
+              fromJSVal i >>= \case
+                Just (a :: Text) -> liftIO (submitTxTrigger a)
                 _ -> pure ()
+            _ -> pure ()
 
-          -- when the backend responds with a build transaction, have Nami Wallet sign the transaction
-          prerender_ blank $ performEvent_ $ (\cborHexTx -> liftJSM $ do
-            signedTx <-
-              eval ("(async function foo (someparam) { let x = await window.cardano.signTx('" <> cborHexTx <> "', true); console.log(x); someparam(x); })" :: T.Text)
-            _ <- call signedTx signedTx (getSignTxCallback)
-            return ()
-            ) <$> cborHexEv
+      -- when the backend responds with a build transaction, have Nami Wallet sign the transaction
+      prerender_ blank $ performEvent_ $ (\cborHexTx -> liftJSM $ do
+        signedTx <-
+          eval ("(async function foo (someparam) { let x = await window.cardano.signTx('" <> cborHexTx <> "', true); console.log(x); someparam(x); })" :: T.Text)
+        _ <- call signedTx signedTx (getSignTxCallback)
+        return ()
+        ) <$> cborHexEv
 
-          let dynTxSubmissionInput :: Dynamic t (Text, Text) = ffor2 dynCborHex dynHexWitness $ \txHex txWit -> (txHex, txWit)
-              txSubmissionEv = tagPromptlyDyn dynTxSubmissionInput signedTxEv
+      let dynTxSubmissionInput :: Dynamic t (Text, Text) = ffor2 dynCborHex dynHexWitness $ \txHex txWit -> (txHex, txWit)
+          txSubmissionEv = tagPromptlyDyn dynTxSubmissionInput signedTxEv
 
-          -- append new txWitness after signing and submit tx to chain
-          prerender_ blank $ performEvent_ $ (\(initialTxHash, txWitness) -> liftJSM $ do
-            submitTxResult <-
-              eval ("(async function foo (someparam) { let x = await appendAndSubmit('" <> initialTxHash <> "','" <> txWitness <> "'); console.log(x); someparam(x); })" :: T.Text)
-            _ <- call submitTxResult submitTxResult (getSubmitTxResultCallback)
-            return ()
-            ) <$> txSubmissionEv
+      -- append new txWitness after signing and submit tx to chain
+      prerender_ blank $ performEvent_ $ (\(initialTxHash, txWitness) -> liftJSM $ do
+        submitTxResult <-
+          eval ("(async function foo (someparam) { let x = await appendAndSubmit('" <> initialTxHash <> "','" <> txWitness <> "'); console.log(x); someparam(x); })" :: T.Text)
+        _ <- call submitTxResult submitTxResult (getSubmitTxResultCallback)
+        return ()
+        ) <$> txSubmissionEv
 
-
-          display dynHexWitness
-          widgetHold_ blank $ ffor submitTxEv $ \msg -> el "p" $ text msg
-          return ()
+      -- show tx submittion results
+      widgetHold_ blank $ ffor submitTxEv $ \msg -> el "p" $ text $ case msg of
+        "undefined" -> "Transaction successfully submitted"
+        _ -> msg
+      return ()
 
