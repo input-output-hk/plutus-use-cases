@@ -27,7 +27,7 @@
 
   query markte params
   ```
-  export OWNER_INSTANCE_ID=a42fa95e-2f90-408b-ae05-ca720e5a4154
+  export OWNER_INSTANCE_ID=81d04613-f143-402f-b24b-bcde02016663
   curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:9085/api/contract/instance/$OWNER_INSTANCE_ID/status | jq '.cicCurrentState.observableState.contents'
@@ -57,7 +57,7 @@ curl -H "Content-Type: application/json" -v -X POST -d \
   },"caWallet":{"getWalletId":"2d4cc31a4b3116ab86bfe529d30d9c362acd0b44"}}' \
     localhost:9085/api/contract/activate
     
-export CLIENT_INSTANCE_ID=a038139c-af8a-4389-937a-424c31cace2d
+export CLIENT_INSTANCE_ID=450709cd-6f63-49bc-bae2-cdce4d75d96b
   curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:9085/api/contract/instance/$CLIENT_INSTANCE_ID/status | jq '.cicCurrentState'
