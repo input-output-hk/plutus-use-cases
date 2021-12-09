@@ -114,16 +114,6 @@ data MutualBetInput
 
 PlutusTx.unstableMakeIsData ''MutualBetInput
 
-data GameStateChange 
-    = GameStateChange 
-        { gmsOutRef :: TxOutRef
-        , gmsOutTx  :: ChainIndexTxOut
-        , gmsOracleData :: OracleData
-        , gmsSignedMessage :: SignedMessage OracleSignedMessage
-        , gmsSignedMessageData :: OracleSignedMessage
-        }
-        deriving stock (Haskell.Show)
-
 data MutualBetLog =
     MutualBetStarted MutualBetParams -- Contract started
     | MutualBetFailed SM.SMContractError -- Contract start erro

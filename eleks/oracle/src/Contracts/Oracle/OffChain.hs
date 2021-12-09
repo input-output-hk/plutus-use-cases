@@ -113,7 +113,7 @@ updateOracle oracle operatorPrivateKey params = do
                                     }
                         let oracleData' = oracleData{ ovSignedMessage = Just $ signMessage oracleSignMessage operatorPrivateKey }
                         when (oracleData' /= oracleData) $ do
-                            let requestTokenVal = assetClassValue (requestTokenClassFromOracle oracle) 1
+                            let requestTokenVal = requestTokenValue oracle
                                 collateralVal = Ada.toValue $ oCollateral oracle 
                             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     
                                         <> Constraints.typedValidatorLookups (typedOracleValidator oracle) 
@@ -121,8 +121,18 @@ updateOracle oracle operatorPrivateKey params = do
                                 tx      = Constraints.mustPayToTheScript oracleData' (requestTokenVal <> collateralVal) 
                                         <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
 
-                            logInfo ("submit transaction " ++ (show $ oracleData'))
-                            mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+                            result <- runError @_ @_ @Text $ submitTxConstraintsWith @Oracling lookups tx
+                            case result of
+                                Left err -> do
+                                    logWarn @Haskell.String "An error occurred. Request oracle for address failed."
+                                    logWarn err
+                                Right tx -> do
+                                    let txi = getCardanoTxId tx
+                                    logInfo @Haskell.String $ "Waiting for tx " <> Haskell.show txi <> " to complete"
+                                    awaitTxConfirmed txi
+                                    logInfo @Haskell.String "Tx confirmed. Request oracle for address complete."
+                            -- logInfo ("submit transaction " ++ (show $ oracleData'))
+                            -- mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
 
 -- oracleValueFromTxOutTx :: ChainIndexTxOut -> Maybe OracleData
 -- oracleValueFromTxOutTx o = do

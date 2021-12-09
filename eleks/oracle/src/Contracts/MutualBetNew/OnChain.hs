@@ -26,7 +26,6 @@ import           Data.Bool                 (bool)
 import qualified Data.ByteString.Short     as SBS
 import qualified Data.ByteString.Lazy      as LBS
 import qualified Data.Map                  as Map
-import           Data.Maybe                (catMaybes)
 import           Data.Monoid               (Last (..))
 import           Data.Void                 (Void)
 import           Data.Text                 (Text, pack)
@@ -42,7 +41,7 @@ import           Ledger.Constraints        as Constraints
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Contexts           as Validation
-import           Plutus.Contract.Oracle    (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), verifySignedMessageConstraints)
+import           Plutus.Contract.Oracle    (SignedMessage(..), verifySignedMessageConstraints)
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
@@ -50,6 +49,7 @@ import           Prelude                   (Semigroup (..), Show (..), String)
 import qualified Prelude                   as Haskell
 import           Schema                    (ToSchema)
 import           Contracts.MutualBetNew.Types
+import           Contracts.Oracle
 
 {-# INLINABLE payToWinners #-}
 payToWinners :: TxInfo -> (PubKeyHash, Ada, Ada) -> Bool
@@ -165,11 +165,13 @@ validateCancelBet params bets cancelBet ctx =
 validatePayout :: 
     MutualBetParams
     -> [Bet]
-    -> TeamId
+    -> SignedMessage OracleSignedMessage
     -> ScriptContext
     -> Bool
-validatePayout params bets winnerId ctx =
+validatePayout params bets signedMessage ctx =
     traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
+    && isCurrentGameCheck params oracleMessage
+    && expectGameStatus FT oracleMessage
     &&  if hasWinner 
         then
           traceIfFalse "payout to winners" (all (payToWinners info) winners)
@@ -179,6 +181,12 @@ validatePayout params bets winnerId ctx =
   where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
+
+    oracleMessage:: OracleSignedMessage
+    oracleMessage = extractOracleMessage params signedMessage
+
+    winnerId :: TeamId
+    winnerId = osmWinnerId oracleMessage
 
     hasWinner:: Bool 
     hasWinner = winnerId > 0
@@ -190,37 +198,65 @@ validatePayout params bets winnerId ctx =
 validateCancel :: 
     MutualBetParams
     -> [Bet]
+    -> SignedMessage OracleSignedMessage
     -> ScriptContext
     -> Bool
-validateCancel params bets ctx =
+validateCancel params bets signedMessage ctx =
     traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
     && traceIfFalse "pay back on cancel"  (all (payBettorsBack info) bets)
+    && isCurrentGameCheck params oracleMessage
+    && expectGameStatus CANC oracleMessage
   where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
+
+    oracleMessage:: OracleSignedMessage
+    oracleMessage = extractOracleMessage params signedMessage
+
+{-# INLINABLE isCurrentGameCheck #-}
+isCurrentGameCheck:: MutualBetParams -> OracleSignedMessage -> Bool
+isCurrentGameCheck params message = traceIfFalse "signed message not for this game" (mbpGame params == osmGameId message)
+
+{-# INLINABLE extractOracleMessage #-}
+extractOracleMessage:: MutualBetParams -> SignedMessage OracleSignedMessage -> OracleSignedMessage
+extractOracleMessage params message = fromMaybe (traceError "no oracle message") (extractSignedMessage (oraclePubKey params) $ Just message)
 
 {-# INLINABLE validateStartGame #-}
 validateStartGame ::
     MutualBetParams
+    -> SignedMessage OracleSignedMessage
     -> ScriptContext
     -> Bool
-validateStartGame params ctx =
+validateStartGame params signedMessage ctx =
     traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
+    && isCurrentGameCheck params oracleMessage
+    && expectGameStatus LIVE oracleMessage
   where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
 
+    oracleMessage:: OracleSignedMessage
+    oracleMessage = extractOracleMessage params signedMessage
+
+{-# INLINABLE expectGameStatus #-}
+expectGameStatus:: FixtureStatusShort -> OracleSignedMessage  -> Bool
+expectGameStatus expStatus message = expStatus == (osmGameStatus message)
+
+{-# INLINABLE oraclePubKey #-}
+oraclePubKey:: MutualBetParams -> PubKey
+oraclePubKey params = (oOperatorKey $ mbpOracle $ params)
+
 {-# INLINABLE mkMutualBetValidator #-}
 mkMutualBetValidator :: MutualBetParams -> MutualBetDatum -> MutualBetRedeemer -> ScriptContext -> Bool
 mkMutualBetValidator params (MutualBetDatum bets True) (MakeBet bet)      ctx = validateBet params bets bet ctx
-mkMutualBetValidator params (MutualBetDatum _ False)   (MakeBet _)        ctx = traceIfFalse "cannot bet on started game" False
+mkMutualBetValidator params (MutualBetDatum _ False)   (MakeBet _)        ctx = traceError "cannot bet on started game"
 mkMutualBetValidator params (MutualBetDatum bets True) (CancelBet cancelBet)    ctx = validateCancelBet params bets cancelBet ctx
-mkMutualBetValidator params (MutualBetDatum _ False)   (CancelBet _)      ctx = traceIfFalse "cannot cancel bet on started game" False
-mkMutualBetValidator params (MutualBetDatum _ True)    (StartGame)        ctx = validateStartGame params ctx
-mkMutualBetValidator params (MutualBetDatum _ False)   (StartGame)        ctx = traceIfFalse "game already started" False
-mkMutualBetValidator params (MutualBetDatum bets _)    CancelGame             ctx = validateCancel params bets ctx
-mkMutualBetValidator params (MutualBetDatum bets _)    (Payout winnerId)  ctx = validatePayout params bets winnerId ctx
-mkMutualBetValidator _      _                          _                  _   = False
+mkMutualBetValidator params (MutualBetDatum _ False)   (CancelBet _)      ctx = traceError "cannot cancel bet on started game"
+mkMutualBetValidator params (MutualBetDatum _ True)    (StartGame oracleMessage)        ctx = validateStartGame params oracleMessage ctx
+mkMutualBetValidator params (MutualBetDatum _ False)   (StartGame _)        ctx = traceError "game already started"
+mkMutualBetValidator params (MutualBetDatum bets _)    (CancelGame oracleMessage)           ctx = validateCancel params bets oracleMessage ctx
+mkMutualBetValidator params (MutualBetDatum bets _)    (Payout oracleMessage)  ctx = validatePayout params bets oracleMessage ctx
+mkMutualBetValidator _      _                          _                  _    = traceError "request parse error"
 
 data MutualBetTypes
 instance Scripts.ValidatorTypes MutualBetTypes where

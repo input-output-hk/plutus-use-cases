@@ -135,6 +135,16 @@ data UseOracleParams = UseOracleParams
     }
     deriving (Haskell.Eq, Show, Haskell.Ord, Generic, ToSchema, FromJSON, ToJSON, OpenApi.ToSchema)
 
+data GameStateChange 
+    = GameStateChange 
+        { gmsOutRef :: TxOutRef
+        , gmsOutTx  :: ChainIndexTxOut
+        , gmsOracleData :: OracleData
+        , gmsSignedMessage :: SignedMessage OracleSignedMessage
+        , gmsSignedMessageData :: OracleSignedMessage
+        }
+        deriving stock (Haskell.Show)
+        
 {-# INLINABLE oracleRequestTokenName #-}
 oracleRequestTokenName :: TokenName
 oracleRequestTokenName = TokenName "ortk"

@@ -31,6 +31,7 @@ import           Data.Map                        (lookup)
 import           Ledger                          hiding (txOutRefs)
 import           Ledger.Crypto                   (pubKeyHash)
 import           Playground.Contract             (Show, FromJSON, Generic, ToJSON, ToSchema)
+import           Plutus.Contract.Oracle          (SignedMessage(..))
 import           Plutus.ChainIndex.Tx            (txOutRefs, ChainIndexTx (..), ChainIndexTxOutputs (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
@@ -88,7 +89,8 @@ instance Eq Bet where
              (betBettor l == betBettor r) &&
              (betTeamId l == betTeamId r)
 
-data MutualBetRedeemer = MakeBet Bet | CancelBet Bet | StartGame | Payout TeamId | CancelGame
+
+data MutualBetRedeemer = MakeBet Bet | CancelBet Bet | StartGame (SignedMessage OracleSignedMessage) | Payout (SignedMessage OracleSignedMessage) | CancelGame (SignedMessage OracleSignedMessage)
     deriving Show
 PlutusTx.makeIsDataIndexed ''MutualBetRedeemer [('MakeBet, 0), ('CancelBet, 1), ('StartGame, 2), ('Payout, 3), ('CancelGame, 4)]
 
