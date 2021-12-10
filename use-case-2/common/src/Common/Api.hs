@@ -40,6 +40,7 @@ data Q (v :: (* -> *) -> *) where
 data Api :: * -> * where
   Api_BuildStaticSwapTransaction
     :: Text -- Change Address (Wallet Address)
+    ->  Integer -- Amount of ADA wished to be swapped
     -> Api (Either String Text) -- Either Error (CBOR encoded transaction)
 
 data SmartContractAction = SmartContractAction_Swap

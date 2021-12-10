@@ -92,13 +92,12 @@ backend = Backend
 --------------------------------------------------------------
  -- TODO: Ensure that this is always the latest poolDatum, should only change whenenver a successful swap has occurred
 poolDatumFilePath :: Text
-poolDatumFilePath = "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap-2/poolDatum.plutus"
+poolDatumFilePath = "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/swapTestHistory/rawSwap-4/poolDatum.plutus"
 
 -- TODO: Redeemer is generated the same way poolDatum is generated, after validator exe is run, ensure latest redeemer is used
 swapRedeemerFilePath :: Text
-swapRedeemerFilePath = "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/rawSwap-redeemer"
+swapRedeemerFilePath = "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/swapTestHistory/rawSwap-4/rawSwap-redeemer"
 --------------------------------------------------------------
-
 
 data BuiltTx = BuiltTx
   { _builtTx_type :: Text
@@ -125,7 +124,7 @@ instance ToJSON BuiltTx
 -- | Handle requests / commands, a standard part of Obelisk apps.
 requestHandler :: Map Text ByteString -> Manager -> Pool Pg.Connection -> RequestHandler Api IO
 requestHandler configs _httpManager _pool = RequestHandler $ \case
-  Api_BuildStaticSwapTransaction walletAddress -> buildStaticSwapTransaction configs walletAddress
+  Api_BuildStaticSwapTransaction walletAddress adaAmount -> buildStaticSwapTransaction configs walletAddress adaAmount
 
 notifyHandler :: DbNotification Notification -> DexV Proxy -> IO (DexV Identity)
 notifyHandler dbNotification _ = case _dbNotification_message dbNotification of
@@ -172,8 +171,8 @@ getConfig m k = case Map.lookup k m of
     Left err -> fail . T.unpack $ "failed to decode config/" <> k <> " Error: " <> (T.pack $ show err)
     Right y -> return $ T.strip y
 
-buildStaticSwapTransaction :: Map Text ByteString -> Text -> IO (Either String Text)
-buildStaticSwapTransaction configs changeAddress = do
+buildStaticSwapTransaction :: Map Text ByteString -> Text -> Integer -> IO (Either String Text)
+buildStaticSwapTransaction configs changeAddress adaAmount = do
   print $ "buildStaticSwapTransaction: value of configs is " <> (show configs)
 
   -- fetch configs to perform swap
@@ -284,6 +283,8 @@ buildStaticSwapTransaction configs changeAddress = do
           currentDir <- getCurrentDirectory
           let validatorExe = currentDir ++ "/static/plutus-raw-swap" -- TODO: get abs path of plutus-raw-swap exe better than this -- $(static "./static/plutus-raw-swap")
           print $ "buildStaticSwapTransaction: value of validatorExe is " <> (show validatorExe)
+          let lovelaceAmount = adaAmount * 1000000
+          print $ "buildStaticSwapTransaction: value of lovelaceAmount to be swapped is " <> (show lovelaceAmount)
           (_, validatorOut, validatorErr) <- readCreateProcessWithExitCode
             (CreateProcess
               {
@@ -291,10 +292,10 @@ buildStaticSwapTransaction configs changeAddress = do
                   validatorExe
                   [ "" -- currency symbol for ADA, Should come from Pool Datum decoding
                   , "" -- tokenName for ADA, Should come from Pool Datum decoding
-                  , "1000000" -- TODO: This amount should be specified by client side user
+                  , (show lovelaceAmount)
                   , (T.unpack tokenBCurrencySymbol)
                   , (T.unpack tokenBName)
-                  , "0" -- TODO: This amount should be specified by the user
+                  , "0" -- TODO: This amount should be specified by the user when swapping from arbitrary token to ada is available
                   , (T.unpack poolDatumFilePath)
                   , (T.unpack cardanoCliExe)
                   , (T.unpack nodeSocketPath)

@@ -15,12 +15,13 @@ module Frontend.ChooseWallet
   ( chooseWallet
   ) where
 
-import Prelude hiding (id, (.), filter)
+import Prelude hiding (id, filter)
 
 import Control.Applicative
 import Control.Monad.IO.Class (liftIO)
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Read as T
 -- import Data.Vessel
 -- import Data.Vessel.Identity
 -- import Data.Vessel.Vessel
@@ -50,7 +51,9 @@ chooseWallet = do
       elClass "h2" "display-5 fw-bold" $ text "Welcome to POKE-DEX!"
       elClass "h3" "display-5 fw-bold" $ text "Real Node Static Smart Contract Transaction"
       el "p" $ text "Use the button below to perform static swap using Nami Wallet against a real Alonzo Node with a smart contract that is deployed to testnet!"
-      staticSwapEv <- button "Swap 1 ADA to receive PikaCoin"
+      inputAmount <- inputElement $ def & initialAttributes .~ ("type" =: "number" <> "placeholder" =: "Enter amount of ADA")
+      let dynAdaAmount =  ((either (\_ -> 0) fst) . T.decimal) <$> _inputElement_value inputAmount
+      staticSwapEv <- button "Swap ADA to receive PikaCoin"
       ----------------------
       (addressEv, addressTrigger) <- newTriggerEvent
       dynAddress <- holdDyn "" addressEv
@@ -68,8 +71,9 @@ chooseWallet = do
             \ console.log(y.to_address().to_bech32()); \
             \ someparam(y.to_address().to_bech32()); })" :: Text)
         _ <- call jsWalletAddress jsWalletAddress (getAddressCallback)
-        let requestLoad = (\addr -> Api_BuildStaticSwapTransaction addr)
+        let requestLoad = (\addr adaAmount -> Api_BuildStaticSwapTransaction addr adaAmount)
                <$> dynAddress
+               <*> dynAdaAmount
         return $ tagPromptlyDyn requestLoad staticSwapEv
       let newEv = switchDyn staticSwapRequestEv
       txBuildResponse <- requestingIdentity newEv
