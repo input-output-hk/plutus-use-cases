@@ -34,12 +34,12 @@ import           Types.Game
 
 createInitialGames :: ExceptT String IO [Game]
 createInitialGames = do
-    games <- lift $ (eitherDecodeFileStrict "gameserver/fixture-template.json" :: IO (Either String [Game]))
+    games <- lift $ (eitherDecodeFileStrict "servers/game/fixture-template.json" :: IO (Either String [Game]))
     (liftEither games) >>= saveGames
 
 saveGames :: [Game] -> ExceptT String IO [Game]
 saveGames games = do
-    liftIO $ writeFile "gameserver/fixture.json" $ U.toString $ encodePretty games
+    liftIO $ writeFile "servers/game/fixture.json" $ U.toString $ encodePretty games
     liftIO $ return games
 
 getGames :: ExceptT String IO [Game]
