@@ -240,3 +240,30 @@ cd dep/minimal-webpack5-wasm-demo
 nix-shell
 yarn webpack && cp -v dist/*.wasm dist/main.js ../../static
 ```
+
+##  ABOUT static/plutus-raw-swap
+
+This file was generated to allow Obelisk backend to generate files regarding Pool Datum State and to utilize the same exact functions that have been deployed on chain
+in it's own backend off chain.
+
+Below I will inform how one can make development changes to this script. Please be aware that if you make changes to the validators functions that produce this script,
+you may need to redeploy the Uniswap smart contract and make changes to similar code seen in validators, such as `checkSwap`.
+
+To develop this code you will need to:
+
+```
+ob thunk unpack ./dep/plutus
+cd ./dep/plutus
+```
+
+make desired changes to `./plutus-use-cases/src/Plutus/Contracts/RawSwap.hs` and `./plutus-use-cases/scripts/BruteSwap.hs`
+
+build a new plutus-raw-swap executable by doing the following from within the ./dep/plutus dir
+
+```
+nix-shell
+cabal build plutus-use-cases:exe:plutus-raw-swap
+```
+
+Lastly copy the generated exe to the static dir at the base of the obelisk project.
+`cp dep/plutus/dist-newstyle/build/x86_64-linux/ghc-8.10.4.20210212/plutus-use-cases-0.1.0.0/x/plutus-raw-swap/build/plutus-raw-swap/plutus-raw-swap static/plutus-raw-swap`

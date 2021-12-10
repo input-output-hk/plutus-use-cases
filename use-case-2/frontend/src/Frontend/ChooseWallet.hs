@@ -85,7 +85,7 @@ chooseWallet = do
       -- TODO: Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
       (signedTxEv, signTrigger) <- newTriggerEvent
       (submitTxEv, submitTxTrigger) <- newTriggerEvent
-      dynCborHex :: Dynamic t Text <- holdDyn "" cborHexEv
+      dynCborHex :: Dynamic t (Text, Text) <- holdDyn ("", "") cborHexEv
       dynHexWitness :: Dynamic t Text <- holdDyn "" signedTxEv
 
       -- helper functions to return js callback results as Text
@@ -106,14 +106,14 @@ chooseWallet = do
             _ -> pure ()
 
       -- when the backend responds with a build transaction, have Nami Wallet sign the transaction
-      prerender_ blank $ performEvent_ $ (\cborHexTx -> liftJSM $ do
+      prerender_ blank $ performEvent_ $ (\(cborHexTx,_) -> liftJSM $ do
         signedTx <-
           eval ("(async function foo (someparam) { let x = await window.cardano.signTx('" <> cborHexTx <> "', true); console.log(x); someparam(x); })" :: T.Text)
         _ <- call signedTx signedTx (getSignTxCallback)
         return ()
         ) <$> cborHexEv
 
-      let dynTxSubmissionInput :: Dynamic t (Text, Text) = ffor2 dynCborHex dynHexWitness $ \txHex txWit -> (txHex, txWit)
+      let dynTxSubmissionInput :: Dynamic t (Text, Text) = ffor2 dynCborHex dynHexWitness $ \(txHex,_) txWit -> (txHex, txWit)
           txSubmissionEv = tagPromptlyDyn dynTxSubmissionInput signedTxEv
 
       -- append new txWitness after signing and submit tx to chain
@@ -123,6 +123,13 @@ chooseWallet = do
         _ <- call submitTxResult submitTxResult (getSubmitTxResultCallback)
         return ()
         ) <$> txSubmissionEv
+
+      -- confirm the swap was successful --TODO: This will no longer be necessary once datum is retrieved from chain
+      let successfulSubmissionEv = ffilter (\ev -> ev == "undefined") submitTxEv
+          successLoad = (\(_, proposalId) -> Api_ConfirmSwapSuccess proposalId)
+             <$> dynCborHex
+          requestConfirmSwapSuccess = tagPromptlyDyn successLoad successfulSubmissionEv
+      _ <- requestingIdentity requestConfirmSwapSuccess
 
       -- show tx submittion results
       widgetHold_ blank $ ffor submitTxEv $ \msg -> el "p" $ text $ case msg of

@@ -41,7 +41,8 @@ data Api :: * -> * where
   Api_BuildStaticSwapTransaction
     :: Text -- Change Address (Wallet Address)
     ->  Integer -- Amount of ADA wished to be swapped
-    -> Api (Either String Text) -- Either Error (CBOR encoded transaction)
+    -> Api (Either String (Text, Text)) -- Either Error (CBOR encoded transaction)
+  Api_ConfirmSwapSuccess :: Text -> Api (Either String ())
 
 data SmartContractAction = SmartContractAction_Swap
   deriving (Eq, Ord, Show, Generic)
