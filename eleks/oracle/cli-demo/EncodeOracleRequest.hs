@@ -81,17 +81,12 @@ main = do
                       let privPub = toPublicKey signKey
                       let pkhPriv = pubKeyHash $ privPub
 
-                      --exitWithErrorMessage $ "pkh: " ++ show pkh ++ " privPkh: " ++ show pkhPriv
                       let message = OracleSignedMessage{
                           osmWinnerId = winnerId,
                           osmGameId = gameId,
                           osmGameStatus = status
                       }
                       let signedMessage = signMessage message signKey ""
-
-                      -- case verifySignedMessageConstraints privPub signedMessage of
-                      --   Left err                 -> exitWithErrorMessage $ "verify error: " ++ show err
-                      --   Right (osm, constraints) -> exitWithErrorMessage $ "verify success" --Just (osm, constraints)
 
                       showData gameId pkh (Just signedMessage)
 
