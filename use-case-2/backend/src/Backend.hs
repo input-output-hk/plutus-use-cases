@@ -90,18 +90,11 @@ backend = Backend
   }
 
 --------------------------------------------------------------
--- TODO: This should come from Pool Datum decoding
-tokenBCurrencySymbol :: Text
-tokenBCurrencySymbol = "17e86dfec8981df58e070430ce87fc7f51d5be7137cc0203ebac00c8"
-
--- TODO: This should come from Pool Datum decoding
-tokenBName :: Text
-tokenBName = "PikaCoin"
-
  -- TODO: Ensure that this is always the latest poolDatum, should only change whenenver a successful swap has occurred
 poolDatumFilePath :: Text
 poolDatumFilePath = "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap-2/poolDatum.plutus"
 
+-- TODO: Redeemer is generated the same way poolDatum is generated, after validator exe is run, ensure latest redeemer is used
 swapRedeemerFilePath :: Text
 swapRedeemerFilePath = "/home/zigpolymath/Documents/Obsidian/bobTheBuilder8/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/rawSwap/rawSwap-redeemer"
 --------------------------------------------------------------
@@ -181,13 +174,15 @@ getConfig m k = case Map.lookup k m of
 
 buildStaticSwapTransaction :: Map Text ByteString -> Text -> IO (Either String Text)
 buildStaticSwapTransaction configs changeAddress = do
+  print $ "buildStaticSwapTransaction: value of configs is " <> (show configs)
+
   -- fetch configs to perform swap
-  uniswapScriptAddress <- getConfig configs "uniswapScriptAddress"
-  uniswapScriptPath <- getConfig configs "uniswapScriptPath"
-  cardanoCliExe <- getConfig configs "cardanoCliExe"
-  testnetMagic <- getConfig configs "testnetMagic"
-  nodeSocketPath <- getConfig configs "cardanoNodeSocketPath"
-  smartContractOwnerSignKeyFilePath <- getConfig configs "contractOwnerSignKeyPath"
+  uniswapScriptAddress <- getConfig configs "backend/uniswapScriptAddress"
+  uniswapScriptPath <- getConfig configs "backend/uniswapScriptPath"
+  cardanoCliExe <- getConfig configs "backend/cardanoCliExe"
+  testnetMagic <- getConfig configs "backend/testnetMagic"
+  nodeSocketPath <- getConfig configs "backend/cardanoNodeSocketPath"
+  smartContractOwnerSignKeyFilePath <- getConfig configs "backend/contractOwnerSignKeyPath"
 
   print $ "buildStaticSwapTransaction: value of changeAddress is " <> changeAddress
   -- query cli for available utxos from client's provided address
@@ -260,13 +255,27 @@ buildStaticSwapTransaction configs changeAddress = do
             let poolState = headMay $ flip filter otherAmounts $ \assets -> T.isSuffixOf "PoolState" assets
             Just ((utxoHandle <> "#" <> txix), poolState)
           _ -> Nothing
+      arbitraryTokenName = "PikaCoin"
+      -- get token currency symbol and token name from cardano-cli output
+      tokenInfoQueryResults = headMay $ catMaybes $ flip map (flip filter (map T.pack $ lines poolCliOut) $ \utxoLine -> T.isInfixOf arbitraryTokenName utxoLine) $ \utxoInfo -> do
+        case T.words utxoInfo of
+          _:_:otherAmounts -> do
+            let tokenInfo = fromMaybe "" $ headMay $ flip filter otherAmounts $ \assets -> T.isSuffixOf arbitraryTokenName assets
+            case T.splitOn "." tokenInfo of
+              tkCurrencySymbol:tkName:_ -> Just (tkCurrencySymbol, tkName)
+              _ -> Nothing
+          _ -> Nothing
       -- Note: For POC there is only one pool
       demoPool = headMay poolNodeQueryResults
-  case demoPool of
-    Nothing -> do
-      print $ "buildStaticSwapTransaction: value of poolErr is " <> (show poolErr)
+  print $ "buildStaticSwapTransaction: value of tokenInfoQueryResults is " <> (show tokenInfoQueryResults)
+  case (demoPool, tokenInfoQueryResults) of
+    (Nothing, _) -> do
+      print $ "buildStaticSwapTransaction: error: value of poolErr is " <> (show poolErr)
       return $ Left "PoolState not found"
-    Just (poolUtxo, mPoolStateSymbol) -> do
+    (_, Nothing) -> do
+      print $ "buildStaticSwapTransaction: error: value of tokenInfoQueryResults is " <> (show tokenInfoQueryResults)
+      return $ Left "Token Info not found"
+    (Just (poolUtxo, mPoolStateSymbol), Just (tokenBCurrencySymbol, tokenBName)) -> do
       case mPoolStateSymbol of
         Nothing -> return $ Left "PoolStateSymbol not found"
         Just poolStateSymbol -> do
