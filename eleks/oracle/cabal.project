@@ -12,7 +12,8 @@ benchmarks: true
 -- Plutus revision from 2021/08/16
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/plutus-apps.git
+  location: https://github.com/volodyad/plutus-apps.git
+  -- location: https://github.com/input-output-hk/plutus-apps.git
   subdir:
           doc
           freer-extras
@@ -27,7 +28,8 @@ source-repository-package
           plutus-use-cases
           quickcheck-dynamic
           web-ghc
-  tag: 63123ffb527a37ba357e4cb38690625f945710b9
+  --tag: 63123ffb527a37ba357e4cb38690625f945710b9
+  tag: 6c895ea78cc4220ead34f9287dff406b41e745e6
 
 -- We never, ever, want this.
 write-ghc-environment-files: never

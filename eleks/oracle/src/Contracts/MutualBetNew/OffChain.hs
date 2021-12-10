@@ -139,11 +139,14 @@ startWithOracle mutualBetTokenClass startParams = do
             gameState <- waitForGameStateChange params
             let signedMessage = gmsSignedMessage gameState
             let message = gmsSignedMessageData gameState
+            let gameId = (osmGameId message)
+            let oracle = (mbpOracle params)
             case osmGameStatus message of
                 NS -> waitGameStateChange params
                 FT -> do
                     logInfo @Haskell.String "Payout"
-                    void $ payout params signedMessage (osmWinnerId message)
+                    payout params signedMessage (osmWinnerId message)
+                    void $ redeemOracleRequest oracle gameId
             
                 LIVE -> do
                     logInfo @Haskell.String "Make bet over"
@@ -151,7 +154,8 @@ startWithOracle mutualBetTokenClass startParams = do
                     waitGameStateChange params
                 CANC -> do
                     logInfo @Haskell.String "Cancel game"
-                    void $ cancel params signedMessage
+                    cancel params signedMessage
+                    void $ redeemOracleRequest oracle gameId
                  
 
     
@@ -331,7 +335,6 @@ cancelBet mbParams betParams = do
     mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo $ "bet canceled: " ++ show cancelBet
     return bets'
-
 
 getMutualBetDatum :: ChainIndexTxOut -> Contract w s Text MutualBetDatum
 getMutualBetDatum o =

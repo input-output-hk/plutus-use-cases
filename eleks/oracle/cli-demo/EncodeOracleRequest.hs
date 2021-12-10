@@ -19,7 +19,7 @@ import qualified Data.ByteString.Lazy.Char8     as LB8
 import           Data.Text                      (Text, pack)
 import           Contracts.Oracle.RequestToken
 import           Contracts.Oracle.Types
-import           Ledger.Oracle                  (SignedMessage(..), signMessage, verifySignedMessageConstraints, checkHashConstraints)
+import           Plutus.Contract.Oracle         (SignedMessage(..), signMessage, verifySignedMessageConstraints, checkHashConstraints)
 import           Types.Game
 import           Contracts.Oracle.OnChain
 import           Ledger
@@ -87,7 +87,7 @@ main = do
                           osmGameId = gameId,
                           osmGameStatus = status
                       }
-                      let signedMessage = signMessage message signKey
+                      let signedMessage = signMessage message signKey ""
 
                       -- case verifySignedMessageConstraints privPub signedMessage of
                       --   Left err                 -> exitWithErrorMessage $ "verify error: " ++ show err

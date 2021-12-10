@@ -31,6 +31,7 @@ module Contracts.Oracle.OffChain
     , UseOracleParams (..)
     , UpdateOracleParams (..)
     , OracleContractState (..)
+    , redeemOracleRequest
     , useOracle
     ) where
 
@@ -58,7 +59,7 @@ import           Plutus.Contract           as Contract
 import qualified PlutusTx
 import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton, MintingPolicyHash)
-import           Ledger.Crypto             (toPublicKey, pubKeyHash)
+import           Ledger.Crypto             (Passphrase, toPublicKey, pubKeyHash)
 import qualified Ledger.Scripts            as LedgerScripts
 import qualified Ledger.Tx                 as LedgerScripts
 import           Ledger.Constraints        as Constraints
@@ -111,7 +112,7 @@ updateOracle oracle operatorPrivateKey params = do
                                     , osmGameId = gameId
                                     , osmGameStatus = gameStatus
                                     }
-                        let oracleData' = oracleData{ ovSignedMessage = Just $ signMessage oracleSignMessage operatorPrivateKey }
+                        let oracleData' = oracleData{ ovSignedMessage = Just $ signMessage oracleSignMessage operatorPrivateKey ""   }
                         when (oracleData' /= oracleData) $ do
                             let requestTokenVal = requestTokenValue oracle
                                 collateralVal = Ada.toValue $ oCollateral oracle 
@@ -320,6 +321,30 @@ findOracleRequest oracle gameId owner = do
     
 type UseOracleSchema = Endpoint "use" UseOracleParams
 
+redeemOracleRequest :: forall w s. Oracle -> GameId -> Contract w s Text ()
+redeemOracleRequest oracle gameId = do
+    pkh <- Contract.ownPubKeyHash
+    oracleRequestMaybe <- findOracleRequest oracle gameId pkh
+    (oref, o, t) <- maybe (throwError "no oracle request") 
+                     pure oracleRequestMaybe
+    let inst = typedOracleValidator oracle
+        mrScript = oracleValidator oracle
+        tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
+        redeemer = Redeemer $ PlutusTx.toBuiltinData $ OracleRedeem
+        requestTokenVal = requestTokenValue oracle
+        collateralValue = Ada.toValue $ oCollateral oracle
+        mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken
+
+    let lookups = Constraints.typedValidatorLookups inst 
+                <> Constraints.otherScript mrScript
+                <> Constraints.unspentOutputs (Map.singleton oref o)
+                <> Constraints.mintingPolicy tokenMintingPolicy
+        tx  = Constraints.mustSpendScriptOutput oref redeemer
+                <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestTokenVal)
+                <> Constraints.mustPayToPubKey pkh collateralValue
+
+    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+
 -- example endpoint how to consume oracle request owned by user
 useOracle :: Oracle -> Contract Text UseOracleSchema Text ()
 useOracle oracle =
@@ -327,25 +352,4 @@ useOracle oracle =
   where
     use :: Oracle -> Promise Text UseOracleSchema Text ()
     use oracle = endpoint @"use" $ \oracleParams -> do
-        pkh <- Contract.ownPubKeyHash
-        oracleRequestMaybe <- findOracleRequest oracle (uoGame oracleParams) pkh
-        case oracleRequestMaybe of
-            Nothing -> throwError "no oracle request"
-            Just (oref, o, t) -> do
-                let inst = typedOracleValidator oracle
-                    mrScript = oracleValidator oracle
-                    tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
-                    redeemer = Redeemer $ PlutusTx.toBuiltinData $ OracleRedeem
-                    requestTokenVal = requestTokenValue oracle
-                    collateralValue = Ada.toValue $ oCollateral oracle
-                    mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken
-
-                let lookups = Constraints.typedValidatorLookups inst 
-                            <> Constraints.otherScript mrScript
-                            <> Constraints.unspentOutputs (Map.singleton oref o)
-                            <> Constraints.mintingPolicy tokenMintingPolicy
-                    tx  = Constraints.mustSpendScriptOutput oref redeemer
-                             <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestTokenVal)
-                             <> Constraints.mustPayToPubKey pkh collateralValue
-
-                mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+        redeemOracleRequest oracle (uoGame oracleParams)

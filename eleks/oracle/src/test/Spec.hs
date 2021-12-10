@@ -23,5 +23,5 @@ tests = localOption limit $ testGroup "use cases" [
     -- ,
     -- Spec.MutualBet.tests
     -- ,
-    -- Spec.Oracle.tests
+    --Spec.Oracle.tests
     ]
