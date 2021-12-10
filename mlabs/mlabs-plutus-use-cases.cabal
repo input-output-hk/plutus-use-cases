@@ -24,6 +24,7 @@ common common-imports
     , plutus-contract
     , plutus-ledger
     , plutus-tx
+    , plutus-tx-spooky
     , plutus-ledger-api
     , plutus-chain-index
     , plutus-chain-index-core
@@ -274,6 +275,7 @@ Test-suite mlabs-plutus-use-cases-tests
     , plutus-contract
     , plutus-ledger
     , plutus-tx
+    , plutus-tx-spooky
     , plutus-ledger-api
     , plutus-tx-plugin
     , plutus-pab

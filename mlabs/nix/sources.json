@@ -238,6 +238,13 @@
         "url": "https://github.com/Liqwid-Labs/plutus-extra/archive/cf3d12645fd461a73ef64471852092d215399e86.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "plutus-tx-spooky": {
+        "branch": "master",
+        "repo": "git@gitlab.com:fresheyeball/plutus-tx-spooky",
+        "rev": "0c409907fa5b6aee4a2f2d18f871b850a8547fdf",
+        "type": "git",
+        "sha256": "VrUwoB5l1GhmU9g3dafdbvcHERDzeyl78VESYRrUWXY="
+    },
     "purescript-bridge": {
         "branch": "master",
         "description": "Create PureScript datatypes from Haskell datatypes",
