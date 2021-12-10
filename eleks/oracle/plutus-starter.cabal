@@ -46,16 +46,19 @@ library
       Contracts.Oracle.OffChain
       Contracts.Oracle.Conversion
       Contracts.Oracle
+      Contracts.MutualBetSM
+      Contracts.MutualBetSM.Types
+      Contracts.MutualBetSM.OffChain
+      Contracts.MutualBetSM.StateMachine
       Contracts.MutualBet
       Contracts.MutualBet.Types
       Contracts.MutualBet.OffChain
-      Contracts.MutualBet.StateMachine
-      Contracts.MutualBetNew
-      Contracts.MutualBetNew.Types
-      Contracts.MutualBetNew.OffChain
-      Contracts.MutualBetNew.OnChain
+      Contracts.MutualBet.OnChain
+      Contracts.MutualBet.Currency
       PabContracts.SimulatorPabContracts
+      PabContracts.SimulatorPabContractsSM
       PabContracts.MutualBetContracts
+      PabContracts.MutualBetContractsSM
       PabContracts.OracleContracts
       Services.GameClient
       Types.Game
@@ -92,7 +95,7 @@ library
       prettyprinter,
       plutus-use-cases,
 
-    hs-source-dirs: src src/Contracts/MutualBet
+    hs-source-dirs: src src/
     default-language: Haskell2010
     ghc-options:
             -- See Plutus Tx readme
@@ -104,8 +107,8 @@ test-suite plutus-example-projects-test
   main-is: Spec.hs
   hs-source-dirs: src/test
   other-modules:
+    Spec.MutualBetSM
     Spec.MutualBet
-    Spec.MutualBetNew
     Spec.Oracle
   build-depends:
     plutus-starter -any,
@@ -166,8 +169,6 @@ executable testnet-oracle-pab
   import: lang 
   main-is: Main.hs
   hs-source-dirs: pab-testnet/oracle
-  other-modules:
-    Contracts
   ghc-options:
     -threaded
   build-depends:
@@ -196,8 +197,6 @@ executable testnet-mutual-bet-pab
   import: lang 
   main-is: Main.hs
   hs-source-dirs: pab-testnet/mutual-bet
-  other-modules:
-    Contracts
   ghc-options:
     -threaded
   build-depends:

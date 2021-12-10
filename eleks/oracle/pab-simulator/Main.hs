@@ -45,7 +45,7 @@ import           Plutus.PAB.Simulator                (SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator                as Simulator
 import           Plutus.PAB.Types                    (PABError (..))
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
-import           Contracts.MutualBet                 
+import           Contracts.MutualBetSM                 
 import           Contracts.Oracle
 import           Types.Game    
 import qualified Data.ByteString.Char8               as B
@@ -64,7 +64,7 @@ import           Wallet.Emulator.Types               (Wallet (..), walletPubKeyH
 import qualified Data.OpenApi.Schema                 as OpenApi
 import           Playground.Contract                 (ToSchema)
 import           Wallet.Emulator.Wallet              (fromMockWallet, toMockWallet, ownPublicKey, emptyWalletState)
-import           PabContracts.SimulatorPabContracts   (MutualBetContracts(..), handlers)
+import           PabContracts.SimulatorPabContractsSM   (MutualBetContracts(..), handlers)
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
 initGame oracle game = do

@@ -29,7 +29,7 @@ source-repository-package
           quickcheck-dynamic
           web-ghc
   --tag: 63123ffb527a37ba357e4cb38690625f945710b9
-  tag: 6c895ea78cc4220ead34f9287dff406b41e745e6
+  tag: ad4fd0ff0f451fadf404e2a0ebba0ccd33b8799f
 
 -- We never, ever, want this.
 write-ghc-environment-files: never

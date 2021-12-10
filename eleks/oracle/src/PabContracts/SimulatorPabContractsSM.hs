@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
 
-module PabContracts.SimulatorPabContracts(
+module PabContracts.SimulatorPabContractsSM(
     MutualBetContracts(..)
     , handlers
     ) where
@@ -37,13 +37,13 @@ import qualified Plutus.PAB.Simulator as Simulator
 import           Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
 import           Schema (FormSchema)
 import           Contracts.Oracle
-import           Contracts.MutualBet
+import           Contracts.MutualBetSM
 import           Plutus.Contracts.Currency as Currency
 
 data MutualBetContracts =
     OracleTokenInit
-    | MutualBetStartContract MutualBetStartParams
-    | MutualBetBettorContract MutualBetParams
+    | MutualBetStartContract MutualBetParams
+    | MutualBetBettorContract SlotConfig ThreadToken MutualBetParams
     | OracleСontract OracleParams
     deriving (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
@@ -55,13 +55,13 @@ instance HasDefinitions MutualBetContracts where
     getDefinitions = []
     getSchema = \case
         OracleTokenInit               -> Builtin.endpointsToSchemas @Empty
-        MutualBetStartContract _      -> Builtin.endpointsToSchemas @Empty
-        MutualBetBettorContract _  -> Builtin.endpointsToSchemas @BettorSchema
+        MutualBetStartContract _      -> Builtin.endpointsToSchemas @MutualBetStartSchema
+        MutualBetBettorContract _ _ _ -> Builtin.endpointsToSchemas @BettorSchema
         OracleСontract _              -> Builtin.endpointsToSchemas @OracleSchema
     getContract = \case
         OracleTokenInit                   -> SomeBuiltin initContract
-        MutualBetStartContract params     -> SomeBuiltin $ mutualBetStartWithOracle params
-        MutualBetBettorContract params -> SomeBuiltin $ mutualBetBettor params
+        MutualBetStartContract params     -> SomeBuiltin $ mutualBetStart params
+        MutualBetBettorContract conf threadToken params -> SomeBuiltin $ mutualBetBettor conf threadToken params
         OracleСontract params             -> SomeBuiltin $ runOracle params
 
 handlers :: SimulatorEffectHandlers (Builtin MutualBetContracts)

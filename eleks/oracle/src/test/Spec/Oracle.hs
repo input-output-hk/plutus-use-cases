@@ -46,7 +46,7 @@ import qualified Ledger.TimeSlot                    as TimeSlot
 import qualified Ledger.Value                       as Value
 import           Ledger.Value                       (CurrencySymbol)
 import           Plutus.Contract.Test.ContractModel
-import           Contracts.MutualBet
+import           Contracts.MutualBetSM
 import           Contracts.Oracle                   
 import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)

@@ -16,7 +16,7 @@
 {-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE RecordWildCards        #-}
 
-module Contracts.MutualBet.StateMachine(
+module Contracts.MutualBetSM.StateMachine(
     typedValidator
     , mutualBetStateMachine
     , MutualBetMachine
@@ -24,7 +24,7 @@ module Contracts.MutualBet.StateMachine(
     ) where
 
 import           Contracts.Oracle
-import           Contracts.MutualBet.Types
+import           Contracts.MutualBetSM.Types
 import           Control.Lens                     (makeClassyPrisms)
 import           Data.Bool                        (bool)
 import           Data.Aeson                       (FromJSON, ToJSON)

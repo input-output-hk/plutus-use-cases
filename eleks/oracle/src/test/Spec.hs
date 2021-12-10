@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main(main) where
 
+import qualified Spec.MutualBetSM
 import qualified Spec.MutualBet
-import qualified Spec.MutualBetNew
 import qualified Spec.Oracle
 import           Test.Tasty
 import           Test.Tasty.Hedgehog       (HedgehogTestLimit (..))
@@ -19,9 +19,9 @@ limit = HedgehogTestLimit (Just 5)
 
 tests :: TestTree
 tests = localOption limit $ testGroup "use cases" [
-    Spec.MutualBetNew.tests
-    -- ,
-    -- Spec.MutualBet.tests
-    -- ,
-    --Spec.Oracle.tests
+    Spec.MutualBet.tests
+    ,
+    Spec.MutualBetSM.tests
+    ,
+    Spec.Oracle.tests
     ]

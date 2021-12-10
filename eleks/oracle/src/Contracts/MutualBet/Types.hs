@@ -2,17 +2,17 @@
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# options_ghc -fno-warn-orphans          #-}
 {-# options_ghc -Wno-redundant-constraints #-}
@@ -22,19 +22,36 @@
 module Contracts.MutualBet.Types
   where
 
-import           Contracts.Oracle.Types
-import           Data.Monoid                      (Last (..))
-import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
-import           Ledger
-import           Plutus.Contract.Oracle 
-import           Ledger.Value     
-import           Playground.Contract              (Show, FromJSON, Generic, ToJSON, ToSchema)
-import qualified Plutus.Contract.StateMachine     as SM
+import           Control.Monad                   (mzero)
+import           Data.Aeson
+import           Data.Aeson.TH   
+import           Data.Aeson.Types
+import           Data.Either                     (fromRight)
+import           Data.Map                        (lookup)
+import           Ledger                          hiding (txOutRefs)
+import           Ledger.Crypto                   (pubKeyHash)
+import           Playground.Contract             (Show, FromJSON, Generic, ToJSON, ToSchema)
+import           Plutus.Contract.Oracle          (SignedMessage(..))
+import           Plutus.ChainIndex.Tx            (txOutRefs, ChainIndexTx (..), ChainIndexTxOutputs (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
-import qualified Prelude                          as Haskell
+import qualified Prelude                         as Haskell
+import qualified Data.OpenApi.Schema             as OpenApi
 import           Types.Game
-import qualified Data.OpenApi.Schema              as OpenApi
+import           Contracts.Oracle.Types
+
+data MutualBetStartParams
+    = MutualBetStartParams
+        { mbspGame   :: Integer -- Game id
+        , mbspOracle :: Oracle -- Oracle data
+        , mbspOwner  :: PubKeyHash -- Owner of the platform , used for fee sending
+        , mbspTeam1  :: Integer -- Team 1 id
+        , mbspTeam2  :: Integer -- Team 2 id
+        , mbspMinBet :: Ada -- Minimum bet allowed
+        , mbspBetFee :: Ada -- Platform fee, for each bet you need additionally to pay the fee, fee is no returned if game in case game cancelled or no one wins
+        }
+        deriving stock (Haskell.Eq, Haskell.Ord, Haskell.Show, Generic)
+        deriving anyclass (ToJSON, FromJSON, ToSchema, OpenApi.ToSchema)
 
 -- | Definition of an mutual bet
 data MutualBetParams
@@ -46,6 +63,7 @@ data MutualBetParams
         , mbpTeam2  :: Integer -- Team 2 id
         , mbpMinBet :: Ada -- Minimum bet allowed
         , mbpBetFee :: Ada -- Platform fee, for each bet you need additionally to pay the fee, fee is no returned if game in case game cancelled or no one wins
+        , mbpMutualBetId :: AssetClass
         }
         deriving stock (Haskell.Eq, Haskell.Ord, Haskell.Show, Generic)
         deriving anyclass (ToJSON, FromJSON, ToSchema, OpenApi.ToSchema)
@@ -62,7 +80,8 @@ data Bet =
     deriving stock (Haskell.Eq, Haskell.Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
-PlutusTx.unstableMakeIsData ''Bet
+PlutusTx.makeIsDataIndexed ''Bet [('Bet, 0)]
+PlutusTx.makeLift ''Bet
 
 instance Eq Bet where
     {-# INLINABLE (==) #-}
@@ -70,59 +89,15 @@ instance Eq Bet where
              (betBettor l == betBettor r) &&
              (betTeamId l == betTeamId r)
 
--- | The states of the auction
-data MutualBetState
-    = Ongoing  [Bet] -- Bids can be submitted.
-    | BettingClosed  [Bet] -- Bids can not be submitted
-    | Finished [Bet] -- The auction is finished
-    deriving stock (Generic, Haskell.Show, Haskell.Eq)
-    deriving anyclass (ToJSON, FromJSON)
 
--- | Observable state of the mutual bet app
-data MutualBetOutput =
-    MutualBetOutput
-        { mutualBetState       :: Last MutualBetState
-        , mutualBetThreadToken :: Last SM.ThreadToken
-        }
-        deriving stock (Generic, Haskell.Show, Haskell.Eq)
-        deriving anyclass (ToJSON, FromJSON)
+data MutualBetRedeemer = MakeBet Bet | CancelBet Bet | StartGame (SignedMessage OracleSignedMessage) | Payout (SignedMessage OracleSignedMessage) | CancelGame (SignedMessage OracleSignedMessage)
+    deriving Show
+PlutusTx.makeIsDataIndexed ''MutualBetRedeemer [('MakeBet, 0), ('CancelBet, 1), ('StartGame, 2), ('Payout, 3), ('CancelGame, 4)]
 
-deriving via (GenericSemigroupMonoid MutualBetOutput) instance (Haskell.Semigroup MutualBetOutput)
-deriving via (GenericSemigroupMonoid MutualBetOutput) instance (Haskell.Monoid MutualBetOutput)
+type IsBetClosed = Bool
+data MutualBetDatum =
+      MutualBetDatum [Bet] IsBetClosed
+    deriving stock (Show)
 
-mutualBetStateOut :: MutualBetState -> MutualBetOutput
-mutualBetStateOut s = Haskell.mempty { mutualBetState = Last (Just s) }
-
-threadTokenOut :: SM.ThreadToken -> MutualBetOutput
-threadTokenOut t = Haskell.mempty { mutualBetThreadToken = Last (Just t) }
-
--- | Initial 'MutualBetState'. In the beginning there are no bets
-initialState :: PubKeyHash -> MutualBetState
-initialState self = Ongoing []
-
-PlutusTx.unstableMakeIsData ''MutualBetState
-
--- | Transition between auction states
-data MutualBetInput
-    = NewBet { newBet :: Bet } -- Increase the price
-    | CancelBet { cancelBet :: Bet }
-    | FinishBetting { oracleSigned :: SignedMessage OracleSignedMessage }
-    | Payout { oracleValue :: OracleData, oracleRef :: TxOutRef, oracleSigned :: SignedMessage OracleSignedMessage }
-    | CancelGame
-    deriving stock (Generic, Haskell.Show)
-    deriving anyclass (ToJSON, FromJSON)
-
-PlutusTx.unstableMakeIsData ''MutualBetInput
-
-data MutualBetLog =
-    MutualBetStarted MutualBetParams -- Contract started
-    | MutualBetFailed SM.SMContractError -- Contract start erro
-    | BetSubmitted [Bet] -- bet submitted
-    | BetCancelled [Bet]
-    | MutualBetBettingClosed [Bet] -- Betting not allowed
-    | MutualBetCancelled [Bet] -- Game cancelled
-    | MutualBetGameEnded [Bet] -- Game completed
-    | CurrentStateNotFound -- Contract state not found
-    | TransitionFailed (SM.InvalidTransition MutualBetState MutualBetInput)
-    deriving stock (Haskell.Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
+PlutusTx.makeIsDataIndexed ''MutualBetDatum [('MutualBetDatum, 0)]
+PlutusTx.makeLift ''MutualBetDatum

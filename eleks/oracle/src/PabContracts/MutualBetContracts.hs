@@ -38,11 +38,10 @@ import           Schema (FormSchema)
 import           Contracts.MutualBet
 import           Plutus.Contract (Contract)
 import           Types.Game (GameId)
-import           Plutus.Contract.StateMachine     (ThreadToken(..))
 
 data MutualBetContracts = 
-    MutualBetOwner MutualBetParams
-    | MutualBetUser ThreadToken MutualBetParams
+    MutualBetOwner MutualBetStartParams
+    | MutualBetUser MutualBetParams
     deriving (Eq, Ord, Show, Generic)
     deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
@@ -61,13 +60,13 @@ instance HasDefinitions MutualBetContracts where
 
 getMutualBetContractsSchema :: MutualBetContracts -> [FunctionSchema FormSchema]
 getMutualBetContractsSchema = \case
-    MutualBetOwner _    -> Builtin.endpointsToSchemas @MutualBetStartSchema
-    MutualBetUser _ _ -> Builtin.endpointsToSchemas @BettorSchema
+    MutualBetOwner _    -> Builtin.endpointsToSchemas @Empty
+    MutualBetUser _  -> Builtin.endpointsToSchemas @BettorSchema
 
 getMutualBetContracts :: MutualBetContracts -> SomeBuiltin
 getMutualBetContracts = \case
     MutualBetOwner params -> SomeBuiltin $ mutualBetStart params
-    MutualBetUser threadToken params -> SomeBuiltin $ (mutualBetBettor slotCfg threadToken params)
+    MutualBetUser  params -> SomeBuiltin $ mutualBetBettor params
 
 handlers :: SimulatorEffectHandlers (Builtin MutualBetContracts)
 handlers =

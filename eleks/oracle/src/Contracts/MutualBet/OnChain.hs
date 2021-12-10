@@ -14,7 +14,7 @@
 {-# LANGUAGE NumericUnderscores    #-}
 {-# LANGUAGE DerivingStrategies    #-}
 
-module Contracts.MutualBetNew.OnChain
+module Contracts.MutualBet.OnChain
     where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)
@@ -48,7 +48,7 @@ import           Ledger.Ada                as Ada
 import           Prelude                   (Semigroup (..), Show (..), String)
 import qualified Prelude                   as Haskell
 import           Schema                    (ToSchema)
-import           Contracts.MutualBetNew.Types
+import           Contracts.MutualBet.Types
 import           Contracts.Oracle
 
 {-# INLINABLE payToWinners #-}

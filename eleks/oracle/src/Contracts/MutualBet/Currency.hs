@@ -19,7 +19,7 @@
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 -- | Implements a custom currency with a minting policy that allows
 --   the minting of a fixed amount of units.
-module Contracts.MutualBetNew.Currency(
+module Contracts.MutualBet.Currency(
       OneShotCurrency(..)
     , CurrencySchema
     , CurrencyError(..)
