@@ -149,7 +149,7 @@ validateCancelBet ::
     -> ScriptContext
     -> Bool
 validateCancelBet params bets cancelBet ctx =
-    traceIfFalse "expected bet payed back1" (valuePaidTo info (betBettor cancelBet) `Value.geq` Ada.toValue (betAmount cancelBet))
+    traceIfFalse "expected bet payed back" (valuePaidTo info (betBettor cancelBet) `Value.geq` Ada.toValue (betAmount cancelBet))
     && traceIfFalse "bet unclocked from contract" 
         (valueLockedBy info (Validation.ownHash ctx) == 
             (Ada.toValue $ betsValueAmount betsWithoutCancelled ) <> 

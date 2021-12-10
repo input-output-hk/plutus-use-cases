@@ -105,6 +105,7 @@ test-suite plutus-example-projects-test
   hs-source-dirs: src/test
   other-modules:
     Spec.MutualBet
+    Spec.MutualBetNew
     Spec.Oracle
   build-depends:
     plutus-starter -any,

@@ -118,7 +118,7 @@ curl -H "Content-Type: application/json" -v -X POST -d \
 
 curl -H "Content-Type: application/json" \
   --request POST \
-  --data "{\"uoGame\":1}" \
+  --data "{\"roGame\":1}" \
   http://localhost:9085/api/contract/instance/$CLIENT_INSTANCE_ID/endpoint/use
 
 

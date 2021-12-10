@@ -130,8 +130,8 @@ data OracleParams = OracleParams
     , opSigner :: !Haskell.String
     } deriving (Haskell.Eq, Show, Haskell.Ord, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
-data UseOracleParams = UseOracleParams
-    { uoGame           :: Integer -- use owned oracle request
+data RedeemOracleParams = RedeemOracleParams
+    { roGame           :: Integer -- use owned oracle request
     }
     deriving (Haskell.Eq, Show, Haskell.Ord, Generic, ToSchema, FromJSON, ToJSON, OpenApi.ToSchema)
 

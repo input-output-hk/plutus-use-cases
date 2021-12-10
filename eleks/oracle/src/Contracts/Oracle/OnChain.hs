@@ -66,16 +66,13 @@ import Contracts.Oracle.RequestToken
 mkOracleValidator :: Oracle -> OracleData -> OracleRedeemer -> ScriptContext -> Bool
 mkOracleValidator oracle oracleData r ctx =
     traceIfFalse "request token missing from input" inputHasRequestToken 
-    &&
-    case r of
-        OracleRedeem -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
-                  -- && traceIfFalse "value signed by oracle" (isCurrentValueSigned)
-                  && traceIfFalse "should redeem request token" (requestTokenValOf forged == -1)
-        Update -> traceIfFalse "operator signature missing" (txSignedBy info $ (oOperator oracle)) 
-                 && traceIfFalse "invalid output datum" validOutputDatum
-                 && traceIfFalse "update data is invalid" isUpdateValid
-                 && traceIfFalse "update data is invalid999999999" isUpdateValid
-  where
+    && case r of
+        OracleRedeem   -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
+                        && traceIfFalse "should redeem request token" (requestTokenValOf forged == -1)
+        Update         -> traceIfFalse "operator signature missing" (txSignedBy info $ (oOperator oracle)) 
+                        && traceIfFalse "invalid output datum" validOutputDatum
+                        && traceIfFalse "update data is invalid" isUpdateValid
+    where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
 
@@ -87,16 +84,6 @@ mkOracleValidator oracle oracleData r ctx =
 
     requestTokenValOf:: Value -> Integer 
     requestTokenValOf value = valueOf value (oRequestTokenSymbol oracle) oracleRequestTokenName
-
-    sentToAddress :: Maybe PubKeyHash -> Value -> Bool
-    sentToAddress h v =
-        let
-        [o] = [ o'
-              | o' <- txInfoOutputs info
-              , txOutValue o' == v
-              ]
-        in
-        fromMaybe False ((==) <$> Validation.pubKeyOutput o <*> h )
 
     ownInput :: TxOut
     ownInput = case findOwnInput ctx of
@@ -129,19 +116,17 @@ mkOracleValidator oracle oracleData r ctx =
     oraclePubKey:: PubKey
     oraclePubKey = (oOperatorKey oracle) 
 
-    outputSignedMessage = outputDatumMaybe >>= ovSignedMessage
+    outputSignedMessage = (outputDatumMaybe >>= ovSignedMessage)
+    outputMessage = fromMaybe (traceError "Not signed ouput") $ extractSignedMessage oraclePubKey outputSignedMessage
+    
+    inputSignedMessage = ovSignedMessage oracleData
+    inputMessageMaybe =  extractSignedMessage oraclePubKey inputSignedMessage
+    inputMessage = fromMaybe (traceError "Not signed input message") $ inputMessageMaybe
 
-    isCurrentValueSigned = isValueSigned oraclePubKey (ovSignedMessage oracleData)
+    isInputMessageSigned = isJust $ inputMessageMaybe
 
-    -- extractSignedMessage :: Maybe (SignedMessage OracleSignedMessage) -> Maybe OracleSignedMessage
-    -- extractSignedMessage signedMessage = signedMessage
-    --                                         >>= verifyOracleValueSigned oraclePubKey
-    --                                         >>= (\(message, _) -> Just message)
-
-    isUpdateValid = (not isCurrentValueSigned) || 
-        (fromMaybe False $ validateGameStatusChanges <$> 
-        (osmGameStatus <$> extractSignedMessage oraclePubKey (ovSignedMessage oracleData)) <*> 
-        (osmGameStatus <$> extractSignedMessage oraclePubKey outputSignedMessage))
+    isUpdateValid = (not isInputMessageSigned) || 
+        validateGameStatusChanges (osmGameStatus inputMessage) (osmGameStatus outputMessage)
 
 
 {-# INLINABLE extractSignedMessage #-}

@@ -20,7 +20,7 @@ import qualified  Data.ByteString.Lazy.Char8    as LB8
 import           Contracts.Oracle.RequestToken
 import           Contracts.Oracle.Types
 import           Contracts.Oracle.OnChain
-import           Contracts.Oracle.OffChain (UpdateOracleParams(..), UseOracleParams(..))
+import           Contracts.Oracle.OffChain (UpdateOracleParams(..), RedeemOracleParams(..))
 import           Ledger
 import           Ledger.Ada                     as Ada
 
@@ -63,8 +63,8 @@ main = do
 
             putStrLn $ show $ encode  updatePr
 
-            let useOr = UseOracleParams 
-                         { uoGame = 1}
+            let useOr = RedeemOracleParams 
+                         { roGame = 1}
             putStrLn $ show $ encode useOr
             let oracleRequestTokenInfo = OracleRequestToken
                   { ortOperator = pkh

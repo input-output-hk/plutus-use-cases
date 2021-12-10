@@ -27,12 +27,12 @@ module Contracts.Oracle.OffChain
     , getActiveGames
     , oracleScriptAsShortBs
     , oraclePlutusScript
-    , UseOracleSchema
-    , UseOracleParams (..)
+    , RedeemOracleSchema
+    , RedeemOracleParams (..)
     , UpdateOracleParams (..)
     , OracleContractState (..)
     , redeemOracleRequest
-    , useOracle
+    , redeemOracle
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1) 
@@ -134,11 +134,6 @@ updateOracle oracle operatorPrivateKey params = do
                                     logInfo @Haskell.String "Tx confirmed. Request oracle for address complete."
                             -- logInfo ("submit transaction " ++ (show $ oracleData'))
                             -- mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
-
--- oracleValueFromTxOutTx :: ChainIndexTxOut -> Maybe OracleData
--- oracleValueFromTxOutTx o = do
---     Datum d <- either (const Nothing) Just (_ciTxOutDatum o)
---     PlutusTx.fromBuiltinData d
 
 oracleValueFromTxOutTx :: ChainIndexTxOut -> Contract w s Text OracleData
 oracleValueFromTxOutTx o = 
@@ -319,7 +314,7 @@ findOracleRequest oracle gameId owner = do
     let request = findCriteria . rights $ requestsWithDatum
     pure request 
     
-type UseOracleSchema = Endpoint "use" UseOracleParams
+type RedeemOracleSchema = Endpoint "redeem" RedeemOracleParams
 
 redeemOracleRequest :: forall w s. Oracle -> GameId -> Contract w s Text ()
 redeemOracleRequest oracle gameId = do
@@ -346,10 +341,10 @@ redeemOracleRequest oracle gameId = do
     mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
 
 -- example endpoint how to consume oracle request owned by user
-useOracle :: Oracle -> Contract Text UseOracleSchema Text ()
-useOracle oracle =
-    selectList[(use oracle)]
+redeemOracle :: Oracle -> Contract Text RedeemOracleSchema Text ()
+redeemOracle oracle =
+    selectList[(redeem oracle)]
   where
-    use :: Oracle -> Promise Text UseOracleSchema Text ()
-    use oracle = endpoint @"use" $ \oracleParams -> do
-        redeemOracleRequest oracle (uoGame oracleParams)
+    redeem :: Oracle -> Promise Text RedeemOracleSchema Text ()
+    redeem oracle = endpoint @"redeem" $ \oracleParams -> do
+        redeemOracleRequest oracle (roGame oracleParams)
