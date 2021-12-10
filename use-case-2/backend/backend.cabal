@@ -31,6 +31,7 @@ library
                , lens-aeson
                , monad-logger
                , mtl
+               , obelisk-executable-config-lookup
                , postgresql-simple
                , process
                , resource-pool
