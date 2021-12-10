@@ -119,16 +119,16 @@ Build and Run Alonzo Purple Node
 cd dep
 ob thunk unpack cardano-node
 cd cardano-node
-nix-build -A cardano-cli -o result/alonzo-purple/cardano-cli
-nix-build -A scripts.alonzo-purple.node -o result/alonzo-purple/cardano-node-alonzo-purple
-cd result/alonzo-purple
-./cardano-node-alonzo-purple/bin/cardano-node-alonzo-purple
+nix-build -A cardano-cli -o result/alonzo-testnet/cardano-cli
+nix-build -A scripts.alonzo-testnet.node -o result/alonzo-testnet/cardano-node-alonzo-testnet
+cd result/alonzo-testnet
+./cardano-node-alonzo-testnet/bin/cardano-node-alonzo-testnet
 ```
 
 In a seperate terminal, verify the Node's sychronization. When `syncProgress` reads 100.00, syncing has completed.
 ```
-cd result/alonzo-purple
-CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-purple/node.socket ./cardano-cli/bin/cardano-cli query tip --testnet-magic 8
+cd result/alonzo-testnet
+CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-testnet/node.socket ./cardano-cli/bin/cardano-cli query tip --testnet-magic 8
 ```
 
 Mint a Uniswap Token (Assuming you already have a payment address with ADA)
@@ -138,7 +138,7 @@ Make note of a TxHash and TxIx you would like to use to mint a uniswap token
 cardano-cli/bin/cardano-cli query utxo --address [ADDRESS] --testnet-magic 8
 ```
 
-Send an arbitrary amount of funds to self in order to create a new utxo handle in order to not lose all funds in the unlikely event of collateral seizing runtime errors. Feel free to use the script call below from within ./dep/cardano-node/result/alonzo-purple
+Send an arbitrary amount of funds to self in order to create a new utxo handle in order to not lose all funds in the unlikely event of collateral seizing runtime errors. Feel free to use the script call below from within ./dep/cardano-node/result/alonzo-testnet
 ```
 ./../../../../scripts/buildCollateral.sh [TXHASH] [TXIX] [TO ADDRESS] [CHANGE ADDRESS] [SEND AMOUNT] [PAYMENT.SKEY PATH]
 ```
@@ -156,9 +156,9 @@ cabal repl plutus-use-cases:lib:plutus-use-cases
 main [TXHASH STRING] [TXIX STRING] [("Uniswap",1)]
 ```
 
-That would have created a compiled script file called uniswapCurrency.plutus. This file will be used in the following minting script. NOTE: use this script from within ./dep/cardano-node/result/alonzo-purple
+That would have created a compiled script file called uniswapCurrency.plutus. This file will be used in the following minting script. NOTE: use this script from within ./dep/cardano-node/result/alonzo-testnet
 ```
-export CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-purple/node.socket
+export CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-testnet/node.socket
 mkdir dumpdir
 touch issue.addr
 echo '{"constructor":0,"fields":[]}' >> redeemerScript.0
@@ -176,13 +176,13 @@ Within the previously used cabal repl, run the following commands
 :l Plutus.Contracts.FactoryScript
 main [UNISWAP CURRENCY SYMBOL]
 ```
-This will create `uniswapPlutusScript.plutus` and `factory.datumHash` to be used in the following bash script to build a script address, be sure to use this script from within ./dep/cardano-node/result/alonzo-purple
+This will create `uniswapPlutusScript.plutus` and `factory.datumHash` to be used in the following bash script to build a script address, be sure to use this script from within ./dep/cardano-node/result/alonzo-testnet
 
 ```
 ../../../../scripts/buildUniswapTokenAddress.sh [UNISWAP PLUTUS SCRIPT FILE]
 ```
 
-Now that we have a script address, feel free to use the following script in order to send the Uniswap-Token to the Uniswap-Script-Address, be sure to use this script from within ./dep/cardano-node/result/alonzo-purple
+Now that we have a script address, feel free to use the following script in order to send the Uniswap-Token to the Uniswap-Script-Address, be sure to use this script from within ./dep/cardano-node/result/alonzo-testnet
 
 ```
 ../../../../scripts/sendUniswapTokenToUniswapScript.sh [TOKEN TXHAS#TXIX] [TXHASH#TXIX] [COLLATERAL TXHASH#TXIX] [PAYMENT SKEY] [SCRIPT ADDRESS FILE] [DATUM HASH FILE] [CHANGE ADDRESS] [UNISWAP CURRENCY SYMBOL]
@@ -225,7 +225,7 @@ That will generate a directory called `rawSwap` that has the redeemer used to te
 
 Feel free to use the following script to build and submit a transaction to perform the swap
 
-Note: be sure to use this script from within ./dep/cardano-node/result/alonzo-purple
+Note: be sure to use this script from within ./dep/cardano-node/result/alonzo-testnet
 ```
 # ../../../../scripts/handleSwap.sh [TXHASH#TXIX] [UNISWAP SCRIPT FILE] [UNIPOOL DATUM FILE] [REDEEMER FILE] [COLLATERAL ADDRESS] [UNISWAP SCRIPT ADDRESS] [COIN TO BE SWAPPED - CURRENCYSYMBOL.TOKENNAME] [SKEY FILE] [ADDITIONAL FUNDS - TXHASH#TXIX] [POOL UTXO - TXHASH#TXIX] [POOL STATE CURRENCYSYMBOL.TOKENNAME]
 ```
