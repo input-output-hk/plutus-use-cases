@@ -7,7 +7,6 @@ module Plutus.AbstractTestnetMVP.OutputValue where
 
 import           Control.Lens     (makeClassy_)
 import           Ledger           (TxOutRef, ChainIndexTxOut)
-import qualified PlutusTx.Prelude as PlutuxTx
 
 data OutputValue a =
     OutputValue {

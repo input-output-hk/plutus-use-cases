@@ -72,6 +72,7 @@ library
       Plutus.AbstractTestnetMVP.OutputValue
       Plutus.TestnetMVP.OffChain.Info
       Plutus.TestnetMVP.OffChain.Owner
+      Plutus.TestnetMVP.OffChain.User 
       Plutus.TestnetMVP.OnChain.Script
       Plutus.TestnetMVP.OnChain.Validator
       Plutus.TestnetMVP.OffChain.Endpoints

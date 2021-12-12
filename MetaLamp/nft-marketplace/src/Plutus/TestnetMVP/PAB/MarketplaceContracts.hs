@@ -30,6 +30,7 @@ import           Plutus.PAB.Run.PSGenerator                   (HasPSTypes (..))
 data MarketplaceContracts =
     MarketplaceStart
     | MarketplaceInfo Marketplace.Marketplace
+    | MarketplaceUser Marketplace.Marketplace
     deriving (Eq, Show, Generic, Ord)
     deriving anyclass (J.FromJSON, J.ToJSON, OpenApi.ToSchema)
 
@@ -42,10 +43,10 @@ instance Pretty MarketplaceContracts where
 instance Builtin.HasDefinitions MarketplaceContracts where
     getDefinitions = [MarketplaceStart]
     getSchema = \case
-        -- MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
+        MarketplaceUser _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceUserSchema
         MarketplaceInfo _          -> Builtin.endpointsToSchemas @Marketplace.MarketplaceInfoSchema
         MarketplaceStart           -> Builtin.endpointsToSchemas @Marketplace.MarketplaceOwnerSchema
     getContract = \case
         MarketplaceInfo marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.infoEndpoints marketplace
-        -- MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
+        MarketplaceUser marketplace       -> SomeBuiltin . awaitPromise $ Marketplace.userEndpoints marketplace
         MarketplaceStart           -> SomeBuiltin . awaitPromise $ Marketplace.ownerEndpoints

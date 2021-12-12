@@ -113,9 +113,9 @@ startMarketplaceParams = Owner.StartMarketplaceParams {
 initialLotPrice :: Value.Value
 initialLotPrice = lovelaceValueOf 100000000 -- 100 ADA
 
--- data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
+data ContractIDs = ContractIDs { cidUser :: Map.Map Wallet ContractInstanceId, cidInfo :: ContractInstanceId }
 
-activateContracts :: Simulation (Builtin MarketplaceContracts) ContractInstanceId --ContractIDs
+activateContracts :: Simulation (Builtin MarketplaceContracts) ContractIDs
 activateContracts = do
     cidStart <- Simulator.activateContract ownerWallet MarketplaceStart
     _  <- Simulator.callEndpointOnInstance cidStart "start" startMarketplaceParams
@@ -126,21 +126,21 @@ activateContracts = do
 
     cidInfo <- Simulator.activateContract ownerWallet $ MarketplaceInfo mp
 
-    -- users <- fmap Map.fromList $ forM userWallets $ \w -> do
-    --     cid <- Simulator.activateContract w $ MarketplaceUser mp
-    --     Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace user contract started for " ++ show w
-    --     return (w, cid)
+    users <- fmap Map.fromList $ forM userWallets $ \w -> do
+        cid <- Simulator.activateContract w $ MarketplaceUser mp
+        Simulator.logString @(Builtin MarketplaceContracts) $ "Marketplace user contract started for " ++ show w
+        return (w, cid)
 
-    pure cidInfo -- ContractIDs users cidInfo
+    pure $ ContractIDs users cidInfo
 
 runNftMarketplace :: IO ()
 runNftMarketplace =
     void $ Simulator.runSimulationWith (handlers def) $ do
     Simulator.logString @(Builtin MarketplaceContracts) "Starting Marketplace PAB webserver on port 9080. Press enter to exit."
     shutdown <- PAB.startServerDebug
-    cidInfo <- activateContracts
-    -- let userCid = cidUser Map.! wallet2
-    --     sender = walletPubKeyHash $ wallet2
+    ContractIDs {..} <- activateContracts
+    let userCid = cidUser Map.! wallet2
+        sender = walletPubKeyHash $ wallet2
     let catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
     let photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"
 
@@ -150,19 +150,19 @@ runNftMarketplace =
             _                                           -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "MarketplaceSettings: " <> show v
 
-    -- _  <-
-    --     Simulator.callEndpointOnInstance userCid "createNft" $
-    --         Marketplace.CreateNftParams {
-    --                     cnpIpfsCid        = catTokenIpfsCid,
-    --                     cnpNftName        = "Cat token",
-    --                     cnpNftDescription = "A picture of a cat on a pogo stick",
-    --                     cnpNftCategory = ["GIFs"],
-    --                     cnpRevealIssuer   = False
-    --                 }
-    -- flip Simulator.waitForState userCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
-    --     J.Success (Last (Just (ContractState _ (Success Marketplace.NftCreated)))) -> Just ()
-    --     _                                          -> Nothing
-    -- Simulator.logString @(Builtin MarketplaceContracts) $ "Successful createNft"
+    _  <-
+        Simulator.callEndpointOnInstance userCid "createNft" $
+            Marketplace.CreateNftParams {
+                        cnpIpfsCid        = catTokenIpfsCid,
+                        cnpNftName        = "Cat token",
+                        cnpNftDescription = "A picture of a cat on a pogo stick",
+                        cnpNftCategory = ["GIFs"],
+                        cnpRevealIssuer   = False
+                    }
+    flip Simulator.waitForState userCid $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.UserContractState)) of
+        J.Success (Last (Just (ContractState _ (Success Marketplace.NftCreated)))) -> Just ()
+        _                                          -> Nothing
+    Simulator.logString @(Builtin MarketplaceContracts) $ "Successful createNft"
 
     -- _  <-
     --     Simulator.callEndpointOnInstance userCid "openSale" $
