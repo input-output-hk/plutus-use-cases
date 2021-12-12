@@ -269,6 +269,32 @@ executable encode-oracle-request
     text,
     utf8-string
 
+executable verify-datum
+  import: lang
+  main-is: VerifyDatum.hs
+  hs-source-dirs: cli-demo
+  ghc-options:  -threaded
+  build-depends:        
+    aeson, 
+    base >= 4.9 && < 5,
+    cardano-api, 
+    cardano-node,
+    cryptonite,
+    cardano-crypto,
+    cardano-addresses,
+    cardano-addresses-cli,
+    cardano-ledger-alonzo,
+    plutus-starter,
+    cardano-ledger-core,
+    plutus-contract,
+    cardano-crypto-class,
+    plutus-ledger,
+    plutus-ledger-api,
+    plutus-tx,
+    bytestring,
+    text,
+    utf8-string
+
 executable encode-oracle-keys
   import: lang
   main-is: EncodeOracleKeys.hs
