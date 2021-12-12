@@ -67,22 +67,22 @@ test :: TestTree
 test =
   testGroup
     "Contract"
-    [ testInitApp
-    , testBuyOnce
+    [ -- testInitApp
+      testBuyOnce
     , testBuyTwice
     , testChangePriceWithoutOwnership
     , testBuyLockedScript
     , testBuyNotEnoughPriceScript
-    , testGroup
-        "Auction"
-        [ testAuctionOneBid
-        , testAuctionOneBidNoClosing
-        , testAuctionManyBids
-        , testBidAfterDeadline
-        , testAuctionWithPrice
-        , testSetPriceDuringAuction
-        ]
-    , testGroup
+    , -- , testGroup
+      --     "Auction"
+      --     [ testAuctionOneBid
+      --     , testAuctionOneBidNoClosing
+      --     , testAuctionManyBids
+      --     , testBidAfterDeadline
+      --     , testAuctionWithPrice
+      --     , testSetPriceDuringAuction
+      --     ]
+      testGroup
         "Query"
         [ testQueryPrice
         , testQueryOwner

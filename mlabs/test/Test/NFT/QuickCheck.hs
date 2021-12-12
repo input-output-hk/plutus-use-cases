@@ -188,18 +188,18 @@ instance ContractModel NftModel where
               <*> genNftId
               <*> genNonNeg
               <*> genMaybePrice
-          , ActionAuctionOpen
-              <$> genWallet
-              <*> genNftId
-              <*> genDeadline
-              <*> genNonNeg
-          , ActionAuctionBid
-              <$> genWallet
-              <*> genNftId
-              <*> genNonNeg
-          , ActionAuctionClose
-              <$> genWallet
-              <*> genNftId
+              -- , ActionAuctionOpen
+              --     <$> genWallet
+              --     <*> genNftId
+              --     <*> genDeadline
+              --     <*> genNonNeg
+              -- , ActionAuctionBid
+              --     <$> genWallet
+              --     <*> genNftId
+              --     <*> genNonNeg
+              -- , ActionAuctionClose
+              --     <$> genWallet
+              --     <*> genNftId
           ]
 
   initialState = NftModel Map.empty 0 False

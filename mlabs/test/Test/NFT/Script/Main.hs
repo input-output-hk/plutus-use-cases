@@ -11,6 +11,6 @@ test =
     "Script"
     [ testMinting
     , testDealing
-    , testAuctionBeforeDeadline
-    , testAuctionAfterDeadline
+    -- , testAuctionBeforeDeadline
+    -- , testAuctionAfterDeadline
     ]

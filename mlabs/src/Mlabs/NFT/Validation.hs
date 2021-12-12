@@ -1,5 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
+-- FIXME: Remove after uncommenting commented parts
+{-# OPTIONS_GHC -Wno-unused-local-binds -Wno-unused-imports #-}
 
 module Mlabs.NFT.Validation (
   DatumNft (..),
@@ -117,22 +119,22 @@ mkMintPolicy :: NftAppInstance -> MintAct -> ScriptContext -> Bool
 mkMintPolicy !appInstance !act !ctx =
   case act of
     Mint nftid ->
-      traceIfFalse "Only pointer of first node can change." firstChangedOnlyPtr
-        && traceIfFalse "Exactly one NFT must be minted" (checkMintedAmount nftid)
-        && traceIfFalse "Old first node must point to second node." (first `pointsTo'` second)
-        && traceIfFalse "New first node must point to new node." (newFirst `pointsTo` newInserted)
-        && traceIfFalse "New node must point to second node." (newInserted `pointsTo'` second)
-        && traceIfFalse "New node must be smaller than second node." newIsSmallerThanSecond
-        && traceIfFalse "New price cannot be negative." priceNotNegative'
-        && traceIfFalse "Currency symbol must match app instance" checkCurrencySymbol
-        && traceIfFalse "Minted token must be sent to script address" (checkSentAddress nftid)
-        && traceIfFalse "Nodes must be sent to script address" checkNodesAddresses
-        && traceIfFalse "Datum is not atttached to UTXo with correct Token" (checkAttachedDatum nftid)
+      traceIfFalse' "Only pointer of first node can change." firstChangedOnlyPtr
+        && traceIfFalse' "Exactly one NFT must be minted" (checkMintedAmount nftid)
+        && traceIfFalse' "Old first node must point to second node." (first `pointsTo'` second)
+        && traceIfFalse' "New first node must point to new node." (newFirst `pointsTo` newInserted)
+        && traceIfFalse' "New node must point to second node." (newInserted `pointsTo'` second)
+        && traceIfFalse' "New node must be smaller than second node." newIsSmallerThanSecond
+        && traceIfFalse' "New price cannot be negative." priceNotNegative'
+        && traceIfFalse' "Currency symbol must match app instance" checkCurrencySymbol
+        && traceIfFalse' "Minted token must be sent to script address" (checkSentAddress nftid)
+        && traceIfFalse' "Nodes must be sent to script address" checkNodesAddresses
+        && traceIfFalse' "Datum is not atttached to UTXo with correct Token" (checkAttachedDatum nftid)
     Initialise ->
-      traceIfFalse "The token is not present." headTokenIsPresent
-        && traceIfFalse "Only one Unique Token can be minted" headTokenIsUnique
-        && traceIfFalse "The token is not sent to the right address" headTokenToRightAddress
-        && traceIfFalse "Only an admin can initialise app." checkAdminSig
+      traceIfFalse' "The token is not present." headTokenIsPresent
+        && traceIfFalse' "Only one Unique Token can be minted" headTokenIsUnique
+        && traceIfFalse' "The token is not sent to the right address" headTokenToRightAddress
+        && traceIfFalse' "Only an admin can initialise app." checkAdminSig
   where
     ------------------------------------------------------------------------------
     -- Helpers
@@ -285,15 +287,15 @@ mkTxPolicy _ !datum' !act !ctx =
   case act of
     MintAct {} -> case datum' of
       NodeDatum _ ->
-        traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
-          && traceIfFalse "Transaction can only use one NftListNode element as uniqueness proof." onlyOneNodeAttached
-          && traceIfFalse "Not all used tokens are returned." checkTokenReturned
-          && traceIfFalse "Returned Token UTXOs have mismatching datums." checkMissMatchDatumMint
+        traceIfFalse' "NFT sent to wrong address." tokenSentToCorrectAddress
+          && traceIfFalse' "Transaction can only use one NftListNode element as uniqueness proof." onlyOneNodeAttached
+          && traceIfFalse' "Not all used tokens are returned." checkTokenReturned
+          && traceIfFalse' "Returned Token UTXOs have mismatching datums." checkMissMatchDatumMint
       HeadDatum headDat ->
         -- must always pay back the proof Token. This happens when the Head datum is
         -- updated as the utxo needs to be consumed
-        traceIfFalse "Proof Token must be paid back when using Head" proofPaidBack
-          && traceIfFalse "Transaction that uses Head as list proof must return it unchanged." headUnchanged
+        traceIfFalse' "Proof Token must be paid back when using Head" proofPaidBack
+          && traceIfFalse' "Transaction that uses Head as list proof must return it unchanged." headUnchanged
         where
           oldDatum' :: DatumNft = head . getInputDatums $ ctx
 
@@ -309,68 +311,70 @@ mkTxPolicy _ !datum' !act !ctx =
           errHead = traceError "Input datum is Node."
     BuyAct {..} -> case datum' of
       NodeDatum node ->
-        traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
-          && traceIfFalse "Transaction cannot mint." noMint
-          && traceIfFalse "NFT not for sale." nftForSale
-          && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
-          && traceIfFalse "Act'Bid is too low for the NFT price." (bidHighEnough act'bid)
-          && traceIfFalse "Datum is not consistent, illegally altered." (consistentDatumBuy node)
-          && traceIfFalse "Only one Node must be used in a Buy Action." onlyOneNodeAttached
-          && traceIfFalse "Not all used Tokens are returned." checkTokenReturned
-          && traceIfFalse "Returned Token UTXO has mismatching datum." checkMissMatchDatum
+        traceIfFalse' "NFT sent to wrong address." tokenSentToCorrectAddress
+          && traceIfFalse' "Transaction cannot mint." noMint
+          && traceIfFalse' "NFT not for sale." nftForSale
+          && traceIfFalse' "New Price cannot be negative." (priceNotNegative act'newPrice)
+          && traceIfFalse' "Act'Bid is too low for the NFT price." (bidHighEnough act'bid)
+          && traceIfFalse' "Datum is not consistent, illegally altered." (consistentDatumBuy node)
+          && traceIfFalse' "Only one Node must be used in a Buy Action." onlyOneNodeAttached
+          && traceIfFalse' "Not all used Tokens are returned." checkTokenReturned
+          && traceIfFalse' "Returned Token UTXO has mismatching datum." checkMissMatchDatum
           && if ownerIsAuthor
-            then traceIfFalse "Amount paid to author/owner does not match act'bid." (correctPaymentOnlyAuthor node act'bid)
+            then traceIfFalse' "Amount paid to author/owner does not match" (correctPaymentOnlyAuthor node act'bid)
             else
-              traceIfFalse "Current owner is not paid their share." (correctPaymentOwner node act'bid)
-                && traceIfFalse "Author is not paid their share." (correctPaymentAuthor node act'bid)
+              traceIfFalse' "Current owner is not paid their share." (correctPaymentOwner node act'bid)
+                && traceIfFalse' "Author is not paid their share." (correctPaymentAuthor node act'bid)
       HeadDatum _ ->
-        traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
+        traceIfFalse' "NFT sent to wrong address." tokenSentToCorrectAddress
     SetPriceAct {..} -> case datum' of
       NodeDatum node ->
-        traceIfFalse "Transaction cannot mint." noMint
-          && traceIfFalse "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." (correctDatumSetPrice node)
-          && traceIfFalse "New Price cannot be negative." (priceNotNegative act'newPrice)
-          && traceIfFalse "Only owner exclusively can set NFT price." (signedByOwner node)
-          && traceIfFalse "Datum is not consistent, illegally altered." (consistentDatumSetPrice node)
-          && traceIfFalse "Only one Node must be used in a SetPrice Action." onlyOneNodeAttached
-          && traceIfFalse "Not all used Tokens are returned." checkTokenReturned
-          && traceIfFalse "Returned Token UTXO has mismatching datum." checkMissMatchDatum
-          && traceIfFalse "NFT is on auction" (checkIsNotOnAuction node)
+        traceIfFalse' "Transaction cannot mint." noMint
+          && traceIfFalse' "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." (correctDatumSetPrice node)
+          && traceIfFalse' "New Price cannot be negative." (priceNotNegative act'newPrice)
+          && traceIfFalse' "Only owner exclusively can set NFT price." (signedByOwner node)
+          && traceIfFalse' "Datum is not consistent, illegally altered." (consistentDatumSetPrice node)
+          && traceIfFalse' "Only one Node must be used in a SetPrice Action." onlyOneNodeAttached
+          && traceIfFalse' "Not all used Tokens are returned." checkTokenReturned
+          && traceIfFalse' "Returned Token UTXO has mismatching datum." checkMissMatchDatum
+      -- && traceIfFalse' "NFT is on auction" (checkIsNotOnAuction node)
       HeadDatum _ ->
-        traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
-    OpenAuctionAct {} -> case datum' of
-      NodeDatum node ->
-        traceIfFalse "Can't open auction: already in progress" (noAuctionInProgress node)
-          && traceIfFalse "Only owner can open auction" (signedByOwner node)
-          && traceIfFalse "Open Auction: datum illegally altered" (auctionConsistentOpenDatum node)
-          && traceIfFalse "NFT price must be set to Nothing" checkPriceIsNothing
-      HeadDatum _ ->
-        traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
-    BidAuctionAct {..} -> case datum' of
-      NodeDatum node ->
-        traceIfFalse "Can't bid: No auction is in progress" (not $ noAuctionInProgress node)
-          && traceIfFalse "Auction bid is too low" (auctionBidHighEnough node act'bid)
-          && traceIfFalse "Auction deadline reached" (correctAuctionBidSlotInterval node)
-          && traceIfFalse "Auction: wrong input value" (correctInputValue node)
-          && traceIfFalse "Bid Auction: datum illegally altered" (auctionConsistentDatum node act'bid)
-          && traceIfFalse "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
-          && traceIfFalse "Incorrect bid refund" (correctBidRefund node)
-      HeadDatum _ ->
-        traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
-    CloseAuctionAct {} -> case datum' of
-      NodeDatum node ->
-        traceIfFalse "Can't close auction: none in progress" (not $ noAuctionInProgress node)
-          && traceIfFalse "Auction deadline not yet reached" (auctionDeadlineReached node)
-          && traceIfFalse "Auction: new owner set incorrectly" (auctionCorrectNewOwner node)
-          && traceIfFalse "Close Auction: datum illegally altered" (auctionConsistentCloseDatum node)
-          && if ownerIsAuthor
-            then traceIfFalse "Auction: amount paid to author/owner does not match bid" (auctionCorrectPaymentOnlyAuthor node)
-            else
-              traceIfFalse "Auction: owner not paid their share" (auctionCorrectPaymentOwner node)
-                && traceIfFalse "Auction: author not paid their share" (auctionCorrectPaymentAuthor node)
-      HeadDatum _ ->
-        traceIfFalse "NFT sent to wrong address." tokenSentToCorrectAddress
+        traceIfFalse' "NFT sent to wrong address." tokenSentToCorrectAddress
+    _ -> False
   where
+    -- OpenAuctionAct {} -> case datum' of
+    --   NodeDatum node ->
+    --     traceIfFalse' "Can't open auction: already in progress" (noAuctionInProgress node)
+    --       && traceIfFalse' "Only owner can open auction" (signedByOwner node)
+    --       && traceIfFalse' "Open Auction: datum illegally altered" (auctionConsistentOpenDatum node)
+    --       && traceIfFalse' "NFT price must be set to Nothing" checkPriceIsNothing
+    --   HeadDatum _ ->
+    --     traceIfFalse' "NFT sent to wrong address." tokenSentToCorrectAddress
+    -- BidAuctionAct {..} -> case datum' of
+    --   NodeDatum node ->
+    --     traceIfFalse' "Can't bid: No auction is in progress" (not $ noAuctionInProgress node)
+    --       && traceIfFalse' "Auction bid is too low" (auctionBidHighEnough node act'bid)
+    --       && traceIfFalse' "Auction deadline reached" (correctAuctionBidSlotInterval node)
+    --       && traceIfFalse' "Auction: wrong input value" (correctInputValue node)
+    --       && traceIfFalse' "Bid Auction: datum illegally altered" (auctionConsistentDatum node act'bid)
+    --       && traceIfFalse' "Auction bid value not supplied" (auctionBidValueSupplied act'bid)
+    --       && traceIfFalse' "Incorrect bid refund" (correctBidRefund node)
+    --   HeadDatum _ ->
+    --     traceIfFalse' "NFT sent to wrong address." tokenSentToCorrectAddress
+    -- CloseAuctionAct {} -> case datum' of
+    --   NodeDatum node ->
+    --     traceIfFalse' "Can't close auction: none in progress" (not $ noAuctionInProgress node)
+    --       && traceIfFalse' "Auction deadline not yet reached" (auctionDeadlineReached node)
+    --       && traceIfFalse' "Auction: new owner set incorrectly" (auctionCorrectNewOwner node)
+    --       && traceIfFalse' "Close Auction: datum illegally altered" (auctionConsistentCloseDatum node)
+    --       && if ownerIsAuthor
+    --         then traceIfFalse' "Auction: amount paid to author/owner does not match bid" (auctionCorrectPaymentOnlyAuthor node)
+    --         else
+    --           traceIfFalse' "Auction: owner not paid their share" (auctionCorrectPaymentOwner node)
+    --             && traceIfFalse' "Auction: author not paid their share" (auctionCorrectPaymentAuthor node)
+    --   HeadDatum _ ->
+    --     traceIfFalse' "NFT sent to wrong address." tokenSentToCorrectAddress
+
     info = scriptContextTxInfo ctx
 
     !nInfo = node'information
@@ -802,3 +806,7 @@ getOutputDatumsWithTx ctx =
     . txInfoOutputs
     . scriptContextTxInfo
     $ ctx
+
+{-# INLINEABLE traceIfFalse' #-}
+traceIfFalse' :: BuiltinString -> Bool -> Bool
+traceIfFalse' _ x = x
