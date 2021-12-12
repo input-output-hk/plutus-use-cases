@@ -67,6 +67,16 @@ library
       Plutus.Contracts.Services.Sale.StateMachine
       Plutus.PAB.Simulation
       Plutus.PAB.MarketplaceContracts
+      -- testnet MVP version (without state machines)
+      Plutus.AbstractTestnetMVP.TxUtils
+      Plutus.AbstractTestnetMVP.OutputValue
+      Plutus.TestnetMVP.OffChain.Info
+      Plutus.TestnetMVP.OffChain.Owner
+      Plutus.TestnetMVP.OnChain.Script
+      Plutus.TestnetMVP.OnChain.Validator
+      Plutus.TestnetMVP.OffChain.Endpoints
+      Plutus.TestnetMVP.PAB.MarketplaceContracts
+      Plutus.TestnetMVP.PAB.Simulation
 
     build-depends:
       QuickCheck,
@@ -129,6 +139,16 @@ executable pab-simulation
   import: lang
   main-is: Main.hs
   hs-source-dirs: pab-simulation
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter
+
+executable testnet-mvp-simulation
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs: testnet-mvp-simulation
   ghc-options:
     -threaded
   build-depends:
