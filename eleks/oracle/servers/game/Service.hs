@@ -44,7 +44,7 @@ saveGames games = do
 
 getGames :: ExceptT String IO [Game]
 getGames = do
-    games <- lift $ (eitherDecodeFileStrict "gameserver/fixture.json" :: IO (Either String [Game]))
+    games <- lift $ (eitherDecodeFileStrict "servers/game/fixture.json" :: IO (Either String [Game]))
     liftEither games
 
 getGameById :: GameId -> ExceptT String IO Game
