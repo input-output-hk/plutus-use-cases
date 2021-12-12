@@ -14,6 +14,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE DerivingVia                #-} 
 {-# options_ghc -fno-warn-orphans          #-}
 {-# options_ghc -Wno-redundant-constraints #-}
 {-# options_ghc -fno-strictness            #-}
@@ -28,6 +29,8 @@ import           Data.Aeson.TH
 import           Data.Aeson.Types
 import           Data.Either                     (fromRight)
 import           Data.Map                        (lookup)
+import           Data.Monoid                     (Last (..))
+import           Data.Semigroup.Generic          (GenericSemigroupMonoid (..))
 import           Ledger                          hiding (txOutRefs)
 import           Ledger.Crypto                   (pubKeyHash)
 import           Playground.Contract             (Show, FromJSON, Generic, ToJSON, ToSchema)
@@ -90,14 +93,48 @@ instance Eq Bet where
              (betTeamId l == betTeamId r)
 
 
-data MutualBetRedeemer = MakeBet Bet | CancelBet Bet | StartGame (SignedMessage OracleSignedMessage) | Payout (SignedMessage OracleSignedMessage) | CancelGame (SignedMessage OracleSignedMessage)
+data MutualBetRedeemer = 
+    MakeBet Bet 
+    | CancelBet Bet 
+    | StartGame (SignedMessage OracleSignedMessage) 
+    | Payout (SignedMessage OracleSignedMessage) 
+    | CancelGame (SignedMessage OracleSignedMessage)
+    | DeleteGame (SignedMessage OracleSignedMessage)
     deriving Show
-PlutusTx.makeIsDataIndexed ''MutualBetRedeemer [('MakeBet, 0), ('CancelBet, 1), ('StartGame, 2), ('Payout, 3), ('CancelGame, 4)]
+PlutusTx.makeIsDataIndexed ''MutualBetRedeemer [('MakeBet, 0), ('CancelBet, 1), ('StartGame, 2), ('Payout, 3), ('CancelGame, 4), ('DeleteGame, 5)]
+
+data GameStatus = BettingOpen | BettingClosed | GameCancelled | GameFinished
+   deriving stock (Show)
+PlutusTx.makeIsDataIndexed ''GameStatus [('BettingOpen, 0), ('BettingClosed, 1), ('GameCancelled, 2), ('GameFinished, 3)]
+PlutusTx.makeLift ''GameStatus
 
 type IsBetClosed = Bool
 data MutualBetDatum =
-      MutualBetDatum [Bet] IsBetClosed
+      MutualBetDatum [Bet] GameStatus
     deriving stock (Show)
 
 PlutusTx.makeIsDataIndexed ''MutualBetDatum [('MutualBetDatum, 0)]
 PlutusTx.makeLift ''MutualBetDatum
+
+data MutualBetState =
+      BetState [Bet]
+      | BettingClosedState [Bet]
+      | CancelBetState [Bet]
+      | CancelGameState [Bet]
+      | Finished [Bet]
+    deriving stock (Generic, Haskell.Show, Haskell.Eq)
+    deriving anyclass (ToJSON, FromJSON)
+
+-- | Observable state of the mutual bet app
+data MutualBetOutput =
+    MutualBetOutput
+        { mutualBetState       :: Last MutualBetState
+        }
+        deriving stock (Generic, Haskell.Show, Haskell.Eq)
+        deriving anyclass (ToJSON, FromJSON)
+
+deriving via (GenericSemigroupMonoid MutualBetOutput) instance (Haskell.Semigroup MutualBetOutput)
+deriving via (GenericSemigroupMonoid MutualBetOutput) instance (Haskell.Monoid MutualBetOutput)
+
+mutualBetStateOut :: MutualBetState -> MutualBetOutput
+mutualBetStateOut s = Haskell.mempty { mutualBetState = Last (Just s) }

@@ -65,6 +65,7 @@ import           Text.Printf                      (printf)
 import           Contracts.MutualBet.Currency   as Currency
 import           Types.Game  
 import           Contracts.Oracle 
+import           Plutus.Contract.Util             (loopM)
 
 mutualBetTokenName :: TokenName
 mutualBetTokenName =  "MutualBet"
@@ -95,7 +96,7 @@ start mutualBetTokenClass startParams = do
                 }
         oracle = mbspOracle startParams
         inst = typedMutualBetValidator mutualBet
-        tx   = mustPayToTheScript (MutualBetDatum [] True) (assetClassValue mutualBetTokenClass 1 <> (Ada.toValue Ledger.minAdaTxOut))
+        tx   = mustPayToTheScript (MutualBetDatum [] BettingOpen) (assetClassValue mutualBetTokenClass 1 <> (Ada.toValue Ledger.minAdaTxOut))
                -- todo: add oracle integration ,. pay to oracle
                <> Constraints.mustPayToPubKey (oOperator oracle) (Ada.toValue (oFee oracle))
     mkTxConstraints (Constraints.typedValidatorLookups inst) tx
@@ -105,11 +106,12 @@ start mutualBetTokenClass startParams = do
     return mutualBet
 
 startWithOracle ::
-    forall w s.
+    forall s.
     AssetClass
     -> MutualBetStartParams
-    -> Contract w s Text ()
+    -> Contract (Last (Either Text MutualBetParams)) s Text ()
 startWithOracle mutualBetTokenClass startParams = do
+    logInfo @String $ printf "startWithOracle" 
     let params = MutualBetParams {
                   mbpGame = mbspGame startParams
                 , mbpOracle = mbspOracle startParams
@@ -122,19 +124,17 @@ startWithOracle mutualBetTokenClass startParams = do
                 }
         oracle = mbspOracle startParams
         inst = typedMutualBetValidator params
-        tx   = mustPayToTheScript (MutualBetDatum [] True) (assetClassValue mutualBetTokenClass 1 <> (Ada.toValue Ledger.minAdaTxOut))
-            --    -- todo: add oracle integration ,. pay to oracle
-            --    <> Constraints.mustPayToPubKey (oOperator oracle) (Ada.toValue (oFee oracle))
+        tx   = mustPayToTheScript (MutualBetDatum [] BettingOpen) (assetClassValue mutualBetTokenClass 1 <> (Ada.toValue Ledger.minAdaTxOut))
     mkTxConstraints (Constraints.typedValidatorLookups inst) tx
       >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo @String $ printf "started Mutual bet %s at address %s" (show params) (show $ mutualBetAddress params)
-    --tell $ Last $ Just params
+    tell $ Last $ Just $ Right params
 
     logInfo ("Request oracle for game " ++ (Haskell.show $ mbpGame params))
     _ <- requestOracleForAddress (mbpOracle params) (mbpGame params)
     waitGameStateChange params
     where 
-        waitGameStateChange:: MutualBetParams -> Contract w s Text ()
+        waitGameStateChange:: MutualBetParams -> Contract (Last (Either Text MutualBetParams)) s Text ()
         waitGameStateChange params = do 
             gameState <- waitForGameStateChange params
             let signedMessage = gmsSignedMessage gameState
@@ -143,19 +143,20 @@ startWithOracle mutualBetTokenClass startParams = do
             let oracle = (mbpOracle params)
             case osmGameStatus message of
                 NS -> waitGameStateChange params
-                FT -> do
-                    logInfo @Haskell.String "Payout"
-                    payout params signedMessage (osmWinnerId message)
-                    void $ redeemOracleRequest oracle gameId
-            
                 LIVE -> do
                     logInfo @Haskell.String "Make bet over"
                     _ <- startGame params signedMessage
                     waitGameStateChange params
+                FT -> do
+                    logInfo @Haskell.String "Payout"
+                    payout params signedMessage (osmWinnerId message)
+                    redeemOracleRequest oracle gameId
+                    void $ deleteGame params signedMessage
                 CANC -> do
                     logInfo @Haskell.String "Cancel game"
                     cancel params signedMessage
-                    void $ redeemOracleRequest oracle gameId
+                    redeemOracleRequest oracle gameId
+                    void $ deleteGame params signedMessage
                  
 
     
@@ -198,15 +199,15 @@ startGame :: forall w s. MutualBetParams
     -> SignedMessage OracleSignedMessage
     -> Contract w s Text ()
 startGame mbParams signedMessage = do 
-    (oref, o, MutualBetDatum bets isActiveBetting) <- findMutualBetInstance mbParams
+    (oref, o, MutualBetDatum bets gameStatus) <- findMutualBetInstance mbParams
     ownPK <- ownPubKeyHash
 
-    when (not isActiveBetting) $ throwError "game is already started"   
+    --when (not isActiveBetting) $ throwError "game is already started"   
 
     let inst = typedMutualBetValidator mbParams
         mrScript = mutualBetValidator mbParams
         betsAmount = betsValueAmount bets
-        mutualBetDatum   = MutualBetDatum bets False
+        mutualBetDatum   = MutualBetDatum bets BettingClosed
         mutualBetToken    = assetClassValue (mbpMutualBetId mbParams) 1
         lookups  = Constraints.typedValidatorLookups inst 
                    <> Constraints.otherScript mrScript
@@ -223,44 +224,70 @@ payout ::
     -> TeamId
     -> Contract w s Text ()
 payout mbParams signedMessage winnerId = do
-    (oref, o, MutualBetDatum bets isActiveBetting) <- findMutualBetInstance mbParams
+    (oref, o, MutualBetDatum bets fameStatus) <- findMutualBetInstance mbParams
     ownPK <- ownPubKeyHash
+
 
     let winners = getWinners winnerId bets
         payConstraints = if null winners
             then mkTxReturnBets bets
             else mkTxPayWinners winners 
+    let bets' = mapWinshare winnerId bets 
 
     logInfo $ "winners: " ++ show winners
     let inst = typedMutualBetValidator mbParams
         mrScript = mutualBetValidator mbParams
+        mutualBetDatum   = MutualBetDatum bets'  GameFinished
+        mutualBetToken   = assetClassValue (mbpMutualBetId mbParams) 1
         lookups  = Constraints.typedValidatorLookups inst 
                    <> Constraints.otherScript mrScript
                    <> Constraints.unspentOutputs (Map.singleton oref o)
-        tx       = Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ Payout signedMessage)   
+        tx       = Constraints.mustPayToTheScript mutualBetDatum (mutualBetToken <> (Ada.toValue Ledger.minAdaTxOut))
+                   <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ Payout signedMessage)   
                    <> payConstraints 
     mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
-    logInfo @String $ "payout completed"
+    logInfo @String $ "payout completed" ++ show bets'
 
 cancel :: 
     forall w s. MutualBetParams 
     -> SignedMessage OracleSignedMessage
     -> Contract w s Text ()
 cancel mbParams signedMessage = do
-    (oref, o, MutualBetDatum bets isActiveBetting) <- findMutualBetInstance mbParams
+    (oref, o, MutualBetDatum bets gameStatus) <- findMutualBetInstance mbParams
     ownPK <- ownPubKeyHash
 
     let payBackConstraints = mkTxReturnBets bets
 
     let inst = typedMutualBetValidator mbParams
         mrScript = mutualBetValidator mbParams
+        mutualBetDatum   = MutualBetDatum bets GameCancelled
+        mutualBetToken   = assetClassValue (mbpMutualBetId mbParams) 1
         lookups  = Constraints.typedValidatorLookups inst 
                    <> Constraints.otherScript mrScript
                    <> Constraints.unspentOutputs (Map.singleton oref o)
-        tx       = Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ CancelGame signedMessage) 
+        tx       = Constraints.mustPayToTheScript mutualBetDatum (mutualBetToken <> (Ada.toValue Ledger.minAdaTxOut))
+                   <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ CancelGame signedMessage) 
                    <> payBackConstraints       
     mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo $ "cancel game: " ++ show bets
+
+deleteGame :: 
+    forall w s. MutualBetParams 
+    -> SignedMessage OracleSignedMessage
+    -> Contract w s Text ()
+deleteGame mbParams signedMessage = do
+    (oref, o, MutualBetDatum bets isActiveBetting) <- findMutualBetInstance mbParams
+    ownPK <- ownPubKeyHash
+
+    let inst = typedMutualBetValidator mbParams
+        mrScript = mutualBetValidator mbParams
+        lookups  = Constraints.typedValidatorLookups inst 
+                   <> Constraints.otherScript mrScript
+                   <> Constraints.unspentOutputs (Map.singleton oref o)
+        tx       = Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ DeleteGame signedMessage) 
+  
+    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+    logInfo $ "delete game: " ++ show bets
 
 mkTxPayWinners :: [(PubKeyHash, Ada, Ada)]-> TxConstraints MutualBetRedeemer MutualBetDatum 
 mkTxPayWinners = foldMap (\(winnerAddressHash, winnerBetAmount, winnerPrize) -> Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue $ winnerBetAmount + winnerPrize)
@@ -274,10 +301,10 @@ bet ::
     -> BetParams 
     -> Contract w s Text [Bet]
 bet mbParams betParams = do
-    (oref, o, MutualBetDatum bets isActiveBetting) <- findMutualBetInstance mbParams
+    (oref, o, MutualBetDatum bets gameStatus) <- findMutualBetInstance mbParams
     ownPK <- ownPubKeyHash
 
-    when (not isActiveBetting) $ throwError "bettings is closed" 
+    --when (not isActiveBetting) $ throwError "bettings is closed" 
     let bet = Bet { 
             betAmount =  Ada.lovelaceOf $ nbpAmount betParams, 
             betBettor = ownPK, 
@@ -288,9 +315,9 @@ bet mbParams betParams = do
 
     let inst = typedMutualBetValidator mbParams
         mrScript = mutualBetValidator mbParams
-        allBets = bet : bets
-        betsAmount = betsValueAmount allBets
-        mutualBetDatum   = MutualBetDatum allBets True
+        bets' = bet : bets
+        betsAmount = betsValueAmount bets'
+        mutualBetDatum   = MutualBetDatum bets' BettingOpen
         mutualBetToken    = assetClassValue (mbpMutualBetId mbParams) 1
         lookups  = Constraints.typedValidatorLookups inst 
                    <> Constraints.otherScript mrScript
@@ -299,8 +326,8 @@ bet mbParams betParams = do
                    <> Constraints.mustPayToPubKey (mbpOwner mbParams) (Ada.toValue (mbpBetFee mbParams))
                    <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ MakeBet bet)          
     mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
-    logInfo $ "bet placed: " ++ show bet
-    return allBets
+    logInfo $ "bet placed: " ++ show bets'
+    return bets'
 
 -- | Make a bet 
 cancelBet :: 
@@ -311,7 +338,7 @@ cancelBet mbParams betParams = do
     (oref, o, MutualBetDatum bets isActiveBetting) <- findMutualBetInstance mbParams
     ownPK <- ownPubKeyHash
 
-    when (not isActiveBetting) $ throwError "bettings is closed"
+    --when (not isActiveBetting) $ throwError "bettings is closed"
     let cancelBet = Bet { 
             betAmount =  Ada.lovelaceOf $ nbpAmount betParams, 
             betBettor = ownPK, 
@@ -324,7 +351,7 @@ cancelBet mbParams betParams = do
         mrScript = mutualBetValidator mbParams
         bets' = (deleteFirstOccurence cancelBet bets)
         betsAmount = betsValueAmount  bets'
-        mutualBetDatum   = MutualBetDatum bets' True
+        mutualBetDatum   = MutualBetDatum bets' BettingOpen
         mutualBetToken    = assetClassValue (mbpMutualBetId mbParams) 1
         lookups  = Constraints.typedValidatorLookups inst 
                    <> Constraints.otherScript mrScript
@@ -365,6 +392,9 @@ findMutualBetInstance mutualBet = do
         logInfo @String $ printf "getDatum"
         d <- getMutualBetDatum o
         return (oref, o, d)
+    go [] = do
+        logInfo @String $ printf "Mutual bet instance not found1"
+        throwError "Mutul bet instance not found"
     go _ = do
         logInfo @String $ printf "Mutual bet instance not found"
         throwError "Mutul bet instance not found"
@@ -401,7 +431,7 @@ mutualBetStartWithOracle params = do
     ownPK <- ownPubKeyHash
     cs <- forgeIdToken mutualBetTokenName ownPK
     let mutualBetAsset = assetClass cs mutualBetTokenName
-    mutualBetStart' mutualBetAsset params
+    mutualBetStartWithOracle' mutualBetAsset params
 
 mutualBetStartWithOracle' :: 
     AssetClass
@@ -409,41 +439,86 @@ mutualBetStartWithOracle' ::
     -> Contract (Last (Either Text MutualBetParams)) EmptySchema Text ()
 mutualBetStartWithOracle' mutualBetAsset params = do
     void $ startWithOracle mutualBetAsset params
-    -- e <- mapError absurd $ runError $ startWithOracle mutualBetAsset params
-    -- tell $ Last $ Just ()
 
 -- | Schema for the endpoints for users of NFTMarket.
 type BettorSchema =
          Endpoint "bet" BetParams
         .\/ Endpoint "cancelBet" BetParams
 
-data BettorState =
-      BetState [Bet]
-      | CancelBetState [Bet]
-      | Stopped
-    deriving (Show, Generic, FromJSON, ToJSON)
--- | Provides the following endpoints for users of a NFT marketplace instance:
---
--- [@bet@]: Creates an nft token.
--- [@cancelBet@]: Cancel token selling.
-mutualBetBettor ::
+-- hasToken :: MutualBetParams -> (Maybe ChainIndexTxOut, TxOutRef) -> Bool
+-- hasToken params (o, oref) = True
+--     --isJust $ o >>= \out -> guard( assetClassValueOf (view ciTxOutValue out) (mbpMutualBetId params) == 1)
+
+-- awaitMutualBetChanged:: MutualBetParams -> Promise (Last (Either Text BettorState)) BettorSchema Text ()
+-- awaitMutualBetChanged params = do
+--     let addr = mutualBetAddress params
+--     oref::TxOutRef <- promiseBind (utxoIsProduced addr) $ \txns -> do
+--                             logInfo @String $ printf "awaitMutualBetChanged"
+--                             let tst::[(Maybe ChainIndexTxOut, TxOutRef)]  = concatMap chainIndexTxOutsWithRef $ (NonEmpty.toList txns)
+--                             let (_, oref) = find (hasToken params) tst
+--                             return oref
+
+--     return ()
+
+data BettorEvent =
+      MakeBetEvent BetParams
+      | CancelBetEvent BetParams
+      | GameChanged [Bet] GameStatus
+    deriving (Show)
+
+awaitMutualBetChanged:: MutualBetParams -> Promise MutualBetOutput BettorSchema Text BettorEvent
+awaitMutualBetChanged params = do
+    let addr = mutualBetAddress params
+    promiseBind (utxoIsProduced addr) $ \_ -> do
+                        logInfo @String $ printf "awaitMutualBetChanged"
+                        (oref, o, MutualBetDatum bets gameStatus) <- findMutualBetInstance params
+                        pure $ GameChanged bets gameStatus
+
+waitForChange :: MutualBetParams -> [Bet] -> Contract MutualBetOutput BettorSchema Text BettorEvent
+waitForChange params bets = do
+    let
+        makeBet = endpoint @"bet" $ \betParams -> do 
+                                pure $ MakeBetEvent betParams
+        cancelBet = endpoint @"cancelBet" $ \ betParams -> do 
+                                pure $ CancelBetEvent betParams
+
+    selectList [makeBet, cancelBet, awaitMutualBetChanged params]
+
+handleEvent :: MutualBetParams -> [Bet] -> BettorEvent -> Contract MutualBetOutput BettorSchema Text (Either [Bet] ())
+handleEvent params bets change =
+    let continue = pure . Left
+        stop     = pure (Right ())
+
+    in case change of
+        MakeBetEvent betParams -> do
+            e <- runError $ bet params betParams
+            case e of
+                Left err -> do 
+                    logInfo ("Bet error"  ++ Haskell.show err)
+                    continue bets
+                Right bets'  -> do
+                    tell (mutualBetStateOut $ BetState bets)
+                    continue bets
+        CancelBetEvent betParams -> do
+            e <- runError $ cancelBet params betParams
+            case e of
+                Left err -> do 
+                    logInfo ("Cancel bet error"  ++ Haskell.show err)
+                    continue bets
+                Right bets'  -> do
+                    tell (mutualBetStateOut $ BetState bets)
+                    continue bets
+        GameChanged bets status -> case status of
+            -- other bets places
+            BettingOpen -> tell (mutualBetStateOut $ BetState bets) >> continue bets 
+            BettingClosed ->  tell (mutualBetStateOut $ BettingClosedState bets) >> continue bets 
+            GameCancelled -> tell (mutualBetStateOut $ CancelGameState bets) >> stop
+            GameFinished -> tell (mutualBetStateOut $ Finished bets) >> stop
+
+mutualBetBettor::
     MutualBetParams 
-    -> Promise (Last (Either Text BettorState)) BettorSchema Void ()
-mutualBetBettor params =
-    (void (f (Proxy @"bet") BetState bet  `select`
-      f (Proxy @"cancelBet") BetState cancelBet)    
-    <> mutualBetBettor params)
-  where
-    f :: forall l a p.
-         (HasEndpoint l p BettorSchema, FromJSON p)
-      => Proxy l
-      -> (a -> BettorState)
-      -> (MutualBetParams -> p -> Contract (Last (Either Text BettorState)) BettorSchema Text a)
-      -> Promise (Last (Either Text BettorState)) BettorSchema Void ()
-    f _ g c = handleEndpoint @l $ \p -> do
-        e <- either (pure . Left) (runError . c params) p
-        tell $ Last $ Just $ case e of
-            Left err -> Left err
-            Right a  -> Right $ g a
-            
+    -> Contract MutualBetOutput BettorSchema Text ()
+mutualBetBettor params = do
+    let loop  = loopM (\bets -> waitForChange params bets >>= handleEvent params bets)
+    loop []
 

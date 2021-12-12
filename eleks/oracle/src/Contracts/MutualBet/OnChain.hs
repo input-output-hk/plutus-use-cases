@@ -92,9 +92,9 @@ getWinners winnerTeamId bets =
     in 
         map (\winBet -> (betBettor winBet, betAmount winBet, calculateWinnerShare winBet total totalWin)) winnerBets
 
-{-# INLINABLE includeWinshareInBets #-}
-includeWinshareInBets  :: Integer -> [Bet] -> [Bet]
-includeWinshareInBets winnerTeamId bets =
+{-# INLINABLE mapWinshare #-}
+mapWinshare  :: Integer -> [Bet] -> [Bet]
+mapWinshare winnerTeamId bets =
     let 
         winnerBets = winBets winnerTeamId bets
         total = betsValueAmount bets
@@ -213,6 +213,22 @@ validateCancel params bets signedMessage ctx =
     oracleMessage:: OracleSignedMessage
     oracleMessage = extractOracleMessage params signedMessage
 
+{-# INLINABLE validateDeleteGame #-}
+validateDeleteGame :: 
+    MutualBetParams
+    -> SignedMessage OracleSignedMessage
+    -> ScriptContext
+    -> Bool
+validateDeleteGame params signedMessage ctx =
+    traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
+    && (expectGameStatus FT oracleMessage || expectGameStatus CANC oracleMessage) 
+  where 
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    oracleMessage:: OracleSignedMessage
+    oracleMessage = extractOracleMessage params signedMessage
+
 {-# INLINABLE isCurrentGameCheck #-}
 isCurrentGameCheck:: MutualBetParams -> OracleSignedMessage -> Bool
 isCurrentGameCheck params message = traceIfFalse "signed message not for this game" (mbpGame params == osmGameId message)
@@ -248,16 +264,20 @@ oraclePubKey params = (oOperatorKey $ mbpOracle $ params)
 
 {-# INLINABLE mkMutualBetValidator #-}
 mkMutualBetValidator :: MutualBetParams -> MutualBetDatum -> MutualBetRedeemer -> ScriptContext -> Bool
-mkMutualBetValidator params (MutualBetDatum bets True) (MakeBet bet)      ctx = validateBet params bets bet ctx
-mkMutualBetValidator params (MutualBetDatum _ False)   (MakeBet _)        ctx = traceError "cannot bet on started game"
-mkMutualBetValidator params (MutualBetDatum bets True) (CancelBet cancelBet)    ctx = validateCancelBet params bets cancelBet ctx
-mkMutualBetValidator params (MutualBetDatum _ False)   (CancelBet _)      ctx = traceError "cannot cancel bet on started game"
-mkMutualBetValidator params (MutualBetDatum _ True)    (StartGame oracleMessage)        ctx = validateStartGame params oracleMessage ctx
-mkMutualBetValidator params (MutualBetDatum _ False)   (StartGame _)        ctx = traceError "game already started"
-mkMutualBetValidator params (MutualBetDatum bets _)    (CancelGame oracleMessage)           ctx = validateCancel params bets oracleMessage ctx
-mkMutualBetValidator params (MutualBetDatum bets _)    (Payout oracleMessage)  ctx = validatePayout params bets oracleMessage ctx
-mkMutualBetValidator _      _                          _                  _    = traceError "request parse error"
-
+mkMutualBetValidator params (MutualBetDatum bets BettingOpen   ) (MakeBet bet)              ctx = validateBet params bets bet ctx
+-- mkMutualBetValidator params (MutualBetDatum _    _             ) (MakeBet _)                _   = traceError "betting closed"
+mkMutualBetValidator params (MutualBetDatum bets BettingOpen   ) (CancelBet cancelBet)      ctx = validateCancelBet params bets cancelBet ctx
+-- mkMutualBetValidator params (MutualBetDatum _    _             ) (CancelBet _)              _   = traceError "bettings closed"
+mkMutualBetValidator params (MutualBetDatum _    BettingOpen   ) (StartGame oracleMessage)  ctx = validateStartGame params oracleMessage ctx
+-- mkMutualBetValidator params (MutualBetDatum _    _             ) (StartGame _)              _   = traceError "game already started"
+mkMutualBetValidator params (MutualBetDatum bets BettingClosed ) (Payout oracleMessage)     ctx = validatePayout params bets oracleMessage ctx
+-- mkMutualBetValidator params (MutualBetDatum _    _             ) (Payout _)                 _   = traceError "game cannot be finished"
+mkMutualBetValidator params (MutualBetDatum bets BettingOpen   ) (CancelGame oracleMessage) ctx = validateCancel params bets oracleMessage ctx
+-- mkMutualBetValidator params (MutualBetDatum _    _             ) (CancelGame _            ) _   = traceError "game cannot be cancelled"
+mkMutualBetValidator params (MutualBetDatum bets GameCancelled ) (DeleteGame oracleMessage) ctx = validateDeleteGame params oracleMessage ctx
+mkMutualBetValidator params (MutualBetDatum bets GameFinished  ) (DeleteGame oracleMessage) ctx = validateDeleteGame params oracleMessage ctx
+-- mkMutualBetValidator params (MutualBetDatum _    _             ) (DeleteGame _)             _   = traceError "cannot delete game"
+mkMutualBetValidator _ _ _           _   = traceError "cannot delete game"
 data MutualBetTypes
 instance Scripts.ValidatorTypes MutualBetTypes where
     type instance DatumType MutualBetTypes = MutualBetDatum

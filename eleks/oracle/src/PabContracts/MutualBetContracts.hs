@@ -65,7 +65,7 @@ getMutualBetContractsSchema = \case
 
 getMutualBetContracts :: MutualBetContracts -> SomeBuiltin
 getMutualBetContracts = \case
-    MutualBetOwner params -> SomeBuiltin $ mutualBetStart params
+    MutualBetOwner params -> SomeBuiltin $ mutualBetStartWithOracle params
     MutualBetUser  params -> SomeBuiltin $ mutualBetBettor params
 
 handlers :: SimulatorEffectHandlers (Builtin MutualBetContracts)
