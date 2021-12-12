@@ -2,12 +2,12 @@ import { statusesMap } from './constants';
 
 export const getGameContract = (contracts, gameId) => {
   const contract = contracts.find(
-    (el) => el.cicDefinition.contents[2].mbpGame === +gameId
+    (el) => el.cicDefinition.contents.mbpGame === +gameId
   );
   return {
     contractId: contract ? contract.cicContract.unContractInstanceId : null,
     minBet: contract
-      ? lovelaceToAda(contract.cicDefinition.contents[2].mbpMinBet.getLovelace)
+      ? lovelaceToAda(contract.cicDefinition.contents.mbpMinBet.getLovelace)
       : null,
   };
 };

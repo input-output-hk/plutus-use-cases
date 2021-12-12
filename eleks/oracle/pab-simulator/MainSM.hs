@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module Main(main) where
+module MainSM(main) where
 
 import           Control.Lens    
 import           Control.Monad                       (void, forM, forever)

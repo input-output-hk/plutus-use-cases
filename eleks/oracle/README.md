@@ -91,16 +91,7 @@ curl -v -X PUT -H "Content-Type: application/json" \
 curl -v -X PUT -H "Content-Type: application/json" \
     -d '{"ugpTeam": 55}' \
     http://localhost:8081/games/1/score
-## Oracle rest server 
 
-1. Build the game rest server:
-```
-cabal build oraclegameserver
-```
-2. Run the Games server:
-```
-cabal exec -- oraclegameserver
-```
 ## Mutual bet rest server 
 
 1. Build the game rest server:
@@ -136,11 +127,22 @@ cabal build pab-simulator
 cabal exec -- pab-simulator
 ```
 
+## Oracle rest server 
+
+1. Build the game rest server:
+```
+cabal build oraclegameserver
+```
+2. Run the Games server:
+```
+cabal exec -- oraclegameserver
+```
+
 ### Pab Queries
 
 1. Instance status
-export INSTANCE_ID=...
-curl -s http://localhost:9080/api/new/contract/instance/$INSTANCE_ID/status | jq
+export INSTANCE_ID=bb62dca7-89e5-486f-ac65-607f82386702
+curl -s http://localhost:9080/api/contract/instance/$INSTANCE_ID/status | jq
 
 2. Get all contract ids and wallet ids
 curl -s http://localhost:9080/api/contract/instances/ | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract, .cicWallet'
@@ -151,7 +153,7 @@ curl -s http://localhost:9080/api/contract/instances/wallet/$WALLET_ID | jq '.[]
 
 ### Pab transactions
 1. Make a bet 
-export INSTANCE_ID=c2affd9b-3269-414e-9919-891150611639
+export INSTANCE_ID=...
 curl -H "Content-Type: application/json" \
   --request POST \
   --data '{"nbpAmount":3000000, "nbpWinnerId": 55}' \

@@ -144,7 +144,7 @@ startWithOracle mutualBetTokenClass startParams = do
             case osmGameStatus message of
                 NS -> waitGameStateChange params
                 LIVE -> do
-                    logInfo @Haskell.String "Make bet over"
+                    logInfo @Haskell.String "Closing betting"
                     _ <- startGame params signedMessage
                     waitGameStateChange params
                 FT -> do
@@ -394,10 +394,10 @@ findMutualBetInstance mutualBet = do
         return (oref, o, d)
     go [] = do
         logInfo @String $ printf "Mutual bet instance not found1"
-        throwError "Mutul bet instance not found"
+        throwError "Mutual bet instance not found"
     go _ = do
         logInfo @String $ printf "Mutual bet instance not found"
-        throwError "Mutul bet instance not found"
+        throwError "Mutual bet instance not found"
 
 forgeIdToken:: 
     forall w s. TokenName
@@ -494,26 +494,38 @@ handleEvent params bets change =
             e <- runError $ bet params betParams
             case e of
                 Left err -> do 
-                    logInfo ("Bet error"  ++ Haskell.show err)
+                    logInfo ("Bet error" ++ Haskell.show err)
                     continue bets
                 Right bets'  -> do
-                    tell (mutualBetStateOut $ BetState bets)
+                    tell (mutualBetStateOut $ BetState bets')
                     continue bets
         CancelBetEvent betParams -> do
             e <- runError $ cancelBet params betParams
             case e of
                 Left err -> do 
-                    logInfo ("Cancel bet error"  ++ Haskell.show err)
+                    logInfo ("Cancel bet error" ++ Haskell.show err)
                     continue bets
                 Right bets'  -> do
-                    tell (mutualBetStateOut $ BetState bets)
+                    tell (mutualBetStateOut $ BetState bets')
                     continue bets
         GameChanged bets status -> case status of
             -- other bets places
-            BettingOpen -> tell (mutualBetStateOut $ BetState bets) >> continue bets 
-            BettingClosed ->  tell (mutualBetStateOut $ BettingClosedState bets) >> continue bets 
-            GameCancelled -> tell (mutualBetStateOut $ CancelGameState bets) >> stop
-            GameFinished -> tell (mutualBetStateOut $ Finished bets) >> stop
+            BettingOpen -> do
+                logInfo ("BettingOpen update bets " ++ Haskell.show bets)
+                tell (mutualBetStateOut $ BetState bets)
+                continue bets 
+            BettingClosed -> do
+                logInfo ("BettingClosed" ++ Haskell.show bets)
+                tell (mutualBetStateOut $ BettingClosedState bets)
+                continue bets 
+            GameCancelled -> do
+                logInfo ("GameCancelled " ++ Haskell.show bets)
+                tell (mutualBetStateOut $ CancelGameState bets)
+                stop
+            GameFinished -> do 
+                logInfo ("GameFinished " ++ Haskell.show bets)
+                tell (mutualBetStateOut $ Finished bets)
+                stop
 
 mutualBetBettor::
     MutualBetParams 

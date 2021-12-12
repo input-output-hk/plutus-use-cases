@@ -277,7 +277,7 @@ mkMutualBetValidator params (MutualBetDatum bets BettingOpen   ) (CancelGame ora
 mkMutualBetValidator params (MutualBetDatum bets GameCancelled ) (DeleteGame oracleMessage) ctx = validateDeleteGame params oracleMessage ctx
 mkMutualBetValidator params (MutualBetDatum bets GameFinished  ) (DeleteGame oracleMessage) ctx = validateDeleteGame params oracleMessage ctx
 -- mkMutualBetValidator params (MutualBetDatum _    _             ) (DeleteGame _)             _   = traceError "cannot delete game"
-mkMutualBetValidator _ _ _           _   = traceError "cannot delete game"
+mkMutualBetValidator _       _                                   _                          _   = traceError "invalid bet state"
 data MutualBetTypes
 instance Scripts.ValidatorTypes MutualBetTypes where
     type instance DatumType MutualBetTypes = MutualBetDatum

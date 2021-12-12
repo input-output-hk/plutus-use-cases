@@ -213,11 +213,11 @@ requestOracleForAddress oracle gameId = do
 getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
 getActiveOracleRequests oracle = do
     let address = oracleAddress oracle
-    logInfo @Haskell.String $ "Oracle address: " ++ show address
+    logInfo @Haskell.String $ "getActiveOracleRequests Oracle address: " ++ show address
     xs <- utxosAt address
-    logInfo @Haskell.String ("Get active utxos: " ++ show xs)
+    --logInfo @Haskell.String ("Get active utxos: " ++ show xs)
     filtered <- Control.Monad.mapM mapDatum . filterOracleRequest oracle . Map.toList $ xs
-    logInfo @Haskell.String ("Filtered: " ++ show filtered)
+    --logInfo @Haskell.String ("Filtered: " ++ show filtered)
     let requests = filter (isActiveRequest oracle) . rights $ filtered
     return requests 
 
