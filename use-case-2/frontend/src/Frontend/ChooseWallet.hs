@@ -77,12 +77,11 @@ chooseWallet = do
         return $ tagPromptlyDyn requestLoad staticSwapEv
       let newEv = switchDyn staticSwapRequestEv
       txBuildResponse <- requestingIdentity newEv
+      -- Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
       let (txBuildFailEv, cborHexEv) = fanEither txBuildResponse
 
       widgetHold_ blank $ ffor txBuildFailEv  $ \errMsg -> el "p" $ text $ T.pack errMsg
       widgetHold_ blank $ ffor cborHexEv  $ \_ -> el "p" $ text $ T.pack "Transaction built"
-      -- TODO: since Right cborTxHex is exposed... refactor subsequent code using dynCborHex to use  cborTxHex instead
-      -- TODO: Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
       (signedTxEv, signTrigger) <- newTriggerEvent
       (submitTxEv, submitTxTrigger) <- newTriggerEvent
       dynCborHex :: Dynamic t (Text, Text) <- holdDyn ("", "") cborHexEv
@@ -124,7 +123,7 @@ chooseWallet = do
         return ()
         ) <$> txSubmissionEv
 
-      -- confirm the swap was successful --TODO: This will no longer be necessary once datum is retrieved from chain
+      -- confirm the swap was successful
       let successfulSubmissionEv = ffilter (\ev -> ev == "undefined") submitTxEv
           successLoad = (\(_, proposalId) -> Api_ConfirmSwapSuccess proposalId)
              <$> dynCborHex
