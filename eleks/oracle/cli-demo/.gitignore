@@ -3,3 +3,4 @@ tx.raw
 tx.sign
 keys/*
 !keys/.gitkeep
+datum

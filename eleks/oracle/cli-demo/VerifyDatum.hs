@@ -65,7 +65,6 @@ main = do
   print (show oracleData)
   requestVkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentExtendedKey) oracleVerKeyPath
   requestVkey <- either (\_ -> exitWithErrorMessage $ "Vkey not found") pure requestVkeyEither
-  print "ura"
   let xpubE = xpub $ serialiseToRawBytes requestVkey
   xpub <- either (\_ -> exitWithErrorMessage $ "cannot convert to xpub") pure xpubE
   let oraclePubKey = xPubToPublicKey xpub

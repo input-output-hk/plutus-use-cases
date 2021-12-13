@@ -23,9 +23,12 @@ import           Contracts.Oracle.OnChain
 import           Contracts.Oracle.OffChain (UpdateOracleParams(..), RedeemOracleParams(..))
 import           Ledger
 import           Ledger.Ada                     as Ada
+import           System.Exit                    (exitWith, ExitCode(..))
+import           System.IO                      (hPutStrLn, stderr)
 
 import           Wallet.Emulator.Types          (Wallet (..))
 import           Types.Game
+
 -- cabal exec -- gs 2000000 2000000 "keys/oracle/payment.vkey"
 main :: IO ()
 main = do
@@ -39,49 +42,37 @@ main = do
     let oracleScriptFile = "oracle.plutus"
         requestTokenScriptFile = "requesttoken.plutus"
     
-    let vkeyPath = if nargs > 2 then args!!2  else ""
-    vkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentExtendedKey) vkeyPath
-    case vkeyEither of 
-      Left _  -> putStrLn $ "Vkey not fouund"
-      Right vkey -> do
-        let pkE = xpub $ serialiseToRawBytes vkey
-        case pkE of
-          Left err -> putStrLn $ "XPub not found" ++ show err
-          Right pkPub -> do
-            let pk = xPubToPublicKey pkPub
-            let pkh = pubKeyHash pk
-            putStrLn $ "public key: " ++ show pk
-            putStrLn $ "public key hash: " ++ show pkh
-            putStrLn $ "fee: " ++ show fee
-            putStrLn $ "collateral: " ++ show collateral 
+    let oracleVkeyPath = if nargs > 2 then args!!2  else ""
+    oracleVkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentExtendedKey) oracleVkeyPath
+    oracleVkey <- either (\_ -> exitWithErrorMessage $ "Oracle Vkey not found") pure oracleVkeyEither
+    let orackeXpubE = xpub $ serialiseToRawBytes oracleVkey
+    oracleXpub <- either (\_ -> exitWithErrorMessage $ "cannot convert to oracle xpub") pure orackeXpubE
+    let pk = xPubToPublicKey oracleXpub
+    let pkh = pubKeyHash pk
+    putStrLn $ "public key: " ++ show pk
+    putStrLn $ "public key hash: " ++ show pkh
+    putStrLn $ "fee: " ++ show fee
+    putStrLn $ "collateral: " ++ show collateral 
 
-            let updatePr =  UpdateOracleParams
-                            { uoGameId  = 1   
-                            , uoWinnerId = 55
-                            , uoGameStatus = LIVE
-                            }
+    let useOr = RedeemOracleParams 
+                  { roGame = 1}
+    putStrLn $ show $ encode useOr
+    let oracleRequestTokenInfo = OracleRequestToken
+          { ortOperator = pkh
+          , ortFee = fee
+          , ortCollateral = collateral
+          }
+    let oracle = Oracle
+            { --oSymbol = opSymbol op
+              oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
+            , oOperator = pkh
+            , oOperatorKey = pk
+            , oFee = fee
+            , oCollateral = collateral
+            }
 
-            putStrLn $ show $ encode  updatePr
-
-            let useOr = RedeemOracleParams 
-                         { roGame = 1}
-            putStrLn $ show $ encode useOr
-            let oracleRequestTokenInfo = OracleRequestToken
-                  { ortOperator = pkh
-                  , ortFee = fee
-                  , ortCollateral = collateral
-                  }
-            let oracle = Oracle
-                    { --oSymbol = opSymbol op
-                      oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
-                    , oOperator = pkh
-                    , oOperatorKey = pk
-                    , oFee = fee
-                    , oCollateral = collateral
-                    }
-
-            writePlutusScript oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
-            writePlutusScript requestTokenScriptFile (mintingScript oracleRequestTokenInfo) (mintingScriptShortBs oracleRequestTokenInfo)
+    writePlutusScript oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)
+    writePlutusScript requestTokenScriptFile (mintingScript oracleRequestTokenInfo) (mintingScriptShortBs oracleRequestTokenInfo)
 
 writePlutusScript :: FilePath -> PlutusScript PlutusScriptV1 -> SBS.ShortByteString -> IO ()
 writePlutusScript filename scriptSerial scriptSBS =
@@ -100,22 +91,5 @@ writePlutusScript filename scriptSerial scriptSBS =
     Left err -> print $ displayError err
     Right () -> return ()
 
-
-
- {-
-readBech32Bip32SigningKeyFile
-  :: SigningKeyFile
-  -> IO (Either (FileError CardanoAddressSigningKeyConversionError) Crypto.XPrv)
-readBech32Bip32SigningKeyFile (SigningKeyFile fp) = do
-  eStr <- Exception.try $ readFile fp
-  case eStr of
-    Left e -> pure . Left $ FileIOError fp e
-    Right str ->
-      case decodeBech32 (Text.concat $ Text.words str) of
-        Left err ->
-          pure $ Left $
-            FileError fp (CardanoAddressSigningKeyBech32DecodeError err)
-        Right (_hrPart, _dataPart, bs) ->
-          pure $ first (FileError fp) (convertBip32SigningKey bs)
-
--}
+exitWithErrorMessage :: String -> IO a
+exitWithErrorMessage str = hPutStrLn stderr str >> exitWith (ExitFailure 1)

@@ -52,43 +52,34 @@ main = do
   args <- getArgs
   let nargs = length args
   let gameId = if nargs > 0 then read (args!!0) else 0
-  let requestVkeyPath = if nargs > 1 then args!!1  else ""
-  let oracleSignKey = if nargs > 2 then args!!2  else ""
+  let clientVkeyPath = if nargs > 1 then args!!1  else ""
+  let oracleSignKeyPath = if nargs > 2 then args!!2  else ""
   let winnerId = if nargs > 3 then read (args!!3) else 0
   let statusM = if nargs > 4 then decode (LB8.pack $ args!!4) else Just NS
   status <- maybe(exitWithErrorMessage "Wrong status") pure statusM
-  requestVkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentExtendedKey) requestVkeyPath
-  signerKeyEither:: Either (FileError TextEnvelopeError) (SigningKey PaymentExtendedKey)<- readFileTextEnvelope (AsSigningKey AsPaymentExtendedKey) oracleSignKey
-  case requestVkeyEither of 
-    Left err -> exitWithErrorMessage $ "Vkey not found" ++ show err
-    Right requestVkey -> do
-      let pkE = xpub $ serialiseToRawBytes requestVkey
-      case pkE of
-        Left err -> exitWithErrorMessage $ "XPub not found" ++ show err
-        Right pkPub -> do
-          let pk = xPubToPublicKey pkPub
-          let pkh = pubKeyHash $ pk
-          if oracleSignKey == "" 
-            then showData gameId pkh Nothing
-            else 
-              case signerKeyEither of
-                Left err -> exitWithErrorMessage $ "SKey parse error" ++ show err
-                Right sKey -> do
-                  let signKeyE = xprv $ serialiseToRawBytes sKey
-                  case signKeyE of 
-                    Left error -> exitWithErrorMessage error
-                    Right signKey -> do
-                      let privPub = toPublicKey signKey
-                      let pkhPriv = pubKeyHash $ privPub
+  clientVkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentExtendedKey) clientVkeyPath
+ 
+  clientVkey <- either (\_ -> exitWithErrorMessage $ "Oracle Vkey not found") pure clientVkeyEither
+  let clientXpubE = xpub $ serialiseToRawBytes clientVkey
+  clientXpub <- either (\_ -> exitWithErrorMessage $ "cannot convert to oracle xpub") pure clientXpubE
+  let pk = xPubToPublicKey clientXpub
+  let pkh = pubKeyHash pk
+  if oracleSignKeyPath == "" 
+    then
+      showData gameId pkh Nothing
+    else do
+      signerKeyEither <- readFileTextEnvelope (AsSigningKey AsPaymentExtendedKey) oracleSignKeyPath
+      signSkey <- either (\_ -> exitWithErrorMessage $ "sign Skey not found") pure signerKeyEither
+      let signXprvE = xprv $ serialiseToRawBytes signSkey
+      signXprv <- either (\_ -> exitWithErrorMessage $ "sign XPrv not found") pure signXprvE
+      let message = OracleSignedMessage{
+          osmWinnerId = winnerId,
+          osmGameId = gameId,
+          osmGameStatus = status
+      }
+      let signedMessage = signMessage message signXprv ""
 
-                      let message = OracleSignedMessage{
-                          osmWinnerId = winnerId,
-                          osmGameId = gameId,
-                          osmGameStatus = status
-                      }
-                      let signedMessage = signMessage message signKey ""
-
-                      showData gameId pkh (Just signedMessage)
+      showData gameId pkh (Just signedMessage)
 
 showData:: GameId -> PubKeyHash -> Maybe (SignedMessage OracleSignedMessage) -> IO ()
 showData gameId pkh signeMessage = do

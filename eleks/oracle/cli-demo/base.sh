@@ -7,7 +7,7 @@ function setEnv() {
   export ORACLE_FEE=2000000
   export ORACLE_COLLATERAL=3500000
   export MIN_UTXO=2000000 
-  export ORACLE_TOKEN_NAME="6f72746b" #orkt in base16
+  export ORACLE_TOKEN_NAME="6f72746b" #ortk in base16
   #export CARDANO_NODE_SOCKET_PATH=$dir/node/db/node.socket
   export CARDANO_NODE_SOCKET_PATH=/tmp/node.socket
   #export CARDANO_NODE_SOCKET_PATH=~/projects/plutus/plutus-apps/plutus-pab/test-node/testnet/node.sock
@@ -37,9 +37,7 @@ function updatePayUtxo() {
   payUtxoIndex=$(echo "$payUtxo" | awk -v max=0 '{if(NR >= 2 && $3>max){rowNum=NR; max=$3}}END{print rowNum}')
   ##
   export PAY_TX_HASH=$(echo "$payUtxo" | awk -v nr=$payUtxoIndex "NR==nr" | awk '{print $1}')
-  echo "PAY_TX_HASH $PAY_TX_HASH"
   export PAY_TX_IX=$(echo "$payUtxo" | awk -v nr=$payUtxoIndex "NR==nr" | awk '{print $2}')
-  echo "PAY_TX_IX $PAY_TX_IX"
 }
 
 function makeScriptAddress() {
@@ -53,4 +51,29 @@ function makeScriptAddress() {
 
   export POLICY_ID=$(cardano-cli transaction policyid --script-file $MINT_SCRIPT_FILE)
   echo "POLICY_ID $POLICY_ID"
+}
+
+findUtxoByDatum() {
+    datumFile=$1
+    expectedHash=$(cardano-cli transaction hash-script-data --script-data-file $datumFile)
+    oracleRequestUtxo=$(cardano-cli query utxo --testnet-magic $TESTNET_MAGIC --address "$ORACLE_SCRIPT_ADDRESS" | grep $expectedHash || true } )
+    if [ "$oracleRequestUtxo" ]; then
+        utxoHash=$(echo $oracleRequestUtxo | awk '{print $1}')
+        utxoIx=$(echo $oracleRequestUtxo | awk '{print $2}')
+        echo "$utxoHash#$utxoIx"
+    else
+        echo ""
+    fi 
+}
+
+waitUtxoForDatum() {
+  echo 'wait for utxo'
+  utxo=""
+  while [ -z "$utxo" ];
+  do 
+    utxo=$(findUtxoByDatum $1);
+    echo 'no utxo yet, sleep 5 seconds'
+    sleep 10
+  done
+  echo "utxo found: $utxo __________"
 }

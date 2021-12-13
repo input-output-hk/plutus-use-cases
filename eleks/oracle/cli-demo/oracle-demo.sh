@@ -2,16 +2,19 @@
 dir=$(dirname "$0")
 set -e
 source $dir/base.sh
-echo $dir uraa
+
 function main() {
     rm $dir/oracle.plutus || true
     rm $dir/requesttoken.plutus || true
+    rm $dir/datum || true
+    mkdir datum
     cabal build gs
     cabal build encode-oracle-request 
+    cabal build verify-datum
     #set env after build
     setEnv
-    GAME_ID=1
-    WINNER_ID=0
+
+    WINNER_ID=1
     CLEINT_KEY_PATH="$dir/keys/client"
     CLIENT_ADDRESS=$(cat $CLEINT_KEY_PATH/payment.addr)
     CLIENT_SIGN_KEY="$CLEINT_KEY_PATH/payment.skey"
@@ -20,30 +23,46 @@ function main() {
     ORACLE_OWNER_ADDRESS=$(cat $ORACLE_OWNER_KEY_PATH/payment.addr)
     ORACLE_SIGN_KEY="$ORACLE_OWNER_KEY_PATH/payment.skey"
     ORACLE_VER_KEY="$ORACLE_OWNER_KEY_PATH/payment.vkey"
+
+    GAME_ID=13
     cabal exec -- gs $ORACLE_FEE $ORACLE_COLLATERAL $ORACLE_VER_KEY
     makeScriptAddress
-    echo 'mint token'
 
+    echo '***** request oracle token'
+    requestDatumFile="$dir/datum/oracle-request.json"
+    cabal exec -- encode-oracle-request $GAME_ID "$CLIENT_VER_KEY" | jq 'fromjson' > $requestDatumFile
+    mintRequestToken $CLIENT_ADDRESS "$CLIENT_SIGN_KEY" $ORACLE_OWNER_ADDRESS $requestDatumFile
+    waitUtxoForDatum $requestDatumFile
+   
+    echo '***** request game state to live'
+    updateLiveDatumFile="$dir/datum/oracle-update-live.json"
+    cabal exec -- encode-oracle-request $GAME_ID "$CLIENT_VER_KEY" $ORACLE_SIGN_KEY 0 "\"LIVE\"" | jq 'fromjson' > $updateLiveDatumFile
+    oracleUpdate $ORACLE_OWNER_ADDRESS $ORACLE_SIGN_KEY $requestDatumFile $updateLiveDatumFile
+    waitUtxoForDatum $updateLiveDatumFile
 
-    #cabal exec -- encode-oracle-request 1 $ORACLE_VER_KEY $CLIENT_SIGN_KEY 0 "\"LIVE\"" >  $dir/datum/oracle-update-live111.json
-    #cabal exec -- encode-oracle-request $GAME_ID "$CLIENT_VER_KEY" > $dir/datum/oracle-request1.json
-    mintRequestToken $CLIENT_ADDRESS "$CLIENT_SIGN_KEY" $ORACLE_OWNER_ADDRESS "$dir/datum/oracle-request.json"
-    #sleep 10
-    #cabal exec -- encode-oracle-request 1 $CLIENT_VER_KEY $ORACLE_SIGN_KEY 0 "\"LIVE\"" >  $dir/datum/oracle-update-live.json
-    #oracleUpdate $ORACLE_OWNER_ADDRESS $ORACLE_SIGN_KEY "$dir/datum/oracle-request.json" "$dir/datum/oracle-update-live.json"
+    echo '***** request game state to finished'
+    updateFinishGameDatumFile="$dir/datum/oracle-update-finishgame.json"
+    cabal exec -- encode-oracle-request $GAME_ID $CLIENT_VER_KEY $ORACLE_SIGN_KEY 55 "\"FT\"" | jq 'fromjson' > $updateFinishGameDatumFile
+    oracleUpdate $ORACLE_OWNER_ADDRESS $ORACLE_SIGN_KEY $updateLiveDatumFile $updateFinishGameDatumFile
+    waitUtxoForDatum $updateFinishGameDatumFile
 
-    #cabal exec -- encode-oracle-request 1 $CLIENT_VER_KEY $ORACLE_SIGN_KEY 55 "\"FT\"" > $dir/datum/oracle-update-finishgame.json
-    #oracleUpdate $ORACLE_OWNER_ADDRESS $ORACLE_SIGN_KEY "$dir/datum/oracle-update-live.json" "$dir/datum/oracle-update-finishgame.json"
-   
+    echo '***** redeem the oracle token'
+    redeemRequestToken $CLIENT_ADDRESS $CLIENT_SIGN_KEY $updateFinishGameDatumFile
 
-    #oracleUpdate $ORACLE_OWNER_ADDRESS $ORACLE_SIGN_KEY "$dir/datum/oracle-update-finishgame.json" "$dir/datum/oracle-update-finishgame.json"
-   
-   
-   
-    #redeemRequestToken $CLIENT_ADDRESS $CLIENT_SIGN_KEY "$dir/datum/oracle-update-finishgame.json"
-    #redeemRequestToken $CLIENT_ADDRESS $CLIENT_SIGN_KEY "$dir/datum/oracle-update-live.json"
+    echo '***** verify oracle token onchain'
+    queryDatum $updateFinishGameDatumFile
 }
 
+function queryDatum() {
+    echo 'get datum'
+    datumFile=$1
+    datumHash=$(cardano-cli transaction hash-script-data --script-data-file $datumFile)
+    datum=$(curl --location --request POST 'localhost:9083/from-hash/datum' \
+        -H 'Content-Type: application/json' \
+        -d "\"$datumHash\"")
+    echo $datum
+    cabal exec -- verify-datum $datum $ORACLE_VER_KEY
+}
 function mintRequestToken() {
     paymentAddress=$1
     paymentKey=$2
@@ -51,10 +70,8 @@ function mintRequestToken() {
     datumFile=$4
 
     updatePayUtxo $paymentAddress
-    cabal exec -- encode-oracle-request 1 "$dir/keys/client/payment.vkey" > $dir/test.txt
 
     datumHash=$(cardano-cli transaction hash-script-data --script-data-file $datumFile)
-    set -x
     cardano-cli transaction build \
     --alonzo-era \
     --testnet-magic $TESTNET_MAGIC \
@@ -73,22 +90,7 @@ function mintRequestToken() {
     sendTransaction $paymentKey
 }
 
-getRequestUtxo() {
-    datumFile=$1
-    expectedHash=$(cardano-cli transaction hash-script-data --script-data-file $datumFile)
-    set -x
-    oracleRequestUtxo=$(cardano-cli query utxo --testnet-magic $TESTNET_MAGIC --address "$ORACLE_SCRIPT_ADDRESS" | grep $expectedHash || true } )
-    set +x
-    if [ -z "$oracleRequestUtxo" ]; then
-    set -x 
-        echo "oracle request utxo not found"
-        set +x
-        exit 1
-    fi
-    utxoHash=$(echo $oracleRequestUtxo | awk '{print $1}')
-    utxoIx=$(echo $oracleRequestUtxo | awk '{print $2}')
-    echo "$utxoHash#$utxoIx"
-}
+
 
 function oracleUpdate() {
     oracleOwnerAddress=$1
@@ -97,13 +99,11 @@ function oracleUpdate() {
     outDatumFile=$4
     updatePayUtxo $oracleOwnerAddress
     outDatumHash=$(cardano-cli transaction hash-script-data --script-data-file $outDatumFile)
-echo ura
 
-    requestUtxo=$(getRequestUtxo $inDatumFile)
+    requestUtxo=$(findUtxoByDatum $inDatumFile)
 
     echo "requestUtxo: $requestUtxo"
 
-set -x
     cardano-cli transaction build \
     --alonzo-era \
     --testnet-magic $TESTNET_MAGIC \
@@ -135,7 +135,7 @@ function redeemRequestToken() {
     inDatumFile=$3
     updatePayUtxo $requestOwnerAddress
     echo uraaaa
-    requestUtxo=$(getRequestUtxo $inDatumFile)
+    requestUtxo=$(findUtxoByDatum $inDatumFile)
 
     cardano-cli transaction build \
     --alonzo-era \
