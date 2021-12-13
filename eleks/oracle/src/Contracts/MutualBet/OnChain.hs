@@ -131,9 +131,13 @@ validateBet params bets bet ctx =
     traceIfFalse "bet is valid" (isValidBet params bet)
     && traceIfFalse "expected fee payed" (valuePaidTo info ( mbpOwner params) == Ada.toValue (mbpBetFee params))
     && traceIfFalse "bet and token locked" 
-        (valueLockedBy info (Validation.ownHash ctx) == 
-            (Ada.toValue $ betsValueAmount newBets ) <> 
-            (Ada.toValue Ledger.minAdaTxOut) <> assetClassValue (mbpMutualBetId params) 1)
+        (Constraints.checkOwnOutputConstraint ctx 
+            (OutputConstraint (MutualBetDatum (bet:bets) BettingOpen) $
+                (Ada.toValue $ betsValueAmount newBets) <> 
+                (Ada.toValue Ledger.minAdaTxOut) <> 
+                assetClassValue (mbpMutualBetId params) 1
+            )
+        )
   where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -151,15 +155,45 @@ validateCancelBet ::
 validateCancelBet params bets cancelBet ctx =
     traceIfFalse "expected bet payed back" (valuePaidTo info (betBettor cancelBet) `Value.geq` Ada.toValue (betAmount cancelBet))
     && traceIfFalse "bet unclocked from contract" 
-        (valueLockedBy info (Validation.ownHash ctx) == 
-            (Ada.toValue $ betsValueAmount betsWithoutCancelled ) <> 
-            (Ada.toValue Ledger.minAdaTxOut) <> assetClassValue (mbpMutualBetId params) 1)
+        (Constraints.checkOwnOutputConstraint ctx 
+            (OutputConstraint (MutualBetDatum (betsWithoutCancelled) BettingOpen) $
+                (Ada.toValue $ betsValueAmount betsWithoutCancelled ) <> 
+                (Ada.toValue Ledger.minAdaTxOut) <> 
+                assetClassValue (mbpMutualBetId params) 1
+            )
+        )
   where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
 
     betsWithoutCancelled:: [Bet]
     betsWithoutCancelled = (deleteFirstOccurence cancelBet bets)
+
+{-# INLINABLE validateStartGame #-}
+validateStartGame ::
+    MutualBetParams
+    -> [Bet]
+    -> SignedMessage OracleSignedMessage
+    -> ScriptContext
+    -> Bool
+validateStartGame params bets signedMessage ctx =
+    traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
+    && isCurrentGameCheck params oracleMessage
+    && expectGameStatus LIVE oracleMessage
+    && traceIfFalse "status should be betting closed" 
+        (Constraints.checkOwnOutputConstraint ctx 
+            (OutputConstraint (MutualBetDatum bets BettingClosed) $
+                (Ada.toValue $ betsValueAmount bets) <> 
+                (Ada.toValue Ledger.minAdaTxOut) <> 
+                assetClassValue (mbpMutualBetId params) 1
+            )
+        )
+  where 
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    oracleMessage:: OracleSignedMessage
+    oracleMessage = extractOracleMessage params signedMessage
 
 {-# INLINABLE validatePayout #-}
 validatePayout :: 
@@ -177,7 +211,13 @@ validatePayout params bets signedMessage ctx =
           traceIfFalse "payout to winners" (all (payToWinners info) winners)
         else 
           traceIfFalse "pay back on draw"  (all (payBettorsBack info) bets)
-
+    && traceIfFalse "status in datum cancelled" 
+        (Constraints.checkOwnOutputConstraint ctx 
+            (OutputConstraint (MutualBetDatum bets GameFinished) $
+                (Ada.toValue Ledger.minAdaTxOut) <> 
+                assetClassValue (mbpMutualBetId params) 1
+            )
+        )
   where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -206,6 +246,13 @@ validateCancel params bets signedMessage ctx =
     && traceIfFalse "pay back on cancel"  (all (payBettorsBack info) bets)
     && isCurrentGameCheck params oracleMessage
     && expectGameStatus CANC oracleMessage
+    && traceIfFalse "status in datum cancelled" 
+        (Constraints.checkOwnOutputConstraint ctx 
+            (OutputConstraint (MutualBetDatum bets GameCancelled) $
+                (Ada.toValue Ledger.minAdaTxOut) <> 
+                assetClassValue (mbpMutualBetId params) 1
+            )
+        )
   where 
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -237,23 +284,6 @@ isCurrentGameCheck params message = traceIfFalse "signed message not for this ga
 extractOracleMessage:: MutualBetParams -> SignedMessage OracleSignedMessage -> OracleSignedMessage
 extractOracleMessage params message = fromMaybe (traceError "no oracle message") (extractSignedMessage (oraclePubKey params) $ Just message)
 
-{-# INLINABLE validateStartGame #-}
-validateStartGame ::
-    MutualBetParams
-    -> SignedMessage OracleSignedMessage
-    -> ScriptContext
-    -> Bool
-validateStartGame params signedMessage ctx =
-    traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
-    && isCurrentGameCheck params oracleMessage
-    && expectGameStatus LIVE oracleMessage
-  where 
-    info :: TxInfo
-    info = scriptContextTxInfo ctx
-
-    oracleMessage:: OracleSignedMessage
-    oracleMessage = extractOracleMessage params signedMessage
-
 {-# INLINABLE expectGameStatus #-}
 expectGameStatus:: FixtureStatusShort -> OracleSignedMessage  -> Bool
 expectGameStatus expStatus message = expStatus == (osmGameStatus message)
@@ -268,7 +298,7 @@ mkMutualBetValidator params (MutualBetDatum bets BettingOpen   ) (MakeBet bet)  
 -- mkMutualBetValidator params (MutualBetDatum _    _             ) (MakeBet _)                _   = traceError "betting closed"
 mkMutualBetValidator params (MutualBetDatum bets BettingOpen   ) (CancelBet cancelBet)      ctx = validateCancelBet params bets cancelBet ctx
 -- mkMutualBetValidator params (MutualBetDatum _    _             ) (CancelBet _)              _   = traceError "bettings closed"
-mkMutualBetValidator params (MutualBetDatum _    BettingOpen   ) (StartGame oracleMessage)  ctx = validateStartGame params oracleMessage ctx
+mkMutualBetValidator params (MutualBetDatum bets BettingOpen   ) (StartGame oracleMessage)  ctx = validateStartGame params bets oracleMessage ctx
 -- mkMutualBetValidator params (MutualBetDatum _    _             ) (StartGame _)              _   = traceError "game already started"
 mkMutualBetValidator params (MutualBetDatum bets BettingClosed ) (Payout oracleMessage)     ctx = validatePayout params bets oracleMessage ctx
 -- mkMutualBetValidator params (MutualBetDatum _    _             ) (Payout _)                 _   = traceError "game cannot be finished"
