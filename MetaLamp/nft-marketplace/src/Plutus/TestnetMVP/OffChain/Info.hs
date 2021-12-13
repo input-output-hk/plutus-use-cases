@@ -42,6 +42,7 @@ import qualified Data.Map  as Map
 import qualified Plutus.V1.Ledger.Scripts as Scripts
 import Plutus.TestnetMVP.OnChain.Script (Marketplace(..), MarketplaceDatum(..))
 import Plutus.TestnetMVP.OnChain.Validator (marketplaceAddress)
+import Plutus.TestnetMVP.OnChain.NFT (NFT)
 
 -- | Gets current Marketplace store state
 marketplaceStore :: Marketplace -> Contract w s Text MarketplaceDatum
@@ -78,7 +79,7 @@ getStateDatum ::
     Maybe (OnChainState MarketplaceDatum i, ChainIndexTxMap) -> Contract w s Text MarketplaceDatum
 getStateDatum = maybe (throwError "Marketplace output not found") (pure . tyTxOutData . ocsTxOut . fst)
 
-getNftEntry :: MarketplaceDatum -> Core.InternalNftId -> Contract w s Text Core.NFT
+getNftEntry :: MarketplaceDatum -> Core.InternalNftId -> Contract w s Text NFT
 getNftEntry nftStore (Core.InternalNftId ipfsCidHash _ipfsCid) =
         maybe (throwError "NFT has not been created") pure $
           AssocMap.lookup ipfsCidHash $ mdSingletons nftStore

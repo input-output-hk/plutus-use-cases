@@ -160,9 +160,7 @@ mintContract ::
   [(TokenName, Integer)] ->
   Contract w s e OneShotCurrency
 mintContract pkh amounts = mapError (review _CurrencyError) $ do
-  Contract.logInfo @Haskell.String "CALLING MINT: PK"
   (txOutRef, ciTxOut, pkInst) <- mapError PKError (PubKey.pubKeyContract pkh (Ada.adaValueOf 3))
-  Contract.logInfo @Haskell.String "PK DONE"
   let theCurrency = mkCurrency txOutRef amounts
       curVali = curPolicy theCurrency
       lookups =
@@ -174,11 +172,8 @@ mintContract pkh amounts = mapError (review _CurrencyError) $ do
         Constraints.mustSpendScriptOutput txOutRef unitRedeemer
           <> Constraints.mustMintValue (mintedValue theCurrency)
           <> Constraints.mustBeSignedBy pkh
-  Contract.logInfo @Haskell.String "CALLING SUBMIT"
   tx <- submitTxConstraintsWith @Scripts.Any lookups mintTx
-  Contract.logInfo @Haskell.String "SUBMIT done, WAITING"
   _ <- awaitTxConfirmed (getCardanoTxId tx)
-  Contract.logInfo @Haskell.String "WAITING done"
   pure theCurrency
 
 {- | Minting policy for a currency that has a fixed amount of tokens issued

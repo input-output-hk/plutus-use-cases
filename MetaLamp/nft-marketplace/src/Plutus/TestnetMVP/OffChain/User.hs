@@ -14,6 +14,7 @@
 module Plutus.TestnetMVP.OffChain.User where
 
 import qualified Control.Lens                                    as Lens
+import           Control.Lens                                             ((?~))
 import           Control.Monad                                   hiding (fmap)
 import qualified Data.Aeson                                      as J
 import           Data.Proxy                                      (Proxy (..))
@@ -41,10 +42,15 @@ import Plutus.TestnetMVP.OnChain.Validator
 import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString, deserializePlutusBuiltinBS)
 import           Ext.Plutus.Ledger.Index                                  (minAdaTxOutValue)
 import qualified Ledger.Value                                             as V
-import Plutus.TestnetMVP.OffChain.Info (marketplaceStore, marketplaceFunds)
-import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
+import Plutus.TestnetMVP.OffChain.Info (marketplaceStore, marketplaceFunds, getNftEntry)
 import qualified Data.Map as Map
 import Plutus.AbstractTestnetMVP.OutputValue (OutputValue(..))
+import qualified Plutus.TestnetMVP.Services.Sale.Endpoints as Sale
+import qualified Plutus.Contracts.Services.Sale.Core                      as Core
+import Plutus.Contracts.NftMarketplace.OffChain.ID
+import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (NftInfo (..), IpfsCid, IpfsCidHash)
+import Plutus.Contracts.NftMarketplace.OnChain.Core.ID
+import Plutus.TestnetMVP.OnChain.NFT
 
 data CreateNftParams =
   CreateNftParams {
@@ -87,7 +93,6 @@ createNft marketplace CreateNftParams {..} = do
     value <- marketplaceFunds marketplace
 
     let tx = TxUtils.mustRoundTripToScript (marketplaceInstance marketplace) [outputValue] newDatum pkh value
-
     ledgerTx <- TxUtils.submitTxPair tx
     void $ awaitTxConfirmed $ Tx.getCardanoTxId ledgerTx
 
@@ -110,11 +115,66 @@ insertNFT marketplace ipfsCidHash nftRecord = do
     let nftEntry = NFT {nftLot = Nothing, ..}
     pure $ store { mdSingletons = AssocMap.insert ipfsCidHash nftEntry mdSingletons}
 
+insertNft' :: IpfsCidHash -> NFT -> MarketplaceDatum -> MarketplaceDatum
+insertNft' ipfsCidHash nftEntry store@MarketplaceDatum{..}  = do
+  store { mdSingletons = AssocMap.insert ipfsCidHash nftEntry mdSingletons}
+
+data OpenSaleParams =
+  OpenSaleParams {
+    ospItemId    :: UserItemId,
+    ospSalePrice :: Core.LovelacePrice
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+Lens.makeClassy_ ''OpenSaleParams
+
+-- | The user opens sale for his NFT
+openSale :: Marketplace -> OpenSaleParams -> Contract w s Text ()
+openSale marketplace@Marketplace{..} OpenSaleParams {..} = do
+    pkh <- ownPubKeyHash
+    nftStore <- marketplaceStore marketplace
+
+    let internalId = toInternalId ospItemId
+        ipfsCid = getIpfsCid internalId
+        ipfsCidHash = getIpfsCidHash internalId
+
+    saleValue <- case internalId of
+        NftInternalId nftId@(InternalNftId ipfsCidHash ipfsCid) ->
+              nftValue ipfsCid <$> getNftEntry nftStore nftId
+
+    let openSaleParams = Sale.OpenSaleParams {
+                  Sale.ospIpfsCidHash = ipfsCidHash,
+                  Sale.ospSalePrice = ospSalePrice,
+                  Sale.ospSaleValue = saleValue
+              }
+
+    nftInStore <- maybe (traceError "NFT has not been created.") pure $ AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
+    sale <- Sale.openSale openSaleParams
+    let lot = SaleLotLink sale
+        newEntry = (_nftLot ?~ (ipfsCid, lot)) nftInStore
+        newDatum = insertNft' ipfsCidHash newEntry nftStore
+
+    outputValue <- makeOutputValue marketplace $ mkPutOnSaleRedeemer internalId lot
+    value <- marketplaceFunds marketplace
+
+    let tx = TxUtils.mustRoundTripToScript (marketplaceInstance marketplace) [outputValue] newDatum pkh value
+    ledgerTx <- TxUtils.submitTxPair tx
+    void $ awaitTxConfirmed $ Tx.getCardanoTxId ledgerTx
+
+    logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show sale)
+    pure ()
+
+
+
+
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
+    .\/ Endpoint "openSale" OpenSaleParams
 
 data UserContractState =
     NftCreated
+    | OpenedSale
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
@@ -122,4 +182,6 @@ Lens.makeClassyPrisms ''UserContractState
 
 userEndpoints :: Marketplace -> Promise (ContractResponse Haskell.String Text UserContractState) MarketplaceUserSchema Void ()
 userEndpoints marketplace =
-    (withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)) <> userEndpoints marketplace
+    (withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
+    `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)) <> 
+    userEndpoints marketplace

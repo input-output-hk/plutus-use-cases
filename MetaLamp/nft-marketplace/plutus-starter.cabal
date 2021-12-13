@@ -72,12 +72,16 @@ library
       Plutus.AbstractTestnetMVP.OutputValue
       Plutus.TestnetMVP.OffChain.Info
       Plutus.TestnetMVP.OffChain.Owner
-      Plutus.TestnetMVP.OffChain.User 
+      Plutus.TestnetMVP.OffChain.User
+      Plutus.TestnetMVP.OnChain.NFT
       Plutus.TestnetMVP.OnChain.Script
       Plutus.TestnetMVP.OnChain.Validator
       Plutus.TestnetMVP.OffChain.Endpoints
       Plutus.TestnetMVP.PAB.MarketplaceContracts
       Plutus.TestnetMVP.PAB.Simulation
+      Plutus.TestnetMVP.Services.Sale.Endpoints
+      Plutus.TestnetMVP.Services.Sale.Script
+      Plutus.TestnetMVP.Services.Sale.Validator
 
     build-depends:
       QuickCheck,

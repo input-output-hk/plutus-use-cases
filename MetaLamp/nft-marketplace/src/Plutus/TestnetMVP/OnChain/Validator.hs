@@ -31,10 +31,13 @@ import qualified PlutusTx
 import qualified Ledger.Typed.Scripts                             as Scripts
 import           PlutusTx.Prelude                                 
 import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (IpfsCidHash)
+import Plutus.TestnetMVP.OnChain.NFT (getLotValue, nftValue, nftLot)
 import qualified PlutusTx.AssocMap                               as AssocMap
 import Plutus.V1.Ledger.Contexts (ScriptContext)
 import Plutus.V1.Ledger.Address (Address)
 import Ledger.Address (scriptAddress)
+import Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalNftId(..))
+import Control.Monad (join)
 
 newtype MarketplaceThreadToken = 
     MarketplaceThreadToken 
@@ -53,11 +56,32 @@ marketplaceInstance marketplace = Scripts.mkTypedValidator @MarketplaceScript
     wrap = Scripts.wrapValidator @MarketplaceDatum @MarketplaceRedeemer
 
 makeMarketplaceValidator :: Marketplace -> MarketplaceDatum -> MarketplaceRedeemer -> ScriptContext -> Bool
-makeMarketplaceValidator marketplace datum (CreateNftRedeemer ipfsCidHash nftInfo) ctx = trace "CreateNftRedeemer" $ validateCreateNft marketplace datum ipfsCidHash ctx
+makeMarketplaceValidator marketplace datum (CreateNftRedeemer ipfsCidHash nftInfo) _ = trace "CreateNftRedeemer" $ validateCreateNft marketplace datum ipfsCidHash
+makeMarketplaceValidator marketplace datum (PutOnSaleRedeemer val) _ = trace "PutOnSaleRedeemer" $ validatePutOnSale marketplace datum val
+makeMarketplaceValidator marketplace datum (RemoveFromSaleRedeemer val) _ = trace "RemoveFromSaleRedeemer" $ validateRemoveFromSale marketplace datum val
 
-validateCreateNft :: Marketplace -> MarketplaceDatum -> IpfsCidHash -> ScriptContext -> Bool
-validateCreateNft marketplace (MarketplaceDatum singletons) ipfsCidHash ctx =
-    traceIfFalse "NFT is already in the marketplace" (isNothing $ AssocMap.lookup ipfsCidHash $ singletons)
+validateCreateNft :: Marketplace -> MarketplaceDatum -> IpfsCidHash -> Bool
+validateCreateNft marketplace MarketplaceDatum{..} ipfsCidHash =
+    traceIfFalse "NFT is already in the marketplace" (isNothing $ AssocMap.lookup ipfsCidHash $ mdSingletons)
+
+validatePutOnSale :: Marketplace -> MarketplaceDatum -> PutOnSaleRedeemerValue -> Bool
+validatePutOnSale marketplace MarketplaceDatum {..} (PutNftLotRedeemer (InternalNftId ipfsCidHash ipfsCid) lot) =
+    let mbNftEntry = AssocMap.lookup ipfsCidHash mdSingletons
+        lotValue = getLotValue lot
+        hasBeenPutOnSale = Just lotValue == (nftValue ipfsCid <$> mbNftEntry)
+        isValidHash = sha2_256 ipfsCid == ipfsCidHash
+        hasNoExistingLot = isNothing . join $ nftLot <$> mbNftEntry
+    in  traceIfFalse "NFT not in the marketplace" (isJust mbNftEntry) &&
+        traceIfFalse "NFT has not been put on sale" hasBeenPutOnSale &&
+        traceIfFalse "Invalid IPFS Cid Hash" isValidHash
+        traceIfFalse "NFT already has a lot" hasNoExistingLot
+
+validateRemoveFromSale :: Marketplace -> MarketplaceDatum -> RemoveFromSaleRedeemerValue -> Bool
+validateRemoveFromSale marketplace MarketplaceDatum{..} (RemoveNftLotRedeemer ipfsCidHash) =
+    let mbNftEntry = AssocMap.lookup ipfsCidHash mdSingletons
+        hasBeenPutOnSale = isJust . join $ nftLot <$> mbNftEntry
+    in  traceIfFalse "NFT not in the marketplace" (isJust mbNftEntry)
+        traceIfFalse "NFT has not been put on sale" hasBeenPutOnSale
 
 marketplaceValidator :: Marketplace -> Scripts.Validator
 marketplaceValidator = Scripts.validatorScript . marketplaceInstance

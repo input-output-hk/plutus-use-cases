@@ -8,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-specialise #-}
 {-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
@@ -59,3 +60,9 @@ data InternalId =
 PlutusTx.unstableMakeIsData ''InternalId
 
 PlutusTx.makeLift ''InternalId
+
+getIpfsCidHash :: InternalId -> IpfsCidHash
+getIpfsCidHash (NftInternalId InternalNftId{..}) = iniIpfsCidHash
+
+getIpfsCid :: InternalId -> IpfsCidHash
+getIpfsCid (NftInternalId InternalNftId{..}) = iniIpfsCid

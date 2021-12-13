@@ -25,7 +25,8 @@ import qualified PlutusTx
 import           Prelude
 import           PlutusTx.Builtins.Internal  (BuiltinByteString)  
 import Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalNftId(..), InternalId(..))
-import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (LotLink, IpfsCidHash, NftInfo(..), NFT)
+import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (IpfsCidHash, NftInfo(..))
+import Plutus.TestnetMVP.OnChain.NFT (LotLink, NFT)
 import qualified Prelude                                          as Haskell
 import qualified GHC.Generics                                     as Haskell
 import qualified PlutusTx.AssocMap                                      as AssocMap

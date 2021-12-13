@@ -79,8 +79,8 @@ start StartMarketplaceParams{..} = do
         payment = assetClassValue marketplaceThreadToken 1 + minAdaTxOutValue
         datum = MarketplaceDatum AssocMap.empty
     
-    let marketplaceTokenTx = TxUtils.mustPayToScript (marketplaceInstance marketplace) pkh datum payment
-    ledgerTx <- TxUtils.submitTxPair marketplaceTokenTx
+    let startMarketplaceTx = TxUtils.mustPayToScript (marketplaceInstance marketplace) pkh datum payment
+    ledgerTx <- TxUtils.submitTxPair startMarketplaceTx
     void $ awaitTxConfirmed $ Tx.getCardanoTxId ledgerTx
 
     -- TODO: remove Debug info or make NETWORK be configurable
