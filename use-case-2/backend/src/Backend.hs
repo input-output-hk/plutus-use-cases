@@ -29,7 +29,6 @@ import Data.Semigroup (First(..))
 import Data.Text (Text)
 import Data.Text.Read (decimal)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import Data.Vessel
 import Database.Beam (MonadBeam, Generic)
 import Database.Beam.Backend.SQL.BeamExtensions
@@ -101,6 +100,14 @@ data BuiltTx = BuiltTx
   , _builtTx_cborHex :: Text
   } deriving (Show, Generic)
 
+instance FromJSON BuiltTx where
+  parseJSON (Aeson.Object v) =
+    BuiltTx <$> v .: "type"
+            <*> v .: "description"
+            <*> v .: "cborHex"
+  parseJSON _ = mzero
+instance ToJSON BuiltTx
+
 data RecentPoolBalance = RecentPoolBalance
   { pcA :: Integer
   , pcB :: Integer
@@ -110,13 +117,17 @@ data RecentPoolBalance = RecentPoolBalance
 instance FromJSON RecentPoolBalance
 instance ToJSON RecentPoolBalance
 
-instance FromJSON BuiltTx where
-  parseJSON (Aeson.Object v) =
-    BuiltTx <$> v .: "type"
-            <*> v .: "description"
-            <*> v .: "cborHex"
-  parseJSON _ = mzero
-instance ToJSON BuiltTx
+data DappBackendConfig = DappBackendConfig
+  { _dappBackendConfig_cardanoCliExe :: Text
+  , _dappBackendConfig_cardanoNodeSocket :: Text
+  , _dappBackendConfig_testnetMagicNumber :: Text
+  , _dappBackendConfig_contractOwnerSignKeyPath :: Text
+  , _dappBackendConfig_contractScriptAddress :: Text
+  , _dappBackendConfig_contractScriptPath :: Text
+  } deriving (Show, Generic)
+
+instance FromJSON DappBackendConfig
+instance ToJSON DappBackendConfig
 
 -- | Handle requests / commands, a standard part of Obelisk apps.
 requestHandler :: Map Text ByteString -> Manager -> Pool Pg.Connection -> RequestHandler Api IO
@@ -162,12 +173,18 @@ runBeamSerializable
   -> Serializable a
 runBeamSerializable action = unsafeMkSerializable $ liftIO . flip runBeamPostgres action =<< ask
 
-getConfig :: Map Text ByteString -> Text -> IO Text
+getConfig :: Map Text ByteString -> Text -> IO ByteString
 getConfig m k = case Map.lookup k m of
   Nothing -> fail . T.unpack $ "Couldn't find config/" <> k
-  Just x -> case T.decodeUtf8' x of
-    Left err -> fail . T.unpack $ "failed to decode config/" <> k <> " Error: " <> (T.pack $ show err)
-    Right y -> return $ T.strip y
+  Just x -> return x
+
+getJsonConfig :: (FromJSON a) => Map Text ByteString -> Text -> IO a
+getJsonConfig m k = do
+  bs <- getConfig m k
+  case Aeson.eitherDecode' (LBS.fromStrict bs) of
+    Left e -> fail . T.unpack $ "Error while JSON decoding config/" <> k <> ": " <> (T.pack (show e))
+    Right x -> return x
+
 
 buildStaticSwapTransaction
   :: Map Text ByteString
@@ -178,12 +195,13 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
   print $ "buildStaticSwapTransaction: value of configs is " <> (show configs)
 
   -- fetch configs to perform swap
-  uniswapScriptAddress <- getConfig configs "backend/uniswapScriptAddress"
-  uniswapScriptPath <- getConfig configs "backend/uniswapScriptPath"
-  cardanoCliExe <- getConfig configs "backend/cardanoCliExe"
-  testnetMagic <- getConfig configs "backend/testnetMagic"
-  nodeSocketPath <- getConfig configs "backend/cardanoNodeSocketPath"
-  smartContractOwnerSignKeyFilePath <- getConfig configs "backend/contractOwnerSignKeyPath"
+  dappBackendConf <- getJsonConfig configs "backend/dappBackendConfig.json"
+  let uniswapScriptAddress = _dappBackendConfig_contractScriptAddress dappBackendConf
+      uniswapScriptPath = _dappBackendConfig_contractScriptPath dappBackendConf
+      cardanoCliExe = _dappBackendConfig_cardanoCliExe dappBackendConf
+      testnetMagic = _dappBackendConfig_testnetMagicNumber dappBackendConf
+      nodeSocketPath = _dappBackendConfig_cardanoNodeSocket dappBackendConf
+      smartContractOwnerSignKeyFilePath = _dappBackendConfig_contractOwnerSignKeyPath dappBackendConf
 
   print $ "buildStaticSwapTransaction: value of changeAddress is " <> changeAddress
   -- query cli for available utxos from client's provided address
