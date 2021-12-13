@@ -22,10 +22,6 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
--- import Data.Vessel
--- import Data.Vessel.Identity
--- import Data.Vessel.Vessel
--- import Data.Vessel.ViewMorphism
 import Obelisk.Route
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
@@ -47,7 +43,7 @@ chooseWallet
 chooseWallet = do
   navBar' Nothing
   divClass "p-5 mb-4 bg-light rounded-5" $ do
-    divClass "container-fluid py-5" $ do
+    divClass "container py-5" $ divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h2" "display-5 fw-bold" $ text "Welcome to POKE-DEX!"
       elClass "h3" "display-5 fw-bold" $ text "Real Node Static Smart Contract Transaction"
       el "p" $ text "Use the button below to perform static swap using Nami Wallet against a real Alonzo Node with a smart contract that is deployed to testnet!"
