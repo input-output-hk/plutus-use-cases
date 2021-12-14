@@ -41,10 +41,6 @@ When game cancelled or completed with no winning bet all bets are returned to th
 2. Plutus Application Backend (PAB)
 4. ReactJS
 
-## Possible improvements
-1. Have the avility to start mutual bet contract via rest api. https://github.com/input-output-hk/plutus/issues/3972
-2. Have the ability to query complete contracts to get all users previous bets. https://github.com/input-output-hk/plutus/issues/3971
-
 ## Setting up
 Follow next steps to get an environment with the correct tools set up.
 
@@ -62,7 +58,7 @@ cabal build gameserver
 cabal exec -- gameserver
 ```
 
-### game server API 
+### Game server API 
 
 1. Games list
 curl -s http://localhost:8081/games
@@ -103,7 +99,7 @@ cabal build mutualbetserver
 cabal exec -- mutualbetserver
 ```
 
-### mutual bet server API 
+### Mutual bet server API 
 
 1. Wallet info (WalletId, PubKey)
 curl -s http://localhost:8082/wallet/1
@@ -138,6 +134,11 @@ cabal build oraclegameserver
 cabal exec -- oraclegameserver
 ```
 
+## Frontend App
+To set up and configure the client side App follow next manual
+
+[Run frontend](games-web-app/README.md)
+
 ### Pab Queries
 
 1. Instance status
@@ -169,33 +170,12 @@ curl -H "Content-Type: application/json" \
   --request GET \
   http://localhost:9080/api/contract/instance/$INSTANCE_ID/status | jq '.cicCurrentState.observableState'
 
-## Testnet
-1. Start pab
-  If it's the first time your running, you'll need to ask the PAB to make the
-  database:
-  ```
-  cabal exec -- testnet-oracle-pab --config pab-testnet/config.yml migrate
-  ```
+## Testnet PAB example
+1. Not ready
 
-  Then, run the PAB
+## Testnet CLI demo
+[Run demo](cli-demo/README.md)
 
-  ```
-  cabal exec -- testnet-oracle-pab \
-    --config pab-testnet/config.yml webserver \
-    --passphrase pab123456789
-  ```
-2. Get wallet id 
-  ```
-  curl -H "content-type: application/json" -XGET \
-    localhost:8090/v2/wallets
-  ```
-  export it - export WALLET_ID=88cc0e42b4a4f29d192c8b05967c386cb4c2aeaa
-
-  
-3. Activate oracle
-
-  ```
- curl -H "Content-Type: application/json" -v -X POST -d \
-    "{\"caID\":{\"tag\":\"OracleContract\", \"contents\": {\"opFees1\":{\"getLovelace\":1500000},\"opPublicKey1\":{\"getPubKey\":\"a2709b7f683084f5f3dcb9197afbc8528282449a38bdc3b240894e7a63823b81\"},\"opCollateral1\":{\"getLovelace\":1000000}}},\"caWallet\":{\"getWalletId\":\"$WALLET_ID\"}}" \
-    localhost:9080/api/contract/activate
-  ```
+## Possible improvements
+1. Integrate Mutual Bet with nami wallet
+2. Run PAB on tesntet (blocker https://github.com/input-output-hk/plutus-apps/issues/192)

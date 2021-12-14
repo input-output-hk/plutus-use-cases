@@ -1,8 +1,6 @@
 # Testnet demo
 
-
 ## Prerequsites
-
 ### install wget
 
 ## Starting nix shell
@@ -28,12 +26,18 @@ cardano-cli query tip --testnet-magic 1097911063
 it should return 100%
 
 ## Start chainindex
-
-in new windows run Starting nix shell step
-
 ### run step
+In new nix shell
 `bash chainindex/start-chainindex.sh`
 
+## Create addresses 
+`bash address-gen.sh`
+it will create keys set oracle and client in keys folder
+
+### Send money to the new adddresses 
+go to 
+https://testnets.cardano.org/en/testnets/cardano/tools/faucet/
+and use payment.addr to top up the balance
 ## Run oracle demo
-In new window
+In new nix shell
 `bash demo/oracle-demo.sh`
