@@ -8,7 +8,7 @@ module Contracts.MutualBet
   , module Currency
   ) where
 
-import           Contracts.MutualBet.Types         as Types
-import           Contracts.MutualBet.OffChain      as OffChain
-import           Contracts.MutualBet.OnChain       as OnChain
-import           Contracts.MutualBet.Currency      as Currency
+import Contracts.MutualBet.Currency as Currency
+import Contracts.MutualBet.OffChain as OffChain
+import Contracts.MutualBet.OnChain as OnChain
+import Contracts.MutualBet.Types as Types

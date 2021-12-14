@@ -1,11 +1,13 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE OverloadedStrings   #-}
+
 module Main(main) where
 
-import qualified Spec.MutualBetSM
-import qualified Spec.MutualBet
-import qualified Spec.Oracle
-import           Test.Tasty
-import           Test.Tasty.Hedgehog       (HedgehogTestLimit (..))
+import Spec.MutualBet qualified
+import Spec.MutualBetSM qualified
+import Spec.Oracle qualified
+import Test.Tasty
+import Test.Tasty.Hedgehog (HedgehogTestLimit (..))
 
 main :: IO ()
 main = defaultMain tests

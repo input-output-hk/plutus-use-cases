@@ -1,41 +1,42 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE GADTs              #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TypeApplications   #-}
-{-# LANGUAGE TypeFamilies       #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Spec.Oracle
     ( tests,
       requestOracleTrace
     ) where
 
-import           Control.Lens
-import           Types.Game   
-import           Control.Monad                      (void)
-import           Data.Default                       (Default (def))
-import           Data.Maybe                         (fromMaybe)
-import           Data.Monoid                        (Last (..))
-import           Data.Text                          (Text)
-import           Data.Sort                          (sort)
-import qualified Ledger.Ada                         as Ada
-import           Ledger.Crypto                      (PrivateKey, PubKey)
-import           Ledger.Index                       (ValidationError (ScriptFailure))
-import           Ledger.Scripts                     (ScriptError (EvaluationError))
-import           Plutus.Contract                    hiding (currentSlot)
-import           Plutus.Contract.Test               hiding (not)
-import           Wallet.Emulator.Wallet             (emptyWalletState, ownPublicKey, ownPrivateKey)
+import Control.Lens
+import Control.Monad (void)
+import Data.Default (Default (def))
+import Data.Maybe (fromMaybe)
+import Data.Monoid (Last (..))
+import Data.Sort (sort)
+import Data.Text (Text)
+import Ledger.Ada qualified as Ada
+import Ledger.Crypto (PrivateKey, PubKey)
+import Ledger.Index (ValidationError (ScriptFailure))
+import Ledger.Scripts (ScriptError (EvaluationError))
+import Plutus.Contract hiding (currentSlot)
+import Plutus.Contract.Test hiding (not)
+import Types.Game
+import Wallet.Emulator.Wallet (emptyWalletState, ownPrivateKey, ownPublicKey)
 
-import           Ledger.TimeSlot                    (SlotConfig)
-import qualified Ledger.Value                       as Value
-import           Contracts.Oracle                   
-import qualified Plutus.Trace.Emulator              as Trace
-import           PlutusTx.Monoid                    (inv)
-import           Test.Tasty
+import Contracts.Oracle
+import Ledger.TimeSlot (SlotConfig)
+import Ledger.Value qualified as Value
+import Plutus.Trace.Emulator qualified as Trace
+import PlutusTx.Monoid (inv)
+import Test.Tasty
 
 getWalletPubKey:: Wallet -> PubKey
 getWalletPubKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState
@@ -54,13 +55,13 @@ options = set emulatorConfig auctionEmulatorCfg defaultCheckOptions
 slotCfg :: SlotConfig
 slotCfg = def
 
-oracleParams :: OracleParams 
+oracleParams :: OracleParams
 oracleParams = OracleParams
     { --opSymbol = oracleCurrency,
       opFees = 2_000_000
     , opCollateral = 2_500_000
     , opSigner = encodeKeyToDto $ oraclePrivateKey
-    } 
+    }
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
@@ -170,7 +171,7 @@ redeemOracleTrace = do
     _ <- Trace.waitNSlots 5
     let updateParams = UpdateOracleParams{ uoGameId = game1Id, uoWinnerId = 1, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParams
-    _ <- Trace.waitNSlots 5   
+    _ <- Trace.waitNSlots 5
     redeemOracleHdl <- Trace.activateContractWallet oracleClientWallet (redeemOracleContract oracle)
     let redeemOracleParams = RedeemOracleParams { roGame = game1Id }
     Trace.callEndpoint @"redeem" redeemOracleHdl redeemOracleParams
@@ -182,7 +183,7 @@ redeemFailIfNotSignedTrace = do
     _ <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 3
     _ <- Trace.activateContractWallet oracleClientWallet (requestOracleTokenContract oracle game1Id)
-    _ <- Trace.waitNSlots 5 
+    _ <- Trace.waitNSlots 5
     redeemOracleHdl <- Trace.activateContractWallet oracleClientWallet (redeemOracleContract oracle)
     let redeemOracleParams = redeemOracleParams { roGame = game1Id }
     Trace.callEndpoint @"redeem" redeemOracleHdl redeemOracleParams
@@ -221,7 +222,7 @@ getOnlyActiveGamesTrace = do
     _ <- Trace.waitNSlots 5
     let updateParams = UpdateOracleParams{ uoGameId = game1Id,  uoWinnerId = 1, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParams
-    _ <- Trace.waitNSlots 5   
+    _ <- Trace.waitNSlots 5
     Trace.callEndpoint @"games" oracleHdl ()
     void $ Trace.waitNSlots 3
 
@@ -233,14 +234,14 @@ getInProgressGameAsActiveTrace = do
     _ <- Trace.waitNSlots 5
     let updateParams = UpdateOracleParams{ uoGameId = game1Id,  uoWinnerId = 0, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
-    _ <- Trace.waitNSlots 5   
+    _ <- Trace.waitNSlots 5
     Trace.callEndpoint @"games" oracleHdl ()
     void $ Trace.waitNSlots 3
 
 tests :: TestTree
 tests =
     testGroup "oracle"
-        [ 
+        [
         checkPredicateOptions options "request oracle token"
         (
         assertNoFailedTransactions
@@ -256,12 +257,12 @@ tests =
         requestOracleTrace
         ,
         checkPredicateOptions options "Should update oracle data"
-        ( 
+        (
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
-                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1 
+                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1
                     <> Ada.toValue (oCollateral oracle)
-                    )    
+                    )
                 )
             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
             -- .&&. dataAtAddress (oracleAddress oracle) (== signOracleTestState)
@@ -269,30 +270,30 @@ tests =
         updateOracleTrace
         ,
         checkPredicateOptions options "Should update oracle data from NS to LIVE"
-        ( 
+        (
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
-                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1 
-                    <> Ada.toValue (oCollateral oracle))    
+                (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1
+                    <> Ada.toValue (oCollateral oracle))
                 )
             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
         )
         updateOracleFromNotStartedToLiveTrace
         ,
         checkPredicateOptions options "Should fail on incorrect update oracle data"
-        ( 
+        (
             assertFailedTransaction (\_ err _ -> case err of {ScriptFailure (EvaluationError ["update data is invalid", "PT5"] _) -> True; _ -> False  })
         )
         invalidUpdateOracleTrace
         ,
         checkPredicateOptions options "Should redeem oracle data"
-        ( 
+        (
             assertNoFailedTransactions
             .&&. assertNotDone (redeemOracleContract oracle)
                 (Trace.walletInstanceTag oracleClientWallet)
                 "redeem contract should not fail"
             .&&. valueAtAddress (oracleAddress oracle)
-                (== (Ada.toValue 0) 
+                (== (Ada.toValue 0)
                 )
             .&&. walletFundsChange oracleClientWallet (
                 inv (Ada.toValue $ oFee oracle)
@@ -301,16 +302,16 @@ tests =
         redeemOracleTrace
         ,
         checkPredicateOptions options "Only request owner could redeem oracle data"
-        ( 
+        (
             assertContractError (redeemOracleContract oracle) (Trace.walletInstanceTag otherWallet) (\case { "no oracle request" -> True; _ -> False}) "failed to find oracle token"
         )
         redeemOracleNotOwnerFailTrace
         ,
         checkPredicateOptions options "Should get active game"
-        ( 
+        (
             assertNoFailedTransactions
             .&&. assertAccumState oracleContract (Trace.walletInstanceTag oracleWallet)
-                    (\case Last (Just (Games gameIds)) -> 
+                    (\case Last (Just (Games gameIds)) ->
                                 sort gameIds == [game1Id, game2Id];
                            _ -> False)
                     "should get active game"
@@ -318,10 +319,10 @@ tests =
         getActiveGamesTrace
         ,
         checkPredicateOptions options "Should not get completed games as active"
-        ( 
+        (
             assertNoFailedTransactions
             .&&. assertAccumState oracleContract (Trace.walletInstanceTag oracleWallet)
-                    (\case Last (Just (Games gameIds)) -> 
+                    (\case Last (Just (Games gameIds)) ->
                                 gameIds == [];
                            _ -> False)
                     "should not get redeemd"
@@ -329,10 +330,10 @@ tests =
         getOnlyActiveGamesTrace
         ,
         checkPredicateOptions options "Get in progress games as active"
-        ( 
+        (
             assertNoFailedTransactions
             .&&. assertAccumState oracleContract (Trace.walletInstanceTag oracleWallet)
-                    (\case Last (Just (Games gameIds)) -> 
+                    (\case Last (Just (Games gameIds)) ->
                                 gameIds == [game1Id];
                            _ -> False)
                     "should get in progress game"

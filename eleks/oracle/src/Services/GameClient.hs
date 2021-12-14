@@ -1,30 +1,31 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
-{-# LANGUAGE DeriveAnyClass  #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Services.GameClient
     ( getGames
     , getGameById
     ) where
 
+import Contracts.Oracle
 import Control.Concurrent
 import Control.Exception
-import Control.Monad          (when)
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (..))
-import Data.ByteString        (ByteString)
 import Data.Aeson
 import Data.Aeson.TH
-import Data.ByteString.Char8  (unpack)
-import Data.Monoid            (Last (..))
-import Data.Proxy             (Proxy (..))
-import Data.Text              (pack, Text)
+import Data.ByteString (ByteString)
+import Data.ByteString.Char8 (unpack)
+import Data.Monoid (Last (..))
+import Data.Proxy (Proxy (..))
+import Data.Text (Text, pack)
+import GHC.Generics (Generic)
 import Network.HTTP.Req
-import Contracts.Oracle
 import Types.Game
-import GHC.Generics         (Generic)
 
 getGames :: IO (Either String [Game])
 getGames = runReq defaultHttpConfig $ do

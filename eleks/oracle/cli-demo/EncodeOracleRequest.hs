@@ -1,28 +1,29 @@
-{-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE NumericUnderscores     #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-import           Prelude
-import           System.Environment
+import Prelude
+import System.Environment
 
-import           Data.Aeson                
+import Data.Aeson
 
-import           Cardano.Api
-import           Cardano.Api.Shelley
+import Cardano.Api
+import Cardano.Api.Shelley
 
-import qualified Plutus.V1.Ledger.Api           as Plutus
-import qualified Data.ByteString.Lazy.Char8     as LB8
-import           Contracts.Oracle.Types
-import           Plutus.Contract.Oracle         (SignedMessage(..), signMessage)
-import           Types.Game
-import           Ledger
-import           Cardano.Crypto.Wallet          (xprv, xpub)
-import           System.Exit                    (exitWith, ExitCode(..))
-import           System.IO                      (hPutStrLn, stderr)
+import Cardano.Crypto.Wallet (xprv, xpub)
+import Contracts.Oracle.Types
+import Data.ByteString.Lazy.Char8 qualified as LB8
+import Ledger
+import Plutus.Contract.Oracle (SignedMessage (..), signMessage)
+import Plutus.V1.Ledger.Api qualified as Plutus
+import System.Exit (ExitCode (..), exitWith)
+import System.IO (hPutStrLn, stderr)
+import Types.Game
 {-
-First request 
+First request
 cabal exec -- encode-oracle-request 1 \
-"keys/client/payment.vkey" 
+"keys/client/payment.vkey"
 
 Oracle Update
 cabal exec -- encode-oracle-request 1 \
@@ -47,13 +48,13 @@ main = do
   let statusM = if nargs > 4 then decode (LB8.pack $ args!!4) else Just NS
   gameStatus <- maybe(exitWithErrorMessage "Wrong status") pure statusM
   clientVkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentExtendedKey) clientVkeyPath
- 
+
   clientVkey <- either (\_ -> exitWithErrorMessage $ "Oracle Vkey not found") pure clientVkeyEither
   let clientXpubE = xpub $ serialiseToRawBytes clientVkey
   clientXpub <- either (\_ -> exitWithErrorMessage $ "cannot convert to oracle xpub") pure clientXpubE
   let pk = xPubToPublicKey clientXpub
   let pkh = pubKeyHash pk
-  if oracleSignKeyPath == "" 
+  if oracleSignKeyPath == ""
     then
       showData gameId pkh Nothing
     else do
@@ -72,7 +73,7 @@ main = do
 
 showData:: GameId -> PubKeyHash -> Maybe (SignedMessage OracleSignedMessage) -> IO ()
 showData gameId pkh signeMessage = do
-    let od = OracleData { 
+    let od = OracleData {
                 ovRequestAddress = pkh,
                 ovGame = gameId,
                 ovSignedMessage = signeMessage

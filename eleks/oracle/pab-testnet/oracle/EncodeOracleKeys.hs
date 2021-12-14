@@ -1,12 +1,12 @@
 {-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-import           Prelude
-import           Data.Aeson
-import           Cardano.Crypto.Wallet (XPrv)
-import           Contracts.Oracle
-import           System.Environment
+import Cardano.Crypto.Wallet (XPrv)
+import Contracts.Oracle
+import Data.Aeson
+import Prelude
+import System.Environment
 
 main :: IO ()
 main = do
@@ -16,7 +16,7 @@ main = do
   let decodedPrvE = getXPrv keyBep
   decodePrv:: XPrv <- either (ioError . userError ) pure decodedPrvE
   let dtoEncoded = encodeKeyToDto decodePrv
-  putStrLn "encoded prv:" 
+  putStrLn "encoded prv:"
   putStrLn $ show dtoEncoded
 
   let params =  OracleParams

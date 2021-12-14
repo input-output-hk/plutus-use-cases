@@ -1,21 +1,21 @@
 
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE MonoLocalBinds     #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE NoImplicitPrelude  #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TypeApplications   #-}
-{-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE ViewPatterns       #-}
-{-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE ImportQualifiedPost   #-}
+{-# LANGUAGE MonoLocalBinds        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 -- | Implements a custom currency with a minting policy that allows
 --   the minting of a fixed amount of units.
@@ -35,17 +35,17 @@ module Contracts.MutualBet.Currency(
     ) where
 
 import Control.Lens
-import qualified Data.Map                         as Map
+import Data.Map qualified as Map
 
 import PlutusTx.Prelude hiding (Monoid (..), Semigroup (..))
 
 import Plutus.Contract as Contract
-import           Plutus.Contracts.PubKey (AsPubKeyError (..), PubKeyError)
-import qualified Plutus.Contracts.PubKey as PK
+import Plutus.Contracts.PubKey (AsPubKeyError (..), PubKeyError)
+import Plutus.Contracts.PubKey qualified as PK
 
-import Ledger (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), getCardanoTxId, scriptCurrencySymbol, minAdaTxOut)
+import Ledger (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), getCardanoTxId, minAdaTxOut, scriptCurrencySymbol)
 
-import qualified Ledger.Ada as Ada
+import Ledger.Ada qualified as Ada
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts qualified as V
 import Ledger.Scripts

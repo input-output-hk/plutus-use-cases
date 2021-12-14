@@ -1,23 +1,24 @@
-{-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE NumericUnderscores     #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-import           Prelude
-import           System.Environment
-import           Data.Aeson                
-import           Cardano.Api
-import qualified Data.ByteString.Lazy.Char8     as LB8
-import           Contracts.Oracle.Types
-import           Plutus.Contract.Oracle         (verifySignedMessageConstraints)
-import           Ledger
-import           Cardano.Crypto.Wallet          (xpub)
-import           System.Exit                    (exitWith, ExitCode(..))
-import           System.IO                      (hPutStrLn, stderr)
-import qualified PlutusTx 
+import Cardano.Api
+import Cardano.Crypto.Wallet (xpub)
+import Contracts.Oracle.Types
+import Data.Aeson
+import Data.ByteString.Lazy.Char8 qualified as LB8
+import Ledger
+import Plutus.Contract.Oracle (verifySignedMessageConstraints)
+import PlutusTx qualified
+import Prelude
+import System.Environment
+import System.Exit (ExitCode (..), exitWith)
+import System.IO (hPutStrLn, stderr)
 {-
-First request 
+First request
 cabal exec -- encode-oracle-request 1 \
-"keys/client/payment.vkey" 
+"keys/client/payment.vkey"
 
 Oracle Update
 cabal exec -- encode-oracle-request 1 \
@@ -53,7 +54,7 @@ main = do
   signedMessage <- maybe (exitWithErrorMessage "no signed message in datum") pure signedMessageM
   case verifySignedMessageConstraints oraclePubKey signedMessage of
     Left err -> exitWithErrorMessage $ "verify error: " ++ show err
-    Right _ -> print "verify success"
+    Right _  -> print "verify success"
 
 exitWithErrorMessage :: String -> IO a
 exitWithErrorMessage str = hPutStrLn stderr str >> exitWith (ExitFailure 1)

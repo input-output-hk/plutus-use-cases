@@ -1,19 +1,20 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE ImportQualifiedPost   #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE NumericUnderscores    #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE NumericUnderscores    #-}
-{-# LANGUAGE DerivingStrategies    #-}
-{-# LANGUAGE LambdaCase            #-}
 
 module Contracts.Oracle.OffChain
     ( OracleSchema
@@ -23,7 +24,7 @@ module Contracts.Oracle.OffChain
     , requestOracleForAddress
     , findOracleRequest
     , awaitNextOracleRequest
-    , getActiveOracleRequests 
+    , getActiveOracleRequests
     , getActiveGames
     , oracleScriptAsShortBs
     , oraclePlutusScript
@@ -35,34 +36,34 @@ module Contracts.Oracle.OffChain
     , redeemOracle
     ) where
 
-import           Control.Lens              (view)
-import           Control.Monad             hiding (fmap)
-import           Contracts.Oracle.Conversion
-import           Contracts.Oracle.Types
-import           Contracts.Oracle.RequestToken
-import           Contracts.Oracle.OnChain
-import           Data.Aeson                (FromJSON, ToJSON)
-import           Data.Either               (rights)
-import qualified Data.Map                  as Map
-import           Data.Maybe                (catMaybes)
-import           Data.Monoid               (Last (..))
-import           Data.Text                 (Text, pack, unpack)
-import qualified Data.List.NonEmpty        as NonEmpty
-import           GHC.Generics              (Generic)
-import           Plutus.Contract           as Contract
-import qualified PlutusTx
-import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
-import           Ledger                    hiding (singleton, MintingPolicyHash)
-import           Ledger.Constraints        as Constraints
-import           Plutus.Contract.Oracle    (signMessage)
-import           Ledger.Value              as Value
-import           Ledger.Ada                as Ada
-import           Types.Game
-import           Prelude                   (Semigroup (..), Show (..), String)
-import qualified Prelude                   as Haskell
-import           Schema                    (ToSchema)
-import           Plutus.ChainIndex         ()
-import           Cardano.Crypto.Wallet     (XPrv)
+import Cardano.Crypto.Wallet (XPrv)
+import Contracts.Oracle.Conversion
+import Contracts.Oracle.OnChain
+import Contracts.Oracle.RequestToken
+import Contracts.Oracle.Types
+import Control.Lens (view)
+import Control.Monad hiding (fmap)
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Either (rights)
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Map qualified as Map
+import Data.Maybe (catMaybes)
+import Data.Monoid (Last (..))
+import Data.Text (Text, pack, unpack)
+import GHC.Generics (Generic)
+import Ledger hiding (MintingPolicyHash, singleton)
+import Ledger.Ada as Ada
+import Ledger.Constraints as Constraints
+import Ledger.Value as Value
+import Plutus.ChainIndex ()
+import Plutus.Contract as Contract
+import Plutus.Contract.Oracle (signMessage)
+import PlutusTx qualified
+import PlutusTx.Prelude hiding (Semigroup (..), unless)
+import Prelude (Semigroup (..), Show (..), String)
+import Prelude qualified as Haskell
+import Schema (ToSchema)
+import Types.Game
 
 startOracle :: forall w s. OracleParams -> PubKey -> Contract w s Text Oracle
 startOracle op pk = do
@@ -92,9 +93,9 @@ updateOracle oracle operatorPrivateKey params = do
         gameStatus = uoGameStatus params
 
     activeRequests <- getActiveOracleRequests oracle
-    let requests = filter (isGameOracleRequest gameId) activeRequests 
+    let requests = filter (isGameOracleRequest gameId) activeRequests
     forM_ requests $ \(oref, o, oracleData) -> do
-                        let oracleSignMessage = OracleSignedMessage 
+                        let oracleSignMessage = OracleSignedMessage
                                     { osmWinnerId = winnerId
                                     , osmGameId = gameId
                                     , osmGameStatus = gameStatus
@@ -102,11 +103,11 @@ updateOracle oracle operatorPrivateKey params = do
                         let oracleData' = oracleData{ ovSignedMessage = Just $ signMessage oracleSignMessage operatorPrivateKey ""   }
                         when (oracleData' /= oracleData) $ do
                             let requestTokenVal = requestTokenValue oracle
-                                collateralVal = Ada.toValue $ oCollateral oracle 
-                            let lookups = Constraints.unspentOutputs (Map.singleton oref o)     
-                                        <> Constraints.typedValidatorLookups (typedOracleValidator oracle) 
+                                collateralVal = Ada.toValue $ oCollateral oracle
+                            let lookups = Constraints.unspentOutputs (Map.singleton oref o)
+                                        <> Constraints.typedValidatorLookups (typedOracleValidator oracle)
                                         <> Constraints.otherScript (oracleValidator oracle)
-                                tx      = Constraints.mustPayToTheScript oracleData' (requestTokenVal <> collateralVal) 
+                                tx      = Constraints.mustPayToTheScript oracleData' (requestTokenVal <> collateralVal)
                                         <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
 
                             result <- runError @_ @_ @Text $ submitTxConstraintsWith @Oracling lookups tx
@@ -121,7 +122,7 @@ updateOracle oracle operatorPrivateKey params = do
                                     logInfo @Haskell.String "Tx confirmed. Request oracle for address complete."
 
 oracleValueFromTxOutTx :: ChainIndexTxOut -> Contract w s Text OracleData
-oracleValueFromTxOutTx o = 
+oracleValueFromTxOutTx o =
     case o of
       PublicKeyChainIndexTxOut {} ->
         throwError "no datum for a txout of a public key address"
@@ -137,9 +138,9 @@ oracleValueFromTxOutTx o =
                                  Just d  -> pure d
 
 data UpdateOracleParams = UpdateOracleParams
-    { uoGameId      :: !GameId              -- ^ Game
-    , uoWinnerId    :: !TeamId              -- ^ Winner team id
-    , uoGameStatus  :: !FixtureStatusShort  -- ^ Game state
+    { uoGameId     :: !GameId              -- ^ Game
+    , uoWinnerId   :: !TeamId              -- ^ Winner team id
+    , uoGameStatus :: !FixtureStatusShort  -- ^ Game state
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 data OracleContractState =
@@ -148,11 +149,11 @@ data OracleContractState =
     | Updated GameId
     deriving (Show, Generic, FromJSON, ToJSON)
 
-type OracleSchema = Endpoint "update" UpdateOracleParams   
-                    .\/ Endpoint "games" ()     
+type OracleSchema = Endpoint "update" UpdateOracleParams
+                    .\/ Endpoint "games" ()
 
 requestOracleForAddress :: forall w s. Oracle -> GameId -> Contract w s Text ()
-requestOracleForAddress oracle gameId = do 
+requestOracleForAddress oracle gameId = do
     logInfo @Haskell.String "Request oracle for address"
     pkh <- Contract.ownPubKeyHash
     let inst = typedOracleValidator oracle
@@ -160,10 +161,10 @@ requestOracleForAddress oracle gameId = do
         address = oracleAddress oracle
         tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
         forgedToken = requestTokenValue oracle
-        oracleFee = oFee oracle 
+        oracleFee = oFee oracle
         feeVal = Ada.toValue oracleFee
         collateralVal = Ada.toValue $ oCollateral oracle
-        oracleData = OracleData 
+        oracleData = OracleData
             { ovRequestAddress = pkh
             , ovGame = gameId
             , ovSignedMessage = Nothing
@@ -171,8 +172,8 @@ requestOracleForAddress oracle gameId = do
         mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ Request
     logInfo @Haskell.String $ "Oracle address: " ++ show address
     logInfo @Haskell.String $ "Oracle data: " ++ show oracleData
-    let lookups = 
-                Constraints.typedValidatorLookups inst 
+    let lookups =
+                Constraints.typedValidatorLookups inst
                 <> Constraints.otherScript mrScript
                 <> Constraints.mintingPolicy tokenMintingPolicy
 
@@ -193,7 +194,7 @@ getActiveOracleRequests oracle = do
     filtered <- Control.Monad.mapM mapDatum . filterOracleRequest oracle . Map.toList $ xs
     --logInfo @Haskell.String ("Filtered: " ++ show filtered)
     let requests = filter (isActiveRequest oracle) . rights $ filtered
-    return requests 
+    return requests
 
 getActiveGames:: Oracle -> Contract w s Text ([GameId])
 getActiveGames oracle = do
@@ -214,7 +215,7 @@ awaitNextOracleRequest oracle =
         oracleRequests <- Control.Monad.mapM mapDatum . filterOracleRequest oracle . filterValidTx $ txs
         let requestWithDatum = rights oracleRequests
         return requestWithDatum
-            
+
 runOracle :: OracleParams -> Contract (Last OracleContractState) OracleSchema Text ()
 runOracle op = do
     let signKeyE:: Either String XPrv = decodeKeyFromDto $ opSigner op
@@ -240,7 +241,7 @@ runOracle op = do
         tell $ Last $ Just $ Games gamesIds
 
 hasOracleRequestToken :: Oracle -> (TxOutRef, ChainIndexTxOut) -> Bool
-hasOracleRequestToken oracle (oref, o) = 
+hasOracleRequestToken oracle (oref, o) =
     assetClassValueOf (view ciTxOutValue o) (requestTokenClassFromOracle oracle) == 1
 
 filterOracleRequest :: Oracle -> [(TxOutRef, ChainIndexTxOut)] -> [(TxOutRef, ChainIndexTxOut)]
@@ -251,10 +252,10 @@ mapDatum (oref, o) = do
     datumE <- runError @_ @_ @Text $ oracleValueFromTxOutTx o
     case datumE of
         Right datum -> pure $ Right (oref, o, datum)
-        Left err -> pure $ Left err
+        Left err    -> pure $ Left err
 
 isGameOracleRequest :: GameId -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
-isGameOracleRequest gameId (_, _, od) = gameId == (ovGame od) 
+isGameOracleRequest gameId (_, _, od) = gameId == (ovGame od)
 
 isOwnerOracleRequest :: PubKeyHash -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
 isOwnerOracleRequest owner (_, _, od) = owner == (ovRequestAddress od)
@@ -268,10 +269,10 @@ isActiveRequest oracle (_, _, od) = case ovSignedMessage od of
                                 Nothing -> True
                                 Just message -> case verifyOracleValueSigned (oOperatorKey oracle) message of
                                     --oracle cannot parse signed message
-                                    Nothing -> False
+                                    Nothing                 -> False
                                     Just (oracleMessage, _) -> isActiveSignedMessage oracleMessage
 
-findOracleRequest :: 
+findOracleRequest ::
     forall w s. Oracle
     -> GameId
     -> PubKeyHash
@@ -281,15 +282,15 @@ findOracleRequest oracle gameId owner = do
     let findCriteria = find (\tx -> isOwnerOracleRequest owner tx && isGameOracleRequest gameId tx)
     requestsWithDatum <- Control.Monad.mapM mapDatum . filterOracleRequest oracle . Map.toList $ xs
     let request = findCriteria . rights $ requestsWithDatum
-    pure request 
-    
+    pure request
+
 type RedeemOracleSchema = Endpoint "redeem" RedeemOracleParams
 
 redeemOracleRequest :: forall w s. Oracle -> GameId -> Contract w s Text ()
 redeemOracleRequest oracle gameId = do
     pkh <- Contract.ownPubKeyHash
     oracleRequestMaybe <- findOracleRequest oracle gameId pkh
-    (oref, o, t) <- maybe (throwError "no oracle request") 
+    (oref, o, t) <- maybe (throwError "no oracle request")
                      pure oracleRequestMaybe
     let inst = typedOracleValidator oracle
         mrScript = oracleValidator oracle
@@ -299,7 +300,7 @@ redeemOracleRequest oracle gameId = do
         collateralValue = Ada.toValue $ oCollateral oracle
         mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken
 
-    let lookups = Constraints.typedValidatorLookups inst 
+    let lookups = Constraints.typedValidatorLookups inst
                 <> Constraints.otherScript mrScript
                 <> Constraints.unspentOutputs (Map.singleton oref o)
                 <> Constraints.mintingPolicy tokenMintingPolicy

@@ -1,18 +1,19 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE NumericUnderscores    #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE NumericUnderscores    #-}
-{-# LANGUAGE DerivingStrategies    #-}
 
 module Contracts.Oracle.RequestToken
     ( OracleRequestToken (..)
@@ -26,23 +27,23 @@ module Contracts.Oracle.RequestToken
     , oracleRequestMintPolicyHash
     ) where
 
-import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)
-import           Codec.Serialise
-import qualified Data.ByteString.Short     as SBS
-import qualified Data.ByteString.Lazy      as LBS
-import qualified PlutusTx
-import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
-import           Ledger                    hiding (singleton, MintingPolicyHash)
-import qualified Ledger.Scripts            as LedgerScripts
-import qualified Ledger.Typed.Scripts      as Scripts
-import           Ledger.Value              as Value
-import           Ledger.Ada                as Ada
-import           Prelude                   (Semigroup (..))
+import Cardano.Api.Shelley (PlutusScript (..), PlutusScriptV1)
+import Codec.Serialise
 import Contracts.Oracle.Types
+import Data.ByteString.Lazy qualified as LBS
+import Data.ByteString.Short qualified as SBS
+import Ledger hiding (MintingPolicyHash, singleton)
+import Ledger.Ada as Ada
+import Ledger.Scripts qualified as LedgerScripts
+import Ledger.Typed.Scripts qualified as Scripts
+import Ledger.Value as Value
+import PlutusTx qualified
+import PlutusTx.Prelude hiding (Semigroup (..), unless)
+import Prelude (Semigroup (..))
 
 {-# INLINABLE checkRequesTokenPolicy #-}
 checkRequesTokenPolicy :: OracleRequestToken -> OracleRequestRedeemer -> ScriptContext -> Bool
-checkRequesTokenPolicy requestToken r ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}, scriptContextPurpose=Minting _} = 
+checkRequesTokenPolicy requestToken r ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}, scriptContextPurpose=Minting _} =
     case r of
         Request     -> traceIfFalse "Should forge one token" (forgedCount == 1)
                     && traceIfFalse "Is fee paid" (valuePaidTo info (ortOperator requestToken) == feeValue)
@@ -59,8 +60,8 @@ checkRequesTokenPolicy requestToken r ctx@ScriptContext{scriptContextTxInfo=TxIn
         isForgedWithCollateral :: Bool
         isForgedWithCollateral = isJust . find (isForgetTokenOutput) $ txInfoOutputs info
         isForgetTokenOutput:: TxOut -> Bool
-        isForgetTokenOutput o =  
-            txOutValue o == Value.singleton ownSymbol oracleRequestTokenName 1 
+        isForgetTokenOutput o =
+            txOutValue o == Value.singleton ownSymbol oracleRequestTokenName 1
                             <> collateralValue
 
 

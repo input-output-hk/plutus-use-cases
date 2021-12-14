@@ -1,47 +1,48 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE GADTs              #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TypeApplications   #-}
-{-# LANGUAGE TypeFamilies       #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Spec.MutualBetSM
     ( tests
     ) where
 
-import           Control.Lens
-import           Contracts.MutualBetSM
-import           Contracts.Oracle      
-import           Control.Monad                      (void)
-import qualified Control.Monad.Freer                as Freer
-import qualified Control.Monad.Freer.Error          as Freer
-import           Control.Monad.Freer.Extras         as Extras
-import           Data.Aeson.Text                    (encodeToTextBuilder)
-import           Data.Default                       (Default (def))
-import           Data.Maybe                         (listToMaybe, mapMaybe, fromMaybe)
-import           Data.Monoid                        (Last (..))
-import           Data.Text                          (Text, isInfixOf)
-import           Data.Text.Lazy                     (toStrict)
-import           Data.Text.Lazy.Builder             (toLazyText)
-import           Ledger                             (Ada, minAdaTxOut)
-import qualified Ledger.Ada                         as Ada
-import           Ledger.Crypto                      (PrivateKey, PubKey)
-import           Ledger.TimeSlot                    (SlotConfig)                   
-import qualified Plutus.Trace.Emulator              as Trace
-import           PlutusTx.Monoid                    (inv)
-import           Plutus.Contract                    hiding (currentSlot)
-import           Plutus.Contract.Test               hiding (not)
-import           Plutus.Trace.Emulator.Types        (_ContractLog, cilMessage)
-import qualified Streaming.Prelude                  as S
-import           Test.Tasty
-import           Types.Game  
-import           Wallet.Emulator.Wallet             (emptyWalletState, ownPublicKey, ownPrivateKey)
-import qualified Wallet.Emulator.Folds              as Folds
-import qualified Wallet.Emulator.Stream             as Stream
-import           Wallet.Emulator.MultiAgent         (eteEvent)
+import Contracts.MutualBetSM
+import Contracts.Oracle
+import Control.Lens
+import Control.Monad (void)
+import Control.Monad.Freer qualified as Freer
+import Control.Monad.Freer.Error qualified as Freer
+import Control.Monad.Freer.Extras as Extras
+import Data.Aeson.Text (encodeToTextBuilder)
+import Data.Default (Default (def))
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+import Data.Monoid (Last (..))
+import Data.Text (Text, isInfixOf)
+import Data.Text.Lazy (toStrict)
+import Data.Text.Lazy.Builder (toLazyText)
+import Ledger (Ada, minAdaTxOut)
+import Ledger.Ada qualified as Ada
+import Ledger.Crypto (PrivateKey, PubKey)
+import Ledger.TimeSlot (SlotConfig)
+import Plutus.Contract hiding (currentSlot)
+import Plutus.Contract.Test hiding (not)
+import Plutus.Trace.Emulator qualified as Trace
+import Plutus.Trace.Emulator.Types (_ContractLog, cilMessage)
+import PlutusTx.Monoid (inv)
+import Streaming.Prelude qualified as S
+import Test.Tasty
+import Types.Game
+import Wallet.Emulator.Folds qualified as Folds
+import Wallet.Emulator.MultiAgent (eteEvent)
+import Wallet.Emulator.Stream qualified as Stream
+import Wallet.Emulator.Wallet (emptyWalletState, ownPrivateKey, ownPublicKey)
 
 slotCfg :: SlotConfig
 slotCfg = def
@@ -52,13 +53,13 @@ getWalletPubKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWa
 getWalletPrivKey:: Wallet -> PrivateKey
 getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState
 
-oracleParams :: OracleParams 
+oracleParams :: OracleParams
 oracleParams = OracleParams
     { --opSymbol = oracleCurrency,
       opFees = 3_000_000
     , opCollateral = 2_500_000
     , opSigner = encodeKeyToDto $ oraclePrivateKey
-    } 
+    }
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
@@ -146,7 +147,7 @@ cancelBettorBet :: Integer
 cancelBettorBet = 10_000_000
 
 trace2Bettor1WinShare, trace2Bettor2WinShare, trace2Bettor3WinShare :: Ada
-trace2Bettor1WinShare = Ada.lovelaceOf 5_000_000 
+trace2Bettor1WinShare = Ada.lovelaceOf 5_000_000
 trace2Bettor2WinShare = Ada.lovelaceOf 0
 trace2Bettor3WinShare = Ada.lovelaceOf 5_000_000
 
@@ -285,7 +286,7 @@ inProgressBetFailTrace = do
     let bet1Params = BetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     void $ Trace.waitNSlots 1
-    
+
 incorrectGameBetTrace :: Trace.EmulatorTrace ()
 incorrectGameBetTrace = do
     _ <- Trace.activateContractWallet oracleWallet $ oracleContract
@@ -444,18 +445,18 @@ threadToken =
             void $ Trace.activateContractWallet w1 (void con)
             Trace.waitNSlots 2
 
-expectContractLog expectedText logM = case logM of 
+expectContractLog expectedText logM = case logM of
                     Nothing -> False
                     Just logMessage -> do
                         let text = toStrict . toLazyText . encodeToTextBuilder $ logMessage
-                        isInfixOf expectedText text  
+                        isInfixOf expectedText text
 
 expectStateChangeFailureLog = expectContractLog "TransitionFailed" . listToMaybe . reverse . mapMaybe (preview (eteEvent . cilMessage . _ContractLog))
 
 tests :: TestTree
 tests =
     testGroup "mutual bet"
-        [ 
+        [
         checkPredicateOptions options "success games 1 winner 1 lost"
         (assertDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) (const True) "mutual bet contract should be done"
           .&&. assertDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"

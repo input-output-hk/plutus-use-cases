@@ -1,42 +1,43 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE GADTs              #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TypeApplications   #-}
-{-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Spec.MutualBet
     ( tests
     ) where
 
-import           Control.Lens
-import           Contracts.MutualBet
-import           Contracts.Oracle      
-import           Control.Monad                      (void)
-import           Control.Monad.Freer.Extras         as Extras
-import           Data.Default                       (Default (def))
-import           Data.Maybe                         (fromMaybe)
-import           Data.Monoid                        (Last (..))
-import           Data.Text                          (Text)
-import           Ledger                             (Ada, Value, minAdaTxOut)
-import qualified Ledger.Ada                         as Ada
-import           Ledger.Crypto                      (PrivateKey, PubKey)
-import           Ledger.TimeSlot                    (SlotConfig)
-import qualified Ledger.Value                       as Value
-import           Ledger.Value                       (AssetClass, assetClass)                   
-import qualified Plutus.Trace.Emulator              as Trace
-import           PlutusTx.Monoid                    (inv)
-import           Plutus.Contract                    hiding (currentSlot)
-import           Plutus.Contract.Test               hiding (not)
-import           Test.Tasty
-import           Types.Game  
-import           Wallet.Emulator.Wallet             (emptyWalletState, ownPublicKey, ownPrivateKey)
-import qualified PlutusTx.Prelude as PlutusTx
-import           Cardano.Crypto.Hash as Crypto
+import Cardano.Crypto.Hash as Crypto
+import Contracts.MutualBet
+import Contracts.Oracle
+import Control.Lens
+import Control.Monad (void)
+import Control.Monad.Freer.Extras as Extras
+import Data.Default (Default (def))
+import Data.Maybe (fromMaybe)
+import Data.Monoid (Last (..))
+import Data.Text (Text)
+import Ledger (Ada, Value, minAdaTxOut)
+import Ledger.Ada qualified as Ada
+import Ledger.Crypto (PrivateKey, PubKey)
+import Ledger.TimeSlot (SlotConfig)
+import Ledger.Value (AssetClass, assetClass)
+import Ledger.Value qualified as Value
+import Plutus.Contract hiding (currentSlot)
+import Plutus.Contract.Test hiding (not)
+import Plutus.Trace.Emulator qualified as Trace
+import PlutusTx.Monoid (inv)
+import PlutusTx.Prelude qualified as PlutusTx
+import Test.Tasty
+import Types.Game
+import Wallet.Emulator.Wallet (emptyWalletState, ownPrivateKey, ownPublicKey)
 
 slotCfg :: SlotConfig
 slotCfg = def
@@ -58,12 +59,12 @@ getWalletPubKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWa
 getWalletPrivKey:: Wallet -> PrivateKey
 getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState
 
-oracleParams :: OracleParams 
+oracleParams :: OracleParams
 oracleParams = OracleParams
     { opFees = 3_000_000
     , opCollateral = 2_500_000
     , opSigner = encodeKeyToDto $ oraclePrivateKey
-    } 
+    }
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
@@ -177,17 +178,17 @@ cancelBettorBet :: Integer
 cancelBettorBet = 10_000_000
 
 trace2Bettor1WinShare, trace2Bettor2WinShare, trace2Bettor3WinShare :: Ada
-trace2Bettor1WinShare = Ada.lovelaceOf 5_000_000 
+trace2Bettor1WinShare = Ada.lovelaceOf 5_000_000
 trace2Bettor2WinShare = Ada.lovelaceOf 0
 trace2Bettor3WinShare = Ada.lovelaceOf 5_000_000
 
 -- signOracleMesage :: GameId -> TeamId -> FixtureStatusShort -> SignedMessage OracleSignedMessage
--- signOracleMesage gameId winnerId status = 
+-- signOracleMesage gameId winnerId status =
 --     let message = OracleSignedMessage{
---                     osmWinnerId = winnerId, 
---                     osmGameId = gameId, 
+--                     osmWinnerId = winnerId,
+--                     osmGameId = gameId,
 --                     osmGameStatus = status
---                   } 
+--                   }
 --     in (signMessage message oraclePrivateKey "")
 
 mutualBetSuccessTrace :: Trace.EmulatorTrace ()
@@ -331,7 +332,7 @@ inProgressBetFailTrace = do
     let bet1Params = BetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     void $ Trace.waitNSlots 1
-    
+
 -- incorrectGameBetTrace :: Trace.EmulatorTrace ()
 -- incorrectGameBetTrace = do
 --     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
@@ -460,7 +461,7 @@ cancelBetLiveGameFailTrace = do
 tests :: TestTree
 tests =
     testGroup "mutual bet"
-        [ 
+        [
         checkPredicateOptions options "success games 1 winner 1 lost"
         (
         assertNoFailedTransactions
@@ -468,7 +469,7 @@ tests =
         .&&. assertDone bettorContract (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
         .&&. assertDone bettorContract (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
         .&&. assertAccumState bettorContract (Trace.walletInstanceTag bettor1)
-                 ((==) mutualBetSuccessTraceFinalState ) 
+                 ((==) mutualBetSuccessTraceFinalState )
                 "should have bets in state"
         .&&. walletFundsChange bettor1 (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet - (mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace1Bettor2Bet + (mbpBetFee mutualBetParams)))
@@ -482,8 +483,8 @@ tests =
         .&&. assertDone bettorContract (Trace.walletInstanceTag bettor1) (const True) "bettor 1 contract should be done"
         .&&. assertDone bettorContract (Trace.walletInstanceTag bettor2) (const True) "bettor 2 contract should be done"
         .&&. assertDone bettorContract (Trace.walletInstanceTag bettor3) (const True) "bettor 3 contract should be done"
-        .&&. assertAccumState bettorContract (Trace.walletInstanceTag bettor1) 
-                ((==) mutualBetSuccessTrace2FinalState) 
+        .&&. assertAccumState bettorContract (Trace.walletInstanceTag bettor1)
+                ((==) mutualBetSuccessTrace2FinalState)
                 "final state should be OK"
         .&&. walletFundsChange bettor1 (Ada.toValue $ trace2Bettor1WinShare - (mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ Ada.lovelaceOf trace2Bettor2Bet + (mbpBetFee mutualBetParams)))

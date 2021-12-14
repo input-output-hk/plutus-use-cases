@@ -1,53 +1,54 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE TypeApplications   #-}
-{-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Main(main) where
 
-import           Control.Lens    
-import           Control.Monad                       (void, forM)
-import           Control.Monad.IO.Class              (MonadIO (..))
-import           Data.Aeson                          (Result (..), fromJSON)
-import           Data.Either                         (fromRight)
-import           Data.Maybe                          (fromMaybe)
-import           Data.Text                           (Text)
-import           Data.Monoid                         (Last (..))
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin)
-import qualified Plutus.PAB.Simulator                as Simulator
-import qualified Plutus.PAB.Webserver.Server         as PAB.Server
-import           Contracts.MutualBet               
-import           Contracts.Oracle
-import           Types.Game    
-import           Ledger.Crypto                       (PrivateKey, PubKey)
-import           Wallet.Emulator.Types
-import           Wallet.Types                        (ContractInstanceId (..))
-import qualified Services.GameClient                 as GameClient
-import           Wallet.Emulator.Wallet              (ownPublicKey)
-import           PabContracts.SimulatorPabContracts  (MutualBetContracts(..), handlers)
+import Contracts.MutualBet
+import Contracts.Oracle
+import Control.Lens
+import Control.Monad (forM, void)
+import Control.Monad.IO.Class (MonadIO (..))
+import Data.Aeson (Result (..), fromJSON)
+import Data.Either (fromRight)
+import Data.Maybe (fromMaybe)
+import Data.Monoid (Last (..))
+import Data.Text (Text)
+import Ledger.Crypto (PrivateKey, PubKey)
+import PabContracts.SimulatorPabContracts (MutualBetContracts (..), handlers)
+import Plutus.PAB.Effects.Contract.Builtin (Builtin)
+import Plutus.PAB.Simulator qualified as Simulator
+import Plutus.PAB.Webserver.Server qualified as PAB.Server
+import Services.GameClient qualified as GameClient
+import Types.Game
+import Wallet.Emulator.Types
+import Wallet.Emulator.Wallet (ownPublicKey)
+import Wallet.Types (ContractInstanceId (..))
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
 initGame oracle game = do
     let gameId  = game ^. fixture . fixtureId
         team1Id = game ^. teams . home . teamId
         team2Id = game ^. teams . away . teamId
-        
-    let mutualBetStartParams = MutualBetStartParams 
+
+    let mutualBetStartParams = MutualBetStartParams
                             { mbspGame   = gameId
                             , mbspOracle = oracle
                             , mbspOwner  = walletPubKeyHash mutualBetOwnerWallet
                             , mbspTeam1  = team1Id
-                            , mbspTeam2  = team2Id 
+                            , mbspTeam2  = team2Id
                             , mbspMinBet = 2_000_000
                             , mbspBetFee = 2_000_000 }
     Simulator.logString @(Builtin MutualBetContracts) $ "activate mutual bet contract for wallet " ++ show mutualBetOwnerWallet ++ " gameId " ++ show gameId
@@ -56,7 +57,7 @@ initGame oracle game = do
     Simulator.logString @(Builtin MutualBetContracts) $ "start params"
     mutualBetParams:: MutualBetParams <- flip Simulator.waitForState cidStartContract $ \json -> case (fromJSON json :: Result (Last (Either Text MutualBetParams))) of
                     Success (Last (Just (Right params))) -> Just params
-                    _                                             -> Nothing
+                    _                                    -> Nothing
     Simulator.logString @(Builtin MutualBetContracts) $ "mutual bet params " ++ (show mutualBetParams)
     void $ forM bettorWallets $ \bettorWallet -> do
         Simulator.logString @(Builtin MutualBetContracts) $ "activate bettor contract for wallet " ++ show bettorWallet ++ " gameId " ++ show gameId
@@ -77,7 +78,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
                           opFees   = 3_000_000
                         , opSigner = encodeKeyToDto $ oraclePrivateKey
                         , opCollateral = 2_000_000
-                        }             
+                        }
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
     liftIO $ writeFile "oracle.cid" $ show $ unContractInstanceId cidOracle
     oracle <- waitForLastOracle cidOracle
@@ -106,7 +107,7 @@ bettorWallets = take 4 knownWallets
 mutualBetOwnerWallet :: Wallet
 mutualBetOwnerWallet = knownWallet 6
 
-oracleWallet :: Wallet 
+oracleWallet :: Wallet
 oracleWallet = knownWallet 5
 
 oraclePrivateKey :: PrivateKey

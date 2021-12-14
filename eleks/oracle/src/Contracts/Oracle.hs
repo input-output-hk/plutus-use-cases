@@ -13,8 +13,8 @@ module Contracts.Oracle
   , module Conversion
   ) where
 
-import           Contracts.Oracle.OffChain     as OffChain
-import           Contracts.Oracle.OnChain      as OnChain
-import           Contracts.Oracle.Types        as Types
-import           Contracts.Oracle.RequestToken as RequestToken
-import           Contracts.Oracle.Conversion   as Conversion
+import Contracts.Oracle.Conversion as Conversion
+import Contracts.Oracle.OffChain as OffChain
+import Contracts.Oracle.OnChain as OnChain
+import Contracts.Oracle.RequestToken as RequestToken
+import Contracts.Oracle.Types as Types

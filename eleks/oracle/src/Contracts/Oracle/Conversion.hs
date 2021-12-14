@@ -1,17 +1,19 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+
 module Contracts.Oracle.Conversion
   where
 
-import           Codec.Binary.Bech32              (HumanReadablePart, humanReadablePartToText)
-import           Codec.Binary.Encoding            (AbstractEncoding (..), encode, fromBech32)
-import qualified Cardano.Codec.Bech32.Prefixes    as CIP5
-import           Control.Monad                    (when)
-import           Data.ByteString                  (ByteString)
-import qualified Data.Text                        as T
-import qualified Data.ByteString.Base64           as B64
-import qualified Data.ByteString.Char8            as B8
-import           Cardano.Address.Derivation       (XPub, xprvFromBytes, xpubFromBytes, xprvToBytes)
-import           Ledger.Crypto                    (PrivateKey)
-import           Cardano.Crypto.Wallet            (XPrv, unXPrv, xprv)
+import Cardano.Address.Derivation (XPub, xprvFromBytes, xprvToBytes, xpubFromBytes)
+import Cardano.Codec.Bech32.Prefixes qualified as CIP5
+import Cardano.Crypto.Wallet (XPrv, unXPrv, xprv)
+import Codec.Binary.Bech32 (HumanReadablePart, humanReadablePartToText)
+import Codec.Binary.Encoding (AbstractEncoding (..), encode, fromBech32)
+import Control.Monad (when)
+import Data.ByteString (ByteString)
+import Data.ByteString.Base64 qualified as B64
+import Data.ByteString.Char8 qualified as B8
+import Data.Text qualified as T
+import Ledger.Crypto (PrivateKey)
 
 getBech32 :: String -> Either String (HumanReadablePart, ByteString)
 getBech32 raw = do
@@ -45,9 +47,9 @@ getXPub h = do
 
 privateKeyToString :: PrivateKey -> String
 privateKeyToString prv = do
-  B8.unpack $ encode (EBech32 CIP5.addr_xsk) (xprvToBytes prv) 
+  B8.unpack $ encode (EBech32 CIP5.addr_xsk) (xprvToBytes prv)
 
-encodeKeyToDto :: XPrv -> String 
+encodeKeyToDto :: XPrv -> String
 encodeKeyToDto = B8.unpack . B64.encode . unXPrv
 
 decodeKeyFromDto :: String -> Either String XPrv

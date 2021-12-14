@@ -4,16 +4,17 @@
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# options_ghc -fno-warn-orphans          #-}
 {-# options_ghc -Wno-redundant-constraints #-}
 {-# options_ghc -fno-strictness            #-}
@@ -22,19 +23,19 @@
 module Contracts.Oracle.Types
   where
 
-import           Data.Aeson 
-import           Data.Map                        (lookup)
-import           Ledger                          hiding (txOutRefs)
-import           Plutus.Contract.Oracle          (SignedMessage(..))
-import           Ledger.Value                    (TokenName (..))
-import           Playground.Contract             (Show, Generic, ToSchema)
-import           Plutus.ChainIndex.Tx            (txOutRefs, ChainIndexTx (..), ChainIndexTxOutputs (..))
-import qualified PlutusTx
-import           PlutusTx.Prelude
-import qualified Prelude                         as Haskell
-import           Types.Game                      (GameId, TeamId, FixtureStatusShort (..))
-import qualified Data.OpenApi.Schema             as OpenApi
-import           Plutus.V1.Ledger.Api            (Credential (PubKeyCredential, ScriptCredential))
+import Data.Aeson
+import Data.Map (lookup)
+import Data.OpenApi.Schema qualified as OpenApi
+import Ledger hiding (txOutRefs)
+import Ledger.Value (TokenName (..))
+import Playground.Contract (Generic, Show, ToSchema)
+import Plutus.ChainIndex.Tx (ChainIndexTx (..), ChainIndexTxOutputs (..), txOutRefs)
+import Plutus.Contract.Oracle (SignedMessage (..))
+import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential))
+import PlutusTx qualified
+import PlutusTx.Prelude
+import Prelude qualified as Haskell
+import Types.Game (FixtureStatusShort (..), GameId, TeamId)
 
 data Oracle = Oracle
     { --oSymbol   :: !CurrencySymbol
@@ -47,10 +48,10 @@ data Oracle = Oracle
 
 PlutusTx.makeLift ''Oracle
 
--- Token used for Oracle service monterization, 
+-- Token used for Oracle service monterization,
 -- One buy this token to pay for oracle service
 data OracleRequestToken = OracleRequestToken
-    { ortOperator   :: !PubKeyHash -- Oracle operator, address to send fee 
+    { ortOperator   :: !PubKeyHash -- Oracle operator, address to send fee
     , ortFee        :: !Ada -- token price
     , ortCollateral :: !Ada
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
@@ -72,7 +73,7 @@ instance Eq FixtureStatusShort where
     LIVE == LIVE = True
     FT   == FT   = True
     CANC == CANC = True
-    _    == _    = False 
+    _    == _    = False
 
 data OracleSignedMessage = OracleSignedMessage
     { osmWinnerId   :: TeamId
@@ -84,8 +85,8 @@ PlutusTx.makeLift ''OracleSignedMessage
 
 instance Eq OracleSignedMessage where
     {-# INLINABLE (==) #-}
-    l == r = (osmGameId l == osmGameId r) && 
-             (osmWinnerId l == osmWinnerId r) && 
+    l == r = (osmGameId l == osmGameId r) &&
+             (osmWinnerId l == osmWinnerId r) &&
              (osmGameStatus l == osmGameStatus r)
 
 data OracleData = OracleData
@@ -100,7 +101,7 @@ PlutusTx.makeLift ''OracleData
 
 instance Eq OracleData where
     {-# INLINABLE (==) #-}
-    l == r = (ovGame l == ovGame r) && 
+    l == r = (ovGame l == ovGame r) &&
              (ovRequestAddress l == ovRequestAddress r) &&
              (ovSignedMessage l PlutusTx.Prelude.== ovSignedMessage r)
 
@@ -115,9 +116,9 @@ PlutusTx.makeIsDataIndexed ''OracleRequestRedeemer [('Request, 0), ('RedeemToken
 
 data OracleParams = OracleParams
     { --opSymbol :: !CurrencySymbol,
-      opFees    :: !Ada
+      opFees       :: !Ada
     , opCollateral :: !Ada
-    , opSigner :: !Haskell.String
+    , opSigner     :: !Haskell.String
     } deriving (Haskell.Eq, Show, Haskell.Ord, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
 data RedeemOracleParams = RedeemOracleParams
@@ -125,16 +126,16 @@ data RedeemOracleParams = RedeemOracleParams
     }
     deriving (Haskell.Eq, Show, Haskell.Ord, Generic, ToSchema, FromJSON, ToJSON, OpenApi.ToSchema)
 
-data GameStateChange 
-    = GameStateChange 
-        { gmsOutRef :: TxOutRef
-        , gmsOutTx  :: ChainIndexTxOut
-        , gmsOracleData :: OracleData
-        , gmsSignedMessage :: SignedMessage OracleSignedMessage
+data GameStateChange
+    = GameStateChange
+        { gmsOutRef            :: TxOutRef
+        , gmsOutTx             :: ChainIndexTxOut
+        , gmsOracleData        :: OracleData
+        , gmsSignedMessage     :: SignedMessage OracleSignedMessage
         , gmsSignedMessageData :: OracleSignedMessage
         }
         deriving stock (Haskell.Show)
-        
+
 {-# INLINABLE oracleRequestTokenName #-}
 oracleRequestTokenName :: TokenName
 oracleRequestTokenName = TokenName "ortk"

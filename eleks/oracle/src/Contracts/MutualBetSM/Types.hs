@@ -5,15 +5,16 @@
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# options_ghc -fno-warn-orphans          #-}
 {-# options_ghc -Wno-redundant-constraints #-}
 {-# options_ghc -fno-strictness            #-}
@@ -22,19 +23,19 @@
 module Contracts.MutualBetSM.Types
   where
 
-import           Contracts.Oracle.Types
-import           Data.Monoid                      (Last (..))
-import           Data.Semigroup.Generic           (GenericSemigroupMonoid (..))
-import           Ledger
-import           Plutus.Contract.Oracle 
-import           Ledger.Value     
-import           Playground.Contract              (Show, FromJSON, Generic, ToJSON, ToSchema)
-import qualified Plutus.Contract.StateMachine     as SM
-import qualified PlutusTx
-import           PlutusTx.Prelude
-import qualified Prelude                          as Haskell
-import           Types.Game
-import qualified Data.OpenApi.Schema              as OpenApi
+import Contracts.Oracle.Types
+import Data.Monoid (Last (..))
+import Data.OpenApi.Schema qualified as OpenApi
+import Data.Semigroup.Generic (GenericSemigroupMonoid (..))
+import Ledger
+import Ledger.Value
+import Playground.Contract (FromJSON, Generic, Show, ToJSON, ToSchema)
+import Plutus.Contract.Oracle
+import Plutus.Contract.StateMachine qualified as SM
+import PlutusTx qualified
+import PlutusTx.Prelude
+import Prelude qualified as Haskell
+import Types.Game
 
 -- | Definition of an mutual bet
 data MutualBetParams
@@ -66,7 +67,7 @@ PlutusTx.unstableMakeIsData ''Bet
 
 instance Eq Bet where
     {-# INLINABLE (==) #-}
-    l == r = (betAmount l == betAmount r) && 
+    l == r = (betAmount l == betAmount r) &&
              (betBettor l == betBettor r) &&
              (betTeamId l == betTeamId r)
 
