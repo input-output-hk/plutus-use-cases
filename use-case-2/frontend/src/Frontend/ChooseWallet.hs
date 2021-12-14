@@ -20,6 +20,7 @@ import Prelude hiding (id, filter)
 import Control.Applicative
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
+import Data.Map (Map)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
@@ -46,7 +47,7 @@ chooseWallet = mdo
     divClass "container py-5" $ divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h2" "display-5 fw-bold mb-5" $ text "SampleSwap"
       elClass "p" "mb-5" $ text "One paragraph description - COPY TBD"
-      divClass "card mb-5" $ divClass "card-body" $ divClass "form-container px-5" $ divClass "form-group" $ do
+      divClass "card mb-5" $ divClass "card-body" $ divClass "form-container px-5" $ divClass "form-group" $ mdo
         inputAmount <- divClass "input-group row mt-5 mb-1 mr-3 ml-3" $ do
           _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-select mx-3" <> "type" =: "text" <> "placeholder" =: "tADA" <> "disabled" =: "")
           inpAmount <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "number" <> "placeholder" =: "0.0")
@@ -57,8 +58,18 @@ chooseWallet = mdo
           _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "number" <> "placeholder" =: "0.0" <> "disabled" =: "")
           return ()
         let dynAdaAmount =  ((either (\_ -> 0) fst) . T.decimal) <$> _inputElement_value inputAmount
+        btnEnabled <- holdDyn ButtonStatus_Ready $ leftmost
+                                                 [ ButtonStatus_Busy <$ staticSwapEv
+                                                 , ButtonStatus_Ready <$ txBuildResponse
+                                                 , ((\amt -> if amt > 0 then ButtonStatus_Ready else ButtonStatus_Disabled) <$> (updated dynAdaAmount))
+                                                 ]
         staticSwapEv <- divClass "input-group row mt-3 mb-5" $ do
-          (e,_) <- elClass' "button" "btn btn-dark" $ text "SWAP"
+          (e,_) <- elDynAttr' "button" (toggleBtnUsability <$> btnEnabled) $ do
+            elDynAttr "span" (toggleSpinner <$> btnEnabled) blank
+            dyn_ $ ffor btnEnabled $ \case
+              ButtonStatus_Ready -> text "SWAP"
+              ButtonStatus_Busy -> text "Loading..."
+              ButtonStatus_Disabled -> text "SWAP"
           return $ domEvent Click e
         ----------------------
         prerender_ blank $ performEvent_ $ (liftJSM $ do
@@ -79,14 +90,12 @@ chooseWallet = mdo
         let requestLoad = (\addr adaAmount -> Api_BuildStaticSwapTransaction addr adaAmount)
                <$> dynAddress
                <*> dynAdaAmount
-        let staticSwapRequestEv =tagPromptlyDyn requestLoad staticSwapEv
+        let staticSwapRequestEv = tagPromptlyDyn requestLoad staticSwapEv
         -- let newEv = switchDyn staticSwapRequestEv
         txBuildResponse <- requestingIdentity staticSwapRequestEv
         -- Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
         let (txBuildFailEv, cborHexEv) = fanEither txBuildResponse
 
-        widgetHold_ blank $ ffor txBuildFailEv  $ \errMsg -> el "p" $ text $ T.pack errMsg
-        widgetHold_ blank $ ffor cborHexEv  $ \_ -> el "p" $ text $ T.pack "Transaction built"
         (signedTxEv, signTrigger) <- newTriggerEvent
         (submitTxEv, submitTxTrigger) <- newTriggerEvent
         dynCborHex :: Dynamic t (Text, Text) <- holdDyn ("", "") cborHexEv
@@ -135,10 +144,37 @@ chooseWallet = mdo
             requestConfirmSwapSuccess = tagPromptlyDyn successLoad successfulSubmissionEv
         _ <- requestingIdentity requestConfirmSwapSuccess
 
-        -- show tx submittion results
-        widgetHold_ blank $ ffor submitTxEv $ \msg -> el "p" $ text $ case msg of
-          "undefined" -> "Transaction successfully submitted"
-          _ -> msg
-        return ()
+        -- show tx submission results
+        let formNoticeEv = ((\amt -> if amt > 0 then UIMessage_None else UIMessage_Failure "tAda value must be greater than 0") <$> (updated dynAdaAmount))
+            buildTransactionFailedEv =  ffor txBuildFailEv $ \errMsg -> UIMessage_Failure (T.pack $ show errMsg)
+            buildTransactionSuccessEv =  ffor cborHexEv $ \_ -> UIMessage_Success "Transaction built"
+            submitTransactionSuccessEv =  ffor submitTxEv $ \msg -> case msg of
+              "undefined" -> UIMessage_Success "Transaction successfully submitted"
+              _ -> UIMessage_Failure (T.pack $ show msg)
+            uiMessageEv = leftmost [buildTransactionFailedEv, buildTransactionSuccessEv, submitTransactionSuccessEv, formNoticeEv]
+        widgetHold_ blank $ ffor uiMessageEv $ \case
+          UIMessage_Success msg -> elClass "p" "text-success" $ text msg
+          UIMessage_Failure msg -> elClass "p" "text-danger" $ text msg
+          UIMessage_None -> blank
       elAttr "a" ("href" =: "https://github.com/obsidiansystems/plutus-use-cases/tree/is-tire-kick") $ elClass "button" "btn btn-outline-dark mt-5" $ text "Learn More"
+
+data ButtonStatus = ButtonStatus_Ready
+                  | ButtonStatus_Busy
+                  | ButtonStatus_Disabled
+  deriving (Eq, Show)
+
+data UIMessages = UIMessage_Success Text
+                | UIMessage_Failure Text
+                | UIMessage_None
+  deriving (Eq, Show)
+
+toggleBtnUsability :: ButtonStatus -> Map Text Text
+toggleBtnUsability ButtonStatus_Ready = ("class" =: "btn btn-lg btn-block btn-dark")
+toggleBtnUsability ButtonStatus_Busy = ("class" =: "btn btn-lg btn-block btn-light" <> "disabled" =: "true")
+toggleBtnUsability ButtonStatus_Disabled = ("class" =: "btn btn-lg btn-block btn-secondary" <> "disabled" =: "true")
+
+toggleSpinner :: ButtonStatus -> Map Text Text
+toggleSpinner ButtonStatus_Ready = ("class" =: "d-none")
+toggleSpinner ButtonStatus_Busy = ("class" =: "spinner-border spinner-border-sm" <> "role" =: "status" <> "aria-hidden" =: "true")
+toggleSpinner ButtonStatus_Disabled = ("class" =: "d-none")
 
