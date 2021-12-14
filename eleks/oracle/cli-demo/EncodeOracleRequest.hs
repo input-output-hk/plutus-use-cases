@@ -16,7 +16,6 @@ import           Contracts.Oracle.Types
 import           Plutus.Contract.Oracle         (SignedMessage(..), signMessage)
 import           Types.Game
 import           Ledger
-import           Wallet.Emulator.Types          (Wallet (..))
 import           Cardano.Crypto.Wallet          (xprv, xpub)
 import           System.Exit                    (exitWith, ExitCode(..))
 import           System.IO                      (hPutStrLn, stderr)
@@ -46,7 +45,7 @@ main = do
   let oracleSignKeyPath = if nargs > 2 then args!!2  else ""
   let winnerId = if nargs > 3 then read (args!!3) else 0
   let statusM = if nargs > 4 then decode (LB8.pack $ args!!4) else Just NS
-  status <- maybe(exitWithErrorMessage "Wrong status") pure statusM
+  gameStatus <- maybe(exitWithErrorMessage "Wrong status") pure statusM
   clientVkeyEither <- readFileTextEnvelope (AsVerificationKey AsPaymentExtendedKey) clientVkeyPath
  
   clientVkey <- either (\_ -> exitWithErrorMessage $ "Oracle Vkey not found") pure clientVkeyEither
@@ -65,7 +64,7 @@ main = do
       let message = OracleSignedMessage{
           osmWinnerId = winnerId,
           osmGameId = gameId,
-          osmGameStatus = status
+          osmGameStatus = gameStatus
       }
       let signedMessage = signMessage message signXprv ""
 

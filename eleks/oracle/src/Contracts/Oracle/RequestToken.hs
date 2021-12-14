@@ -27,36 +27,18 @@ module Contracts.Oracle.RequestToken
     ) where
 
 import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)
-import           Types.Game   
-import           Control.Monad             hiding (fmap)
 import           Codec.Serialise
-import           Data.Aeson                (FromJSON, ToJSON)
 import qualified Data.ByteString.Short     as SBS
 import qualified Data.ByteString.Lazy      as LBS
 import qualified Data.Map                  as Map
-import           Data.Maybe                (catMaybes)
-import           Data.Monoid               (Last (..))
-import           Data.Text                 (Text, pack)
-import qualified Data.List.NonEmpty        as NonEmpty
-import           GHC.Generics              (Generic)
-import           Plutus.Contract           as Contract
 import qualified PlutusTx
 import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton, MintingPolicyHash)
 import qualified Ledger.Scripts            as LedgerScripts
-import qualified Ledger.Tx                 as LedgerScripts
-import           Ledger.Constraints        as Constraints
-import           Ledger.Constraints.OnChain       as Constraints
-import           Ledger.Constraints.TxConstraints as Constraints
-import qualified Ledger.Contexts           as Validation
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
-import           Plutus.Contracts.Currency as Currency
-import           Plutus.Contract.Types     (Promise (..))
-import           Prelude                   (Semigroup (..), Show (..), String)
-import qualified Prelude                   as Haskell
-import           Schema                    (ToSchema)
+import           Prelude                   (Semigroup (..))
 import Contracts.Oracle.Types
 
 {-# INLINABLE checkRequesTokenPolicy #-}
