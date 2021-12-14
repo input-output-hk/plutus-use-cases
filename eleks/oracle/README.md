@@ -22,6 +22,11 @@ Oracle listens for all utxo on the scripts and as soon as game status changed -
 updates utxo data with game status, status is signed by oracle private key.
 At any moment client contract could get utxo datum from network and use oracle public key to validate message data in client onchain validator
 ![Update oracle](./screenshots/oracle-update.png)
+
+### Redeem oracle token
+When oracle data is not needed anymore, creator could redeem the token in order to get back collateral Ada
+![Update oracle](./screenshots/oracle-redeem.png)
+
 ## Mutual bet contract
 Mutual bet contract is based on the state machine. Each game has a separate Contract with the next states:
 Ongoing - Bets are open
