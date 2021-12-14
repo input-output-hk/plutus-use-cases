@@ -31,13 +31,14 @@ import Mlabs.Plutus.Contracts.Currency qualified as MC
 
 import Plutus.V1.Ledger.Value (TokenName (..), assetClass, assetClassValue)
 import PlutusTx.Prelude hiding (mconcat, (<>))
+import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 
 import Mlabs.Data.LinkedList (LList (..))
 import Mlabs.NFT.Contract.Aux (toDatum)
 import Mlabs.NFT.Governance.Types (GovAct (..), GovDatum (..), GovLHead (..))
 import Mlabs.NFT.Governance.Validation (govMintPolicy, govScrAddress, govScript)
 import Mlabs.NFT.Types (GenericContract, InitParams (..), MintAct (..), NftAppInstance (..), NftAppSymbol (..), NftListHead (..))
-import Mlabs.NFT.Validation (DatumNft (..), NftTrade, asRedeemer, curSymbol, mintPolicy, txPolicy, txScrAddress)
+import Mlabs.NFT.Validation (DatumNft (..), asRedeemer, curSymbol, mintPolicy, txPolicy, txScrAddress)
 
 {- | The App Symbol is written to the Writter instance of the Contract to be
  recovered for future opperations, and ease of use in Trace.
@@ -90,13 +91,13 @@ createListHead InitParams {..} = do
                 , Constraints.mintingPolicy govHeadPolicy
                 ]
             , mconcat
-                [ Constraints.mustPayToTheScript headDatum (proofTokenValue <> uniqueTokenValue)
+                [ Constraints.mustPayToTheScript (toBuiltinData headDatum) (proofTokenValue <> uniqueTokenValue)
                 , Constraints.mustPayToOtherScript (validatorHash govScr) (toDatum govHeadDatum) (govProofTokenValue <> uniqueTokenValue)
                 , Constraints.mustMintValueWithRedeemer initRedeemer proofTokenValue
                 , Constraints.mustMintValueWithRedeemer govInitRedeemer govProofTokenValue
                 ]
             )
-      void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
+      void $ Contract.submitTxConstraintsWith lookups tx
       Contract.logInfo @Hask.String $ printf "Forged Script Head & Governance Head for %s" (Hask.show appInstance)
       return appInstance
 

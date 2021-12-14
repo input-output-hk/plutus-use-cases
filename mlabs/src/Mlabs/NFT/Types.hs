@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Mlabs.NFT.Types (
   AdminContract,
@@ -36,23 +37,9 @@ module Mlabs.NFT.Types (
   UserId (..),
   UserWriter,
   InitParams (..),
-) where
+ ) where
 
-import PlutusTx.Prelude (
-  Bool (False, True),
-  BuiltinByteString,
-  Either,
-  Eq (..),
-  Integer,
-  Maybe,
-  Ord (compare, (<=)),
-  Rational,
-  emptyByteString,
-  fst,
-  ($),
-  (&&),
-  (.),
- )
+import PlutusTx.Prelude
 import Prelude qualified as Hask
 
 import Plutus.Contract (Contract)
@@ -64,7 +51,6 @@ import Data.Text (Text)
 import GHC.Generics (Generic)
 
 import Ledger (
-  Address,
   AssetClass,
   ChainIndexTxOut,
   CurrencySymbol,
@@ -78,6 +64,7 @@ import Ledger.Value (TokenName (..), unAssetClass)
 import Plutus.ChainIndex (ChainIndexTx)
 import PlutusTx qualified
 import Schema (ToSchema)
+import Plutus.V1.Ledger.Api (Address)
 
 --------------------------------------------------------------------------------
 -- ON-CHAIN TYPES --

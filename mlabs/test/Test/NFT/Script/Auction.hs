@@ -359,12 +359,12 @@ closeAuctionInconsistentContext =
     <> includeGovHead
 
 dealingValidator :: Ledger.Validator
-dealingValidator =
-  Ledger.mkValidatorScript $
-    $$(PlutusTx.compile [||wrap||])
-      `PlutusTx.applyCode` ($$(PlutusTx.compile [||NFT.mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode uniqueAsset)
-  where
-    wrap ::
-      (NFT.DatumNft -> NFT.UserAct -> Ledger.ScriptContext -> Bool) ->
-      (BuiltinData -> BuiltinData -> BuiltinData -> ())
-    wrap = toTestValidator
+dealingValidator = error ()
+  -- Ledger.mkValidatorScript $
+  --   $$(PlutusTx.compile [||wrap||])
+  --     `PlutusTx.applyCode` ($$(PlutusTx.compile [||NFT.mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode uniqueAsset)
+  -- where
+  --   wrap ::
+  --     (NFT.DatumNft -> NFT.UserAct -> Ledger.ScriptContext -> Bool) ->
+  --     (BuiltinData -> BuiltinData -> BuiltinData -> ())
+  --   wrap = toTestValidator

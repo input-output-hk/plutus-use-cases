@@ -18,6 +18,7 @@ import Plutus.Contract qualified as Contract
 import Plutus.Contract.Constraints qualified as Constraints
 import PlutusTx qualified
 import PlutusTx.Prelude hiding (mconcat, mempty, (<>))
+import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 
 import Ledger (
   Datum (..),
@@ -80,7 +81,7 @@ buy uT BuyRequestUser {..} = do
             <> govLookups
       tx =
         mconcat $
-          [ Constraints.mustPayToTheScript nftDatum nftVal
+          [ Constraints.mustPayToTheScript (toBuiltinData nftDatum) nftVal
           , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
           , Constraints.mustPayToPubKey (getUserId . info'author . node'information $ node) paidToAuthor
           , Constraints.mustPayToPubKey (getUserId . info'owner . node'information $ node) paidToOwner
@@ -90,7 +91,7 @@ buy uT BuyRequestUser {..} = do
               (Redeemer . PlutusTx.toBuiltinData $ action)
           ]
             <> govTx
-  void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
+  void $ Contract.submitTxConstraintsWith lookups tx
   Contract.tell . Last . Just . Left $ ur'nftId
   Contract.logInfo @Hask.String "buy successful!"
   where

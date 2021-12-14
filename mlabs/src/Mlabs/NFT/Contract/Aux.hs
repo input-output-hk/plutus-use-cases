@@ -304,11 +304,11 @@ getApplicationCurrencySymbol appInstance = do
   utxos <- Contract.utxosAt . appInstance'Address $ appInstance
   let outs = fmap toTxOut . Map.elems $ utxos
       (uniqueCurrency, uniqueToken) = unAssetClass . appInstance'UniqueToken $ appInstance
-      lstHead' = find (\tx -> valueOf (txOutValue tx) uniqueCurrency uniqueToken == 1) outs
+      lstHead' = find (\tx -> valueOf (Ledger.txOutValue tx) uniqueCurrency uniqueToken == 1) outs
   headUtxo <- case lstHead' of
     Nothing -> Contract.throwError "Head not found"
     Just lstHead -> pure lstHead
-  let currencies = filter (uniqueCurrency /=) $ symbols . txOutValue $ headUtxo
+  let currencies = filter (uniqueCurrency /=) $ symbols . Ledger.txOutValue $ headUtxo
   case currencies of
     [appSymbol] -> pure . NftAppSymbol $ appSymbol
     [] -> Contract.throwError "Head does not contain AppSymbol"

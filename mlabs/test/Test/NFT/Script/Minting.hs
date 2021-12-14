@@ -14,6 +14,7 @@ import Test.NFT.Script.Values as TestValues
 import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context
 import Test.Tasty.Plutus.Script.Unit
+import PlutusTx.IsData.Class (FromData)
 
 testMinting :: TestTree
 testMinting = localOption (TestCurrencySymbol TestValues.nftCurrencySymbol) $
@@ -118,11 +119,26 @@ mismatchingIdCtx =
     headDatum = NFT.HeadDatum $ NFT.NftListHead (Just ptr) TestValues.appInstance
 
 nftMintPolicy :: Ledger.MintingPolicy
-nftMintPolicy =
-  Ledger.mkMintingPolicyScript $
-    $$(PlutusTx.compile [||go||])
-      `PlutusTx.applyCode` ( $$(PlutusTx.compile [||NFT.mkMintPolicy||])
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.appInstance
-                           )
-  where
-    go = toTestMintingPolicy
+nftMintPolicy = error ()
+  -- Ledger.mkMintingPolicyScript $
+  --   $$(PlutusTx.compile [||go||])
+  --     `PlutusTx.applyCode` ( $$(PlutusTx.compile [||NFT.mkMintPolicy||])
+  --                             `PlutusTx.applyCode` PlutusTx.liftCode TestValues.appInstance
+  --                          )
+  -- where
+  --   go = myToTestMintingPolicy
+
+-- {-# INLINEABLE myToTestMintingPolicy #-}
+-- myToTestMintingPolicy ::
+--   forall (redeemer :: Type).
+--   (FromData redeemer, FromData ctx) =>
+--   (redeemer -> ctx -> Bool) ->
+--   (BuiltinData -> BuiltinData -> ())
+-- myToTestMintingPolicy f r p = case fromBuiltinData r of
+--   Nothing -> reportParseFailed "Redeemer"
+--   Just r' -> case fromBuiltinData p of
+--     Nothing -> reportParseFailed "ScriptContext"
+--     Just p' ->
+--       if f r' p'
+--         then reportPass
+--         else reportFail

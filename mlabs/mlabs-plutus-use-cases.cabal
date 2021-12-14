@@ -107,7 +107,7 @@ library
     -Wredundant-constraints
     -Wmissing-export-lists
     -Wmissing-deriving-strategies
-    -Werror
+    -- -Werror
 
   hs-source-dirs:
     src/
@@ -166,6 +166,7 @@ library
     Mlabs.NFT.PAB.MarketplaceContract
     Mlabs.NFT.PAB.Run
     Mlabs.NFT.PAB.Simulator
+    Mlabs.NFT.Spooky
     Mlabs.NFT.Types
     Mlabs.NFT.Validation
     Mlabs.NftStateMachine.Contract

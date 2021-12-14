@@ -27,6 +27,7 @@ import Ledger (
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorScript)
 import Ledger.Value qualified as Value
+import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 
 import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Contract.Gov.Fees
@@ -77,7 +78,7 @@ closeAuction uT (AuctionCloseParams nftId) = do
 
       tx =
         mconcat $
-          [ Constraints.mustPayToTheScript nftDatum nftVal
+          [ Constraints.mustPayToTheScript (toBuiltinData nftDatum) nftVal
           , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
           , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
           , Constraints.mustSpendScriptOutput
@@ -87,7 +88,7 @@ closeAuction uT (AuctionCloseParams nftId) = do
           ]
             <> bidDependentTxConstraints
 
-  void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
+  void $ Contract.submitTxConstraintsWith lookups tx
   Contract.tell . Last . Just . Left $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Closing auction for %s" $ Hask.show nftVal
   where

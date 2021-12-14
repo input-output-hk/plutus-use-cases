@@ -14,6 +14,7 @@ import Data.Monoid (Last (..))
 import Data.Text (Text)
 import Text.Printf (printf)
 
+import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import Plutus.ChainIndex.Tx (txOutRefMapForAddr)
 import Plutus.Contract (Contract)
 import Plutus.Contract qualified as Contract
@@ -74,7 +75,7 @@ bidAuction uT (AuctionBidParams nftId bidAmount) = do
         Just (AuctionBid bid _) -> - bid
       nftVal =
         (prevVal <>)
-          . txOutValue
+          . Ledger.txOutValue
           . fst
           $ (txOutRefMapForAddr scriptAddr pi'CITx Map.! pi'TOR)
       action =
@@ -99,7 +100,7 @@ bidAuction uT (AuctionBidParams nftId bidAmount) = do
             ]
       tx =
         mconcat
-          ( [ Constraints.mustPayToTheScript nftDatum (nftVal <> Ada.lovelaceValueOf bidAmount)
+          ( [ Constraints.mustPayToTheScript (toBuiltinData nftDatum) (nftVal <> Ada.lovelaceValueOf bidAmount)
             , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
             , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
             , Constraints.mustSpendScriptOutput
@@ -109,7 +110,7 @@ bidAuction uT (AuctionBidParams nftId bidAmount) = do
             ]
               ++ bidDependentTxConstraints
           )
-  void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
+  void $ Contract.submitTxConstraintsWith lookups tx
   Contract.tell . Last . Just . Left $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Bidding %s in auction for %s" (Hask.show bidAmount) (Hask.show nftVal)
   where

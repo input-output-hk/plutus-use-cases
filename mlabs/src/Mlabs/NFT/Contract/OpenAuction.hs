@@ -30,6 +30,7 @@ import Ledger.Value qualified as Value
 import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
+import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 
 {- |
   Attempts to start NFT auction, removes current price from NFT and starts auction.
@@ -67,14 +68,14 @@ openAuction uT (AuctionOpenParams nftId deadline minBid) = do
           ]
       tx =
         mconcat
-          [ Constraints.mustPayToTheScript nftDatum nftVal
+          [ Constraints.mustPayToTheScript (toBuiltinData nftDatum) nftVal
           , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
           , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
           , Constraints.mustSpendScriptOutput
               pi'TOR
               (Redeemer . PlutusTx.toBuiltinData $ action)
           ]
-  void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
+  void $ Contract.submitTxConstraintsWith lookups tx
   Contract.tell . Last . Just . Left $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Started auction for %s" $ Hask.show nftVal
   where

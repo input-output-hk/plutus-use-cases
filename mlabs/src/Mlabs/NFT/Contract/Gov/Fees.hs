@@ -23,7 +23,7 @@ import Ledger (
   scriptCurrencySymbol,
   txOutValue,
  )
-import Ledger.Typed.Scripts (validatorHash, validatorScript)
+import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Ledger.Value as Value (TokenName (..), singleton)
 
 import Mlabs.Data.LinkedList
@@ -42,7 +42,7 @@ getFeesConstraints ::
   NftId ->
   Integer ->
   UserId ->
-  Contract UserWriter s Text ([Constraints.TxConstraints UserAct DatumNft], [Constraints.ScriptLookups NftTrade])
+  Contract UserWriter s Text ([Constraints.TxConstraints BuiltinData BuiltinData], [Constraints.ScriptLookups Any])
 getFeesConstraints uT nftId price user = do
   let ownPkh = getUserId user
   nftPi <- findNft nftId uT
@@ -97,7 +97,7 @@ getFeesConstraints uT nftId price user = do
         -- Updating already existing Node
         Left govPi ->
           let prevValue =
-                txOutValue
+                Ledger.txOutValue
                   . fst
                   $ (txOutRefMapForAddr govAddr (pi'CITx govPi) Map.! pi'TOR govPi)
            in [ -- Send more GOV tokens to existing Node
@@ -113,7 +113,7 @@ getFeesConstraints uT nftId price user = do
           let updatedNewNode = pointNodeToMaybe' newGovDatum (fmap pi'data . next $ govIp)
               updatedPrevNode = pointNodeTo' (pi'data . prev $ govIp) updatedNewNode
               prevValue =
-                txOutValue
+                Ledger.txOutValue
                   . fst
                   $ (txOutRefMapForAddr govAddr (pi'CITx . prev $ govIp) Map.! (pi'TOR . prev $ govIp))
            in [ Constraints.mustSpendScriptOutput (pi'TOR . prev $ govIp) govRedeemer
