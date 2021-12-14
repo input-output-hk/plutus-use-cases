@@ -11,6 +11,17 @@ On the high level, the DApp consists of the following components:​
 
 ![Components Diagram](./screenshots/architecture.png)
 
+## Oracle contract
+
+### Request oracle token
+User buys the oracle request token and send to the oracle script 
+![Request oracle token](./screenshots/oracle-request.png)
+
+### Update oracle datum
+Oracle listens for all utxo on the scripts and as soon as game status changed - 
+updates utxo data with game status, status is signed by oracle private key.
+At any moment client contract could get utxo datum from network and use oracle public key to validate message data in client onchain validator
+![Update oracle](./screenshots/oracle-update.png)
 ## Mutual bet contract
 Mutual bet contract is based on the state machine. Each game has a separate Contract with the next states:
 Ongoing - Bets are open
