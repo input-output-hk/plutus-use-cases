@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Main
     ( main

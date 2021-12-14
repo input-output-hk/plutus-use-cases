@@ -23,6 +23,7 @@
 module Contracts.MutualBet.OffChain
    where
 
+import Contracts.MutualBet.Currency as Currency
 import Contracts.MutualBet.OnChain
 import Contracts.MutualBet.Types
 import Contracts.Oracle
@@ -42,11 +43,10 @@ import Ledger.Value (assetClass, assetClassValue, assetClassValueOf)
 import Playground.Contract
 import Plutus.Contract
 import Plutus.Contract.Oracle (SignedMessage (..), verifySignedMessageOffChain)
-import Contracts.MutualBet.Currency as Currency
 import Plutus.Contract.Util (loopM)
 import PlutusTx qualified
 import PlutusTx.Prelude hiding (Semigroup (..), unless)
-import Prelude (show, Semigroup (..), String)
+import Prelude (Semigroup (..), String, show)
 import Prelude qualified as Haskell
 import Text.Printf (printf)
 import Types.Game

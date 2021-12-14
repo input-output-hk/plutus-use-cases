@@ -1,7 +1,7 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NumericUnderscores  #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
 
 import Cardano.Crypto.Wallet (XPrv)
 import Contracts.Oracle
