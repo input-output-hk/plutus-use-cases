@@ -5,19 +5,17 @@ module Main
     ( main
     ) where
 
-import           Data.Aeson                                 (fromJSON, ToJSON, encode, Result (..), Value)
+import           Data.Aeson                                 (Result (..))
 import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad                              (when, void, forM)
 import           Control.Lens   
 import qualified Data.ByteString.Lazy.Char8                 as B8
 import           Control.Monad.IO.Class                     (MonadIO (..))
-import           Data.ByteString                            (ByteString)
+import           Data.Aeson                                 (fromJSON, ToJSON, encode, Result (..))
 import           Data.Either                                (fromRight)
-import           Data.ByteString.Char8                      (unpack)
 import           Data.Proxy                                 (Proxy (..))
-import           Data.Text                                  (Text, pack)
-import           Data.Monoid                                (Last (..))
+import           Data.Text                                  (pack)
 import           Data.UUID
 import           Network.HTTP.Req
 import           Services.GameClient
@@ -26,8 +24,6 @@ import           Types.Game
 import           Contracts.Oracle
 import           Plutus.PAB.Events.ContractInstanceState    (PartiallyDecodedResponse (..))
 import           Plutus.PAB.Webserver.Types
-import           Network.HTTP.Req
-import qualified Data.ByteString.Lazy.Char8                 as B8
 import           Text.Printf                                (printf)
 
 main :: IO ()
@@ -40,8 +36,8 @@ main = do
     go uuid prevGames = do
         currentGamesE <- getGames
         case currentGamesE of
-            Left err -> do
-                putStrLn $ "error games load: " ++ show err
+            Left error -> do
+                putStrLn $ "error games load: " ++ show error
                 threadDelay 5_000_000
                 go uuid prevGames
             Right currentGames -> do

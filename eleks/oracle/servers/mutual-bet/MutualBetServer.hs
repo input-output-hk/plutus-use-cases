@@ -5,21 +5,13 @@
 
 module Main(main) where
 
-import           Data.Aeson
-import qualified Data.Aeson            as Aeson 
-import qualified Data.Aeson.Extras     as Aeson          
+import           Data.Aeson   
 import           Data.Text
-import           Data.String           (fromString)
-import           Control.Monad.Except
-import           Control.Monad.Reader
-import           GHC.Generics          (Generic)
+import           GHC.Generics              (Generic)
 import           Servant
-import qualified Data.ByteString.Char8 as B
-import           Ledger                (pubKeyHash, getPubKeyHash, PubKey, Address, PubKeyHash)
+import           Ledger                    (PubKeyHash)
 import           Network.Wai.Handler.Warp
-import           Types.Game
-import           Wallet.Emulator       (walletPubKeyHash, Wallet (..), knownWallet)
-import qualified PlutusTx.Prelude      as PlutusTx
+import           Wallet.Emulator           (walletPubKeyHash, knownWallet)
 
 type GamesAPI = "wallet" :> Capture "id" Integer :> Get '[JSON] WalletData
 

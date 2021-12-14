@@ -15,8 +15,6 @@ import Data.Monoid (Sum (..))
 import Ledger.Index (ValidatorMode (..))
 import Options.Applicative
 import Plutus.Contract.Wallet (ExportTx (..))
-import Plutus.Contracts.Crowdfunding qualified as Crowdfunding
-import Plutus.Contracts.Uniswap.Trace qualified as Uniswap
 import Plutus.Trace (Command (..), ScriptsConfig (..), showStats, writeScriptsTo)
 import Spec.Oracle qualified as Oracle
 

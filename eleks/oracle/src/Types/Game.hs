@@ -15,11 +15,10 @@ module Types.Game
      where
 
 import           Control.Lens    
-import           Data.Map             (fromList, lookup)
-import qualified Data.Map   as Map 
+import           Data.Map             (fromList)
+import qualified Data.Map             as Map 
 import           Data.Maybe           (fromMaybe)
-import           Data.Aeson
-import           Data.Aeson.TH        
+import           Data.Aeson   
 import           Data.Text            (Text)
 import           GHC.Generics         (Generic)
 import           Schema               (ToSchema)
@@ -142,6 +141,7 @@ getWinnerTeamId game =
 
 isGameClosed :: FixtureStatusShort -> Bool
 isGameClosed FT = True
+isGameClosed _  = False
 
 {-# INLINABLE validateGameStatusChanges #-}
 validateGameStatusChanges:: FixtureStatusShort -> FixtureStatusShort -> Bool

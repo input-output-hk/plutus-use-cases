@@ -10,24 +10,16 @@ import           Cardano.Api
 import           Cardano.Api.Shelley
 
 import qualified Cardano.Ledger.Alonzo.Data     as Alonzo
-import           Cardano.Crypto.Wallet          (xprv, xpub, XPub)
+import           Cardano.Crypto.Wallet          (xpub)
 import qualified Plutus.V1.Ledger.Api           as Plutus
-
 import qualified Data.ByteString.Short          as SBS
-import qualified Data.ByteString                as B
-
-import qualified  Data.ByteString.Lazy.Char8    as LB8
 import           Contracts.Oracle.RequestToken
 import           Contracts.Oracle.Types
 import           Contracts.Oracle.OnChain
-import           Contracts.Oracle.OffChain (UpdateOracleParams(..), RedeemOracleParams(..))
 import           Ledger
 import           Ledger.Ada                     as Ada
 import           System.Exit                    (exitWith, ExitCode(..))
 import           System.IO                      (hPutStrLn, stderr)
-
-import           Wallet.Emulator.Types          (Wallet (..))
-import           Types.Game
 
 -- cabal exec -- gs 2000000 2000000 "keys/oracle/payment.vkey"
 main :: IO ()
@@ -35,7 +27,7 @@ main = do
     args <- getArgs
     let nargs = length args
     let feeInt = if nargs > 0 then read(args!!0) else 0
-        fee = Ada.lovelaceOf feeInt
+        theFee = Ada.lovelaceOf feeInt
     let collateralInt = if nargs > 1 then read(args!!1) else 0
         collateral = Ada.lovelaceOf collateralInt
 
@@ -51,7 +43,7 @@ main = do
     let pkh = pubKeyHash pk
     putStrLn $ "public key: " ++ show pk
     putStrLn $ "public key hash: " ++ show pkh
-    putStrLn $ "fee: " ++ show fee
+    putStrLn $ "fee: " ++ show theFee
     putStrLn $ "collateral: " ++ show collateral 
 
     let useOr = RedeemOracleParams 
@@ -59,7 +51,7 @@ main = do
     putStrLn $ show $ encode useOr
     let oracleRequestTokenInfo = OracleRequestToken
           { ortOperator = pkh
-          , ortFee = fee
+          , ortFee = theFee
           , ortCollateral = collateral
           }
     let oracle = Oracle
@@ -67,7 +59,7 @@ main = do
               oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
             , oOperator = pkh
             , oOperatorKey = pk
-            , oFee = fee
+            , oFee = theFee
             , oCollateral = collateral
             }
 

@@ -38,13 +38,12 @@ import Control.Lens
 import qualified Data.Map                         as Map
 
 import PlutusTx.Prelude hiding (Monoid (..), Semigroup (..))
-import Plutus.Contract.Wallet (getUnspentOutput)
 
 import Plutus.Contract as Contract
 import           Plutus.Contracts.PubKey (AsPubKeyError (..), PubKeyError)
 import qualified Plutus.Contracts.PubKey as PK
 
-import Ledger (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), getCardanoTxId, pubKeyHashAddress, scriptCurrencySymbol, minAdaTxOut)
+import Ledger (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), getCardanoTxId, scriptCurrencySymbol, minAdaTxOut)
 
 import qualified Ledger.Ada as Ada
 import Ledger.Constraints qualified as Constraints

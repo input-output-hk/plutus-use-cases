@@ -16,56 +16,25 @@
 module Main(main) where
 
 import           Control.Lens    
-import           Control.Monad                       (void, forM, forever)
-import           Control.Monad.Freer                 (Eff, Member, interpret, type (~>))
-import           Control.Concurrent                  (threadDelay)
-import qualified Control.Concurrent.STM              as STM
-import           Control.Monad.Freer.Error           (Error)
-import           Control.Monad.Freer.Extras.Log      (LogMsg)
+import           Control.Monad                       (void, forM)
 import           Control.Monad.IO.Class              (MonadIO (..))
-import           Data.Aeson                          (FromJSON (..), Result (..), ToJSON (..), genericToJSON, genericParseJSON
-                                                     , defaultOptions, decode, encode, parseJSON, fromJSON)
-import qualified Data.ByteString.Char8               as C
-import           Data.Default                        (Default (def))
+import           Data.Aeson                          (Result (..), fromJSON)
 import           Data.Either                         (fromRight)
 import           Data.Maybe                          (fromMaybe)
-import           Data.Text                           (Text, pack)
-import qualified Data.Text                           as T
-import qualified Data.Map.Strict                     as Map
-import qualified Data.Semigroup                      as Semigroup
+import           Data.Text                           (Text)
 import           Data.Monoid                         (Last (..))
-import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
-import           GHC.Generics                        (Generic)
-import qualified Plutus.Contract                     as Contract
-import           Plutus.Contract                     (ContractError, Contract, awaitPromise, Promise (..), tell)
-import           Plutus.Contracts.Currency           as Currency
-import           Plutus.PAB.Effects.Contract         (ContractEffect (..))
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin, Empty, BuiltinHandler (..), SomeBuiltin (..), HasDefinitions (..), type (.\\))
-import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
-import           Plutus.PAB.Simulator                (SimulatorEffectHandlers)
+import           Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import qualified Plutus.PAB.Simulator                as Simulator
-import           Plutus.PAB.Types                    (PABError (..))
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Contracts.MutualBet               
 import           Contracts.Oracle
 import           Types.Game    
-import qualified Data.ByteString.Char8               as B
-import           Ledger                              (PubKeyHash(..), pubKeyHash, CurrencySymbol(..), pubKeyAddress)
 import           Ledger.Crypto                       (PrivateKey, PubKey)
-import qualified Ledger.Value                        as Value
-import           Ledger.Value                        (TokenName (..), Value)
-import           Ledger.TimeSlot                     (SlotConfig)
 import           Wallet.Emulator.Types
 import           Wallet.Types                        (ContractInstanceId (..))
-import qualified Ledger.Typed.Scripts                as Scripts
-import           Plutus.PAB.Monitoring.PABLogMsg     (PABMultiAgentMsg)
-import qualified Services.GameClient                          as GameClient
-import           Wallet.Emulator                     (Wallet (..), knownWallets, knownWallet) 
-import           Wallet.Emulator.Types               (Wallet (..), walletPubKeyHash)
-import qualified Data.OpenApi.Schema                 as OpenApi
-import           Playground.Contract                 (ToSchema)
-import           Wallet.Emulator.Wallet              (fromMockWallet, toMockWallet, ownPublicKey, emptyWalletState)
-import           PabContracts.SimulatorPabContracts   (MutualBetContracts(..), handlers)
+import qualified Services.GameClient                 as GameClient
+import           Wallet.Emulator.Wallet              (ownPublicKey)
+import           PabContracts.SimulatorPabContracts  (MutualBetContracts(..), handlers)
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
 initGame oracle game = do
@@ -142,6 +111,3 @@ oracleWallet = knownWallet 5
 
 oraclePrivateKey :: PrivateKey
 oraclePrivateKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState  $ oracleWallet
-
-oraclePublicKey :: PubKey
-oraclePublicKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState  $ oracleWallet

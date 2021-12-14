@@ -22,14 +22,10 @@ module Service
 import           Control.Lens    
 import           Control.Monad.Except
 import           Data.Aeson
-import           Data.Aeson.TH
 import           Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Lazy.UTF8  as U
-import           Data.Default               (Default (def))
 import           Data.Either.Combinators    (maybeToRight)
-import           Data.Text                  (Text, pack)
 import           Data.List                  (find)
-import           GHC.Generics               (Generic)
 import           Types.Game
 
 createInitialGames :: ExceptT String IO [Game]
@@ -60,9 +56,6 @@ updateGameScore teamId gameId =
     getGameById gameId
     >>= liftEither . addGameScore teamId 
     >>= updateGame
-
-scoreValue :: Integer -> Integer
-scoreValue preValue = preValue +1 
 
 addGameScore :: TeamId -> Game -> Either String Game 
 addGameScore teamIdParam game
@@ -99,5 +92,5 @@ updateGame updatedGame = do
                     if updatedGame == game
                     then updatedGame
                     else game ) 
-    saveGames updatedGames
+    _ <- saveGames updatedGames
     return updatedGame

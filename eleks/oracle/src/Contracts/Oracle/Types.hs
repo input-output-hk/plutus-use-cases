@@ -22,29 +22,20 @@
 module Contracts.Oracle.Types
   where
 
-import           Cardano.Crypto.Wallet           (xprv, unXPrv, XPrv)
-import           Cardano.Crypto.Wallet.Encrypted (EncryptedKey)
-import           Control.Monad                   (mzero)
-import           Data.Aeson
-import           Data.Aeson.TH   
-import           Data.Aeson.Types
-import           Data.Either                     (fromRight)
+import           Data.Aeson 
 import           Data.Map                        (lookup)
 import           Ledger                          hiding (txOutRefs)
 import           Ledger.Crypto                   (pubKeyHash)
 import           Plutus.Contract.Oracle          (SignedMessage(..))
-import           Ledger.Value                    (TokenName (..), AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
-import           Playground.Contract             (Show, FromJSON, Generic, ToJSON, ToSchema)
+import           Ledger.Value                    (TokenName (..))
+import           Playground.Contract             (Show, Generic, ToSchema)
 import           Plutus.ChainIndex.Tx            (txOutRefs, ChainIndexTx (..), ChainIndexTxOutputs (..))
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                         as Haskell
-import           Text.Printf                     (PrintfArg)
 import           Types.Game                      (GameId, TeamId, FixtureStatusShort (..))
-import           Data.ByteString                 (ByteString)
 import qualified Data.OpenApi.Schema             as OpenApi
 import           Plutus.V1.Ledger.Api            (Credential (PubKeyCredential, ScriptCredential))
-import           Ledger.Crypto                   (PrivateKey)
 
 data Oracle = Oracle
     { --oSymbol   :: !CurrencySymbol

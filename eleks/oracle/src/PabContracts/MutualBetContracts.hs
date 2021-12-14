@@ -17,17 +17,12 @@ module PabContracts.MutualBetContracts(
 
 import           Control.Monad.Freer
 import           Data.Aeson (FromJSON, ToJSON)
-import           Data.Default (Default (def))
 import           GHC.Generics (Generic)
 import           Prettyprinter
 import           Data.Default                       (Default (def))
-import           Language.PureScript.Bridge (argonaut, equal, genericShow, mkSumType, order)
-import           Language.PureScript.Bridge.TypeParameters (A)
-import           Ledger.TimeSlot (SlotConfig)
+import           Language.PureScript.Bridge (argonaut, equal, genericShow, mkSumType)
 import           Data.Row
 import qualified Data.OpenApi.Schema as OpenApi
-import           Data.Text (Text)
-import           Ledger (TxId)
 import           Playground.Types (FunctionSchema)
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (..), HasDefinitions (..), SomeBuiltin (..))
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
@@ -36,8 +31,7 @@ import qualified Plutus.PAB.Simulator as Simulator
 import           Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
 import           Schema (FormSchema)
 import           Contracts.MutualBet
-import           Plutus.Contract (Contract)
-import           Types.Game (GameId)
+
 
 data MutualBetContracts = 
     MutualBetOwner MutualBetStartParams
@@ -72,6 +66,3 @@ handlers :: SimulatorEffectHandlers (Builtin MutualBetContracts)
 handlers =
     Simulator.mkSimulatorHandlers def def
     $ interpret (contractHandler Builtin.handleBuiltin)
-
-slotCfg :: SlotConfig
-slotCfg = def

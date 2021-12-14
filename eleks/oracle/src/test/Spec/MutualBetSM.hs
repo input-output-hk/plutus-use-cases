@@ -15,29 +15,21 @@ module Spec.MutualBetSM
 import           Control.Lens
 import           Contracts.MutualBetSM
 import           Contracts.Oracle      
-import qualified Control.Foldl                      as L
-import           Control.Monad                      (void, when)
+import           Control.Monad                      (void)
 import qualified Control.Monad.Freer                as Freer
 import qualified Control.Monad.Freer.Error          as Freer
 import           Control.Monad.Freer.Extras         as Extras
-import           Control.Monad.Freer.Extras.Log     (LogLevel (..))
-import           Control.Monad.IO.Class             (liftIO)
-import           Data.Aeson.Encode                  (encodeToTextBuilder)
+import           Data.Aeson.Text                    (encodeToTextBuilder)
 import           Data.Default                       (Default (def))
 import           Data.Maybe                         (listToMaybe, mapMaybe, fromMaybe)
 import           Data.Monoid                        (Last (..))
-import           Data.Text                          (Text, pack, isInfixOf)
+import           Data.Text                          (Text, isInfixOf)
 import           Data.Text.Lazy                     (toStrict)
 import           Data.Text.Lazy.Builder             (toLazyText)
-import           Ledger                             (Ada, Slot (..), Value, pubKeyHash, minAdaTxOut)
+import           Ledger                             (Ada, minAdaTxOut)
 import qualified Ledger.Ada                         as Ada
 import           Ledger.Crypto                      (PrivateKey, PubKey)
-import           Plutus.Contract.Oracle             (Observation, SignedMessage, signMessage)
-import           Ledger.TimeSlot                    (SlotConfig)
-import qualified Ledger.TimeSlot                    as TimeSlot
-import qualified Ledger.Value                       as Value
-import           Ledger.Value                       (CurrencySymbol)           
-import           Plutus.Contract.Test.ContractModel              
+import           Ledger.TimeSlot                    (SlotConfig)                   
 import qualified Plutus.Trace.Emulator              as Trace
 import           PlutusTx.Monoid                    (inv)
 import           Plutus.Contract                    hiding (currentSlot)
@@ -53,9 +45,6 @@ import           Wallet.Emulator.MultiAgent         (eteEvent)
 
 slotCfg :: SlotConfig
 slotCfg = def
-
-oracleCurrency :: CurrencySymbol
-oracleCurrency = "aa"
 
 getWalletPubKey:: Wallet -> PubKey
 getWalletPubKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState
@@ -153,12 +142,6 @@ trace2Bettor2Bet = 10_000_000
 trace2Bettor3Bet :: Integer
 trace2Bettor3Bet = 10_000_000
 
-trace2TotalBetsAmount :: Ada
-trace2TotalBetsAmount = Ada.lovelaceOf $ trace2Bettor1Bet + trace2Bettor2Bet + trace2Bettor3Bet
-
-trace2TotalWinAmount :: Ada
-trace2TotalWinAmount = Ada.lovelaceOf $ trace2Bettor1Bet + trace2Bettor3Bet
-
 cancelBettorBet :: Integer
 cancelBettorBet = 10_000_000
 
@@ -167,30 +150,27 @@ trace2Bettor1WinShare = Ada.lovelaceOf 5_000_000
 trace2Bettor2WinShare = Ada.lovelaceOf 0
 trace2Bettor3WinShare = Ada.lovelaceOf 5_000_000
 
-trace1Winner :: TeamId
-trace1Winner = team1Id
-
 mutualBetSuccessTrace :: Trace.EmulatorTrace ()
 mutualBetSuccessTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
-    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     _ <- Trace.waitNSlots 10
     let bet2Params = BetParams { nbpAmount = trace1Bettor2Bet, nbpWinnerId = team2Id}
     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
-    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
-    Trace.callEndpoint @"update" oracleHdl updateParams
+    let updateParamsLive = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
+    Trace.callEndpoint @"update" oracleHdl updateParamsLive
     void $ Trace.waitNSlots 10
-    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = FT }
-    Trace.callEndpoint @"update" oracleHdl updateParams
+    let updateParamsFt = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParamsFt
     void $ Trace.waitNSlots 5
 
 
@@ -219,11 +199,10 @@ mutualBetSuccessTrace2 = do
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
-    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
-    bettor3Hdl <- Trace.activateContractWallet bettor3 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadTkn)
+    bettor3Hdl <- Trace.activateContractWallet bettor3 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = trace2Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
@@ -234,11 +213,11 @@ mutualBetSuccessTrace2 = do
     let bet3Params = BetParams { nbpAmount = trace2Bettor3Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor3Hdl bet3Params
     _ <- Trace.waitNSlots 10
-    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
-    Trace.callEndpoint @"update" oracleHdl updateParams
+    let updateParamsLive = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
+    Trace.callEndpoint @"update" oracleHdl updateParamsLive
     void $ Trace.waitNSlots 10
-    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = FT }
-    Trace.callEndpoint @"update" oracleHdl updateParams
+    let updateParamsFt = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParamsFt
     void $ Trace.waitNSlots 5
 
 
@@ -272,10 +251,10 @@ returnBetsIfAllLostTrace = do
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
-    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
@@ -285,8 +264,8 @@ returnBetsIfAllLostTrace = do
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
     void $ Trace.waitNSlots 5
-    let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team2Id, uoGameStatus = FT }
-    Trace.callEndpoint @"update" oracleHdl updateParams
+    let updateParamsLive = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team2Id, uoGameStatus = FT }
+    Trace.callEndpoint @"update" oracleHdl updateParamsLive
     void $ Trace.waitNSlots 5
 
 inProgressBetFailTrace :: Trace.EmulatorTrace ()
@@ -295,9 +274,9 @@ inProgressBetFailTrace = do
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
 
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
@@ -309,13 +288,13 @@ inProgressBetFailTrace = do
     
 incorrectGameBetTrace :: Trace.EmulatorTrace ()
 incorrectGameBetTrace = do
-    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = -1}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
@@ -323,13 +302,13 @@ incorrectGameBetTrace = do
 
 incorrectBetAmountTrace :: Trace.EmulatorTrace ()
 incorrectBetAmountTrace = do
-    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = (Ada.getLovelace $ mbpMinBet mutualBetParams) - 1, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
@@ -341,10 +320,10 @@ cancelGameTrace = do
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
-    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
@@ -376,14 +355,14 @@ cancelGameTraceState =
 
 cancelBetTrace :: Trace.EmulatorTrace ()
 cancelBetTrace = do
-    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
-    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = cancelBettorBet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
@@ -397,14 +376,14 @@ cancelBetTrace = do
 
 cancelBetWhenDuplicateTrace :: Trace.EmulatorTrace ()
 cancelBetWhenDuplicateTrace = do
-    oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
+    _ <- Trace.activateContractWallet oracleWallet $ oracleContract
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
-    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = cancelBettorBet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
@@ -424,10 +403,10 @@ cancelBetLiveGameFailTrace = do
     _ <- Trace.waitNSlots 5
     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
     _ <- Trace.waitNSlots 5
-    threadToken <- extractAssetClass mutualBetHdl
-    Extras.logInfo $ "Trace thread token " ++ show threadToken
-    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadToken)
-    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadToken)
+    threadTkn <- extractAssetClass mutualBetHdl
+    Extras.logInfo $ "Trace thread token " ++ show threadTkn
+    bettor1Hdl <- Trace.activateContractWallet bettor1 (bettorContract threadTkn)
+    bettor2Hdl <- Trace.activateContractWallet bettor2 (bettorContract threadTkn)
     _ <- Trace.waitNSlots 1
     let bet1Params = BetParams { nbpAmount = cancelBettorBet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
@@ -465,9 +444,6 @@ threadToken =
             void $ Trace.activateContractWallet w1 (void con)
             Trace.waitNSlots 2
 
-delay :: Integer -> Trace.EmulatorTrace ()
-delay n = void $ Trace.waitNSlots $ fromIntegral n
-
 expectContractLog expectedText logM = case logM of 
                     Nothing -> False
                     Just logMessage -> do
@@ -475,9 +451,6 @@ expectContractLog expectedText logM = case logM of
                         isInfixOf expectedText text  
 
 expectStateChangeFailureLog = expectContractLog "TransitionFailed" . listToMaybe . reverse . mapMaybe (preview (eteEvent . cilMessage . _ContractLog))
-
-adaValueOf :: Integer -> Value
-adaValueOf = Ada.toValue . Ada.lovelaceOf
 
 tests :: TestTree
 tests =

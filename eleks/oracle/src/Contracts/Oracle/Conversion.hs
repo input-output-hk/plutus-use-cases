@@ -1,18 +1,17 @@
 module Contracts.Oracle.Conversion
   where
 
-import           Codec.Binary.Bech32 ( HumanReadablePart, humanReadablePartToText )
-import           Codec.Binary.Encoding( AbstractEncoding (..), Encoding, encode, fromBech32)
-import qualified Cardano.Codec.Bech32.Prefixes as CIP5
+import           Codec.Binary.Bech32              (HumanReadablePart, humanReadablePartToText)
+import           Codec.Binary.Encoding            (AbstractEncoding (..), encode, fromBech32)
+import qualified Cardano.Codec.Bech32.Prefixes    as CIP5
 import           Control.Monad                    (when)
-import           Data.ByteString( ByteString )
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import           Data.ByteString                  (ByteString)
+import qualified Data.Text                        as T
 import qualified Data.ByteString.Base64           as B64
-import qualified Data.ByteString.Char8 as B8
-import           Cardano.Address.Derivation ( XPub, xprvFromBytes, xpubFromBytes, xprvToBytes )
-import          Ledger.Crypto (PrivateKey, PubKey)
-import          Cardano.Crypto.Wallet  (XPrv, unXPrv, xprv)
+import qualified Data.ByteString.Char8            as B8
+import           Cardano.Address.Derivation       (XPub, xprvFromBytes, xpubFromBytes, xprvToBytes)
+import           Ledger.Crypto                    (PrivateKey)
+import           Cardano.Crypto.Wallet            (XPrv, unXPrv, xprv)
 
 getBech32 :: String -> Either String (HumanReadablePart, ByteString)
 getBech32 raw = do
@@ -22,11 +21,6 @@ getBech32 raw = do
         <> show (showHrp <$> allowedPrefixes)
     return (hrp, bytes)
   where
-    decode :: (String -> Either String (HumanReadablePart, ByteString)) 
-      -> String 
-      -> IO (HumanReadablePart, ByteString)
-    decode from = either fail pure . from
-
     showHrp :: HumanReadablePart -> String
     showHrp = T.unpack . humanReadablePartToText
 
@@ -36,7 +30,7 @@ getBech32 raw = do
 -- | Read an encoded private key, or fail.
 getXPrv :: String -> Either String XPrv
 getXPrv h = do
-  (hrp, bytes) <- getBech32 h
+  (_, bytes) <- getBech32 h
   case xprvFromBytes bytes of
     Nothing  -> Left "Couldn't convert bytes into extended private key."
     Just key -> pure key
@@ -44,7 +38,7 @@ getXPrv h = do
 -- | Read an encoded public key or fail.
 getXPub :: String -> Either String XPub
 getXPub h = do
-  (hrp, bytes) <- getBech32 h
+  (_, bytes) <- getBech32 h
   case xpubFromBytes bytes of
     Nothing  -> Left "Couldn't convert bytes into extended public key."
     Just key -> pure key
