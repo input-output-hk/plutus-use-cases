@@ -55,9 +55,14 @@ chooseWallet = mdo
         _ <- divClass "input-group row mt-1 mb-1 mx-3" $ text "for"
         _ <- divClass "input-group row mt-1 mb-5 mr-3 ml-3" $ do
           _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-select mx-3" <> "type" =: "text" <> "placeholder" =: "PikaCoin" <> "disabled" =: "")
-          _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "number" <> "placeholder" =: "0.0" <> "disabled" =: "")
+          _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "text" <> "placeholder" =: "0.0" <> "disabled" =: "")
+                                  & inputElementConfig_setValue .~ (fmap (\resp -> either (\_ -> T.pack $ "~" <> show (0 :: Integer)) (\swapAmt -> ("~" <> (T.pack $ show $ swapAmt))) resp) respEstimateSwap)
           return ()
         let dynAdaAmount =  ((either (\_ -> 0) fst) . T.decimal) <$> _inputElement_value inputAmount
+        -- Get estimated amount of arbitrary token to receive when swap has completed
+            requestEstimateSwap = (\amt -> Api_EstimateSwap amt)
+               <$> (updated dynAdaAmount)
+        respEstimateSwap <- requestingIdentity requestEstimateSwap
         btnEnabled <- holdDyn ButtonStatus_Ready $ leftmost
                                                  [ ButtonStatus_Busy <$ staticSwapEv
                                                  , ButtonStatus_Ready <$ txBuildResponse

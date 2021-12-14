@@ -43,6 +43,7 @@ data Api :: * -> * where
     ->  Integer -- Amount of ADA wished to be swapped
     -> Api (Either String (Text, Text)) -- Either Error (CBOR encoded transaction)
   Api_ConfirmSwapSuccess :: Text -> Api (Either String ())
+  Api_EstimateSwap :: Integer -> Api (Either String Integer)
 
 data SmartContractAction = SmartContractAction_Swap
   deriving (Eq, Ord, Show, Generic)
