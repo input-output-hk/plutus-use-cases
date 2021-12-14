@@ -14,7 +14,7 @@
 module Plutus.TestnetMVP.OffChain.User where
 
 import qualified Control.Lens                                    as Lens
-import           Control.Lens                                             ((?~))
+import           Control.Lens                                             ((?~), (.~))
 import           Control.Monad                                   hiding (fmap)
 import qualified Data.Aeson                                      as J
 import           Data.Proxy                                      (Proxy (..))
@@ -51,6 +51,7 @@ import Plutus.Contracts.NftMarketplace.OffChain.ID
 import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (NftInfo (..), IpfsCid, IpfsCidHash)
 import Plutus.Contracts.NftMarketplace.OnChain.Core.ID
 import Plutus.TestnetMVP.OnChain.NFT
+import qualified Ledger.Constraints.TxConstraints       as Constraints
 
 data CreateNftParams =
   CreateNftParams {
@@ -93,6 +94,7 @@ createNft marketplace CreateNftParams {..} = do
     value <- marketplaceFunds marketplace
 
     let tx = TxUtils.mustRoundTripToScript (marketplaceInstance marketplace) [outputValue] newDatum pkh value
+
     ledgerTx <- TxUtils.submitTxPair tx
     void $ awaitTxConfirmed $ Tx.getCardanoTxId ledgerTx
 
@@ -148,7 +150,6 @@ openSale marketplace@Marketplace{..} OpenSaleParams {..} = do
                   Sale.ospSalePrice = ospSalePrice,
                   Sale.ospSaleValue = saleValue
               }
-
     nftInStore <- maybe (traceError "NFT has not been created.") pure $ AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
     sale <- Sale.openSale openSaleParams
     let lot = SaleLotLink sale
@@ -165,16 +166,58 @@ openSale marketplace@Marketplace{..} OpenSaleParams {..} = do
     logInfo @Haskell.String $ printf "Created NFT sale %s" (Haskell.show sale)
     pure ()
 
+data CloseLotParams =
+  CloseLotParams {
+    clpItemId    :: UserItemId
+  }
+    deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
+    deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)
+
+Lens.makeClassy_ ''CloseLotParams
+
+-- | The user buys specified NFT lot
+buyItem :: Marketplace -> CloseLotParams -> Contract w s Text ()
+buyItem marketplace CloseLotParams {..} = do
+    let internalId = toInternalId clpItemId
+    nftStore <- marketplaceStore marketplace
+    pkh <- ownPubKeyHash
+    let ipfsCidHash = getIpfsCidHash internalId
+
+    nftInStore <- maybe (traceError "NFT has not been created.") pure $ AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
+    sale <- case internalId of
+      NftInternalId nftId@(InternalNftId ipfsCidHash ipfsCid) -> do
+        nftEntry <- getNftEntry nftStore nftId
+        maybe (throwError "NFT has not been put on sale") pure $
+            getSaleFromNFT nftEntry
+
+    _ <- Sale.buyLot sale
+
+    let lot = SaleLotLink sale
+        newEntry = (_nftLot .~ Nothing) nftInStore
+        newDatum = insertNft' ipfsCidHash newEntry nftStore
 
 
+
+    outputValue <- makeOutputValue marketplace $ mkRemoveFromSaleRedeemer internalId
+    value <- marketplaceFunds marketplace
+
+    let tx = TxUtils.mustRoundTripToScript (marketplaceInstance marketplace) [outputValue] newDatum pkh value
+
+    ledgerTx <- TxUtils.submitTxPair tx
+    void $ awaitTxConfirmed $ Tx.getCardanoTxId ledgerTx
+
+    logInfo @Haskell.String $ printf "Bought lot from sale %s" (Haskell.show sale)
+    pure ()
 
 type MarketplaceUserSchema =
     Endpoint "createNft" CreateNftParams
     .\/ Endpoint "openSale" OpenSaleParams
+    .\/ Endpoint "buyItem" CloseLotParams
 
 data UserContractState =
     NftCreated
     | OpenedSale
+    | NftBought
     deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON)
 
@@ -183,5 +226,6 @@ Lens.makeClassyPrisms ''UserContractState
 userEndpoints :: Marketplace -> Promise (ContractResponse Haskell.String Text UserContractState) MarketplaceUserSchema Void ()
 userEndpoints marketplace =
     (withContractResponse (Proxy @"createNft") (const NftCreated) (createNft marketplace)
-    `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)) <> 
+    `select` withContractResponse (Proxy @"openSale") (const OpenedSale) (openSale marketplace)
+    `select` withContractResponse (Proxy @"buyItem") (const NftBought) (buyItem marketplace)) <>
     userEndpoints marketplace

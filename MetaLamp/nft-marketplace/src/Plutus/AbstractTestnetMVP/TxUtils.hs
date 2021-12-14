@@ -68,6 +68,16 @@ mustPayToScript script pkh datum value = (lookups, tx)
         lookups = Constraints.ownPubKeyHash pkh <> Constraints.typedValidatorLookups script
         tx = Constraints.mustPayToTheScript datum value
 
+mustPayToPubKey :: (IsScriptData a) =>
+  TypedValidator a
+  -> PubKeyHash
+  -> Value
+  -> TxPair a
+mustPayToPubKey script pkh value = (lookups, tx)
+    where
+        lookups = Constraints.ownPubKeyHash pkh <> Constraints.typedValidatorLookups script
+        tx = Constraints.mustPayToPubKey pkh value
+
 mustSpendScriptOutputs :: (IsScriptData a) =>
     TypedValidator a
     -> [OutputValue (RedeemerType a)]

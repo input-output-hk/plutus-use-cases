@@ -49,6 +49,9 @@ import qualified Ext.Plutus.Contracts.Currency as Currency
 import qualified Plutus.AbstractTestnetMVP.TxUtils as TxUtils
 import qualified Ledger.Tx as Tx
 import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
+import Plutus.V1.Ledger.Ada (Ada(..), toValue)
+import qualified Data.Map as Map
+import Plutus.AbstractTestnetMVP.OutputValue (OutputValue(..))
 
 -- imports for debug
 import qualified Cardano.Api  as C
@@ -100,15 +103,30 @@ openSale OpenSaleParams {..} = do
     logInfo @Haskell.String $ printf "Opened Sale %s at address %s" (Haskell.show sale) (Haskell.show $ saleAddress sale)
     pure sale
 
--- -- | The user buys sale value paying sale price
--- buyLot :: Sale -> Contract w s Text ()
--- buyLot sale = do
---     pkh <- ownPubKeyHash
---     let client = Core.saleClient sale
---     void $ mapError' $ runStep client $ Core.Buy pkh
+-- | The user buys sale value paying sale price
+buyLot :: Sale -> Contract w s Text ()
+buyLot sale@Sale{..} = do
+    pkh <- ownPubKeyHash
 
---     logInfo @Haskell.String $ printf "User %s bought lot from sale %s" (Haskell.show pkh) (Haskell.show sale)
---     pure ()
+    outputValue <- makeSaleOutputValue sale $ Buy pkh
 
-mapError' :: Contract w s SMContractError a -> Contract w s Text a
-mapError' = mapError $ T.pack . Haskell.show
+    let tx = TxUtils.mustPayToPubKey (saleInstance sale) saleOwner (toValue . Lovelace $ salePrice)
+              <> TxUtils.mustPayToScript (saleInstance sale) pkh SaleClosed minAdaTxOutValue
+              <> TxUtils.mustSpendFromScript (saleInstance sale) [outputValue] pkh (saleValue + minAdaTxOutValue)
+              
+
+    ledgerTx <- TxUtils.submitTxPair tx
+    void $ awaitTxConfirmed $ Tx.getCardanoTxId ledgerTx
+
+    logInfo @Haskell.String $ printf "User %s bought lot from sale %s" (Haskell.show pkh) (Haskell.show sale)
+    pure ()
+
+makeSaleOutputValue :: Sale -> SaleRedeemer -> Contract w s Text (OutputValue SaleRedeemer)
+makeSaleOutputValue sale ovValue = do
+  utxoTx <- utxosTxOutTxAt $ saleAddress sale
+  let utxoTxList = Map.toList utxoTx
+  getUtxo utxoTxList
+  where
+    getUtxo [] = throwError "No utxo on the sale address"
+    getUtxo ((ovOutRef, (ovOutTx, _)):[]) = pure OutputValue {..}
+    getUtxo _ = throwError "More than 1 utxo on the sale address"

@@ -73,14 +73,14 @@ validatePutOnSale marketplace MarketplaceDatum {..} (PutNftLotRedeemer (Internal
         hasNoExistingLot = isNothing . join $ nftLot <$> mbNftEntry
     in  traceIfFalse "NFT not in the marketplace" (isJust mbNftEntry) &&
         traceIfFalse "NFT has not been put on sale" hasBeenPutOnSale &&
-        traceIfFalse "Invalid IPFS Cid Hash" isValidHash
+        traceIfFalse "Invalid IPFS Cid Hash" isValidHash &&
         traceIfFalse "NFT already has a lot" hasNoExistingLot
 
 validateRemoveFromSale :: Marketplace -> MarketplaceDatum -> RemoveFromSaleRedeemerValue -> Bool
 validateRemoveFromSale marketplace MarketplaceDatum{..} (RemoveNftLotRedeemer ipfsCidHash) =
     let mbNftEntry = AssocMap.lookup ipfsCidHash mdSingletons
         hasBeenPutOnSale = isJust . join $ nftLot <$> mbNftEntry
-    in  traceIfFalse "NFT not in the marketplace" (isJust mbNftEntry)
+    in  traceIfFalse "NFT not in the marketplace" (isJust mbNftEntry) &&
         traceIfFalse "NFT has not been put on sale" hasBeenPutOnSale
 
 marketplaceValidator :: Marketplace -> Scripts.Validator
