@@ -16,6 +16,7 @@ module Frontend where
 import Prelude hiding (filter)
 
 import Control.Applicative
+import Control.Monad.IO.Class (MonadIO)
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Route.Frontend
@@ -63,6 +64,7 @@ app
   :: forall t m js
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
      , Prerender js t m
+     , MonadIO (Performable m)
      )
   => RoutedT t (R FrontendRoute) m ()
 app = subRoute_ $ \case
