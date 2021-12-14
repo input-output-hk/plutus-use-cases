@@ -38,8 +38,7 @@ import Prelude qualified as Haskell
 import Types.Game (FixtureStatusShort (..), GameId, TeamId)
 
 data Oracle = Oracle
-    { --oSymbol   :: !CurrencySymbol
-      oRequestTokenSymbol :: !CurrencySymbol -- Oracle request token currency symbol
+    { oRequestTokenSymbol :: !CurrencySymbol -- Oracle request token currency symbol
     , oOperator           :: !PubKeyHash -- Oracle owner
     , oOperatorKey        :: !PubKey -- Oracle owner key used to verify signed data
     , oFee                :: !Ada -- Oracle fee amount
@@ -158,5 +157,5 @@ fromTxOutToChainIndexTxOut ChainIndexTx{_citxData} TxOut { txOutAddress, txOutVa
 
 -- | Get tx output references and tx outputs from tx.
 chainIndexTxOutsWithRef :: ChainIndexTx -> [(Maybe ChainIndexTxOut, TxOutRef)]
-chainIndexTxOutsWithRef tx@ChainIndexTx { _citxOutputs = ValidTx outputs } = zip (map (fromTxOutToChainIndexTxOut tx) outputs) $ txOutRefs tx
+chainIndexTxOutsWithRef tx@ChainIndexTx { _citxOutputs = ValidTx outs } = zip (map (fromTxOutToChainIndexTxOut tx) outs) $ txOutRefs tx
 chainIndexTxOutsWithRef ChainIndexTx { _citxOutputs = InvalidTx }          = []

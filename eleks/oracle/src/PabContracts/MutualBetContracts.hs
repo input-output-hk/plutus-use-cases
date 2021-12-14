@@ -33,7 +33,6 @@ import Plutus.PAB.Simulator qualified as Simulator
 import Prettyprinter
 import Schema (FormSchema)
 
-
 data MutualBetContracts =
     MutualBetOwner MutualBetStartParams
     | MutualBetUser MutualBetParams

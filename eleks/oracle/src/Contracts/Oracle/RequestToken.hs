@@ -43,11 +43,10 @@ import Prelude (Semigroup (..))
 
 {-# INLINABLE checkRequesTokenPolicy #-}
 checkRequesTokenPolicy :: OracleRequestToken -> OracleRequestRedeemer -> ScriptContext -> Bool
-checkRequesTokenPolicy requestToken r ctx@ScriptContext{scriptContextTxInfo=TxInfo{txInfoInputs}, scriptContextPurpose=Minting _} =
+checkRequesTokenPolicy requestToken r ctx =
     case r of
         Request     -> traceIfFalse "Should forge one token" (forgedCount == 1)
                     && traceIfFalse "Is fee paid" (valuePaidTo info (ortOperator requestToken) == feeValue)
-                    -- todo: https://github.com/input-output-hk/plutus-apps/issues/161
                     && traceIfFalse "Is forged with collateral" (isForgedWithCollateral)
         RedeemToken -> traceIfFalse "Should redeem one token" (forgedCount == -1)
     where

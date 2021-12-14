@@ -14,22 +14,6 @@ import Prelude
 import System.Environment
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hPutStrLn, stderr)
-{-
-First request
-cabal exec -- encode-oracle-request 1 \
-"keys/client/payment.vkey"
-
-Oracle Update
-cabal exec -- encode-oracle-request 1 \
-"keys/client/payment.vkey" \
-"keys/oracle/payment.skey" \
-0 FT
-
-cabal exec -- encode-oracle-request 1 \
-"keys/client/payment.vkey" \
-"keys/oracle/payment.skey" \
-0 FT
--}
 
 main :: IO ()
 main = do

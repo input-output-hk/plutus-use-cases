@@ -107,10 +107,10 @@ updateOracle oracle operatorPrivateKey params = do
                             let lookups = Constraints.unspentOutputs (Map.singleton oref o)
                                         <> Constraints.typedValidatorLookups (typedOracleValidator oracle)
                                         <> Constraints.otherScript (oracleValidator oracle)
-                                tx      = Constraints.mustPayToTheScript oracleData' (requestTokenVal <> collateralVal)
+                                constraints      = Constraints.mustPayToTheScript oracleData' (requestTokenVal <> collateralVal)
                                         <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
 
-                            result <- runError @_ @_ @Text $ submitTxConstraintsWith @Oracling lookups tx
+                            result <- runError @_ @_ @Text $ submitTxConstraintsWith @Oracling lookups constraints
                             case result of
                                 Left err -> do
                                     logWarn @Haskell.String "An error occurred. Request oracle for address failed."
@@ -190,9 +190,7 @@ getActiveOracleRequests oracle = do
     let address = oracleAddress oracle
     logInfo @Haskell.String $ "getActiveOracleRequests Oracle address: " ++ show address
     xs <- utxosAt address
-    --logInfo @Haskell.String ("Get active utxos: " ++ show xs)
     filtered <- Control.Monad.mapM mapDatum . filterOracleRequest oracle . Map.toList $ xs
-    --logInfo @Haskell.String ("Filtered: " ++ show filtered)
     let requests = filter (isActiveRequest oracle) . rights $ filtered
     return requests
 
@@ -313,8 +311,8 @@ redeemOracleRequest oracle gameId = do
 -- example endpoint how to consume oracle request owned by user
 redeemOracle :: Oracle -> Contract Text RedeemOracleSchema Text ()
 redeemOracle oracle =
-    selectList[(redeem oracle)]
+    selectList[redeem]
   where
-    redeem :: Oracle -> Promise Text RedeemOracleSchema Text ()
-    redeem or = endpoint @"redeem" $ \oracleParams -> do
-        redeemOracleRequest or (roGame oracleParams)
+    redeem :: Promise Text RedeemOracleSchema Text ()
+    redeem = endpoint @"redeem" $ \oracleParams -> do
+        redeemOracleRequest oracle (roGame oracleParams)

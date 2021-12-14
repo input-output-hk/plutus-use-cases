@@ -103,6 +103,7 @@ isValidBet MutualBetParams{mbpTeam1, mbpTeam2, mbpMinBet} Bet{betAmount, betTeam
 
 {-# INLINABLE deleteFirstOccurence #-}
 deleteFirstOccurence :: Bet -> [Bet] -> [Bet]
+deleteFirstOccurence _ [] = []
 deleteFirstOccurence bet (x:xs)
     | (bet==x) = xs
     | otherwise = x : deleteFirstOccurence bet xs
@@ -133,7 +134,7 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                             }
                 in Just (constraints, newState)
         (Ongoing bets, FinishBetting{oracleSigned})
-            | Just (OracleSignedMessage{osmWinnerId}, oracleSignConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
+            | Just (_, _) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
                 let constraints = mempty
                     newState =
                         State
@@ -145,7 +146,7 @@ mutualBetTransition params@MutualBetParams{mbpOracle, mbpOwner, mbpBetFee} State
                 let constraints = mkTxReturnBets bets
                     newState = State{ stateData = Finished bets, stateValue = mempty }
                 in Just (constraints, newState)
-        (BettingClosed bets, Payout{oracleValue, oracleRef, oracleSigned})
+        (BettingClosed bets, Payout{oracleSigned})
             | Just (OracleSignedMessage{osmWinnerId}, oracleSignConstraints) <- verifyOracleValueSigned (oOperatorKey mbpOracle) oracleSigned ->
                 let
                     winners = getWinners osmWinnerId bets

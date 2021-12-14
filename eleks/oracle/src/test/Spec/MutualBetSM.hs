@@ -20,6 +20,7 @@ import Control.Monad (void)
 import Control.Monad.Freer qualified as Freer
 import Control.Monad.Freer.Error qualified as Freer
 import Control.Monad.Freer.Extras as Extras
+import Data.Aeson (ToJSON)
 import Data.Aeson.Text (encodeToTextBuilder)
 import Data.Default (Default (def))
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
@@ -34,13 +35,13 @@ import Ledger.TimeSlot (SlotConfig)
 import Plutus.Contract hiding (currentSlot)
 import Plutus.Contract.Test hiding (not)
 import Plutus.Trace.Emulator qualified as Trace
-import Plutus.Trace.Emulator.Types (_ContractLog, cilMessage)
+import Plutus.Trace.Emulator.Types (ContractInstanceLog, _ContractLog, cilMessage)
 import PlutusTx.Monoid (inv)
 import Streaming.Prelude qualified as S
 import Test.Tasty
 import Types.Game
 import Wallet.Emulator.Folds qualified as Folds
-import Wallet.Emulator.MultiAgent (eteEvent)
+import Wallet.Emulator.MultiAgent (EmulatorTimeEvent, eteEvent)
 import Wallet.Emulator.Stream qualified as Stream
 import Wallet.Emulator.Wallet (emptyWalletState, ownPrivateKey, ownPublicKey)
 
@@ -55,8 +56,7 @@ getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . empty
 
 oracleParams :: OracleParams
 oracleParams = OracleParams
-    { --opSymbol = oracleCurrency,
-      opFees = 3_000_000
+    { opFees = 3_000_000
     , opCollateral = 2_500_000
     , opSigner = encodeKeyToDto $ oraclePrivateKey
     }
@@ -445,12 +445,13 @@ threadToken =
             void $ Trace.activateContractWallet w1 (void con)
             Trace.waitNSlots 2
 
+expectContractLog :: ToJSON a => Text -> Maybe a -> Bool
 expectContractLog expectedText logM = case logM of
                     Nothing -> False
-                    Just logMessage -> do
-                        let text = toStrict . toLazyText . encodeToTextBuilder $ logMessage
+                    Just message -> do
+                        let text = toStrict . toLazyText . encodeToTextBuilder $ message
                         isInfixOf expectedText text
-
+expectStateChangeFailureLog :: [EmulatorTimeEvent ContractInstanceLog] -> Bool
 expectStateChangeFailureLog = expectContractLog "TransitionFailed" . listToMaybe . reverse . mapMaybe (preview (eteEvent . cilMessage . _ContractLog))
 
 tests :: TestTree

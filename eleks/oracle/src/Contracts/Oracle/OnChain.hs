@@ -117,7 +117,7 @@ isValueSigned pk signedMessage = isJust $ signedMessage >>= verifyOracleValueSig
 
 {-# INLINABLE verifyOracleValueSigned #-}
 verifyOracleValueSigned :: PubKey -> SignedMessage OracleSignedMessage -> Maybe (OracleSignedMessage, TxConstraints Void Void)
-verifyOracleValueSigned pubKey sm = case verifySignedMessageConstraints pubKey sm of
+verifyOracleValueSigned pk sm = case verifySignedMessageConstraints pk sm of
     Left _                   -> Nothing
     Right (osm, constraints) -> Just (osm, constraints)
 

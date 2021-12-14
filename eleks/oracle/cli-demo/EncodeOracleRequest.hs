@@ -3,20 +3,17 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import Prelude
-import System.Environment
-
-import Data.Aeson
-
 import Cardano.Api
 import Cardano.Api.Shelley
-
 import Cardano.Crypto.Wallet (xprv, xpub)
 import Contracts.Oracle.Types
+import Data.Aeson
 import Data.ByteString.Lazy.Char8 qualified as LB8
 import Ledger
 import Plutus.Contract.Oracle (SignedMessage (..), signMessage)
 import Plutus.V1.Ledger.Api qualified as Plutus
+import Prelude
+import System.Environment
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hPutStrLn, stderr)
 import Types.Game

@@ -75,8 +75,7 @@ oracleRequestToken = OracleRequestToken
 
 oracle ::  Oracle
 oracle = Oracle
-    { --oSymbol = opSymbol oracleParams,
-      oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
+    { oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
     , oOperator = walletPubKeyHash oracleWallet
     , oOperatorKey = getWalletPubKey oracleWallet
     , oFee = opFees oracleParams
@@ -91,7 +90,6 @@ team1Id = 1
 
 team2Id :: TeamId
 team2Id = 2
-
 
 mutualBetStartParams :: MutualBetStartParams
 mutualBetStartParams =
@@ -137,15 +135,6 @@ mutualBetContract = mutualBetStartWithOracle' mutualBetTokenClass mutualBetStart
 bettorContract :: Contract MutualBetOutput BettorSchema Text ()
 bettorContract = mutualBetBettor mutualBetParams
 
--- payoutContract :: SignedMessage OracleSignedMessage -> TeamId -> Contract () Empty Text ()
--- payoutContract message winnerId = payout mutualBetParams message winnerId
-
--- cancelGameContract :: SignedMessage OracleSignedMessage -> Contract () Empty Text ()
--- cancelGameContract message = cancel mutualBetParams message
-
--- startGameContract :: SignedMessage OracleSignedMessage -> Contract () Empty Text ()
--- startGameContract message = startGame mutualBetParams message
-
 oracleContract :: Contract (Last OracleContractState) OracleSchema Text ()
 oracleContract = runOracle oracleParams
 
@@ -182,15 +171,6 @@ trace2Bettor1WinShare = Ada.lovelaceOf 5_000_000
 trace2Bettor2WinShare = Ada.lovelaceOf 0
 trace2Bettor3WinShare = Ada.lovelaceOf 5_000_000
 
--- signOracleMesage :: GameId -> TeamId -> FixtureStatusShort -> SignedMessage OracleSignedMessage
--- signOracleMesage gameId winnerId status =
---     let message = OracleSignedMessage{
---                     osmWinnerId = winnerId,
---                     osmGameId = gameId,
---                     osmGameStatus = status
---                   }
---     in (signMessage message oraclePrivateKey "")
-
 mutualBetSuccessTrace :: Trace.EmulatorTrace ()
 mutualBetSuccessTrace = do
     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
@@ -211,11 +191,7 @@ mutualBetSuccessTrace = do
     let winnerId = team1Id
     let updateParamsFt = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = winnerId, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParamsFt
-    --void $ Trace.waitNSlots 30
-    -- let message = signOracleMesage gameId winnerId FT
-    -- Trace.activateContractWallet betOwnerWallet (payoutContract message winnerId)
     void $ Trace.waitNSlots 5
-
 
 mutualBetSuccessTraceFinalState :: MutualBetOutput
 mutualBetSuccessTraceFinalState =
@@ -260,11 +236,7 @@ mutualBetSuccessTrace2 = do
     let winnerId = team1Id
     let updateParamsFt = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = winnerId, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParamsFt
-
-    -- let message = signOracleMesage gameId winnerId FT
-    -- Trace.activateContractWallet betOwnerWallet (payoutContract message winnerId)
     void $ Trace.waitNSlots 5
-
 
 mutualBetSuccessTrace2FinalState :: MutualBetOutput
 mutualBetSuccessTrace2FinalState =
@@ -309,9 +281,6 @@ returnBetsIfAllLostTrace = do
     let winnerId = team2Id
     let updateParamsFt = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = winnerId, uoGameStatus = FT }
     Trace.callEndpoint @"update" oracleHdl updateParamsFt
-
-    -- let message = signOracleMesage gameId winnerId FT
-    -- Trace.activateContractWallet betOwnerWallet (payoutContract message winnerId)
     void $ Trace.waitNSlots 5
 
 inProgressBetFailTrace :: Trace.EmulatorTrace ()
@@ -324,38 +293,11 @@ inProgressBetFailTrace = do
 
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = team1Id, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
-
-    --let message = signOracleMesage gameId 0 LIVE
-    --Trace.activateContractWallet betOwnerWallet (startGameContract message)
     _ <- Trace.waitNSlots 5
     Extras.logInfo @String "Make bet"
     let bet1Params = BetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
     void $ Trace.waitNSlots 1
-
--- incorrectGameBetTrace :: Trace.EmulatorTrace ()
--- incorrectGameBetTrace = do
---     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
---     _ <- Trace.waitNSlots 5
---     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
---     _ <- Trace.waitNSlots 5
---     bettor1Hdl <- Trace.activateContractWallet bettor1 bettorContract
---     _ <- Trace.waitNSlots 1
---     let bet1Params = BetParams { nbpAmount = trace1Bettor1Bet, nbpWinnerId = -1}
---     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
---     void $ Trace.waitNSlots 2
-
--- incorrectBetAmountTrace :: Trace.EmulatorTrace ()
--- incorrectBetAmountTrace = do
---     oracleHdl <- Trace.activateContractWallet oracleWallet $ oracleContract
---     _ <- Trace.waitNSlots 5
---     mutualBetHdl <- Trace.activateContractWallet betOwnerWallet mutualBetContract
---     _ <- Trace.waitNSlots 5
---     bettor1Hdl <- Trace.activateContractWallet bettor1 bettorContract
---     _ <- Trace.waitNSlots 1
---     let bet1Params = BetParams { nbpAmount = (Ada.getLovelace $ mbpMinBet mutualBetParams) - 1, nbpWinnerId = team1Id}
---     Trace.callEndpoint @"bet" bettor1Hdl bet1Params
---     void $ Trace.waitNSlots 2
 
 cancelGameTrace :: Trace.EmulatorTrace ()
 cancelGameTrace = do
@@ -373,10 +315,6 @@ cancelGameTrace = do
     Trace.callEndpoint @"bet" bettor2Hdl bet2Params
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = CANC }
     Trace.callEndpoint @"update" oracleHdl updateParams
-
-    -- void $ Trace.waitNSlots 5
-    -- let message = signOracleMesage gameId 0 CANC
-    -- Trace.activateContractWallet betOwnerWallet (cancelGameContract message)
     void $ Trace.waitNSlots 5
 
 cancelGameTraceState :: MutualBetOutput
@@ -450,9 +388,6 @@ cancelBetLiveGameFailTrace = do
     _ <- Trace.waitNSlots 5
     let updateParams = UpdateOracleParams{ uoGameId = gameId, uoWinnerId = 0, uoGameStatus = LIVE }
     Trace.callEndpoint @"update" oracleHdl updateParams
-
-    --let message = signOracleMesage gameId 0 LIVE
-    --Trace.activateContractWallet betOwnerWallet (startGameContract message)
     _ <- Trace.waitNSlots 10
     let cancelBet1Params = BetParams { nbpAmount = cancelBettorBet, nbpWinnerId = team1Id}
     Trace.callEndpoint @"cancelBet" bettor1Hdl cancelBet1Params
@@ -522,20 +457,6 @@ tests =
         )
         inProgressBetFailTrace
         ,
-        -- checkPredicateOptions options "fail bet if game do not exists"
-        -- (
-        -- assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
-        -- .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ 0)
-        -- )
-        -- incorrectGameBetTrace
-        -- ,
-        -- checkPredicateOptions options "fail bet if amount less than min fee"
-        -- (
-        -- assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
-        -- .&&. walletFundsChange bettor1 (Ada.toValue . Ada.lovelaceOf $ 0)
-        -- )
-        -- incorrectBetAmountTrace
-        -- ,
         checkPredicateOptions options "cancel bet"
         (
         walletFundsChange bettor1 (inv (Ada.toValue $ mbpBetFee mutualBetParams))

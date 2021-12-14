@@ -12,7 +12,6 @@ module Services.GameClient
     ) where
 
 import Data.Aeson
-import Data.ByteString.Char8 (unpack)
 import Data.Text (pack)
 import Network.HTTP.Req
 import Types.Game

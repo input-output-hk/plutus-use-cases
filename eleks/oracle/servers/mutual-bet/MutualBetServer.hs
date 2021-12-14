@@ -29,9 +29,9 @@ mutualBetServer :: Server GamesAPI
 mutualBetServer = wallet
   where 
     wallet:: Integer -> Handler WalletData
-    wallet walletId = do
+    wallet wId = do
 
-      let walletInst = knownWallet $ walletId
+      let walletInst = knownWallet $ wId
           pubKeyHash = walletPubKeyHash walletInst
       return WalletData { walletDataPubKeyHash   = pubKeyHash
                         , walletId               = toUrlPiece walletInst

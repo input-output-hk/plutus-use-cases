@@ -2,23 +2,20 @@
 {-# LANGUAGE NumericUnderscores  #-}
 {-# LANGUAGE OverloadedStrings   #-}
 
-import Prelude
-import System.Environment
-
-import Data.Aeson
-
 import Cardano.Api
 import Cardano.Api.Shelley
-
 import Cardano.Crypto.Wallet (xpub)
 import Cardano.Ledger.Alonzo.Data qualified as Alonzo
 import Contracts.Oracle.OnChain
 import Contracts.Oracle.RequestToken
 import Contracts.Oracle.Types
+import Data.Aeson
 import Data.ByteString.Short qualified as SBS
 import Ledger
 import Ledger.Ada as Ada
 import Plutus.V1.Ledger.Api qualified as Plutus
+import Prelude
+import System.Environment
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hPutStrLn, stderr)
 

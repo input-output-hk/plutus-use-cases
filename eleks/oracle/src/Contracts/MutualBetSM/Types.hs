@@ -97,7 +97,7 @@ threadTokenOut t = Haskell.mempty { mutualBetThreadToken = Last (Just t) }
 
 -- | Initial 'MutualBetState'. In the beginning there are no bets
 initialState :: PubKeyHash -> MutualBetState
-initialState self = Ongoing []
+initialState _ = Ongoing []
 
 PlutusTx.unstableMakeIsData ''MutualBetState
 
