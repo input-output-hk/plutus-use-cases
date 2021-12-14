@@ -26,9 +26,7 @@ import Contracts.Oracle
 import Data.OpenApi.Schema qualified as OpenApi
 import Data.Row
 import Data.Text (Text)
-import Language.PureScript.Bridge (argonaut, equal, genericShow, mkSumType, order)
-import Language.PureScript.Bridge.TypeParameters (A)
-import Ledger (TxId)
+import Language.PureScript.Bridge (argonaut, equal, genericShow, mkSumType)
 import Playground.Types (FunctionSchema)
 import Plutus.Contract (Contract)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (..), HasDefinitions (..), SomeBuiltin (..))
@@ -37,7 +35,6 @@ import Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
 import Plutus.PAB.Simulator (SimulatorEffectHandlers)
 import Plutus.PAB.Simulator qualified as Simulator
 import Schema (FormSchema)
-import Types.Game (GameId)
 
 data OracleContracts =
     OracleContract OracleParams

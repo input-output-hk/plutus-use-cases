@@ -5,7 +5,6 @@ module Main
     ( main
     ) where
 
-import           Data.Aeson                                 (Result (..))
 import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad                              (when, void, forM)
@@ -36,8 +35,8 @@ main = do
     go uuid prevGames = do
         currentGamesE <- getGames
         case currentGamesE of
-            Left error -> do
-                putStrLn $ "error games load: " ++ show error
+            Left currentGameErr -> do
+                putStrLn $ "error games load: " ++ show currentGameErr
                 threadDelay 5_000_000
                 go uuid prevGames
             Right currentGames -> do
@@ -50,19 +49,12 @@ main = do
                     threadDelay 1_000_000
                 threadDelay 5_000_000
                 go uuid prevGames
-        
-        -- let y = Just x
-        -- when (m /= y) $
-        --     updateOracle uuid x
-        -- threadDelay 5_000_000
-        -- go uuid y
 
 updateOracle :: UUID -> Game -> IO ()
 updateOracle uuid game = do
     let winnerId = fromRight 0 $ getWinnerTeamId game
     let gameId = game ^. fixture . fixtureId;
     let gameStatus = game ^. fixture . status . short
-    let gameStatus = game ^. fixture . status . short 
     let updateParams = UpdateOracleParams 
                         { uoGameId   = gameId
                         , uoWinnerId = winnerId
@@ -96,16 +88,16 @@ getStatus cid = runReq defaultHttpConfig $ do
         _               -> liftIO $ ioError $ userError "error decoding state"
 
 callEndpoint :: ToJSON a => UUID -> String -> a -> IO ()
-callEndpoint cid name a = handle h $ runReq defaultHttpConfig $ do
+callEndpoint cid enpointName a = handle h $ runReq defaultHttpConfig $ do
     liftIO $ printf "request body: %s\n\n" $ B8.unpack $ encode a
     v <- req
         POST
-        (http "127.0.0.1" /: "api"  /: "contract" /: "instance" /: pack (show cid) /: "endpoint" /: pack name)
+        (http "127.0.0.1" /: "api"  /: "contract" /: "instance" /: pack (show cid) /: "endpoint" /: pack enpointName)
         (ReqBodyJson a)
         (Proxy :: Proxy (JsonResponse ()))
         (port 9080)
     when (responseStatusCode v /= 200) $
-        liftIO $ ioError $ userError $ "error calling endpoint " ++ name
+        liftIO $ ioError $ userError $ "error calling endpoint " ++ enpointName
   where
     h :: HttpException -> IO ()
     h = ioError . userError . show

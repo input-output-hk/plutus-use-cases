@@ -17,29 +17,23 @@ module PabContracts.SimulatorPabContractsSM(
     , handlers
     ) where
 
-import Contracts.MutualBetSM
 import Contracts.Oracle
 import Control.Monad.Freer
-import Data.Aeson (FromJSON, Result (..), ToJSON)
-import Data.Default (Default (def))
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Monoid (Last (..))
+import Data.Default (Default (def))
 import Data.OpenApi.Schema qualified as OpenApi
 import Data.Row
 import GHC.Generics (Generic)
-import Language.PureScript.Bridge (argonaut, equal, genericShow, mkSumType, order)
-import Language.PureScript.Bridge.TypeParameters (A)
-import Ledger (TxId)
-import Ledger.TimeSlot (SlotConfig)
-import Playground.Types (FunctionSchema)
-import Plutus.Contract qualified as Contract
-import Plutus.Contracts.Currency as Currency
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (..), HasDefinitions (..), SomeBuiltin (..))
 import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
-import Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
 import Plutus.PAB.Simulator (SimulatorEffectHandlers)
 import Plutus.PAB.Simulator qualified as Simulator
 import Prettyprinter
-import Schema (FormSchema)
+import Contracts.MutualBetSM
+import Ledger.TimeSlot (SlotConfig)
+import Plutus.Contract qualified as Contract
+import Plutus.Contracts.Currency as Currency
 
 data MutualBetContracts =
     OracleTokenInit
@@ -74,5 +68,4 @@ initContract :: Contract.Contract (Last Currency.OneShotCurrency) Currency.Curre
 initContract = do
     ownPK <- Contract.ownPubKeyHash
     cur   <- Currency.mintContract ownPK [("test", 1)]
-    let cs = Currency.currencySymbol cur
     Contract.tell $ Last $ Just cur

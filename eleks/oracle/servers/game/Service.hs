@@ -52,9 +52,9 @@ findGameById gameId games = do
     maybeToRight "Game not found" $ find (\g -> gameId == g ^. fixture . fixtureId) games
 
 updateGameScore :: TeamId -> GameId -> ExceptT String IO Game
-updateGameScore teamId gameId =
+updateGameScore teamIdParam gameId =
     getGameById gameId
-    >>= liftEither . addGameScore teamId 
+    >>= liftEither . addGameScore teamIdParam 
     >>= updateGame
 
 addGameScore :: TeamId -> Game -> Either String Game 
@@ -65,9 +65,9 @@ addGameScore teamIdParam game
     | otherwise = Left "Error goal update"
 
 updateGameState :: FixtureStatusShort -> GameId -> ExceptT String IO Game
-updateGameState status gameId =
+updateGameState gameStatus gameId =
     getGameById gameId
-    >>= liftEither . updateGameStatus status 
+    >>= liftEither . updateGameStatus gameStatus 
     >>= liftEither . updateGameWinner 
     >>= updateGame
 

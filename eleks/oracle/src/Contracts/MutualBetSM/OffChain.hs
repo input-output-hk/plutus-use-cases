@@ -35,32 +35,21 @@ import Contracts.MutualBetSM.Types
 import Contracts.Oracle
 import Control.Lens (makeClassyPrisms)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Bool (bool)
-import Data.Default (Default (def))
-import Data.Either (fromRight)
 import Data.Map qualified as Map
 import Data.Maybe (catMaybes)
-import Data.Monoid (Last (..))
-import Data.Semigroup.Generic (GenericSemigroupMonoid (..))
-import Data.Text (Text, pack)
+import Data.Text (Text)
 import GHC.Generics (Generic)
 import Ledger hiding (MintingPolicyHash, singleton)
-import Ledger qualified
 import Ledger.Ada qualified as Ada
 import Ledger.Constraints (ScriptLookups (..))
 import Ledger.Constraints qualified as Constraints
-import Ledger.Constraints.TxConstraints (TxConstraints)
-import Ledger.Interval qualified as Interval
 import Ledger.TimeSlot (SlotConfig)
-import Ledger.TimeSlot qualified as TimeSlot
 import Ledger.Typed.Scripts qualified as Scripts
 import Ledger.Typed.Tx (TypedScriptTxOut (..))
 import Plutus.Contract
 import Plutus.Contract.Oracle qualified as Oracle
-import Plutus.Contract.StateMachine (State (..), StateMachine (..), StateMachineClient, ThreadToken, Void,
-                                     WaitingResult (..))
+import Plutus.Contract.StateMachine (StateMachineClient, ThreadToken, WaitingResult (..))
 import Plutus.Contract.StateMachine qualified as SM
-import Plutus.Contract.Types (Promise (..))
 import Plutus.Contract.Util (loopM)
 import PlutusTx qualified
 import PlutusTx.Prelude

@@ -28,41 +28,25 @@ import Contracts.MutualBet.Types
 import Contracts.Oracle
 import Control.Lens (view)
 import Control.Monad hiding (fmap)
-import Data.ByteString.Char8 qualified as B
-import Data.List (sortOn)
 import Data.Map qualified as Map
 import Data.Maybe (catMaybes)
 import Data.Monoid (Last (..))
-import Data.Ord (comparing)
-import Data.Proxy (Proxy (..))
-import Data.String (fromString)
 import Data.Text (Text, pack)
-import Data.Text qualified as T
-import Data.Text.Encoding qualified as T
-import Data.Void (Void, absurd)
+import Data.Void (absurd)
 import Ledger hiding (singleton)
 import Ledger.Ada qualified as Ada
 import Ledger.Constraints (adjustUnbalancedTx)
 import Ledger.Constraints qualified as Constraints
-import Ledger.Constraints.OnChain as Constraints
 import Ledger.Constraints.TxConstraints as Constraints
-import Ledger.Contexts qualified as Validation
-import Ledger.Scripts (unitRedeemer)
-import Ledger.Typed.Scripts (TypedValidator)
-import Ledger.Typed.Scripts qualified as Scripts
-import Ledger.Value (AssetClass (..), CurrencySymbol (..), assetClass, assetClassValue, assetClassValueOf, symbols,
-                     toString, unCurrencySymbol, unTokenName, valueOf)
-import Ledger.Value qualified as Value
+import Ledger.Value (assetClass, assetClassValue, assetClassValueOf)
 import Playground.Contract
-import Plutus.Contract hiding (when)
+import Plutus.Contract
 import Plutus.Contract.Oracle (SignedMessage (..), verifySignedMessageOffChain)
--- import qualified Contracts.NFT.Currency        as Currency
 import Contracts.MutualBet.Currency as Currency
-import Contracts.Oracle
 import Plutus.Contract.Util (loopM)
 import PlutusTx qualified
 import PlutusTx.Prelude hiding (Semigroup (..), unless)
-import Prelude (Char, Semigroup (..), String, read, show)
+import Prelude (show, Semigroup (..), String)
 import Prelude qualified as Haskell
 import Text.Printf (printf)
 import Types.Game

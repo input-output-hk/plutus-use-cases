@@ -25,37 +25,16 @@ module Contracts.MutualBetSM.StateMachine(
 
 import Contracts.MutualBetSM.Types
 import Contracts.Oracle
-import Control.Lens (makeClassyPrisms)
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Bool (bool)
-import Data.Default (Default (def))
-import Data.Either (fromRight)
-import Data.Monoid (Last (..))
-import Data.Semigroup.Generic (GenericSemigroupMonoid (..))
-import Data.Text (Text, pack)
-import GHC.Generics (Generic)
 import Ledger hiding (MintingPolicyHash, singleton)
-import Ledger qualified
 import Ledger.Ada qualified as Ada
 import Ledger.Constraints qualified as Constraints
 import Ledger.Constraints.TxConstraints (TxConstraints)
-import Ledger.Interval qualified as Interval
-import Ledger.TimeSlot (SlotConfig)
-import Ledger.TimeSlot qualified as TimeSlot
 import Ledger.Typed.Scripts qualified as Scripts
-import Ledger.Typed.Tx (TypedScriptTxOut (..))
-import Ledger.Value qualified as Value
-import Plutus.Contract
-import Plutus.Contract.Oracle qualified as Oracle
-import Plutus.Contract.StateMachine (State (..), StateMachine (..), StateMachineClient, ThreadToken, Void,
-                                     WaitingResult (..))
+import Plutus.Contract.StateMachine (State (..), StateMachine (..), ThreadToken, Void)
 import Plutus.Contract.StateMachine qualified as SM
-import Plutus.Contract.Types (Promise (..))
-import Plutus.Contract.Util (loopM)
 import PlutusTx qualified
 import PlutusTx.Prelude
-import Prelude qualified as Haskell
-import Schema (ToSchema)
 
 type MutualBetMachine = StateMachine MutualBetState MutualBetInput
 

@@ -6,14 +6,11 @@
 module Main(main) where
 
 import           Data.Aeson
-import           Data.Text
 import           Data.String          (fromString)
 import           Control.Monad.Except
-import           Control.Monad.Reader
 import           GHC.Generics         (Generic)
 import           Servant
 import           Service               as GamesService
-import qualified Data.ByteString.Char8 as B
 import           Network.Wai.Handler.Warp
 import           Types.Game
 
@@ -48,23 +45,23 @@ gamesServer = games
       gamesE <- liftIO $ runExceptT $ GamesService.getGames
       case gamesE of 
           Left e -> throwError err500{errBody=fromString  e}
-          Right games -> return games
+          Right gamesList -> return gamesList
     gameById:: GameId -> Handler Game
-    gameById id = do
-      gameM <- liftIO $ runExceptT (GamesService.getGameById id)
+    gameById gameId = do
+      gameM <- liftIO $ runExceptT (GamesService.getGameById gameId)
       case gameM of 
         Left e -> throwError err404{errBody=fromString e}
         Right game -> return game
     сhangeGameState:: GameId -> UpdateGameParams -> Handler Game
     сhangeGameState gameId updateParams = do
-      game <- liftIO $ runExceptT $ updateGameState (ugpSatus updateParams) gameId
-      case game of 
+      gameE <- liftIO $ runExceptT $ updateGameState (ugpSatus updateParams) gameId
+      case gameE of 
         Left e -> throwError err500{errBody=fromString e}
         Right game -> return game 
     changeGameScore:: GameId -> UpdateGameScore -> Handler Game
     changeGameScore gameId updateParams = do
-      game <- liftIO $ runExceptT $ updateGameScore (ugpTeam updateParams) gameId
-      case game of 
+      gameE <- liftIO $ runExceptT $ updateGameScore (ugpTeam updateParams) gameId
+      case gameE of 
         Left e -> throwError err500{errBody=fromString e}
         Right game -> return game 
 
@@ -73,5 +70,5 @@ gamesApp = serve gamesAPI gamesServer
 
 main :: IO ()
 main = do
-  runExceptT $ createInitialGames
+  _ <- runExceptT $ createInitialGames
   run 8081 gamesApp

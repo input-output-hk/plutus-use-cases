@@ -11,19 +11,9 @@ module Services.GameClient
     , getGameById
     ) where
 
-import Contracts.Oracle
-import Control.Concurrent
-import Control.Exception
-import Control.Monad (when)
-import Control.Monad.IO.Class (MonadIO (..))
 import Data.Aeson
-import Data.Aeson.TH
-import Data.ByteString (ByteString)
 import Data.ByteString.Char8 (unpack)
-import Data.Monoid (Last (..))
-import Data.Proxy (Proxy (..))
-import Data.Text (Text, pack)
-import GHC.Generics (Generic)
+import Data.Text (pack)
 import Network.HTTP.Req
 import Types.Game
 

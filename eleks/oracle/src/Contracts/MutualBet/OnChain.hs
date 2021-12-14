@@ -23,34 +23,20 @@ import Cardano.Api.Shelley (PlutusScript (..), PlutusScriptV1)
 import Codec.Serialise
 import Contracts.MutualBet.Types
 import Contracts.Oracle
-import Control.Monad hiding (fmap)
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Bool (bool)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short qualified as SBS
-import Data.List.NonEmpty qualified as NonEmpty
-import Data.Map qualified as Map
-import Data.Monoid (Last (..))
-import Data.Text (Text, pack)
-import Data.Void (Void)
-import GHC.Generics (Generic)
 import Ledger hiding (MintingPolicyHash, singleton)
 import Ledger.Ada as Ada
-import Ledger.Constraints as Constraints
 import Ledger.Constraints.OnChain as Constraints
 import Ledger.Constraints.TxConstraints as Constraints
-import Ledger.Contexts qualified as Validation
 import Ledger.Scripts qualified as LedgerScripts
-import Ledger.Tx qualified as LedgerScripts
 import Ledger.Typed.Scripts qualified as Scripts
 import Ledger.Value as Value
-import Plutus.Contract as Contract
-import Plutus.Contract.Oracle (SignedMessage (..), verifySignedMessageConstraints)
+import Plutus.Contract.Oracle (SignedMessage (..))
 import PlutusTx qualified
 import PlutusTx.Prelude hiding (Semigroup (..), unless)
-import Prelude (Semigroup (..), Show (..), String)
-import Prelude qualified as Haskell
-import Schema (ToSchema)
+import Prelude (Semigroup (..))
 import Types.Game
 
 {-# INLINABLE payToWinners #-}
@@ -118,6 +104,7 @@ isValidBet MutualBetParams{mbpTeam1, mbpTeam2, mbpMinBet} Bet{betAmount, betTeam
 
 {-# INLINABLE deleteFirstOccurence #-}
 deleteFirstOccurence :: Bet -> [Bet] -> [Bet]
+deleteFirstOccurence _ [] = []
 deleteFirstOccurence bet (x:xs)
     | (bet==x) = xs
     | otherwise = x : deleteFirstOccurence bet xs
@@ -306,8 +293,8 @@ mkMutualBetValidator params (MutualBetDatum bets BettingClosed ) (Payout oracleM
 -- mkMutualBetValidator params (MutualBetDatum _    _             ) (Payout _)                 _   = traceError "game cannot be finished"
 mkMutualBetValidator params (MutualBetDatum bets BettingOpen   ) (CancelGame oracleMessage) ctx = validateCancel params bets oracleMessage ctx
 -- mkMutualBetValidator params (MutualBetDatum _    _             ) (CancelGame _            ) _   = traceError "game cannot be cancelled"
-mkMutualBetValidator params (MutualBetDatum bets GameCancelled ) (DeleteGame oracleMessage) ctx = validateDeleteGame params oracleMessage ctx
-mkMutualBetValidator params (MutualBetDatum bets GameFinished  ) (DeleteGame oracleMessage) ctx = validateDeleteGame params oracleMessage ctx
+mkMutualBetValidator params (MutualBetDatum _    GameCancelled ) (DeleteGame oracleMessage) ctx = validateDeleteGame params oracleMessage ctx
+mkMutualBetValidator params (MutualBetDatum _    GameFinished  ) (DeleteGame oracleMessage) ctx = validateDeleteGame params oracleMessage ctx
 -- mkMutualBetValidator params (MutualBetDatum _    _             ) (DeleteGame _)             _   = traceError "cannot delete game"
 mkMutualBetValidator _       _                                   _                          _   = traceError "invalid bet state"
 data MutualBetTypes

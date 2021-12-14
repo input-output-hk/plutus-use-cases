@@ -198,7 +198,7 @@ getActiveOracleRequests oracle = do
 
 getActiveGames:: Oracle -> Contract w s Text ([GameId])
 getActiveGames oracle = do
-    requests <- nub . map (\(_, _, or) -> ovGame or) <$> getActiveOracleRequests oracle
+    requests <- nub . map (\(_, _, oracleReq) -> ovGame oracleReq) <$> getActiveOracleRequests oracle
     return requests
 
 awaitNextOracleRequest:: Oracle -> Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
@@ -206,7 +206,7 @@ awaitNextOracleRequest oracle =
     awaitNext
     where
     convertChainIndexOut:: (Maybe ChainIndexTxOut, TxOutRef) -> Maybe (TxOutRef, ChainIndexTxOut)
-    convertChainIndexOut (o, oref) =  (\to -> (oref, to)) <$> o
+    convertChainIndexOut (o, oref) =  (\o' -> (oref, o')) <$> o
     awaitNext :: Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
     awaitNext = do
         utxos <- awaitUtxoProduced $ oracleAddress oracle
@@ -241,7 +241,7 @@ runOracle op = do
         tell $ Last $ Just $ Games gamesIds
 
 hasOracleRequestToken :: Oracle -> (TxOutRef, ChainIndexTxOut) -> Bool
-hasOracleRequestToken oracle (oref, o) =
+hasOracleRequestToken oracle (_, o) =
     assetClassValueOf (view ciTxOutValue o) (requestTokenClassFromOracle oracle) == 1
 
 filterOracleRequest :: Oracle -> [(TxOutRef, ChainIndexTxOut)] -> [(TxOutRef, ChainIndexTxOut)]
@@ -290,7 +290,7 @@ redeemOracleRequest :: forall w s. Oracle -> GameId -> Contract w s Text ()
 redeemOracleRequest oracle gameId = do
     pkh <- Contract.ownPubKeyHash
     oracleRequestMaybe <- findOracleRequest oracle gameId pkh
-    (oref, o, t) <- maybe (throwError "no oracle request")
+    (oref, o, _) <- maybe (throwError "no oracle request")
                      pure oracleRequestMaybe
     let inst = typedOracleValidator oracle
         mrScript = oracleValidator oracle
@@ -316,5 +316,5 @@ redeemOracle oracle =
     selectList[(redeem oracle)]
   where
     redeem :: Oracle -> Promise Text RedeemOracleSchema Text ()
-    redeem oracle = endpoint @"redeem" $ \oracleParams -> do
-        redeemOracleRequest oracle (roGame oracleParams)
+    redeem or = endpoint @"redeem" $ \oracleParams -> do
+        redeemOracleRequest or (roGame oracleParams)

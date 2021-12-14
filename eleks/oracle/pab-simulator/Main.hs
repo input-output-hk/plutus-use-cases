@@ -26,7 +26,7 @@ import Data.Either (fromRight)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Last (..))
 import Data.Text (Text)
-import Ledger.Crypto (PrivateKey, PubKey)
+import Ledger.Crypto (PrivateKey)
 import PabContracts.SimulatorPabContracts (MutualBetContracts (..), handlers)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator qualified as Simulator
@@ -34,7 +34,6 @@ import Plutus.PAB.Webserver.Server qualified as PAB.Server
 import Services.GameClient qualified as GameClient
 import Types.Game
 import Wallet.Emulator.Types
-import Wallet.Emulator.Wallet (ownPublicKey)
 import Wallet.Types (ContractInstanceId (..))
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()

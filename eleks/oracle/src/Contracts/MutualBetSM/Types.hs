@@ -28,14 +28,12 @@ import Data.Monoid (Last (..))
 import Data.OpenApi.Schema qualified as OpenApi
 import Data.Semigroup.Generic (GenericSemigroupMonoid (..))
 import Ledger
-import Ledger.Value
-import Playground.Contract (FromJSON, Generic, Show, ToJSON, ToSchema)
+import Playground.Contract (FromJSON, Generic, ToJSON, ToSchema)
 import Plutus.Contract.Oracle
 import Plutus.Contract.StateMachine qualified as SM
 import PlutusTx qualified
 import PlutusTx.Prelude
 import Prelude qualified as Haskell
-import Types.Game
 
 -- | Definition of an mutual bet
 data MutualBetParams

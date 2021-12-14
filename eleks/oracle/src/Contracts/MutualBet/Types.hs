@@ -25,24 +25,16 @@ module Contracts.MutualBet.Types
   where
 
 import Contracts.Oracle.Types
-import Control.Monad (mzero)
 import Data.Aeson
-import Data.Aeson.TH
-import Data.Aeson.Types
-import Data.Either (fromRight)
-import Data.Map (lookup)
 import Data.Monoid (Last (..))
 import Data.OpenApi.Schema qualified as OpenApi
 import Data.Semigroup.Generic (GenericSemigroupMonoid (..))
 import Ledger hiding (txOutRefs)
-import Ledger.Crypto (pubKeyHash)
-import Playground.Contract (FromJSON, Generic, Show, ToJSON, ToSchema)
-import Plutus.ChainIndex.Tx (ChainIndexTx (..), ChainIndexTxOutputs (..), txOutRefs)
+import Playground.Contract (Generic, Show, ToSchema)
 import Plutus.Contract.Oracle (SignedMessage (..))
 import PlutusTx qualified
 import PlutusTx.Prelude
 import Prelude qualified as Haskell
-import Types.Game
 
 data MutualBetStartParams
     = MutualBetStartParams
