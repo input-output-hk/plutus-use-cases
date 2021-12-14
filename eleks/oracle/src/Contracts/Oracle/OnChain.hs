@@ -38,7 +38,7 @@ import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton, MintingPolicyHash)
 import qualified Ledger.Scripts            as LedgerScripts
 import           Ledger.Constraints        as Constraints
-import           Plutus.Contract.Oracle    (SignedMessage(..), signMessage, verifySignedMessageConstraints)
+import           Plutus.Contract.Oracle    (SignedMessage(..), verifySignedMessageConstraints)
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
@@ -62,7 +62,7 @@ mkOracleValidator oracle oracleData r ctx =
     forged = txInfoMint $ scriptContextTxInfo ctx
 
     requestTokenValOf:: Value -> Integer 
-    requestTokenValOf value = valueOf value (oRequestTokenSymbol oracle) oracleRequestTokenName
+    requestTokenValOf val = valueOf val (oRequestTokenSymbol oracle) oracleRequestTokenName
 
     ownInput :: TxOut
     ownInput = case findOwnInput ctx of
@@ -111,7 +111,7 @@ extractSignedMessage pubkey signedMessage = signedMessage
 
 {-# INLINABLE isValueSigned #-}
 isValueSigned:: PubKey -> Maybe (SignedMessage OracleSignedMessage) -> Bool
-isValueSigned pubKey signedMessage = isJust $ signedMessage >>= verifyOracleValueSigned pubKey
+isValueSigned pk signedMessage = isJust $ signedMessage >>= verifyOracleValueSigned pk
 
 
 {-# INLINABLE verifyOracleValueSigned #-}

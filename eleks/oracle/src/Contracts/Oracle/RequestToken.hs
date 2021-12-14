@@ -30,7 +30,6 @@ import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1)
 import           Codec.Serialise
 import qualified Data.ByteString.Short     as SBS
 import qualified Data.ByteString.Lazy      as LBS
-import qualified Data.Map                  as Map
 import qualified PlutusTx
 import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton, MintingPolicyHash)
@@ -54,7 +53,6 @@ checkRequesTokenPolicy requestToken r ctx@ScriptContext{scriptContextTxInfo=TxIn
         ownSymbol = ownCurrencySymbol ctx
         info = scriptContextTxInfo ctx
         forged = txInfoMint info
-        forgedSymbolsCount = length $ symbols forged
         forgedCount = valueOf forged ownSymbol oracleRequestTokenName
         feeValue = Ada.toValue $ ortFee requestToken
         collateralValue = Ada.toValue $ ortCollateral requestToken
@@ -63,12 +61,12 @@ checkRequesTokenPolicy requestToken r ctx@ScriptContext{scriptContextTxInfo=TxIn
         isForgetTokenOutput:: TxOut -> Bool
         isForgetTokenOutput o =  
             txOutValue o == Value.singleton ownSymbol oracleRequestTokenName 1 
-                            <> (Ada.toValue $ ortCollateral requestToken)
+                            <> collateralValue
 
 
 requestTokenPolicy :: OracleRequestToken -> LedgerScripts.MintingPolicy
 requestTokenPolicy oracle = LedgerScripts.mkMintingPolicyScript $
-    $$(PlutusTx.compile [|| \oracle -> Scripts.wrapMintingPolicy (checkRequesTokenPolicy oracle) ||])
+    $$(PlutusTx.compile [|| \o -> Scripts.wrapMintingPolicy (checkRequesTokenPolicy o) ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode oracle
 

@@ -7,6 +7,7 @@ import           Data.Aeson
 import           Cardano.Crypto.Wallet (XPrv)
 import           Contracts.Oracle
 import           System.Environment
+
 main :: IO ()
 main = do
   args <- getArgs

@@ -25,7 +25,6 @@ module Contracts.Oracle.Types
 import           Data.Aeson 
 import           Data.Map                        (lookup)
 import           Ledger                          hiding (txOutRefs)
-import           Ledger.Crypto                   (pubKeyHash)
 import           Plutus.Contract.Oracle          (SignedMessage(..))
 import           Ledger.Value                    (TokenName (..))
 import           Playground.Contract             (Show, Generic, ToSchema)

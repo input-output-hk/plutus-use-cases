@@ -35,47 +35,34 @@ module Contracts.Oracle.OffChain
     , redeemOracle
     ) where
 
-import           Cardano.Api.Shelley       (PlutusScript (..), PlutusScriptV1) 
 import           Control.Lens              (view)
 import           Control.Monad             hiding (fmap)
 import           Contracts.Oracle.Conversion
 import           Contracts.Oracle.Types
 import           Contracts.Oracle.RequestToken
 import           Contracts.Oracle.OnChain
-import           Codec.Serialise
 import           Data.Aeson                (FromJSON, ToJSON)
-import           Data.Void                 (absurd)
-import qualified Data.ByteString.Short     as SBS
-import qualified Data.ByteString.Lazy      as LBS
-import           Data.Either               (fromRight, rights)
+import           Data.Either               (rights)
 import qualified Data.Map                  as Map
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               (Last (..))
 import           Data.Text                 (Text, pack, unpack)
 import qualified Data.List.NonEmpty        as NonEmpty
-import           Data.Void (Void)
 import           GHC.Generics              (Generic)
 import           Plutus.Contract           as Contract
 import qualified PlutusTx
 import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton, MintingPolicyHash)
-import           Ledger.Crypto             (Passphrase, toPublicKey, pubKeyHash)
-import qualified Ledger.Scripts            as LedgerScripts
-import qualified Ledger.Tx                 as LedgerScripts
 import           Ledger.Constraints        as Constraints
-import qualified Ledger.Contexts           as Validation
-import           Plutus.Contract.Oracle    (Observation, SignedMessage(..), signMessage, SignedMessageCheckError(..), checkSignature)
-import qualified Ledger.Typed.Scripts      as Scripts
+import           Plutus.Contract.Oracle    (signMessage)
 import           Ledger.Value              as Value
 import           Ledger.Ada                as Ada
 import           Types.Game
-import           Plutus.Contracts.Currency as Currency
-import           Plutus.Contract.Types     (Promise (..), _OtherError)
 import           Prelude                   (Semigroup (..), Show (..), String)
 import qualified Prelude                   as Haskell
 import           Schema                    (ToSchema)
 import           Plutus.ChainIndex         ()
-import           Cardano.Crypto.Wallet     (xprv, xpub, XPrv, XPub)
+import           Cardano.Crypto.Wallet     (XPrv)
 
 startOracle :: forall w s. OracleParams -> PubKey -> Contract w s Text Oracle
 startOracle op pk = do
@@ -88,7 +75,7 @@ startOracle op pk = do
             , ortCollateral = opCollateral op
             }
     let oracle = Oracle
-            { --oSymbol = opSymbol op
+            {
               oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
             , oOperator = pkh
             , oOperatorKey = pk
@@ -132,8 +119,6 @@ updateOracle oracle operatorPrivateKey params = do
                                     logInfo @Haskell.String $ "Waiting for tx " <> Haskell.show txi <> " to complete"
                                     awaitTxConfirmed txi
                                     logInfo @Haskell.String "Tx confirmed. Request oracle for address complete."
-                            -- logInfo ("submit transaction " ++ (show $ oracleData'))
-                            -- mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
 
 oracleValueFromTxOutTx :: ChainIndexTxOut -> Contract w s Text OracleData
 oracleValueFromTxOutTx o = 
@@ -171,7 +156,6 @@ requestOracleForAddress oracle gameId = do
     logInfo @Haskell.String "Request oracle for address"
     pkh <- Contract.ownPubKeyHash
     let inst = typedOracleValidator oracle
-        operatorKey = (oOperator oracle)
         mrScript = oracleValidator oracle
         address = oracleAddress oracle
         tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
@@ -198,16 +182,6 @@ requestOracleForAddress oracle gameId = do
 
     handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints @Oracling lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo @Haskell.String "Request oracle for address complete."
-    -- result <- runError @_ @_ @Text $ submitTxConstraintsWith @Oracling lookups tx
-    -- case result of
-    --     Left err -> do
-    --         logWarn @Haskell.String "An error occurred. Request oracle for address failed."
-    --         logWarn err
-    --     Right tx -> do
-    --         let txi = getCardanoTxId tx
-    --         logInfo @Haskell.String $ "Waiting for tx " <> Haskell.show txi <> " to complete"
-    --         awaitTxConfirmed txi
-    --         logInfo @Haskell.String "Tx confirmed. Request oracle for address complete."
 
 --get active request lists for oracle to process
 getActiveOracleRequests:: Oracle -> Contract w s Text [(TxOutRef, ChainIndexTxOut, OracleData)]
@@ -271,11 +245,6 @@ hasOracleRequestToken oracle (oref, o) =
 
 filterOracleRequest :: Oracle -> [(TxOutRef, ChainIndexTxOut)] -> [(TxOutRef, ChainIndexTxOut)]
 filterOracleRequest oracle txs = filter (hasOracleRequestToken oracle) $ txs
-
--- mapDatum :: (TxOutRef, ChainIndexTxOut) -> Either Text (TxOutRef, ChainIndexTxOut, OracleData)
--- mapDatum (oref, o) = case oracleValueFromTxOutTx o of
---     Just datum -> Right (oref, o, datum)
---     Nothing -> Left "No datum"
 
 mapDatum :: forall w s. (TxOutRef, ChainIndexTxOut) -> Contract w s Text (Either Text (TxOutRef, ChainIndexTxOut, OracleData))
 mapDatum (oref, o) = do
