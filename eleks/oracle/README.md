@@ -25,32 +25,50 @@ At any moment client contract could get utxo datum from network and use oracle p
 
 ### Redeem oracle token
 When oracle data is not needed anymore, creator could redeem the token in order to get back collateral Ada
-![Update oracle](./screenshots/oracle-redeem.png)
+![Redeem oracle](./screenshots/oracle-redeem.png)
 
 ## Mutual bet contract
-Mutual bet contract is based on the state machine. Each game has a separate Contract with the next states:
-Ongoing - Bets are open
-Bets closed - Game in progress, betting is closed
-Finished - Contract finished, either game completed or cancelled
+Eash game has separate instance of the contract has a separate Contract with the next states:
+Betting open - Game not started
+Betting closed - Game in progress,
+Finished - Contract finished, winners get the win share, win share distrubuted in proportion to the bet amount. If user place a bet with amount equals to 50$ of the winning bets, he will get 50% of all lost bets. 
+Cancelled - Game cancelled, bettors get their bets back
 
 ### Place a bet
 User can place a bet on a specific game. There is a minimum bet ammount.
 User pays a fee to the contract owner.
-![Place a bet](./screenshots/placebet.png)
+![Place a bet](./screenshots/mutual-bet-placebet.png)
+
+### Place cancel a bet
+User can cancel his bet.
+Fee is retained by the contract owner.
+![Place a bet](./screenshots/mutual-bet-cancelplacebet.png)
+
+
+### Start game
+Mutual bet owner send a bet closed message to the contract,
+redeemer contains signed oracle message with game state = LIVE.
+Bets are not possibl anymore
+![Start game](./screenshots/mutual-bet-start-game.png)
 
 ### Payout
-Payout to the winners. On the game finish winning share is taken from the lost bettors and shared proportionally to the winners participants
-![Payout](./screenshots/payout.png)
+Mutual bet owner send a payout message to the contract,
+redeemer contains signed oracle message with game state = FT.
+Win share amount are sent to the winners. If no winners - bets returned back to the bettors
+![Payout](./screenshots/mutual-bet-finish-game.png)
 
-### Cancel/No winners
-When game cancelled or completed with no winning bet all bets are returned to the bettors. Fee is retained by the contract owner.
-![Cancel/No Winners](./screenshots/cancel.png)
+### Cancel
+Mutual bet owner send a cacnel message to the contract,
+redeemer contains signed oracle message with game state = CANC.
+When game cancelled all bets are returned to the bettors. Fee is retained by the contract owner.
+![Cancel/No Winners](./screenshots/mutual-bet-cancel-game.png)
 
 ## Core functionality 
 1. SignIn ability with one of the pre defined default wallets 
 2. See the avaiable games lists.
 3. Make a bet for selected game.
-4. See the active games bets (current user and all others).
+4. See the games bets (current user and all others).
+5. See user win share
 
 ## Technology Stack
 1. Plutus
@@ -114,13 +132,12 @@ cabal build mutualbetserver
 ```
 cabal exec -- mutualbetserver
 ```
-
 ### Mutual bet server API 
 
 1. Wallet info (WalletId, PubKey)
 curl -s http://localhost:8082/wallet/1
 
-## The Plutus Application Backend (PAB) example
+## The Plutus Application Backend (PAB) simulator example
 We have provided an example PAB application in `./pab`. With the PAB we can serve and interact
 with contracts over a web API. You can read more about the PAB here: [PAB Architecture](https://github.com/input-output-hk/plutus/blob/master/plutus-pab/ARCHITECTURE.adoc).
 
