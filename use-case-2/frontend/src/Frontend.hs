@@ -16,8 +16,6 @@ module Frontend where
 import Prelude hiding (filter)
 
 import Control.Applicative
-import Control.Monad
-import qualified Data.Text as T
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Route.Frontend
@@ -28,8 +26,6 @@ import Rhyolite.Frontend.App
 import Common.Api
 import Common.Route
 import Frontend.ChooseWallet
-
-import Language.Javascript.JSaddle
 
 -- This runs in a monad that can be run on the client or the server.
 -- To run code in a pure client or pure server context, use one of the
@@ -54,7 +50,7 @@ frontend = Frontend
       -- during prerendering and a different widget to run on the client with
       -- JavaScript. The following will generate a `blank` widget on the server and
       -- print "Hello, World!" on the client.
-      prerender_ blank $ liftJSM $ void $ eval ("window.cardano.enable();" :: T.Text)
+      -- TODO: Won't need this no more
       let errorLeft e = case e of
             Left _ -> error "runFrontend: Unexpected non-app ObeliskRoute reached the frontend. This shouldn't happen."
             Right x -> x
@@ -67,7 +63,6 @@ app
   :: forall t m js
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
      , Prerender js t m
-     , SetRoute t (R FrontendRoute) m
      )
   => RoutedT t (R FrontendRoute) m ()
 app = subRoute_ $ \case

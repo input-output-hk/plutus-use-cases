@@ -112,9 +112,9 @@ nix-build -A cardano-wallet -o result
 
 cardano-wallet API endpoints are now available for use against testnet. See documentation here for more information about cardano-wallet endpoints: https://input-output-hk.github.io/cardano-wallet/api/edge/#tag/Wallets
 
-##  NEXT UP: Deploy Contracts to a real Alonzo Node (WORK IN PROGRESS)
+##  Deploy Uniswap Contracts to a Testnet Alonzo Node
 
-Build and Run Alonzo Purple Node
+Build and Run Alonzo Testnet Node
 ```
 cd dep
 ob thunk unpack cardano-node
@@ -128,14 +128,14 @@ cd result/alonzo-testnet
 In a seperate terminal, verify the Node's sychronization. When `syncProgress` reads 100.00, syncing has completed.
 ```
 cd result/alonzo-testnet
-CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-testnet/node.socket ./cardano-cli/bin/cardano-cli query tip --testnet-magic 8
+CARDANO_NODE_SOCKET_PATH=./state-node-alonzo-testnet/node.socket ./cardano-cli/bin/cardano-cli query tip --testnet-magic 1097911063
 ```
 
 Mint a Uniswap Token (Assuming you already have a payment address with ADA)
 
 Make note of a TxHash and TxIx you would like to use to mint a uniswap token
 ```
-cardano-cli/bin/cardano-cli query utxo --address [ADDRESS] --testnet-magic 8
+cardano-cli/bin/cardano-cli query utxo --address [ADDRESS] --testnet-magic 1097911063
 ```
 
 Send an arbitrary amount of funds to self in order to create a new utxo handle in order to not lose all funds in the unlikely event of collateral seizing runtime errors. Feel free to use the script call below from within ./dep/cardano-node/result/alonzo-testnet

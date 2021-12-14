@@ -18,17 +18,15 @@ module Frontend.ChooseWallet
 import Prelude hiding (id, filter)
 
 import Control.Applicative
+import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
-import Obelisk.Route
-import Obelisk.Route.Frontend
 import Reflex.Dom.Core
 import Rhyolite.Frontend.App
 
 import Common.Api
-import Common.Route
 import Frontend.NavBar
 
 import Language.Javascript.JSaddle
@@ -37,11 +35,13 @@ chooseWallet
   :: forall t m js
   .  ( MonadRhyoliteWidget (DexV (Const SelectedCount)) Api t m
      , Prerender js t m
-     , SetRoute t (R FrontendRoute) m
      )
   => m ()
-chooseWallet = do
-  navBar' Nothing
+chooseWallet = mdo
+  pb <- getPostBuild
+  enableNamiEv <- navBar dynAddress
+  (addressEv, addressTrigger) <- newTriggerEvent
+  dynAddress <- holdDyn "" addressEv
   divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container py-5" $ divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h2" "display-5 fw-bold" $ text "Welcome to POKE-DEX!"
@@ -51,9 +51,7 @@ chooseWallet = do
       let dynAdaAmount =  ((either (\_ -> 0) fst) . T.decimal) <$> _inputElement_value inputAmount
       staticSwapEv <- button "Swap ADA to receive PikaCoin"
       ----------------------
-      (addressEv, addressTrigger) <- newTriggerEvent
-      dynAddress <- holdDyn "" addressEv
-      staticSwapRequestEv <- prerender (pure never) $ liftJSM $ do
+      prerender_ blank $ performEvent_ $ (liftJSM $ do
         let getAddressCallback :: JSCallAsFunction
             getAddressCallback = fun $ \_ _ args -> case args of
               (i:_) -> do
@@ -62,17 +60,18 @@ chooseWallet = do
                   _ -> pure ()
               _ -> pure ()
         jsWalletAddress <- eval
-          ("(async function foo (someparam) { let x = await window.cardano.getUsedAddresses(); \
+          ("(async function foo (someparam) { let z = await window.cardano.isEnabled(); if (z) { let x = await window.cardano.getUsedAddresses(); \
             \ y = CardanoWasm.BaseAddress.from_address(CardanoWasm.Address.from_bytes(buffer.Buffer.from(x[0], 'hex'))); \
             \ console.log(y.to_address().to_bech32()); \
-            \ someparam(y.to_address().to_bech32()); })" :: Text)
+            \ someparam(y.to_address().to_bech32());} })" :: Text)
         _ <- call jsWalletAddress jsWalletAddress (getAddressCallback)
-        let requestLoad = (\addr adaAmount -> Api_BuildStaticSwapTransaction addr adaAmount)
-               <$> dynAddress
-               <*> dynAdaAmount
-        return $ tagPromptlyDyn requestLoad staticSwapEv
-      let newEv = switchDyn staticSwapRequestEv
-      txBuildResponse <- requestingIdentity newEv
+        return ()) <$ (leftmost [pb, () <$ enableNamiEv])
+      let requestLoad = (\addr adaAmount -> Api_BuildStaticSwapTransaction addr adaAmount)
+             <$> dynAddress
+             <*> dynAdaAmount
+      let staticSwapRequestEv =tagPromptlyDyn requestLoad staticSwapEv
+      -- let newEv = switchDyn staticSwapRequestEv
+      txBuildResponse <- requestingIdentity staticSwapRequestEv
       -- Use the CBOR encoded transaction hash received to start Nami Wallet's Tx signing and submission
       let (txBuildFailEv, cborHexEv) = fanEither txBuildResponse
 
