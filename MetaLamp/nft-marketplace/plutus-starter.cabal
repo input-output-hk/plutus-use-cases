@@ -150,6 +150,17 @@ executable pab-simulation
     base >= 4.9 && < 5,
     plutus-starter
 
+executable testnet-mvp
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs: testnet-mvp
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter,
+    plutus-pab
+
 executable testnet-mvp-simulation
   import: lang
   main-is: Main.hs

@@ -55,7 +55,7 @@ startServer = do
     availability <- newToken
     let mkWalletInfo = do
             (wllt, pk) <- Simulator.addWallet
-            pure $ WalletInfo{wiWallet = wllt, wiPubKeyHash = pk}
+            pure $ WalletInfo{wiWallet = wllt, wiPaymentPubKeyHash = pk}
     snd <$> PAB.startServer' corsMiddlewares 9080 (Right mkWalletInfo) Nothing availability 30
     where
         corsMiddlewares =

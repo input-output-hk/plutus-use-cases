@@ -60,24 +60,24 @@ saleWithFeeBuyConstraints SaleFee {..} Sale {..} =
   let saleProfit = salePrice - operatorFee
       operatorFee = Percentage.calculatePercentageRounded sfSaleFee salePrice
   in
-    Constraints.mustPayToPubKey saleOwner (Ada.lovelaceValueOf saleProfit) <>
-    Constraints.mustPayToPubKey sfSaleOperator (Ada.lovelaceValueOf operatorFee)
+    Constraints.mustPayToPubKey (PaymentPubKeyHash saleOwner) (Ada.lovelaceValueOf saleProfit) <>
+    Constraints.mustPayToPubKey (PaymentPubKeyHash sfSaleOperator) (Ada.lovelaceValueOf operatorFee)
 
 saleWithoutFeeBuyConstraints :: GetAdditionalConstraints
 saleWithoutFeeBuyConstraints Sale {..} =
-    Constraints.mustPayToPubKey saleOwner (Ada.lovelaceValueOf salePrice)
+    Constraints.mustPayToPubKey (PaymentPubKeyHash saleOwner) (Ada.lovelaceValueOf salePrice)
 
 {-# INLINABLE transition #-}
 transition :: GetAdditionalConstraints -> Sale -> State SaleDatum -> SaleRedeemer -> Maybe (TxConstraints Void Void, State SaleDatum)
 transition additionalConstraints sale@Sale{..} state redeemer = case (stateData state, redeemer) of
     (SaleOngoing, Redeem)
-        -> Just ( Constraints.mustBeSignedBy saleOwner <>
-                  Constraints.mustPayToPubKey saleOwner saleValueWithMinAdaTxOut
+        -> Just ( Constraints.mustBeSignedBy (PaymentPubKeyHash saleOwner) <>
+                  Constraints.mustPayToPubKey (PaymentPubKeyHash saleOwner) saleValueWithMinAdaTxOut
                 , State SaleClosed mempty
                 )
     (SaleOngoing, Buy buyer) | saleValueWithMinAdaTxOut == val
-        -> Just ( Constraints.mustBeSignedBy buyer <>
-                  Constraints.mustPayToPubKey buyer saleValueWithMinAdaTxOut <>
+        -> Just ( Constraints.mustBeSignedBy (PaymentPubKeyHash buyer) <>
+                  Constraints.mustPayToPubKey (buyer) saleValueWithMinAdaTxOut <>
                   -- TODO: is it okay that buyer receive additional 2ADA? Should we initially add them to the sale price?
                   additionalConstraints sale
                 , State SaleClosed mempty

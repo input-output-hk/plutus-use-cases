@@ -12,7 +12,7 @@ benchmarks: true
 -- Plutus revision from 2021/11/05
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/plutus-apps.git
+  location: https://github.com/olgaklimenko/plutus-apps.git
   subdir:
     doc
     freer-extras
@@ -27,7 +27,7 @@ source-repository-package
     plutus-use-cases
     quickcheck-dynamic
     web-ghc
-  tag: b2794707e8c1497ffc16a3166b79df46f678292b
+  tag: ec38c2a63cae5d7f798d094a510be89802e084f3
 
 
 -- The following sections are copied from the 'plutus-apps' repository cabal.project at the revision
