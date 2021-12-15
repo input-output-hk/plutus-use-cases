@@ -1,4 +1,4 @@
-## Welcome to The POKE-DEX (Plutus Obelisk Koin Economy Decentralized Exchange)
+## Welcome to The SampleSwap (Plutus Obelisk Koin Economy Decentralized Exchange)
 
 This DApp demonstration allows users to swap and stake tokens using token exchange smart contracts on the Cardano block chain.
 
@@ -6,7 +6,7 @@ This DApp is made possible using the IOHK's Plutus Application Backend(PAB) that
 
 The frontend and middleware of this DApp is made possible using Obelisk, a framework that allows you to build high-quality web and mobile applications. Obelisk shares the same build tool and programming language as PAB, Haskell and Nix. This makes communication between PAB and Obelisk pleasant when it comes to parsing data types, sharing data types, and deployment.
 
-By the end of this README you will be able to run the POKE-DEX on your machine locally and observe the behaviors of smart contracts against the Cardano mock chain by the power of PAB. Start by installing Obelisk, then running PAB, followed by running Obelisk as explained below
+By the end of this README you will be able to run the SampleSwap on your machine locally and observe the behaviors of smart contracts against the Cardano mock chain by the power of PAB. Start by installing Obelisk, then running PAB, followed by running Obelisk as explained below
 
 ## System Requirements
 
