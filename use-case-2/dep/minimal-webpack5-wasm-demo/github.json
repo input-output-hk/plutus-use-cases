@@ -1,0 +1,8 @@
+{
+  "owner": "hSloan",
+  "repo": "minimal-webpack5-wasm-demo",
+  "branch": "nix-cardano-serialization-lib",
+  "private": false,
+  "rev": "9312a46e1e90f4cb818a47fbd5515c7e45571817",
+  "sha256": "17n9ynl76sgb1l4i5zhc070zdaf5c341s59qf9sq3vvc32wr2shq"
+}

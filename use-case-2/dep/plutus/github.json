@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "plutus",
-  "branch": "is-ll-deploy-uniswap-private-testnet",
+  "branch": "is-plutus-bump-with-validator-compilers",
   "private": false,
-  "rev": "cb89273cc8e1a3a47dae49242d80e90178c45fc7",
-  "sha256": "0h8a8ympkpm6x9r02334545827xg5qgcpnw7jvhvvxvi0ppy6r38"
+  "rev": "54e9e4a729bb2864f5dc11f985bfc1cd968053de",
+  "sha256": "17wvc73jmdwnzq9hdgsn6f23gr99yrbrvxdmsgqiclwh5c1vdkwc"
 }

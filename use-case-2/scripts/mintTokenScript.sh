@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 
-# ./mintTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX] [PATH TO SCRIPT]
+# ./mintTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX] [PATH TO SCRIPT] [TOKEN NAME] [TOKEN AMOUNT]
 
 set -euo pipefail
 
 export PATH=$(pwd)/cardano-cli/bin:$PATH
-magic="--testnet-magic=8"
+magic="--testnet-magic=1097911063"
 
 workdir=$(pwd)/dumpdir
 walletdir=$(pwd)
 
 script=$6
+tokenName=$7
+tokenAmount=$8
 scriptaddr=$workdir/issue.addr
 
 mintingpolicyjson=$script 
@@ -40,9 +42,9 @@ echo -e '\n\n'
 
 currencysymbol=$(cardano-cli transaction policyid --script-file $mintingpolicyjson)
 
-amount=1
+amount=$tokenAmount
 tokenList=""
-tokens=(Uniswap)
+tokens=($tokenName)
 for i in "${!tokens[@]}"; do
   tokenList="${tokenList}"+"${amount} ${currencysymbol}.${tokens[i]}"
 done
@@ -60,8 +62,8 @@ cardano-cli transaction build \
     --alonzo-era \
 		--protocol-params-file $protocolparams\
     --tx-in $txhash#$txix \
-		--tx-in-collateral $txhash#1\
-    --tx-out $paymentaddr+2000000+"$tokenList" \
+		--tx-in-collateral $txhash#$txix\
+    --tx-out $paymentaddr+$tokenAmount+"$tokenList" \
     --mint "$tokenList" \
     --mint-script-file $mintingpolicyjson \
     --mint-redeemer-file $redeemerFile \

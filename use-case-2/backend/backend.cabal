@@ -14,11 +14,15 @@ library
                , beam-core
                , beam-postgres
                , bytestring
+               , cardano-binary
+               , cardano-prelude
                , common
                , constraints-extras
+               , containers
                , dense-linear-algebra
                , dependent-sum
                , dependent-sum-template
+               , directory
                , frontend
                , gargoyle-postgresql
                , gargoyle-postgresql-connect
@@ -27,13 +31,17 @@ library
                , lens-aeson
                , monad-logger
                , mtl
+               , obelisk-executable-config-lookup
                , postgresql-simple
+               , process
                , resource-pool
                , rhyolite-backend
                , rhyolite-backend-db
                , rhyolite-backend-notification-postgres
                , rhyolite-common
+               , safe
                , scientific
+               , snap-core
                , statistics
                , text
                , time
@@ -43,6 +51,7 @@ library
                , vector
                , vessel
                , websockets
+               , which
   exposed-modules:
     Backend
     Backend.Notification
@@ -58,5 +67,7 @@ executable backend
   build-depends: base
                , backend
                , common
+               , containers
                , frontend
                , obelisk-backend
+               , safe

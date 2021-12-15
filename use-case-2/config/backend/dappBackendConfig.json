@@ -1,0 +1,10 @@
+{ "_dappBackendConfig_cardanoCliExe" : "/home/zigpolymath/Documents/Obsidian/bobTheBuilder9/plutus-use-cases/use-case-2/dep/cardano-node/result/alonzo-testnet/cardano-cli/bin/cardano-cli"
+, "_dappBackendConfig_cardanoNodeSocket" : "/home/zigpolymath/node.sock"
+, "_dappBackendConfig_testnetMagicNumber" : "1097911063"
+, "_dappBackendConfig_contractOwnerSignKeyPath" : "./keys/payment.skey"
+, "_dappBackendConfig_contractScriptAddress" : "addr_test1wpnjsv28crcw4908vm9ueeag0lczjdgdadmzz292yyym4esvgefz7"
+, "_dappBackendConfig_contractScriptPath" : "/home/zigpolymath/Documents/Obsidian/bobTheBuilder9/plutus-use-cases/use-case-2/dep/plutus/plutus-use-cases/uniswapPlutusScript.plutus"
+, "_dappBackendConfig_initPoolValA" : 900000000
+, "_dappBackendConfig_initPoolValB" : 314150
+}
+

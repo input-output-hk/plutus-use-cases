@@ -5,7 +5,7 @@
 set -euox pipefail
 
 export PATH=$(pwd)/cardano-cli/bin:$PATH
-magic="--testnet-magic=8"
+magic="--testnet-magic=1097911063"
 
 workdir=$(pwd)/dumpdir
 walletdir=$(pwd)
@@ -40,9 +40,9 @@ echo -e '\n\n'
 
 currencysymbol=$(cardano-cli transaction policyid --script-file $mintingpolicyjson)
 
-amount=500000
+amount=1
 tokenList=""
-tokens=(PikaCoin)
+tokens=(Uniswap)
 for i in "${!tokens[@]}"; do
   tokenList="${tokenList}"+"${amount} ${currencysymbol}.${tokens[i]}"
 done
