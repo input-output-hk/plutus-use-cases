@@ -52,7 +52,12 @@ import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteSt
 import Plutus.V1.Ledger.Ada (Ada(..), toValue)
 import qualified Data.Map as Map
 import Plutus.AbstractTestnetMVP.OutputValue (OutputValue(..))
-
+import qualified Ledger.Constraints.TxConstraints as TxConstraints
+import qualified Ledger.Constraints.OffChain as TxConstraints
+import           Ext.Plutus.Ledger.Value (utxosValue)
+import Ledger.Tokens (token)
+import Plutus.V1.Ledger.Address (pubKeyHashAddress)
+import Plutus.TestnetMVP.OffChain.Info (fundsAt)
 -- imports for debug
 import qualified Cardano.Api  as C
 import Ledger.Tx.CardanoAPI (toCardanoAddress)
@@ -88,7 +93,7 @@ openSale OpenSaleParams {..} = do
                   saleValue         = ospSaleValue,
                   saleOwner         = pkh
                 }
-        payment = assetClassValue saleToken 1 + ospSaleValue + minAdaTxOutValue
+        payment = assetClassValue saleToken 1 + ospSaleValue + minAdaTxOutValue + minAdaTxOutValue
         datum = SaleOngoing
 
     let openSaleTx = TxUtils.mustPayToScript (saleInstance sale) pkh datum payment
@@ -106,27 +111,66 @@ openSale OpenSaleParams {..} = do
 -- | The user buys sale value paying sale price
 buyLot :: Sale -> Contract w s Text ()
 buyLot sale@Sale{..} = do
-    pkh <- ownPubKeyHash
+    buyer <- ownPubKeyHash
 
-    outputValue <- makeSaleOutputValue sale $ Buy pkh
+    utxoPair <- getUtxoPair sale
+    value <- utxosValue $ saleAddress sale
 
-    let tx = TxUtils.mustPayToPubKey (saleInstance sale) saleOwner (toValue . Lovelace $ salePrice)
-              <> TxUtils.mustPayToScript (saleInstance sale) pkh SaleClosed minAdaTxOutValue
-              <> TxUtils.mustSpendFromScript (saleInstance sale) [outputValue] pkh (saleValue + minAdaTxOutValue)
-              
+    let outputValue = makeSaleOutputValue utxoPair $ Buy buyer
 
-    ledgerTx <- TxUtils.submitTxPair tx
+    logInfo @Haskell.String $ printf "[BUY_LOT] value on sale script address %s" (Haskell.show value)
+    logInfo @Haskell.String $ printf "[BUY_LOT] SALE value %s" (Haskell.show saleValue)
+
+    let ref = saleTxOutRef utxoPair
+    let scriptUtxo = getUtxoMap utxoPair
+    buyerUtxos <- utxosAt $ pubKeyHashAddress buyer
+
+    -- pay to seller Tx
+    let toSeller = TxUtils.mustPayToPubKey (saleInstance sale) saleOwner (toValue . Lovelace $ salePrice)
+    toSellerLedgerTx <- TxUtils.submitTxPair toSeller
+    void $ awaitTxConfirmed $ Tx.getCardanoTxId toSellerLedgerTx
+
+    -- spend token from script and send it to buyer
+    let lookups = TxConstraints.unspentOutputs scriptUtxo
+                  <> TxConstraints.unspentOutputs buyerUtxos
+                  <> TxConstraints.otherScript (saleValidator sale) 
+                  <> TxConstraints.typedValidatorLookups (saleInstance sale)
+    let tx =    TxConstraints.mustSpendScriptOutput ref (Redeemer . PlutusTx.toBuiltinData $ Buy buyer) 
+                <> TxConstraints.mustPayToPubKey buyer (value - (token saleProtocolToken) - minAdaTxOutValue)-- (saleValue + minAdaTxOutValue)
+
+    ledgerTx <- submitTxConstraintsWith @SaleScript lookups tx
     void $ awaitTxConfirmed $ Tx.getCardanoTxId ledgerTx
 
-    logInfo @Haskell.String $ printf "User %s bought lot from sale %s" (Haskell.show pkh) (Haskell.show sale)
+    -- lock CloseSale Datum on sale script
+    let closeSale = TxUtils.mustPayToScript (saleInstance sale) buyer SaleClosed minAdaTxOutValue
+    closeSaleLedgerTx <- TxUtils.submitTxPair closeSale
+    void $ awaitTxConfirmed $ Tx.getCardanoTxId closeSaleLedgerTx
+
+    value1 <- utxosValue $ saleAddress sale 
+    logInfo @Haskell.String $ printf "[BUY_LOT] value after buy on sale script address %s" (Haskell.show value1)
+    buyerFunds <- fundsAt buyer
+    logInfo @Haskell.String $ printf "[BUY_LOT] final buyer funds %s" (Haskell.show buyerFunds)
+    sellerFunds <- fundsAt saleOwner
+    logInfo @Haskell.String $ printf "[BUY_LOT] final sale owner funds %s" (Haskell.show sellerFunds)
+    logInfo @Haskell.String $ printf "User %s bought lot from sale %s" (Haskell.show buyer) (Haskell.show sale)
     pure ()
 
-makeSaleOutputValue :: Sale -> SaleRedeemer -> Contract w s Text (OutputValue SaleRedeemer)
-makeSaleOutputValue sale ovValue = do
+saleTxOutRef :: (TxOutRef, ChainIndexTxOut) -> TxOutRef
+saleTxOutRef (txOutRef, _) = txOutRef
+
+makeSaleOutputValue :: (TxOutRef, ChainIndexTxOut) -> SaleRedeemer -> OutputValue SaleRedeemer
+makeSaleOutputValue (ovOutRef ,ovOutTx) ovValue = OutputValue {..}
+
+getUtxoMap :: (TxOutRef, ChainIndexTxOut) -> Map.Map TxOutRef ChainIndexTxOut
+getUtxoMap (txOutRef, chainIndexTxOut) = Map.singleton txOutRef chainIndexTxOut
+
+getUtxoPair :: Sale -> Contract w s Text (TxOutRef, ChainIndexTxOut)
+getUtxoPair sale = do
   utxoTx <- utxosTxOutTxAt $ saleAddress sale
   let utxoTxList = Map.toList utxoTx
   getUtxo utxoTxList
   where
     getUtxo [] = throwError "No utxo on the sale address"
-    getUtxo ((ovOutRef, (ovOutTx, _)):[]) = pure OutputValue {..}
+    getUtxo ((ovOutRef, (ovOutTx, _)):[]) = pure (ovOutRef, ovOutTx)
     getUtxo _ = throwError "More than 1 utxo on the sale address"
+
