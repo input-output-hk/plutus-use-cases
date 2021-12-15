@@ -166,7 +166,7 @@ chooseWallet = mdo
           UIMessage_Success msg -> elClass "p" "text-success" $ text msg
           UIMessage_Failure msg -> elClass "p" "text-danger" $ text msg
           UIMessage_None -> blank
-      elAttr "a" ("href" =: "https://github.com/obsidiansystems/plutus-use-cases/tree/is-tire-kick" <> "target" =: "_blank") $ elClass "button" "btn btn-outline-dark mt-5" $ text "Learn More"
+      elAttr "a" ("href" =: "https://github.com/input-output-hk/plutus-use-cases/tree/obsidian-systems/dex" <> "target" =: "_blank") $ elClass "button" "btn btn-outline-dark mt-5" $ text "Learn More"
 
 data ButtonStatus = ButtonStatus_Ready
                   | ButtonStatus_Busy
