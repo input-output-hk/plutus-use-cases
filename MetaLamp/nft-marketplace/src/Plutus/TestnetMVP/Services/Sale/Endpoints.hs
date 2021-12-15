@@ -132,19 +132,13 @@ buyLot sale@Sale{..} = do
 
     -- spend token from script and send it to buyer
     let lookups = TxConstraints.unspentOutputs scriptUtxo
-                  <> TxConstraints.unspentOutputs buyerUtxos
                   <> TxConstraints.otherScript (saleValidator sale) 
                   <> TxConstraints.typedValidatorLookups (saleInstance sale)
     let tx =    TxConstraints.mustSpendScriptOutput ref (Redeemer . PlutusTx.toBuiltinData $ Buy buyer) 
-                <> TxConstraints.mustPayToPubKey buyer (value - (token saleProtocolToken) - minAdaTxOutValue)-- (saleValue + minAdaTxOutValue)
-
+                <> TxConstraints.mustPayToPubKey buyer (saleValue + minAdaTxOutValue)
+                <> TxConstraints.mustPayToTheScript SaleClosed (token saleProtocolToken + minAdaTxOutValue)
     ledgerTx <- submitTxConstraintsWith @SaleScript lookups tx
     void $ awaitTxConfirmed $ Tx.getCardanoTxId ledgerTx
-
-    -- lock CloseSale Datum on sale script
-    let closeSale = TxUtils.mustPayToScript (saleInstance sale) buyer SaleClosed minAdaTxOutValue
-    closeSaleLedgerTx <- TxUtils.submitTxPair closeSale
-    void $ awaitTxConfirmed $ Tx.getCardanoTxId closeSaleLedgerTx
 
     value1 <- utxosValue $ saleAddress sale 
     logInfo @Haskell.String $ printf "[BUY_LOT] value after buy on sale script address %s" (Haskell.show value1)
