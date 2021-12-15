@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# ./mintTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX] [PATH TO SCRIPT]
+# ./mintTokenScript.sh [PAYMENT ADDRESS] [PAYMENT VKEY] [PAYMENT SKEY] [UTXO HASH] [UTXO HASH INDEX] [PATH TO SCRIPT] [TOKEN NAME] [TOKEN AMOUNT]
 
 set -euo pipefail
 
@@ -11,6 +11,8 @@ workdir=$(pwd)/dumpdir
 walletdir=$(pwd)
 
 script=$6
+tokenName=$7
+tokenAmount=$8
 scriptaddr=$workdir/issue.addr
 
 mintingpolicyjson=$script 
@@ -40,9 +42,9 @@ echo -e '\n\n'
 
 currencysymbol=$(cardano-cli transaction policyid --script-file $mintingpolicyjson)
 
-amount=3000000
+amount=$tokenAmount
 tokenList=""
-tokens=(PikaCoin)
+tokens=($tokenName)
 for i in "${!tokens[@]}"; do
   tokenList="${tokenList}"+"${amount} ${currencysymbol}.${tokens[i]}"
 done
@@ -61,7 +63,7 @@ cardano-cli transaction build \
 		--protocol-params-file $protocolparams\
     --tx-in $txhash#$txix \
 		--tx-in-collateral $txhash#$txix\
-    --tx-out $paymentaddr+2000000+"$tokenList" \
+    --tx-out $paymentaddr+$tokenAmount+"$tokenList" \
     --mint "$tokenList" \
     --mint-script-file $mintingpolicyjson \
     --mint-redeemer-file $redeemerFile \
