@@ -46,16 +46,16 @@ chooseWallet = mdo
   divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container py-5" $ divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h2" "display-5 fw-bold mb-5" $ text "SampleSwap"
-      elClass "p" "mb-5" $ text "One paragraph description - COPY TBD"
+      elClass "p" "mb-5" $ text "" -- placeholder for swap description
       divClass "card mb-5" $ divClass "card-body" $ divClass "form-container px-5" $ divClass "form-group" $ mdo
         inputAmount <- divClass "input-group row mt-5 mb-1 mr-3 ml-3" $ do
-          _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-select mx-3" <> "type" =: "text" <> "placeholder" =: "tADA" <> "disabled" =: "")
+          _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "text" <> "placeholder" =: "tADA" <> "disabled" =: "")
           inpAmount <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "number" <> "placeholder" =: "0.0")
                                           & inputElementConfig_setValue .~ ("0" <$ submitTxEv)
           return inpAmount
         _ <- divClass "input-group row mt-1 mb-1 mx-3" $ text "for"
         _ <- divClass "input-group row mt-1 mb-5 mr-3 ml-3" $ do
-          _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-select mx-3" <> "type" =: "text" <> "placeholder" =: "OBSIDIAN" <> "disabled" =: "")
+          _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "text" <> "placeholder" =: "OBSIDIAN" <> "disabled" =: "")
           _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "text" <> "placeholder" =: "0.0" <> "disabled" =: "")
                                   & inputElementConfig_setValue .~
                                       leftmost [ (fmap (\resp -> either (\_ -> T.pack $ "~" <> show (0 :: Integer)) (\swapAmt -> ("~" <> (T.pack $ show $ swapAmt))) resp) respEstimateSwap)
@@ -154,20 +154,19 @@ chooseWallet = mdo
         _ <- requestingIdentity requestConfirmSwapSuccess
 
         -- show tx submission results
-        let formNoticeEv = ((\amt -> if amt > 0 then UIMessage_None else UIMessage_Failure "tAda value must be greater than 0") <$> (updated dynAdaAmount))
-            buildTransactionFailedEv =  ffor txBuildFailEv $ \errMsg -> UIMessage_Failure (T.pack $ show errMsg)
+        let buildTransactionFailedEv =  ffor txBuildFailEv $ \errMsg -> UIMessage_Failure (T.pack $ show errMsg)
             buildTransactionSuccessEv =  ffor cborHexEv $ \_ -> UIMessage_Success "Transaction built"
             submitTransactionSuccessEv =  ffor submitTxEv $ \msg -> case msg of
               "undefined" -> UIMessage_Success "Transaction successfully submitted"
               _ -> UIMessage_Failure (T.pack $ show msg)
         refreshEv <- delay 5 submitTransactionSuccessEv
         let refreshSwapWidget = UIMessage_None <$ refreshEv
-            uiMessageEv = leftmost [buildTransactionFailedEv, buildTransactionSuccessEv, submitTransactionSuccessEv, formNoticeEv, refreshSwapWidget]
+            uiMessageEv = leftmost [buildTransactionFailedEv, buildTransactionSuccessEv, submitTransactionSuccessEv, refreshSwapWidget]
         widgetHold_ blank $ ffor uiMessageEv $ \case
           UIMessage_Success msg -> elClass "p" "text-success" $ text msg
           UIMessage_Failure msg -> elClass "p" "text-danger" $ text msg
           UIMessage_None -> blank
-      elAttr "a" ("href" =: "https://github.com/obsidiansystems/plutus-use-cases/tree/is-tire-kick") $ elClass "button" "btn btn-outline-dark mt-5" $ text "Learn More"
+      elAttr "a" ("href" =: "https://github.com/obsidiansystems/plutus-use-cases/tree/is-tire-kick" <> "target" =: "_blank") $ elClass "button" "btn btn-outline-dark mt-5" $ text "Learn More"
 
 data ButtonStatus = ButtonStatus_Ready
                   | ButtonStatus_Busy
