@@ -17,55 +17,23 @@ module MainSM(main) where
 
 import Contracts.MutualBetSM
 import Contracts.Oracle
-import Control.Concurrent (threadDelay)
-import Control.Concurrent.STM qualified as STM
 import Control.Lens
-import Control.Monad (forM, forever, void)
-import Control.Monad.Freer (Eff, Member, interpret, type (~>))
-import Control.Monad.Freer.Error (Error)
-import Control.Monad.Freer.Extras.Log (LogMsg)
+import Control.Monad (forM, void)
 import Control.Monad.IO.Class (MonadIO (..))
-import Data.Aeson (FromJSON (..), Result (..), ToJSON (..), decode, defaultOptions, encode, fromJSON, genericParseJSON,
-                   genericToJSON, parseJSON)
-import Data.ByteString.Char8 qualified as B
-import Data.ByteString.Char8 qualified as C
+import Data.Aeson (Result (..), fromJSON)
 import Data.Default (Default (def))
 import Data.Either (fromRight)
-import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Last (..))
-import Data.OpenApi.Schema qualified as OpenApi
-import Data.Semigroup qualified as Semigroup
-import Data.Text (Text, pack)
-import Data.Text qualified as T
-import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
-import GHC.Generics (Generic)
-import Ledger (CurrencySymbol (..), PubKeyHash (..), pubKeyAddress, pubKeyHash)
-import Ledger.Crypto (PrivateKey, PubKey)
+import Ledger.Crypto (PrivateKey)
 import Ledger.TimeSlot (SlotConfig)
-import Ledger.Typed.Scripts qualified as Scripts
-import Ledger.Value (TokenName (..), Value)
-import Ledger.Value qualified as Value
 import PabContracts.SimulatorPabContractsSM (MutualBetContracts (..), handlers)
-import Playground.Contract (ToSchema)
-import Plutus.Contract (Contract, ContractError, Promise (..), awaitPromise, tell)
-import Plutus.Contract qualified as Contract
-import Plutus.Contracts.Currency as Currency
-import Plutus.PAB.Effects.Contract (ContractEffect (..))
-import Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (..), Empty, HasDefinitions (..), SomeBuiltin (..),
-                                            type (.\\))
-import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
-import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg)
-import Plutus.PAB.Simulator (SimulatorEffectHandlers)
+import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator qualified as Simulator
-import Plutus.PAB.Types (PABError (..))
 import Plutus.PAB.Webserver.Server qualified as PAB.Server
 import Services.GameClient qualified as GameClient
 import Types.Game
-import Wallet.Emulator (Wallet (..), knownWallet, knownWallets)
 import Wallet.Emulator.Types
-import Wallet.Emulator.Types (Wallet (..), walletPubKeyHash)
-import Wallet.Emulator.Wallet (emptyWalletState, fromMockWallet, ownPublicKey, toMockWallet)
 import Wallet.Types (ContractInstanceId (..))
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
@@ -127,29 +95,11 @@ main = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logBalances @(Builtin MutualBetContracts) b
     shutdown
 
-waitForLast :: FromJSON a => ContractInstanceId -> Simulator.Simulation t a
-waitForLast cid =
-    flip Simulator.waitForState cid $ \json -> case fromJSON json of
-        Success (Last (Just x)) -> Just x
-        _                       -> Nothing
-
 waitForLastOracle :: ContractInstanceId -> Simulator.Simulation t Oracle
 waitForLastOracle cid =
     flip Simulator.waitForState cid $ \json -> case fromJSON json of
     Success (Last (Just (OracleState state))) -> Just state
     _                                         -> Nothing
-
-waitForOracleUpdated :: ContractInstanceId -> Simulator.Simulation t GameId
-waitForOracleUpdated cid =
-    flip Simulator.waitForState cid $ \json -> case fromJSON json of
-    Success (Last (Just (Updated gameId))) -> Just gameId
-    _                                      -> Nothing
-
-waitForLastGameIds :: ContractInstanceId -> Simulator.Simulation t [GameId]
-waitForLastGameIds cid =
-    flip Simulator.waitForState cid $ \json -> case fromJSON json of
-        Success (Last (Just (Games ids))) -> Just ids
-        _                                 -> Nothing
 
 waitForLastBetOuput :: ContractInstanceId -> Simulator.Simulation t ThreadToken
 waitForLastBetOuput cid =
@@ -168,9 +118,6 @@ oracleWallet = knownWallet 5
 
 oraclePrivateKey :: PrivateKey
 oraclePrivateKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState  $ oracleWallet
-
-oraclePublicKey :: PubKey
-oraclePublicKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState  $ oracleWallet
 
 slotCfg :: SlotConfig
 slotCfg = def
