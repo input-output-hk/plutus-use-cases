@@ -18,7 +18,6 @@ module Frontend.ChooseWallet
 import Prelude hiding (id, filter)
 
 import Control.Applicative
-import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Data.Map (Map)
 import Data.Text (Text)
@@ -56,7 +55,7 @@ chooseWallet = mdo
           return inpAmount
         _ <- divClass "input-group row mt-1 mb-1 mx-3" $ text "for"
         _ <- divClass "input-group row mt-1 mb-5 mr-3 ml-3" $ do
-          _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-select mx-3" <> "type" =: "text" <> "placeholder" =: "PikaCoin" <> "disabled" =: "")
+          _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-select mx-3" <> "type" =: "text" <> "placeholder" =: "OBSIDIAN" <> "disabled" =: "")
           _ <- inputElement $ def & initialAttributes .~ ("class" =: "form-control mx-3" <> "type" =: "text" <> "placeholder" =: "0.0" <> "disabled" =: "")
                                   & inputElementConfig_setValue .~
                                       leftmost [ (fmap (\resp -> either (\_ -> T.pack $ "~" <> show (0 :: Integer)) (\swapAmt -> ("~" <> (T.pack $ show $ swapAmt))) resp) respEstimateSwap)

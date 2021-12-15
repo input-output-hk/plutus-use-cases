@@ -19,17 +19,15 @@ module Frontend.NavBar
 import Prelude hiding (id, (.), filter)
 
 import Control.Applicative
-import Control.Monad ((<=<), void, forM_)
+import Control.Monad ((<=<), void)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Text as T
 import Data.Text (Text)
 import Language.Javascript.JSaddle
-import Obelisk.Route
 import Reflex.Dom.Core
 import Rhyolite.Frontend.App
 
 import Common.Api
-import Common.Route
 
 navBar
   :: forall t m js
