@@ -139,6 +139,8 @@ test-suite plutus-example-projects-test
 executable pab-simulator
   import: lang 
   main-is: Main.hs
+  other-modules:
+    MainSM
   hs-source-dirs: pab-simulator
   ghc-options:
     -threaded
