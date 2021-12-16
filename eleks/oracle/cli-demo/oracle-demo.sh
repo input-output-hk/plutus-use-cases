@@ -134,7 +134,6 @@ function redeemRequestToken() {
     requestOwnerKey=$2
     inDatumFile=$3
     updatePayUtxo $requestOwnerAddress
-    echo uraaaa
     requestUtxo=$(findUtxoByDatum $inDatumFile)
 
     cardano-cli transaction build \
