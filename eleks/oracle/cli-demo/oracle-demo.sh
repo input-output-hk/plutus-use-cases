@@ -14,7 +14,7 @@ function main() {
     #set env after build
     setEnv
 
-    WINNER_ID=20
+    WINNER_ID=21
     CLEINT_KEY_PATH="$dir/keys/client"
     CLIENT_ADDRESS=$(cat $CLEINT_KEY_PATH/payment.addr)
     CLIENT_SIGN_KEY="$CLEINT_KEY_PATH/payment.skey"

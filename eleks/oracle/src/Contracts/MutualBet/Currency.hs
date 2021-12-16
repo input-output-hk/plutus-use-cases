@@ -22,8 +22,6 @@
 module Contracts.MutualBet.Currency(
       OneShotCurrency(..)
     , CurrencySchema
-    , CurrencyError(..)
-    , AsCurrencyError(..)
     , curPolicy
     -- * Actions etc
     , mintContract
@@ -34,14 +32,14 @@ module Contracts.MutualBet.Currency(
     , mintCurrency
     ) where
 
-import Control.Lens
+import Control.Monad.Error.Lens
 import Data.Map qualified as Map
+import Data.Text (Text)
 
 import PlutusTx.Prelude hiding (Monoid (..), Semigroup (..))
 
+import Contracts.MutualBet.PubKey qualified as PK
 import Plutus.Contract as Contract
-import Plutus.Contracts.PubKey (AsPubKeyError (..), PubKeyError)
-import Plutus.Contracts.PubKey qualified as PK
 
 import Ledger (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), getCardanoTxId, minAdaTxOut, scriptCurrencySymbol)
 
@@ -141,19 +139,6 @@ mintedValue cur = currencyValue (currencySymbol cur) cur
 currencySymbol :: OneShotCurrency -> CurrencySymbol
 currencySymbol = scriptCurrencySymbol . curPolicy
 
-data CurrencyError =
-    CurPubKeyError PubKeyError
-    | CurContractError ContractError
-    deriving stock (Haskell.Eq, Haskell.Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
-
-makeClassyPrisms ''CurrencyError
-
-instance AsContractError CurrencyError where
-    _ContractError = _CurContractError
-
-instance AsPubKeyError CurrencyError where
-    _PubKeyError = _CurPubKeyError
 
 -- | @mint [(n1, c1), ..., (n_k, c_k)]@ creates a new currency with
 --  @k@ token names, minting @c_i@ units of each token @n_i@.
@@ -161,20 +146,18 @@ instance AsPubKeyError CurrencyError where
 --   script is used to ensure that no more units of the currency can
 --   be minted afterwards.
 mintContract
-    :: forall w s e.
-    ( AsCurrencyError e
-    )
-    => PubKeyHash
+    :: forall w s.
+    PubKeyHash
     -> [(TokenName, Integer)]
-    -> Contract w s e OneShotCurrency
-mintContract pkh amounts = mapError (review _CurrencyError) $ do
+    -> Contract w s Text OneShotCurrency
+mintContract pkh amounts = do
+    logInfo @Haskell.String "mintContract"
     (txOutRef, txOutTx, pkInst) <- PK.pubKeyContract pkh (Ada.toValue minAdaTxOut)
 
     logInfo @Haskell.String ("txOutRef: " ++ Haskell.show txOutRef)
     logInfo  @Haskell.String $ "txOutTx: " ++ Haskell.show txOutTx
     let theCurrency = mkCurrency txOutRef amounts
         curVali     = curPolicy theCurrency
-
 
         lookups     = Constraints.mintingPolicy curVali
                         <> Constraints.otherData (Datum $ getRedeemer unitRedeemer)
@@ -186,14 +169,14 @@ mintContract pkh amounts = mapError (review _CurrencyError) $ do
     result <- runError @_ @_ @ContractError $ submitTxConstraintsWith @Scripts.Any lookups mintTx
     case result of
         Left err -> do
-            logWarn @Haskell.String "An error occurred. Integration test failed."
+            logWarn @Haskell.String "An error occurred. Currency contract."
             logWarn err
-            pure theCurrency
+            throwing _ContractError "Error"
         Right tx -> do
             let txi = getCardanoTxId tx
             logInfo @Haskell.String $ "Waiting for tx " <> Haskell.show txi <> " to complete"
             awaitTxConfirmed txi
-            logInfo @Haskell.String "Tx confirmed. Integration test complete."
+            logInfo @Haskell.String "Tx confirmed. Currency contract."
             pure theCurrency
 
 -- | Minting policy for a currency that has a fixed amount of tokens issued
@@ -211,7 +194,7 @@ type CurrencySchema =
 
 -- | Use 'mintContract' to create the currency specified by a 'SimpleMPS'
 mintCurrency
-    :: Promise (Maybe (Last OneShotCurrency)) CurrencySchema CurrencyError OneShotCurrency
+    :: Promise (Maybe (Last OneShotCurrency)) CurrencySchema Text OneShotCurrency
 mintCurrency = endpoint @"Create native token" $ \SimpleMPS{tokenName, amount} -> do
     ownPK <- ownPubKeyHash
     cur <- mintContract ownPK [(tokenName, amount)]

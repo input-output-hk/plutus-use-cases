@@ -1,23 +1,23 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators     #-}
 
 module Main(main) where
 
-import           Data.Aeson   
-import           Data.Text
-import           GHC.Generics              (Generic)
-import           Servant
-import           Ledger                    (PubKeyHash)
-import           Network.Wai.Handler.Warp
-import           Wallet.Emulator           (walletPubKeyHash, knownWallet)
+import Data.Aeson
+import Data.Text
+import GHC.Generics (Generic)
+import Ledger (PubKeyHash)
+import Network.Wai.Handler.Warp
+import Servant
+import Wallet.Emulator (knownWallet, walletPubKeyHash)
 
 type GamesAPI = "wallet" :> Capture "id" Integer :> Get '[JSON] WalletData
 
 data WalletData = WalletData
-  { walletDataPubKeyHash    :: !PubKeyHash
-  , walletId                :: !Text
+  { walletDataPubKeyHash :: !PubKeyHash
+  , walletId             :: !Text
   } deriving Generic
 instance FromJSON WalletData
 instance ToJSON WalletData
@@ -27,7 +27,7 @@ mutualBetAPI = Proxy
 
 mutualBetServer :: Server GamesAPI
 mutualBetServer = wallet
-  where 
+  where
     wallet:: Integer -> Handler WalletData
     wallet wId = do
 

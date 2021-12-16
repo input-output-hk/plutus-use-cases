@@ -1,18 +1,18 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators     #-}
 
 module Main(main) where
 
-import           Data.Aeson
-import           Data.String          (fromString)
-import           Control.Monad.Except
-import           GHC.Generics         (Generic)
-import           Servant
-import           Service               as GamesService
-import           Network.Wai.Handler.Warp
-import           Types.Game
+import Control.Monad.Except
+import Data.Aeson
+import Data.String (fromString)
+import GHC.Generics (Generic)
+import Network.Wai.Handler.Warp
+import Servant
+import Service as GamesService
+import Types.Game
 
 type GamesAPI = "games" :> Get '[JSON] [Game]
             :<|> "games" :> Capture "id" GameId :> Get '[JSON] Game
@@ -39,31 +39,31 @@ gamesServer = games
       :<|> gameById
       :<|> сhangeGameState
       :<|> changeGameScore
-  where 
+  where
     games:: Handler [Game]
     games = do
       gamesE <- liftIO $ runExceptT $ GamesService.getGames
-      case gamesE of 
-          Left e -> throwError err500{errBody=fromString  e}
+      case gamesE of
+          Left e          -> throwError err500{errBody=fromString  e}
           Right gamesList -> return gamesList
     gameById:: GameId -> Handler Game
     gameById gameId = do
       gameM <- liftIO $ runExceptT (GamesService.getGameById gameId)
-      case gameM of 
-        Left e -> throwError err404{errBody=fromString e}
+      case gameM of
+        Left e     -> throwError err404{errBody=fromString e}
         Right game -> return game
     сhangeGameState:: GameId -> UpdateGameParams -> Handler Game
     сhangeGameState gameId updateParams = do
       gameE <- liftIO $ runExceptT $ updateGameState (ugpSatus updateParams) gameId
-      case gameE of 
-        Left e -> throwError err500{errBody=fromString e}
-        Right game -> return game 
+      case gameE of
+        Left e     -> throwError err500{errBody=fromString e}
+        Right game -> return game
     changeGameScore:: GameId -> UpdateGameScore -> Handler Game
     changeGameScore gameId updateParams = do
       gameE <- liftIO $ runExceptT $ updateGameScore (ugpTeam updateParams) gameId
-      case gameE of 
-        Left e -> throwError err500{errBody=fromString e}
-        Right game -> return game 
+      case gameE of
+        Left e     -> throwError err500{errBody=fromString e}
+        Right game -> return game
 
 gamesApp :: Application
 gamesApp = serve gamesAPI gamesServer

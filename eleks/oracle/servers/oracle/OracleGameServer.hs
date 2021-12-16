@@ -5,31 +5,31 @@ module Main
     ( main
     ) where
 
-import           Control.Concurrent
-import           Control.Exception
-import           Control.Monad                              (when, void, forM)
-import           Control.Lens   
-import qualified Data.ByteString.Lazy.Char8                 as B8
-import           Control.Monad.IO.Class                     (MonadIO (..))
-import           Data.Aeson                                 (fromJSON, ToJSON, encode, Result (..))
-import           Data.Either                                (fromRight)
-import           Data.Proxy                                 (Proxy (..))
-import           Data.Text                                  (pack)
-import           Data.UUID
-import           Network.HTTP.Req
-import           Services.GameClient
-import           PabContracts.SimulatorPabContracts          (MutualBetContracts(..))
-import           Types.Game    
-import           Contracts.Oracle
-import           Plutus.PAB.Events.ContractInstanceState    (PartiallyDecodedResponse (..))
-import           Plutus.PAB.Webserver.Types
-import           Text.Printf                                (printf)
+import Contracts.Oracle
+import Control.Concurrent
+import Control.Exception
+import Control.Lens
+import Control.Monad (forM, void, when)
+import Control.Monad.IO.Class (MonadIO (..))
+import Data.Aeson (Result (..), ToJSON, encode, fromJSON)
+import Data.ByteString.Lazy.Char8 qualified as B8
+import Data.Either (fromRight)
+import Data.Proxy (Proxy (..))
+import Data.Text (pack)
+import Data.UUID
+import Network.HTTP.Req
+import PabContracts.SimulatorPabContracts (MutualBetContracts (..))
+import Plutus.PAB.Events.ContractInstanceState (PartiallyDecodedResponse (..))
+import Plutus.PAB.Webserver.Types
+import Services.GameClient
+import Text.Printf (printf)
+import Types.Game
 
 main :: IO ()
 main = do
     uuid <- read <$> readFile "oracle.cid"
     putStrLn $ "oracle contract instance id: " ++ show uuid
-    go uuid [] 
+    go uuid []
   where
     go :: UUID -> [Game] -> IO a
     go uuid prevGames = do
@@ -45,7 +45,7 @@ main = do
                 putStrLn $ "active games: " ++ show activeGamesIds
                 let activeGames = filter(\game -> elem (game ^. fixture . fixtureId) activeGamesIds) currentGames
                 void $ forM activeGames $ \game -> do
-                    updateOracle uuid game  
+                    updateOracle uuid game
                     threadDelay 1_000_000
                 threadDelay 5_000_000
                 go uuid prevGames
@@ -55,11 +55,11 @@ updateOracle uuid game = do
     let winnerId = fromRight 0 $ getWinnerTeamId game
     let gameId = game ^. fixture . fixtureId;
     let gameStatus = game ^. fixture . status . short
-    let updateParams = UpdateOracleParams 
+    let updateParams = UpdateOracleParams
                         { uoGameId   = gameId
                         , uoWinnerId = winnerId
                         , uoGameStatus = gameStatus
-                        }     
+                        }
     callEndpoint uuid "update" updateParams
 
 getActiveGamesIds :: UUID -> IO ([GameId])

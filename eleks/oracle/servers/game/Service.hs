@@ -19,14 +19,14 @@ module Service
     , createInitialGames
     ) where
 
-import           Control.Lens    
-import           Control.Monad.Except
-import           Data.Aeson
-import           Data.Aeson.Encode.Pretty
-import qualified Data.ByteString.Lazy.UTF8  as U
-import           Data.Either.Combinators    (maybeToRight)
-import           Data.List                  (find)
-import           Types.Game
+import Control.Lens
+import Control.Monad.Except
+import Data.Aeson
+import Data.Aeson.Encode.Pretty
+import Data.ByteString.Lazy.UTF8 qualified as U
+import Data.Either.Combinators (maybeToRight)
+import Data.List (find)
+import Types.Game
 
 createInitialGames :: ExceptT String IO [Game]
 createInitialGames = do
@@ -54,10 +54,10 @@ findGameById gameId games = do
 updateGameScore :: TeamId -> GameId -> ExceptT String IO Game
 updateGameScore teamIdParam gameId =
     getGameById gameId
-    >>= liftEither . addGameScore teamIdParam 
+    >>= liftEither . addGameScore teamIdParam
     >>= updateGame
 
-addGameScore :: TeamId -> Game -> Either String Game 
+addGameScore :: TeamId -> Game -> Either String Game
 addGameScore teamIdParam game
     | game ^. fixture . status . short /= LIVE = Left "Error goal update. Game not active"
     | game ^. teams . home . teamId == teamIdParam = Right $ game & goals . teamHome .~ (game ^. goals . teamHome + 1)
@@ -67,20 +67,20 @@ addGameScore teamIdParam game
 updateGameState :: FixtureStatusShort -> GameId -> ExceptT String IO Game
 updateGameState gameStatus gameId =
     getGameById gameId
-    >>= liftEither . updateGameStatus gameStatus 
-    >>= liftEither . updateGameWinner 
+    >>= liftEither . updateGameStatus gameStatus
+    >>= liftEither . updateGameWinner
     >>= updateGame
 
-updateGameStatus :: FixtureStatusShort -> Game -> Either String Game 
+updateGameStatus :: FixtureStatusShort -> Game -> Either String Game
 updateGameStatus newStatus game = do
     let currentStatus =  game ^. fixture . status . short
     when (not $ validateGameStatusChanges currentStatus newStatus) (Left $ "Invalid state change from " ++ show currentStatus ++ " to new " ++ show newStatus)
     return $ game & fixture . status .~ (createFixtureStatus newStatus)
 
-updateGameWinner :: Game -> Either String Game 
+updateGameWinner :: Game -> Either String Game
 updateGameWinner game
-    | game ^. fixture . status . short /= FT = Right game 
-    | game ^. goals . teamHome == game ^. goals . teamAway = Right game 
+    | game ^. fixture . status . short /= FT = Right game
+    | game ^. goals . teamHome == game ^. goals . teamAway = Right game
     | game ^. goals . teamHome > game ^. goals . teamAway = Right $ game & teams . home . winner .~ True
     | game ^. goals . teamHome < game ^. goals . teamAway = Right $ game & teams . away . winner .~ True
     | otherwise = Left "Error winner update"
@@ -88,9 +88,9 @@ updateGameWinner game
 updateGame :: Game -> ExceptT String IO Game
 updateGame updatedGame = do
     games <- getGames
-    let updatedGames = (flip map games) (\game -> 
+    let updatedGames = (flip map games) (\game ->
                     if updatedGame == game
                     then updatedGame
-                    else game ) 
+                    else game )
     _ <- saveGames updatedGames
     return updatedGame
