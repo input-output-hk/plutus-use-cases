@@ -74,7 +74,7 @@ data NftInfo =
     , niName        :: !PlutusBuiltinByteString
     , niDescription :: !PlutusBuiltinByteString
     , niCategory    :: !Category
-    , niIssuer      :: !(Maybe PubKeyHash)
+    , niIssuer      :: !(Maybe PaymentPubKeyHash)
     }
   deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
   deriving anyclass (J.ToJSON, J.FromJSON)

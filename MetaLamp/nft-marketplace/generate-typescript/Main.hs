@@ -27,7 +27,7 @@ import qualified Plutus.TestnetMVP.OffChain.Serialization as Marketplace
 import qualified Plutus.TestnetMVP.Services.Sale.Script                        as Sale
 import           Plutus.PAB.MarketplaceContracts                        (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Ada                                   (Ada)
-import           Plutus.V1.Ledger.Crypto                                (PubKeyHash)
+import           Plutus.V1.Ledger.Crypto                                (PaymentPubKeyHash)
 import           Plutus.V1.Ledger.Time                                  (DiffMilliSeconds,
                                                                          POSIXTime)
 import           Plutus.V1.Ledger.Tx                                    (TxOutRef)
@@ -52,7 +52,7 @@ instance TypeScript POSIXTime where
 $(deriveTypeScript Aeson.defaultOptions ''TxOutRef)
 $(deriveTypeScript Aeson.defaultOptions ''TxId)
 $(deriveTypeScript Aeson.defaultOptions ''CurrencySymbol)
-$(deriveTypeScript Aeson.defaultOptions ''PubKeyHash)
+$(deriveTypeScript Aeson.defaultOptions ''PaymentPubKeyHash)
 $(deriveTypeScript Aeson.defaultOptions ''Value)
 
 instance (TypeScript a, TypeScript b) => TypeScript (AssocMap.Map a b) where
@@ -124,7 +124,7 @@ main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @TxOutRef)) <>
     (getTypeScriptDeclarations (Proxy @TxId)) <>
     (getTypeScriptDeclarations (Proxy @CurrencySymbol)) <>
-    (getTypeScriptDeclarations (Proxy @PubKeyHash)) <>
+    (getTypeScriptDeclarations (Proxy @PaymentPubKeyHash)) <>
     (getTypeScriptDeclarations (Proxy @Value)) <>
     (getTypeScriptDeclarations (Proxy @TokenName)) <>
     (getTypeScriptDeclarations (Proxy @Ada)) <>

@@ -85,8 +85,8 @@ getNftEntry nftStore (InternalNftId ipfsCidHash _ipfsCid) =
           AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
 
 -- | Gets all UTxOs belonging to a user and concats them into one Value
-fundsAt :: PubKeyHash -> Contract w s Text Value
-fundsAt pkh = utxosValue $ pubKeyHashAddress pkh
+fundsAt :: PaymentPubKeyHash -> Contract w s Text Value
+fundsAt pkh = utxosValue $ pubKeyHashAddress pkh Nothing
 
 -- | Gets all UTxOs belonging to the Marketplace script and concats them into one Value
 marketplaceFunds :: Marketplace -> Contract w s Text Value
@@ -96,7 +96,7 @@ mapError' :: Contract w s SMContractError a -> Contract w s Text a
 mapError' = mapError $ T.pack . Haskell.show
 
 type MarketplaceInfoSchema =
-    Endpoint "fundsAt" PubKeyHash
+    Endpoint "fundsAt" PaymentPubKeyHash
     .\/ Endpoint "marketplaceFunds" ()
     .\/ Endpoint "marketplaceStore" ()
     .\/ Endpoint "marketplaceSettings" ()

@@ -61,7 +61,7 @@ data StartMarketplaceParams = StartMarketplaceParams {
 
 start :: StartMarketplaceParams -> Contract w s Text Marketplace
 start StartMarketplaceParams{..} = do
-    pkh <- ownPubKeyHash
+    pkh <- ownPaymentPubKeyHash
     let marketplaceTokenName = V.TokenName $ deserializeByteString marketplaceName
     marketplaceCurrencySymbol <- fmap Currency.currencySymbol $
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $

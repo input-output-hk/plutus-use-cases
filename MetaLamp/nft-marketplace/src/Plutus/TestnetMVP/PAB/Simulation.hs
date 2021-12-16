@@ -82,7 +82,7 @@ import           Servant.Client                                 (BaseUrl (..),
                                                                  Scheme (..),
                                                                  mkClientEnv)
 import           Wallet.Emulator.Types                          (WalletNumber (..),
-                                                                 walletPubKeyHash)
+                                                                 mockWalletPaymentPubKeyHash)
 import           Wallet.Emulator.Wallet                         (Wallet (..),
                                                                  fromWalletNumber)
 import           Wallet.Types                                   (ContractInstanceId)
@@ -154,9 +154,9 @@ runNftMarketplace =
     shutdown <- PAB.startServerDebug
     ContractIDs {..} <- activateContracts
     let userCid = cidUser Map.! wallet2
-        sender = walletPubKeyHash $ wallet2
+        sender = mockWalletPaymentPubKeyHash $ wallet2
         buyerCid = cidUser Map.! wallet3
-        buyer = walletPubKeyHash wallet3
+        buyer = mockWalletPaymentPubKeyHash wallet3
         
     let catTokenIpfsCid = "QmPeoJnaDttpFrSySYBY3reRFCzL3qv4Uiqz376EBv9W16"
     let photoTokenIpfsCid = "QmeSFBsEZ7XtK7yv5CQ79tqFnH9V2jhFhSSq1LV5W3kuiB"

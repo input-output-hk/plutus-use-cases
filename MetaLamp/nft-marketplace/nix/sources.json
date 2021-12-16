@@ -3,12 +3,12 @@
         "branch": "master",
         "description": "The Plutus application platform",
         "homepage": "",
-        "owner": "input-output-hk",
+        "owner": "olgaklimenko",
         "repo": "plutus-apps",
-        "rev": "b2794707e8c1497ffc16a3166b79df46f678292b",
-        "sha256": "168xgwq5f31sg42fc67i4yjxhzpfl734vnx2xa6v0hph9n4sb3vl",
+        "rev": "ec38c2a63cae5d7f798d094a510be89802e084f3",
+        "sha256": "1nr6daarcgarr6lya4mp8rnifpv0zbzfqgk2w35h9zx51hpilif3",
         "type": "tarball",
-        "url": "https://github.com/input-output-hk/plutus-apps/archive/b2794707e8c1497ffc16a3166b79df46f678292b.tar.gz",
+        "url": "https://github.com/olgaklimenko/plutus-apps/archive/ec38c2a63cae5d7f798d094a510be89802e084f3.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
