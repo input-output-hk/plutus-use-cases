@@ -223,6 +223,34 @@ executable testnet-mutual-bet-pab
       freer-extras -any,
       plutus-ledger -any,
 
+executable testnet-both-pab
+  import: lang 
+  main-is: Main.hs
+  hs-source-dirs: pab-testnet/both
+  ghc-options:
+    -threaded
+  build-depends:
+      base >= 4.9 && < 5,
+      bytestring,
+      data-default -any,
+      containers -any,
+      text -any,
+      openapi3 -any,
+      plutus-starter,
+      playground-common -any,
+      plutus-contract -any,
+      plutus-pab -any,
+      plutus-ledger,
+      plutus-use-cases -any,
+      prettyprinter -any,
+      purescript-bridge,
+      row-types,
+      servant-purescript,
+      aeson -any,
+      freer-simple -any,
+      freer-extras -any,
+      plutus-ledger -any,
+
 executable gs
   import: lang
   main-is: GenerateOracleScript.hs

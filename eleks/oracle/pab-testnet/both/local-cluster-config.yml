@@ -1,0 +1,45 @@
+
+dbConfig:
+    dbConfigFile: pab-testnet/both/local-pab.db
+    dbConfigPoolSize: 20
+
+pabWebserverConfig:
+  baseUrl: http://localhost:9088
+  staticDir: pab-testnet/plutus-pab-client/dist
+  permissiveCorsPolicy: False
+  # Optional timeout (in seconds) for calls to endpoints that are not currently
+  # available. If this is not set, calls to unavailable endpoints fail
+  # immediately.
+  endpointTimeout: 5
+
+walletServerConfig:
+  tag: LocalWalletConfig
+  walletSettings:
+    baseUrl: http://localhost:46493
+
+nodeServerConfig:
+  mscSocketPath: /private/tmp/test-cluster83044/node/node.socket
+  mscBaseUrl: http://localhost:9082
+  mscKeptBlocks: 100
+  mscNetworkId: "" # Testnet network ID (main net = empty string)
+  mscSlotConfig:
+    scSlotZeroTime: 1596059091000 # Wednesday, July 29, 2020 21:44:51 - shelley launch time in milliseconds
+    scSlotLength: 1000 # In milliseconds
+  mscFeeConfig:
+    fcConstantFee:
+      getLovelace: 10 # Constant fee per transaction in lovelace
+    fcScriptsFeeFactor: 1.0 # Factor by which to multiply size-dependent scripts fee in lovelace
+  mscInitialTxWallets: []
+  mscNodeMode: AlonzoNode
+       
+chainIndexConfig:
+  ciBaseUrl: http://localhost:9083
+  ciWatchedAddresses: []
+
+requestProcessingConfig:
+  requestProcessingInterval: 1
+
+# Optional EKG Server Config
+# ----
+# monitoringConfig:
+#   monitoringPort: 9090
