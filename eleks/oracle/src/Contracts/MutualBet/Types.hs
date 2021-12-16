@@ -54,7 +54,7 @@ data MutualBetParams
     = MutualBetParams
         { mbpGame        :: Integer -- Game id
         , mbpOracle      :: Oracle -- Oracle data
-        , mbpOwner       :: PubKeyHash -- Owner of the platform , used for fee sending
+        , mbpOwner       :: PaymentPubKeyHash -- Owner of the platform , used for fee sending
         , mbpTeam1       :: Integer -- Team 1 id
         , mbpTeam2       :: Integer -- Team 2 id
         , mbpMinBet      :: Ada -- Minimum bet allowed
@@ -69,7 +69,7 @@ PlutusTx.makeLift ''MutualBetParams
 data Bet =
     Bet
         { betAmount   :: Ada
-        , betBettor   :: PubKeyHash
+        , betBettor   :: PaymentPubKeyHash
         , betTeamId   :: Integer
         , betWinShare :: Ada
         }

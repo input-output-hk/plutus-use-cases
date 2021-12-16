@@ -39,8 +39,8 @@ import Types.Game (FixtureStatusShort (..), GameId, TeamId)
 
 data Oracle = Oracle
     { oRequestTokenSymbol :: !CurrencySymbol -- Oracle request token currency symbol
-    , oOperator           :: !PubKeyHash -- Oracle owner
-    , oOperatorKey        :: !PubKey -- Oracle owner key used to verify signed data
+    , oOperator           :: !PaymentPubKeyHash -- Oracle owner
+    , oOperatorKey        :: !PaymentPubKey -- Oracle owner key used to verify signed data
     , oFee                :: !Ada -- Oracle fee amount
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord, OpenApi.ToSchema)
 
@@ -49,7 +49,7 @@ PlutusTx.makeLift ''Oracle
 -- Token used for Oracle service monterization,
 -- One buy this token to pay for oracle service
 data OracleRequestToken = OracleRequestToken
-    { ortOperator :: !PubKeyHash -- Oracle operator, address to send fee
+    { ortOperator :: !PaymentPubKeyHash -- Oracle operator, address to send fee
     , ortFee      :: !Ada -- token price
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
@@ -87,7 +87,7 @@ instance Eq OracleSignedMessage where
 
 data OracleData = OracleData
     { ovGame           :: Integer
-    , ovRequestAddress :: PubKeyHash
+    , ovRequestAddress :: PaymentPubKeyHash
     , ovSignedMessage  :: Maybe (SignedMessage OracleSignedMessage)
     }
     deriving (Show, Generic, FromJSON, ToJSON, Haskell.Eq)

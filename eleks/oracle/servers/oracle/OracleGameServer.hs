@@ -1,5 +1,6 @@
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
 
 module Main
     ( main

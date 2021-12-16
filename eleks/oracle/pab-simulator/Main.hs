@@ -26,6 +26,8 @@ import Data.Either (fromRight)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Last (..))
 import Data.Text (Text)
+import Ledger (PaymentPrivateKey (..), PaymentPubKeyHash (..))
+import Ledger.CardanoWallet qualified as CW
 import Ledger.Crypto (PrivateKey)
 import PabContracts.SimulatorPabContracts (MutualBetContracts (..), handlers)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin)
@@ -34,6 +36,7 @@ import Plutus.PAB.Webserver.Server qualified as PAB.Server
 import Services.GameClient qualified as GameClient
 import Types.Game
 import Wallet.Emulator.Types
+import Wallet.Emulator.Wallet (walletToMockWallet)
 import Wallet.Types (ContractInstanceId (..))
 
 initGame :: Oracle -> Game -> Simulator.Simulation (Builtin MutualBetContracts) ()
@@ -45,7 +48,7 @@ initGame oracle game = do
     let mutualBetStartParams = MutualBetStartParams
                             { mbspGame   = gameId
                             , mbspOracle = oracle
-                            , mbspOwner  = walletPubKeyHash mutualBetOwnerWallet
+                            , mbspOwner  = unPaymentPubKeyHash $ mockWalletPaymentPubKeyHash mutualBetOwnerWallet
                             , mbspTeam1  = team1Id
                             , mbspTeam2  = team2Id
                             , mbspMinBet = 2_000_000
@@ -75,7 +78,7 @@ main = void $ Simulator.runSimulationWith handlers $ do
     let oracleParams = OracleParams
                         {
                           opFees   = 3_000_000
-                        , opSigner = encodeKeyToDto $ oraclePrivateKey
+                        , opSigner = encodeKeyToDto $ unPaymentPrivateKey oraclePrivateKey
                         }
     cidOracle <- Simulator.activateContract oracleWallet $ OracleContract oracleParams
     liftIO $ writeFile "oracle.cid" $ show $ unContractInstanceId cidOracle
@@ -108,5 +111,5 @@ mutualBetOwnerWallet = knownWallet 6
 oracleWallet :: Wallet
 oracleWallet = knownWallet 5
 
-oraclePrivateKey :: PrivateKey
-oraclePrivateKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState  $ oracleWallet
+oraclePrivateKey :: PaymentPrivateKey
+oraclePrivateKey = CW.paymentPrivateKey $ fromMaybe(error $ "priv key") $ walletToMockWallet oracleWallet

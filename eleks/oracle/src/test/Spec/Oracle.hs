@@ -15,6 +15,7 @@ module Spec.Oracle
       requestOracleTrace
     ) where
 
+import Contracts.Oracle
 import Control.Lens
 import Control.Monad (void)
 import Data.Default (Default (def))
@@ -24,26 +25,19 @@ import Data.Sort (sort)
 import Data.Text (Text)
 import Ledger qualified
 import Ledger.Ada qualified as Ada
-import Ledger.Crypto (PrivateKey, PubKey)
+import Ledger.Address (PaymentPrivateKey (..))
+import Ledger.CardanoWallet qualified as CW
 import Ledger.Index (ValidationError (ScriptFailure))
 import Ledger.Scripts (ScriptError (EvaluationError))
-import Plutus.Contract hiding (currentSlot)
-import Plutus.Contract.Test hiding (not)
-import Types.Game
-import Wallet.Emulator.Wallet (emptyWalletState, ownPrivateKey, ownPublicKey)
-
-import Contracts.Oracle
 import Ledger.TimeSlot (SlotConfig)
 import Ledger.Value qualified as Value
+import Plutus.Contract hiding (currentSlot)
+import Plutus.Contract.Test hiding (not)
 import Plutus.Trace.Emulator qualified as Trace
 import PlutusTx.Monoid (inv)
 import Test.Tasty
-
-getWalletPubKey:: Wallet -> PubKey
-getWalletPubKey = ownPublicKey . fromMaybe (error "not a mock wallet") . emptyWalletState
-
-getWalletPrivKey:: Wallet -> PrivateKey
-getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . emptyWalletState
+import Types.Game
+import Wallet.Emulator.Wallet (walletToMockWallet)
 
 auctionEmulatorCfg :: Trace.EmulatorConfig
 auctionEmulatorCfg =
@@ -58,22 +52,20 @@ slotCfg = def
 
 oracleParams :: OracleParams
 oracleParams = OracleParams
-    { --opSymbol = oracleCurrency,
-      opFees = 2_500_000
-    , opSigner = encodeKeyToDto $ oraclePrivateKey
+    { opFees = 2_500_000
+    , opSigner = encodeKeyToDto $ unPaymentPrivateKey oraclePrivateKey
     }
 
 oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
-    { ortOperator = walletPubKeyHash oracleWallet
+    { ortOperator = mockWalletPaymentPubKeyHash oracleWallet
     , ortFee = opFees oracleParams
     }
 oracle ::  Oracle
 oracle = Oracle
-    { --oSymbol = opSymbol oracleParams,
-      oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
-    , oOperator = walletPubKeyHash oracleWallet
-    , oOperatorKey = getWalletPubKey oracleWallet
+    { oRequestTokenSymbol = requestTokenSymbol oracleRequestToken
+    , oOperator = mockWalletPaymentPubKeyHash oracleWallet
+    , oOperatorKey = mockWalletPaymentPubKey oracleWallet
     , oFee = opFees oracleParams
     }
 
@@ -97,13 +89,13 @@ oracleWallet = w1
 oracleClientWallet = w2
 otherWallet = w3
 
-oraclePrivateKey :: PrivateKey
-oraclePrivateKey = getWalletPrivKey oracleWallet
+oraclePrivateKey :: PaymentPrivateKey
+oraclePrivateKey = CW.paymentPrivateKey $ fromMaybe(error $ "priv key") $ walletToMockWallet oracleWallet
 
 requestOracleTestState :: OracleData
 requestOracleTestState = OracleData
     { ovGame = game1Id
-    , ovRequestAddress = walletPubKeyHash oracleClientWallet
+    , ovRequestAddress = mockWalletPaymentPubKeyHash oracleClientWallet
     , ovSignedMessage = Nothing
     }
 

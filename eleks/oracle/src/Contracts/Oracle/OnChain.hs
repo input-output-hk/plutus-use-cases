@@ -35,7 +35,6 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short qualified as SBS
 import Data.Void (Void)
 import Ledger hiding (MintingPolicyHash, singleton)
-import Ledger.Ada as Ada
 import Ledger.Constraints as Constraints
 import Ledger.Scripts qualified as LedgerScripts
 import Ledger.Typed.Scripts qualified as Scripts
@@ -50,9 +49,9 @@ mkOracleValidator :: Oracle -> OracleData -> OracleRedeemer -> ScriptContext -> 
 mkOracleValidator oracle oracleData r ctx =
     traceIfFalse "request token missing from input" inputHasRequestToken
     && case r of
-        OracleRedeem   -> traceIfFalse "signed by request owner" (txSignedBy info $ ovRequestAddress oracleData )
+        OracleRedeem   -> traceIfFalse "signed by request owner" (txSignedBy info $ (unPaymentPubKeyHash $ ovRequestAddress oracleData))
                         && traceIfFalse "should redeem request token" (requestTokenValOf forged == -1)
-        Update         -> traceIfFalse "operator signature missing" (txSignedBy info $ (oOperator oracle))
+        Update         -> traceIfFalse "operator signature missing" (txSignedBy info $ (unPaymentPubKeyHash $ oOperator oracle))
                         && traceIfFalse "invalid output datum" validOutputDatum
                         && traceIfFalse "update data is invalid" isUpdateValid
     where
@@ -87,7 +86,7 @@ mkOracleValidator oracle oracleData r ctx =
     validOutputDatum :: Bool
     validOutputDatum = isJust outputDatumMaybe
 
-    oraclePubKey:: PubKey
+    oraclePubKey:: PaymentPubKey
     oraclePubKey = (oOperatorKey oracle)
 
     outputSignedMessage = (outputDatumMaybe >>= ovSignedMessage)
@@ -104,18 +103,18 @@ mkOracleValidator oracle oracleData r ctx =
 
 
 {-# INLINABLE extractSignedMessage #-}
-extractSignedMessage :: PubKey -> Maybe (SignedMessage OracleSignedMessage) -> Maybe OracleSignedMessage
+extractSignedMessage :: PaymentPubKey -> Maybe (SignedMessage OracleSignedMessage) -> Maybe OracleSignedMessage
 extractSignedMessage pubkey signedMessage = signedMessage
                                         >>= verifyOracleValueSigned pubkey
                                         >>= (\(message, _) -> Just message)
 
 {-# INLINABLE isValueSigned #-}
-isValueSigned:: PubKey -> Maybe (SignedMessage OracleSignedMessage) -> Bool
+isValueSigned:: PaymentPubKey -> Maybe (SignedMessage OracleSignedMessage) -> Bool
 isValueSigned pk signedMessage = isJust $ signedMessage >>= verifyOracleValueSigned pk
 
 
 {-# INLINABLE verifyOracleValueSigned #-}
-verifyOracleValueSigned :: PubKey -> SignedMessage OracleSignedMessage -> Maybe (OracleSignedMessage, TxConstraints Void Void)
+verifyOracleValueSigned :: PaymentPubKey -> SignedMessage OracleSignedMessage -> Maybe (OracleSignedMessage, TxConstraints Void Void)
 verifyOracleValueSigned pk sm = case verifySignedMessageConstraints pk sm of
     Left _                   -> Nothing
     Right (osm, constraints) -> Just (osm, constraints)

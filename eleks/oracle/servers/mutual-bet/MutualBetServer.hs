@@ -8,15 +8,16 @@ module Main(main) where
 import Data.Aeson
 import Data.Text
 import GHC.Generics (Generic)
-import Ledger (PubKeyHash)
+import Ledger.Address (PaymentPubKeyHash)
 import Network.Wai.Handler.Warp
 import Servant
-import Wallet.Emulator (knownWallet, walletPubKeyHash)
+import Wallet.Emulator (knownWallet)
+import Wallet.Emulator.Wallet (mockWalletPaymentPubKeyHash)
 
 type GamesAPI = "wallet" :> Capture "id" Integer :> Get '[JSON] WalletData
 
 data WalletData = WalletData
-  { walletDataPubKeyHash :: !PubKeyHash
+  { walletDataPubKeyHash :: !PaymentPubKeyHash
   , walletId             :: !Text
   } deriving Generic
 instance FromJSON WalletData
@@ -32,7 +33,7 @@ mutualBetServer = wallet
     wallet wId = do
 
       let walletInst = knownWallet $ wId
-          pubKeyHash = walletPubKeyHash walletInst
+          pubKeyHash = mockWalletPaymentPubKeyHash walletInst
       return WalletData { walletDataPubKeyHash   = pubKeyHash
                         , walletId               = toUrlPiece walletInst
                         }

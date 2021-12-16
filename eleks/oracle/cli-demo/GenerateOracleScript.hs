@@ -48,14 +48,13 @@ main = do
                   { roGame = 1}
     putStrLn $ show $ encode useOr
     let oracleRequestTokenInfo = OracleRequestToken
-          { ortOperator = pkh
+          { ortOperator = PaymentPubKeyHash pkh
           , ortFee = theFee
           }
     let oracle = Oracle
-            { --oSymbol = opSymbol op
-              oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
-            , oOperator = pkh
-            , oOperatorKey = pk
+            { oRequestTokenSymbol = requestTokenSymbol oracleRequestTokenInfo
+            , oOperator = PaymentPubKeyHash pkh
+            , oOperatorKey = PaymentPubKey pk
             , oFee = theFee
             }
 

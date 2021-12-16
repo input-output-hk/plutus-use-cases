@@ -71,7 +71,7 @@ start mutualBetTokenClass startParams = do
     let mutualBet = MutualBetParams {
                   mbpGame = mbspGame startParams
                 , mbpOracle = mbspOracle startParams
-                , mbpOwner = mbspOwner startParams
+                , mbpOwner =  PaymentPubKeyHash $ mbspOwner startParams
                 , mbpTeam1 = mbspTeam1 startParams
                 , mbpTeam2 = mbspTeam2 startParams
                 , mbpMinBet = mbspMinBet startParams
@@ -99,7 +99,7 @@ startWithOracle mutualBetTokenClass startParams = do
     let params = MutualBetParams {
                   mbpGame = mbspGame startParams
                 , mbpOracle = mbspOracle startParams
-                , mbpOwner = mbspOwner startParams
+                , mbpOwner = PaymentPubKeyHash $ mbspOwner startParams
                 , mbpTeam1 = mbspTeam1 startParams
                 , mbpTeam2 = mbspTeam2 startParams
                 , mbpMinBet = mbspMinBet startParams
@@ -143,7 +143,7 @@ startWithOracle mutualBetTokenClass startParams = do
 
 
 
-isCurrentGame :: Ledger.PubKeyHash -> MutualBetParams -> OracleData -> Either Haskell.String OracleData
+isCurrentGame :: PaymentPubKeyHash -> MutualBetParams -> OracleData -> Either Haskell.String OracleData
 isCurrentGame pkh params oracleData
     | pkh /= (ovRequestAddress oracleData) = Left "Not signed by owner wallet"
     | (mbpGame params) /= (ovGame oracleData) = Left "Not current game"
@@ -171,7 +171,7 @@ waitForGameStateChange params = do
         isCurrentGameState pkh GameStateChange{gmsOracleData} = isRight $ isCurrentGame pkh params gmsOracleData
         waitEnd = do
             txs <- awaitNextOracleRequest (mbpOracle params)
-            pkh <- ownPubKeyHash
+            pkh <- ownPaymentPubKeyHash
             logInfo @Haskell.String "Await next"
             let currentGameSignedTx = find (isCurrentGameState pkh) . catMaybes . map (mapSignedMessage params) $ txs
             case currentGameSignedTx of
@@ -271,7 +271,7 @@ deleteGame mbParams signedMessage = do
     handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo $ "delete game: " ++ show bets
 
-mkTxPayWinners :: [(PubKeyHash, Ada, Ada)]-> TxConstraints MutualBetRedeemer MutualBetDatum
+mkTxPayWinners :: [(PaymentPubKeyHash, Ada, Ada)]-> TxConstraints MutualBetRedeemer MutualBetDatum
 mkTxPayWinners = foldMap (\(winnerAddressHash, winnerBetAmount, winnerPrize) -> Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue $ winnerBetAmount + winnerPrize)
 
 mkTxReturnBets :: [Bet] -> TxConstraints MutualBetRedeemer MutualBetDatum
@@ -284,7 +284,7 @@ bet ::
     -> Contract w s Text [Bet]
 bet mbParams betParams = do
     (oref, o, MutualBetDatum bets _) <- findMutualBetInstance mbParams
-    ownPK <- ownPubKeyHash
+    ownPK <- ownPaymentPubKeyHash
 
     let newBet = Bet {
             betAmount =  Ada.lovelaceOf $ nbpAmount betParams,
@@ -318,7 +318,7 @@ cancelBet ::
     -> Contract w s Text [Bet]
 cancelBet mbParams betParams = do
     (oref, o, MutualBetDatum bets _) <- findMutualBetInstance mbParams
-    ownPK <- ownPubKeyHash
+    ownPK <- ownPaymentPubKeyHash
 
     let betToCancel = Bet {
             betAmount =  Ada.lovelaceOf $ nbpAmount betParams,
@@ -383,7 +383,7 @@ findMutualBetInstance mutualBet = do
 
 forgeIdToken::
     forall w s. TokenName
-    -> PubKeyHash
+    -> PaymentPubKeyHash
     -> Contract w s Text CurrencySymbol
 forgeIdToken tokenName pk = fmap Currency.currencySymbol $
     mapError (pack . show @Currency.CurrencyError) $
@@ -393,7 +393,7 @@ mutualBetStart ::
     MutualBetStartParams
     -> Contract (Last (Either Text MutualBetParams)) EmptySchema Text ()
 mutualBetStart params = do
-    ownPK <- ownPubKeyHash
+    ownPK <- ownPaymentPubKeyHash
     cs <- forgeIdToken mutualBetTokenName ownPK
     let mutualBetAsset = assetClass cs mutualBetTokenName
     mutualBetStart' mutualBetAsset params
@@ -410,7 +410,7 @@ mutualBetStartWithOracle ::
     MutualBetStartParams
     -> Contract (Last (Either Text MutualBetParams)) EmptySchema Text ()
 mutualBetStartWithOracle params = do
-    ownPK <- ownPubKeyHash
+    ownPK <- ownPaymentPubKeyHash
     cs <- forgeIdToken mutualBetTokenName ownPK
     let mutualBetAsset = assetClass cs mutualBetTokenName
     handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mutualBetStartWithOracle' mutualBetAsset params
