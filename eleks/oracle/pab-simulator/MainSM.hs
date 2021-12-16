@@ -69,14 +69,10 @@ main = void $ Simulator.runSimulationWith handlers $ do
 
     Simulator.logString @(Builtin MutualBetContracts) "Starting mutual bet"
     shutdown <- PAB.Server.startServerDebug
-    -- cidOracleToken <- Simulator.activateContract oracleWallet $ OracleTokenInit
-    -- Simulator.logString @(Builtin MutualBetContracts) "Uraa1"
-    -- currency <- waitForLast cidOracleToken
     let oracleParams = OracleParams
-                        { --opSymbol = "aa",
+                        {
                           opFees   = 3_000_000
                         , opSigner = encodeKeyToDto $ oraclePrivateKey
-                        , opCollateral = 2_000_000
                         }
     cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
     liftIO $ writeFile "oracle.cid" $ show $ unContractInstanceId cidOracle

@@ -73,12 +73,11 @@ main = void $ Simulator.runSimulationWith handlers $ do
     shutdown <- PAB.Server.startServerDebug
 
     let oracleParams = OracleParams
-                        { --opSymbol = "aa",
+                        {
                           opFees   = 3_000_000
                         , opSigner = encodeKeyToDto $ oraclePrivateKey
-                        , opCollateral = 2_000_000
                         }
-    cidOracle <- Simulator.activateContract oracleWallet $ OracleСontract oracleParams
+    cidOracle <- Simulator.activateContract oracleWallet $ OracleContract oracleParams
     liftIO $ writeFile "oracle.cid" $ show $ unContractInstanceId cidOracle
     oracle <- waitForLastOracle cidOracle
     games <- liftIO $ fromRight [] <$> GameClient.getGames

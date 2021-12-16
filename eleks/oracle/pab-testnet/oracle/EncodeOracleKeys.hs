@@ -22,7 +22,6 @@ main = do
 
   let params =  OracleParams
                 { opFees =2_000_000
-                , opCollateral = 2_000_000
                 , opSigner = dtoEncoded
                 }
   putStrLn $ show $ Data.Aeson.encode params

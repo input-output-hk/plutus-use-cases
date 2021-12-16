@@ -76,8 +76,7 @@ mkOracleValidator oracle oracleData r ctx =
     ownOutput :: TxOut
     ownOutput = case [ o
                      | o <- getContinuingOutputs ctx
-                     , requestTokenValOf (txOutValue o) == 1 &&
-                       Ada.fromValue (txOutValue o) == oCollateral oracle
+                     , requestTokenValOf (txOutValue o) == 1
                      ] of
         [o] -> o
         _   -> traceError "expected request token with collateral ada value"

@@ -20,7 +20,7 @@
  export WALLET_ID=2d4cc31a4b3116ab86bfe529d30d9c362acd0b44
  curl -H "Content-Type: application/json" -v -X POST -d \
     "{\"caID\":{\"tag\":\"OracleContract\", \"contents\": 
-    {\"opSigner\":\"SCYrlxVqkH2FAfCCS4DyEX77x78ahDVxTwBhmF3010QmecWIArrBTVFHpkN7K5fWW+YYqQ2SjSlSRg7VLBWU1MFbmQNEEisSSUpe3RAg2esy40sPgmkfjjFkXdq3Ev8r4NaUHxjedKQzDZWqLU9JSxBq4i24kaOdu6dek8mtl5U=\",\"opFees\":{\"getLovelace\":2000000},\"opCollateral\":{\"getLovelace\":2000000}}
+    {\"opSigner\":\"SCYrlxVqkH2FAfCCS4DyEX77x78ahDVxTwBhmF3010QmecWIArrBTVFHpkN7K5fWW+YYqQ2SjSlSRg7VLBWU1MFbmQNEEisSSUpe3RAg2esy40sPgmkfjjFkXdq3Ev8r4NaUHxjedKQzDZWqLU9JSxBq4i24kaOdu6dek8mtl5U=\",\"opFees\":{\"getLovelace\":2000000}}
      },\"caWallet\":{\"getWalletId\":\"$WALLET_ID\"}}" \
     localhost:9085/api/contract/activate
   ```

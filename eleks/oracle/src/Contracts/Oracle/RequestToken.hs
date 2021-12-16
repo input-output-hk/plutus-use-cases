@@ -47,7 +47,6 @@ checkRequesTokenPolicy requestToken r ctx =
     case r of
         Request     -> traceIfFalse "Should forge one token" (forgedCount == 1)
                     && traceIfFalse "Is fee paid" (valuePaidTo info (ortOperator requestToken) == feeValue)
-                    && traceIfFalse "Is forged with collateral" (isForgedWithCollateral)
         RedeemToken -> traceIfFalse "Should redeem one token" (forgedCount == -1)
     where
         ownSymbol = ownCurrencySymbol ctx
@@ -55,13 +54,6 @@ checkRequesTokenPolicy requestToken r ctx =
         forged = txInfoMint info
         forgedCount = valueOf forged ownSymbol oracleRequestTokenName
         feeValue = Ada.toValue $ ortFee requestToken
-        collateralValue = Ada.toValue $ ortCollateral requestToken
-        isForgedWithCollateral :: Bool
-        isForgedWithCollateral = isJust . find (isForgetTokenOutput) $ txInfoOutputs info
-        isForgetTokenOutput:: TxOut -> Bool
-        isForgetTokenOutput o =
-            txOutValue o == Value.singleton ownSymbol oracleRequestTokenName 1
-                            <> collateralValue
 
 
 requestTokenPolicy :: OracleRequestToken -> LedgerScripts.MintingPolicy

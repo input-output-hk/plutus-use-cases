@@ -57,7 +57,6 @@ getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . empty
 oracleParams :: OracleParams
 oracleParams = OracleParams
     { opFees = 3_000_000
-    , opCollateral = 2_500_000
     , opSigner = encodeKeyToDto $ oraclePrivateKey
     }
 
@@ -65,7 +64,6 @@ oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
     { ortOperator = walletPubKeyHash oracleWallet
     , ortFee = opFees oracleParams
-    , ortCollateral = opCollateral oracleParams
     }
 
 oracle ::  Oracle
@@ -75,7 +73,6 @@ oracle = Oracle
     , oOperator = walletPubKeyHash oracleWallet
     , oOperatorKey = getWalletPubKey oracleWallet
     , oFee = opFees oracleParams
-    , oCollateral = opCollateral oracleParams
     }
 
 gameId :: GameId
@@ -454,9 +451,12 @@ expectContractLog expectedText logM = case logM of
 expectStateChangeFailureLog :: [EmulatorTimeEvent ContractInstanceLog] -> Bool
 expectStateChangeFailureLog = expectContractLog "TransitionFailed" . listToMaybe . reverse . mapMaybe (preview (eteEvent . cilMessage . _ContractLog))
 
+oracleTokenMinAda:: Ada
+oracleTokenMinAda = minAdaTxOut
+
 tests :: TestTree
 tests =
-    testGroup "mutual bet"
+    testGroup "mutual bet state machine"
         [
         checkPredicateOptions options "success games 1 winner 1 lost"
         (assertDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) (const True) "mutual bet contract should be done"
@@ -507,7 +507,7 @@ tests =
         (assertNotDone mutualBetContract (Trace.walletInstanceTag betOwnerWallet) "mutual bet contract should not be done"
         .&&. assertNotDone (bettorContract threadToken) (Trace.walletInstanceTag bettor1) "bettor 1 contract should not be done"
         .&&. assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
-        .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams + opCollateral oracleParams + minAdaTxOut))
+        .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams + oracleTokenMinAda + minAdaTxOut))
         )
         inProgressBetFailTrace
         ,
@@ -529,7 +529,7 @@ tests =
         (
         walletFundsChange bettor1 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - oracleTokenMinAda - minAdaTxOut))
         )
         cancelBetTrace
         ,
@@ -537,7 +537,7 @@ tests =
         (
         walletFundsChange bettor1 (inv (Ada.toValue $ (2 * mbpBetFee mutualBetParams) + (Ada.lovelaceOf cancelBettorBet) ))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (3 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (3 * mbpBetFee mutualBetParams) - opFees oracleParams - oracleTokenMinAda - minAdaTxOut))
         )
         cancelBetWhenDuplicateTrace
         ,
@@ -545,7 +545,7 @@ tests =
         (
         walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut))
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - oracleTokenMinAda - minAdaTxOut))
         .&&. assertInstanceLog (Trace.walletInstanceTag $ bettor1) expectStateChangeFailureLog
         )
         cancelBetLiveGameFailTrace

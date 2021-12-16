@@ -68,12 +68,10 @@ import Types.Game
 startOracle :: forall w s. OracleParams -> PubKey -> Contract w s Text Oracle
 startOracle op pk = do
     pkh <- Contract.ownPubKeyHash
-    when (opFees op < minAdaTxOut) $ throwError "fee should be grater than min ada"
-    when (opCollateral op < minAdaTxOut) $ throwError "collateral should be grater than min ada"
+    when (opFees op < Ledger.minAdaTxOut) $ throwError "fee should be grater than min ada"
     let oracleRequestTokenInfo = OracleRequestToken
             { ortOperator = pkh
             , ortFee = opFees op
-            , ortCollateral = opCollateral op
             }
     let oracle = Oracle
             {
@@ -81,7 +79,6 @@ startOracle op pk = do
             , oOperator = pkh
             , oOperatorKey = pk
             , oFee = opFees op
-            , oCollateral = opCollateral op
             }
     logInfo @String $ "started oracle " ++ show oracle
     return oracle
@@ -103,7 +100,7 @@ updateOracle oracle operatorPrivateKey params = do
                         let oracleData' = oracleData{ ovSignedMessage = Just $ signMessage oracleSignMessage operatorPrivateKey ""   }
                         when (oracleData' /= oracleData) $ do
                             let requestTokenVal = requestTokenValue oracle
-                                collateralVal = Ada.toValue $ oCollateral oracle
+                                collateralVal = Ada.toValue $ Ledger.minAdaTxOut
                             let lookups = Constraints.unspentOutputs (Map.singleton oref o)
                                         <> Constraints.typedValidatorLookups (typedOracleValidator oracle)
                                         <> Constraints.otherScript (oracleValidator oracle)
@@ -164,7 +161,7 @@ requestOracleForAddress oracle gameId = do
         forgedToken = requestTokenValue oracle
         oracleFee = oFee oracle
         feeVal = Ada.toValue oracleFee
-        collateralVal = Ada.toValue $ oCollateral oracle
+        collateralVal = Ada.toValue $ Ledger.minAdaTxOut
         oracleData = OracleData
             { ovRequestAddress = pkh
             , ovGame = gameId
@@ -299,7 +296,6 @@ redeemOracleRequest oracle gameId = do
         tokenMintingPolicy = requestTokenPolicy $ oracleToRequestToken oracle
         redeemer = Redeemer $ PlutusTx.toBuiltinData $ OracleRedeem
         requestTokenVal = requestTokenValue oracle
-        collateralValue = Ada.toValue $ oCollateral oracle
         mintRedeemer = Redeemer $ PlutusTx.toBuiltinData $ RedeemToken
 
     let lookups = Constraints.typedValidatorLookups inst
@@ -308,7 +304,6 @@ redeemOracleRequest oracle gameId = do
                 <> Constraints.mintingPolicy tokenMintingPolicy
         tx  = Constraints.mustSpendScriptOutput oref redeemer
                 <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestTokenVal)
-                <> Constraints.mustPayToPubKey pkh collateralValue
                 <> Constraints.mustBeSignedBy pkh
 
     mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx

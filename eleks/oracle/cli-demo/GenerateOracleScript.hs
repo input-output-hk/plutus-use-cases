@@ -50,7 +50,6 @@ main = do
     let oracleRequestTokenInfo = OracleRequestToken
           { ortOperator = pkh
           , ortFee = theFee
-          , ortCollateral = collateral
           }
     let oracle = Oracle
             { --oSymbol = opSymbol op
@@ -58,7 +57,6 @@ main = do
             , oOperator = pkh
             , oOperatorKey = pk
             , oFee = theFee
-            , oCollateral = collateral
             }
 
     writePlutusScript oracleScriptFile (oraclePlutusScript oracle) (oracleScriptAsShortBs oracle)

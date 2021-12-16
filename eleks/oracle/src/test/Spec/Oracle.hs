@@ -22,6 +22,7 @@ import Data.Maybe (fromMaybe)
 import Data.Monoid (Last (..))
 import Data.Sort (sort)
 import Data.Text (Text)
+import Ledger qualified
 import Ledger.Ada qualified as Ada
 import Ledger.Crypto (PrivateKey, PubKey)
 import Ledger.Index (ValidationError (ScriptFailure))
@@ -58,8 +59,7 @@ slotCfg = def
 oracleParams :: OracleParams
 oracleParams = OracleParams
     { --opSymbol = oracleCurrency,
-      opFees = 2_000_000
-    , opCollateral = 2_500_000
+      opFees = 2_500_000
     , opSigner = encodeKeyToDto $ oraclePrivateKey
     }
 
@@ -67,7 +67,6 @@ oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
     { ortOperator = walletPubKeyHash oracleWallet
     , ortFee = opFees oracleParams
-    , ortCollateral = opCollateral oracleParams
     }
 oracle ::  Oracle
 oracle = Oracle
@@ -76,7 +75,6 @@ oracle = Oracle
     , oOperator = walletPubKeyHash oracleWallet
     , oOperatorKey = getWalletPubKey oracleWallet
     , oFee = opFees oracleParams
-    , oCollateral = opCollateral oracleParams
     }
 
 game1Id :: Integer
@@ -247,11 +245,11 @@ tests =
         assertNoFailedTransactions
         .&&. valueAtAddress (oracleAddress oracle)
             (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1
-                <> Ada.toValue(oCollateral oracle)
+                <> Ada.toValue(Ledger.minAdaTxOut)
                 )
             )
         .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
-        .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle + oCollateral oracle)))
+        .&&. walletFundsChange oracleClientWallet (inv (Ada.toValue (oFee oracle + Ledger.minAdaTxOut)))
         .&&. dataAtAddress (oracleAddress oracle) (== [requestOracleTestState])
         )
         requestOracleTrace
@@ -261,7 +259,7 @@ tests =
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
                 (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1
-                    <> Ada.toValue (oCollateral oracle)
+                    <> Ada.toValue (Ledger.minAdaTxOut)
                     )
                 )
             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
@@ -274,7 +272,7 @@ tests =
             assertNoFailedTransactions
             .&&. valueAtAddress (oracleAddress oracle)
                 (== (Value.assetClassValue (requestTokenClassFromOracle oracle) 1
-                    <> Ada.toValue (oCollateral oracle))
+                    <> Ada.toValue (Ledger.minAdaTxOut))
                 )
             .&&. walletFundsChange oracleWallet (Ada.toValue (oFee oracle))
         )

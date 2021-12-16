@@ -42,7 +42,6 @@ data Oracle = Oracle
     , oOperator           :: !PubKeyHash -- Oracle owner
     , oOperatorKey        :: !PubKey -- Oracle owner key used to verify signed data
     , oFee                :: !Ada -- Oracle fee amount
-    , oCollateral         :: !Ada -- Oracle fee amount
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord, OpenApi.ToSchema)
 
 PlutusTx.makeLift ''Oracle
@@ -50,9 +49,8 @@ PlutusTx.makeLift ''Oracle
 -- Token used for Oracle service monterization,
 -- One buy this token to pay for oracle service
 data OracleRequestToken = OracleRequestToken
-    { ortOperator   :: !PubKeyHash -- Oracle operator, address to send fee
-    , ortFee        :: !Ada -- token price
-    , ortCollateral :: !Ada
+    { ortOperator :: !PubKeyHash -- Oracle operator, address to send fee
+    , ortFee      :: !Ada -- token price
     } deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Haskell.Eq, Haskell.Ord)
 
 PlutusTx.makeLift ''OracleRequestToken
@@ -61,7 +59,6 @@ oracleToRequestToken:: Oracle -> OracleRequestToken
 oracleToRequestToken oracle = OracleRequestToken
     { ortOperator = oOperator oracle
     , ortFee = oFee oracle
-    , ortCollateral = oCollateral oracle
     }
 
 PlutusTx.makeLift ''FixtureStatusShort
@@ -115,9 +112,8 @@ PlutusTx.makeIsDataIndexed ''OracleRequestRedeemer [('Request, 0), ('RedeemToken
 
 data OracleParams = OracleParams
     { --opSymbol :: !CurrencySymbol,
-      opFees       :: !Ada
-    , opCollateral :: !Ada
-    , opSigner     :: !Haskell.String
+      opFees   :: !Ada
+    , opSigner :: !Haskell.String
     } deriving (Haskell.Eq, Show, Haskell.Ord, Generic, FromJSON, ToJSON, OpenApi.ToSchema)
 
 data RedeemOracleParams = RedeemOracleParams

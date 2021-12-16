@@ -62,7 +62,6 @@ getWalletPrivKey = ownPrivateKey . fromMaybe (error "not a mock wallet") . empty
 oracleParams :: OracleParams
 oracleParams = OracleParams
     { opFees = 3_000_000
-    , opCollateral = 2_500_000
     , opSigner = encodeKeyToDto $ oraclePrivateKey
     }
 
@@ -70,7 +69,6 @@ oracleRequestToken :: OracleRequestToken
 oracleRequestToken = OracleRequestToken
     { ortOperator = walletPubKeyHash oracleWallet
     , ortFee = opFees oracleParams
-    , ortCollateral = opCollateral oracleParams
     }
 
 oracle ::  Oracle
@@ -79,7 +77,6 @@ oracle = Oracle
     , oOperator = walletPubKeyHash oracleWallet
     , oOperatorKey = getWalletPubKey oracleWallet
     , oFee = opFees oracleParams
-    , oCollateral = opCollateral oracleParams
     }
 
 gameId :: GameId
@@ -393,6 +390,12 @@ cancelBetLiveGameFailTrace = do
     Trace.callEndpoint @"cancelBet" bettor1Hdl cancelBet1Params
     void $ Trace.waitNSlots 5
 
+oracleTokenMinAda:: Ada
+oracleTokenMinAda = minAdaTxOut
+
+marketTokenMinAda:: Ada
+marketTokenMinAda = minAdaTxOut
+
 tests :: TestTree
 tests =
     testGroup "mutual bet"
@@ -453,7 +456,7 @@ tests =
         ,
         checkPredicateOptions options "in progress game bet should fail"
         (  walletFundsChange bettor1 (inv (Ada.toValue 0))
-           .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams + opCollateral oracleParams + minAdaTxOut) <> inv theToken)
+           .&&. walletFundsChange betOwnerWallet (inv (Ada.toValue $ opFees oracleParams + oracleTokenMinAda + marketTokenMinAda) <> inv theToken)
         )
         inProgressBetFailTrace
         ,
@@ -461,7 +464,7 @@ tests =
         (
         walletFundsChange bettor1 (inv (Ada.toValue $ mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut ) <> inv theToken)
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (2 * mbpBetFee mutualBetParams) - opFees oracleParams - oracleTokenMinAda - marketTokenMinAda ) <> inv theToken)
         )
         cancelBetTrace
         ,
@@ -469,7 +472,7 @@ tests =
         (
         walletFundsChange bettor1 (inv (Ada.toValue $ (2 * mbpBetFee mutualBetParams) + (Ada.lovelaceOf cancelBettorBet) ))
         .&&. walletFundsChange bettor2 (inv (Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams)))
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (3 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut) <> inv theToken)
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (3 * mbpBetFee mutualBetParams) - opFees oracleParams - oracleTokenMinAda - marketTokenMinAda) <> inv theToken)
         )
         cancelBetWhenDuplicateTrace
         ,
@@ -477,7 +480,7 @@ tests =
         (
         walletFundsChange bettor1 (inv $ Ada.toValue $ (Ada.lovelaceOf cancelBettorBet) + (mbpBetFee mutualBetParams))
         .&&. walletFundsChange bettor2 (Ada.toValue 0)
-        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (1 * mbpBetFee mutualBetParams) - opFees oracleParams - opCollateral oracleParams - minAdaTxOut) <> inv theToken)
+        .&&. walletFundsChange betOwnerWallet ((Ada.toValue $ (1 * mbpBetFee mutualBetParams) - opFees oracleParams - oracleTokenMinAda - marketTokenMinAda) <> inv theToken)
         )
         cancelBetLiveGameFailTrace
         ]
