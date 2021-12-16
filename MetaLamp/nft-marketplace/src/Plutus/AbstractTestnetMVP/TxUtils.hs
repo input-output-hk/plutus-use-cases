@@ -59,23 +59,23 @@ mustForgeValue policy value = (lookups, tx)
 
 mustPayToScript :: (IsScriptData a) =>
   TypedValidator a
-  -> PubKeyHash
+  -> PaymentPubKeyHash
   -> DatumType a
   -> Value
   -> TxPair a
 mustPayToScript script pkh datum value = (lookups, tx)
     where
-        lookups = Constraints.ownPubKeyHash pkh <> Constraints.typedValidatorLookups script
+        lookups = Constraints.ownPaymentPubKeyHash pkh <> Constraints.typedValidatorLookups script
         tx = Constraints.mustPayToTheScript datum value
 
 mustPayToPubKey :: (IsScriptData a) =>
   TypedValidator a
-  -> PubKeyHash
+  -> PaymentPubKeyHash
   -> Value
   -> TxPair a
 mustPayToPubKey script pkh value = (lookups, tx)
     where
-        lookups = Constraints.ownPubKeyHash pkh <> Constraints.typedValidatorLookups script
+        lookups = Constraints.ownPaymentPubKeyHash pkh <> Constraints.typedValidatorLookups script
         tx = Constraints.mustPayToPubKey pkh value
 
 mustSpendScriptOutputs :: (IsScriptData a) =>
@@ -92,19 +92,19 @@ mustSpendScriptOutputs script inputs = (lookups, tx)
 mustSpendFromScript :: (IsScriptData a) =>
   TypedValidator a
   -> [OutputValue (RedeemerType a)]
-  -> PubKeyHash
+  -> PaymentPubKeyHash
   -> Value
   -> TxPair a
 mustSpendFromScript script inputs pkh value = (lookups, tx) <> mustSpendScriptOutputs script inputs
     where
-        lookups = Constraints.ownPubKeyHash pkh
+        lookups = Constraints.ownPaymentPubKeyHash pkh
         tx = Constraints.mustPayToPubKey pkh value
 
 mustRoundTripToScript :: (IsScriptData a) =>
   TypedValidator a
   -> [OutputValue (RedeemerType a)]
   -> DatumType a
-  -> PubKeyHash
+  -> PaymentPubKeyHash
   -> Value
   -> TxPair a
 mustRoundTripToScript script inputs datum pkh value = mustSpendScriptOutputs script inputs <> mustPayToScript script pkh datum value

@@ -74,7 +74,7 @@ createNft marketplace CreateNftParams {..} = do
     nftStore <- mdSingletons <$> marketplaceStore marketplace
     when (isJust $ AssocMap.lookup ipfsCidHash nftStore) $ throwError "Nft entry already exists"
 
-    pkh <- ownPubKeyHash
+    pkh <- ownPaymentPubKeyHash
     let nftName = V.TokenName ipfsCid
     nft <-
            mapError (T.pack . Haskell.show @Currency.CurrencyError) $
@@ -133,7 +133,7 @@ Lens.makeClassy_ ''OpenSaleParams
 -- | The user opens sale for his NFT
 openSale :: Marketplace -> OpenSaleParams -> Contract w s Text ()
 openSale marketplace@Marketplace{..} OpenSaleParams {..} = do
-    pkh <- ownPubKeyHash
+    pkh <- ownPaymentPubKeyHash
     nftStore <- marketplaceStore marketplace
 
     let internalId = toInternalId ospItemId
@@ -179,7 +179,7 @@ buyItem :: Marketplace -> CloseLotParams -> Contract w s Text ()
 buyItem marketplace CloseLotParams {..} = do
     let internalId = toInternalId clpItemId
     nftStore <- marketplaceStore marketplace
-    pkh <- ownPubKeyHash
+    pkh <- ownPaymentPubKeyHash
     let ipfsCidHash = getIpfsCidHash internalId
 
     nftInStore <- maybe (traceError "NFT has not been created.") pure $ AssocMap.lookup ipfsCidHash $ mdSingletons nftStore

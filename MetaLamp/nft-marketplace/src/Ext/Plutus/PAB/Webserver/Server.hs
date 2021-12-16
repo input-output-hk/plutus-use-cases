@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MonoLocalBinds        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -19,7 +18,6 @@ import           Control.Concurrent.Availability        (Availability,
 import           Data.Aeson                             (FromJSON, ToJSON)
 import qualified Data.OpenApi.Schema                    as OpenApi
 import           Data.Proxy
-import           Ledger.Crypto                          (pubKeyHash)
 import qualified Network.Wai.Middleware.Cors            as Cors
 import qualified Network.Wai.Middleware.Servant.Options as Cors
 import qualified Plutus.PAB.Effects.Contract            as Contract

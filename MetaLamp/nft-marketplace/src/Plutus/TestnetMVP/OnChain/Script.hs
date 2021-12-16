@@ -32,7 +32,7 @@ import qualified PlutusTx.AssocMap                                      as Assoc
 
 data Marketplace =
     Marketplace
-        { marketplaceOperator :: PubKeyHash,
+        { marketplaceOperator :: PaymentPubKeyHash,
         marketplaceThreadToken :: AssetClass,
         marketplaceName     :: BuiltinByteString,
         marketplaceNFTFee   :: Ada,  -- fixed fee by minting and bundling

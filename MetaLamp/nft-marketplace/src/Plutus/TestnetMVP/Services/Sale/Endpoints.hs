@@ -27,7 +27,6 @@ import qualified Plutus.Abstract.Percentage                               as Per
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import           Ext.Plutus.Ledger.Index                                  (minAdaTxOutValue)
-import           Plutus.Contract.Request                                  (ownPubKeyHash)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                        as AssocMap
 import           PlutusTx.Prelude                                         hiding
@@ -52,7 +51,6 @@ import qualified Ledger.Constraints.TxConstraints as TxConstraints
 import qualified Ledger.Constraints.OffChain as TxConstraints
 import           Ext.Plutus.Ledger.Value (utxosValue)
 import Ledger.Tokens (token)
-import Plutus.V1.Ledger.Address (pubKeyHashAddress)
 import Plutus.TestnetMVP.OffChain.Info (fundsAt)
 -- imports for debug
 import qualified Cardano.Api  as C
@@ -74,7 +72,7 @@ PlutusTx.makeLift ''OpenSaleParams
 -- | Starts the Sale protocol and mints protocol NFT
 openSale :: OpenSaleParams -> Contract w s Text Sale
 openSale OpenSaleParams {..} = do
-    pkh <- ownPubKeyHash
+    pkh <- ownPaymentPubKeyHash
 
     curTime <- T.pack . Haskell.show <$> currentTime
     let saleTokenName = V.TokenName (ospIpfsCidHash <> deserializeByteString curTime)
@@ -107,7 +105,7 @@ openSale OpenSaleParams {..} = do
 -- | The user buys sale value paying sale price
 buyLot :: Sale -> Contract w s Text ()
 buyLot sale@Sale{..} = do
-    buyer <- ownPubKeyHash
+    buyer <- ownPaymentPubKeyHash
 
     utxoPair <- getUtxoPair sale
     value <- utxosValue $ saleAddress sale
@@ -119,7 +117,7 @@ buyLot sale@Sale{..} = do
 
     let ref = saleTxOutRef utxoPair
     let scriptUtxo = getUtxoMap utxoPair
-    buyerUtxos <- utxosAt $ pubKeyHashAddress buyer
+    buyerUtxos <- utxosAt $ pubKeyHashAddress buyer Nothing
 
     -- pay to seller Tx
     let toSeller = TxUtils.mustPayToPubKey (saleInstance sale) saleOwner (toValue . Lovelace $ salePrice)

@@ -25,8 +25,8 @@ import           Prelude
 import qualified Prelude                                          as Haskell
 import qualified GHC.Generics                                     as Haskell
 
-type Saler = PubKeyHash
-type Buyer = PubKeyHash
+type Saler = PaymentPubKeyHash
+type Buyer = PaymentPubKeyHash
 type LovelacePrice = Integer
 
 data Sale =
