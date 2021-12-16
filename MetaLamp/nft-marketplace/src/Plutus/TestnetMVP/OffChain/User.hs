@@ -39,19 +39,18 @@ import qualified Ext.Plutus.Contracts.Currency as Currency
 import qualified Plutus.AbstractTestnetMVP.TxUtils as TxUtils
 import Plutus.TestnetMVP.OnChain.Script
 import Plutus.TestnetMVP.OnChain.Validator
-import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString, deserializePlutusBuiltinBS)
+import Plutus.TestnetMVP.OffChain.Serialization (deserializeByteString, deserializePlutusBuiltinBS)
 import           Ext.Plutus.Ledger.Index                                  (minAdaTxOutValue)
 import qualified Ledger.Value                                             as V
 import Plutus.TestnetMVP.OffChain.Info (marketplaceStore, marketplaceFunds, getNftEntry)
 import qualified Data.Map as Map
 import Plutus.AbstractTestnetMVP.OutputValue (OutputValue(..))
 import qualified Plutus.TestnetMVP.Services.Sale.Endpoints as Sale
-import qualified Plutus.Contracts.Services.Sale.Core                      as Core
-import Plutus.Contracts.NftMarketplace.OffChain.ID
-import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (NftInfo (..), IpfsCid, IpfsCidHash)
-import Plutus.Contracts.NftMarketplace.OnChain.Core.ID
+import Plutus.TestnetMVP.OffChain.ID
+import Plutus.TestnetMVP.OnChain.ID
 import Plutus.TestnetMVP.OnChain.NFT
 import qualified Ledger.Constraints.TxConstraints       as Constraints
+import Plutus.TestnetMVP.Services.Sale.Script (LovelacePrice)
 
 data CreateNftParams =
   CreateNftParams {
@@ -124,7 +123,7 @@ insertNft' ipfsCidHash nftEntry store@MarketplaceDatum{..}  = do
 data OpenSaleParams =
   OpenSaleParams {
     ospItemId    :: UserItemId,
-    ospSalePrice :: Core.LovelacePrice
+    ospSalePrice :: LovelacePrice
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
     deriving anyclass (J.ToJSON, J.FromJSON, Schema.ToSchema)

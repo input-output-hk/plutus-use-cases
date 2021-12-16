@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ViewPatterns          #-}
 
-module Plutus.Contracts.NftMarketplace.OffChain.ID where
+module Plutus.TestnetMVP.OffChain.ID where
 
 import           Control.Monad                                          hiding
                                                                         (fmap)
@@ -23,9 +23,8 @@ import           Ledger
 import qualified Ledger.Typed.Scripts                                   as Scripts
 import           Ledger.Value
 import           Plutus.Contract
-import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Core
-import           Plutus.Contracts.NftMarketplace.OnChain.Core.ID        (InternalId (..))
+import           Plutus.TestnetMVP.OffChain.Serialization (deserializeByteString)
+import           Plutus.TestnetMVP.OnChain.ID        (InternalId (..), InternalNftId(..))
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                      as AssocMap
 import           PlutusTx.Prelude                                       hiding
@@ -45,8 +44,8 @@ instance Schema.ToSchema UserItemId where
 
 toInternalId :: UserItemId -> InternalId
 toInternalId (UserNftId (deserializeByteString -> ipfsCid)) = NftInternalId
-  Core.InternalNftId {
-      Core.iniIpfsCidHash = sha2_256 ipfsCid,
-      Core.iniIpfsCid = ipfsCid
+  InternalNftId {
+      iniIpfsCidHash = sha2_256 ipfsCid,
+      iniIpfsCid = ipfsCid
     }
 

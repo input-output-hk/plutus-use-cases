@@ -3,7 +3,7 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
-module Plutus.Contracts.NftMarketplace.OffChain.Serialization where
+module Plutus.TestnetMVP.OffChain.Serialization where
 
 import qualified Data.Aeson         as J
 import qualified Data.Aeson.Types   as J

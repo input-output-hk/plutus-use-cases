@@ -42,7 +42,7 @@ import           Plutus.Abstract.Percentage                   (Fractional,
                                                                mkPercentage)
 import Plutus.TestnetMVP.OnChain.Script
 import Plutus.TestnetMVP.OnChain.Validator
-import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
+import Plutus.TestnetMVP.OffChain.Serialization (deserializeByteString)
 import           Ext.Plutus.Ledger.Index                                  (minAdaTxOutValue)
 import qualified Ledger.Value                                             as V
 

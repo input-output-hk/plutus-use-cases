@@ -59,10 +59,8 @@ import           Plutus.Abstract.ContractResponse               (ContractRespons
                                                                  ContractState (..))
 import           Plutus.Abstract.RemoteData                     (RemoteData (..))
 import           Plutus.Contract                                hiding (when)
-import qualified Plutus.TestnetMVP.OffChain.Endpoints      as Marketplace
+import qualified Plutus.TestnetMVP.OffChain.Owner      as Marketplace
 import qualified Plutus.TestnetMVP.OffChain.Owner as Owner
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core   as Marketplace
-import qualified Plutus.Contracts.Services.Sale                 as Sale
 import           Plutus.PAB.Effects.Contract                    (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin            (Builtin,
                                                                  SomeBuiltin (..),
@@ -89,8 +87,8 @@ import           Wallet.Emulator.Wallet                         (Wallet (..),
                                                                  fromWalletNumber)
 import           Wallet.Types                                   (ContractInstanceId)
 import           Ledger.Index           (minAdaTxOut)
-import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
-
+import Plutus.TestnetMVP.OffChain.Serialization (deserializeByteString)
+import qualified Plutus.TestnetMVP.OffChain.Endpoints as Marketplace
 
 ownerWallet :: Wallet
 ownerWallet = fromWalletNumber $ WalletNumber 1
@@ -133,6 +131,21 @@ activateContracts = do
         return (w, cid)
 
     pure $ ContractIDs users cidInfo
+
+startMpServer :: IO ()
+startMpServer = do
+    beginningOfTime <- convertUtcToPOSIX <$> Time.getCurrentTime
+    void $ Simulator.runSimulationWith (handlers $ slotConfiguration beginningOfTime) $ do
+        Simulator.logString @(Builtin MarketplaceContracts) "Starting NFT Marketplace PAB webserver on port 9080. Press enter to exit."
+        shutdown <- Ext.Plutus.PAB.startServer
+
+        ContractIDs {..} <- activateContracts
+
+        manager <- liftIO . newManager $ defaultManagerSettings
+
+        Simulator.logString @(Builtin MarketplaceContracts) "NFT Marketplace PAB webserver started on port 9080. Initialization complete. Press enter to exit."
+        _ <- liftIO getLine
+        shutdown
 
 runNftMarketplace :: IO ()
 runNftMarketplace =
@@ -203,8 +216,6 @@ runNftMarketplace =
         J.Success (Last (Just (ContractState _ (Success Marketplace.NftBought)))) -> Just ()
         _                                         -> Nothing
     Simulator.logString @(Builtin MarketplaceContracts) $ "Successful buyItem"
-
-    _ <- Simulator.waitNSlots 10
 
     _ <- Simulator.callEndpointOnInstance cidInfo "marketplaceFunds" ()
     v <- flip Simulator.waitForState cidInfo $ \json -> case (J.fromJSON json :: J.Result (ContractResponse String Text Marketplace.InfoContractState)) of

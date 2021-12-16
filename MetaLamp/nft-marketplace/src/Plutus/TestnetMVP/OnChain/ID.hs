@@ -15,7 +15,7 @@
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 {-# OPTIONS_GHC -fobject-code #-}
 
-module Plutus.Contracts.NftMarketplace.OnChain.Core.ID where
+module Plutus.TestnetMVP.OnChain.ID where
 
 import           Control.Lens                                     ((&), (.~),
                                                                    (?~), (^.))
@@ -31,15 +31,13 @@ import qualified Ledger.Constraints                               as Constraints
 import qualified Ledger.Typed.Scripts                             as Scripts
 import qualified Ledger.Value                                     as V
 import           Plutus.Contract
-import           Plutus.Contract.StateMachine
-import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT
-import qualified Plutus.Contracts.Services.Sale                   as Sale
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                as AssocMap
 import           PlutusTx.Prelude                                 hiding
                                                                   (Semigroup (..))
 import           Prelude                                          (Semigroup (..))
 import qualified Prelude                                          as Haskell
+import Plutus.TestnetMVP.OnChain.NFT
 
 data InternalNftId = InternalNftId {
   iniIpfsCidHash :: !IpfsCidHash,

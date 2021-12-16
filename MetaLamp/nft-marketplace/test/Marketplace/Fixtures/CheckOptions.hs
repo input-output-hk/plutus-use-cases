@@ -16,7 +16,6 @@ import qualified Ledger.Value                                 as V
 import qualified Marketplace.Fixtures.Wallet                  as Fixtures
 import           Plutus.Contract.Test
 import           Plutus.Contract.Trace                        (defaultDist)
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core as Marketplace
 import qualified Plutus.Trace                                 as Trace
 import           Plutus.V1.Ledger.Time                        (POSIXTime (..))
 

@@ -26,10 +26,6 @@ import           Ledger.Value
 import qualified Plutus.Abstract.Percentage                               as Percentage
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core.Marketplace as Marketplace
-import qualified Plutus.Contracts.Services.Sale.Core                      as Core
-import qualified Plutus.Contracts.Services.Sale.StateMachine              as Core
-
 import           Ext.Plutus.Ledger.Index                                  (minAdaTxOutValue)
 import           Plutus.Contract.Request                                  (ownPubKeyHash)
 import qualified PlutusTx
@@ -41,14 +37,14 @@ import qualified Prelude                                                  as Has
 import qualified Schema
 import           Text.Printf                                              (printf)
 import Plutus.Contract.Request (currentTime)
-import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (IpfsCidHash)
+import Plutus.TestnetMVP.OnChain.NFT (IpfsCidHash)
 import Plutus.TestnetMVP.Services.Sale.Validator
 import Plutus.TestnetMVP.Services.Sale.Script
 import qualified Ledger.Value                                             as V
 import qualified Ext.Plutus.Contracts.Currency as Currency
 import qualified Plutus.AbstractTestnetMVP.TxUtils as TxUtils
 import qualified Ledger.Tx as Tx
-import Plutus.Contracts.NftMarketplace.OffChain.Serialization (deserializeByteString)
+import Plutus.TestnetMVP.OffChain.Serialization (deserializeByteString)
 import Plutus.V1.Ledger.Ada (Ada(..), toValue)
 import qualified Data.Map as Map
 import Plutus.AbstractTestnetMVP.OutputValue (OutputValue(..))
@@ -66,7 +62,7 @@ import Ledger.Tx.CardanoAPI (toCardanoAddress)
 data OpenSaleParams =
   OpenSaleParams {
     ospIpfsCidHash :: IpfsCidHash,
-    ospSalePrice :: Core.LovelacePrice,
+    ospSalePrice :: LovelacePrice,
     ospSaleValue :: Value
   }
     deriving stock    (Haskell.Eq, Haskell.Show, Haskell.Generic)
