@@ -1,4 +1,4 @@
-import           Plutus.PAB.Simulation (startMpServer)
+import           Plutus.TestnetMVP.PAB.Simulation (startMpServer)
 
 main :: IO ()
 main = startMpServer

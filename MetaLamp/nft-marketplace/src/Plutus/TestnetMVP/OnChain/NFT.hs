@@ -16,7 +16,6 @@
 {-# OPTIONS_GHC -fobject-code #-}
 module Plutus.TestnetMVP.OnChain.NFT where
 
-import Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (NftInfo(..), IpfsCid, IpfsCidHash, Category)
 import           Control.Lens                                           (_2,
                                                                          (&),
                                                                          (.~),
@@ -39,7 +38,7 @@ import           Plutus.Abstract.Percentage                             (Percent
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
 import qualified Plutus.Contract.StateMachine                           as SM
-import           Plutus.Contracts.NftMarketplace.OffChain.Serialization (PlutusBuiltinByteString (..))
+import           Plutus.TestnetMVP.OffChain.Serialization (PlutusBuiltinByteString (..))
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                                      as AssocMap
 import           PlutusTx.Prelude                                       hiding
@@ -47,6 +46,13 @@ import           PlutusTx.Prelude                                       hiding
 import           Prelude                                                (Semigroup (..))
 import qualified Prelude                                                as Haskell
 import qualified Plutus.TestnetMVP.Services.Sale.Script as Sale
+
+-- Category = [BuiltinByteString]
+-- 1. acts as a list of category with nested subcategories
+-- 2. acts as a list of tags
+type IpfsCid = BuiltinByteString
+type IpfsCidHash = BuiltinByteString
+type Category = [PlutusBuiltinByteString]
 
 data LotLink =
   SaleLotLink Sale.Sale
@@ -61,6 +67,23 @@ Lens.makePrisms ''LotLink
 
 getLotValue :: LotLink -> V.Value
 getLotValue (SaleLotLink sale)       = Sale.saleValue sale
+
+data NftInfo =
+  NftInfo
+    { niCurrency    :: !CurrencySymbol
+    , niName        :: !PlutusBuiltinByteString
+    , niDescription :: !PlutusBuiltinByteString
+    , niCategory    :: !Category
+    , niIssuer      :: !(Maybe PubKeyHash)
+    }
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Generic)
+  deriving anyclass (J.ToJSON, J.FromJSON)
+
+PlutusTx.unstableMakeIsData ''NftInfo
+
+PlutusTx.makeLift ''NftInfo
+
+Lens.makeClassy_ ''NftInfo
 
 data NFT =
   NFT
