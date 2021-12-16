@@ -146,6 +146,7 @@ payout params client GameStateChange{gmsOutRef, gmsOutTx, gmsOracleData, gmsSign
                 , slOtherData = Map.empty
                 , slPaymentPubKeyHashes = Map.empty
                 , slTypedValidator = Nothing
+                , slOwnStakePubKeyHash = Nothing
                 , slOwnPaymentPubKeyHash = Nothing
                 }
         constraints = Constraints.mustSpendScriptOutput gmsOutRef redeemer
@@ -188,6 +189,7 @@ cancelGame params client  GameStateChange{gmsOutRef, gmsOutTx}  = do
                 , slOtherData = Map.empty
                 , slPaymentPubKeyHashes = Map.empty
                 , slTypedValidator = Nothing
+                , slOwnStakePubKeyHash = Nothing
                 , slOwnPaymentPubKeyHash = Nothing
                 }
         constraints = Constraints.mustSpendScriptOutput gmsOutRef redeemer

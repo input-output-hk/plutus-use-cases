@@ -28,7 +28,6 @@ import Data.Monoid (Last (..))
 import Data.Text (Text)
 import Ledger (PaymentPrivateKey (..), PaymentPubKeyHash (..))
 import Ledger.CardanoWallet qualified as CW
-import Ledger.Crypto (PrivateKey)
 import PabContracts.SimulatorPabContracts (MutualBetContracts (..), handlers)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator qualified as Simulator
