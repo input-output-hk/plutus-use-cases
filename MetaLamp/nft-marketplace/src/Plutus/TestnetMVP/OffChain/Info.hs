@@ -30,7 +30,6 @@ import           Plutus.Abstract.ContractResponse                (ContractRespon
 import           Plutus.Abstract.Percentage                      (Percentage)
 import           Plutus.Contract
 import           Plutus.Contract.StateMachine
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core    as Core
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap                               as AssocMap
 import           PlutusTx.Prelude                                hiding
@@ -43,6 +42,7 @@ import qualified Plutus.V1.Ledger.Scripts as Scripts
 import Plutus.TestnetMVP.OnChain.Script (Marketplace(..), MarketplaceDatum(..))
 import Plutus.TestnetMVP.OnChain.Validator (marketplaceAddress)
 import Plutus.TestnetMVP.OnChain.NFT (NFT)
+import Plutus.TestnetMVP.OnChain.ID
 
 -- | Gets current Marketplace store state
 marketplaceStore :: Marketplace -> Contract w s Text MarketplaceDatum
@@ -79,8 +79,8 @@ getStateDatum ::
     Maybe (OnChainState MarketplaceDatum i, ChainIndexTxMap) -> Contract w s Text MarketplaceDatum
 getStateDatum = maybe (throwError "Marketplace output not found") (pure . tyTxOutData . ocsTxOut . fst)
 
-getNftEntry :: MarketplaceDatum -> Core.InternalNftId -> Contract w s Text NFT
-getNftEntry nftStore (Core.InternalNftId ipfsCidHash _ipfsCid) =
+getNftEntry :: MarketplaceDatum -> InternalNftId -> Contract w s Text NFT
+getNftEntry nftStore (InternalNftId ipfsCidHash _ipfsCid) =
         maybe (throwError "NFT has not been created") pure $
           AssocMap.lookup ipfsCidHash $ mdSingletons nftStore
 

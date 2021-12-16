@@ -30,13 +30,13 @@ import           Ledger.Value
 import qualified PlutusTx
 import qualified Ledger.Typed.Scripts                             as Scripts
 import           PlutusTx.Prelude                                 
-import           Plutus.Contracts.NftMarketplace.OnChain.Core.NFT (IpfsCidHash)
+import          Plutus.TestnetMVP.OnChain.NFT (IpfsCidHash)
 import Plutus.TestnetMVP.OnChain.NFT (getLotValue, nftValue, nftLot)
 import qualified PlutusTx.AssocMap                               as AssocMap
 import Plutus.V1.Ledger.Contexts (ScriptContext)
 import Plutus.V1.Ledger.Address (Address)
 import Ledger.Address (scriptAddress)
-import Plutus.Contracts.NftMarketplace.OnChain.Core.ID (InternalNftId(..))
+import Plutus.TestnetMVP.OnChain.ID (InternalNftId(..))
 import Control.Monad (join)
 
 newtype MarketplaceThreadToken = 

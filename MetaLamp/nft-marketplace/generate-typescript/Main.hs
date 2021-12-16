@@ -22,12 +22,9 @@ import           Data.Proxy                                             (Proxy (
 import           Plutus.Abstract.ContractResponse                       (ContractState)
 import qualified Plutus.Abstract.Percentage                             as Percentage
 import           Plutus.Abstract.RemoteData                             (RemoteData)
-import           Plutus.Contract.StateMachine.ThreadToken               (ThreadToken)
-import qualified Plutus.Contracts.NftMarketplace.Endpoints              as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OffChain.Serialization as Marketplace
-import qualified Plutus.Contracts.NftMarketplace.OnChain.Core           as Marketplace
-import qualified Plutus.Contracts.Services.Auction                      as Auction
-import qualified Plutus.Contracts.Services.Sale                         as Sale
+import qualified Plutus.TestnetMVP.OffChain.Endpoints              as Marketplace
+import qualified Plutus.TestnetMVP.OffChain.Serialization as Marketplace
+import qualified Plutus.TestnetMVP.Services.Sale.Script                        as Sale
 import           Plutus.PAB.MarketplaceContracts                        (MarketplaceContracts (..))
 import           Plutus.V1.Ledger.Ada                                   (Ada)
 import           Plutus.V1.Ledger.Crypto                                (PubKeyHash)
@@ -75,7 +72,6 @@ instance (TypeScript a, TypeScript b) => TypeScript (RemoteData a b) where
     TSRawDeclaration "export interface IFailure<T> { tag: \"Failure\"; contents: T; }",
     TSRawDeclaration "export interface ISuccess<T> { tag: \"Success\"; contents: T; }"]
 
-$(deriveTypeScript Aeson.defaultOptions ''ThreadToken)
 $(deriveTypeScript Aeson.defaultOptions ''DiffMilliSeconds)
 $(deriveTypeScript Aeson.defaultOptions ''MarketplaceContracts)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.Marketplace)
@@ -87,23 +83,11 @@ $(deriveTypeScript Aeson.defaultOptions ''Marketplace.InfoContractState)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.OwnerContractState)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.NftInfo)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.NFT)
-$(deriveTypeScript Aeson.defaultOptions ''Marketplace.Bundle)
-$(deriveTypeScript Aeson.defaultOptions ''Marketplace.BundleInfo)
-$(deriveTypeScript Aeson.defaultOptions ''Marketplace.NftBundle)
-$(deriveTypeScript Aeson.defaultOptions ''Auction.Auction)
-$(deriveTypeScript Aeson.defaultOptions ''Auction.AuctionState)
-$(deriveTypeScript Aeson.defaultOptions ''Auction.HighestBid)
-$(deriveTypeScript Aeson.defaultOptions ''Auction.AuctionFee)
 $(deriveTypeScript Aeson.defaultOptions ''Sale.Sale)
-$(deriveTypeScript Aeson.defaultOptions ''Sale.SaleFee)
 $(deriveTypeScript Aeson.defaultOptions ''Percentage.Percentage)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.CreateNftParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.OpenSaleParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.CloseLotParams)
-$(deriveTypeScript Aeson.defaultOptions ''Marketplace.StartAnAuctionParams)
-$(deriveTypeScript Aeson.defaultOptions ''Marketplace.BidOnAuctionParams)
-$(deriveTypeScript Aeson.defaultOptions ''Marketplace.BundleUpParams)
-$(deriveTypeScript Aeson.defaultOptions ''Marketplace.UnbundleParams)
 $(deriveTypeScript Aeson.defaultOptions ''Marketplace.MarketplaceSettingsInfo)
 $(deriveTypeScript Aeson.defaultOptions ''ContractState)
 
@@ -118,7 +102,6 @@ formattingOptions = FormattingOptions
 
 main :: IO ()
 main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
-    (getTypeScriptDeclarations (Proxy @ThreadToken)) <>
     (getTypeScriptDeclarations (Proxy @DiffMilliSeconds)) <>
     (getTypeScriptDeclarations (Proxy @MarketplaceContracts)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.Marketplace)) <>
@@ -132,23 +115,11 @@ main = writeFile "generated.ts" $ formatTSDeclarations' formattingOptions (
     (getTypeScriptDeclarations (Proxy @Marketplace.InfoContractState)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.NftInfo)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.NFT)) <>
-    (getTypeScriptDeclarations (Proxy @Marketplace.Bundle)) <>
-    (getTypeScriptDeclarations (Proxy @Marketplace.BundleInfo)) <>
-    (getTypeScriptDeclarations (Proxy @Marketplace.NftBundle)) <>
-    (getTypeScriptDeclarations (Proxy @Auction.Auction)) <>
-    (getTypeScriptDeclarations (Proxy @Auction.AuctionState)) <>
-    (getTypeScriptDeclarations (Proxy @Auction.HighestBid)) <>
-    (getTypeScriptDeclarations (Proxy @Auction.AuctionFee)) <>
     (getTypeScriptDeclarations (Proxy @Sale.Sale)) <>
-    (getTypeScriptDeclarations (Proxy @Sale.SaleFee)) <>
     (getTypeScriptDeclarations (Proxy @Percentage.Percentage)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.CreateNftParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.OpenSaleParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.CloseLotParams)) <>
-    (getTypeScriptDeclarations (Proxy @Marketplace.StartAnAuctionParams)) <>
-    (getTypeScriptDeclarations (Proxy @Marketplace.BidOnAuctionParams)) <>
-    (getTypeScriptDeclarations (Proxy @Marketplace.BundleUpParams)) <>
-    (getTypeScriptDeclarations (Proxy @Marketplace.UnbundleParams)) <>
     (getTypeScriptDeclarations (Proxy @Marketplace.MarketplaceSettingsInfo)) <>
     (getTypeScriptDeclarations (Proxy @TxOutRef)) <>
     (getTypeScriptDeclarations (Proxy @TxId)) <>
