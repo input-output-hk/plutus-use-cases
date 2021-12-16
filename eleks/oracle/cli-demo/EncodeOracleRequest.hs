@@ -59,19 +59,20 @@ main = do
       signSkey <- either (\_ -> exitWithErrorMessage $ "sign Skey not found") pure signerKeyEither
       let signXprvE = xprv $ serialiseToRawBytes signSkey
       signXprv <- either (\_ -> exitWithErrorMessage $ "sign XPrv not found") pure signXprvE
+      let paymentPrivKey = PaymentPrivateKey signXprv
       let message = OracleSignedMessage{
           osmWinnerId = winnerId,
           osmGameId = gameId,
           osmGameStatus = gameStatus
       }
-      let signedMessage = signMessage message signXprv ""
+      let signedMessage = signMessage message paymentPrivKey ""
 
       showData gameId pkh (Just signedMessage)
 
 showData:: GameId -> PubKeyHash -> Maybe (SignedMessage OracleSignedMessage) -> IO ()
 showData gameId pkh signeMessage = do
     let od = OracleData {
-                ovRequestAddress = pkh,
+                ovRequestAddress = PaymentPubKeyHash pkh,
                 ovGame = gameId,
                 ovSignedMessage = signeMessage
                 }

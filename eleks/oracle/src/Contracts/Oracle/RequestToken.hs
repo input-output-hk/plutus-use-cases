@@ -39,14 +39,13 @@ import Ledger.Typed.Scripts qualified as Scripts
 import Ledger.Value as Value
 import PlutusTx qualified
 import PlutusTx.Prelude hiding (Semigroup (..), unless)
-import Prelude (Semigroup (..))
 
 {-# INLINABLE checkRequesTokenPolicy #-}
 checkRequesTokenPolicy :: OracleRequestToken -> OracleRequestRedeemer -> ScriptContext -> Bool
 checkRequesTokenPolicy requestToken r ctx =
     case r of
         Request     -> traceIfFalse "Should forge one token" (forgedCount == 1)
-                    && traceIfFalse "Is fee paid" (valuePaidTo info (ortOperator requestToken) == feeValue)
+                    && traceIfFalse "Is fee paid" (valuePaidTo info (unPaymentPubKeyHash $ ortOperator requestToken) == feeValue)
         RedeemToken -> traceIfFalse "Should redeem one token" (forgedCount == -1)
     where
         ownSymbol = ownCurrencySymbol ctx

@@ -28,15 +28,8 @@ source-repository-package
           plutus-use-cases
           quickcheck-dynamic
           web-ghc
-  -- iohk link
-  -- tag: 63123ffb527a37ba357e4cb38690625f945710b9
-  -- sign fix 
-  -- tag: ad4fd0ff0f451fadf404e2a0ebba0ccd33b8799f
-  -- sign fix and pab start
-  -- tag: 39766cfa6b4b1a8b5da216cf520c6ee32e6813fb
-  -- tag: 51117bbb50d09c73b8c94382784d7357419b1c08
-  -- last working
-  tag: 9642d1abafee1e313f2d3c9924a9fd7e5df1ecbd
+  -- sign3
+  tag: b2b0042a2fb3e4fd80a8012331768df0d208111e
 
 -- We never, ever, want this.
 write-ghc-environment-files: never

@@ -35,7 +35,7 @@ main = do
   let oraclePubKey = xPubToPublicKey xPub
   let signedMessageM = ovSignedMessage oracleData
   signedMessage <- maybe (exitWithErrorMessage "no signed message in datum") pure signedMessageM
-  case verifySignedMessageConstraints oraclePubKey signedMessage of
+  case verifySignedMessageConstraints (PaymentPubKey oraclePubKey) signedMessage of
     Left err -> exitWithErrorMessage $ "verify error: " ++ show err
     Right _  -> print "verify success"
 

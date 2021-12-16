@@ -40,12 +40,12 @@ import Prelude (Semigroup (..))
 import Types.Game
 
 {-# INLINABLE payToWinners #-}
-payToWinners :: TxInfo -> (PubKeyHash, Ada, Ada) -> Bool
-payToWinners txInfo (pkh, betAmount, winShare)= valuePaidTo txInfo pkh == Ada.toValue (betAmount + winShare)
+payToWinners :: TxInfo -> (PaymentPubKeyHash, Ada, Ada) -> Bool
+payToWinners txInfo (pkh, betAmount, winShare)= valuePaidTo txInfo (unPaymentPubKeyHash pkh) == Ada.toValue (betAmount + winShare)
 
 {-# INLINABLE payBettorsBack #-}
 payBettorsBack :: TxInfo -> Bet -> Bool
-payBettorsBack txInfo bet = valuePaidTo txInfo (betBettor bet) == Ada.toValue (betAmount bet)
+payBettorsBack txInfo bet = valuePaidTo txInfo (unPaymentPubKeyHash $ betBettor bet) == Ada.toValue (betAmount bet)
 
 {-# INLINABLE betsValueAmount #-}
 -- | The combined value of bets.
@@ -71,7 +71,7 @@ calculateWinnerShare :: Bet -> Ada -> Ada -> Ada
 calculateWinnerShare bet totalBets totalWin = calculatePrize bet totalBets totalWin
 
 {-# INLINABLE getWinners #-}
-getWinners :: Integer -> [Bet] -> [(PubKeyHash, Ada, Ada)]
+getWinners :: Integer -> [Bet] -> [(PaymentPubKeyHash, Ada, Ada)]
 getWinners winnerTeamId bets =
     let
         winnerBets = winBets winnerTeamId bets
@@ -118,7 +118,7 @@ validateBet ::
     -> Bool
 validateBet params bets bet ctx =
     traceIfFalse "bet is valid" (isValidBet params bet)
-    && traceIfFalse "expected fee payed" (valuePaidTo info ( mbpOwner params) == Ada.toValue (mbpBetFee params))
+    && traceIfFalse "expected fee payed" (valuePaidTo info (unPaymentPubKeyHash $ mbpOwner params) == Ada.toValue (mbpBetFee params))
     && traceIfFalse "bet and token locked"
         (Constraints.checkOwnOutputConstraint ctx
             (OutputConstraint (MutualBetDatum (bet:bets) BettingOpen) $
@@ -142,8 +142,8 @@ validateCancelBet ::
     -> ScriptContext
     -> Bool
 validateCancelBet params bets cancelBet ctx =
-    traceIfFalse "signed by owner" (txSignedBy info $ betBettor cancelBet)
-    && traceIfFalse "expected bet payed back" (valuePaidTo info (betBettor cancelBet) `Value.geq` Ada.toValue (betAmount cancelBet))
+    traceIfFalse "signed by owner" (txSignedBy info $ (unPaymentPubKeyHash $ betBettor cancelBet))
+    && traceIfFalse "expected bet payed back" (valuePaidTo info (unPaymentPubKeyHash $ betBettor cancelBet) `Value.geq` Ada.toValue (betAmount cancelBet))
     && traceIfFalse "bet unclocked from contract"
         (Constraints.checkOwnOutputConstraint ctx
             (OutputConstraint (MutualBetDatum (betsWithoutCancelled) BettingOpen) $
@@ -167,7 +167,7 @@ validateStartGame ::
     -> ScriptContext
     -> Bool
 validateStartGame params bets signedMessage ctx =
-    traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
+    traceIfFalse "signed by owner" (txSignedBy info $ (unPaymentPubKeyHash $ mbpOwner params))
     && isCurrentGameCheck params oracleMessage
     && expectGameStatus LIVE oracleMessage
     && traceIfFalse "status should be betting closed"
@@ -193,7 +193,7 @@ validatePayout ::
     -> ScriptContext
     -> Bool
 validatePayout params bets signedMessage ctx =
-    traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
+    traceIfFalse "signed by owner" (txSignedBy info $ (unPaymentPubKeyHash $ mbpOwner params))
     && isCurrentGameCheck params oracleMessage
     && expectGameStatus FT oracleMessage
     &&  if hasWinner
@@ -221,7 +221,7 @@ validatePayout params bets signedMessage ctx =
     hasWinner:: Bool
     hasWinner = winnerId > 0
 
-    winners :: [(PubKeyHash, Ada, Ada)]
+    winners :: [(PaymentPubKeyHash, Ada, Ada)]
     winners = getWinners winnerId bets
 
 {-# INLINABLE validateCancel #-}
@@ -232,7 +232,7 @@ validateCancel ::
     -> ScriptContext
     -> Bool
 validateCancel params bets signedMessage ctx =
-    traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
+    traceIfFalse "signed by owner" (txSignedBy info $ (unPaymentPubKeyHash $ mbpOwner params))
     && traceIfFalse "pay back on cancel"  (all (payBettorsBack info) bets)
     && isCurrentGameCheck params oracleMessage
     && expectGameStatus CANC oracleMessage
@@ -257,7 +257,7 @@ validateDeleteGame ::
     -> ScriptContext
     -> Bool
 validateDeleteGame params signedMessage ctx =
-    traceIfFalse "signed by owner" (txSignedBy info $ mbpOwner params )
+    traceIfFalse "signed by owner" (txSignedBy info $ (unPaymentPubKeyHash $ mbpOwner params))
     && (expectGameStatus FT oracleMessage || expectGameStatus CANC oracleMessage)
   where
     info :: TxInfo
@@ -279,7 +279,7 @@ expectGameStatus:: FixtureStatusShort -> OracleSignedMessage  -> Bool
 expectGameStatus expStatus message = expStatus == (osmGameStatus message)
 
 {-# INLINABLE oraclePubKey #-}
-oraclePubKey:: MutualBetParams -> PubKey
+oraclePubKey:: MutualBetParams -> PaymentPubKey
 oraclePubKey params = (oOperatorKey $ mbpOracle $ params)
 
 {-# INLINABLE mkMutualBetValidator #-}

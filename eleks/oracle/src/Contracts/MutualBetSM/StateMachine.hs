@@ -62,7 +62,7 @@ calculateWinnerShare :: Bet -> Ada -> Ada -> Ada
 calculateWinnerShare bet totalBets totalWin = calculatePrize bet totalBets totalWin
 
 {-# INLINABLE getWinners #-}
-getWinners :: Integer -> [Bet] -> [(PubKeyHash, Ada, Ada)]
+getWinners :: Integer -> [Bet] -> [(PaymentPubKeyHash, Ada, Ada)]
 getWinners winnerTeamId bets =
     let
         winnerBets = winBets winnerTeamId bets
@@ -86,7 +86,7 @@ includeWinshareInBets winnerTeamId bets =
         }) bets
 
 {-# INLINABLE mkTxPayWinners #-}
-mkTxPayWinners :: [(PubKeyHash, Ada, Ada)]-> TxConstraints Void Void
+mkTxPayWinners :: [(PaymentPubKeyHash, Ada, Ada)]-> TxConstraints Void Void
 mkTxPayWinners = foldMap (\(winnerAddressHash, winnerBetAmount, winnerPrize) -> Constraints.mustPayToPubKey winnerAddressHash $ Ada.toValue $ winnerBetAmount + winnerPrize)
 
 {-# INLINABLE mkTxReturnBets #-}

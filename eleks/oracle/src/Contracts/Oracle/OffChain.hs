@@ -65,9 +65,9 @@ import Prelude qualified as Haskell
 import Schema (ToSchema)
 import Types.Game
 
-startOracle :: forall w s. OracleParams -> PubKey -> Contract w s Text Oracle
+startOracle :: forall w s. OracleParams -> PaymentPubKey -> Contract w s Text Oracle
 startOracle op pk = do
-    pkh <- Contract.ownPubKeyHash
+    pkh <- Contract.ownPaymentPubKeyHash
     when (opFees op < Ledger.minAdaTxOut) $ throwError "fee should be grater than min ada"
     let oracleRequestTokenInfo = OracleRequestToken
             { ortOperator = pkh
@@ -83,7 +83,7 @@ startOracle op pk = do
     logInfo @String $ "started oracle " ++ show oracle
     return oracle
 
-updateOracle :: forall w s. Oracle -> PrivateKey -> UpdateOracleParams -> Contract w s Text ()
+updateOracle :: forall w s. Oracle -> PaymentPrivateKey -> UpdateOracleParams -> Contract w s Text ()
 updateOracle oracle operatorPrivateKey params = do
     let gameId = uoGameId params
         winnerId = uoWinnerId params
@@ -153,7 +153,7 @@ type OracleSchema = Endpoint "update" UpdateOracleParams
 requestOracleForAddress :: forall w s. Oracle -> GameId -> Contract w s Text ()
 requestOracleForAddress oracle gameId = do
     logInfo @Haskell.String "Request oracle for address"
-    pkh <- Contract.ownPubKeyHash
+    pkh <- Contract.ownPaymentPubKeyHash
     let inst = typedOracleValidator oracle
         mrScript = oracleValidator oracle
         address = oracleAddress oracle
@@ -217,16 +217,17 @@ runOracle :: OracleParams -> Contract (Last OracleContractState) OracleSchema Te
 runOracle op = do
     let signKeyE:: Either String XPrv = decodeKeyFromDto $ opSigner op
     signKey <- either (throwError . pack) pure signKeyE
-    let pk = toPublicKey signKey
-    let pkh = pubKeyHash pk
-    ownPkh <- Contract.ownPubKeyHash
+    let signPaymentKey = PaymentPrivateKey signKey
+    let pk = PaymentPubKey $ toPublicKey signKey
+    let pkh = paymentPubKeyHash pk
+    ownPkh <- Contract.ownPaymentPubKeyHash
     when(ownPkh /= pkh) $ throwError "private key not equal to pab starter"
     oracle <- startOracle op pk
 
     tell $ Last $ Just $ OracleState oracle
-    forever $ selectList[(update oracle signKey), (games oracle)]
+    forever $ selectList[(update oracle signPaymentKey), (games oracle)]
   where
-    update :: Oracle -> PrivateKey -> Promise (Last OracleContractState) OracleSchema Text ()
+    update :: Oracle -> PaymentPrivateKey -> Promise (Last OracleContractState) OracleSchema Text ()
     update oracle signKey = endpoint @"update" $ \updateOracleParams -> do
         logInfo @String "update called"
         logInfo $ show updateOracleParams
@@ -254,7 +255,7 @@ mapDatum (oref, o) = do
 isGameOracleRequest :: GameId -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
 isGameOracleRequest gameId (_, _, od) = gameId == (ovGame od)
 
-isOwnerOracleRequest :: PubKeyHash -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
+isOwnerOracleRequest :: PaymentPubKeyHash -> (TxOutRef, ChainIndexTxOut, OracleData) -> Bool
 isOwnerOracleRequest owner (_, _, od) = owner == (ovRequestAddress od)
 
 isActiveSignedMessage :: OracleSignedMessage -> Bool
@@ -272,7 +273,7 @@ isActiveRequest oracle (_, _, od) = case ovSignedMessage od of
 findOracleRequest ::
     forall w s. Oracle
     -> GameId
-    -> PubKeyHash
+    -> PaymentPubKeyHash
     -> Contract w s Text (Maybe (TxOutRef, ChainIndexTxOut, OracleData))
 findOracleRequest oracle gameId owner = do
     xs <- utxosAt (oracleAddress oracle)
@@ -287,7 +288,7 @@ type RedeemOracleSchema = Endpoint "redeem" RedeemOracleParams
 
 redeemOracleRequest :: forall w s. Oracle -> GameId -> Contract w s Text ()
 redeemOracleRequest oracle gameId = do
-    pkh <- Contract.ownPubKeyHash
+    pkh <- Contract.ownPaymentPubKeyHash
     oracleRequestMaybe <- findOracleRequest oracle gameId pkh
     (oref, o, _) <- maybe (throwError "no oracle request")
                      pure oracleRequestMaybe

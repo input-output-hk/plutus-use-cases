@@ -46,6 +46,7 @@ import Plutus.Contracts.PubKey qualified as PK
 import Ledger (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), getCardanoTxId, minAdaTxOut, scriptCurrencySymbol)
 
 import Ledger.Ada qualified as Ada
+import Ledger.Address (PaymentPubKeyHash)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts qualified as V
 import Ledger.Scripts
@@ -164,7 +165,7 @@ mintContract
     :: forall w s e.
     ( AsCurrencyError e
     )
-    => PubKeyHash
+    => PaymentPubKeyHash
     -> [(TokenName, Integer)]
     -> Contract w s e OneShotCurrency
 mintContract pkh amounts = mapError (review _CurrencyError) $ do
@@ -213,7 +214,7 @@ type CurrencySchema =
 mintCurrency
     :: Promise (Maybe (Last OneShotCurrency)) CurrencySchema CurrencyError OneShotCurrency
 mintCurrency = endpoint @"Create native token" $ \SimpleMPS{tokenName, amount} -> do
-    ownPK <- ownPubKeyHash
+    ownPK <- ownPaymentPubKeyHash
     cur <- mintContract ownPK [(tokenName, amount)]
     tell (Just (Last cur))
     pure cur
