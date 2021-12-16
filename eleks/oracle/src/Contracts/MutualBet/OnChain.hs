@@ -142,7 +142,8 @@ validateCancelBet ::
     -> ScriptContext
     -> Bool
 validateCancelBet params bets cancelBet ctx =
-    traceIfFalse "expected bet payed back" (valuePaidTo info (betBettor cancelBet) `Value.geq` Ada.toValue (betAmount cancelBet))
+    traceIfFalse "signed by owner" (txSignedBy info $ betBettor cancelBet)
+    && traceIfFalse "expected bet payed back" (valuePaidTo info (betBettor cancelBet) `Value.geq` Ada.toValue (betAmount cancelBet))
     && traceIfFalse "bet unclocked from contract"
         (Constraints.checkOwnOutputConstraint ctx
             (OutputConstraint (MutualBetDatum (betsWithoutCancelled) BettingOpen) $

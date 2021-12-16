@@ -109,6 +109,7 @@ updateOracle oracle operatorPrivateKey params = do
                                         <> Constraints.otherScript (oracleValidator oracle)
                                 constraints      = Constraints.mustPayToTheScript oracleData' (requestTokenVal <> collateralVal)
                                         <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
+                                        <> Constraints.mustBeSignedBy (oOperator oracle)
 
                             result <- runError @_ @_ @Text $ submitTxConstraintsWith @Oracling lookups constraints
                             case result of
@@ -119,7 +120,7 @@ updateOracle oracle operatorPrivateKey params = do
                                     let txi = getCardanoTxId tx
                                     logInfo @Haskell.String $ "Waiting for tx " <> Haskell.show txi <> " to complete"
                                     awaitTxConfirmed txi
-                                    logInfo @Haskell.String "Tx confirmed. Request oracle for address complete."
+                                    logInfo @Haskell.String $ "Tx confirmed.Update oracle complete. gameId:" ++ show gameId
 
 oracleValueFromTxOutTx :: ChainIndexTxOut -> Contract w s Text OracleData
 oracleValueFromTxOutTx o =
@@ -180,6 +181,7 @@ requestOracleForAddress oracle gameId = do
         tx      = Constraints.mustPayToTheScript oracleData (forgedToken <> collateralVal)
                 <> Constraints.mustPayToPubKey (oOperator oracle) (feeVal)
                 <> Constraints.mustMintValueWithRedeemer mintRedeemer forgedToken
+                <> Constraints.mustBeSignedBy pkh
 
     handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints @Oracling lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo @Haskell.String "Request oracle for address complete."
@@ -279,6 +281,8 @@ findOracleRequest oracle gameId owner = do
     xs <- utxosAt (oracleAddress oracle)
     let findCriteria = find (\tx -> isOwnerOracleRequest owner tx && isGameOracleRequest gameId tx)
     requestsWithDatum <- Control.Monad.mapM mapDatum . filterOracleRequest oracle . Map.toList $ xs
+    logInfo @Haskell.String $ "gameId: " ++ (show requestsWithDatum)
+    logInfo @Haskell.String $ "requestsWithDatum: " ++ (show gameId)
     let request = findCriteria . rights $ requestsWithDatum
     pure request
 
@@ -305,6 +309,7 @@ redeemOracleRequest oracle gameId = do
         tx  = Constraints.mustSpendScriptOutput oref redeemer
                 <> Constraints.mustMintValueWithRedeemer mintRedeemer (inv requestTokenVal)
                 <> Constraints.mustPayToPubKey pkh collateralValue
+                <> Constraints.mustBeSignedBy pkh
 
     mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
 

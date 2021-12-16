@@ -32,7 +32,7 @@ import Control.Monad hiding (fmap)
 import Data.Map qualified as Map
 import Data.Maybe (catMaybes)
 import Data.Monoid (Last (..))
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, unpack)
 import Data.Void (absurd)
 import Ledger hiding (singleton)
 import Ledger.Ada qualified as Ada
@@ -83,7 +83,7 @@ start mutualBetTokenClass startParams = do
         tx   = mustPayToTheScript (MutualBetDatum [] BettingOpen) (assetClassValue mutualBetTokenClass 1 <> (Ada.toValue Ledger.minAdaTxOut))
                -- todo: add oracle integration ,. pay to oracle
                <> Constraints.mustPayToPubKey (oOperator oracle) (Ada.toValue (oFee oracle))
-    mkTxConstraints (Constraints.typedValidatorLookups inst) tx
+    handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints (Constraints.typedValidatorLookups inst) tx
       >>= submitTxConfirmed . adjustUnbalancedTx
 
     logInfo @String $ printf "started Mutual bet %s at address %s" (show mutualBet) (show $ mutualBetAddress mutualBet)
@@ -197,7 +197,8 @@ startGame mbParams signedMessage = do
         tx       = Constraints.mustPayToTheScript mutualBetDatum (mutualBetToken <> Ada.toValue(betsAmount) <> (Ada.toValue Ledger.minAdaTxOut))
                    <> Constraints.mustPayToPubKey (mbpOwner mbParams) (Ada.toValue (mbpBetFee mbParams))
                    <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ StartGame signedMessage)
-    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+                   <> Constraints.mustBeSignedBy (mbpOwner mbParams)
+    handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo @String $ "game started"
 
 payout ::
@@ -224,8 +225,9 @@ payout mbParams signedMessage winnerId = do
                    <> Constraints.unspentOutputs (Map.singleton oref o)
         tx       = Constraints.mustPayToTheScript mutualBetDatum (mutualBetToken <> (Ada.toValue Ledger.minAdaTxOut))
                    <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ Payout signedMessage)
+                   <> Constraints.mustBeSignedBy (mbpOwner mbParams)
                    <> payConstraints
-    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+    handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo @String $ "payout completed" ++ show bets'
 
 cancel ::
@@ -246,8 +248,9 @@ cancel mbParams signedMessage = do
                    <> Constraints.unspentOutputs (Map.singleton oref o)
         tx       = Constraints.mustPayToTheScript mutualBetDatum (mutualBetToken <> (Ada.toValue Ledger.minAdaTxOut))
                    <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ CancelGame signedMessage)
+                   <> Constraints.mustBeSignedBy (mbpOwner mbParams)
                    <> payBackConstraints
-    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+    handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo $ "cancel game: " ++ show bets
 
 deleteGame ::
@@ -263,8 +266,9 @@ deleteGame mbParams signedMessage = do
                    <> Constraints.otherScript mrScript
                    <> Constraints.unspentOutputs (Map.singleton oref o)
         tx       = Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ DeleteGame signedMessage)
+                   <> Constraints.mustBeSignedBy (mbpOwner mbParams)
 
-    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+    handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo $ "delete game: " ++ show bets
 
 mkTxPayWinners :: [(PubKeyHash, Ada, Ada)]-> TxConstraints MutualBetRedeemer MutualBetDatum
@@ -302,7 +306,8 @@ bet mbParams betParams = do
         tx       = Constraints.mustPayToTheScript mutualBetDatum (mutualBetToken <> Ada.toValue(betsAmount) <> (Ada.toValue Ledger.minAdaTxOut))
                    <> Constraints.mustPayToPubKey (mbpOwner mbParams) (Ada.toValue (mbpBetFee mbParams))
                    <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ MakeBet newBet)
-    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+                   <> Constraints.mustBeSignedBy ownPK
+    handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo $ "bet placed: " ++ show bets'
     return bets'
 
@@ -335,7 +340,8 @@ cancelBet mbParams betParams = do
         tx       = Constraints.mustPayToTheScript mutualBetDatum (mutualBetToken <> Ada.toValue(betsAmount) <> (Ada.toValue Ledger.minAdaTxOut))
                    <> Constraints.mustPayToPubKey (betBettor betToCancel) (Ada.toValue (betAmount betToCancel))
                    <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ CancelBet betToCancel)
-    mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
+                   <> Constraints.mustBeSignedBy ownPK
+    handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mkTxConstraints lookups tx >>= submitTxConfirmed . adjustUnbalancedTx
     logInfo $ "bet canceled: " ++ show betToCancel
     return bets'
 
@@ -407,14 +413,13 @@ mutualBetStartWithOracle params = do
     ownPK <- ownPubKeyHash
     cs <- forgeIdToken mutualBetTokenName ownPK
     let mutualBetAsset = assetClass cs mutualBetTokenName
-    mutualBetStartWithOracle' mutualBetAsset params
+    handleError (\err -> logInfo $ "caught error: " ++ unpack err) $ mutualBetStartWithOracle' mutualBetAsset params
 
 mutualBetStartWithOracle' ::
     AssetClass
     -> MutualBetStartParams
     -> Contract (Last (Either Text MutualBetParams)) EmptySchema Text ()
-mutualBetStartWithOracle' mutualBetAsset params = do
-    void $ startWithOracle mutualBetAsset params
+mutualBetStartWithOracle' mutualBetAsset params = startWithOracle mutualBetAsset params
 
 -- | Schema for the endpoints for users of NFTMarket.
 type BettorSchema =
@@ -446,7 +451,7 @@ waitForChange params _ = do
     selectList [makeBetPromise, cancelBetPromise, awaitMutualBetChanged params]
 
 handleEvent :: MutualBetParams -> [Bet] -> BettorEvent -> Contract MutualBetOutput BettorSchema Text (Either [Bet] ())
-handleEvent params bets change =
+handleEvent params prevBets change =
     let continue = pure . Left
         stop     = pure (Right ())
 
@@ -456,36 +461,36 @@ handleEvent params bets change =
             case e of
                 Left err -> do
                     logInfo ("Bet error" ++ Haskell.show err)
-                    continue bets
-                Right bets'  -> do
-                    tell (mutualBetStateOut $ BetState bets')
+                    continue prevBets
+                Right bets  -> do
+                    tell (mutualBetStateOut $ BetState bets)
                     continue bets
         CancelBetEvent betParams -> do
             e <- runError $ cancelBet params betParams
             case e of
                 Left err -> do
                     logInfo ("Cancel bet error" ++ Haskell.show err)
+                    continue prevBets
+                Right bets  -> do
+                    tell (mutualBetStateOut $ BetState bets)
                     continue bets
-                Right bets'  -> do
-                    tell (mutualBetStateOut $ BetState bets')
-                    continue bets
-        GameChanged bets' gameStatus -> case gameStatus of
+        GameChanged bets gameStatus -> case gameStatus of
             -- other bets places
             BettingOpen -> do
-                logInfo ("BettingOpen update bets " ++ Haskell.show bets')
+                logInfo ("BettingOpen update bets " ++ Haskell.show bets)
                 tell (mutualBetStateOut $ BetState bets)
-                continue bets'
+                continue bets
             BettingClosed -> do
-                logInfo ("BettingClosed" ++ Haskell.show bets')
-                tell (mutualBetStateOut $ BettingClosedState bets')
+                logInfo ("BettingClosed" ++ Haskell.show bets)
+                tell (mutualBetStateOut $ BettingClosedState bets)
                 continue bets
             GameCancelled -> do
-                logInfo ("GameCancelled " ++ Haskell.show bets')
-                tell (mutualBetStateOut $ CancelGameState bets')
+                logInfo ("GameCancelled " ++ Haskell.show bets)
+                tell (mutualBetStateOut $ CancelGameState bets)
                 stop
             GameFinished -> do
-                logInfo ("GameFinished " ++ Haskell.show bets')
-                tell (mutualBetStateOut $ Finished bets')
+                logInfo ("GameFinished " ++ Haskell.show bets)
+                tell (mutualBetStateOut $ Finished bets)
                 stop
 
 mutualBetBettor::
