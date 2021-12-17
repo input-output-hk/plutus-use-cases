@@ -4,5 +4,3 @@ export const statusesMap = {
   FT: 'CLOSED',
   CANC: 'CANCELED',
 };
-
-export const wallets = ['1', '2', '3', '4'];

@@ -80,7 +80,7 @@ Follow next steps to get an environment with the correct tools set up.
 
   - Run `nix-shell` command in the plutus folder
   - Run `cabal build all` from the nix-shell terminal
-
+  - Run `cabal build cardano-wallet plutus-pab plutus-chain-index` from the nix-shell terminal
 ## Games info rest server 
 
 1. Build the game rest server:
@@ -121,24 +121,14 @@ curl -v -X PUT -H "Content-Type: application/json" \
 curl -v -X PUT -H "Content-Type: application/json" \
     -d '{"ugpTeam": 55}' \
     http://localhost:8081/games/1/score
+    Z
+## Run mock wallet 
 
-## Mutual bet rest server 
+1. Run:
+```
+cabal exec mock-wallet -- wallet-server --config pab-simulator/mock-wallet/plutus-pab.yaml 
+```
 
-1. Build the game rest server:
-```
-cabal build mutualbetserver
-```
-2. Run the Games server:
-```
-cabal exec -- mutualbetserver
-```
-### Mutual bet server API 
-
-1. Wallet info (WalletId, PubKey)
-curl -s http://localhost:8082/wallet/1
-
-## The Plutus Application Backend (PAB) simulator example
-We have provided an example PAB application in `./pab`. With the PAB we can serve and interact
 with contracts over a web API. You can read more about the PAB here: [PAB Architecture](https://github.com/input-output-hk/plutus/blob/master/plutus-pab/ARCHITECTURE.adoc).
 
 Here, the PAB is configured with the `Oracle` contract from `./src/Plutus/Contracts/Oracle.hs`
@@ -153,7 +143,7 @@ cabal build pab-simulator
 
 2. Run the PAB binary:
 ```
-cabal exec -- pab-simulator
+cabal exec pab-simulator -- wallet-server --config pab-simulator/plutus-pab.yaml
 ```
 
 ## Oracle rest server 
@@ -181,7 +171,7 @@ curl -s http://localhost:9080/api/contract/instance/$INSTANCE_ID/status | jq
 2. Get all contract ids and wallet ids
 curl -s http://localhost:9080/api/contract/instances/ | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract, .cicWallet'
 
-3. Running mutual bat contract info and instance id
+3. Running mutual bet contract info and instance id
 export WALLET_ID=76d5e1291d51f16eb442267faccd0ab51a3b0c4a21eb6b8f72d5f0a4ca467189ac5f70a018c6df3f632b48fd8ead1b68f39a44de06f5a5de42a6a131af0f085d44becd56fa30041efea5ff2637205181837dffd03545d3db1c11e6dcbbd3415ce8f85aad41776b99eb62a797b8c5abbe82061e1634efc4c7d5ac6fff3ca94d7f
 curl -s http://localhost:9080/api/contract/instances/wallet/$WALLET_ID | jq '.[] | select(.cicDefinition.tag=="MutualBetBettorContract") | .cicDefinition, .cicContract'
 

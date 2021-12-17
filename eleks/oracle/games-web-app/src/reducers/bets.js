@@ -22,7 +22,7 @@ export const data = (state = null, action) => {
       return state.filter(
         (bet) =>
           !(
-            bet.betBettor.getPubKeyHash === action.bet.betBettor &&
+            bet.betBettor.unPaymentPubKeyHash.getPubKeyHash === action.bet.betBettor &&
             bet.betAmount.getLovelace === action.bet.betAmount &&
             bet.betTeamId === action.bet.betTeamId
           )

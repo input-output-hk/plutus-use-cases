@@ -148,7 +148,7 @@ const enhancer = compose(
   withProps(({ bets, game, currentUser }) => {
     const myBets = bets
       ? bets.filter(
-          (bet) => bet.betBettor.getPubKeyHash === currentUser.publicKey
+          (bet) => bet.betBettor.unPaymentPubKeyHash.getPubKeyHash === currentUser.publicKey
         )
       : [];
     return {

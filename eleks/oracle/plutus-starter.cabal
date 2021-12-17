@@ -167,6 +167,18 @@ executable pab-simulator
     stm -any,
     row-types,
 
+executable mock-wallet
+  import: lang 
+  main-is: Main.hs
+  hs-source-dirs: pab-simulator/mock-wallet
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-contract,
+    plutus-pab -any,
+    plutus-starter
+    
 executable testnet-oracle-pab
   import: lang 
   main-is: Main.hs
@@ -405,30 +417,6 @@ executable oraclegameserver
     uuid,
     utf8-string,
     warp
-
-
-executable mutualbetserver
-  import: lang
-  main-is: MutualBetServer.hs
-  hs-source-dirs: servers/mutual-bet
-  ghc-options:  -threaded
-  build-depends:        
-    aeson, 
-    aeson-pretty,
-    base >= 4.9 && < 5,
-    bytestring,
-    data-default -any,
-    either,
-    lens,
-    mtl,
-    plutus-starter,
-    servant-server -any,
-    plutus-contract,
-    plutus-ledger,
-    plutus-tx,
-    text -any,
-    utf8-string,
-    warp,
 
 executable plutus-use-cases-scripts
     main-is: Main.hs

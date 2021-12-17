@@ -20,10 +20,10 @@ const Bets = ({
     <div className='Bets'>
       {bets.map((bet, i) => {
         const isMyBet =
-          currentUser && bet.betBettor.getPubKeyHash === currentUser.publicKey;
+          currentUser && bet.betBettor.unPaymentPubKeyHash.getPubKeyHash === currentUser.publicKey;
         return (
           <div className={`bet ${isMyBet ? 'myBet' : ''}`} key={i}>
-            <span className='hash'>{bet.betBettor.getPubKeyHash}</span>
+            <span className='hash'>{bet.betBettor.unPaymentPubKeyHash.getPubKeyHash}</span>
             <span className='amount'>
               {lovelaceToAda(bet.betAmount.getLovelace)} ADA
             </span>

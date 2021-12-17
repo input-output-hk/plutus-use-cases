@@ -27,15 +27,15 @@ export const logout = () => ({
 
 export const login = (wallet) => async (dispatch) => {
   dispatch(fetchLoginStart());
-  const walletKey = await fromApi.login(wallet.value);
+  const walletKey = await fromApi.login(wallet.value.id);
   if (walletKey.error) {
     dispatch(fetchLoginFailed(walletKey.error));
     toast.error(walletKey.error);
   } else {
     const user = {
       ...wallet,
-      walletId: walletKey.walletId,
-      publicKey: walletKey.walletDataPubKeyHash.getPubKeyHash,
+      walletId: walletKey.wiWallet.getWalletId,
+      publicKey: walletKey.wiPaymentPubKeyHash.unPaymentPubKeyHash.getPubKeyHash,
     };
     localStorage.setItem('currentUser', JSON.stringify(user));
     dispatch(fetchLoginSuccess(user));

@@ -1,7 +1,7 @@
-const MUTUAL_BET_URL = process.env.REACT_APP_MUTUAL_BET_URL;
+const WALLET_URL = process.env.REACT_APP_WALLET_URL;
 
 export async function login(id) {
-  const response = await fetch(`${MUTUAL_BET_URL}/wallet/${id}`, {
+  const response = await fetch(`${WALLET_URL}/${id}/own-payment-public-key`, {
     method: 'GET',
     headers: {
       'Content-type': 'application/json',

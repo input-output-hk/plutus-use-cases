@@ -7,7 +7,6 @@ import Button from 'react-bootstrap/Button';
 import Loader from './Loader';
 import { login } from '../actions/auth';
 import { getCurrentUser, getCurrentUserFetching } from '../reducers';
-import { wallets } from '../helpers/constants';
 
 import '../styles/Login.scss';
 
@@ -52,13 +51,15 @@ const Login = ({
 const enhancer = compose(
   withState('wallet', 'setWallet'),
   withState('error', 'setError'),
-  withProps(({ error, wallet }) => ({
-    options: wallets.map((wallet) => ({
-      label: `Wallet ${wallet}`,
+  withProps(({ error, wallet }) => {
+    const wallets = process.env.REACT_APP_WALLETS
+    return {
+    options: JSON.parse(wallets).map((wallet) => ({
       value: wallet,
+      label: wallet.name,
     })),
     errorVisibility: error && !wallet,
-  })),
+  }}),
   connect(
     (state) => ({
       currentUser: getCurrentUser(state),

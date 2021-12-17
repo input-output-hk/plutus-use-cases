@@ -105,7 +105,11 @@ export const makeBet = (team, amount, gameId, wallet) => async (dispatch) => {
   } else {
     dispatch(
       fetchMakeBetSuccess({
-        betBettor: { getPubKeyHash: wallet.publicKey },
+        betBettor: { 
+          unPaymentPubKeyHash: {
+            getPubKeyHash: wallet.publicKey 
+          }
+        },
         betAmount: { getLovelace: amount },
         betTeamId: team,
       })
