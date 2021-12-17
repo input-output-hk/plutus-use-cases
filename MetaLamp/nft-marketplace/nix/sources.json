@@ -5,10 +5,10 @@
         "homepage": "",
         "owner": "olgaklimenko",
         "repo": "plutus-apps",
-        "rev": "ec38c2a63cae5d7f798d094a510be89802e084f3",
-        "sha256": "1nr6daarcgarr6lya4mp8rnifpv0zbzfqgk2w35h9zx51hpilif3",
+        "rev": "e8c5f532e5563c6638c612f6d8dfba9580813c94",
+        "sha256": "0kd37x4wwif67pd0sgmrwda7l6kmffff0lpk8yq040wxjki0f8ff",
         "type": "tarball",
-        "url": "https://github.com/olgaklimenko/plutus-apps/archive/ec38c2a63cae5d7f798d094a510be89802e084f3.tar.gz",
+        "url": "https://github.com/olgaklimenko/plutus-apps/archive/e8c5f532e5563c6638c612f6d8dfba9580813c94.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

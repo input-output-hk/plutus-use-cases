@@ -15,7 +15,7 @@ services:
         environment:
           - CARDANO_NODE_SOCKET_PATH=/app/cardano/sockets/node.socket
     cardano-wallet:
-        image: inputoutput/cardano-wallet:2021.11.11
+        image: inputoutput/cardano-wallet:2021.12.15
         container_name: cardano-wallet
         volumes:
           - ${NODE_PATH}/wallet/wallet-db:/wallet-db
