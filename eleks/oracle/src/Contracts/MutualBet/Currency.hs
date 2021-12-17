@@ -17,8 +17,7 @@
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
--- | Implements a custom currency with a minting policy that allows
---   the minting of a fixed amount of units.
+-- TODO: add custom implementation dut to https://github.com/input-output-hk/plutus-apps/issues/134
 module Contracts.MutualBet.Currency(
       OneShotCurrency(..)
     , CurrencySchema

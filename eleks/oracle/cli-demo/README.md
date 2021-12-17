@@ -12,10 +12,9 @@ go to working demo directory `cd ./plutus-use-cases/eleks/oracle/cli-demo`
 in nix terminal
 `cabal update`
 `cabal build all`
+`cabal build cardano-node plutus-chain-index`
 ## Setup cardano
 Run cardano node
-### Install cardano node
-`bash node/install-cardano.sh`
 ### Run cardano node
 `bash node/start-node.sh`
 In new terminal wait unitl synced via query 
@@ -40,4 +39,5 @@ https://testnets.cardano.org/en/testnets/cardano/tools/faucet/
 and use payment.addr to top up the balance
 ## Run oracle demo
 In new nix shell
-`bash demo/oracle-demo.sh`
+Run with game id, id should be changed on each run
+`bash oracle-demo.sh 25`

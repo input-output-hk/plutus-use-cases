@@ -2,7 +2,7 @@
 set -e
 dir=$(dirname "$0")
 
-cardano-node run \
+cabal exec -- cardano-node run \
 --topology $dir/testnet-topology.json \
 --database-path $dir/db \
 --socket-path /tmp/node.socket \

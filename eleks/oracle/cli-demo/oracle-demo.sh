@@ -4,6 +4,8 @@ set -e
 source $dir/base.sh
 
 function main() {
+    WINNER_ID=$1
+    echo "request for winner $WINNER_ID"
     rm $dir/oracle.plutus || true
     rm $dir/requesttoken.plutus || true
     rm -rf $dir/datum || true
@@ -14,7 +16,6 @@ function main() {
     #set env after build
     setEnv
 
-    WINNER_ID=21
     CLEINT_KEY_PATH="$dir/keys/client"
     CLIENT_ADDRESS=$(cat $CLEINT_KEY_PATH/payment.addr)
     CLIENT_SIGN_KEY="$CLEINT_KEY_PATH/payment.skey"
