@@ -8,9 +8,9 @@ import Test.Tasty (TestTree, testGroup)
 test :: TestTree
 test =
   testGroup
-    "Script" []
-    -- [ testMinting
-    -- , testDealing
-    -- -- , testAuctionBeforeDeadline
-    -- -- , testAuctionAfterDeadline
-    -- ]
+    "Script"
+    [ testMinting
+    , testDealing
+    -- , testAuctionBeforeDeadline
+    -- , testAuctionAfterDeadline
+    ]

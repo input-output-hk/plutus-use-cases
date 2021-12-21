@@ -107,7 +107,7 @@ library
     -Wredundant-constraints
     -Wmissing-export-lists
     -Wmissing-deriving-strategies
-    -- -Werror
+    -Werror
 
   hs-source-dirs:
     src/

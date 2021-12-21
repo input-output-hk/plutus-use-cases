@@ -21,6 +21,9 @@ module Mlabs.NFT.Validation (
   curSymbol,
 ) where
 
+import PlutusTx qualified
+import PlutusTx.Prelude
+
 import Ledger (
   Address,
   AssetClass,
@@ -33,21 +36,23 @@ import Ledger (
   findOwnInput,
   from,
   mkMintingPolicyScript,
+  mkValidatorScript,
   scriptCurrencySymbol,
   to,
-  mkValidatorScript
  )
 import Ledger.Typed.Scripts (
   DatumType,
   RedeemerType,
   TypedValidator,
   ValidatorTypes,
+  WrappedMintingPolicyType,
   mkTypedValidator,
   unsafeMkTypedValidator,
   validatorAddress,
   validatorHash,
-  wrapMintingPolicy, WrappedMintingPolicyType
+  wrapMintingPolicy,
  )
+import Ledger.Typed.TypeUtils (Any)
 import Ledger.Value (
   TokenName (..),
   assetClass,
@@ -56,23 +61,70 @@ import Ledger.Value (
   valueOf,
  )
 import Plutus.V1.Ledger.Ada (lovelaceValueOf)
-import Plutus.V1.Ledger.Ada qualified as Ada (
-  adaSymbol,
-  adaToken,
-  lovelaceValueOf,
- )
+import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Value (AssetClass (..), Value (..), assetClassValueOf)
-import PlutusTx qualified
-import PlutusTx.Prelude
-import Ledger.Typed.TypeUtils (Any)
 
 import Data.Function (on)
 import Data.Maybe (catMaybes)
 import Data.Tuple.Extra (uncurry3)
 
-import Mlabs.NFT.Governance.Types
-import Mlabs.NFT.Types
-import Mlabs.NFT.Spooky
+import Mlabs.NFT.Governance.Types (
+  GovDatum (gov'list),
+  GovLHead (GovLHead, govLHead'feeRate, govLHead'pkh),
+  LList (HeadLList, _head'info, _head'next),
+ )
+import Mlabs.NFT.Spooky (
+  ScriptContext,
+  TxOut,
+  findDatum,
+  ownCurrencySymbol,
+  scriptContextTxInfo,
+  toSpooky,
+  txInInfoResolved,
+  txInfoInputs,
+  txInfoMint,
+  txInfoOutputs,
+  txInfoSignatories,
+  txOutAddress,
+  txOutDatumHash,
+  txOutValue,
+  valuePaidTo,
+ )
+import Mlabs.NFT.Types (
+  DatumNft (..),
+  InformationNft (info'author', info'price'),
+  MintAct (Initialise, Mint),
+  NftAppInstance,
+  NftId (NftId),
+  NftListHead,
+  NftListNode (node'information'),
+  Pointer,
+  UniqueToken,
+  UserAct (..),
+  UserId (UserId),
+  act'bid,
+  act'newPrice,
+  act'symbol,
+  app'symbol,
+  appInstance'Address,
+  appInstance'Admins,
+  appInstance'UniqueToken,
+  getAppInstance,
+  getDatumPointer,
+  getUserId,
+  head'appInstance,
+  info'author,
+  info'id,
+  info'owner,
+  info'price,
+  info'share,
+  mint'nftId,
+  nftId'contentHash,
+  nftTokenName,
+  node'appInstance,
+  node'information,
+  pointer'assetClass,
+ )
 
 asRedeemer :: PlutusTx.ToData a => a -> Redeemer
 asRedeemer = Redeemer . PlutusTx.toBuiltinData
@@ -83,18 +135,18 @@ asRedeemer = Redeemer . PlutusTx.toBuiltinData
 mkMintPolicy :: NftAppInstance -> MintAct -> ScriptContext -> Bool
 mkMintPolicy !appInstance !act !ctx =
   case act of
-    Mint nftid ->
+    mintAct@Mint {} ->
       traceIfFalse' "Only pointer of first node can change." firstChangedOnlyPtr
-        && traceIfFalse' "Exactly one NFT must be minted" (checkMintedAmount nftid)
+        && traceIfFalse' "Exactly one NFT must be minted" (checkMintedAmount . mint'nftId $ mintAct)
         && traceIfFalse' "Old first node must point to second node." (first `pointsTo'` second)
         && traceIfFalse' "New first node must point to new node." (newFirst `pointsTo` newInserted)
         && traceIfFalse' "New node must point to second node." (newInserted `pointsTo'` second)
         && traceIfFalse' "New node must be smaller than second node." newIsSmallerThanSecond
         && traceIfFalse' "New price cannot be negative." priceNotNegative'
         && traceIfFalse' "Currency symbol must match app instance" checkCurrencySymbol
-        && traceIfFalse' "Minted token must be sent to script address" (checkSentAddress nftid)
+        && traceIfFalse' "Minted token must be sent to script address" (checkSentAddress . mint'nftId $ mintAct)
         && traceIfFalse' "Nodes must be sent to script address" checkNodesAddresses
-        && traceIfFalse' "Datum is not atttached to UTXo with correct Token" (checkAttachedDatum nftid)
+        && traceIfFalse' "Datum is not atttached to UTXo with correct Token" (checkAttachedDatum . mint'nftId $ mintAct)
     Initialise ->
       traceIfFalse' "The token is not present." headTokenIsPresent
         && traceIfFalse' "Only one Unique Token can be minted" headTokenIsUnique
@@ -113,15 +165,13 @@ mkMintPolicy !appInstance !act !ctx =
 
     (newFirst, newInserted) = case getOutputDatums ctx of
       [x, y] -> sort2 (x, y)
-      [_] -> error () -- traceError "Expected exactly two outputs with datums. Receiving one."
-      [] -> error () -- traceError "Expected exactly two outputs with datums. Receiving none."
-      _ -> error () -- traceError "Expected exactly two outputs with datums. Receiving more."
-
+      [_] -> traceError' "Expected exactly two outputs with datums. Receiving one."
+      [] -> traceError' "Expected exactly two outputs with datums. Receiving none."
+      _ -> traceError' "Expected exactly two outputs with datums. Receiving more."
     first = case getInputDatums ctx of
       [x] -> x
-      [] -> error () -- traceError "Expected exactly one input with datums. Receiving none."
-      _ -> error () -- traceError "Expected exactly one input with datums. Receiving more."
-
+      [] -> traceError' "Expected exactly one input with datums. Receiving none."
+      _ -> traceError' "Expected exactly one input with datums. Receiving more."
     second = getDatumPointer first
 
     pointsTo d1 d2 = case (d1, d2) of
@@ -132,7 +182,6 @@ mkMintPolicy !appInstance !act !ctx =
 
     pointsTo' :: DatumNft -> Maybe Pointer -> Bool
     pointsTo' !datum !pointer = getDatumPointer datum == pointer
-
 
     ------------------------------------------------------------------------------
     -- Checks
@@ -154,8 +203,8 @@ mkMintPolicy !appInstance !act !ctx =
     checkSentAddress nftId =
       let currency = ownCurrencySymbol ctx
           tokenName = TokenName . nftId'contentHash $ nftId
-          Just txOut = find (\tx -> valueOf (txOutValue tx) currency tokenName == 1) $ txInfoOutputs info
-       in sentToScript txOut
+          txOut = find (\tx -> valueOf (txOutValue tx) currency tokenName == 1) $ txInfoOutputs info
+       in maybe False sentToScript txOut
 
     newIsSmallerThanSecond = case second of
       Nothing -> True
@@ -186,6 +235,7 @@ mkMintPolicy !appInstance !act !ctx =
       let snd3 (_, y, _) = y
           mintedId =
             NftId
+              . toSpooky
               . unTokenName
               . snd3
               . head
@@ -233,7 +283,7 @@ mkMintPolicy !appInstance !act !ctx =
     -- Check an admin signed the transaction
     checkAdminSig =
       let admins = appInstance'Admins appInstance
-       in any (`elem` admins) $ UserId <$> txInfoSignatories info
+       in any (`elem` admins) $ UserId . toSpooky <$> txInfoSignatories info
 
 mintPolicy :: NftAppInstance -> MintingPolicy
 mintPolicy appInstance =
@@ -249,7 +299,7 @@ mkTxPolicy _ !datum' !act !ctx =
   case act of
     MintAct {} -> case datum' of
       NodeDatum _ ->
-          traceIfFalse' "Transaction can only use one NftListNode element as uniqueness proof." onlyOneNodeAttached
+        traceIfFalse' "Transaction can only use one NftListNode element as uniqueness proof." onlyOneNodeAttached
           && traceIfFalse' "Not all used tokens are returned." checkTokenReturned
           && traceIfFalse' "Returned Token UTXOs have mismatching datums." checkMissMatchDatumMint
       HeadDatum headDat ->
@@ -258,39 +308,37 @@ mkTxPolicy _ !datum' !act !ctx =
         traceIfFalse' "Proof Token must be paid back when using Head" proofPaidBack
           && traceIfFalse' "Transaction that uses Head as list proof must return it unchanged." headUnchanged
         where
-          oldDatum' :: DatumNft = head . getInputDatums $ ctx
-
-          oldHead :: NftListHead = case oldDatum' of
-            HeadDatum h -> h
-            _ -> errHead
+          oldHead :: NftListHead = case mapMaybe getHead . getInputDatums $ ctx of
+            [] -> traceError' "oldHead: Head not found"
+            [h] -> h
+            _ -> traceError' "oldHead: More than one head"
 
           !proofPaidBack = any paysBack . txInfoOutputs . scriptContextTxInfo $ ctx
             where
               (currency, tokenName) = unAssetClass . appInstance'UniqueToken . head'appInstance $ headDat
               paysBack tx = valueOf (txOutValue tx) currency tokenName == 1
           !headUnchanged = oldHead == headDat
-          errHead = error () -- traceError "Input datum is Node."
-    BuyAct {..} -> case datum' of
+    buyAct@BuyAct {} -> case datum' of
       NodeDatum node ->
-          traceIfFalse' "Transaction cannot mint." noMint
+        traceIfFalse' "Transaction cannot mint." noMint
           && traceIfFalse' "NFT not for sale." nftForSale
-          && traceIfFalse' "New Price cannot be negative." (priceNotNegative act'newPrice)
-          && traceIfFalse' "Act'Bid is too low for the NFT price." (bidHighEnough act'bid)
+          && traceIfFalse' "New Price cannot be negative." (priceNotNegative . act'newPrice $ buyAct)
+          && traceIfFalse' "Act'Bid is too low for the NFT price." (bidHighEnough . act'bid $ buyAct)
           && traceIfFalse' "Datum is not consistent, illegally altered." (consistentDatumBuy node)
           && traceIfFalse' "Only one Node must be used in a Buy Action." onlyOneNodeAttached
           && traceIfFalse' "Not all used Tokens are returned." checkTokenReturned
           && traceIfFalse' "Returned Token UTXO has mismatching datum." checkMissMatchDatum
           && if ownerIsAuthor
-            then traceIfFalse' "Amount paid to author/owner does not match" (correctPaymentOnlyAuthor node act'bid)
+            then traceIfFalse' "Amount paid to author/owner does not match" (correctPaymentOnlyAuthor node . act'bid $ buyAct)
             else
-              traceIfFalse' "Current owner is not paid their share." (correctPaymentOwner node act'bid)
-                && traceIfFalse' "Author is not paid their share." (correctPaymentAuthor node act'bid)
+              traceIfFalse' "Current owner is not paid their share." (correctPaymentOwner node . act'bid $ buyAct)
+                && traceIfFalse' "Author is not paid their share." (correctPaymentAuthor node . act'bid $ buyAct)
       HeadDatum _ -> False
-    SetPriceAct {..} -> case datum' of
+    setPriceAct@SetPriceAct {} -> case datum' of
       NodeDatum node ->
         traceIfFalse' "Transaction cannot mint." noMint
           && traceIfFalse' "Datum does not correspond to NFTId, no datum is present, or more than one suitable datums are present." (correctDatumSetPrice node)
-          && traceIfFalse' "New Price cannot be negative." (priceNotNegative act'newPrice)
+          && traceIfFalse' "New Price cannot be negative." (priceNotNegative . act'newPrice $ setPriceAct)
           && traceIfFalse' "Only owner exclusively can set NFT price." (signedByOwner node)
           && traceIfFalse' "Datum is not consistent, illegally altered." (consistentDatumSetPrice node)
           && traceIfFalse' "Only one Node must be used in a SetPrice Action." onlyOneNodeAttached
@@ -333,11 +381,10 @@ mkTxPolicy _ !datum' !act !ctx =
     info = scriptContextTxInfo ctx
 
     !nInfo = node'information
-    oldDatum :: DatumNft = head . getInputDatums $ ctx
 
-    oldNode :: NftListNode = case getNode oldDatum of
-      Just n -> n
-      Nothing -> error () -- traceError "Input datum is Head."
+    oldNode :: NftListNode = case mapMaybe getNode . getInputDatums $ ctx of
+      [n] -> n
+      _ -> traceError' "Input datum not found."
 
     -- mauctionState = info'auctionState . nInfo
 
@@ -350,12 +397,20 @@ mkTxPolicy _ !datum' !act !ctx =
 
     feeRate :: Rational
     feeRate
-      | [GovLHead {..}] <- mapMaybe (getHead . gov'list . fst) $ getOutputDatumsWithTx @GovDatum ctx =
+      | [GovLHead {..}] <- mapMaybe (getGHead . gov'list . fst) $ getOutputDatumsWithTx @GovDatum ctx =
         govLHead'feeRate
-      | otherwise = error ()
+      | otherwise = traceError' "Expecting excatly one gov head"
       where
-        getHead HeadLList {..} = Just _head'info
-        getHead _ = Nothing
+        getGHead HeadLList {..} = Just _head'info
+        getGHead _ = Nothing
+
+    getHead h = case h of
+      HeadDatum h' -> Just h'
+      _ -> Nothing
+
+    getNode n = case n of
+      NodeDatum n' -> Just n'
+      _ -> Nothing
 
     subtractFee price = price - calcFee price
 
@@ -381,22 +436,18 @@ mkTxPolicy _ !datum' !act !ctx =
     ownerIsAuthor =
       (info'owner . node'information $ oldNode) == (info'author . node'information $ oldNode)
 
-    getNode = \case
-      NodeDatum n -> Just n
-      _ -> Nothing
-
     -- withAuctionState node f = maybe (traceError "Auction state expected") f (mauctionState node)
 
     -- newDatum = case getOutputDatums ctx of
-      -- [x] -> x
-      -- [] -> error ()
-      -- _ -> error ()
+    -- [x] -> x
+    -- [] -> error ()
+    -- _ -> error ()
 
     -- newNodeInfo :: InformationNft
     -- newNodeInfo =
-      -- case newDatum of
-        -- HeadDatum _ -> error () -- traceError "nextNodeInfo: expected NodeDatum, got HeadDatum instead"
-        -- NodeDatum listNode -> node'information listNode
+    -- case newDatum of
+    -- HeadDatum _ -> error () -- traceError "nextNodeInfo: expected NodeDatum, got HeadDatum instead"
+    -- NodeDatum listNode -> node'information listNode
 
     -- Check if Datum id matches NFT id in UTXO
     checkTxDatumMatch nodeDatum tx =
@@ -404,7 +455,7 @@ mkTxPolicy _ !datum' !act !ctx =
           tn = TokenName . nftId'contentHash . info'id . node'information $ nodeDatum
        in valueOf (txOutValue tx) cur tn == 1
 
-    fromJust !x = fromMaybe (error ()) x
+    fromJust !x = fromMaybe (traceError' "fromJust") x
 
     ------------------------------------------------------------------------------
     -- Checks
@@ -555,8 +606,8 @@ mkTxPolicy _ !datum' !act !ctx =
     consistentDatumBuy node =
       let validAuthor = info'author . node'information $ node
           validPrice = info'price . node'information $ node
-          validInfo = (node'information oldNode) {info'author = validAuthor, info'price = validPrice}
-          validNode = oldNode {node'information = validInfo}
+          validInfo = (node'information oldNode) {info'author' = toSpooky validAuthor, info'price' = toSpooky validPrice}
+          validNode = oldNode {node'information' = toSpooky validInfo}
        in validNode == node
 
     -- Check if nft is for sale (price is not Nothing)
@@ -580,8 +631,8 @@ mkTxPolicy _ !datum' !act !ctx =
     -- Check if only thing changed in nodes is price
     consistentDatumSetPrice node =
       let validPrice = info'price . node'information $ node
-          validInfo = (node'information oldNode) {info'price = validPrice}
-          validNode = oldNode {node'information = validInfo}
+          validInfo = (node'information oldNode) {info'price' = toSpooky validPrice}
+          validNode = oldNode {node'information' = toSpooky validInfo}
        in validNode == node
 
     -- checkIsNotOnAuction = isNothing . info'auctionState . node'information
@@ -607,14 +658,18 @@ mkTxPolicy _ !datum' !act !ctx =
       _ -> False
 
     -- Check if exactly one Node is attached to outputs, and ids matches
-    checkMissMatchDatum = case getOutputDatumsWithTx @DatumNft ctx of
+    checkMissMatchDatum = case filter (isNode . fst) . getOutputDatumsWithTx @DatumNft $ ctx of
       [(NodeDatum datum, tx)] -> checkTxDatumMatch datum tx
       _ -> False
 
     -- Check if exactly one Node is attached to inputs, and ids matches
-    onlyOneNodeAttached = case getInputDatumsWithTx @DatumNft ctx of
+    onlyOneNodeAttached = case filter (isNode . fst) . getInputDatumsWithTx @DatumNft $ ctx of
+      [] -> traceError' "onlyOneNodeAttached: None provided"
       [(NodeDatum datum, tx)] -> checkTxDatumMatch datum tx
-      _ -> False
+      _ -> traceError' "onlyOneNodeAttached: More provided"
+
+    isNode (NodeDatum _) = True
+    isNode _ = False
 
     -- Check if all tokens from input and mint are returned
     checkTokenReturned =
@@ -651,8 +706,9 @@ instance ValidatorTypes NftTrade where
 txPolicy :: UniqueToken -> TypedValidator Any
 txPolicy x = unsafeMkTypedValidator v
   where
-    v = mkValidatorScript
-          ($$(PlutusTx.compile [||wrap||]) `PlutusTx.applyCode` ($$(PlutusTx.compile [||mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode x))
+    v =
+      mkValidatorScript
+        ($$(PlutusTx.compile [||wrap||]) `PlutusTx.applyCode` ($$(PlutusTx.compile [||mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode x))
     validatorUntyped = wrap (mkTxPolicy x)
     wrap = myWrapValidator @DatumNft @UserAct @ScriptContext
 
@@ -748,25 +804,35 @@ getOutputDatumsWithTx ctx =
     . scriptContextTxInfo
     $ ctx
 
+-- Switch definitons for meaningful errors during development
+
 {-# INLINEABLE traceIfFalse' #-}
 traceIfFalse' :: BuiltinString -> Bool -> Bool
 traceIfFalse' _ x = x
 
-{-# INLINABLE myWrapValidator #-}
-myWrapValidator
-    :: forall d r p
-    . (PlutusTx.UnsafeFromData d, PlutusTx.UnsafeFromData r, PlutusTx.UnsafeFromData p)
-    => (d -> r -> p -> Bool)
-    -> BuiltinData
-    -> BuiltinData
-    -> BuiltinData
-    -> ()
+-- traceIfFalse' = traceIfFalse
+
+{-# INLINEABLE traceError' #-}
+traceError' :: BuiltinString -> a
+traceError' _ = error ()
+
+-- traceError' = traceError
+
+{-# INLINEABLE myWrapValidator #-}
+myWrapValidator ::
+  forall d r p.
+  (PlutusTx.UnsafeFromData d, PlutusTx.UnsafeFromData r, PlutusTx.UnsafeFromData p) =>
+  (d -> r -> p -> Bool) ->
+  BuiltinData ->
+  BuiltinData ->
+  BuiltinData ->
+  ()
 myWrapValidator f d r p = check (f (PlutusTx.unsafeFromBuiltinData d) (PlutusTx.unsafeFromBuiltinData r) (PlutusTx.unsafeFromBuiltinData p))
 
-{-# INLINABLE myWrapMintingPolicy #-}
-myWrapMintingPolicy
-    :: PlutusTx.UnsafeFromData r
-    => (r -> ScriptContext -> Bool)
-    -> WrappedMintingPolicyType
+{-# INLINEABLE myWrapMintingPolicy #-}
+myWrapMintingPolicy ::
+  PlutusTx.UnsafeFromData r =>
+  (r -> ScriptContext -> Bool) ->
+  WrappedMintingPolicyType
 -- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
 myWrapMintingPolicy f r p = check $ f (PlutusTx.unsafeFromBuiltinData r) (PlutusTx.unsafeFromBuiltinData p)

@@ -6,7 +6,7 @@ module Mlabs.NFT.Contract.Mint (
   mintParamsToInfo,
 ) where
 
-import PlutusTx.Prelude hiding (mconcat, mempty)
+import PlutusTx.Prelude hiding (mconcat)
 import Prelude (mconcat)
 import Prelude qualified as Hask
 
@@ -19,16 +19,49 @@ import Text.Printf (printf)
 import Plutus.ChainIndex.Tx (txOutRefMapForAddr)
 import Plutus.Contract (Contract)
 import Plutus.Contract qualified as Contract
+import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 
 import Ledger (txOutValue)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorScript)
 import Ledger.Value as Value (TokenName (..), assetClass, singleton)
-import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 
-import Mlabs.NFT.Contract.Aux
-import Mlabs.NFT.Types
-import Mlabs.NFT.Validation
+import Mlabs.NFT.Contract.Aux (
+  getDatumsTxsOrdered,
+  getNftAppSymbol,
+  getNftHead,
+  getUId,
+  hashData,
+ )
+import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Types (
+  AuctionState,
+  DatumNft (..),
+  GenericContract,
+  InformationNft (..),
+  InsertPoint (InsertPoint),
+  MintAct (Mint),
+  MintParams (..),
+  NftAppInstance,
+  NftId (NftId),
+  NftListHead (NftListHead),
+  NftListNode (..),
+  PointInfo (pi'CITx, pi'CITxO, pi'TOR, pi'data),
+  Pointer (Pointer),
+  UniqueToken,
+  UserAct (MintAct),
+  UserId,
+  UserWriter,
+  app'symbol,
+  appInstance'Address,
+  appInstance'UniqueToken,
+  getAppInstance,
+  getDatumValue,
+  info'id,
+  node'appInstance,
+  node'information,
+ )
+import Mlabs.NFT.Validation (asRedeemer, mintPolicy, txPolicy)
 
 --------------------------------------------------------------------------------
 -- MINT --
@@ -56,9 +89,9 @@ mint uT params = do
     createNewNode :: NftAppInstance -> MintParams -> UserId -> NftListNode
     createNewNode appInstance mp author =
       NftListNode
-        { node'information = mintParamsToInfo mp author
-        , node'next = Nothing
-        , node'appInstance = appInstance
+        { node'information' = toSpooky $ mintParamsToInfo mp author
+        , node'next' = toSpooky @(Maybe Pointer) Nothing
+        , node'appInstance' = toSpooky appInstance
         }
 
     findInsertPoint :: UniqueToken -> NftListNode -> GenericContract (InsertPoint DatumNft)
@@ -90,10 +123,10 @@ mint uT params = do
           newTokenDatum =
             NodeDatum $
               newNode
-                { node'next = Pointer . assetClass aSymbol . TokenName . getDatumValue . pi'data <$> nextNode
+                { node'next' = toSpooky (Pointer . toSpooky . assetClass aSymbol . TokenName . getDatumValue . pi'data <$> nextNode)
                 }
 
-          mintRedeemer = asRedeemer . Mint . NftId . getDatumValue . NodeDatum $ newNode
+          mintRedeemer = asRedeemer . Mint . toSpooky . NftId . toSpooky . getDatumValue . NodeDatum $ newNode
 
           lookups =
             mconcat
@@ -121,16 +154,16 @@ mint uT params = do
               . fst
               $ (txOutRefMapForAddr scriptAddr (pi'CITx insertPoint) Map.! pi'TOR insertPoint)
           newToken = assetClass (app'symbol appSymbol) (TokenName .getDatumValue . NodeDatum $ newNode)
-          newDatum = updatePointer (Pointer newToken)
+          newDatum = updatePointer (Pointer . toSpooky $ newToken)
           oref = pi'TOR insertPoint
-          redeemer = asRedeemer $ MintAct (NftId . getDatumValue . NodeDatum $ newNode) appSymbol
+          redeemer = asRedeemer $ MintAct (toSpooky . NftId . toSpooky . getDatumValue . NodeDatum $ newNode) (toSpooky appSymbol)
           oldDatum = pi'data insertPoint
 
           updatePointer :: Pointer -> DatumNft
           updatePointer newPointer =
             case oldDatum of
-              HeadDatum (NftListHead _ a) -> HeadDatum $ NftListHead (Just newPointer) a
-              NodeDatum (NftListNode i _ a) -> NodeDatum $ NftListNode i (Just newPointer) a
+              HeadDatum (NftListHead _ a) -> HeadDatum $ NftListHead (toSpooky $ Just newPointer) (toSpooky a)
+              NodeDatum (NftListNode i _ a) -> NodeDatum $ NftListNode (toSpooky i) (toSpooky $ Just newPointer) (toSpooky a)
 
           lookups =
             mconcat
@@ -148,12 +181,12 @@ mint uT params = do
 mintParamsToInfo :: MintParams -> UserId -> InformationNft
 mintParamsToInfo MintParams {..} author =
   InformationNft
-    { info'id = nftIdInit mp'content
-    , info'share = mp'share
-    , info'price = mp'price
-    , info'owner = author
-    , info'author = author
-    , info'auctionState = Nothing
+    { info'id' = toSpooky $ nftIdInit mp'content
+    , info'share' = toSpooky mp'share
+    , info'price' = toSpooky mp'price
+    , info'owner' = toSpooky author
+    , info'author' = toSpooky author
+    , info'auctionState' = toSpooky @(Maybe AuctionState) Nothing
     }
   where
-    nftIdInit = NftId . hashData
+    nftIdInit = NftId . toSpooky . hashData

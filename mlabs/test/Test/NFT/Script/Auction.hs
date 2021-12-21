@@ -28,343 +28,347 @@ slotElevenTime :: Ledger.POSIXTime
 slotElevenTime = slotToBeginPOSIXTime def 11
 
 testAuctionBeforeDeadline :: TestTree
-testAuctionBeforeDeadline = localOption (TestTxId TestValues.testTxId) $
-  localOption (TimeRange $ Interval.to slotFiveTime) $
-    withValidator "Test NFT dealing validator (auction before deadline)" dealingValidator $ do
-      shouldn'tValidate "Author can't close auction if not owner" closeAuctionData1 closeAuctionContext1
-      shouldValidate "Owner can start auction" validOpenAuctionData validOpenAuctionContext
-      shouldn'tValidate "Owner can't close auction before deadline" validCloseAuctionData validCloseAuctionContext
-      shouldValidate "Can bid before deadline" validBidData validBidContext
-      shouldValidate "Can make higher bid" validSecondBidData validSecondBidContext
+testAuctionBeforeDeadline = error ()
+
+-- testAuctionBeforeDeadline = localOption (TestTxId TestValues.testTxId) $
+--   localOption (TimeRange $ Interval.to slotFiveTime) $
+--     withValidator "Test NFT dealing validator (auction before deadline)" dealingValidator $ do
+--       shouldn'tValidate "Author can't close auction if not owner" closeAuctionData1 closeAuctionContext1
+--       shouldValidate "Owner can start auction" validOpenAuctionData validOpenAuctionContext
+--       shouldn'tValidate "Owner can't close auction before deadline" validCloseAuctionData validCloseAuctionContext
+--       shouldValidate "Can bid before deadline" validBidData validBidContext
+--       shouldValidate "Can make higher bid" validSecondBidData validSecondBidContext
 
 testAuctionAfterDeadline :: TestTree
-testAuctionAfterDeadline = localOption (TimeRange $ Interval.from slotElevenTime) $
-  withValidator "Test NFT dealing validator (auction after deadline)" dealingValidator $ do
-    shouldValidate "Owner can close auction" validCloseAuctionData validCloseAuctionContext
-    shouldn'tValidate "Can't bid after deadline" validBidData validBidContext
-    shouldValidate "Can close auction with a bid" closeAuctionWithBidData closeAuctionWithBidContext
-    shouldn'tValidate "Can't close auction if author not paid" closeAuctionWithBidData closeAuctionWithBidNoAuthorContext
-    shouldn'tValidate "Can't close auction if owner not paid" closeAuctionWithBidData closeAuctionWithBidNoOwnerContext
-    shouldn'tValidate "Can't close auction if owner=author not paid" closeAuctionWithBidAuthorData closeAuctionWithBidAuthorContext
-    shouldn'tValidate "Can't close auction if datum illegaly altered" closeAuctionInconsistentData closeAuctionInconsistentContext
+testAuctionAfterDeadline = error ()
 
-initialNode :: NFT.NftListNode
-initialNode =
-  NFT.NftListNode
-    { node'information =
-        NFT.InformationNft
-          { info'id = TestValues.testNftId
-          , info'share = 1 % 2
-          , info'author = NFT.UserId TestValues.authorPkh
-          , info'owner = NFT.UserId TestValues.authorPkh
-          , info'price = Nothing
-          , info'auctionState = Nothing
-          }
-    , node'next = Nothing
-    , node'appInstance = TestValues.appInstance
-    }
+-- testAuctionAfterDeadline = localOption (TimeRange $ Interval.from slotElevenTime) $
+--   withValidator "Test NFT dealing validator (auction after deadline)" dealingValidator $ do
+--     shouldValidate "Owner can close auction" validCloseAuctionData validCloseAuctionContext
+--     shouldn'tValidate "Can't bid after deadline" validBidData validBidContext
+--     shouldValidate "Can close auction with a bid" closeAuctionWithBidData closeAuctionWithBidContext
+--     shouldn'tValidate "Can't close auction if author not paid" closeAuctionWithBidData closeAuctionWithBidNoAuthorContext
+--     shouldn'tValidate "Can't close auction if owner not paid" closeAuctionWithBidData closeAuctionWithBidNoOwnerContext
+--     shouldn'tValidate "Can't close auction if owner=author not paid" closeAuctionWithBidAuthorData closeAuctionWithBidAuthorContext
+--     shouldn'tValidate "Can't close auction if datum illegaly altered" closeAuctionInconsistentData closeAuctionInconsistentContext
 
-initialAuthorDatum :: NFT.DatumNft
-initialAuthorDatum = NFT.NodeDatum initialNode
+-- initialNode :: NFT.NftListNode
+-- initialNode =
+--   NFT.NftListNode
+--     { node'information =
+--         NFT.InformationNft
+--           { info'id = TestValues.testNftId
+--           , info'share = 1 % 2
+--           , info'author = NFT.UserId TestValues.authorPkh
+--           , info'owner = NFT.UserId TestValues.authorPkh
+--           , info'price = Nothing
+--           , info'auctionState = Nothing
+--           }
+--     , node'next = Nothing
+--     , node'appInstance = TestValues.appInstance
+--     }
 
-ownerUserOneNode :: NFT.NftListNode
-ownerUserOneNode =
-  initialNode
-    { NFT.node'information =
-        (NFT.node'information initialNode)
-          { NFT.info'owner = NFT.UserId TestValues.userOnePkh
-          }
-    }
+-- initialAuthorDatum :: NFT.DatumNft
+-- initialAuthorDatum = NFT.NodeDatum initialNode
 
-ownerUserOneDatum :: NFT.DatumNft
-ownerUserOneDatum =
-  NFT.NodeDatum ownerUserOneNode
+-- ownerUserOneNode :: NFT.NftListNode
+-- ownerUserOneNode =
+--   initialNode
+--     { NFT.node'information =
+--         (NFT.node'information initialNode)
+--           { NFT.info'owner = NFT.UserId TestValues.userOnePkh
+--           }
+--     }
 
-openAuctionState :: NFT.AuctionState
-openAuctionState =
-  NFT.AuctionState
-    { as'highestBid = Nothing
-    , as'deadline = slotTenTime
-    , as'minBid = 100 * 1_000_000
-    }
+-- ownerUserOneDatum :: NFT.DatumNft
+-- ownerUserOneDatum =
+--   NFT.NodeDatum ownerUserOneNode
 
-bidAuctionState :: NFT.AuctionState
-bidAuctionState =
-  NFT.AuctionState
-    { as'highestBid = Just (NFT.AuctionBid (300 * 1_000_000) (NFT.UserId TestValues.userTwoPkh))
-    , as'deadline = slotTenTime
-    , as'minBid = 100 * 1_000_000
-    }
+-- openAuctionState :: NFT.AuctionState
+-- openAuctionState =
+--   NFT.AuctionState
+--     { as'highestBid = Nothing
+--     , as'deadline = slotTenTime
+--     , as'minBid = 100 * 1_000_000
+--     }
 
-secondBidAuctionState :: NFT.AuctionState
-secondBidAuctionState =
-  NFT.AuctionState
-    { as'highestBid = Just (NFT.AuctionBid (500 * 1_000_000) (NFT.UserId TestValues.userThreePkh))
-    , as'deadline = slotTenTime
-    , as'minBid = 100 * 1_000_000
-    }
+-- bidAuctionState :: NFT.AuctionState
+-- bidAuctionState =
+--   NFT.AuctionState
+--     { as'highestBid = Just (NFT.AuctionBid (300 * 1_000_000) (NFT.UserId TestValues.userTwoPkh))
+--     , as'deadline = slotTenTime
+--     , as'minBid = 100 * 1_000_000
+--     }
 
-ownerUserOneAuctionOpenDatum :: NFT.DatumNft
-ownerUserOneAuctionOpenDatum =
-  NFT.NodeDatum $
-    ownerUserOneNode
-      { NFT.node'information =
-          (NFT.node'information ownerUserOneNode)
-            { NFT.info'auctionState = Just openAuctionState
-            }
-      }
+-- secondBidAuctionState :: NFT.AuctionState
+-- secondBidAuctionState =
+--   NFT.AuctionState
+--     { as'highestBid = Just (NFT.AuctionBid (500 * 1_000_000) (NFT.UserId TestValues.userThreePkh))
+--     , as'deadline = slotTenTime
+--     , as'minBid = 100 * 1_000_000
+--     }
 
-ownerUserOneAuctionBidDatum :: NFT.DatumNft
-ownerUserOneAuctionBidDatum =
-  NFT.NodeDatum $
-    ownerUserOneNode
-      { NFT.node'information =
-          (NFT.node'information ownerUserOneNode)
-            { NFT.info'auctionState = Just bidAuctionState
-            }
-      }
+-- ownerUserOneAuctionOpenDatum :: NFT.DatumNft
+-- ownerUserOneAuctionOpenDatum =
+--   NFT.NodeDatum $
+--     ownerUserOneNode
+--       { NFT.node'information =
+--           (NFT.node'information ownerUserOneNode)
+--             { NFT.info'auctionState = Just openAuctionState
+--             }
+--       }
 
-ownerUserOneAuctionSecondBidDatum :: NFT.DatumNft
-ownerUserOneAuctionSecondBidDatum =
-  NFT.NodeDatum $
-    ownerUserOneNode
-      { NFT.node'information =
-          (NFT.node'information ownerUserOneNode)
-            { NFT.info'auctionState = Just secondBidAuctionState
-            }
-      }
+-- ownerUserOneAuctionBidDatum :: NFT.DatumNft
+-- ownerUserOneAuctionBidDatum =
+--   NFT.NodeDatum $
+--     ownerUserOneNode
+--       { NFT.node'information =
+--           (NFT.node'information ownerUserOneNode)
+--             { NFT.info'auctionState = Just bidAuctionState
+--             }
+--       }
 
-auctionWithBidCloseDatum :: NFT.DatumNft
-auctionWithBidCloseDatum =
-  NFT.NodeDatum $
-    ownerUserOneNode
-      { NFT.node'information =
-          (NFT.node'information ownerUserOneNode)
-            { NFT.info'owner = NFT.UserId TestValues.userTwoPkh
-            }
-      }
+-- ownerUserOneAuctionSecondBidDatum :: NFT.DatumNft
+-- ownerUserOneAuctionSecondBidDatum =
+--   NFT.NodeDatum $
+--     ownerUserOneNode
+--       { NFT.node'information =
+--           (NFT.node'information ownerUserOneNode)
+--             { NFT.info'auctionState = Just secondBidAuctionState
+--             }
+--       }
 
-auctionWithBidAuthorNode :: NFT.NftListNode
-auctionWithBidAuthorNode =
-  initialNode
-    { NFT.node'information =
-        (NFT.node'information initialNode)
-          { NFT.info'auctionState = Just bidAuctionState
-          }
-    }
+-- auctionWithBidCloseDatum :: NFT.DatumNft
+-- auctionWithBidCloseDatum =
+--   NFT.NodeDatum $
+--     ownerUserOneNode
+--       { NFT.node'information =
+--           (NFT.node'information ownerUserOneNode)
+--             { NFT.info'owner = NFT.UserId TestValues.userTwoPkh
+--             }
+--       }
 
-auctionWithBidAuthorDatum :: NFT.DatumNft
-auctionWithBidAuthorDatum =
-  NFT.NodeDatum auctionWithBidAuthorNode
+-- auctionWithBidAuthorNode :: NFT.NftListNode
+-- auctionWithBidAuthorNode =
+--   initialNode
+--     { NFT.node'information =
+--         (NFT.node'information initialNode)
+--           { NFT.info'auctionState = Just bidAuctionState
+--           }
+--     }
 
-auctionCloseInconsistentDatum :: NFT.DatumNft
-auctionCloseInconsistentDatum =
-  NFT.NodeDatum $
-    auctionWithBidAuthorNode
-      { NFT.node'information =
-          (NFT.node'information auctionWithBidAuthorNode)
-            { NFT.info'auctionState = Nothing
-            , NFT.info'author = NFT.UserId TestValues.userOnePkh
-            , NFT.info'owner = NFT.UserId TestValues.userTwoPkh
-            }
-      }
+-- auctionWithBidAuthorDatum :: NFT.DatumNft
+-- auctionWithBidAuthorDatum =
+--   NFT.NodeDatum auctionWithBidAuthorNode
 
--- case 1
-openAuctionData1 :: TestData 'ForSpending
-openAuctionData1 = SpendingTest dtm redeemer val
-  where
-    dtm = ownerUserOneDatum
+-- auctionCloseInconsistentDatum :: NFT.DatumNft
+-- auctionCloseInconsistentDatum =
+--   NFT.NodeDatum $
+--     auctionWithBidAuthorNode
+--       { NFT.node'information =
+--           (NFT.node'information auctionWithBidAuthorNode)
+--             { NFT.info'auctionState = Nothing
+--             , NFT.info'author = NFT.UserId TestValues.userOnePkh
+--             , NFT.info'owner = NFT.UserId TestValues.userTwoPkh
+--             }
+--       }
 
-    redeemer =
-      NFT.OpenAuctionAct
-        { act'symbol = TestValues.appSymbol
-        }
+-- -- case 1
+-- openAuctionData1 :: TestData 'ForSpending
+-- openAuctionData1 = SpendingTest dtm redeemer val
+--   where
+--     dtm = ownerUserOneDatum
 
-    val = TestValues.oneNft
+--     redeemer =
+--       NFT.OpenAuctionAct
+--         { act'symbol = TestValues.appSymbol
+--         }
 
-openAuctionContext1 :: ContextBuilder 'ForSpending
-openAuctionContext1 =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
-    <> paysSelf mempty ownerUserOneAuctionOpenDatum
-    <> includeGovHead
+--     val = TestValues.oneNft
 
--- case 2
-closeAuctionData1 :: TestData 'ForSpending
-closeAuctionData1 = SpendingTest dtm redeemer val
-  where
-    dtm = ownerUserOneAuctionOpenDatum
+-- openAuctionContext1 :: ContextBuilder 'ForSpending
+-- openAuctionContext1 =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
+--     <> paysSelf mempty ownerUserOneAuctionOpenDatum
+--     <> includeGovHead
 
-    redeemer =
-      NFT.CloseAuctionAct
-        { act'symbol = TestValues.appSymbol
-        }
+-- -- case 2
+-- closeAuctionData1 :: TestData 'ForSpending
+-- closeAuctionData1 = SpendingTest dtm redeemer val
+--   where
+--     dtm = ownerUserOneAuctionOpenDatum
 
-    val = TestValues.oneNft
+--     redeemer =
+--       NFT.CloseAuctionAct
+--         { act'symbol = TestValues.appSymbol
+--         }
 
-closeAuctionContext1 :: ContextBuilder 'ForSpending
-closeAuctionContext1 =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
-    <> paysSelf mempty ownerUserOneDatum
-    <> includeGovHead
+--     val = TestValues.oneNft
 
--- case 3
-validOpenAuctionData :: TestData 'ForSpending
-validOpenAuctionData = SpendingTest dtm redeemer val
-  where
-    dtm = ownerUserOneDatum
+-- closeAuctionContext1 :: ContextBuilder 'ForSpending
+-- closeAuctionContext1 =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
+--     <> paysSelf mempty ownerUserOneDatum
+--     <> includeGovHead
 
-    redeemer =
-      NFT.OpenAuctionAct
-        { act'symbol = TestValues.appSymbol
-        }
+-- -- case 3
+-- validOpenAuctionData :: TestData 'ForSpending
+-- validOpenAuctionData = SpendingTest dtm redeemer val
+--   where
+--     dtm = ownerUserOneDatum
 
-    val = TestValues.oneNft
+--     redeemer =
+--       NFT.OpenAuctionAct
+--         { act'symbol = TestValues.appSymbol
+--         }
 
-validOpenAuctionContext :: ContextBuilder 'ForSpending
-validOpenAuctionContext =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
-    <> signedWith userOnePkh
-    <> includeGovHead
+--     val = TestValues.oneNft
 
--- case 4
-validCloseAuctionData :: TestData 'ForSpending
-validCloseAuctionData = SpendingTest dtm redeemer val
-  where
-    dtm = ownerUserOneAuctionOpenDatum
+-- validOpenAuctionContext :: ContextBuilder 'ForSpending
+-- validOpenAuctionContext =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
+--     <> signedWith userOnePkh
+--     <> includeGovHead
 
-    redeemer =
-      NFT.CloseAuctionAct
-        { act'symbol = TestValues.appSymbol
-        }
+-- -- case 4
+-- validCloseAuctionData :: TestData 'ForSpending
+-- validCloseAuctionData = SpendingTest dtm redeemer val
+--   where
+--     dtm = ownerUserOneAuctionOpenDatum
 
-    val = TestValues.oneNft
+--     redeemer =
+--       NFT.CloseAuctionAct
+--         { act'symbol = TestValues.appSymbol
+--         }
 
-validCloseAuctionContext :: ContextBuilder 'ForSpending
-validCloseAuctionContext =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
-    <> signedWith userOnePkh
-    <> includeGovHead
+--     val = TestValues.oneNft
 
-validBidData :: TestData 'ForSpending
-validBidData = SpendingTest dtm redeemer val
-  where
-    dtm = ownerUserOneAuctionOpenDatum
+-- validCloseAuctionContext :: ContextBuilder 'ForSpending
+-- validCloseAuctionContext =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
+--     <> signedWith userOnePkh
+--     <> includeGovHead
 
-    redeemer =
-      NFT.BidAuctionAct
-        { act'bid = 300 * 1_000_000
-        , act'symbol = TestValues.appSymbol
-        }
+-- validBidData :: TestData 'ForSpending
+-- validBidData = SpendingTest dtm redeemer val
+--   where
+--     dtm = ownerUserOneAuctionOpenDatum
 
-    val = TestValues.oneNft
+--     redeemer =
+--       NFT.BidAuctionAct
+--         { act'bid = 300 * 1_000_000
+--         , act'symbol = TestValues.appSymbol
+--         }
 
-validBidContext :: ContextBuilder 'ForSpending
-validBidContext =
-  paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft <> TestValues.adaValue 300) ownerUserOneAuctionBidDatum
-    <> includeGovHead
+--     val = TestValues.oneNft
 
-validSecondBidData :: TestData 'ForSpending
-validSecondBidData = SpendingTest dtm redeemer val
-  where
-    dtm = ownerUserOneAuctionBidDatum
+-- validBidContext :: ContextBuilder 'ForSpending
+-- validBidContext =
+--   paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft <> TestValues.adaValue 300) ownerUserOneAuctionBidDatum
+--     <> includeGovHead
 
-    redeemer =
-      NFT.BidAuctionAct
-        { act'bid = 500 * 1_000_000
-        , act'symbol = TestValues.appSymbol
-        }
+-- validSecondBidData :: TestData 'ForSpending
+-- validSecondBidData = SpendingTest dtm redeemer val
+--   where
+--     dtm = ownerUserOneAuctionBidDatum
 
-    val = TestValues.oneNft <> TestValues.adaValue 300
+--     redeemer =
+--       NFT.BidAuctionAct
+--         { act'bid = 500 * 1_000_000
+--         , act'symbol = TestValues.appSymbol
+--         }
 
-validSecondBidContext :: ContextBuilder 'ForSpending
-validSecondBidContext =
-  paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
-    <> paysToWallet TestValues.userTwoWallet (TestValues.adaValue 300)
-    <> includeGovHead
+--     val = TestValues.oneNft <> TestValues.adaValue 300
 
-closeAuctionWithBidData :: TestData 'ForSpending
-closeAuctionWithBidData = SpendingTest dtm redeemer val
-  where
-    dtm = ownerUserOneAuctionBidDatum
+-- validSecondBidContext :: ContextBuilder 'ForSpending
+-- validSecondBidContext =
+--   paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
+--     <> paysToWallet TestValues.userTwoWallet (TestValues.adaValue 300)
+--     <> includeGovHead
 
-    redeemer =
-      NFT.CloseAuctionAct
-        { act'symbol = TestValues.appSymbol
-        }
+-- closeAuctionWithBidData :: TestData 'ForSpending
+-- closeAuctionWithBidData = SpendingTest dtm redeemer val
+--   where
+--     dtm = ownerUserOneAuctionBidDatum
 
-    -- TODO: correctInputValue check for all redeemers?
-    val = TestValues.oneNft -- <> (TestValues.adaValue 300)
+--     redeemer =
+--       NFT.CloseAuctionAct
+--         { act'symbol = TestValues.appSymbol
+--         }
 
-closeAuctionWithBidContext :: ContextBuilder 'ForSpending
-closeAuctionWithBidContext =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
-    <> signedWith userOnePkh
-    <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
-    <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
-    <> includeGovHead
+--     -- TODO: correctInputValue check for all redeemers?
+--     val = TestValues.oneNft -- <> (TestValues.adaValue 300)
 
-closeAuctionWithBidNoAuthorContext :: ContextBuilder 'ForSpending
-closeAuctionWithBidNoAuthorContext =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
-    <> paysSelf mempty auctionWithBidCloseDatum
-    <> signedWith userOnePkh
-    <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
-    <> includeGovHead
+-- closeAuctionWithBidContext :: ContextBuilder 'ForSpending
+-- closeAuctionWithBidContext =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
+--     <> signedWith userOnePkh
+--     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
+--     <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
+--     <> includeGovHead
 
-closeAuctionWithBidNoOwnerContext :: ContextBuilder 'ForSpending
-closeAuctionWithBidNoOwnerContext =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
-    <> paysSelf mempty auctionWithBidCloseDatum
-    <> signedWith userOnePkh
-    <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
-    <> includeGovHead
+-- closeAuctionWithBidNoAuthorContext :: ContextBuilder 'ForSpending
+-- closeAuctionWithBidNoAuthorContext =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
+--     <> paysSelf mempty auctionWithBidCloseDatum
+--     <> signedWith userOnePkh
+--     <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
+--     <> includeGovHead
 
-closeAuctionWithBidAuthorData :: TestData 'ForSpending
-closeAuctionWithBidAuthorData = SpendingTest dtm redeemer val
-  where
-    dtm = auctionWithBidAuthorDatum
+-- closeAuctionWithBidNoOwnerContext :: ContextBuilder 'ForSpending
+-- closeAuctionWithBidNoOwnerContext =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
+--     <> paysSelf mempty auctionWithBidCloseDatum
+--     <> signedWith userOnePkh
+--     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
+--     <> includeGovHead
 
-    redeemer =
-      NFT.CloseAuctionAct
-        { act'symbol = TestValues.appSymbol
-        }
+-- closeAuctionWithBidAuthorData :: TestData 'ForSpending
+-- closeAuctionWithBidAuthorData = SpendingTest dtm redeemer val
+--   where
+--     dtm = auctionWithBidAuthorDatum
 
-    val = TestValues.oneNft
+--     redeemer =
+--       NFT.CloseAuctionAct
+--         { act'symbol = TestValues.appSymbol
+--         }
 
-closeAuctionWithBidAuthorContext :: ContextBuilder 'ForSpending
-closeAuctionWithBidAuthorContext =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
-    <> paysSelf mempty auctionWithBidCloseDatum
-    <> signedWith authorPkh
-    <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
-    <> includeGovHead
+--     val = TestValues.oneNft
 
-closeAuctionInconsistentData :: TestData 'ForSpending
-closeAuctionInconsistentData = SpendingTest dtm redeemer val
-  where
-    dtm = auctionWithBidAuthorDatum
+-- closeAuctionWithBidAuthorContext :: ContextBuilder 'ForSpending
+-- closeAuctionWithBidAuthorContext =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
+--     <> paysSelf mempty auctionWithBidCloseDatum
+--     <> signedWith authorPkh
+--     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
+--     <> includeGovHead
 
-    redeemer =
-      NFT.CloseAuctionAct
-        { act'symbol = TestValues.appSymbol
-        }
+-- closeAuctionInconsistentData :: TestData 'ForSpending
+-- closeAuctionInconsistentData = SpendingTest dtm redeemer val
+--   where
+--     dtm = auctionWithBidAuthorDatum
 
-    val = TestValues.oneNft
+--     redeemer =
+--       NFT.CloseAuctionAct
+--         { act'symbol = TestValues.appSymbol
+--         }
 
-closeAuctionInconsistentContext :: ContextBuilder 'ForSpending
-closeAuctionInconsistentContext =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionCloseInconsistentDatum
-    <> paysSelf mempty auctionCloseInconsistentDatum
-    <> signedWith authorPkh
-    <> includeGovHead
+--     val = TestValues.oneNft
 
-dealingValidator :: Ledger.Validator
-dealingValidator = error ()
-  -- Ledger.mkValidatorScript $
-  --   $$(PlutusTx.compile [||wrap||])
-  --     `PlutusTx.applyCode` ($$(PlutusTx.compile [||NFT.mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode uniqueAsset)
-  -- where
-  --   wrap ::
-  --     (NFT.DatumNft -> NFT.UserAct -> Ledger.ScriptContext -> Bool) ->
-  --     (BuiltinData -> BuiltinData -> BuiltinData -> ())
-  --   wrap = toTestValidator
+-- closeAuctionInconsistentContext :: ContextBuilder 'ForSpending
+-- closeAuctionInconsistentContext =
+--   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionCloseInconsistentDatum
+--     <> paysSelf mempty auctionCloseInconsistentDatum
+--     <> signedWith authorPkh
+--     <> includeGovHead
+
+-- dealingValidator :: Ledger.Validator
+-- dealingValidator = error ()
+-- Ledger.mkValidatorScript $
+--   $$(PlutusTx.compile [||wrap||])
+--     `PlutusTx.applyCode` ($$(PlutusTx.compile [||NFT.mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode uniqueAsset)
+-- where
+--   wrap ::
+--     (NFT.DatumNft -> NFT.UserAct -> Ledger.ScriptContext -> Bool) ->
+--     (BuiltinData -> BuiltinData -> BuiltinData -> ())
+--   wrap = toTestValidator

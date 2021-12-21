@@ -69,7 +69,7 @@ import Plutus.Trace.Emulator (
  )
 import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
-import Plutus.V1.Ledger.Value (AssetClass (..), TokenName (..), Value, assetClassValue, singleton, valueOf)
+import Plutus.V1.Ledger.Value (AssetClass (..), CurrencySymbol, TokenName (..), Value, assetClassValue, singleton, valueOf)
 import PlutusTx.Prelude hiding (check, foldMap, pure)
 import Wallet.Emulator.MultiAgent (EmulatorTimeEvent (..))
 import Prelude (Applicative (..), String, foldMap)
@@ -85,6 +85,7 @@ import Mlabs.NFT.Api (
   endpoints,
   queryEndpoints,
  )
+import Mlabs.NFT.Spooky (toSpooky)
 import Mlabs.NFT.Types (
   AuctionBidParams,
   AuctionCloseParams,
@@ -93,13 +94,14 @@ import Mlabs.NFT.Types (
   Content (..),
   InitParams (..),
   MintParams (..),
-  NftAppInstance (appInstance'UniqueToken),
-  NftAppSymbol (..),
+  NftAppInstance (..),
   NftId (..),
   SetPriceParams (..),
   Title (..),
   UniqueToken,
   UserId (..),
+  appInstance'UniqueToken,
+  getUserId,
  )
 import Mlabs.Utils.Wallet (walletFromNumber)
 
@@ -124,7 +126,7 @@ callStartNft wal = do
   hAdmin <- activateContractWallet wal adminEndpoints
   let params =
         InitParams
-          [UserId . walletPubKeyHash $ wal]
+          [UserId . toSpooky . walletPubKeyHash $ wal]
           (5 % 1000)
           (walletPubKeyHash wal)
   callEndpoint @"app-init" hAdmin params
@@ -141,7 +143,7 @@ callStartNftFail wal = do
   let w5 = walletFromNumber 5
       params =
         InitParams
-          [UserId . walletPubKeyHash $ w5]
+          [UserId . toSpooky . walletPubKeyHash $ w5]
           (5 % 1000)
           (walletPubKeyHash wal)
   lift $ do
@@ -170,7 +172,7 @@ checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
 
 toUserId :: Wallet -> UserId
-toUserId = UserId . walletPubKeyHash
+toUserId = UserId . toSpooky . walletPubKeyHash
 
 {- | Script runner. It inits NFT by user 1 and provides nft id to all sequent
  endpoint calls.
@@ -305,8 +307,8 @@ containsLog wal expected = assertInstanceLog (walletInstanceTag wal) (any predic
 artwork1 :: MintParams
 artwork1 =
   MintParams
-    { mp'content = Content "A painting."
-    , mp'title = Title "Fiona Lisa"
+    { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+    , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
     , mp'share = 1 % 10
     , mp'price = Nothing
     }
@@ -314,8 +316,8 @@ artwork1 =
 artwork2 :: MintParams
 artwork2 =
   MintParams
-    { mp'content = Content "Another painting."
-    , mp'title = Title "Fiona Lisa"
+    { mp'content = Content . toSpooky @BuiltinByteString $ "Another painting."
+    , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
     , mp'share = 1 % 10
     , mp'price = Just 300
     }
@@ -325,7 +327,8 @@ mkFreeGov wal = assetClassValue (AssetClass (govCurrency, tn))
   where
     tn = TokenName . ("freeGov" <>) . getPubKeyHash . getUserId . toUserId $ wal
 
-govCurrency = "ead3afa7ebf62a2d814f390f8a939a4ac658939d7e39aca9c0e4b84d"
+govCurrency :: CurrencySymbol
+govCurrency = "dafa676fd6822fbfbc6d28643be1a0afc9af6ff3771f574d2bcfea53"
 
 getFreeGov :: Wallet -> Plutus.V1.Ledger.Value.Value -> Integer
 getFreeGov wal val = valueOf val govCurrency tn
