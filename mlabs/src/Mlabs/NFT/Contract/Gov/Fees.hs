@@ -32,6 +32,7 @@ import Mlabs.NFT.Contract.Gov.Aux
 import Mlabs.NFT.Contract.Gov.Query
 import Mlabs.NFT.Governance.Types
 import Mlabs.NFT.Governance.Validation (govMintPolicy, govScript)
+import Mlabs.NFT.Spooky
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
@@ -50,7 +51,7 @@ getFeesConstraints uT nftId price user = do
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "getFeesConstraints:NFT not found"
   let newGovDatum = GovDatum $ NodeLList user GovLNode Nothing
-      govAddr = appInstance'Governance . node'appInstance $ node
+      govAddr = unSpookyAddress . appInstance'Governance . node'appInstance $ node
       govValidator = govScript . appInstance'UniqueToken . node'appInstance $ node
       govScriptHash = validatorHash govValidator
 
@@ -139,7 +140,7 @@ getFeesConstraints uT nftId price user = do
           ]
   Hask.pure (govTx <> sharedGovTx, govLookups <> sharedGovLookup)
 
-findGovInsertPoint :: Address -> GovDatum -> GenericContract (Either (PointInfo GovDatum) (InsertPoint GovDatum))
+findGovInsertPoint :: Ledger.Address -> GovDatum -> GenericContract (Either (PointInfo GovDatum) (InsertPoint GovDatum))
 findGovInsertPoint addr node = do
   list <- getDatumsTxsOrderedFromAddr @GovDatum addr
   Contract.logInfo @Hask.String $ Hask.show $ "GOV LIST: " <> Hask.show (Hask.fmap pi'data list)

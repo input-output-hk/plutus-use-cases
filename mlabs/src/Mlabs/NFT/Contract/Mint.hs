@@ -33,7 +33,7 @@ import Mlabs.NFT.Contract.Aux (
   getUId,
   hashData,
  )
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, unSpookyAddress)
 import Mlabs.NFT.Types (
   AuctionState,
   DatumNft (..),
@@ -152,7 +152,7 @@ mint uT params = do
           token =
             Ledger.txOutValue
               . fst
-              $ (txOutRefMapForAddr scriptAddr (pi'CITx insertPoint) Map.! pi'TOR insertPoint)
+              $ (txOutRefMapForAddr (unSpookyAddress scriptAddr) (pi'CITx insertPoint) Map.! pi'TOR insertPoint)
           newToken = assetClass (app'symbol appSymbol) (TokenName .getDatumValue . NodeDatum $ newNode)
           newDatum = updatePointer (Pointer . toSpooky $ newToken)
           oref = pi'TOR insertPoint

@@ -25,7 +25,6 @@ import PlutusTx qualified
 import PlutusTx.Prelude
 
 import Ledger (
-  Address,
   AssetClass,
   CurrencySymbol,
   Datum (..),
@@ -74,12 +73,14 @@ import Mlabs.NFT.Governance.Types (
   LList (HeadLList, _head'info, _head'next),
  )
 import Mlabs.NFT.Spooky (
+  Address,
   ScriptContext,
   TxOut,
   findDatum,
   ownCurrencySymbol,
   scriptContextTxInfo,
   toSpooky,
+  toSpookyAddress,
   txInInfoResolved,
   txInfoInputs,
   txInfoMint,
@@ -717,8 +718,8 @@ txValHash :: UniqueToken -> ValidatorHash
 txValHash = validatorHash . txPolicy
 
 {-# INLINEABLE txScrAddress #-}
-txScrAddress :: UniqueToken -> Ledger.Address
-txScrAddress = validatorAddress . txPolicy
+txScrAddress :: UniqueToken -> Address
+txScrAddress = toSpookyAddress . validatorAddress . txPolicy
 
 {-# INLINEABLE curSymbol #-}
 

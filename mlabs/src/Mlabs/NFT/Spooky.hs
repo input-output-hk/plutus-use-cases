@@ -1,4 +1,9 @@
 module Mlabs.NFT.Spooky (
+  Credential (..),
+  StakingCredential (..),
+  Address (..),
+  toSpookyAddress,
+  unSpookyAddress,
   TxId (..),
   getTxId,
   TxOutRef (..),
@@ -30,24 +35,67 @@ module Mlabs.NFT.Spooky (
   unSpooky,
 ) where
 
+import PlutusTx qualified
 import PlutusTx.Prelude
 import Prelude qualified as Hask
 
 import GHC.Generics (Generic)
 
 import Ledger (
-  Address (Address),
   CurrencySymbol,
   Datum,
   POSIXTimeRange,
   PubKeyHash,
+  ValidatorHash,
  )
-
+import Ledger qualified
 import Ledger.Scripts (DatumHash)
 import Ledger.Value (Value)
-import Plutus.V1.Ledger.Api (Credential (PubKeyCredential), DCert, StakingCredential)
-import PlutusTx qualified
+import Plutus.V1.Ledger.Api (DCert)
 import PlutusTx.Spooky (Spooky, toSpooky, unSpooky)
+
+data Credential
+  = PubKeyCredential (Spooky PubKeyHash)
+  | ScriptCredential (Spooky ValidatorHash)
+  deriving stock (Generic, Hask.Show, Hask.Eq)
+PlutusTx.unstableMakeIsData ''Credential
+
+instance Eq Credential where
+  PubKeyCredential pkh == PubKeyCredential pkh' = pkh == pkh'
+  ScriptCredential vh == ScriptCredential vh' = vh == vh'
+  _ == _ = False
+
+data StakingCredential
+  = StakingHash (Spooky Credential)
+  | StakingPtr (Spooky Integer) (Spooky Integer) (Spooky Integer)
+  deriving stock (Generic, Hask.Show, Hask.Eq)
+PlutusTx.unstableMakeIsData ''StakingCredential
+
+instance Eq StakingCredential where
+  StakingHash c == StakingHash c' = c == c'
+  StakingPtr a b c == StakingPtr a' b' c' =
+    a == a'
+      && b == b'
+      && c == c'
+  _ == _ = False
+
+data Address = Address
+  { addressCredential' :: Spooky Credential
+  , addressStakingCredential' :: Spooky (Maybe StakingCredential)
+  }
+  deriving stock (Generic, Hask.Show, Hask.Eq)
+PlutusTx.unstableMakeIsData ''Address
+
+instance Eq Address where
+  Address c s == Address c' s' =
+    c == c'
+      && s == s'
+
+unSpookyAddress :: Address -> Ledger.Address
+unSpookyAddress (Address cred sCred) = Ledger.Address (unSpooky cred) (unSpooky sCred)
+
+toSpookyAddress :: Ledger.Address -> Address
+toSpookyAddress (Ledger.Address cred sCred) = Address (toSpooky cred) (toSpooky sCred)
 
 newtype TxId = TxId {getTxId' :: Spooky BuiltinByteString}
   deriving stock (Generic, Hask.Show, Hask.Eq)
@@ -218,8 +266,9 @@ valuePaidTo ptx pkh = mconcat (pubKeyOutputsAt pkh ptx)
 pubKeyOutputsAt :: PubKeyHash -> TxInfo -> [Value]
 pubKeyOutputsAt pk p =
   let flt tx = case txOutAddress tx of
-        (Address (PubKeyCredential pk') _) -> if pk == pk' then Just (txOutValue tx) else Nothing
-        _ -> Nothing
+        (Address cred _) -> case unSpooky cred of
+          PubKeyCredential pk' -> if pk == unSpooky pk' then Just (txOutValue tx) else Nothing
+          _ -> Nothing
    in mapMaybe flt (txInfoOutputs p)
 
 {-# INLINEABLE findDatum #-}

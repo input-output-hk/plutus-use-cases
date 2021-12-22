@@ -88,9 +88,8 @@ import Ledger (
 import Ledger.Value (TokenName (..), unAssetClass)
 import Plutus.ChainIndex (ChainIndexTx)
 import Plutus.Contract (Contract)
-import Plutus.V1.Ledger.Api (Address)
 
-import Mlabs.NFT.Spooky (Spooky, unSpooky)
+import Mlabs.NFT.Spooky (Address, Spooky, unSpooky)
 import Schema (ToSchema (toSchema))
 
 --------------------------------------------------------------------------------

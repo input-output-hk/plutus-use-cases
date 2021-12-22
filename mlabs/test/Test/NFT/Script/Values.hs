@@ -85,7 +85,7 @@ adaValue :: Integer -> Value.Value
 adaValue = Ada.lovelaceValueOf . (* 1_000_000)
 
 testStateAddr :: UniqueToken -> Ledger.Address
-testStateAddr = NFT.txScrAddress
+testStateAddr = unSpookyAddress . NFT.txScrAddress
 
 appInstance :: NftAppInstance
 appInstance = NftAppInstance (toSpooky $ testStateAddr uniqueAsset) (toSpooky uniqueAsset) (toSpooky $ Gov.govScrAddress uniqueAsset) (toSpooky [UserId $ toSpooky userOnePkh])

@@ -51,7 +51,7 @@ import Ledger (
 import Ledger.Value as Value (unAssetClass, valueOf)
 
 import Mlabs.NFT.Governance.Types (GovDatum (gov'list), LList (HeadLList))
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, unSpookyAddress)
 import Mlabs.NFT.Types (
   Content,
   DatumNft (..),
@@ -77,7 +77,7 @@ import Mlabs.Plutus.Contract (readDatum')
 getScriptAddrUtxos ::
   UniqueToken ->
   GenericContract (Map.Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
-getScriptAddrUtxos = utxosTxOutTxAt . txScrAddress
+getScriptAddrUtxos = utxosTxOutTxAt . unSpookyAddress . txScrAddress
 
 -- HELPER FUNCTIONS AND CONTRACTS --
 
@@ -106,7 +106,7 @@ getAddrUtxos adr = Map.map fst <$> utxosTxOutTxAt adr
 -}
 getHead :: UniqueToken -> GenericContract (Maybe (PointInfo NftListHead))
 getHead uT = do
-  utxos <- utxosTxOutTxAt $ txScrAddress uT
+  utxos <- utxosTxOutTxAt . unSpookyAddress . txScrAddress $ uT
   let headUtxos = Map.toList . Map.filter containUniqueToken $ utxos
   case headUtxos of
     [] -> pure Nothing
@@ -144,7 +144,7 @@ getNftAppSymbol uT = do
 getAddrValidUtxos :: UniqueToken -> GenericContract (Map.Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
 getAddrValidUtxos ut = do
   appSymbol <- getNftAppSymbol ut
-  Map.filter (validTx appSymbol) <$> utxosTxOutTxAt (txScrAddress ut)
+  Map.filter (validTx appSymbol) <$> utxosTxOutTxAt (unSpookyAddress . txScrAddress $ ut)
   where
     validTx appSymbol (cIxTxOut, _) = elem (app'symbol appSymbol) $ symbols (cIxTxOut ^. ciTxOutValue)
 
@@ -318,7 +318,7 @@ hashData = sha2_256 . getContent
 
 getApplicationCurrencySymbol :: NftAppInstance -> GenericContract NftAppSymbol
 getApplicationCurrencySymbol appInstance = do
-  utxos <- Contract.utxosAt . appInstance'Address $ appInstance
+  utxos <- Contract.utxosAt . unSpookyAddress . appInstance'Address $ appInstance
   let outs = fmap toTxOut . Map.elems $ utxos
       (uniqueCurrency, uniqueToken) = unAssetClass . appInstance'UniqueToken $ appInstance
       lstHead' = find (\tx -> valueOf (Ledger.txOutValue tx) uniqueCurrency uniqueToken == 1) outs

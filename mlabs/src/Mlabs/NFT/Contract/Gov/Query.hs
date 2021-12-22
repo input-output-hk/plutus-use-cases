@@ -25,6 +25,7 @@ import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Contract.Gov.Aux
 import Mlabs.NFT.Governance.Types
 import Mlabs.NFT.Governance.Validation
+import Mlabs.NFT.Spooky (unSpookyAddress)
 import Mlabs.NFT.Types
 
 -- | Returns current `listGov` stake for user
@@ -43,7 +44,7 @@ querryCurrentStake uT _ = do
       listGovTokenName = TokenName . ("listGov" <>) . getPubKeyHash $ ownPkh
       newGovDatum = GovDatum $ NodeLList user GovLNode Nothing
       appInstance = head'appInstance nftHead
-      govAddr = appInstance'Governance appInstance
+      govAddr = unSpookyAddress . appInstance'Governance $ appInstance
       govCurr = scriptCurrencySymbol govPolicy
       govPolicy = govMintPolicy appInstance
   currGov <- findGov govAddr newGovDatum
@@ -68,7 +69,7 @@ queryGovHeadDatum uT = do
     Just (HeadDatum x) -> Hask.pure x
     _ -> Contract.throwError "queryCurrFeeRate: NFT HEAD not found"
 
-  let govAddr = appInstance'Governance . head'appInstance $ nftHead
+  let govAddr = unSpookyAddress . appInstance'Governance . head'appInstance $ nftHead
   govHead' <- getGovHead govAddr
   case gov'list . pi'data <$> govHead' of
     Just (HeadLList x _) -> Hask.pure x
