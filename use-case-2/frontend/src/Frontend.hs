@@ -34,7 +34,7 @@ import Frontend.ChooseWallet
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
   { _frontend_head = do
-      el "title" $ text "Obelisk Minimal Example"
+      el "title" $ text "SampleSwap"
       elAttr "link" ("href" =: $(static "main.css") <> "type" =: "text/css" <> "rel" =: "stylesheet") blank
       elAttr "link" ("href" =: "https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css"
         <> "type" =: "text/css"

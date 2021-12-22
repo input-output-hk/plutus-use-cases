@@ -19,6 +19,7 @@ import qualified Data.Aeson as Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Char (isNumber)
+import Data.Coerce
 import Data.Dependent.Sum
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -30,6 +31,7 @@ import Data.Text (Text)
 import Data.Text.Read (decimal)
 import qualified Data.Text as T
 import Data.Vessel
+import Database.Groundhog.Postgresql (Postgresql (..))
 import Database.Beam (MonadBeam, Generic)
 import Database.Beam.Backend.SQL.BeamExtensions
 import Database.Beam.Postgres
@@ -65,7 +67,7 @@ backend = Backend
         withResource pool runMigrations
         configs <- getConfigs
         (handleListen, finalizeServeDb) <- serveDbOverWebsockets
-          pool
+          (coerce pool)
           (requestHandler configs httpManager pool)
           (\(nm :: DbNotification Notification) q ->
              fmap (fromMaybe emptyV) $ mapDecomposedV (notifyHandler nm) q)
@@ -124,6 +126,7 @@ data DappBackendConfig = DappBackendConfig
   , _dappBackendConfig_contractOwnerSignKeyPath :: Text
   , _dappBackendConfig_contractScriptAddress :: Text
   , _dappBackendConfig_contractScriptPath :: Text
+  , _dappBackendConfig_validatorExePath :: Text
   , _dappBackendConfig_initPoolValA :: Integer -- TODO: Won't be needed when datum is no longer referenced from file
   , _dappBackendConfig_initPoolValB :: Integer -- TODO: Won't be needed when datum is no longer referenced from file
   } deriving (Show, Generic)
@@ -134,7 +137,7 @@ instance ToJSON DappBackendConfig
 -- | Handle requests / commands, a standard part of Obelisk apps.
 requestHandler :: Map Text ByteString -> Manager -> Pool Pg.Connection -> RequestHandler Api IO
 requestHandler configs _httpManager _pool = RequestHandler $ \case
-  Api_BuildStaticSwapTransaction walletAddress adaAmount -> buildStaticSwapTransaction configs walletAddress adaAmount
+  Api_BuildStaticSwapTransaction walletAddress collateral adaAmount -> buildStaticSwapTransaction configs walletAddress collateral adaAmount
   Api_ConfirmSwapSuccess proposalId -> confirmSwapSuccess proposalId
   Api_EstimateSwap tokenAInput -> estimateSwapOutput configs tokenAInput
 
@@ -192,9 +195,10 @@ getJsonConfig m k = do
 buildStaticSwapTransaction
   :: Map Text ByteString
   -> Text
+  -> Text
   -> Integer
   -> IO (Either String (Text, Text)) -- In Right case (CBOR Hash, SwapProposalId)
-buildStaticSwapTransaction configs changeAddress adaAmount = do
+buildStaticSwapTransaction configs changeAddress collateralTxHash adaAmount = do
   print $ "buildStaticSwapTransaction: value of configs is " <> (show configs)
 
   -- fetch configs to perform swap
@@ -204,6 +208,7 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
       cardanoCliExe = _dappBackendConfig_cardanoCliExe dappBackendConf
       testnetMagic = _dappBackendConfig_testnetMagicNumber dappBackendConf
       nodeSocketPath = _dappBackendConfig_cardanoNodeSocket dappBackendConf
+      validatorExePath = _dappBackendConfig_validatorExePath dappBackendConf
       smartContractOwnerSignKeyFilePath = _dappBackendConfig_contractOwnerSignKeyPath dappBackendConf
 
   print $ "buildStaticSwapTransaction: value of changeAddress is " <> changeAddress
@@ -234,10 +239,6 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
         case T.words utxoInfo of
           utxoHandle:txix:amount:unit:_ -> Just (utxoHandle <> "#" <> txix, amount, unit)
           _ -> Nothing
-      -- Nami Wallet creates a collateral Utxo with 5 ada. This will search for the collateral utxo and return it's transaction hash and index
-      -- TODO: This should be fetched from Nami Wallet
-      collateralTxHash :: Text = maybe ""  (\(a, _, _) -> a)  $
-        headMay $ filter (\(_, amount, unit) -> amount == ("5000000" :: Text) && unit == ("lovelace" :: Text)) nodeQueryResults
       -- Get transaction hash of utxo with highest lovelace balance
       highestBalance :: Integer = maximum $ flip map (filter (\(_,_,unit) -> unit == "lovelace") nodeQueryResults) $ \(_, amt, _) -> case decimal amt  of
         Right (amt', _) -> amt'
@@ -245,7 +246,6 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
       txHash =  maybe "" (\(a, _, _) -> a) $ headMay $ flip filter nodeQueryResults $ \(_, amt, unit) ->
         amt == (T.pack $ show highestBalance) && unit == "lovelace"
   -- drop leading txHash and txIndex, keep balances of what is being held at the utxo handle
-  print $ "buildStaticSwapTransaction: value of collateralTxHash is " <> collateralTxHash
   print $ "buildStaticSwapTransaction: value of txHash is " <> txHash
 
   -- Fetch Pool Utxo and PoolState
@@ -303,9 +303,7 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
         Just poolStateSymbol -> do
           -- Determine the TxOut for the Uniswap smart contract
           -- run Uniswap Validator to figure out which assets are suppose to be returned to the uniswap smart contract
-          currentDir <- getCurrentDirectory
-          let validatorExe = currentDir ++ "/static/plutus-raw-swap" -- TODO: get abs path of plutus-raw-swap exe better than this -- $(static "./static/plutus-raw-swap")
-          print $ "buildStaticSwapTransaction: value of validatorExe is " <> (show validatorExe)
+          print $ "buildStaticSwapTransaction: value of validatorExePath is " <> (show validatorExePath)
           -- check for history for current pool datum file
           createDirectoryIfMissing False $ T.unpack swapHistoryDir
           historyFiles :: [String] <- getDirectoryContents $ T.unpack swapHistoryDir
@@ -320,7 +318,7 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
                 (CreateProcess
                   {
                     cmdspec = RawCommand
-                      validatorExe
+                      (T.unpack validatorExePath)
                       [ "" -- currency symbol for ADA, Should come from Pool Datum decoding
                       , "" -- tokenName for ADA, Should come from Pool Datum decoding
                       , (show lovelaceAmount)
@@ -374,6 +372,7 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
                   print $ "buildStaticSwapTransaction: value of contractTxOut is " <> (show contractTxOut)
 
                   -- Determine the TxOut for the Nami client's wallet
+                  print $ "buildStaticSwapTransaction: value of collateralTxHash is " <> (show collateralTxHash)
                   let swapRedeemerFilePath = swapProposalDir <> "/" <> swapProposalId <> "-rawSwap-redeemer"
                       handleSwapProcess namiTxOut uniswapTxOut = CreateProcess
                         { cmdspec = RawCommand
@@ -392,6 +391,7 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
                             , (T.unpack poolStateSymbol)
                             , namiTxOut
                             , uniswapTxOut
+                            , (T.unpack changeAddress)
                             ]
                         , cwd = Nothing
                         , env = Just $ [(("CARDANO_NODE_SOCKET_PATH" :: String) ,(T.unpack nodeSocketPath))]
@@ -457,7 +457,7 @@ buildStaticSwapTransaction configs changeAddress adaAmount = do
                                   return $ Left $ "Transaction not built: " ++ (show errOut)
                                 ExitSuccess -> do
                                   -- open file to fetch cbor hash from file generated by cardano-cli during handleSwap script
-                                  builtTxBytes <- LBS.readFile "obelisk-rawSwap-tx-signed"
+                                  builtTxBytes <- LBS.readFile $ "./signedTx/" <> (T.unpack changeAddress) <> "-obelisk-rawSwap-tx-signed"
                                   let eBuiltTx :: Either String BuiltTx = Aeson.eitherDecode builtTxBytes
                                   case eBuiltTx of
                                     Left err -> return $ Left err

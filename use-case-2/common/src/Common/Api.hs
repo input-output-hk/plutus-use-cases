@@ -40,7 +40,8 @@ data Q (v :: (* -> *) -> *) where
 data Api :: * -> * where
   Api_BuildStaticSwapTransaction
     :: Text -- Change Address (Wallet Address)
-    ->  Integer -- Amount of ADA wished to be swapped
+    -> Text -- Collateral Utxo
+    -> Integer -- Amount of ADA wished to be swapped
     -> Api (Either String (Text, Text)) -- Either Error (CBOR encoded transaction)
   Api_ConfirmSwapSuccess :: Text -> Api (Either String ())
   Api_EstimateSwap :: Integer -> Api (Either String Integer)

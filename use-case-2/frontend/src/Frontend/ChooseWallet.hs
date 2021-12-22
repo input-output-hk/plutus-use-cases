@@ -42,7 +42,9 @@ chooseWallet = mdo
   pb <- getPostBuild
   enableNamiEv <- navBar dynAddress
   (addressEv, addressTrigger) <- newTriggerEvent
+  (collateralEv, collateralTrigger) <- newTriggerEvent
   dynAddress <- holdDyn "" addressEv
+  dynCollateral <- holdDyn "" collateralEv
   divClass "p-5 mb-4 bg-light rounded-5" $ do
     divClass "container py-5" $ divClass "pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center" $ do
       elClass "h2" "display-5 fw-bold mb-5" $ text "SampleSwap"
@@ -89,15 +91,31 @@ chooseWallet = mdo
                     Just (a :: Text) -> liftIO (addressTrigger a)
                     _ -> pure ()
                 _ -> pure ()
+              getCollateralCallback :: JSCallAsFunction
+              getCollateralCallback = fun $ \_ _ args -> case args of
+                (i:_) -> do
+                  fromJSVal i >>= \case
+                    Just (a :: Text) -> liftIO (collateralTrigger a)
+                    _ -> pure ()
+                _ -> pure ()
           jsWalletAddress <- eval
-            ("(async function foo (someparam) { let z = await window.cardano.isEnabled(); if (z) { let x = await window.cardano.getUsedAddresses(); \
-              \ y = CardanoWasm.BaseAddress.from_address(CardanoWasm.Address.from_bytes(buffer.Buffer.from(x[0], 'hex'))); \
-              \ console.log(y.to_address().to_bech32()); \
-              \ someparam(y.to_address().to_bech32());} })" :: Text)
+            ("(async function foo (someparam) { let namiEnabled = await window.cardano.isEnabled(); if (namiEnabled) { let namiAddrs = await window.cardano.getUsedAddresses(); \
+              \ let prettyNamiAddr = CardanoWasm.BaseAddress.from_address(CardanoWasm.Address.from_bytes(buffer.Buffer.from(namiAddrs[0], 'hex'))); \
+              \ console.log(prettyNamiAddr.to_address().to_bech32()); \
+              \ someparam(prettyNamiAddr.to_address().to_bech32());} })" :: Text)
+          jsCollateralUtxo <- eval
+            ("(async function foo (someparam) { let namiEnabled = await window.cardano.isEnabled(); if (namiEnabled) { let collateralBytes = await window.cardano.getCollateral(); \
+              \ let txUnspentOutput = CardanoWasm.TransactionUnspentOutput.from_bytes(buffer.Buffer.from(collateralBytes[0], 'hex')); \
+              \ let UtxoTxId = buffer.Buffer.from(txUnspentOutput.input().transaction_id().to_bytes()).toString('hex'); \
+              \ let UtxoTxIn = txUnspentOutput.input().index(); \
+              \ console.log(UtxoTxId + '#' + UtxoTxIn); \
+              \ someparam(UtxoTxId + '#' + UtxoTxIn);} })" :: Text)
           _ <- call jsWalletAddress jsWalletAddress (getAddressCallback)
+          _ <- call jsCollateralUtxo jsCollateralUtxo (getCollateralCallback)
           return ()) <$ (leftmost [pb, () <$ enableNamiEv])
-        let requestLoad = (\addr adaAmount -> Api_BuildStaticSwapTransaction addr adaAmount)
+        let requestLoad = (\addr collateral adaAmount -> Api_BuildStaticSwapTransaction addr collateral adaAmount)
                <$> dynAddress
+               <*> dynCollateral
                <*> dynAdaAmount
         let staticSwapRequestEv = tagPromptlyDyn requestLoad staticSwapEv
         -- let newEv = switchDyn staticSwapRequestEv
@@ -166,7 +184,7 @@ chooseWallet = mdo
           UIMessage_Success msg -> elClass "p" "text-success" $ text msg
           UIMessage_Failure msg -> elClass "p" "text-danger" $ text msg
           UIMessage_None -> blank
-      elAttr "a" ("href" =: "https://github.com/input-output-hk/plutus-use-cases/tree/obsidian-systems/dex" <> "target" =: "_blank") $ elClass "button" "btn btn-outline-dark mt-5" $ text "Learn More"
+      elAttr "a" ("href" =: "https://github.com/input-output-hk/plutus-use-cases/tree/obsidian-systems/dex/use-case-2" <> "target" =: "_blank") $ elClass "button" "btn btn-outline-dark mt-5" $ text "Learn More"
 
 data ButtonStatus = ButtonStatus_Ready
                   | ButtonStatus_Busy

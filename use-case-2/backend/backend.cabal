@@ -26,6 +26,7 @@ library
                , frontend
                , gargoyle-postgresql
                , gargoyle-postgresql-connect
+               , groundhog-postgresql
                , http-client
                , lens
                , lens-aeson
@@ -37,7 +38,6 @@ library
                , resource-pool
                , rhyolite-backend
                , rhyolite-backend-db
-               , rhyolite-backend-notification-postgres
                , rhyolite-common
                , safe
                , scientific
