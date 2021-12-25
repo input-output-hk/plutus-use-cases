@@ -1,0 +1,34 @@
+.MakeBet {
+  .body {
+    text-align: center;
+  }
+
+  .input {
+    width: 100%;
+    height: 38px;
+    padding: 2px 8px;
+    margin-top: 10px;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    outline-color: #808080;
+
+    &:hover {
+      border-color: #b3b3b3;
+    }
+  }
+
+  .error-text {
+    font-size: 14px;
+    color: #c87373;
+    visibility: hidden;
+    min-height: 17px;
+    
+    &.visible {
+      visibility: visible;
+    }
+  }
+
+  .footer {
+    justify-content: space-between;
+  }
+}

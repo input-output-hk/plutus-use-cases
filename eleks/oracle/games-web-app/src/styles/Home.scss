@@ -1,0 +1,67 @@
+.Home {
+  padding-bottom: 2em;
+
+  .game {
+    text-decoration: none;
+    color: #212529;
+  }
+
+  .card {
+    &.live {
+      border-color: rgba(255, 192, 7, 1);
+    }
+
+    &.closed {
+      border-color: rgba(220, 52, 68, 1);
+    }
+
+    &.open {
+      border-color: rgba(25, 135, 83, 1);
+    }
+
+    &.canceled {
+      border-color: rgba(128, 128, 128, 1);
+    }
+  }
+
+  .imgContainer {
+    padding: 1em;
+    padding-bottom: 0;
+  }
+
+  .teamImg {
+    width: 50%;
+  }
+
+  .status {
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 0.3em 0.5em;
+    border-bottom-right-radius: calc(0.25rem - 1px);
+
+    &.live {
+      background-color: rgba(255, 192, 7, 0.7);
+    }
+
+    &.closed {
+      background-color: rgba(220, 52, 68, 0.7);
+    }
+
+    &.open {
+      background-color: rgba(25, 135, 83, 0.7);
+    }
+
+    &.canceled {
+      background-color: rgba(128, 128, 128, 0.7);
+    }
+  }
+
+  .status-text{
+    text-transform: capitalize;
+  }
+
+  .cardBody {
+    text-align: center;
+  }
+}
