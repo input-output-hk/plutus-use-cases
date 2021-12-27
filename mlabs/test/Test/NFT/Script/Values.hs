@@ -88,7 +88,7 @@ testStateAddr :: UniqueToken -> Ledger.Address
 testStateAddr = unSpookyAddress . NFT.txScrAddress
 
 appInstance :: NftAppInstance
-appInstance = NftAppInstance (toSpooky $ testStateAddr uniqueAsset) (toSpooky uniqueAsset) (toSpooky $ Gov.govScrAddress uniqueAsset) (toSpooky [UserId $ toSpooky userOnePkh])
+appInstance = NftAppInstance (toSpooky . toSpookyAddress . testStateAddr $ uniqueAsset) (toSpooky uniqueAsset) (toSpooky . toSpookyAddress $ Gov.govScrAddress uniqueAsset) (toSpooky [UserId . toSpooky $ userOnePkh])
 
 appSymbol :: NftAppSymbol
 appSymbol = NftAppSymbol . toSpooky . NFT.curSymbol $ appInstance

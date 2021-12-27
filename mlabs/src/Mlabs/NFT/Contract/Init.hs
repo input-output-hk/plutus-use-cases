@@ -35,7 +35,7 @@ import Mlabs.Data.LinkedList (LList (..))
 import Mlabs.NFT.Contract.Aux (toDatum)
 import Mlabs.NFT.Governance.Types (GovAct (..), GovDatum (..), GovLHead (..))
 import Mlabs.NFT.Governance.Validation (govMintPolicy, govScrAddress, govScript)
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyAddress)
 import Mlabs.NFT.Types (
   DatumNft (HeadDatum),
   GenericContract,
@@ -71,7 +71,7 @@ createListHead InitParams {..} = do
   uniqueToken <- generateUniqueToken
   let govAddr = govScrAddress uniqueToken
       scrAddr = txScrAddress uniqueToken
-  mintListHead $ NftAppInstance (toSpooky scrAddr) (toSpooky uniqueToken) (toSpooky govAddr) (toSpooky ip'admins)
+  mintListHead $ NftAppInstance (toSpooky scrAddr) (toSpooky uniqueToken) (toSpooky . toSpookyAddress $ govAddr) (toSpooky ip'admins)
   where
     -- Mint the Linked List Head and its associated token.
     mintListHead :: NftAppInstance -> GenericContract NftAppInstance

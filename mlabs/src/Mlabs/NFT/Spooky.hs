@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Mlabs.NFT.Spooky (
   Credential (..),
   StakingCredential (..),
@@ -45,33 +47,50 @@ import Ledger (
   CurrencySymbol,
   Datum,
   POSIXTimeRange,
-  PubKeyHash,
   ValidatorHash,
  )
 import Ledger qualified
 import Ledger.Scripts (DatumHash)
 import Ledger.Value (Value)
-import Plutus.V1.Ledger.Api (DCert)
+import Plutus.V1.Ledger.Api (DCert, PubKeyHash)
+import Plutus.V1.Ledger.Credential qualified as Credential
 import PlutusTx.Spooky (Spooky, toSpooky, unSpooky)
+import Schema (ToSchema (toSchema))
+
+instance ToSchema BuiltinData where
+  toSchema = toSchema @Hask.String
 
 data Credential
   = PubKeyCredential (Spooky PubKeyHash)
   | ScriptCredential (Spooky ValidatorHash)
   deriving stock (Generic, Hask.Show, Hask.Eq)
 PlutusTx.unstableMakeIsData ''Credential
+PlutusTx.makeLift ''Credential
 
 instance Eq Credential where
   PubKeyCredential pkh == PubKeyCredential pkh' = pkh == pkh'
   ScriptCredential vh == ScriptCredential vh' = vh == vh'
   _ == _ = False
 
+{-# INLINEABLE unSpookyCredential #-}
+unSpookyCredential :: Credential -> Credential.Credential
+unSpookyCredential (PubKeyCredential pkh) = Credential.PubKeyCredential (unSpooky pkh)
+unSpookyCredential (ScriptCredential hash) = Credential.ScriptCredential (unSpooky hash)
+
+{-# INLINEABLE toSpookyCredential #-}
+toSpookyCredential :: Credential.Credential -> Credential
+toSpookyCredential (Credential.PubKeyCredential pkh) = PubKeyCredential (toSpooky pkh)
+toSpookyCredential (Credential.ScriptCredential hash) = ScriptCredential (toSpooky hash)
+
 data StakingCredential
   = StakingHash (Spooky Credential)
   | StakingPtr (Spooky Integer) (Spooky Integer) (Spooky Integer)
   deriving stock (Generic, Hask.Show, Hask.Eq)
 PlutusTx.unstableMakeIsData ''StakingCredential
+PlutusTx.makeLift ''StakingCredential
 
 instance Eq StakingCredential where
+  {-# INLINEABLE (==) #-}
   StakingHash c == StakingHash c' = c == c'
   StakingPtr a b c == StakingPtr a' b' c' =
     a == a'
@@ -79,29 +98,46 @@ instance Eq StakingCredential where
       && c == c'
   _ == _ = False
 
+{-# INLINEABLE unSpookyStakingCredential #-}
+unSpookyStakingCredential :: StakingCredential -> Credential.StakingCredential
+unSpookyStakingCredential (StakingHash hash) = Credential.StakingHash (unSpookyCredential . unSpooky $ hash)
+unSpookyStakingCredential (StakingPtr a b c) = Credential.StakingPtr (unSpooky a) (unSpooky b) (unSpooky c)
+
+{-# INLINEABLE toSpookyStakingCredential #-}
+toSpookyStakingCredential :: Credential.StakingCredential -> StakingCredential
+toSpookyStakingCredential (Credential.StakingHash pkh) = StakingHash (toSpooky . toSpookyCredential $ pkh)
+toSpookyStakingCredential (Credential.StakingPtr a b c) = StakingPtr (toSpooky a) (toSpooky b) (toSpooky c)
+
 data Address = Address
   { addressCredential' :: Spooky Credential
   , addressStakingCredential' :: Spooky (Maybe StakingCredential)
   }
   deriving stock (Generic, Hask.Show, Hask.Eq)
 PlutusTx.unstableMakeIsData ''Address
+PlutusTx.makeLift ''Address
 
 instance Eq Address where
+  {-# INLINEABLE (==) #-}
   Address c s == Address c' s' =
     c == c'
       && s == s'
 
+{-# INLINEABLE unSpookyAddress #-}
 unSpookyAddress :: Address -> Ledger.Address
-unSpookyAddress (Address cred sCred) = Ledger.Address (unSpooky cred) (unSpooky sCred)
+unSpookyAddress (Address cred sCred) =
+  Ledger.Address (unSpookyCredential . unSpooky $ cred) (fmap unSpookyStakingCredential . unSpooky $ sCred)
 
+{-# INLINEABLE toSpookyAddress #-}
 toSpookyAddress :: Ledger.Address -> Address
-toSpookyAddress (Ledger.Address cred sCred) = Address (toSpooky cred) (toSpooky sCred)
+toSpookyAddress (Ledger.Address cred sCred) =
+  Address (toSpooky . toSpookyCredential $ cred) (toSpooky . fmap toSpookyStakingCredential $ sCred)
 
 newtype TxId = TxId {getTxId' :: Spooky BuiltinByteString}
   deriving stock (Generic, Hask.Show, Hask.Eq)
 PlutusTx.unstableMakeIsData ''TxId
 
 instance Eq TxId where
+  {-# INLINEABLE (==) #-}
   TxId a == TxId a' =
     a == a'
 
@@ -117,6 +153,7 @@ data TxOutRef = TxOutRef
 PlutusTx.unstableMakeIsData ''TxOutRef
 
 instance Eq TxOutRef where
+  {-# INLINEABLE (==) #-}
   TxOutRef a b == TxOutRef a' b' =
     a == a'
       && b == b'
@@ -182,6 +219,7 @@ data TxInInfo = TxInInfo
 PlutusTx.unstableMakeIsData ''TxInInfo
 
 instance Eq TxInInfo where
+  {-# INLINEABLE (==) #-}
   TxInInfo a b == TxInInfo a' b' =
     a == a'
       && b == b'
