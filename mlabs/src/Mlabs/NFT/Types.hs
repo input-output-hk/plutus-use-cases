@@ -1,4 +1,6 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Mlabs.NFT.Types (
   AdminContract,
@@ -7,64 +9,75 @@ module Mlabs.NFT.Types (
   AuctionCloseParams (..),
   AuctionOpenParams (..),
   AuctionState (..),
+  as'highestBid,
+  as'deadline,
+  as'minBid,
   BuyRequestUser (..),
   Content (..),
+  getContent,
   DatumNft (..),
   GenericContract,
   getAppInstance,
   getDatumPointer,
   getDatumValue,
   InformationNft (..),
+  info'id,
+  info'share,
+  info'author,
+  info'price,
+  info'owner,
+  info'auctionState,
   InsertPoint (..),
   instanceCurrency,
   MintAct (..),
+  mint'nftId,
   MintParams (..),
   NftAppInstance (..),
+  appInstance'Governance,
+  appInstance'Address,
+  appInstance'UniqueToken,
+  appInstance'Admins,
   NftAppSymbol (..),
   NftId (..),
+  nftId'contentHash,
   NftListHead (..),
+  head'next,
+  head'appInstance,
   NftListNode (..),
+  node'information,
+  node'next,
+  node'appInstance,
   nftTokenName,
   Pointer (..),
+  pointer'assetClass,
   PointInfo (..),
   QueryResponse (..),
   SetPriceParams (..),
   Title (..),
+  getTitle,
   UniqueToken,
   UserAct (..),
+  act'bid,
+  act'newPrice,
+  act'symbol,
   UserContract,
   UserId (..),
+  getUserId,
   UserWriter,
   InitParams (..),
+  app'symbol,
 ) where
 
-import PlutusTx.Prelude (
-  Bool (False, True),
-  BuiltinByteString,
-  Either,
-  Eq (..),
-  Integer,
-  Maybe,
-  Ord (compare, (<=)),
-  Rational,
-  emptyByteString,
-  fst,
-  ($),
-  (&&),
-  (.),
- )
+import PlutusTx qualified
+import PlutusTx.Prelude
 import Prelude qualified as Hask
 
-import Plutus.Contract (Contract)
-
-import Data.Monoid (Last (..))
-
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Monoid (Last (..))
 import Data.Text (Text)
 import GHC.Generics (Generic)
 
 import Ledger (
-  Address,
   AssetClass,
   ChainIndexTxOut,
   CurrencySymbol,
@@ -72,17 +85,20 @@ import Ledger (
   PubKeyHash,
   TxOutRef,
  )
-
-import Data.OpenApi.Schema qualified as OpenApi
 import Ledger.Value (TokenName (..), unAssetClass)
 import Plutus.ChainIndex (ChainIndexTx)
-import PlutusTx qualified
-import Schema (ToSchema)
+import Plutus.Contract (Contract)
+
+import Mlabs.NFT.Spooky (Address, Spooky, unSpooky)
+import Schema (ToSchema (toSchema))
 
 --------------------------------------------------------------------------------
 -- ON-CHAIN TYPES --
 
-newtype Content = Content {getContent :: BuiltinByteString}
+instance ToSchema BuiltinData where
+  toSchema = toSchema @Hask.String
+
+newtype Content = Content {getContent' :: Spooky BuiltinByteString}
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 PlutusTx.unstableMakeIsData ''Content
@@ -92,7 +108,11 @@ instance Eq Content where
   {-# INLINEABLE (==) #-}
   (Content c1) == (Content c2) = c1 == c2
 
-newtype Title = Title {getTitle :: BuiltinByteString}
+{-# INLINEABLE getContent #-}
+getContent :: Content -> BuiltinByteString
+getContent = unSpooky . getContent'
+
+newtype Title = Title {getTitle' :: Spooky BuiltinByteString}
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 PlutusTx.unstableMakeIsData ''Title
@@ -102,8 +122,12 @@ instance Eq Title where
   {-# INLINEABLE (==) #-}
   (Title t1) == (Title t2) = t1 == t2
 
-newtype UserId = UserId {getUserId :: PubKeyHash}
-  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
+{-# INLINEABLE getTitle #-}
+getTitle :: Title -> BuiltinByteString
+getTitle = unSpooky . getTitle'
+
+newtype UserId = UserId {getUserId' :: Spooky PubKeyHash}
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 PlutusTx.unstableMakeIsData ''UserId
 PlutusTx.makeLift ''UserId
@@ -114,7 +138,14 @@ instance Eq UserId where
 
 instance Ord UserId where
   {-# INLINEABLE (<=) #-}
-  (UserId u1) <= (UserId u2) = u1 <= u2
+  (UserId u1) <= (UserId u2) = unSpooky @PubKeyHash u1 <= unSpooky u2
+
+instance Hask.Ord UserId where
+  (UserId u1) <= (UserId u2) = unSpooky @PubKeyHash u1 <= unSpooky u2
+
+{-# INLINEABLE getUserId #-}
+getUserId :: UserId -> PubKeyHash
+getUserId = unSpooky . getUserId'
 
 {- | Unique identifier of NFT.
  The NftId contains a human readable title, the hashed information of the
@@ -122,42 +153,31 @@ instance Ord UserId where
 -}
 newtype NftId = NftId
   { -- | token name is identified by content of the NFT (it's hash of it).
-    nftId'contentHash :: BuiltinByteString
+    nftId'contentHash' :: Spooky BuiltinByteString
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
+  deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
+
+PlutusTx.unstableMakeIsData ''NftId
+PlutusTx.makeLift ''NftId
 
 instance Eq NftId where
   {-# INLINEABLE (==) #-}
   (NftId token1) == (NftId token2) =
     token1 == token2
+
 instance Ord NftId where
   {-# INLINEABLE (<=) #-}
   (NftId token1) <= (NftId token2) =
-    token1 <= token2
+    unSpooky @BuiltinByteString token1 <= unSpooky token2
 
-{- | Type representing the data that gets hashed when the token is minted. The
- tile and author are included for proof of authenticity in the case the same
- artwork is hashed more than once.
--}
-data NftContent = NftContent
-  { -- | Content Title.
-    ct'title :: Title
-  , -- | data (NftContent, audio, photo, etc)
-    ct'data :: Content
-  , -- | author
-    ct'author :: UserId
-  }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (ToJSON, FromJSON, ToSchema)
+instance Hask.Ord NftId where
+  (NftId token1) <= (NftId token2) =
+    unSpooky @BuiltinByteString token1 <= unSpooky token2
 
-PlutusTx.unstableMakeIsData ''NftContent
-PlutusTx.makeLift ''NftContent
-
-instance Eq NftContent where
-  {-# INLINEABLE (==) #-}
-  (NftContent title1 data1 author1) == (NftContent title2 data2 author2) =
-    title1 == title2 && data1 == data2 && author1 == author2
+{-# INLINEABLE nftId'contentHash #-}
+nftId'contentHash :: NftId -> BuiltinByteString
+nftId'contentHash = unSpooky . nftId'contentHash'
 
 -- | Minting Policy Redeemer
 data MintAct
@@ -165,12 +185,20 @@ data MintAct
     -- unique.
     Mint
       { -- | NftId
-        mint'nftId :: !NftId
+        mint'nftId' :: Spooky NftId
       }
   | -- | Create the Datum.
     Initialise
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
+
+PlutusTx.unstableMakeIsData ''MintAct
+PlutusTx.makeLift ''MintAct
+
+{-# INLINEABLE mint'nftId #-}
+mint'nftId :: MintAct -> NftId
+mint'nftId Mint {..} = unSpooky mint'nftId'
+mint'nftId _ = error ()
 
 --------------------------------------------------------------------------------
 -- ENDPOINTS PARAMETERS --
@@ -301,12 +329,12 @@ instance Eq AuctionCloseParams where
 
 data AuctionBid = AuctionBid
   { -- | Bid in Lovelace
-    ab'bid :: Integer
+    ab'bid' :: Spooky Integer
   , -- | Bidder's wallet pubkey
-    ab'bidder :: UserId
+    ab'bidder' :: Spooky UserId
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
+  deriving anyclass (FromJSON, ToJSON)
 PlutusTx.unstableMakeIsData ''AuctionBid
 PlutusTx.makeLift ''AuctionBid
 
@@ -317,14 +345,14 @@ instance Eq AuctionBid where
 
 data AuctionState = AuctionState
   { -- | Highest bid
-    as'highestBid :: Maybe AuctionBid
+    as'highestBid' :: Spooky (Maybe AuctionBid)
   , -- | Deadline
-    as'deadline :: POSIXTime
+    as'deadline' :: Spooky POSIXTime
   , -- | Minimum bid amount
-    as'minBid :: Integer
+    as'minBid' :: Spooky Integer
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (FromJSON, ToJSON, ToSchema)
+  deriving anyclass (FromJSON, ToJSON)
 PlutusTx.unstableMakeIsData ''AuctionState
 PlutusTx.makeLift ''AuctionState
 
@@ -333,36 +361,67 @@ instance Eq AuctionState where
   (AuctionState bid1 deadline1 minBid1) == (AuctionState bid2 deadline2 minBid2) =
     bid1 == bid2 && deadline1 == deadline2 && minBid1 == minBid2
 
+{-# INLINEABLE as'highestBid #-}
+as'highestBid :: AuctionState -> Maybe AuctionBid
+as'highestBid = unSpooky . as'highestBid'
+
+{-# INLINEABLE as'deadline #-}
+as'deadline :: AuctionState -> Maybe POSIXTime
+as'deadline = unSpooky . as'deadline'
+
+{-# INLINEABLE as'minBid #-}
+as'minBid :: AuctionState -> Maybe Integer
+as'minBid = unSpooky . as'minBid'
+
 -- | NFT Information.
 data InformationNft = InformationNft
   { -- | NFT ID. Represents the key of the Datum. ?could even be taken out of the information?
-    info'id :: NftId
+    info'id' :: Spooky NftId
   , -- | Author's share of the NFT.
-    info'share :: Rational
+    info'share' :: Spooky Rational
   , -- | Author's wallet pubKey.
-    info'author :: UserId
+    info'author' :: Spooky UserId
   , -- | Owner's wallet pubkey.
-    info'owner :: UserId
+    info'owner' :: Spooky UserId
   , -- | Price in Lovelace. If Nothing, NFT not for sale.
-    info'price :: Maybe Integer
+    info'price' :: Spooky (Maybe Integer)
   , -- | Auction state
-    info'auctionState :: Maybe AuctionState
+    info'auctionState' :: Spooky (Maybe AuctionState)
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
-PlutusTx.unstableMakeIsData ''MintAct
-PlutusTx.unstableMakeIsData ''NftId
+PlutusTx.unstableMakeIsData ''InformationNft
+PlutusTx.makeLift ''InformationNft
 
-PlutusTx.makeLift ''MintAct
-PlutusTx.makeLift ''NftId
+{-# INLINEABLE info'id #-}
+info'id :: InformationNft -> NftId
+info'id = unSpooky . info'id'
+
+{-# INLINEABLE info'share #-}
+info'share :: InformationNft -> Rational
+info'share = unSpooky . info'share'
+
+{-# INLINEABLE info'author #-}
+info'author :: InformationNft -> UserId
+info'author = unSpooky . info'author'
+
+{-# INLINEABLE info'owner #-}
+info'owner :: InformationNft -> UserId
+info'owner = unSpooky . info'owner'
+
+{-# INLINEABLE info'price #-}
+info'price :: InformationNft -> Maybe Integer
+info'price = unSpooky . info'price'
+
+{-# INLINEABLE info'auctionState #-}
+info'auctionState :: InformationNft -> Maybe Integer
+info'auctionState = unSpooky . info'auctionState'
 
 instance Ord InformationNft where
   {-# INLINEABLE (<=) #-}
   x <= y = info'id x <= info'id y
 
-PlutusTx.unstableMakeIsData ''InformationNft
-PlutusTx.makeLift ''InformationNft
 instance Eq InformationNft where
   {-# INLINEABLE (==) #-}
   (InformationNft a b c d e f) == (InformationNft a' b' c' d' e' f') =
@@ -376,31 +435,47 @@ type UniqueToken = AssetClass
 -}
 data NftAppInstance = NftAppInstance
   { -- | Script Address where all the NFTs can be found
-    appInstance'Address :: Address
+    appInstance'Address' :: Spooky Address
   , -- | AssetClass with which all the NFTs are parametrised - guarantees the proof of uniqueness.
-    appInstance'UniqueToken :: UniqueToken
+    appInstance'UniqueToken' :: Spooky UniqueToken
   , -- | Governance Address
-    appInstance'Governance :: Address
+    appInstance'Governance' :: Spooky Address
   , -- | List of admins who can initiate the application
-    appInstance'Admins :: [UserId]
+    appInstance'Admins' :: Spooky [UserId]
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
+
+PlutusTx.unstableMakeIsData ''NftAppInstance
+PlutusTx.makeLift ''NftAppInstance
+
+instance Eq NftAppInstance where
+  {-# INLINEABLE (==) #-}
+  (NftAppInstance a b c d) == (NftAppInstance a' b' c' d') = a == a' && b == b' && c == c' && d == d'
+
+{-# INLINEABLE appInstance'Address #-}
+appInstance'Address :: NftAppInstance -> Address
+appInstance'Address = unSpooky . appInstance'Address'
+
+{-# INLINEABLE appInstance'UniqueToken #-}
+appInstance'UniqueToken :: NftAppInstance -> UniqueToken
+appInstance'UniqueToken = unSpooky . appInstance'UniqueToken'
+
+{-# INLINEABLE appInstance'Governance #-}
+appInstance'Governance :: NftAppInstance -> Address
+appInstance'Governance = unSpooky . appInstance'Governance'
+
+{-# INLINEABLE appInstance'Admins #-}
+appInstance'Admins :: NftAppInstance -> [UserId]
+appInstance'Admins = unSpooky . appInstance'Admins'
 
 -- | Get `CurrencySumbol` of `NftAppInstance`
 instanceCurrency :: NftAppInstance -> CurrencySymbol
 instanceCurrency = fst . unAssetClass . appInstance'UniqueToken
 
-PlutusTx.unstableMakeIsData ''NftAppInstance
-PlutusTx.makeLift ''NftAppInstance
-instance Eq NftAppInstance where
-  {-# INLINEABLE (==) #-}
-  (NftAppInstance a b c d) == (NftAppInstance a' b' c' d') = a == a' && b == b' && c == c' && d == d'
-
-newtype NftAppSymbol = NftAppSymbol {app'symbol :: CurrencySymbol}
-  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
-  deriving anyclass (ToJSON, FromJSON, OpenApi.ToSchema)
-
+newtype NftAppSymbol = NftAppSymbol {app'symbol' :: Spooky CurrencySymbol}
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (ToJSON, FromJSON)
 PlutusTx.unstableMakeIsData ''NftAppSymbol
 PlutusTx.makeLift ''NftAppSymbol
 
@@ -408,14 +483,18 @@ instance Eq NftAppSymbol where
   {-# INLINEABLE (==) #-}
   (NftAppSymbol a) == (NftAppSymbol a') = a == a'
 
+{-# INLINEABLE app'symbol #-}
+app'symbol :: NftAppSymbol -> CurrencySymbol
+app'symbol = unSpooky . app'symbol'
+
 {- | The AssetClass is the pointer itself. Each NFT has the same CurrencySymbol,
  and their TokenName is the Hash of their Content.
 -}
 newtype Pointer = Pointer
-  { pointer'assetClass :: AssetClass
+  { pointer'assetClass' :: Spooky AssetClass
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
-  deriving anyclass (ToJSON, FromJSON, ToSchema)
+  deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''Pointer
 PlutusTx.makeLift ''Pointer
@@ -426,22 +505,35 @@ instance Eq Pointer where
 
 instance Ord Pointer where
   {-# INLINEABLE compare #-}
-  (Pointer a) `compare` (Pointer a') = a `compare` a'
+  a `compare` a' = pointer'assetClass a `compare` pointer'assetClass a'
+
+{-# INLINEABLE pointer'assetClass #-}
+pointer'assetClass :: Pointer -> AssetClass
+pointer'assetClass = unSpooky . pointer'assetClass'
 
 {- | The head datum is unique for each list. Its token is minted when the unique
  NFT is consumed.
 -}
 data NftListHead = NftListHead
   { -- | Pointer to the next node.
-    head'next :: Maybe Pointer
+    head'next' :: Spooky (Maybe Pointer)
   , -- | Node App Instance
-    head'appInstance :: NftAppInstance
+    head'appInstance' :: Spooky NftAppInstance
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''NftListHead
 PlutusTx.makeLift ''NftListHead
+
+{-# INLINEABLE head'next #-}
+head'next :: NftListHead -> Maybe Pointer
+head'next = unSpooky . head'next'
+
+{-# INLINEABLE head'appInstance #-}
+head'appInstance :: NftListHead -> NftAppInstance
+head'appInstance = unSpooky . head'appInstance'
+
 instance Eq NftListHead where
   {-# INLINEABLE (==) #-}
   (NftListHead a b) == (NftListHead a' b') = a == a' && b == b'
@@ -449,11 +541,11 @@ instance Eq NftListHead where
 -- | The nft list node is based on the above described properties.
 data NftListNode = NftListNode
   { -- | The value held at the node
-    node'information :: InformationNft
+    node'information' :: Spooky InformationNft
   , -- | The next Node.
-    node'next :: Maybe Pointer
+    node'next' :: Spooky (Maybe Pointer)
   , -- | Node App Instance
-    node'appInstance :: NftAppInstance
+    node'appInstance' :: Spooky NftAppInstance
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
@@ -461,6 +553,18 @@ data NftListNode = NftListNode
 instance Ord NftListNode where
   {-# INLINEABLE (<=) #-}
   x <= y = node'information x <= node'information y
+
+{-# INLINEABLE node'information #-}
+node'information :: NftListNode -> InformationNft
+node'information = unSpooky . node'information'
+
+{-# INLINEABLE node'next #-}
+node'next :: NftListNode -> Maybe Pointer
+node'next = unSpooky . node'next'
+
+{-# INLINEABLE node'appInstance #-}
+node'appInstance :: NftListNode -> NftAppInstance
+node'appInstance = unSpooky . node'appInstance'
 
 PlutusTx.unstableMakeIsData ''NftListNode
 PlutusTx.makeLift ''NftListNode
@@ -514,49 +618,49 @@ nftTokenName = \case
 
 getAppInstance :: DatumNft -> NftAppInstance
 getAppInstance = \case
-  HeadDatum (NftListHead _ inst) -> inst
-  NodeDatum (NftListNode _ _ inst) -> inst
+  HeadDatum h -> head'appInstance h
+  NodeDatum n -> node'appInstance n
 
 -- | NFT Redeemer
 data UserAct
   = -- | Buy NFT and set new price
     BuyAct
       { -- | price to buy. In Lovelace.
-        act'bid :: Integer
+        act'bid' :: Spooky Integer
       , -- | new price for NFT. In Lovelace.
-        act'newPrice :: Maybe Integer
+        act'newPrice' :: Spooky (Maybe Integer)
       , -- | Nft symbol
-        act'symbol :: NftAppSymbol
+        act'symbol' :: Spooky NftAppSymbol
       }
   | -- | Set new price for NFT
     SetPriceAct
       { -- | new price for NFT. In Lovelace.
-        act'newPrice :: Maybe Integer
+        act'newPrice' :: Spooky (Maybe Integer)
       , -- | Nft symbol
-        act'symbol :: NftAppSymbol
+        act'symbol' :: Spooky NftAppSymbol
       }
   | -- | Mint a new Unique NFT.
     MintAct
       { -- | NFT.
-        act'nftId :: NftId
+        act'nftId' :: Spooky NftId
       , -- | Nft symbol
-        act'symbol :: NftAppSymbol
+        act'symbol' :: Spooky NftAppSymbol
       }
   | -- | Start NFT auction
     OpenAuctionAct
       { -- | Nft symbol
-        act'symbol :: NftAppSymbol
+        act'symbol' :: Spooky NftAppSymbol
       }
   | -- | Make a bid in an auction
     BidAuctionAct
       { -- | Bid amount in lovelace
-        act'bid :: Integer
+        act'bid' :: Spooky Integer
       , -- | Nft symbol
-        act'symbol :: NftAppSymbol
+        act'symbol' :: Spooky NftAppSymbol
       }
   | CloseAuctionAct
       { -- | Nft symbol
-        act'symbol :: NftAppSymbol
+        act'symbol' :: Spooky NftAppSymbol
       }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (ToJSON, FromJSON)
@@ -572,6 +676,27 @@ instance Eq UserAct where
     newPrice1 == newPrice2 && symbol1 == symbol2
   _ == _ = False
 
+{-# INLINEABLE act'bid #-}
+act'bid :: UserAct -> Integer
+act'bid (BuyAct bid _ _) = unSpooky bid
+act'bid (BidAuctionAct bid _) = unSpooky bid
+act'bid _ = error ()
+
+{-# INLINEABLE act'newPrice #-}
+act'newPrice :: UserAct -> Maybe Integer
+act'newPrice (BuyAct _ newPrice _) = unSpooky newPrice
+act'newPrice (SetPriceAct newPrice _) = unSpooky newPrice
+act'newPrice _ = error ()
+
+{-# INLINEABLE act'symbol #-}
+act'symbol :: UserAct -> NftAppSymbol
+act'symbol (BuyAct _ _ symbol) = unSpooky symbol
+act'symbol (SetPriceAct _ symbol) = unSpooky symbol
+act'symbol (MintAct _ symbol) = unSpooky symbol
+act'symbol (OpenAuctionAct symbol) = unSpooky symbol
+act'symbol (BidAuctionAct _ symbol) = unSpooky symbol
+act'symbol (CloseAuctionAct symbol) = unSpooky symbol
+
 -- OffChain utility types.
 
 -- | A datatype used by the QueryContract to return a response
@@ -586,7 +711,7 @@ data QueryResponse
 -- | Easy type to find and use Nodes by.
 data PointInfo a = PointInfo
   { pi'data :: a
-  , pi'TOR :: TxOutRef
+  , pi'TOR :: Ledger.TxOutRef
   , pi'CITxO :: ChainIndexTxOut
   , pi'CITx :: ChainIndexTx
   }

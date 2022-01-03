@@ -6,12 +6,10 @@ import Control.Monad (void)
 import Data.Default (def)
 import Data.List (sortOn)
 import Data.Text qualified as T
-import Ledger.Crypto (pubKeyHash)
 import Ledger.Index (ValidationError (..))
 import Ledger.Scripts (ScriptError (..))
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
-import Plutus.Contract.Test (assertFailedTransaction, assertInstanceLog)
-import Plutus.Contract.Trace (walletPubKeyHash)
+import Plutus.Contract.Test (assertFailedTransaction)
 import Plutus.V1.Ledger.Value (AssetClass (..), flattenValue)
 import PlutusTx.Prelude hiding (check, mconcat)
 import Test.Tasty (TestTree, testGroup)
@@ -22,23 +20,21 @@ import Mlabs.Emulator.Scene (checkScene, owns)
 import Mlabs.NFT.Contract.Aux (hashData)
 import Mlabs.NFT.Contract.Mint (mintParamsToInfo)
 import Mlabs.NFT.Contract.Query (queryContentLog, queryCurrentOwnerLog, queryCurrentPriceLog, queryListNftsLog)
+import Mlabs.NFT.Spooky (toSpooky)
 import Mlabs.NFT.Types (
   AuctionBidParams (..),
   AuctionCloseParams (..),
   AuctionOpenParams (..),
   BuyRequestUser (..),
-  Content (..),
-  InformationNft (..),
   MintParams (..),
   NftId (..),
   QueryResponse (..),
   SetPriceParams (..),
-  UserId (..),
+  info'id,
  )
 import Test.NFT.Init (
   artwork1,
   artwork2,
-  callStartNft,
   callStartNftFail,
   check,
   containsLog,
@@ -240,7 +236,7 @@ testAuctionWithPrice = check "Starting auction overrides price" (containsLog w1 
       userStartAuction w1 $ AuctionOpenParams nft2 (slotToBeginPOSIXTime def 20) 500_000
       userQueryPrice w1 nft2
 
-    nftId = NftId . hashData . mp'content $ artwork2
+    nftId = NftId . toSpooky . hashData . mp'content $ artwork2
     price = QueryCurrentPrice Nothing
     msg = queryCurrentPriceLog nftId price
 
@@ -254,7 +250,7 @@ testSetPriceDuringAuction = check "Cannot set price during auction" (containsLog
       userQueryPrice w1 nft2
       userSetPrice w1 $ SetPriceParams nft2 (Just 1_000_000)
 
-    nftId = NftId . hashData . mp'content $ artwork2
+    nftId = NftId . toSpooky . hashData . mp'content $ artwork2
     price = QueryCurrentPrice Nothing
     msg = queryCurrentPriceLog nftId price
 
@@ -289,7 +285,7 @@ testQueryPrice = check "Query price" (containsLog w1 msg) wA script
       nft2 <- userMint w1 artwork2
       userQueryPrice w1 nft2
 
-    nftId = NftId . hashData . mp'content $ artwork2
+    nftId = NftId . toSpooky . hashData . mp'content $ artwork2
     price = QueryCurrentPrice . mp'price $ artwork2
     msg = queryCurrentPriceLog nftId price
 
@@ -300,7 +296,7 @@ testQueryOwner = check "Query owner" (containsLog w1 msg) wA script
       nft2 <- userMint w1 artwork2
       userQueryOwner w1 nft2
 
-    nftId = NftId . hashData . mp'content $ artwork2
+    nftId = NftId . toSpooky . hashData . mp'content $ artwork2
     owner = QueryCurrentOwner . Just . toUserId $ w1
     msg = queryCurrentOwnerLog nftId owner
 

@@ -16,6 +16,7 @@ import Text.Printf (printf)
 
 import Plutus.Contract (Contract)
 import Plutus.Contract qualified as Contract
+import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import PlutusTx qualified
 
 import Ledger (
@@ -28,6 +29,7 @@ import Ledger.Typed.Scripts (validatorScript)
 import Ledger.Value qualified as Value
 
 import Mlabs.NFT.Contract.Aux
+import Mlabs.NFT.Spooky (toSpooky)
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
@@ -55,7 +57,7 @@ openAuction uT (AuctionOpenParams nftId deadline minBid) = do
       nftVal = Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
       action =
         OpenAuctionAct
-          { act'symbol = symbol
+          { act'symbol' = toSpooky symbol
           }
       lookups =
         mconcat
@@ -67,29 +69,30 @@ openAuction uT (AuctionOpenParams nftId deadline minBid) = do
           ]
       tx =
         mconcat
-          [ Constraints.mustPayToTheScript nftDatum nftVal
+          [ Constraints.mustPayToTheScript (toBuiltinData nftDatum) nftVal
           , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
           , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
           , Constraints.mustSpendScriptOutput
               pi'TOR
               (Redeemer . PlutusTx.toBuiltinData $ action)
           ]
-  void $ Contract.submitTxConstraintsWith @NftTrade lookups tx
+  void $ Contract.submitTxConstraintsWith lookups tx
   Contract.tell . Last . Just . Left $ nftId
   void $ Contract.logInfo @Hask.String $ printf "Started auction for %s" $ Hask.show nftVal
   where
     newAuctionState =
       AuctionState
-        { as'highestBid = Nothing
-        , as'deadline = deadline
-        , as'minBid = minBid
+        { as'highestBid' = toSpooky @(Maybe Integer) Nothing
+        , as'deadline' = toSpooky deadline
+        , as'minBid' = toSpooky minBid
         }
 
     updateDatum node =
       node
-        { node'information =
-            (node'information node)
-              { info'auctionState = Just newAuctionState
-              , info'price = Nothing
-              }
+        { node'information' =
+            toSpooky $
+              (node'information node)
+                { info'auctionState' = toSpooky $ Just newAuctionState
+                , info'price' = toSpooky @(Maybe Integer) Nothing
+                }
         }

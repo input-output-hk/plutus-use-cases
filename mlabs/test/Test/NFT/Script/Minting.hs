@@ -5,15 +5,18 @@ module Test.NFT.Script.Minting (
 import Data.Semigroup ((<>))
 import Ledger qualified
 import Ledger.Value (AssetClass (..))
-import Mlabs.NFT.Types qualified as NFT
-import Mlabs.NFT.Validation qualified as NFT
 import PlutusTx qualified
 import PlutusTx.Prelude hiding ((<>))
 import PlutusTx.Prelude qualified as PlutusPrelude
+
 import Test.NFT.Script.Values as TestValues
 import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context
 import Test.Tasty.Plutus.Script.Unit
+
+import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Types qualified as NFT
+import Mlabs.NFT.Validation qualified as NFT
 
 testMinting :: TestTree
 testMinting = localOption (TestCurrencySymbol TestValues.nftCurrencySymbol) $
@@ -38,27 +41,28 @@ paysNftToScriptCtx = paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ()
 
 paysDatumToScriptCtx :: ContextBuilder 'ForMinting
 paysDatumToScriptCtx =
-  spendsFromOther (NFT.txValHash uniqueAsset) TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead Nothing TestValues.appInstance)
+  spendsFromOther (NFT.txValHash uniqueAsset) TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead (toSpooky @(Maybe NFT.Pointer) Nothing) (toSpooky TestValues.appInstance))
     <> paysOther (NFT.txValHash uniqueAsset) mempty nodeDatum
     <> paysOther (NFT.txValHash uniqueAsset) mempty headDatum
   where
     nodeDatum =
       NFT.NodeDatum $
         NFT.NftListNode
-          { node'information =
-              NFT.InformationNft
-                { info'id = TestValues.testNftId
-                , info'share = 1 % 2
-                , info'author = NFT.UserId TestValues.authorPkh
-                , info'owner = NFT.UserId TestValues.authorPkh
-                , info'price = Just (100 * 1_000_000)
-                , info'auctionState = Nothing
-                }
-          , node'next = Nothing
-          , node'appInstance = TestValues.appInstance
+          { node'information' =
+              toSpooky $
+                NFT.InformationNft
+                  { info'id' = toSpooky TestValues.testNftId
+                  , info'share' = toSpooky (1 % 2)
+                  , info'author' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
+                  , info'owner' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
+                  , info'price' = toSpooky $ Just (100 * 1_000_000 :: Integer)
+                  , info'auctionState' = toSpooky @(Maybe NFT.AuctionState) Nothing
+                  }
+          , node'next' = toSpooky @(Maybe NFT.Pointer) Nothing
+          , node'appInstance' = toSpooky TestValues.appInstance
           }
-    ptr = NFT.Pointer $ AssetClass (TestValues.nftCurrencySymbol, TestValues.testTokenName)
-    headDatum = NFT.HeadDatum $ NFT.NftListHead (Just ptr) TestValues.appInstance
+    ptr = NFT.Pointer . toSpooky $ AssetClass (TestValues.nftCurrencySymbol, TestValues.testTokenName)
+    headDatum = NFT.HeadDatum $ NFT.NftListHead (toSpooky $ Just ptr) (toSpooky TestValues.appInstance)
 
 paysWrongAmountCtx :: ContextBuilder 'ForMinting
 paysWrongAmountCtx =
@@ -78,7 +82,7 @@ noPayeeCtx :: ContextBuilder 'ForMinting
 noPayeeCtx = baseCtx <> paysDatumToScriptCtx <> paysNftToScriptCtx
 
 validData :: TestData 'ForMinting
-validData = MintingTest (NFT.Mint TestValues.testNftId)
+validData = MintingTest (NFT.Mint $ toSpooky TestValues.testNftId)
 
 nonMintingCtx :: ContextBuilder 'ForMinting
 nonMintingCtx =
@@ -95,27 +99,28 @@ mismatchingIdCtx =
   baseCtx
     <> mintingCtx
     <> paysNftToScriptCtx
-    <> spendsFromOther (NFT.txValHash uniqueAsset) TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead Nothing TestValues.appInstance)
+    <> spendsFromOther (NFT.txValHash uniqueAsset) TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead (toSpooky @(Maybe NFT.Pointer) Nothing) (toSpooky TestValues.appInstance))
     <> paysOther (NFT.txValHash uniqueAsset) mempty nodeDatum
     <> paysOther (NFT.txValHash uniqueAsset) mempty headDatum
   where
     nodeDatum =
       NFT.NodeDatum $
         NFT.NftListNode
-          { node'information =
-              NFT.InformationNft
-                { info'id = NFT.NftId "I AM INVALID"
-                , info'share = 1 % 2
-                , info'author = NFT.UserId TestValues.authorPkh
-                , info'owner = NFT.UserId TestValues.authorPkh
-                , info'price = Just (100 * 1_000_000)
-                , info'auctionState = Nothing
-                }
-          , node'next = Nothing
-          , node'appInstance = TestValues.appInstance
+          { node'information' =
+              toSpooky $
+                NFT.InformationNft
+                  { info'id' = toSpooky . NFT.NftId . toSpooky @BuiltinByteString $ "I AM INVALID"
+                  , info'share' = toSpooky (1 % 2)
+                  , info'author' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
+                  , info'owner' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
+                  , info'price' = toSpooky $ Just (100 * 1_000_000 :: Integer)
+                  , info'auctionState' = toSpooky @(Maybe NFT.AuctionState) Nothing
+                  }
+          , node'next' = toSpooky @(Maybe NFT.Pointer) Nothing
+          , node'appInstance' = toSpooky TestValues.appInstance
           }
-    ptr = NFT.Pointer $ AssetClass (TestValues.nftCurrencySymbol, TestValues.testTokenName)
-    headDatum = NFT.HeadDatum $ NFT.NftListHead (Just ptr) TestValues.appInstance
+    ptr = NFT.Pointer . toSpooky $ AssetClass (TestValues.nftCurrencySymbol, TestValues.testTokenName)
+    headDatum = NFT.HeadDatum $ NFT.NftListHead (toSpooky $ Just ptr) (toSpooky TestValues.appInstance)
 
 nftMintPolicy :: Ledger.MintingPolicy
 nftMintPolicy =
@@ -125,4 +130,4 @@ nftMintPolicy =
                               `PlutusTx.applyCode` PlutusTx.liftCode TestValues.appInstance
                            )
   where
-    go = toTestMintingPolicy
+    go = TestValues.myToTestMintingPolicy

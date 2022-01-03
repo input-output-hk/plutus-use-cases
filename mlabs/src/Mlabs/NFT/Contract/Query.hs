@@ -10,27 +10,30 @@ module Mlabs.NFT.Contract.Query (
   queryContentLog,
 ) where
 
-import Control.Monad ()
+import PlutusTx.Prelude hiding (mconcat)
+import Prelude (String, show)
 
 import Data.Monoid (Last (..), mconcat)
 import Data.Text (Text)
 import GHC.Base (join)
+import Plutus.Contract (Contract)
+import Plutus.Contract qualified as Contract
+
 import Mlabs.NFT.Contract.Aux (getDatumsTxsOrdered, getNftDatum, getsNftDatum, hashData)
+import Mlabs.NFT.Spooky (toSpooky)
 import Mlabs.NFT.Types (
   Content,
   DatumNft (..),
-  InformationNft (..),
-  NftId (..),
-  NftListNode (..),
-  PointInfo (..),
+  InformationNft,
+  NftId (NftId),
+  PointInfo (pi'data),
   QueryResponse (..),
   UniqueToken,
   UserWriter,
+  info'owner,
+  info'price,
+  node'information,
  )
-import Plutus.Contract (Contract)
-import Plutus.Contract qualified as Contract
-import PlutusTx.Prelude hiding (mconcat, (<>))
-import Prelude (String, show)
 
 -- | A contract used exclusively for query actions.
 type QueryContract a = forall s. Contract UserWriter s Text a
@@ -93,7 +96,7 @@ queryListNftsLog infos = mconcat ["Available NFTs: ", show infos]
 -- | Given an application instance and a `Content` returns the status of the NFT
 queryContent :: UniqueToken -> Content -> QueryContract QueryResponse
 queryContent uT content = do
-  let nftId = NftId . hashData $ content
+  let nftId = NftId . toSpooky . hashData $ content
   datum <- getNftDatum nftId uT
   status <- wrap $ getStatus datum
   Contract.tell (Last . Just . Right $ status)

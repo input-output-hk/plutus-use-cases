@@ -65,6 +65,7 @@ pkgs.haskell-nix.cabalProject {
       plutus-playground-server
       plutus-tx
       plutus-tx-plugin
+      plutus-tx-spooky
       plutus-use-cases
       prettyprinter-configurable
       quickcheck-dynamic
@@ -188,5 +189,7 @@ pkgs.haskell-nix.cabalProject {
       sources.servant-purescript.sha256;
     "https://github.com/input-output-hk/Win32-network"."${sources.Win32-network.rev}" =
       sources.Win32-network.sha256;
+    "https://gitlab.com/fresheyeball/plutus-tx-spooky"."${sources.plutus-tx-spooky.rev}" =
+      sources.plutus-tx-spooky.sha256;
   };
 }

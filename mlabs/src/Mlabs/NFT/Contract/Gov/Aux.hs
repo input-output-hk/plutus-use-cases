@@ -30,6 +30,6 @@ pointNodeToMaybe' a b = GovDatum . fromJust $ pointNodeToMaybe (gov'list a) (fma
 -- Get value attached to given `PointInfo`
 piValue :: Address -> PointInfo a -> Value
 piValue govAddr pi =
-  txOutValue
+  Ledger.txOutValue
     . fst
     $ (txOutRefMapForAddr govAddr (pi'CITx pi) Map.! pi'TOR pi)

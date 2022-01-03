@@ -21,6 +21,7 @@ module Mlabs.NFT.Contract.Aux (
   toDatum,
 ) where
 
+import PlutusTx qualified
 import PlutusTx.Prelude hiding (mconcat, (<>))
 import Prelude (mconcat, (<>))
 import Prelude qualified as Hask
@@ -33,8 +34,6 @@ import Data.Text (Text, pack)
 import Plutus.ChainIndex.Tx (ChainIndexTx)
 import Plutus.Contract (utxosTxOutTxAt)
 import Plutus.Contract qualified as Contract
-import PlutusTx qualified
-
 import Plutus.V1.Ledger.Value (assetClassValueOf, symbols)
 
 import Ledger (
@@ -49,18 +48,36 @@ import Ledger (
   toTxOut,
   txOutValue,
  )
-
 import Ledger.Value as Value (unAssetClass, valueOf)
-import Mlabs.Plutus.Contract (readDatum')
 
-import Mlabs.NFT.Governance.Types
-import Mlabs.NFT.Types
-import Mlabs.NFT.Validation
+import Mlabs.NFT.Governance.Types (GovDatum (gov'list), LList (HeadLList))
+import Mlabs.NFT.Spooky (toSpooky, unSpookyAddress)
+import Mlabs.NFT.Types (
+  Content,
+  DatumNft (..),
+  GenericContract,
+  NftAppInstance,
+  NftAppSymbol (NftAppSymbol),
+  NftId,
+  NftListHead,
+  PointInfo (PointInfo, pi'CITxO, pi'data),
+  UniqueToken,
+  UserId (UserId),
+  app'symbol,
+  appInstance'Address,
+  appInstance'UniqueToken,
+  getContent,
+  info'id,
+  nftTokenName,
+  node'information,
+ )
+import Mlabs.NFT.Validation (nftAsset, txScrAddress)
+import Mlabs.Plutus.Contract (readDatum')
 
 getScriptAddrUtxos ::
   UniqueToken ->
   GenericContract (Map.Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
-getScriptAddrUtxos = utxosTxOutTxAt . txScrAddress
+getScriptAddrUtxos = utxosTxOutTxAt . unSpookyAddress . txScrAddress
 
 -- HELPER FUNCTIONS AND CONTRACTS --
 
@@ -78,7 +95,7 @@ getUserUtxos = getAddrUtxos =<< getUserAddr
 
 -- | Get the current wallet's userId.
 getUId :: GenericContract UserId
-getUId = UserId <$> Contract.ownPubKeyHash
+getUId = UserId . toSpooky <$> Contract.ownPubKeyHash
 
 -- | Get the ChainIndexTxOut at an address.
 getAddrUtxos :: Address -> GenericContract (Map.Map TxOutRef ChainIndexTxOut)
@@ -89,7 +106,7 @@ getAddrUtxos adr = Map.map fst <$> utxosTxOutTxAt adr
 -}
 getHead :: UniqueToken -> GenericContract (Maybe (PointInfo NftListHead))
 getHead uT = do
-  utxos <- utxosTxOutTxAt $ txScrAddress uT
+  utxos <- utxosTxOutTxAt . unSpookyAddress . txScrAddress $ uT
   let headUtxos = Map.toList . Map.filter containUniqueToken $ utxos
   case headUtxos of
     [] -> pure Nothing
@@ -117,7 +134,7 @@ getNftAppSymbol uT = do
       let uTCS = fst . unAssetClass $ uT
       let val = filter (\x -> x /= uTCS && x /= "") . symbols $ pi'CITxO headInfo ^. ciTxOutValue
       case val of
-        [x] -> pure $ NftAppSymbol x
+        [x] -> pure . NftAppSymbol . toSpooky $ x
         [] -> Contract.throwError "Could not establish App Symbol. Does it exist in the HEAD?"
         _ -> Contract.throwError "Could not establish App Symbol. Too many symbols to distinguish from."
   where
@@ -127,7 +144,7 @@ getNftAppSymbol uT = do
 getAddrValidUtxos :: UniqueToken -> GenericContract (Map.Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
 getAddrValidUtxos ut = do
   appSymbol <- getNftAppSymbol ut
-  Map.filter (validTx appSymbol) <$> utxosTxOutTxAt (txScrAddress ut)
+  Map.filter (validTx appSymbol) <$> utxosTxOutTxAt (unSpookyAddress . txScrAddress $ ut)
   where
     validTx appSymbol (cIxTxOut, _) = elem (app'symbol appSymbol) $ symbols (cIxTxOut ^. ciTxOutValue)
 
@@ -297,19 +314,19 @@ getDatumsTxsOrderedFromAddr addr = do
 
 -- | A hashing function to minimise the data to be attached to the NTFid.
 hashData :: Content -> BuiltinByteString
-hashData (Content b) = sha2_256 b
+hashData = sha2_256 . getContent
 
 getApplicationCurrencySymbol :: NftAppInstance -> GenericContract NftAppSymbol
 getApplicationCurrencySymbol appInstance = do
-  utxos <- Contract.utxosAt . appInstance'Address $ appInstance
+  utxos <- Contract.utxosAt . unSpookyAddress . appInstance'Address $ appInstance
   let outs = fmap toTxOut . Map.elems $ utxos
       (uniqueCurrency, uniqueToken) = unAssetClass . appInstance'UniqueToken $ appInstance
-      lstHead' = find (\tx -> valueOf (txOutValue tx) uniqueCurrency uniqueToken == 1) outs
+      lstHead' = find (\tx -> valueOf (Ledger.txOutValue tx) uniqueCurrency uniqueToken == 1) outs
   headUtxo <- case lstHead' of
     Nothing -> Contract.throwError "Head not found"
     Just lstHead -> pure lstHead
-  let currencies = filter (uniqueCurrency /=) $ symbols . txOutValue $ headUtxo
+  let currencies = filter (uniqueCurrency /=) $ symbols . Ledger.txOutValue $ headUtxo
   case currencies of
-    [appSymbol] -> pure . NftAppSymbol $ appSymbol
+    [appSymbol] -> pure . NftAppSymbol . toSpooky $ appSymbol
     [] -> Contract.throwError "Head does not contain AppSymbol"
     _ -> Contract.throwError "Head contains more than 2 currencies (Unreachable?)"

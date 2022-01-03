@@ -33,6 +33,7 @@ import Wallet.Emulator qualified as Emulator
 
 import Mlabs.NFT.Api
 import Mlabs.NFT.Contract.Aux (hashData)
+import Mlabs.NFT.Spooky
 import Mlabs.NFT.Types
 import Mlabs.Utils.Wallet (walletFromNumber)
 
@@ -46,7 +47,7 @@ type AppInitHandle = Trace.ContractHandle (Last NftAppInstance) NFTAppSchema Tex
 appInitTrace :: EmulatorTrace NftAppInstance
 appInitTrace = do
   let admin = walletFromNumber 4 :: Emulator.Wallet
-  let params = InitParams [UserId . Emulator.walletPubKeyHash $ admin] (5 % 1000) (Emulator.walletPubKeyHash admin)
+  let params = InitParams [UserId . toSpooky . Emulator.walletPubKeyHash $ admin] (5 % 1000) (Emulator.walletPubKeyHash admin)
   hAdmin :: AppInitHandle <- activateContractWallet admin adminEndpoints
   callEndpoint @"app-init" hAdmin params
   void $ Trace.waitNSlots 3
@@ -62,12 +63,12 @@ mintTrace aSymb wallet = do
   h1 :: AppTraceHandle <- activateContractWallet wallet $ endpoints aSymb
   callEndpoint @"mint" h1 artwork
   void $ Trace.waitNSlots 1
-  return . NftId . hashData . mp'content $ artwork
+  return . NftId . toSpooky . hashData . mp'content $ artwork
   where
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
@@ -85,8 +86,8 @@ mint1Trace = do
   where
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
@@ -103,7 +104,7 @@ getContentTrace1 = do
 
   h1' :: AppTraceHandle <- activateContractWallet wallet1 $ queryEndpoints uniqueToken
 
-  callEndpoint @"query-content" h1' $ Content "A painting."
+  callEndpoint @"query-content" h1' $ Content . toSpooky @BuiltinByteString $ "A painting."
   void $ Trace.waitNSlots 1
 
   oState <- Trace.observableState h1'
@@ -113,8 +114,8 @@ getContentTrace1 = do
   where
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
@@ -135,7 +136,7 @@ getContentTrace2 = do
   void $ Trace.waitNSlots 1
   callEndpoint @"mint" h1 artwork3
   void $ Trace.waitNSlots 1
-  callEndpoint @"query-content" h1' $ Content "A painting."
+  callEndpoint @"query-content" h1' $ Content . toSpooky @BuiltinByteString $ "A painting."
   void $ Trace.waitNSlots 1
   oState <- Trace.observableState h1'
   void $ Trace.waitNSlots 1
@@ -144,22 +145,22 @@ getContentTrace2 = do
   where
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
     artwork2 =
       MintParams
-        { mp'content = Content "Another painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "Another painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
     artwork3 =
       MintParams
-        { mp'content = Content "Another painting2."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "Another painting2."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
@@ -178,15 +179,15 @@ mintTrace2 = do
   where
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
     artwork2 =
       MintParams
-        { mp'content = Content "Another painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "Another painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
@@ -209,8 +210,8 @@ mintFail1 = do
   where
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
@@ -241,8 +242,8 @@ eTrace1 = do
     --  callEndpoint @"mint" h1 artwork
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
@@ -278,8 +279,8 @@ severalBuysTrace = do
 
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }
@@ -424,8 +425,8 @@ auctionTrace1 = do
   where
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'title = Title "Fiona Lisa"
+        { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
+        , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
         , mp'share = 1 % 10
         , mp'price = Just 5
         }

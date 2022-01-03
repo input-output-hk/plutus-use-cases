@@ -23,7 +23,7 @@ import Ledger (
   scriptCurrencySymbol,
   txOutValue,
  )
-import Ledger.Typed.Scripts (validatorHash, validatorScript)
+import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Ledger.Value as Value (TokenName (..), singleton)
 
 import Mlabs.Data.LinkedList
@@ -32,6 +32,7 @@ import Mlabs.NFT.Contract.Gov.Aux
 import Mlabs.NFT.Contract.Gov.Query
 import Mlabs.NFT.Governance.Types
 import Mlabs.NFT.Governance.Validation (govMintPolicy, govScript)
+import Mlabs.NFT.Spooky
 import Mlabs.NFT.Types
 import Mlabs.NFT.Validation
 
@@ -42,7 +43,7 @@ getFeesConstraints ::
   NftId ->
   Integer ->
   UserId ->
-  Contract UserWriter s Text ([Constraints.TxConstraints UserAct DatumNft], [Constraints.ScriptLookups NftTrade])
+  Contract UserWriter s Text ([Constraints.TxConstraints BuiltinData BuiltinData], [Constraints.ScriptLookups Any])
 getFeesConstraints uT nftId price user = do
   let ownPkh = getUserId user
   nftPi <- findNft nftId uT
@@ -50,7 +51,7 @@ getFeesConstraints uT nftId price user = do
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "getFeesConstraints:NFT not found"
   let newGovDatum = GovDatum $ NodeLList user GovLNode Nothing
-      govAddr = appInstance'Governance . node'appInstance $ node
+      govAddr = unSpookyAddress . appInstance'Governance . node'appInstance $ node
       govValidator = govScript . appInstance'UniqueToken . node'appInstance $ node
       govScriptHash = validatorHash govValidator
 
@@ -97,7 +98,7 @@ getFeesConstraints uT nftId price user = do
         -- Updating already existing Node
         Left govPi ->
           let prevValue =
-                txOutValue
+                Ledger.txOutValue
                   . fst
                   $ (txOutRefMapForAddr govAddr (pi'CITx govPi) Map.! pi'TOR govPi)
            in [ -- Send more GOV tokens to existing Node
@@ -113,7 +114,7 @@ getFeesConstraints uT nftId price user = do
           let updatedNewNode = pointNodeToMaybe' newGovDatum (fmap pi'data . next $ govIp)
               updatedPrevNode = pointNodeTo' (pi'data . prev $ govIp) updatedNewNode
               prevValue =
-                txOutValue
+                Ledger.txOutValue
                   . fst
                   $ (txOutRefMapForAddr govAddr (pi'CITx . prev $ govIp) Map.! (pi'TOR . prev $ govIp))
            in [ Constraints.mustSpendScriptOutput (pi'TOR . prev $ govIp) govRedeemer
@@ -139,7 +140,7 @@ getFeesConstraints uT nftId price user = do
           ]
   Hask.pure (govTx <> sharedGovTx, govLookups <> sharedGovLookup)
 
-findGovInsertPoint :: Address -> GovDatum -> GenericContract (Either (PointInfo GovDatum) (InsertPoint GovDatum))
+findGovInsertPoint :: Ledger.Address -> GovDatum -> GenericContract (Either (PointInfo GovDatum) (InsertPoint GovDatum))
 findGovInsertPoint addr node = do
   list <- getDatumsTxsOrderedFromAddr @GovDatum addr
   Contract.logInfo @Hask.String $ Hask.show $ "GOV LIST: " <> Hask.show (Hask.fmap pi'data list)

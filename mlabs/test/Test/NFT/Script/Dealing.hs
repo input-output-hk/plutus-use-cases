@@ -2,19 +2,31 @@ module Test.NFT.Script.Dealing (
   testDealing,
 ) where
 
-import Data.Semigroup ((<>))
-import Ledger qualified
-import Mlabs.NFT.Types qualified as NFT
-import Mlabs.NFT.Validation qualified as NFT
-
+import PlutusTx qualified
 import PlutusTx.Prelude hiding ((<>))
 
-import Mlabs.NFT.Governance
-import PlutusTx qualified
+import Data.Semigroup ((<>))
+
+import Ledger qualified
 import Test.NFT.Script.Values as TestValues
 import Test.Tasty (TestTree)
-import Test.Tasty.Plutus.Context
-import Test.Tasty.Plutus.Script.Unit
+import Test.Tasty.Plutus.Context (
+  ContextBuilder,
+  Purpose (ForSpending),
+  paysOther,
+  paysToWallet,
+  signedWith,
+ )
+import Test.Tasty.Plutus.Script.Unit (
+  TestData (SpendingTest),
+  shouldValidate,
+  shouldn'tValidate,
+  withValidator,
+ )
+
+import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Types qualified as NFT
+import Mlabs.NFT.Validation qualified as NFT
 
 testDealing :: TestTree
 testDealing = withValidator "Test NFT dealing validator" dealingValidator $ do
@@ -25,9 +37,8 @@ testDealing = withValidator "Test NFT dealing validator" dealingValidator $ do
   shouldn'tValidate "Can't set price if mismatching id" validSetPriceData mismathingIdSetPriceContext
   shouldn'tValidate "Can't buy if not for sale" notForSaleData notForSaleContext
   shouldn'tValidate "Can't buy if bid not high enough" bidNotHighEnoughData bidNotHighEnoughContext
-  -- FIXME #269 will fix this
-  -- shouldn'tValidate "Can't buy if author not paid" validBuyData authorNotPaidContext
-  -- shouldn'tValidate "Can't buy if owner not paid" ownerNotPaidData ownerNotPaidContext
+  shouldn'tValidate "Can't buy if author not paid" validBuyData authorNotPaidContext
+  shouldn'tValidate "Can't buy if owner not paid" ownerNotPaidData ownerNotPaidContext
   shouldn'tValidate "Can't buy if mismatching id" validBuyData mismathingIdBuyContext
 
 -- TODO: bring back this test if `tasty-plutus` would allow to change datum order
@@ -36,17 +47,18 @@ testDealing = withValidator "Test NFT dealing validator" dealingValidator $ do
 initialNode :: NFT.NftListNode
 initialNode =
   NFT.NftListNode
-    { node'information =
-        NFT.InformationNft
-          { info'id = TestValues.testNftId
-          , info'share = 1 % 2
-          , info'author = NFT.UserId TestValues.authorPkh
-          , info'owner = NFT.UserId TestValues.authorPkh
-          , info'price = Just (100 * 1_000_000)
-          , info'auctionState = Nothing
-          }
-    , node'next = Nothing
-    , node'appInstance = TestValues.appInstance
+    { node'information' =
+        toSpooky $
+          NFT.InformationNft
+            { info'id' = toSpooky TestValues.testNftId
+            , info'share' = toSpooky (1 % 2)
+            , info'author' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
+            , info'owner' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
+            , info'price' = toSpooky @(Maybe Integer) $ Just (100 * 1_000_000)
+            , info'auctionState' = toSpooky @(Maybe NFT.AuctionState) Nothing
+            }
+    , node'next' = toSpooky @(Maybe NFT.Pointer) Nothing
+    , node'appInstance' = toSpooky TestValues.appInstance
     }
 
 initialAuthorDatum :: NFT.DatumNft
@@ -56,20 +68,22 @@ ownerUserOneDatum :: NFT.DatumNft
 ownerUserOneDatum =
   NFT.NodeDatum $
     initialNode
-      { NFT.node'information =
-          (NFT.node'information initialNode)
-            { NFT.info'owner = NFT.UserId TestValues.userOnePkh
-            }
+      { NFT.node'information' =
+          toSpooky $
+            (NFT.node'information initialNode)
+              { NFT.info'owner' = toSpooky . NFT.UserId . toSpooky $ TestValues.userOnePkh
+              }
       }
 
 notForSaleDatum :: NFT.DatumNft
 notForSaleDatum =
   NFT.NodeDatum $
     initialNode
-      { NFT.node'information =
-          (NFT.node'information initialNode)
-            { NFT.info'price = Nothing
-            }
+      { NFT.node'information' =
+          toSpooky $
+            (NFT.node'information initialNode)
+              { NFT.info'price' = toSpooky @(Maybe Integer) Nothing
+              }
       }
 
 ownerNotPaidDatum :: NFT.DatumNft
@@ -79,10 +93,11 @@ inconsistentDatum :: NFT.DatumNft
 inconsistentDatum =
   NFT.NodeDatum $
     initialNode
-      { NFT.node'information =
-          (NFT.node'information initialNode)
-            { NFT.info'share = 1 % 10
-            }
+      { NFT.node'information' =
+          toSpooky $
+            (NFT.node'information initialNode)
+              { NFT.info'share' = toSpooky (1 % 10)
+              }
       }
 
 -- Buy test cases
@@ -94,9 +109,9 @@ validBuyData = SpendingTest dtm redeemer val
 
     redeemer =
       NFT.BuyAct
-        { act'bid = 100 * 1_000_000
-        , act'newPrice = Nothing
-        , act'symbol = TestValues.appSymbol
+        { act'bid' = toSpooky @Integer (100 * 1_000_000)
+        , act'newPrice' = toSpooky @(Maybe Integer) Nothing
+        , act'symbol' = toSpooky TestValues.appSymbol
         }
     val = TestValues.adaValue 100 <> TestValues.oneNft
 
@@ -107,9 +122,9 @@ notForSaleData = SpendingTest dtm redeemer val
 
     redeemer =
       NFT.BuyAct
-        { act'bid = 100 * 1_000_000
-        , act'newPrice = Just 150
-        , act'symbol = TestValues.appSymbol
+        { act'bid' = toSpooky @Integer (100 * 1_000_000)
+        , act'newPrice' = toSpooky @(Maybe Integer) $ Just 150
+        , act'symbol' = toSpooky TestValues.appSymbol
         }
     val = TestValues.adaValue 100 <> TestValues.oneNft
 
@@ -120,9 +135,9 @@ bidNotHighEnoughData = SpendingTest dtm redeemer val
 
     redeemer =
       NFT.BuyAct
-        { act'bid = 90 * 1_000_000
-        , act'newPrice = Nothing
-        , act'symbol = TestValues.appSymbol
+        { act'bid' = toSpooky @Integer (90 * 1_000_000)
+        , act'newPrice' = toSpooky @(Maybe Integer) Nothing
+        , act'symbol' = toSpooky TestValues.appSymbol
         }
     val = TestValues.adaValue 90 <> TestValues.oneNft
 
@@ -133,9 +148,9 @@ ownerNotPaidData = SpendingTest dtm redeemer val
 
     redeemer =
       NFT.BuyAct
-        { act'bid = 100 * 1_000_000
-        , act'newPrice = Nothing
-        , act'symbol = TestValues.appSymbol
+        { act'bid' = toSpooky @Integer (100 * 1_000_000)
+        , act'newPrice' = toSpooky @(Maybe Integer) Nothing
+        , act'symbol' = toSpooky TestValues.appSymbol
         }
     val = TestValues.adaValue 0 <> TestValues.oneNft
 
@@ -146,9 +161,9 @@ inconsistentDatumData = SpendingTest dtm redeemer val
 
     redeemer =
       NFT.BuyAct
-        { act'bid = 100 * 1_000_000
-        , act'newPrice = Nothing
-        , act'symbol = TestValues.appSymbol
+        { act'bid' = toSpooky @Integer (100 * 1_000_000)
+        , act'newPrice' = toSpooky @(Maybe Integer) Nothing
+        , act'symbol' = toSpooky TestValues.appSymbol
         }
     val = TestValues.adaValue 100 <> TestValues.oneNft
 
@@ -199,7 +214,7 @@ mismathingIdBuyContext =
     dtm =
       NFT.NodeDatum $
         initialNode
-          { NFT.node'information = ((NFT.node'information initialNode) {NFT.info'id = NFT.NftId "I AM INVALID"})
+          { NFT.node'information' = toSpooky ((NFT.node'information initialNode) {NFT.info'id' = toSpooky . NFT.NftId . toSpooky @BuiltinByteString $ "I AM INVALID"})
           }
 
 -- SetPrice test cases
@@ -211,8 +226,8 @@ validSetPriceData = SpendingTest dtm redeemer val
 
     redeemer =
       NFT.SetPriceAct
-        { act'newPrice = Just (150 * 1_000_000)
-        , act'symbol = TestValues.appSymbol
+        { act'newPrice' = toSpooky @(Maybe Integer) $ Just (150 * 1_000_000)
+        , act'symbol' = toSpooky TestValues.appSymbol
         }
     val = TestValues.oneNft
 
@@ -223,8 +238,8 @@ ownerUserOneSetPriceData = SpendingTest dtm redeemer val
 
     redeemer =
       NFT.SetPriceAct
-        { act'newPrice = Nothing
-        , act'symbol = TestValues.appSymbol
+        { act'newPrice' = toSpooky @(Maybe Integer) Nothing
+        , act'symbol' = toSpooky TestValues.appSymbol
         }
     val = TestValues.oneNft
 
@@ -254,7 +269,7 @@ mismathingIdSetPriceContext =
     dtm =
       NFT.NodeDatum $
         initialNode
-          { NFT.node'information = ((NFT.node'information initialNode) {NFT.info'id = NFT.NftId "I AM INVALID"})
+          { NFT.node'information' = toSpooky ((NFT.node'information initialNode) {NFT.info'id' = toSpooky . NFT.NftId . toSpooky @BuiltinByteString $ "I AM INVALID"})
           }
 
 -- todo: fix parametrisation/hard-coding
@@ -264,7 +279,4 @@ dealingValidator =
     $$(PlutusTx.compile [||wrap||])
       `PlutusTx.applyCode` ($$(PlutusTx.compile [||NFT.mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode uniqueAsset)
   where
-    wrap ::
-      (NFT.DatumNft -> NFT.UserAct -> Ledger.ScriptContext -> Bool) ->
-      (BuiltinData -> BuiltinData -> BuiltinData -> ())
-    wrap = toTestValidator
+    wrap = TestValues.myToTestValidator
