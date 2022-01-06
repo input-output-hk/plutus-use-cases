@@ -51,7 +51,7 @@ import Ledger (
 import Ledger.Value as Value (unAssetClass, valueOf)
 
 import Mlabs.NFT.Governance.Types (GovDatum (gov'list), LList (HeadLList))
-import Mlabs.NFT.Spooky (toSpooky, unSpookyAddress)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyCurrencySymbol, unSpookyAddress, unSpookyAssetClass, unSpookyTokenName)
 import Mlabs.NFT.Types (
   Content,
   DatumNft (..),
@@ -122,7 +122,7 @@ getHead uT = do
           --, pack . Hask.show . fmap pi'data $ utxos
           ]
   where
-    containUniqueToken = (/= 0) . flip assetClassValueOf uT . (^. ciTxOutValue) . fst
+    containUniqueToken = (/= 0) . flip assetClassValueOf (unSpookyAssetClass uT) . (^. ciTxOutValue) . fst
 
 -- | Get the  Symbol
 getNftAppSymbol :: UniqueToken -> GenericContract NftAppSymbol
@@ -131,10 +131,10 @@ getNftAppSymbol uT = do
   case lHead of
     Nothing -> err
     Just headInfo -> do
-      let uTCS = fst . unAssetClass $ uT
+      let uTCS = fst . unAssetClass . unSpookyAssetClass $ uT
       let val = filter (\x -> x /= uTCS && x /= "") . symbols $ pi'CITxO headInfo ^. ciTxOutValue
       case val of
-        [x] -> pure . NftAppSymbol . toSpooky $ x
+        [x] -> pure . NftAppSymbol . toSpooky . toSpookyCurrencySymbol $ x
         [] -> Contract.throwError "Could not establish App Symbol. Does it exist in the HEAD?"
         _ -> Contract.throwError "Could not establish App Symbol. Too many symbols to distinguish from."
   where
@@ -146,7 +146,7 @@ getAddrValidUtxos ut = do
   appSymbol <- getNftAppSymbol ut
   Map.filter (validTx appSymbol) <$> utxosTxOutTxAt (unSpookyAddress . txScrAddress $ ut)
   where
-    validTx appSymbol (cIxTxOut, _) = elem (app'symbol appSymbol) $ symbols (cIxTxOut ^. ciTxOutValue)
+    validTx appSymbol (cIxTxOut, _) = elem (app'symbol appSymbol) (fmap toSpookyCurrencySymbol (symbols (cIxTxOut ^. ciTxOutValue)))
 
 -- | Serialise Datum
 serialiseDatum :: PlutusTx.ToData a => a -> Datum
@@ -209,8 +209,8 @@ findNft nftId ut = do
     readTxData (oref, (ciTxOut, ciTx)) = (oref,ciTxOut,,ciTx) <$> readDatum' ciTxOut
 
     hasCorrectNft (_, ciTxOut, datum, _) =
-      let (cs, tn) = unAssetClass $ nftAsset datum
-       in tn == nftTokenName datum -- sanity check
+      let (cs, tn) = unAssetClass . unSpookyAssetClass $ nftAsset datum
+       in tn == (unSpookyTokenName . nftTokenName $ datum) -- sanity check
             && case datum of
               NodeDatum datum' ->
                 (info'id . node'information $ datum') == nftId -- check that Datum has correct NftId
@@ -320,13 +320,13 @@ getApplicationCurrencySymbol :: NftAppInstance -> GenericContract NftAppSymbol
 getApplicationCurrencySymbol appInstance = do
   utxos <- Contract.utxosAt . unSpookyAddress . appInstance'Address $ appInstance
   let outs = fmap toTxOut . Map.elems $ utxos
-      (uniqueCurrency, uniqueToken) = unAssetClass . appInstance'UniqueToken $ appInstance
+      (uniqueCurrency, uniqueToken) = unAssetClass . unSpookyAssetClass . appInstance'UniqueToken $ appInstance
       lstHead' = find (\tx -> valueOf (Ledger.txOutValue tx) uniqueCurrency uniqueToken == 1) outs
   headUtxo <- case lstHead' of
     Nothing -> Contract.throwError "Head not found"
     Just lstHead -> pure lstHead
   let currencies = filter (uniqueCurrency /=) $ symbols . Ledger.txOutValue $ headUtxo
   case currencies of
-    [appSymbol] -> pure . NftAppSymbol . toSpooky $ appSymbol
+    [appSymbol] -> pure . NftAppSymbol . toSpooky . toSpookyCurrencySymbol $ appSymbol
     [] -> Contract.throwError "Head does not contain AppSymbol"
     _ -> Contract.throwError "Head contains more than 2 currencies (Unreachable?)"

@@ -33,7 +33,7 @@ import Mlabs.NFT.Contract.Aux (
   getUId,
   hashData,
  )
-import Mlabs.NFT.Spooky (toSpooky, unSpookyAddress)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyAssetClass, unSpookyAddress, unSpookyCurrencySymbol)
 import Mlabs.NFT.Types (
   AuctionState,
   DatumNft (..),
@@ -118,12 +118,12 @@ mint uT params = do
     --   GenericContract (Constraints.ScriptLookups Any, Constraints.TxConstraints i0 DatumNft)
     mintNode uT' mintingP newNode nextNode = do
       appSymbol <- getNftAppSymbol uT'
-      let newTokenValue = Value.singleton (app'symbol appSymbol) (TokenName . getDatumValue . NodeDatum $ newNode) 1
+      let newTokenValue = Value.singleton (unSpookyCurrencySymbol . app'symbol $ appSymbol) (TokenName . getDatumValue . NodeDatum $ newNode) 1
           aSymbol = app'symbol appSymbol
           newTokenDatum =
             NodeDatum $
               newNode
-                { node'next' = toSpooky (Pointer . toSpooky . assetClass aSymbol . TokenName . getDatumValue . pi'data <$> nextNode)
+                { node'next' = toSpooky (Pointer . toSpooky . toSpookyAssetClass . assetClass (unSpookyCurrencySymbol aSymbol) . TokenName . getDatumValue . pi'data <$> nextNode)
                 }
 
           mintRedeemer = asRedeemer . Mint . toSpooky . NftId . toSpooky . getDatumValue . NodeDatum $ newNode
@@ -153,8 +153,8 @@ mint uT params = do
             Ledger.txOutValue
               . fst
               $ (txOutRefMapForAddr (unSpookyAddress scriptAddr) (pi'CITx insertPoint) Map.! pi'TOR insertPoint)
-          newToken = assetClass (app'symbol appSymbol) (TokenName .getDatumValue . NodeDatum $ newNode)
-          newDatum = updatePointer (Pointer . toSpooky $ newToken)
+          newToken = assetClass (unSpookyCurrencySymbol . app'symbol $ appSymbol) (TokenName .getDatumValue . NodeDatum $ newNode)
+          newDatum = updatePointer (Pointer . toSpooky . toSpookyAssetClass $ newToken)
           oref = pi'TOR insertPoint
           redeemer = asRedeemer $ MintAct (toSpooky . NftId . toSpooky . getDatumValue . NodeDatum $ newNode) (toSpooky appSymbol)
           oldDatum = pi'data insertPoint

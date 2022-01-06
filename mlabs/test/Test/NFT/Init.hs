@@ -85,7 +85,7 @@ import Mlabs.NFT.Api (
   endpoints,
   queryEndpoints,
  )
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyAssetClass)
 import Mlabs.NFT.Types (
   AuctionBidParams,
   AuctionCloseParams,
@@ -328,7 +328,7 @@ mkFreeGov wal = assetClassValue (AssetClass (govCurrency, tn))
     tn = TokenName . ("freeGov" <>) . getPubKeyHash . getUserId . toUserId $ wal
 
 govCurrency :: CurrencySymbol
-govCurrency = "b3bd3382dbf45ba1ba3e46c5b9b80febe7b47209ddacc2cc0cb1a088"
+govCurrency = "541eb67c1928cad0805df403e24c6ba9b338ca9f86ec6f15ac05c050"
 
 getFreeGov :: Wallet -> Plutus.V1.Ledger.Value.Value -> Integer
 getFreeGov wal val = valueOf val govCurrency tn
@@ -336,4 +336,4 @@ getFreeGov wal val = valueOf val govCurrency tn
     tn = TokenName . ("freeGov" <>) . getPubKeyHash . getUserId . toUserId $ wal
 
 appSymbol :: UniqueToken
-appSymbol = AssetClass ("038ecf2f85dcb99b41d7ebfcbc0d988f4ac2971636c3e358aa8d6121", "Unique App Token")
+appSymbol = toSpookyAssetClass $ AssetClass ("038ecf2f85dcb99b41d7ebfcbc0d988f4ac2971636c3e358aa8d6121", "Unique App Token")

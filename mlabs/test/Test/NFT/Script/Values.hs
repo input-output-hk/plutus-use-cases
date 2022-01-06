@@ -5,7 +5,8 @@ import Data.Maybe (fromJust)
 import Ledger qualified
 
 import Data.Kind (Type)
-import Ledger.Value (TokenName (..))
+
+-- import Ledger.Value (TokenName (..))
 import Ledger.Value qualified as Value
 
 import Ledger.CardanoWallet qualified as CardanoWallet
@@ -62,7 +63,7 @@ testTxId :: Ledger.TxId
 testTxId = fromJust $ Aeson.decode "{\"getTxId\" : \"61626364\"}"
 
 testTokenName :: TokenName
-testTokenName = TokenName hData
+testTokenName = TokenName . toSpooky $ hData
   where
     hData = NFT.hashData . Content . toSpooky @BuiltinByteString $ "A painting."
 
@@ -73,10 +74,10 @@ nftPolicy :: Ledger.MintingPolicy
 nftPolicy = NFT.mintPolicy appInstance
 
 oneNft :: Value.Value
-oneNft = Value.singleton nftCurrencySymbol testTokenName 1
+oneNft = Value.singleton nftCurrencySymbol (unSpookyTokenName testTokenName) 1
 
 nftCurrencySymbol :: Value.CurrencySymbol
-nftCurrencySymbol = app'symbol appSymbol
+nftCurrencySymbol = unSpookyCurrencySymbol . app'symbol $ appSymbol
 
 oneAda :: Value.Value
 oneAda = Ada.lovelaceValueOf 1_000_000
@@ -104,10 +105,10 @@ appSymbol = NftAppSymbol . toSpooky . NFT.curSymbol $ appInstance
 -- | Hardcoded UniqueToken
 {-# INLINEABLE uniqueAsset #-}
 uniqueAsset :: UniqueToken
-uniqueAsset = Value.AssetClass ("00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01", TokenName uniqueTokenName)
+uniqueAsset = assetClass (CurrencySymbol . toSpooky @BuiltinByteString $ "00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01") (TokenName . toSpooky $ uniqueTokenName)
 
 includeGovHead :: ContextBuilder a
-includeGovHead = paysOther (NFT.txValHash uniqueAsset) (Value.assetClassValue uniqueAsset 1) govHeadDatum
+includeGovHead = paysOther (NFT.txValHash uniqueAsset) (Value.assetClassValue (unSpookyAssetClass uniqueAsset) 1) govHeadDatum
   where
     govHeadDatum = GovDatum $ HeadLList (GovLHead (5 % 1000) "") Nothing
 

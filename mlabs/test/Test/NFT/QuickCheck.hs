@@ -51,7 +51,7 @@ import Prelude qualified as Hask
 
 import Mlabs.NFT.Api (NFTAppSchema, adminEndpoints, endpoints)
 import Mlabs.NFT.Contract (hashData)
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, unSpookyValue)
 import Mlabs.NFT.Types (
   AuctionBidParams (..),
   AuctionCloseParams (..),
@@ -276,8 +276,8 @@ instance ContractModel NftModel where
                 feeValue = round $ fromInteger aPrice * feeRate
                 (ownerShare, authorShare) = calculateShares (aPrice - feeValue) (nft ^. nftShare)
             mMarket $~ Map.insert aNftId newNft
-            transfer aPerformer (nft ^. nftOwner) ownerShare
-            transfer aPerformer (nft ^. nftAuthor) authorShare
+            transfer aPerformer (nft ^. nftOwner) (unSpookyValue ownerShare)
+            transfer aPerformer (nft ^. nftAuthor) (unSpookyValue authorShare)
             transfer aPerformer wAdmin (lovelaceValueOf feeValue)
             deposit aPerformer (mkFreeGov aPerformer feeValue)
     wait 5
@@ -346,8 +346,8 @@ instance ContractModel NftModel where
                     feeValue = round $ fromInteger price * feeRate
                     (ownerShare, authorShare) = calculateShares (price - feeValue) (nft ^. nftShare)
                 mMarket $~ Map.insert aNftId newNft
-                deposit (nft ^. nftOwner) ownerShare
-                deposit (nft ^. nftAuthor) authorShare
+                deposit (nft ^. nftOwner) (unSpookyValue ownerShare)
+                deposit (nft ^. nftAuthor) (unSpookyValue authorShare)
                 deposit wAdmin (lovelaceValueOf feeValue)
                 deposit newOwner (mkFreeGov newOwner feeValue)
     wait 5

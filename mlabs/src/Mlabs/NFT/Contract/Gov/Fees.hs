@@ -68,7 +68,7 @@ getFeesConstraints uT nftId price user = do
       mkGov name =
         Value.singleton
           (scriptCurrencySymbol govPolicy)
-          (TokenName . (name <>) . getPubKeyHash $ ownPkh)
+          (Value.TokenName . (name <>) . getPubKeyHash $ ownPkh)
           feeValue
       mintedFreeGov = mkGov "freeGov"
       mintedListGov = mkGov "listGov"

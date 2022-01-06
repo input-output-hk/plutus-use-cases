@@ -77,18 +77,15 @@ import Data.Text (Text)
 import GHC.Generics (Generic)
 
 import Ledger (
-  AssetClass,
   ChainIndexTxOut,
-  CurrencySymbol,
   POSIXTime,
   PubKeyHash,
   TxOutRef,
  )
-import Ledger.Value (TokenName (..), unAssetClass)
 import Plutus.ChainIndex (ChainIndexTx)
 import Plutus.Contract (Contract)
 
-import Mlabs.NFT.Spooky (Address, Spooky, unSpooky)
+import Mlabs.NFT.Spooky (Address, AssetClass (..), CurrencySymbol, Spooky, TokenName (..), toSpooky, unAssetClass, unSpooky)
 import Schema (ToSchema)
 
 --------------------------------------------------------------------------------
@@ -609,8 +606,8 @@ intialisation of the app.
 -}
 nftTokenName :: DatumNft -> TokenName
 nftTokenName = \case
-  HeadDatum _ -> TokenName PlutusTx.Prelude.emptyByteString
-  NodeDatum n -> TokenName . nftId'contentHash . info'id . node'information $ n
+  HeadDatum _ -> TokenName . toSpooky $ PlutusTx.Prelude.emptyByteString
+  NodeDatum n -> TokenName . toSpooky . nftId'contentHash . info'id . node'information $ n
 
 getAppInstance :: DatumNft -> NftAppInstance
 getAppInstance = \case
