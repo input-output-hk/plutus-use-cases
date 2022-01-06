@@ -35,7 +35,7 @@ import Mlabs.Data.LinkedList (LList (..))
 import Mlabs.NFT.Contract.Aux (toDatum)
 import Mlabs.NFT.Governance.Types (GovAct (..), GovDatum (..), GovLHead (..))
 import Mlabs.NFT.Governance.Validation (govMintPolicy, govScrAddress, govScript)
-import Mlabs.NFT.Spooky (toSpooky, toSpookyAddress, toSpookyAssetClass, unSpookyAssetClass)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyAddress, toSpookyAssetClass, unSpookyAssetClass, unSpookyPubKeyHash)
 import Mlabs.NFT.Types (
   DatumNft (HeadDatum),
   GenericContract,
@@ -132,7 +132,7 @@ createListHead InitParams {..} = do
     govHeadInit =
       GovDatum $
         HeadLList
-          { _head'info = GovLHead ip'feeRate ip'feePkh
+          { _head'info = GovLHead ip'feeRate (unSpookyPubKeyHash ip'feePkh)
           , _head'next = Nothing
           }
 

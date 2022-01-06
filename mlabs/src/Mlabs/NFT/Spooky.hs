@@ -1,6 +1,10 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Mlabs.NFT.Spooky (
+  PubKeyHash (..),
+  getPubKeyHash,
+  toSpookyPubKeyHash,
+  unSpookyPubKeyHash,
   DatumHash (..),
   getDatumHash,
   CurrencySymbol (..),
@@ -76,8 +80,9 @@ import Ledger (
   ValidatorHash,
  )
 import Ledger qualified
+import Ledger.Crypto qualified as Crypto
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
-import Plutus.V1.Ledger.Api (DCert, PubKeyHash)
+import Plutus.V1.Ledger.Api (DCert)
 import Plutus.V1.Ledger.Credential qualified as Credential
 import Plutus.V1.Ledger.Value qualified as Value
 import PlutusTx.AssocMap qualified as Map
@@ -87,6 +92,28 @@ import Schema (ToSchema (toSchema))
 
 instance ToSchema BuiltinData where
   toSchema = toSchema @Hask.String
+
+newtype PubKeyHash = PubKeyHash {getPubKeyHash' :: Spooky BuiltinByteString}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''PubKeyHash
+
+instance Ord PubKeyHash where
+  {-# INLINEABLE compare #-}
+  compare h h' = compare (getPubKeyHash h) (getPubKeyHash h')
+
+{-# INLINEABLE getPubKeyHash #-}
+getPubKeyHash :: PubKeyHash -> BuiltinByteString
+getPubKeyHash = unSpooky . getPubKeyHash'
+
+{-# INLINEABLE toSpookyPubKeyHash #-}
+toSpookyPubKeyHash :: Crypto.PubKeyHash -> PubKeyHash
+toSpookyPubKeyHash (Crypto.PubKeyHash hash) = PubKeyHash . toSpooky $ hash
+
+{-# INLINEABLE unSpookyPubKeyHash #-}
+unSpookyPubKeyHash :: PubKeyHash -> Crypto.PubKeyHash
+unSpookyPubKeyHash (PubKeyHash hash) = Crypto.PubKeyHash . unSpooky $ hash
 
 newtype DatumHash = DatumHash {getDatumHash' :: Spooky BuiltinByteString}
   deriving stock (Generic)

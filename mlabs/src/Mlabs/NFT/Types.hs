@@ -79,13 +79,22 @@ import GHC.Generics (Generic)
 import Ledger (
   ChainIndexTxOut,
   POSIXTime,
-  PubKeyHash,
   TxOutRef,
  )
 import Plutus.ChainIndex (ChainIndexTx)
 import Plutus.Contract (Contract)
 
-import Mlabs.NFT.Spooky (Address, AssetClass (..), CurrencySymbol, Spooky, TokenName (..), toSpooky, unAssetClass, unSpooky)
+import Mlabs.NFT.Spooky (
+  Address,
+  AssetClass (..),
+  CurrencySymbol,
+  PubKeyHash,
+  Spooky,
+  TokenName (..),
+  toSpooky,
+  unAssetClass,
+  unSpooky,
+ )
 import Schema (ToSchema)
 
 --------------------------------------------------------------------------------

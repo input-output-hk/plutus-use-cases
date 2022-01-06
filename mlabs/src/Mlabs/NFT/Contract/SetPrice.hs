@@ -29,7 +29,7 @@ import Mlabs.NFT.Contract.Aux (
   getNftAppSymbol,
   getUserAddr,
  )
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyPubKeyHash)
 import Mlabs.NFT.Types (
   DatumNft (NodeDatum),
   InformationNft (info'price'),
@@ -60,7 +60,7 @@ setPrice ut SetPriceParams {..} = do
   oldNode <- case pi'data of
     NodeDatum n -> Hask.pure n
     _ -> Contract.throwError "NFT not found"
-  when (getUserId ((info'owner . node'information) oldNode) /= ownPkh) $
+  when (getUserId ((info'owner . node'information) oldNode) /= toSpookyPubKeyHash ownPkh) $
     Contract.throwError "Only owner can set price"
   when (isJust . info'auctionState . node'information $ oldNode) $
     Contract.throwError "Can't set price auction is already in progress"

@@ -51,7 +51,7 @@ import Prelude qualified as Hask
 
 import Mlabs.NFT.Api (NFTAppSchema, adminEndpoints, endpoints)
 import Mlabs.NFT.Contract (hashData)
-import Mlabs.NFT.Spooky (toSpooky, unSpookyValue)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyPubKeyHash, unSpookyValue)
 import Mlabs.NFT.Types (
   AuctionBidParams (..),
   AuctionCloseParams (..),
@@ -361,7 +361,7 @@ instance ContractModel NftModel where
             InitParams
               [toUserId wAdmin]
               (5 % 1000)
-              (walletPubKeyHash wAdmin)
+              (toSpookyPubKeyHash . walletPubKeyHash $ wAdmin)
       callEndpoint @"app-init" hAdmin params
       void $ Trace.waitNSlots 5
     ActionMint {..} -> do
