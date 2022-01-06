@@ -40,7 +40,6 @@ import Data.Aeson (Value (String))
 import Data.Map qualified as M
 import Data.Monoid (Last (..))
 import Data.Text qualified as T
-import Ledger (getPubKeyHash)
 import Numeric.Natural (Natural)
 import Plutus.Contract.Test (
   CheckOptions,
@@ -69,6 +68,7 @@ import Plutus.Trace.Emulator (
  )
 import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
+import Plutus.V1.Ledger.Api (getPubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass (..), CurrencySymbol, TokenName (..), Value, assetClassValue, singleton, valueOf)
 import PlutusTx.Prelude hiding (check, foldMap, pure)
 import Wallet.Emulator.MultiAgent (EmulatorTimeEvent (..))
@@ -126,7 +126,7 @@ callStartNft wal = do
   hAdmin <- activateContractWallet wal adminEndpoints
   let params =
         InitParams
-          [UserId . toSpooky . walletPubKeyHash $ wal]
+          [toUserId wal]
           (5 % 1000)
           (walletPubKeyHash wal)
   callEndpoint @"app-init" hAdmin params
@@ -143,7 +143,7 @@ callStartNftFail wal = do
   let w5 = walletFromNumber 5
       params =
         InitParams
-          [UserId . toSpooky . walletPubKeyHash $ w5]
+          [toUserId w5]
           (5 % 1000)
           (walletPubKeyHash wal)
   lift $ do

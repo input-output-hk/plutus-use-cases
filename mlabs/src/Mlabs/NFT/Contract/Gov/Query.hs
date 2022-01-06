@@ -14,10 +14,10 @@ import Plutus.Contract qualified as Contract
 import PlutusTx.Prelude hiding (mconcat, mempty, (<>))
 
 import Ledger (
-  PubKeyHash,
   getPubKeyHash,
   scriptCurrencySymbol,
  )
+import Ledger qualified
 import Ledger.Value as Value (TokenName (..), valueOf)
 
 import Mlabs.Data.LinkedList
@@ -82,7 +82,7 @@ queryCurrFeeRate uT = do
   Hask.pure $ govLHead'feeRate govHead
 
 -- | Get fee pkh from GOV HEAD
-queryFeePkh :: forall w s. UniqueToken -> Contract w s Text PubKeyHash
+queryFeePkh :: forall w s. UniqueToken -> Contract w s Text Ledger.PubKeyHash
 queryFeePkh uT = do
   govHead <- queryGovHeadDatum uT
   Hask.pure $ govLHead'pkh govHead

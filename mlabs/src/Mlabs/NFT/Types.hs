@@ -1,6 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Mlabs.NFT.Types (
   AdminContract,
@@ -90,13 +89,10 @@ import Plutus.ChainIndex (ChainIndexTx)
 import Plutus.Contract (Contract)
 
 import Mlabs.NFT.Spooky (Address, Spooky, unSpooky)
-import Schema (ToSchema (toSchema))
+import Schema (ToSchema)
 
 --------------------------------------------------------------------------------
 -- ON-CHAIN TYPES --
-
-instance ToSchema BuiltinData where
-  toSchema = toSchema @Hask.String
 
 newtype Content = Content {getContent' :: Spooky BuiltinByteString}
   deriving stock (Hask.Show, Generic, Hask.Eq)
@@ -366,11 +362,11 @@ as'highestBid :: AuctionState -> Maybe AuctionBid
 as'highestBid = unSpooky . as'highestBid'
 
 {-# INLINEABLE as'deadline #-}
-as'deadline :: AuctionState -> Maybe POSIXTime
+as'deadline :: AuctionState -> POSIXTime
 as'deadline = unSpooky . as'deadline'
 
 {-# INLINEABLE as'minBid #-}
-as'minBid :: AuctionState -> Maybe Integer
+as'minBid :: AuctionState -> Integer
 as'minBid = unSpooky . as'minBid'
 
 -- | NFT Information.
@@ -415,7 +411,7 @@ info'price :: InformationNft -> Maybe Integer
 info'price = unSpooky . info'price'
 
 {-# INLINEABLE info'auctionState #-}
-info'auctionState :: InformationNft -> Maybe Integer
+info'auctionState :: InformationNft -> Maybe AuctionState
 info'auctionState = unSpooky . info'auctionState'
 
 instance Ord InformationNft where

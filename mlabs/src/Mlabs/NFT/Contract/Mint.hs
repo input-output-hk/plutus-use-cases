@@ -162,8 +162,8 @@ mint uT params = do
           updatePointer :: Pointer -> DatumNft
           updatePointer newPointer =
             case oldDatum of
-              HeadDatum (NftListHead _ a) -> HeadDatum $ NftListHead (toSpooky $ Just newPointer) (toSpooky a)
-              NodeDatum (NftListNode i _ a) -> NodeDatum $ NftListNode (toSpooky i) (toSpooky $ Just newPointer) (toSpooky a)
+              HeadDatum (NftListHead _ a) -> HeadDatum $ NftListHead (toSpooky $ Just newPointer) a
+              NodeDatum (NftListNode i _ a) -> NodeDatum $ NftListNode i (toSpooky $ Just newPointer) a
 
           lookups =
             mconcat

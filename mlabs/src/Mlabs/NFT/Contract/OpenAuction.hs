@@ -1,4 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
+-- FIXME: Remove after uncommenting commented parts
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Mlabs.NFT.Contract.OpenAuction (
   openAuction,
@@ -37,62 +39,64 @@ import Mlabs.NFT.Validation
   Attempts to start NFT auction, removes current price from NFT and starts auction.
 -}
 openAuction :: UniqueToken -> AuctionOpenParams -> Contract UserWriter s Text ()
-openAuction uT (AuctionOpenParams nftId deadline minBid) = do
-  ownOrefTxOut <- getUserAddr >>= fstUtxoAt
-  symbol <- getNftAppSymbol uT
-  ownPkh <- Contract.ownPubKeyHash
-  PointInfo {..} <- findNft nftId uT
-  node <- case pi'data of
-    NodeDatum n -> Hask.pure n
-    _ -> Contract.throwError "NFT not found"
+openAuction _ _ = error ()
 
-  let auctionState = info'auctionState . node'information $ node
-      isOwner = ownPkh == (getUserId . info'owner . node'information) node
+-- openAuction uT (AuctionOpenParams nftId deadline minBid) = do
+--   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
+--   symbol <- getNftAppSymbol uT
+--   ownPkh <- Contract.ownPubKeyHash
+--   PointInfo {..} <- findNft nftId uT
+--   node <- case pi'data of
+--     NodeDatum n -> Hask.pure n
+--     _ -> Contract.throwError "NFT not found"
 
-  when (isJust auctionState) $ Contract.throwError "Can't open: auction is already in progress"
-  unless isOwner $ Contract.throwError "Only owner can start auction"
+--   let auctionState = info'auctionState . node'information $ node
+--       isOwner = ownPkh == (getUserId . info'owner . node'information) node
 
-  userUtxos <- getUserUtxos
-  let nftDatum = NodeDatum $ updateDatum node
-      nftVal = Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
-      action =
-        OpenAuctionAct
-          { act'symbol' = toSpooky symbol
-          }
-      lookups =
-        mconcat
-          [ Constraints.unspentOutputs userUtxos
-          , Constraints.unspentOutputs $ Map.fromList [ownOrefTxOut]
-          , Constraints.unspentOutputs $ Map.fromList [(pi'TOR, pi'CITxO)]
-          , Constraints.typedValidatorLookups (txPolicy uT)
-          , Constraints.otherScript (validatorScript $ txPolicy uT)
-          ]
-      tx =
-        mconcat
-          [ Constraints.mustPayToTheScript (toBuiltinData nftDatum) nftVal
-          , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
-          , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
-          , Constraints.mustSpendScriptOutput
-              pi'TOR
-              (Redeemer . PlutusTx.toBuiltinData $ action)
-          ]
-  void $ Contract.submitTxConstraintsWith lookups tx
-  Contract.tell . Last . Just . Left $ nftId
-  void $ Contract.logInfo @Hask.String $ printf "Started auction for %s" $ Hask.show nftVal
-  where
-    newAuctionState =
-      AuctionState
-        { as'highestBid' = toSpooky @(Maybe Integer) Nothing
-        , as'deadline' = toSpooky deadline
-        , as'minBid' = toSpooky minBid
-        }
+--   when (isJust auctionState) $ Contract.throwError "Can't open: auction is already in progress"
+--   unless isOwner $ Contract.throwError "Only owner can start auction"
 
-    updateDatum node =
-      node
-        { node'information' =
-            toSpooky $
-              (node'information node)
-                { info'auctionState' = toSpooky $ Just newAuctionState
-                , info'price' = toSpooky @(Maybe Integer) Nothing
-                }
-        }
+--   userUtxos <- getUserUtxos
+--   let nftDatum = NodeDatum $ updateDatum node
+--       nftVal = Value.singleton (app'symbol symbol) (Value.TokenName . nftId'contentHash $ nftId) 1
+--       action =
+--         OpenAuctionAct
+--           { act'symbol' = toSpooky symbol
+--           }
+--       lookups =
+--         mconcat
+--           [ Constraints.unspentOutputs userUtxos
+--           , Constraints.unspentOutputs $ Map.fromList [ownOrefTxOut]
+--           , Constraints.unspentOutputs $ Map.fromList [(pi'TOR, pi'CITxO)]
+--           , Constraints.typedValidatorLookups (txPolicy uT)
+--           , Constraints.otherScript (validatorScript $ txPolicy uT)
+--           ]
+--       tx =
+--         mconcat
+--           [ Constraints.mustPayToTheScript (toBuiltinData nftDatum) nftVal
+--           , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
+--           , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
+--           , Constraints.mustSpendScriptOutput
+--               pi'TOR
+--               (Redeemer . PlutusTx.toBuiltinData $ action)
+--           ]
+--   void $ Contract.submitTxConstraintsWith lookups tx
+--   Contract.tell . Last . Just . Left $ nftId
+--   void $ Contract.logInfo @Hask.String $ printf "Started auction for %s" $ Hask.show nftVal
+--   where
+--     newAuctionState =
+--       AuctionState
+--         { as'highestBid' = toSpooky @(Maybe Integer) Nothing
+--         , as'deadline' = toSpooky deadline
+--         , as'minBid' = toSpooky minBid
+--         }
+
+--     updateDatum node =
+--       node
+--         { node'information' =
+--             toSpooky $
+--               (node'information node)
+--                 { info'auctionState' = toSpooky $ Just newAuctionState
+--                 , info'price' = toSpooky @(Maybe Integer) Nothing
+--                 }
+--         }
