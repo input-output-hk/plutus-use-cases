@@ -417,13 +417,10 @@ toSpookyAddress (Ledger.Address cred sCred) =
   Address (toSpooky . toSpookyCredential $ cred) (toSpooky . fmap toSpookyStakingCredential $ sCred)
 
 newtype TxId = TxId {getTxId' :: Spooky BuiltinByteString}
-  deriving stock (Generic, Hask.Show, Hask.Eq)
-PlutusTx.unstableMakeIsData ''TxId
-
-instance Eq TxId where
-  {-# INLINEABLE (==) #-}
-  TxId a == TxId a' =
-    a == a'
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''TxId
 
 {-# INLINEABLE getTxId #-}
 getTxId :: TxId -> BuiltinByteString
