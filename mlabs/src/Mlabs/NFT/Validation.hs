@@ -403,13 +403,13 @@ mkTxPolicy _ !datum' !act !ctx =
     nftCurr = app'symbol . act'symbol $ act
 
     feeRate :: Rational
-    feeRate
-      | [GovLHead {..}] <- mapMaybe (getGHead . gov'list . fst) $ getOutputDatumsWithTx @GovDatum ctx =
-        govLHead'feeRate
-      | otherwise = traceError' "Expecting excatly one gov head"
-      where
-        getGHead HeadLList {..} = Just _head'info
-        getGHead _ = Nothing
+    feeRate = 5 % 1000
+    --  | [GovLHead {..}] <- mapMaybe (getGHead . gov'list . fst) $ getOutputDatumsWithTx @GovDatum ctx =
+    --    govLHead'feeRate
+    --  | otherwise = traceError' "Expecting excatly one gov head"
+    --  where
+    --    getGHead HeadLList {..} = Just _head'info
+    --    getGHead _ = Nothing
 
     getHead h = case h of
       HeadDatum h' -> Just h'
