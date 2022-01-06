@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Mlabs.NFT.Spooky (
+  ValidatorHash (..),
   PubKeyHash (..),
   getPubKeyHash,
   toSpookyPubKeyHash,
@@ -77,7 +78,6 @@ import Data.OpenApi.Schema qualified as OpenApi
 import Ledger (
   Datum,
   POSIXTimeRange,
-  ValidatorHash,
  )
 import Ledger qualified
 import Ledger.Crypto qualified as Crypto
@@ -92,6 +92,12 @@ import Schema (ToSchema (toSchema))
 
 instance ToSchema BuiltinData where
   toSchema = toSchema @Hask.String
+
+newtype ValidatorHash = ValidatorHash {getValidatorHash' :: Spooky BuiltinByteString}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''ValidatorHash
 
 newtype PubKeyHash = PubKeyHash {getPubKeyHash' :: Spooky BuiltinByteString}
   deriving stock (Generic, Hask.Show)
