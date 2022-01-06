@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Mlabs.NFT.Spooky (
+  DatumHash(..),
+  getDatumHash,
   Credential (..),
   StakingCredential (..),
   Address (..),
@@ -50,7 +52,6 @@ import Ledger (
   ValidatorHash,
  )
 import Ledger qualified
-import Ledger.Scripts (DatumHash)
 import Ledger.Value (Value)
 import Plutus.V1.Ledger.Api (DCert, PubKeyHash)
 import Plutus.V1.Ledger.Credential qualified as Credential
@@ -59,6 +60,15 @@ import Schema (ToSchema (toSchema))
 
 instance ToSchema BuiltinData where
   toSchema = toSchema @Hask.String
+
+
+newtype DatumHash = DatumHash {getDatumHash' :: Spooky BuiltinByteString}
+  deriving stock (Generic)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+
+{-# INLINEABLE getDatumHash #-}
+getDatumHash :: DatumHash -> BuiltinByteString
+getDatumHash = unSpooky . getDatumHash'
 
 data Credential
   = PubKeyCredential (Spooky PubKeyHash)
