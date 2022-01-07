@@ -14,7 +14,7 @@ import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context
 import Test.Tasty.Plutus.Script.Unit
 
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyAssetClass, toSpookyTokenName, unSpookyTokenName)
 import Mlabs.NFT.Types qualified as NFT
 import Mlabs.NFT.Validation qualified as NFT
 
@@ -34,7 +34,7 @@ baseCtx =
   input $ Input (PubKeyType TestValues.authorPkh) TestValues.oneAda
 
 mintingCtx :: ContextBuilder 'ForMinting
-mintingCtx = mintsWithSelf TestValues.testTokenName 1
+mintingCtx = mintsWithSelf (unSpookyTokenName TestValues.testTokenName) 1
 
 paysNftToScriptCtx :: ContextBuilder 'ForMinting
 paysNftToScriptCtx = paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ()
@@ -61,7 +61,7 @@ paysDatumToScriptCtx =
           , node'next' = toSpooky @(Maybe NFT.Pointer) Nothing
           , node'appInstance' = toSpooky TestValues.appInstance
           }
-    ptr = NFT.Pointer . toSpooky $ AssetClass (TestValues.nftCurrencySymbol, TestValues.testTokenName)
+    ptr = NFT.Pointer . toSpooky . toSpookyAssetClass $ AssetClass (TestValues.nftCurrencySymbol, unSpookyTokenName TestValues.testTokenName)
     headDatum = NFT.HeadDatum $ NFT.NftListHead (toSpooky $ Just ptr) (toSpooky TestValues.appInstance)
 
 paysWrongAmountCtx :: ContextBuilder 'ForMinting
@@ -119,7 +119,7 @@ mismatchingIdCtx =
           , node'next' = toSpooky @(Maybe NFT.Pointer) Nothing
           , node'appInstance' = toSpooky TestValues.appInstance
           }
-    ptr = NFT.Pointer . toSpooky $ AssetClass (TestValues.nftCurrencySymbol, TestValues.testTokenName)
+    ptr = NFT.Pointer . toSpooky . toSpookyAssetClass $ AssetClass (TestValues.nftCurrencySymbol, unSpookyTokenName TestValues.testTokenName)
     headDatum = NFT.HeadDatum $ NFT.NftListHead (toSpooky $ Just ptr) (toSpooky TestValues.appInstance)
 
 nftMintPolicy :: Ledger.MintingPolicy

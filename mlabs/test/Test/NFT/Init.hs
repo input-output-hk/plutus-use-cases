@@ -85,7 +85,7 @@ import Mlabs.NFT.Api (
   endpoints,
   queryEndpoints,
  )
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyAssetClass, toSpookyPubKeyHash, unSpookyPubKeyHash)
 import Mlabs.NFT.Types (
   AuctionBidParams,
   AuctionCloseParams,
@@ -128,7 +128,7 @@ callStartNft wal = do
         InitParams
           [toUserId wal]
           (5 % 1000)
-          (walletPubKeyHash wal)
+          (toSpookyPubKeyHash . walletPubKeyHash $ wal)
   callEndpoint @"app-init" hAdmin params
   waitInit
   oState <- observableState hAdmin
@@ -145,7 +145,7 @@ callStartNftFail wal = do
         InitParams
           [toUserId w5]
           (5 % 1000)
-          (walletPubKeyHash wal)
+          (toSpookyPubKeyHash . walletPubKeyHash $ wal)
   lift $ do
     hAdmin <- activateContractWallet wal adminEndpoints
     callEndpoint @"app-init" hAdmin params
@@ -325,15 +325,15 @@ artwork2 =
 mkFreeGov :: Wallet -> Integer -> Plutus.V1.Ledger.Value.Value
 mkFreeGov wal = assetClassValue (AssetClass (govCurrency, tn))
   where
-    tn = TokenName . ("freeGov" <>) . getPubKeyHash . getUserId . toUserId $ wal
+    tn = TokenName . ("freeGov" <>) . getPubKeyHash . unSpookyPubKeyHash . getUserId . toUserId $ wal
 
 govCurrency :: CurrencySymbol
-govCurrency = "b3bd3382dbf45ba1ba3e46c5b9b80febe7b47209ddacc2cc0cb1a088"
+govCurrency = "004feb05c46d98d379322a9563b717cdc8b5c872f2f7f2bc210f994d"
 
 getFreeGov :: Wallet -> Plutus.V1.Ledger.Value.Value -> Integer
 getFreeGov wal val = valueOf val govCurrency tn
   where
-    tn = TokenName . ("freeGov" <>) . getPubKeyHash . getUserId . toUserId $ wal
+    tn = TokenName . ("freeGov" <>) . getPubKeyHash . unSpookyPubKeyHash . getUserId . toUserId $ wal
 
 appSymbol :: UniqueToken
-appSymbol = AssetClass ("038ecf2f85dcb99b41d7ebfcbc0d988f4ac2971636c3e358aa8d6121", "Unique App Token")
+appSymbol = toSpookyAssetClass $ AssetClass ("038ecf2f85dcb99b41d7ebfcbc0d988f4ac2971636c3e358aa8d6121", "Unique App Token")

@@ -23,6 +23,7 @@ import Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
 
 import Mlabs.NFT.Api qualified as Contract.NFT
 import Mlabs.NFT.Contract.Init (uniqueTokenName)
+import Mlabs.NFT.Spooky (toSpookyAssetClass)
 import Mlabs.NFT.Types (UniqueToken)
 
 import Plutus.Contracts.Currency ()
@@ -55,7 +56,7 @@ instance HasDefinitions MarketplaceContracts where
     , UserContract uT
     ]
     where
-      uT = assetClass (CurrencySymbol "ff") (TokenName uniqueTokenName)
+      uT = toSpookyAssetClass $ assetClass (CurrencySymbol "ff") (TokenName uniqueTokenName)
 
   getContract = \case
     NftAdminContract -> SomeBuiltin Contract.NFT.adminEndpoints

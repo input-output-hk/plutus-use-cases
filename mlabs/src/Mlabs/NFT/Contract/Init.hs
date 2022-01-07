@@ -35,7 +35,7 @@ import Mlabs.Data.LinkedList (LList (..))
 import Mlabs.NFT.Contract.Aux (toDatum)
 import Mlabs.NFT.Governance.Types (GovAct (..), GovDatum (..), GovLHead (..))
 import Mlabs.NFT.Governance.Validation (govMintPolicy, govScrAddress, govScript)
-import Mlabs.NFT.Spooky (toSpooky, toSpookyAddress)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyAddress, toSpookyAssetClass, unSpookyAssetClass, unSpookyPubKeyHash)
 import Mlabs.NFT.Types (
   DatumNft (HeadDatum),
   GenericContract,
@@ -69,16 +69,16 @@ initApp params = do
 createListHead :: InitParams -> GenericContract NftAppInstance
 createListHead InitParams {..} = do
   uniqueToken <- generateUniqueToken
-  let govAddr = govScrAddress uniqueToken
-      scrAddr = txScrAddress uniqueToken
-  mintListHead $ NftAppInstance (toSpooky scrAddr) (toSpooky uniqueToken) (toSpooky . toSpookyAddress $ govAddr) (toSpooky ip'admins)
+  let govAddr = govScrAddress . toSpookyAssetClass $ uniqueToken
+      scrAddr = txScrAddress . toSpookyAssetClass $ uniqueToken
+  mintListHead $ NftAppInstance (toSpooky scrAddr) (toSpooky . toSpookyAssetClass $ uniqueToken) (toSpooky . toSpookyAddress $ govAddr) (toSpooky ip'admins)
   where
     -- Mint the Linked List Head and its associated token.
     mintListHead :: NftAppInstance -> GenericContract NftAppInstance
     mintListHead appInstance = do
       let -- Unique Token
           uniqueToken = appInstance'UniqueToken appInstance
-          uniqueTokenValue = assetClassValue uniqueToken 1
+          uniqueTokenValue = assetClassValue (unSpookyAssetClass uniqueToken) 1
           emptyTokenName = TokenName PlutusTx.Prelude.emptyByteString
       let -- Script Head Specific Information
           headDatum :: DatumNft = nftHeadInit appInstance
@@ -132,7 +132,7 @@ createListHead InitParams {..} = do
     govHeadInit =
       GovDatum $
         HeadLList
-          { _head'info = GovLHead ip'feeRate ip'feePkh
+          { _head'info = GovLHead ip'feeRate (unSpookyPubKeyHash ip'feePkh)
           , _head'next = Nothing
           }
 
