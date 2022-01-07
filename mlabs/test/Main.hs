@@ -1,17 +1,22 @@
 module Main (main) where
 
 import PlutusTx.Prelude
-import Prelude (IO)
+import Prelude (IO, replicate)
 
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
 
 import Test.Demo.Contract.Mint qualified as Demo.Contract.Mint
+import Test.Governance.Contract qualified as Governance.Contract
 import Test.Lending.Contract qualified as Lending.Contract
 import Test.Lending.Logic qualified as Lending.Logic
 import Test.Lending.QuickCheck qualified as Lending.QuickCheck
-import Test.Nft.Contract qualified as Nft.Contract
-import Test.Nft.Logic qualified as Nft.Logic
+import Test.NFT.Contract qualified as NFT.Contract
+import Test.NFT.QuickCheck qualified as NFT.QuickCheck
+import Test.NFT.Script.Main qualified as NFT.Script
+import Test.NFT.Size qualified as NFT.Size
+import Test.NftStateMachine.Contract qualified as Nft.Contract
+import Test.NftStateMachine.Logic qualified as Nft.Logic
 
 main :: IO ()
 main =
@@ -19,10 +24,21 @@ main =
     testGroup
       "tests"
       [ testGroup
-          "NFT"
+          "NFT - legacy"
           [ Nft.Logic.test
           , contract Nft.Contract.test
           ]
+      , testGroup
+          "NFT"
+          $ [ NFT.Size.test
+            , NFT.Script.test
+            , contract NFT.Contract.test
+            ]
+            -- HACK
+            -- Doing it this way relieves some of the time +
+            -- memory usage issues with the QuickCheck tests.
+            -- This will run 100 tests
+            <> replicate 10 (contract NFT.QuickCheck.test)
       , testGroup
           "Lending"
           [ Lending.Logic.test
@@ -31,6 +47,7 @@ main =
           ]
       , contract Lending.Contract.test
       , testGroup "Demo" [Demo.Contract.Mint.test]
+      , testGroup "Governance" [Governance.Contract.test]
       ]
   where
     contract

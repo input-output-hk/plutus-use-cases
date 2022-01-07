@@ -8,7 +8,6 @@ module Mlabs.System.Console.Utils (
 import Prelude
 
 import Control.Monad.IO.Class (MonadIO)
-import Data.ByteString.Char8 qualified as Char8
 import Plutus.V1.Ledger.Value qualified as Value
 import System.Console.ANSI (Color (Black, Cyan, Green, Red))
 
@@ -54,4 +53,5 @@ formatValue v =
     formatTokenValue (_, name, value) =
       case name of
         "" -> Pretty.padRight ' ' 7 "Ada" ++ " " ++ show value
-        (Value.TokenName n) -> Pretty.padRight ' ' 7 $ Char8.unpack n ++ " " ++ show value
+        --         (Value.TokenName n) -> Pretty.padRight ' ' 7 $ Char8.unpack n ++ " " ++ show value
+        (Value.TokenName n) -> Pretty.padRight ' ' 7 $ show n ++ " " ++ show value

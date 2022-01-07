@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 -- | Server for lendex application
 module Mlabs.Lending.Contract.Server (
   -- * Contract monads
@@ -15,28 +17,38 @@ module Mlabs.Lending.Contract.Server (
   StateMachine.LendexError,
 ) where
 
-import Prelude
+import Control.Lens ((^.))
+import Control.Monad (guard)
+import Control.Monad.State.Strict (runStateT)
 
-import Control.Monad (forever, guard)
+import Data.Bifunctor (second)
 import Data.List.Extra (firstJust)
-import Data.Map qualified as Map (elems)
-import Data.Maybe (mapMaybe)
+import Data.Map qualified as Map
 import Data.Semigroup (Last (..))
+
 import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
+import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress)
+
+import Plutus.Contract ()
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (Datum (..))
-import Plutus.V1.Ledger.Crypto (pubKeyHash)
 import Plutus.V1.Ledger.Slot (getSlot)
 import Plutus.V1.Ledger.Tx
-import PlutusTx (IsData)
+
+import PlutusTx (FromData)
 import PlutusTx.AssocMap qualified as M
 
 import Mlabs.Emulator.Types (UserId (..), ownUserId)
 import Mlabs.Lending.Contract.Api qualified as Api
 import Mlabs.Lending.Contract.Forge (currencyPolicy, currencySymbol)
 import Mlabs.Lending.Contract.StateMachine qualified as StateMachine
+import Mlabs.Lending.Logic.React qualified as React
 import Mlabs.Lending.Logic.Types qualified as Types
-import Mlabs.Plutus.Contract (getEndpoint, readDatum, selects)
+import Mlabs.Plutus.Contract (getEndpoint, readChainIndexTxDatum, readDatum', selectForever)
+import Plutus.Contract.Request qualified as Request
+
+import PlutusTx.Prelude
+import Prelude qualified as Hask
 
 -- | User contract monad
 type UserContract a = Contract.Contract () Api.UserSchema StateMachine.LendexError a
@@ -58,71 +70,70 @@ type QueryResult = Maybe (Last Types.QueryRes)
 -- | Endpoints for user
 userEndpoints :: Types.LendexId -> UserContract ()
 userEndpoints lid =
-  forever $
-    selects
-      [ act $ getEndpoint @Api.Deposit
-      , act $ getEndpoint @Api.Borrow
-      , act $ getEndpoint @Api.Repay
-      , act $ getEndpoint @Api.SwapBorrowRateModel
-      , act $ getEndpoint @Api.AddCollateral
-      , act $ getEndpoint @Api.RemoveCollateral
-      , act $ getEndpoint @Api.Withdraw
-      , act $ getEndpoint @Api.LiquidationCall
-      ]
-  where
-    act :: Api.IsUserAct a => UserContract a -> UserContract ()
-    act readInput = readInput >>= userAction lid
+  selectForever
+    [ getEndpoint @Api.Deposit $ userAction lid
+    , getEndpoint @Api.Borrow $ userAction lid
+    , getEndpoint @Api.Repay $ userAction lid
+    , getEndpoint @Api.SwapBorrowRateModel $ userAction lid
+    , getEndpoint @Api.AddCollateral $ userAction lid
+    , getEndpoint @Api.RemoveCollateral $ userAction lid
+    , getEndpoint @Api.Withdraw $ userAction lid
+    , getEndpoint @Api.LiquidationCall $ userAction lid
+    ]
+
+-- TODO fix repetition
+-- where
+-- act :: Api.IsUserAct a => UserContract a -> UserContract ()
+-- act readInput = readInput >>= userAction lid
 
 -- | Endpoints for price oracle
 oracleEndpoints :: Types.LendexId -> OracleContract ()
 oracleEndpoints lid =
-  forever $
-    selects
-      [ act $ getEndpoint @Api.SetAssetPrice
-      ]
-  where
-    act :: Api.IsPriceAct a => OracleContract a -> OracleContract ()
-    act readInput = readInput >>= priceOracleAction lid
+  selectForever
+    [ getEndpoint @Api.SetAssetPrice $ priceOracleAction lid
+    ]
 
 -- | Endpoints for admin
 adminEndpoints :: Types.LendexId -> AdminContract ()
 adminEndpoints lid = do
-  getEndpoint @Api.StartLendex >>= startLendex lid
-  forever $
-    selects
-      [ act $ getEndpoint @Api.AddReserve
-      ]
-  where
-    act :: Api.IsGovernAct a => AdminContract a -> AdminContract ()
-    act readInput = readInput >>= adminAction lid
+  Contract.toContract $ getEndpoint @Api.StartLendex $ startLendex lid
+  selectForever
+    [ getEndpoint @Api.AddReserve $ adminAction lid
+    ]
 
 {- | Endpoints for querrying Lendex state:
    * `QueryAllLendexes` - returns a list of `LendingPool` data associated with each available lendes
    * `QuerySupportedCurrencies` - returns the list of supported currencies (see `SupportedCurrency`) for current `LendingPool`
+   * `QuerryCurrentBalance` - returns a list of all the users, together with their current balances.
 -}
 queryEndpoints :: Types.LendexId -> QueryContract ()
 queryEndpoints lid =
-  forever $
-    selects
-      [ getEndpoint @Api.QueryAllLendexes >>= queryAllLendexes lid
-      , getEndpoint @Api.QuerySupportedCurrencies >> querySupportedCurrencies lid
-      ]
+  selectForever
+    [ getEndpoint @Api.QueryAllLendexes $ queryAllLendexes lid
+    , getEndpoint @Api.QuerySupportedCurrencies $ \_ -> querySupportedCurrencies lid
+    , getEndpoint @Api.QueryCurrentBalance $ queryAction lid
+    , getEndpoint @Api.QueryInsolventAccounts $ queryAction lid
+    ]
 
--- actions
+-- user actions
 
 userAction :: Api.IsUserAct a => Types.LendexId -> a -> UserContract ()
 userAction lid input = do
-  pkh <- pubKeyHash <$> Contract.ownPubKey
+  pkh <- Contract.ownPubKeyHash
   act <- getUserAct input
   inputDatum <- findInputStateDatum lid
   let lookups =
         mintingPolicy (currencyPolicy lid)
-          <> ownPubKeyHash pkh
+          Hask.<> ownPubKeyHash pkh
       constraints = mustIncludeDatum inputDatum
   StateMachine.runStepWith lid act lookups constraints
 
+-- Oracle actions
+
 priceOracleAction :: Api.IsPriceAct a => Types.LendexId -> a -> OracleContract ()
 priceOracleAction lid input = StateMachine.runStep lid =<< getPriceAct input
+
+-- Admin actions
 
 adminAction :: Api.IsGovernAct a => Types.LendexId -> a -> AdminContract ()
 adminAction lid input = StateMachine.runStep lid =<< getGovernAct input
@@ -131,9 +142,23 @@ startLendex :: Types.LendexId -> Api.StartLendex -> AdminContract ()
 startLendex lid (Api.StartLendex Types.StartParams {..}) =
   StateMachine.runInitialise lid (Types.initLendingPool (currencySymbol lid) sp'coins (fmap Types.UserId sp'admins) (fmap Types.UserId sp'oracles)) sp'initValue
 
+-- Query actions
+
+queryAction :: Api.IsQueryAct a => Types.LendexId -> a -> QueryContract ()
+queryAction lid input = do
+  (_, pool) <- findDatum lid :: QueryContract (Types.LendexId, Types.LendingPool)
+  qAction pool =<< getQueryAct input
+  where
+    qAction :: Types.LendingPool -> Types.Act -> QueryContract ()
+    qAction pool act = Contract.tell $ buildLog pool act
+
+    -- Builds the Log by running a State Machine
+    buildLog :: Types.LendingPool -> Types.Act -> QueryResult
+    buildLog pool action = either (const Nothing) fst $ runStateT (React.qReact action) pool
+
 queryAllLendexes :: Types.LendexId -> Api.QueryAllLendexes -> QueryContract ()
 queryAllLendexes lid (Api.QueryAllLendexes spm) = do
-  utxos <- Contract.utxoAt $ StateMachine.lendexAddress lid
+  utxos <- Contract.utxosAt $ StateMachine.lendexAddress lid
   Contract.tell . Just . Last . Types.QueryResAllLendexes . mapMaybe f . Map.elems $ utxos
   pure ()
   where
@@ -146,10 +171,10 @@ queryAllLendexes lid (Api.QueryAllLendexes spm) = do
       -- todo: we could check that the Coins is SartParams are a subset of the ones being dealt in now?
       pure lp
 
-    f :: TxOutTx -> Maybe (Address, Types.LendingPool)
+    f :: ChainIndexTxOut -> Maybe (Address, Types.LendingPool)
     f o = do
-      let add = txOutAddress $ txOutTxOut o
-      (dat :: (Types.LendexId, Types.LendingPool)) <- readDatum o
+      let add = o ^. ciTxOutAddress
+      (dat :: (Types.LendexId, Types.LendingPool)) <- readDatum' o
       lp <- startedWith (snd dat) spm
       pure (add, lp)
 
@@ -159,10 +184,12 @@ querySupportedCurrencies lid = do
   tellResult . getSupportedCurrencies $ pool
   where
     getSupportedCurrencies :: Types.LendingPool -> [Types.SupportedCurrency]
-    getSupportedCurrencies lp =
-      fmap
-        (\(coin, rsrv) -> Types.SupportedCurrency coin rsrv.reserve'aToken rsrv.reserve'rate)
-        (M.toList lp.lp'reserves)
+    getSupportedCurrencies Types.LendingPool {lp'reserves} =
+      fmap toSupportedCurrency (M.toList lp'reserves)
+
+    toSupportedCurrency (coin, Types.Reserve {reserve'aToken, reserve'rate}) =
+      Types.SupportedCurrency coin reserve'aToken reserve'rate
+
     tellResult = Contract.tell . Just . Last . Types.QueryResSupportedCurrencies
 
 ----------------------------------------------------------
@@ -187,6 +214,12 @@ getGovernAct act = do
   uid <- ownUserId
   pure $ Types.GovernAct uid $ Api.toGovernAct act
 
+getQueryAct :: Api.IsQueryAct a => a -> QueryContract Types.Act
+getQueryAct act = do
+  uid <- ownUserId
+  t <- getCurrentTime
+  pure $ Types.QueryAct uid t $ Api.toQueryAct act
+
 getCurrentTime :: Contract.AsContractError e => Contract.Contract w s e Integer
 getCurrentTime = getSlot <$> Contract.currentSlot
 
@@ -195,9 +228,23 @@ getCurrentTime = getSlot <$> Contract.currentSlot
 findInputStateDatum :: Types.LendexId -> UserContract Datum
 findInputStateDatum = findInputStateData
 
-findInputStateData :: IsData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError d
+findInputStateData :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError d
 findInputStateData lid = do
-  txOuts <- Map.elems <$> Contract.utxoAt (StateMachine.lendexAddress lid)
-  maybe err pure $ firstJust readDatum txOuts
+  txOuts <- Map.elems <$> Contract.utxosAt (StateMachine.lendexAddress lid)
+  maybe err pure $ firstJust readDatum' txOuts
   where
     err = Contract.throwError $ StateMachine.toLendexError "Can not find Lending app instance"
+
+-- | todo: add a unique NFT to distinguish between utxos / review logic.
+findDatum :: FromData d => Types.LendexId -> Contract.Contract w s StateMachine.LendexError (Types.LendexId, d)
+findDatum lid = do
+  txOuts <- filterTxOuts . Map.toList <$> Request.utxosTxOutTxAt (StateMachine.lendexAddress lid)
+  case txOuts of
+    [(_, [x])] -> maybe err return $ (lid,) <$> x -- only passes if there is only 1 datum instance.
+    _ -> err
+  where
+    err = Contract.throwError . StateMachine.toLendexError $ "Cannot establish correct Lending app instance."
+    filterTxOuts = filter ((== 1) . length . filter isNotNothing . snd) . fmap (second $ readChainIndexTxDatum . snd)
+    isNotNothing = \case
+      Nothing -> False
+      Just _ -> True

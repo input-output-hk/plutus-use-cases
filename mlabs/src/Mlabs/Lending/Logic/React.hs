@@ -7,12 +7,14 @@
 -- | State transitions for Aave-like application
 module Mlabs.Lending.Logic.React (
   react,
+  qReact,
 ) where
 
 import PlutusTx.Prelude
 
 import Control.Monad.Except (MonadError (throwError))
 import Control.Monad.State.Strict (MonadState (get, put), gets)
+import Data.Semigroup (Last (..))
 import PlutusTx.AssocMap qualified as M
 import PlutusTx.These (these)
 import Prelude qualified as Hask
@@ -23,7 +25,7 @@ import Mlabs.Emulator.Blockchain (Resp (Burn, Mint), moveFromTo)
 import Mlabs.Lending.Logic.InterestRate (addDeposit)
 import Mlabs.Lending.Logic.State qualified as State
 import Mlabs.Lending.Logic.Types (
-  BadBorrow (BadBorrow, badBorrow'userId),
+  BadBorrow (BadBorrow, badBorrow'asset, badBorrow'userId),
   CoinCfg (coinCfg'aToken, coinCfg'coin, coinCfg'interestModel, coinCfg'liquidationBonus, coinCfg'rate),
   CoinRate (CoinRate, coinRate'lastUpdateTime),
   InterestModel (im'optimalUtilisation, im'slope1, im'slope2),
@@ -31,9 +33,6 @@ import Mlabs.Lending.Logic.Types (
   Reserve (reserve'rate, reserve'wallet),
   User (user'health, user'lastUpdateTime, user'wallets),
   UserAct (..),
-  -- UserAct(act'rate, act'portion, act'useAsCollateral, act'asset,
-  --         act'amount, act'receiveAToken, act'debtToCover, act'debt,
-  --         act'collateral),
   UserId (Self),
   Wallet (wallet'borrow, wallet'collateral, wallet'deposit),
   adaCoin,
@@ -41,6 +40,68 @@ import Mlabs.Lending.Logic.Types (
  )
 import Mlabs.Lending.Logic.Types qualified as Types
 import PlutusTx.Ratio qualified as R
+
+-- import qualified Control.Monad.RWS.Strict as State
+-- import PlutusCore.Name (isEmpty)
+
+{-# INLINEABLE qReact #-}
+
+-- | React to query actions by using the State Machine functions.
+qReact :: Types.Act -> State.St (Maybe (Last Types.QueryRes))
+qReact input = do
+  case input of
+    Types.QueryAct uid t act -> queryAct uid t act
+    _ -> pure Nothing -- does nothing for any other type of input
+  where
+    queryAct uid time = \case
+      Types.QueryCurrentBalanceAct () -> queryCurrentBalance uid time
+      Types.QueryInsolventAccountsAct () -> queryInsolventAccounts uid time
+
+    ---------------------------------------------------------------------------------------------------------
+    -- Current Balance Query
+    queryCurrentBalance :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
+    queryCurrentBalance uid _cTime = do
+      user <- State.getUser uid
+      tWallet <- State.getAllWallets uid
+      tDeposit <- State.getTotalDeposit user
+      tCollateral <- State.getTotalCollateral user
+      tBorrow <- State.getTotalBorrow user
+      tWalletCumulativeBalance <- State.getWalletCumulativeBalance uid
+      pure . Just . Last . Types.QueryResCurrentBalance $
+        Types.UserBalance
+          { ub'id = uid
+          , ub'totalDeposit = tDeposit
+          , ub'totalCollateral = tCollateral
+          , ub'totalBorrow = tBorrow
+          , ub'cumulativeBalance = tWalletCumulativeBalance
+          , ub'funds = tWallet
+          }
+
+    ---------------------------------------------------------------------------------------------------------
+    -- Insolvent Accounts Query
+    -- Returns a list of users where the health of a coin is under 1, together
+    -- with the health of the coin. Only admins can use.
+    queryInsolventAccounts :: Types.UserId -> Integer -> State.St (Maybe (Last Types.QueryRes))
+    queryInsolventAccounts uid _cTime = do
+      State.isAdmin uid -- check user is admin
+      allUsersIds :: [UserId] <- M.keys <$> State.getAllUsers
+      allUsers :: [User] <- M.elems <$> State.getAllUsers
+      userWCoins :: [(UserId, (User, [Types.Coin]))] <-
+        fmap (zip allUsersIds . zip allUsers) $
+          sequence $ flip State.getsAllWallets M.keys <$> allUsersIds
+      insolventUsers :: [(UserId, [(Types.Coin, Rational)])] <- sequence $ fmap aux userWCoins
+      let onlyInsolventUsers = filter (not . null . snd) insolventUsers -- Remove the users with no insolvent coins.
+      pure . wrap $ uncurry Types.InsolventAccount <$> onlyInsolventUsers
+      where
+        aux :: (UserId, (User, [Types.Coin])) -> State.St (UserId, [(Types.Coin, Rational)])
+        aux = \(uId, (user, coins)) -> do
+          y <- sequence $ flip State.getCurrentHealthCheck user <$> coins
+          let coins' = fst <$> filter snd (zip coins y)
+          y' <- sequence $ flip State.getCurrentHealth user <$> coins'
+          let coins'' = zip coins' y'
+          pure $ (,) uId coins''
+
+        wrap = Just . Last . Types.QueryResInsolventAccounts
 
 {-# INLINEABLE react #-}
 
@@ -55,6 +116,7 @@ react input = do
     Types.UserAct t uid act -> withHealthCheck t $ userAct t uid act
     Types.PriceAct t uid act -> withHealthCheck t $ priceAct t uid act
     Types.GovernAct uid act -> governAct uid act
+    Types.QueryAct {} -> pure [] -- A query should produce no state modifying actions
   where
     userAct time uid = \case
       Types.DepositAct {..} -> depositAct time uid act'amount act'asset
@@ -223,8 +285,8 @@ react input = do
           , moveFromTo Self uid adaCoin adaBonus
           ]
       where
-        borrowAsset = debt.badBorrow'asset
-        borrowUserId = debt.badBorrow'userId
+        borrowAsset = badBorrow'asset debt
+        borrowUserId = badBorrow'userId debt
 
         receiveAsset aCoin
           | receiveATokens = aCoin
@@ -293,13 +355,12 @@ react input = do
 
     addReserve cfg@Types.CoinCfg {..} = do
       st <- get
-      if M.member coinCfg'coin (st.lp'reserves)
-        then throwError "Reserve is already present"
-        else do
-          let newReserves = M.insert coinCfg'coin (initReserve cfg) $ st.lp'reserves
-              newCoinMap = M.insert coinCfg'aToken coinCfg'coin $ st.lp'coinMap
-          put $ st {lp'reserves = newReserves, lp'coinMap = newCoinMap}
-          return []
+      State.guardError "Reserve is already present" $
+        M.member coinCfg'coin (lp'reserves st)
+      let newReserves = M.insert coinCfg'coin (initReserve cfg) $ lp'reserves st
+          newCoinMap = M.insert coinCfg'aToken coinCfg'coin $ lp'coinMap st
+      put $ st {lp'reserves = newReserves, lp'coinMap = newCoinMap}
+      return []
 
     ---------------------------------------------------
     -- health checks
@@ -318,7 +379,7 @@ react input = do
           us <- fmap setTimestamp . M.toList <$> gets lp'users
           pure $ fmap snd $ L.take userUpdateSpan $ L.sortOn fst us
 
-        setTimestamp (uid, user) = (user.user'lastUpdateTime - currentTime, (uid, user))
+        setTimestamp (uid, user) = (user'lastUpdateTime user - currentTime, (uid, user))
 
     updateSingleUserHealth currentTime uid = do
       user <- State.getUser uid
@@ -336,7 +397,7 @@ react input = do
             }
         )
       where
-        userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user.user'wallets
+        userBorrows = M.keys $ M.filter ((> 0) . wallet'borrow) $ user'wallets user
 
     reportUserHealth uid (asset, health)
       | health >= R.fromInteger 1 = State.modifyHealthReport $ M.delete (BadBorrow uid asset)
@@ -360,6 +421,7 @@ checkInput = \case
     checkUserAct act
   Types.PriceAct time _uid act -> checkPriceAct time act
   Types.GovernAct _uid act -> checkGovernAct act
+  Types.QueryAct {} -> pure () -- TODO think of input checks for query
   where
     checkUserAct = \case
       Types.DepositAct amount asset -> do

@@ -6,7 +6,19 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Mlabs.System.Console.PrettyLogger where
+module Mlabs.System.Console.PrettyLogger (
+  LogColor (..),
+  LogStyle (..),
+  logPretty,
+  logPrettyColor,
+  logPrettyBgColor,
+  logPrettyColorBold,
+  withNewLines,
+  logNewLine,
+  logDivider,
+  padLeft,
+  padRight,
+) where
 
 import Prelude
 
@@ -44,11 +56,12 @@ logPretty = logPrettyStyled defLogStyle
 
 logPrettyStyled :: MonadIO m => LogStyle -> String -> m ()
 logPrettyStyled style string = liftIO $ do
-  setSGR
-    ( getColorList (style.color)
-        <> getBgColorList (style.bgColor)
-        <> getConsoleIntensityList (style.isBold)
-    )
+  setSGR . foldMap ($ style) $
+    [ getColorList . color
+    , getBgColorList . bgColor
+    , getConsoleIntensityList . isBold
+    ]
+
   putStr string
   setSGR [Reset]
   where

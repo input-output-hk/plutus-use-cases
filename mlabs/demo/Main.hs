@@ -5,7 +5,7 @@ module Main (main) where
 --------------------------------------------------------------------------------
 
 import GHC.Generics
-import Prelude
+import Prelude qualified as Hask
 
 --------------------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Row (type Empty, type (.\\))
 import Data.Semigroup qualified as Semigroup
-import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
+import Prettyprinter (Pretty (..), viaShow)
 
 --------------------------------------------------------------------------------
 

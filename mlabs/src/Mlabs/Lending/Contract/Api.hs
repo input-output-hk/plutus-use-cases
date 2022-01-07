@@ -30,6 +30,8 @@ module Mlabs.Lending.Contract.Api (
   -- ** Query actions
   QueryAllLendexes (..),
   QuerySupportedCurrencies (..),
+  QueryCurrentBalance (..),
+  QueryInsolventAccounts (..),
 
   -- ** Price oracle actions
   SetAssetPrice (..),
@@ -38,6 +40,7 @@ module Mlabs.Lending.Contract.Api (
   IsUserAct (..),
   IsPriceAct (..),
   IsGovernAct (..),
+  IsQueryAct (..),
 
   -- * Schemas
   UserSchema,
@@ -166,6 +169,14 @@ newtype QuerySupportedCurrencies = QuerySupportedCurrencies ()
   deriving stock (Hask.Show, Generic)
   deriving newtype (FromJSON, ToJSON, ToSchema)
 
+newtype QueryCurrentBalance = QueryCurrentBalance ()
+  deriving stock (Hask.Show, Generic)
+  deriving newtype (FromJSON, ToJSON, ToSchema)
+
+newtype QueryInsolventAccounts = QueryInsolventAccounts ()
+  deriving stock (Hask.Show, Generic)
+  deriving newtype (FromJSON, ToJSON, ToSchema)
+
 -- price oracle actions
 
 -- | Updates for the prices of the currencies on the markets
@@ -201,6 +212,8 @@ type AdminSchema =
 type QuerySchema =
   Call QueryAllLendexes
     .\/ Call QuerySupportedCurrencies
+    .\/ Call QueryCurrentBalance
+    .\/ Call QueryInsolventAccounts
 
 ----------------------------------------------------------
 -- proxy types for ToSchema instance
@@ -236,6 +249,9 @@ class IsEndpoint a => IsPriceAct a where
 class IsEndpoint a => IsGovernAct a where
   toGovernAct :: a -> Types.GovernAct
 
+class IsEndpoint a => IsQueryAct a where
+  toQueryAct :: a -> Types.QueryAct
+
 -- user acts
 
 instance IsUserAct Deposit where toUserAct Deposit {..} = Types.DepositAct deposit'amount deposit'asset
@@ -254,6 +270,11 @@ instance IsPriceAct SetAssetPrice where toPriceAct (SetAssetPrice asset rate) = 
 -- govern acts
 
 instance IsGovernAct AddReserve where toGovernAct (AddReserve cfg) = Types.AddReserveAct cfg
+
+-- query acts
+
+instance IsQueryAct QueryCurrentBalance where toQueryAct (QueryCurrentBalance ()) = Types.QueryCurrentBalanceAct ()
+instance IsQueryAct QueryInsolventAccounts where toQueryAct (QueryInsolventAccounts ()) = Types.QueryInsolventAccountsAct ()
 
 -- endpoint names
 
@@ -295,3 +316,9 @@ instance IsEndpoint QueryAllLendexes where
 
 instance IsEndpoint QuerySupportedCurrencies where
   type EndpointSymbol QuerySupportedCurrencies = "query-supported-currencies"
+
+instance IsEndpoint QueryCurrentBalance where
+  type EndpointSymbol QueryCurrentBalance = "query-current-balance"
+
+instance IsEndpoint QueryInsolventAccounts where
+  type EndpointSymbol QueryInsolventAccounts = "query-insolvent-accounts"

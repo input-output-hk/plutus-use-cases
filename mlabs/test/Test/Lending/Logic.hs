@@ -13,7 +13,6 @@ module Test.Lending.Logic (
 ) where
 
 import PlutusTx.Prelude
-import Prelude (uncurry)
 
 import Data.Map.Strict qualified as M
 import Plutus.V1.Ledger.Crypto (PubKeyHash (..))

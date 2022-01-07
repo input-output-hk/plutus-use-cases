@@ -23,9 +23,14 @@ module Mlabs.Lending.Logic.State (
   initReserve,
   guardError,
   getWallet,
+  getAllWallets,
   getsWallet,
+  getsAllWallets,
   getUser,
   getsUser,
+  getAllUsers,
+  getsAllUsers,
+  getUsers,
   getReserve,
   getsReserve,
   toAda,
@@ -39,7 +44,9 @@ module Mlabs.Lending.Logic.State (
   getLiquidationThreshold,
   getLiquidationBonus,
   getHealth,
+  getCurrentHealthCheck,
   getHealthCheck,
+  getCurrentHealth,
   modifyUsers,
   modifyReserve,
   modifyReserveWallet,
@@ -54,10 +61,11 @@ module Mlabs.Lending.Logic.State (
   modifyHealthReport,
   getNormalisedIncome,
   getCumulativeBalance,
+  getWalletCumulativeBalance,
 ) where
 
 import PlutusTx.Prelude
-import Prelude qualified as Hask (Show, String, uncurry)
+import Prelude qualified as Hask (Show, uncurry)
 
 import Control.Monad.Except (MonadError (throwError))
 import Control.Monad.State.Strict (MonadState (get, put), gets, modify')
@@ -95,7 +103,7 @@ import Mlabs.Lending.Logic.Types qualified as Types
 import PlutusTx.Ratio qualified as R
 
 -- | Type for errors
-type Error = Hask.String
+type Error = BuiltinByteString
 
 -- | State update of lending pool
 type St = PlutusState LendingPool
@@ -135,7 +143,7 @@ isAdmin :: Types.UserId -> St ()
 isAdmin = checkRole "Is not admin" lp'admins
 
 {-# INLINEABLE checkRole #-}
-checkRole :: Hask.String -> (LendingPool -> [Types.UserId]) -> Types.UserId -> St ()
+checkRole :: BuiltinByteString -> (LendingPool -> [Types.UserId]) -> Types.UserId -> St ()
 checkRole msg extract uid = do
   users <- gets extract
   guardError msg $ elem uid users
@@ -162,6 +170,24 @@ getWallet :: Types.UserId -> Types.Coin -> St Wallet
 getWallet uid coin =
   getsUser uid (fromMaybe defaultWallet . M.lookup coin . user'wallets)
 
+-- | Get all user internal wallets.
+{-# INLINEABLE getsAllWallets #-}
+getsAllWallets :: Types.UserId -> (Map Types.Coin Wallet -> a) -> St a
+getsAllWallets uid f =
+  f <$> getAllWallets uid
+
+-- | Get all user internal wallets.
+{-# INLINEABLE getAllWallets #-}
+getAllWallets :: Types.UserId -> St (Map Types.Coin Wallet)
+getAllWallets uid =
+  getsUser uid user'wallets
+
+{-# INLINEABLE getUsers #-}
+
+-- | Get a list of all the users.
+getUsers :: St [Types.UserId]
+getUsers = M.keys <$> getAllUsers
+
 {-# INLINEABLE getsUser #-}
 
 -- | Get user info in the lending app by user id and apply extractor function to it.
@@ -173,6 +199,18 @@ getsUser uid f = fmap f $ getUser uid
 -- | Get user info in the lending app by user id.
 getUser :: Types.UserId -> St User
 getUser uid = gets (fromMaybe defaultUser . M.lookup uid . lp'users)
+
+{-# INLINEABLE getAllUsers #-}
+
+-- | Get Map of all users.
+getAllUsers :: St (Map Types.UserId User)
+getAllUsers = gets lp'users
+
+{-# INLINEABLE getsAllUsers #-}
+
+-- | Gets all users given predicate.
+getsAllUsers :: (User -> Bool) -> St (Map Types.UserId User)
+getsAllUsers f = gets (M.filter f . lp'users)
 
 {-# INLINEABLE getsReserve #-}
 
@@ -213,7 +251,7 @@ data Convert = Convert
   , -- | convert to
     convert'to :: Types.Coin
   }
-  deriving (Hask.Show)
+  deriving stock (Hask.Show)
 
 {-# INLINEABLE reverseConvert #-}
 reverseConvert :: Convert -> Convert
@@ -262,10 +300,16 @@ getTotalDeposit = walletTotal wallet'deposit
 
 {-# INLINEABLE getHealthCheck #-}
 
--- | Check that user has enough health for the given asset.
+-- | Check if the user has enough health for the given asset.
 getHealthCheck :: Integer -> Types.Coin -> User -> St Bool
 getHealthCheck addToBorrow coin user =
   fmap (> R.fromInteger 1) $ getHealth addToBorrow coin user
+
+{-# INLINEABLE getCurrentHealthCheck #-}
+
+-- | Check if the user has currently enough health for the given asset.
+getCurrentHealthCheck :: Types.Coin -> User -> St Bool
+getCurrentHealthCheck = getHealthCheck 0
 
 {-# INLINEABLE getHealth #-}
 
@@ -276,6 +320,12 @@ getHealth addToBorrow coin user = do
   bor <- fmap (+ addToBorrow) $ getTotalBorrow user
   liq <- getLiquidationThreshold coin
   pure $ R.fromInteger col N.* liq N.* R.recip (R.fromInteger bor)
+
+{-# INLINEABLE getCurrentHealth #-}
+
+-- | Check immediate borrowing health for the user by given currency
+getCurrentHealth :: Types.Coin -> User -> St Rational
+getCurrentHealth = getHealth 0
 
 {-# INLINEABLE getLiquidationThreshold #-}
 
@@ -293,7 +343,7 @@ getLiquidationBonus coin =
 
 {-# INLINEABLE modifyUsers #-}
 modifyUsers :: (Map Types.UserId User -> Map Types.UserId User) -> St ()
-modifyUsers f = modify' $ \lp -> lp {lp'users = f $ lp.lp'users}
+modifyUsers f = modify' $ \lp -> lp {lp'users = f $ lp'users lp}
 
 {-# INLINEABLE modifyReserve #-}
 
@@ -307,9 +357,11 @@ modifyReserve coin f = modifyReserve' coin (Right . f)
 modifyReserve' :: Types.Coin -> (Reserve -> Either Error Reserve) -> St ()
 modifyReserve' asset f = do
   st <- get
-  case M.lookup asset $ st.lp'reserves of
-    Just reserve -> either throwError (\x -> put $ st {lp'reserves = M.insert asset x $ st.lp'reserves}) (f reserve)
+  case M.lookup asset $ lp'reserves st of
+    Just reserve -> either throwError (putReserve st) (f reserve)
     Nothing -> throwError "Asset is not supported"
+  where
+    putReserve st x = put $ st {lp'reserves = M.insert asset x $ lp'reserves st}
 
 {-# INLINEABLE modifyUser #-}
 
@@ -323,13 +375,15 @@ modifyUser uid f = modifyUser' uid (Right . f)
 modifyUser' :: Types.UserId -> (User -> Either Error User) -> St ()
 modifyUser' uid f = do
   st <- get
-  case f $ fromMaybe defaultUser $ M.lookup uid $ lp'users st of
+  let poolUsers = lp'users st
+  case f $ fromMaybe defaultUser $ M.lookup uid poolUsers of
     Left msg -> throwError msg
-    Right user -> put $ st {lp'users = M.insert uid user $ st.lp'users}
+    Right user -> put $ st {lp'users = M.insert uid user poolUsers}
 
 {-# INLINEABLE modifyHealthReport #-}
 modifyHealthReport :: (Types.HealthReport -> Types.HealthReport) -> St ()
-modifyHealthReport f = modify' $ \lp -> lp {lp'healthReport = f $ lp.lp'healthReport}
+modifyHealthReport f =
+  modify' $ \lp -> lp {lp'healthReport = f $ lp'healthReport lp}
 
 {-# INLINEABLE modifyWalletAndReserve #-}
 
@@ -356,7 +410,7 @@ modifyReserveWallet coin f = modifyReserveWallet' coin (Right . f)
 -- | Modify reserve wallet for a given asset. It can throw errors.
 modifyReserveWallet' :: Types.Coin -> (Wallet -> Either Error Wallet) -> St ()
 modifyReserveWallet' coin f =
-  modifyReserve' coin $ \r -> fmap (\w -> r {reserve'wallet = w}) $ f $ r.reserve'wallet
+  modifyReserve' coin $ \r -> fmap (\w -> r {reserve'wallet = w}) $ f $ reserve'wallet r
 
 {-# INLINEABLE modifyWallet #-}
 
@@ -384,3 +438,11 @@ getCumulativeBalance :: Types.UserId -> Types.Coin -> St Rational
 getCumulativeBalance uid asset = do
   ni <- getNormalisedIncome asset
   getsWallet uid asset (IR.getCumulativeBalance ni)
+
+{-# INLINEABLE getWalletCumulativeBalance #-}
+getWalletCumulativeBalance :: Types.UserId -> St (Map Types.Coin Rational)
+getWalletCumulativeBalance uid = do
+  wallet <- getsAllWallets uid M.toList :: St [(Types.Coin, Wallet)]
+  coins <- return $ fst <$> wallet :: St [Types.Coin]
+  ni <- mapM getNormalisedIncome coins
+  return . M.fromList $ zip coins ni

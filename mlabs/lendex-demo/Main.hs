@@ -17,15 +17,16 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Functor (void)
 import Data.Monoid (Last (..))
 
+import Ledger.CardanoWallet (WalletNumber (..))
 import Ledger.Constraints (mustPayToPubKey)
+import Ledger.Crypto (PubKeyHash (..))
+import Ledger.Tx (getCardanoTxId)
+import Ledger.Value qualified as Value
 import Playground.Contract (TokenName, Wallet (..))
 import Plutus.Contract hiding (when)
 import Plutus.Contracts.Currency qualified as Currency
 import Plutus.PAB.Simulator qualified as Simulator
-import Plutus.V1.Ledger.Contexts (pubKeyHash)
-import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
-import Plutus.V1.Ledger.Tx (txId)
-import Plutus.V1.Ledger.Value qualified as Value
+import Wallet.Emulator.Wallet (fromWalletNumber)
 import Wallet.Emulator.Wallet qualified as Wallet
 
 import Mlabs.Lending.Contract qualified as Contract
@@ -35,6 +36,7 @@ import Mlabs.Lending.Logic.Types hiding (User (..), Wallet (..))
 import Mlabs.Plutus.PAB (call, printBalance, waitForLast)
 import Mlabs.System.Console.PrettyLogger (logNewLine)
 import Mlabs.System.Console.Utils (logAction, logMlabs)
+import Mlabs.Utils.Wallet (walletFromNumber)
 import PlutusTx.Ratio qualified as R
 
 -- | Console demo for Lendex with simulator
@@ -114,7 +116,7 @@ main = Handler.runSimulator lendexId initContract $ do
 
 initContract :: Handler.InitContract
 initContract = do
-  ownPK <- pubKeyHash <$> ownPubKey
+  ownPK <- ownPubKeyHash
   logInfo @String "Start forge"
   cur <-
     mapError
@@ -134,10 +136,10 @@ initContract = do
     toVal cs tn = Value.singleton cs tn amount
 
     giveTo ownPK w v = do
-      let pkh = pubKeyHash $ Wallet.walletPubKey w
+      let pkh = Wallet.walletPubKeyHash w
       when (pkh /= ownPK) $ do
         tx <- submitTx $ mustPayToPubKey pkh v
-        awaitTxConfirmed $ txId tx
+        awaitTxConfirmed $ getCardanoTxId tx
 
 -----------------------------------------------------------------------
 -- activate handlers
@@ -147,7 +149,7 @@ activateInit wal = do
   wid <- Simulator.activateContract wal Handler.Init
   cur <- waitForLast wid
   void $ Simulator.waitUntilFinished wid
-  pure cur
+  return cur
 
 activateAdmin :: Wallet -> Handler.Sim ContractInstanceId
 activateAdmin wal = Simulator.activateContract wal Handler.Admin
@@ -166,10 +168,10 @@ lendexId = LendexId "lendex"
 
 -- | Wallets that are used for testing.
 wAdmin, w1, w2, w3 :: Wallet
-wAdmin = Wallet 4
-w1 = Wallet 1
-w2 = Wallet 2
-w3 = Wallet 3
+wAdmin = walletFromNumber 4
+w1 = walletFromNumber 1
+w2 = walletFromNumber 2
+w3 = walletFromNumber 3
 
 wallets :: [Wallet]
 wallets = [w1, w2, w3]
@@ -215,4 +217,4 @@ toCoin cur tn = Value.AssetClass (cur, tn)
 -- utils
 
 toPubKeyHash :: Wallet -> PubKeyHash
-toPubKeyHash = pubKeyHash . Wallet.walletPubKey
+toPubKeyHash = Wallet.walletPubKeyHash

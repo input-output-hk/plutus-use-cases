@@ -1,63 +1,138 @@
-# NFT Contract Specification
+# Endpoints Documentation
 
-This project adapts the Ethereum-style approach to NFTs as a digital certificate of authenticity or ownership, it allows a creator to make a digital asset representing some artwork, then sell the asset, and for owners of the asset to be confirmed.
+This document describes endpoints available in NFT markterplace application.
 
-ownership can only be transferred through the contract, so when the asset is re-sold, a royalty to the artist can be enforced
+## Admin endpoints
 
-## Author Contract
+### App Init (`app-init`)
 
-### StartParams
+prerequisite:
+- none
 
-prerequisite: none
+input: none
 
-input:
-Mlabs.Nft.Contract.Api.StartParams
-(content, share, price)
+behaviour: Starts NFT marketplace application, mintes HEAD and unique token.
 
-behavior:
-instantiates the 'User' Contract, which represents an asset described by `content`
-the author is set to the original owner 
-the entire `StartParams` will need to be kept as some internal state to be referenced/updated, along with the author and the current owner
+## User endpoints
 
-if the price is Nothing - then the NFT is not for sale and the user must call `SetPrice` to allow sales.
+### Mint (`mint`)
 
-## User Contract
+prerequisite:
+- App is initialised
+- NFT was not minted before
 
-all endpoints on this contract presume that AuthorContract.StartParams has been called. 
+input: Mlabs.NFT.Types.MintParams
 
-### SetPrice
+behaviour: Mints new NFT. If the price is `Nothing` then the NFT is not for sale
+and the owner must call `set-price` to allow sales.
 
-prerequiste: none beyond contract instantiation
-must be the current owner
+### Set price (`set-price`)
 
-input:
-Mlabs.Nft.Contract.Api.SetPrice
+prerequisite:
+- App is initialised
+- User must be current owner
+- NFT is not on auction
 
-behavior:  
-updates the `price` parameter needed for the `Buy` endpoint
+input: Mlabs.NFT.Types.SetPriceParams
 
-### Buy
+behaviour: updates the `info'price` parameter
 
-prerequisite: user must have the necessary ada in their wallet
-the current asking price specified by a call to either `StartParams` or `SetPrice` must be a Just.   if it is a Nothing, then the asset is not for sale.
+### Buy (`buy`)
 
-input:
-Mlabs.Nft.Contract.Api.Buy
-(price, newprice)
+prerequisite:
+- App is initialised
+- User must have necessary ADA in wallet
+- `info'price` parameter is not `Nothing`
 
-behavior:
+input: Mlabs.NFT.Types.BuyRequestUser
 
-if the Buy.price is greater than or equal to the asking price, the user's wallet will be reduced by Buy.Price Ada (the contract must fail if the user has less than the specified Buy.price)
-the funds sent by the caller ('the buyer') are split such that (`share` * `price` parameter amount) is sent to the author, and the remainder is sent to the current owner.
+behaviour:
 
-for example, if the author set a share to 1/10, and the buyer paid 100 ada,  the authoer would receive 10 ada and the owner would receive the rest.
-the owner is set to the caller if the above is successful
-the asking price is set to the Buy.newprice
+If the `BuyRequestUser.ur'price` is greater than or equal to the asking price,
+the user's wallet will be reduced by Buy.Price ADA (the contract must fail if
+the user has less than the specified Buy.price) the funds sent by the caller
+('the buyer') are split such that (`share` * `price` parameter amount) is sent
+to the author, and the remainder is sent to the current owner.
 
-### QueryCurrentOwner
+For example, if the author set a share to 1/10, and the buyer paid 100 ADA, the
+author would receive 10 ADA and the owner would receive the rest. The owner is
+set to the caller if the above is successful the asking price is set to the
+`BuyRequestUser.ur'newPrice`.
 
-Returns the address of the current owner
+### Auction open (`auction-open`)
 
-### QueryCurrentPrice
+prerequisite:
+- App is initialised
+- User must be current owner
+- NFT is not on auction
+- `as'minBid` is greater or equal to 2 ADA
 
-Returns the current `price` parameter so that a potential buyer can purchase the item.
+input: Mlabs.NFT.Types.AuctionOpenParams
+
+behaviour:
+
+Sets the `info'price` parameter to `Nothing` (NFT is no longer for sale), and sets `info'auctionState` to `Just` starting an auction.
+
+### Auction bid (`auction-bid`)
+
+prerequisite:
+- App is initialised
+- NFT is on auction
+- Bid (`bp'bidAmount`) is higher than `as'minBid`
+- Bid is higher than `as'highesBid`, when `as'highesBid` is `Just`
+- `as'deadline` is not reached
+
+input: Mlabs.NFT.Types.AuctionBidParams
+
+behaviour:
+Bid amount is lock in the script, previous bid is sent back, updates `as'highesBid`
+
+### Auction close (`auction-close`)
+
+prerequisite:
+- App is initialised
+- NFT is on auction
+- User is auction winner
+
+input: Mlabs.NFT.Types.AuctionCloseParams
+
+behaviour: NFT is sent to user, Highest bid is unlocked from script and paid to
+previous owner and author, as described in `buy` endpoint.
+
+## Query endpoints
+
+### Query Current Price (`query-current-owner`)
+
+prerequisite:
+- App is initialised
+
+input: Mlabs.NFT.Types.NftId
+
+behaviour: Returns current price of NFT.
+
+### Query Current Owner (`query-current-price`)
+
+prerequisite:
+- App is initialised
+
+input: Mlabs.NFT.Types.NftId
+
+behaviour: Returns current owner of NFT.
+
+### Query List Nfts (`query-list-nfts`)
+
+prerequisite:
+- App is initialised
+
+input: None
+
+behaviour: Returns list of all NFTs available in the app.
+
+### Query Content (`query-content`)
+
+prerequisite:
+- App is initialised
+
+input: Mlabs.NFT.Types.Content
+
+behaviour: Returns status of NFT given content.

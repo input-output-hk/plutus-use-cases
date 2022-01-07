@@ -32,10 +32,9 @@ import Prelude
 
 import Control.Lens ((&), (.~))
 import Data.Map qualified as M
-import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, walletPubKey)
+import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, walletPubKeyHash)
 import Plutus.Trace.Emulator (EmulatorTrace, initialChainState)
 import Plutus.V1.Ledger.Ada qualified as Ada
-import Plutus.V1.Ledger.Contexts (pubKeyHash)
 import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Plutus.V1.Ledger.Value (TokenName, Value)
 import Plutus.V1.Ledger.Value qualified as Value
@@ -44,22 +43,23 @@ import Mlabs.Lending.Contract.Emulator.Client qualified as L
 import Mlabs.Lending.Contract.Forge (currencySymbol)
 import Mlabs.Lending.Logic.App qualified as L
 import Mlabs.Lending.Logic.Types (Coin, LendexId (..), UserAct (..), UserId (..))
+import Mlabs.Utils.Wallet (walletFromNumber)
 
 checkOptions :: CheckOptions
 checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left initialDistribution
 
 -- | Wallets that are used for testing.
 wAdmin, w1, w2, w3 :: Wallet
-wAdmin = Wallet 50
-w1 = Wallet 1
-w2 = Wallet 2
-w3 = Wallet 3
+w1 = walletFromNumber 1
+w2 = walletFromNumber 2
+w3 = walletFromNumber 3
+wAdmin = walletFromNumber 4
 
 toUserId :: Wallet -> UserId
-toUserId = UserId . pubKeyHash . walletPubKey
+toUserId = UserId . walletPubKeyHash
 
 toPubKeyHash :: Wallet -> PubKeyHash
-toPubKeyHash = pubKeyHash . walletPubKey
+toPubKeyHash = walletPubKeyHash
 
 -- | Identifier for our lendex platform
 lendexId :: LendexId

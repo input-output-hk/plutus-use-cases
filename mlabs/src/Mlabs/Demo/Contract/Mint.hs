@@ -32,7 +32,7 @@ module Mlabs.Demo.Contract.Mint (
 import PlutusTx.Prelude hiding (Semigroup (..))
 import Prelude (Semigroup (..))
 
-import Control.Monad (void)
+import Control.Monad (forever, void)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import Data.Void (Void)
@@ -40,7 +40,7 @@ import GHC.Generics (Generic)
 import Ledger qualified
 import Ledger.Ada qualified as Ada
 import Ledger.Constraints qualified as Constraints
-import Ledger.Contexts (ScriptContext, TxInfo, TxOut, scriptContextTxInfo, txInfoForge, txInfoOutputs, txOutAddress, txOutValue)
+import Ledger.Contexts (ScriptContext, TxInfo, TxOut, scriptContextTxInfo, txInfoMint, txInfoOutputs, txOutAddress, txOutValue)
 import Ledger.Scripts (Datum (Datum), MintingPolicy, mkMintingPolicyScript)
 import Ledger.Typed.Scripts qualified as Scripts
 import Ledger.Value (CurrencySymbol, TokenName)
@@ -70,7 +70,7 @@ mkPolicy burnAddr _ ctx =
     outputs = txInfoOutputs txInfo
 
     forged :: [(CurrencySymbol, TokenName, Integer)]
-    forged = Value.flattenValue $ txInfoForge txInfo
+    forged = Value.flattenValue $ txInfoMint txInfo
 
     forgedQty :: Integer
     forgedQty = foldr (\(_, _, amt) acc -> acc + amt) 0 forged
@@ -109,17 +109,16 @@ data MintParams = MintParams
   { mpTokenName :: !TokenName
   , mpAmount :: !Integer
   }
-  deriving (Generic, ToJSON, FromJSON, ToSchema)
+  deriving stock (Generic)
+  deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 type MintSchema =
   Endpoint "mint" MintParams
 
 -- | Generates tokens with the specified name/amount and burns an equal amount of Ada.
 mintContract :: MintParams -> Contract w MintSchema Text ()
-mintContract mp = do
-  let tn = mp.mpTokenName
-      amt = mp.mpAmount
-      payVal = Ada.lovelaceValueOf $ amt * tokenToLovelaceXR
+mintContract (MintParams tn amt) = do
+  let payVal = Ada.lovelaceValueOf $ amt * tokenToLovelaceXR
       forgeVal = Value.singleton curSymbol tn amt
       lookups = Constraints.mintingPolicy curPolicy
       tx =
@@ -129,7 +128,10 @@ mintContract mp = do
           payVal
           <> Constraints.mustMintValue forgeVal
   ledgerTx <- submitTxConstraintsWith @Void lookups tx
-  void $ awaitTxConfirmed $ Ledger.txId ledgerTx
+  void $ awaitTxConfirmed $ Ledger.getCardanoTxId ledgerTx
 
 mintEndpoints :: Contract () MintSchema Text ()
-mintEndpoints = mint >> mintEndpoints where mint = endpoint @"mint" >>= mintContract
+-- mintEndpoints = mint >> mintEndpoints where mint = endpoint @"mint" >>= mintContract
+mintEndpoints = forever mint
+  where
+    mint = toContract $ endpoint @"mint" mintContract

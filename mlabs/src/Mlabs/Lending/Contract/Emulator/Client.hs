@@ -4,6 +4,7 @@ module Mlabs.Lending.Contract.Emulator.Client (
   callPriceAct,
   callGovernAct,
   callStartLendex,
+  callQueryAct,
   queryAllLendexes,
 ) where
 
@@ -35,11 +36,19 @@ callUserAct lid wal act = do
     Types.AddCollateralAct {..} -> callEndpoint' hdl $ Api.AddCollateral add'asset add'amount
     Types.RemoveCollateralAct {..} -> callEndpoint' hdl $ Api.RemoveCollateral remove'asset remove'amount
     Types.WithdrawAct {..} -> callEndpoint' hdl $ Api.Withdraw act'amount act'asset
-    Types.FlashLoanAct -> pure ()
+    Types.FlashLoanAct -> pure () -- todo
     Types.LiquidationCallAct {..} ->
       case act'debt of
         Types.BadBorrow (Types.UserId pkh) asset -> callEndpoint' hdl $ Api.LiquidationCall act'collateral pkh asset act'debtToCover act'receiveAToken
         _ -> throwError $ GenericError "Bad borrow has wrong settings"
+
+-- | Calls query act
+callQueryAct :: Types.LendexId -> Emulator.Wallet -> Types.QueryAct -> EmulatorTrace ()
+callQueryAct lid wal act = do
+  hdl <- activateContractWallet wal (queryEndpoints lid)
+  void $ case act of
+    Types.QueryCurrentBalanceAct () -> callEndpoint' hdl $ Api.QueryCurrentBalance ()
+    Types.QueryInsolventAccountsAct () -> callEndpoint' hdl $ Api.QueryInsolventAccounts ()
 
 -- | Calls price oracle act
 callPriceAct :: Types.LendexId -> Emulator.Wallet -> Types.PriceAct -> EmulatorTrace ()
@@ -64,10 +73,16 @@ callStartLendex lid wal sl = do
 -- todo: make a better query dispatch if the number of queries grows
 
 -- | Queries for all Lendexes started  with given StartParams
-queryAllLendexes :: Types.LendexId -> Emulator.Wallet -> Api.QueryAllLendexes -> EmulatorTrace [(Address, Types.LendingPool)]
+queryAllLendexes ::
+  Types.LendexId ->
+  Emulator.Wallet ->
+  Api.QueryAllLendexes ->
+  EmulatorTrace [(Address, Types.LendingPool)]
 queryAllLendexes lid wal spm = do
   hdl <- activateContractWallet wal (queryEndpoints lid)
   void $ callEndpoint @"query-all-lendexes" hdl spm
   ls' <- observableState hdl
-  let Just (Last (Types.QueryResAllLendexes ls)) = ls'
-  pure ls
+  case ls' of
+    Just (Last (Types.QueryResAllLendexes ls)) ->
+      pure ls
+    _ -> throwError $ GenericError "Lendexes not found"

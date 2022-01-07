@@ -2,9 +2,9 @@ name: Lint
 
 on:
   push:
-    branches: [ main, staging ]
+    branches: [main, staging]
   pull_request:
-    branches: [ main, staging ]
+    branches: [main, staging]
   workflow_dispatch:
 
 jobs:
@@ -12,16 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
-      - uses: actions/cache@v2.1.4
-        name: Cache Stack
+      - uses: cachix/install-nix-action@v13
+        name: Set up nix
         with:
-          path: ~/.stack
-          key: ${{ runner.os }}-stack-lint
-          restore-keys: ${{ runner.os }}-stack-
+          extra_nix_config: experimental-features = nix-command flakes
 
-      - run: stack install hlint
-        name: Setup
-
-      - run: ~/.local/bin/hlint $(git ls-tree -r HEAD --full-tree --name-only | grep -E '.*\.hs')
+      - run: |
+          nix shell nixpkgs#haskellPackages.hlint -c hlint \
+            $(git ls-tree -r HEAD --full-tree --name-only | grep -E '.*\.hs')
         name: Lint
