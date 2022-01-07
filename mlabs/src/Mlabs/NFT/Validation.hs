@@ -138,7 +138,7 @@ mkMintPolicy !appInstance !act !ctx =
   case act of
     mintAct@Mint {} ->
       traceIfFalse' "Only pointer of first node can change." firstChangedOnlyPtr
-        && traceIfFalse' "Exactly one NFT must be minted" (checkMintedAmount . mint'nftId $ mintAct)
+        && pkh (checkMintedAmount . mint'nftId $ mintAct)
         && traceIfFalse' "Old first node must point to second node." (first `pointsTo'` second)
         && traceIfFalse' "New first node must point to new node." (newFirst `pointsTo` newInserted)
         && traceIfFalse' "New node must point to second node." (newInserted `pointsTo'` second)

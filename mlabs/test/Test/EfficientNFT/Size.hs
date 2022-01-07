@@ -6,7 +6,7 @@ import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Plutus.Script.Size (fitsOnChain)
 import Prelude (String)
 
-import Mlabs.NFT.Validation (mkTxPolicy)
+import Mlabs.EfficientNFT.Token (mkPolicy)
 
 test :: TestTree
 test = testGroup "Size" [testFitOnChain]
@@ -18,4 +18,4 @@ scriptName :: String
 scriptName = "NFT marketplace"
 
 script :: Script
-script = fromCompiledCode $$(PlutusTx.compile [||mkTxPolicy||])
+script = fromCompiledCode $$(PlutusTx.compile [||mkPolicy||]) 
