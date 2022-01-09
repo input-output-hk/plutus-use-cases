@@ -11,8 +11,6 @@ module Mlabs.EfficientNFT.Token (
 ) where
 
 import Data.Binary qualified as Binary
-import Data.ByteString (ByteString)
-import Data.ByteString qualified as ByteString
 import Data.ByteString.Lazy (toStrict)
 import Ledger (
   ScriptContext,
@@ -31,16 +29,17 @@ import Ledger (
  )
 import Ledger.Ada qualified as Ada
 import Ledger.Crypto (PubKeyHash (PubKeyHash))
-import Ledger.Typed.Scripts (MintingPolicy, wrapMintingPolicy)
 import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
-import Plutus.V1.Ledger.Scripts qualified as Scripts
 import PlutusTx qualified
 import PlutusTx.Builtins (BuiltinByteString, sha2_256, toBuiltin)
 import PlutusTx.Enum (Enum (fromEnum))
 import PlutusTx.Natural (Natural)
 import PlutusTx.Trace (traceIfFalse)
 import Prelude hiding (Enum (fromEnum))
+
+-- import Ledger.Typed.Scripts (MintingPolicy, wrapMintingPolicy)
+-- import Plutus.V1.Ledger.Scripts qualified as Scripts
 
 data OwnerData = OwnerData
   { odOwnerPkh :: !PubKeyHash
@@ -66,7 +65,7 @@ PlutusTx.unstableMakeIsData ''MintAct
 mkPolicy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> MintAct -> ScriptContext -> Bool
 mkPolicy oref authorPkh royalty platformConfig mintAct ctx =
   case mintAct of
-    MintToken (OwnerData ownerPkh price) contentHash ->
+    MintToken (OwnerData ownerPkh price) _ ->
       traceIfFalse "UTXo specified as the parameter must be consumed" checkConsumedUtxo
         && traceIfFalse "Exactly one NFT must be minted" checkMintedAmount
         && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
@@ -74,18 +73,18 @@ mkPolicy oref authorPkh royalty platformConfig mintAct ctx =
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
           (checkTokenName ownerPkh price)
-    -- price
-    ChangePrice (OwnerData ownerPkh price) newPrice ->
+    ChangePrice (OwnerData ownerPkh _) newPrice ->
       traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
           (checkTokenName ownerPkh newPrice)
-    -- checkBurnOld
+        && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
     ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
       traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
           (checkTokenName newOwnerPkh price)
+        && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
         && traceIfFalse
           "Royalties must be paid to the author and the marketplace when selling the NFT"
           (checkRoyaltyPaid price)
@@ -106,16 +105,17 @@ mkPolicy oref authorPkh royalty platformConfig mintAct ctx =
       [(cs, _, amt)] -> cs == ownCurrencySymbol ctx && amt == 1
       _ -> False
 
+    -- Check if the old token is burnt
     checkBurnOld =
       let outVal = mconcat $ map txOutValue $ txInfoOutputs info
           inVal = mconcat $ map (txOutValue . txInInfoResolved) $ txInfoInputs info
           oneInput =
             case filter (\(cs, _, _) -> cs == ownCurrencySymbol ctx) $ Value.flattenValue inVal of
-              [(_, oldTokenName, amt)] -> amt == 1
+              [(_, _, amt)] -> amt == 1
               _ -> False
           oneOutput =
             case filter (\(cs, _, _) -> cs == ownCurrencySymbol ctx) $ Value.flattenValue outVal of
-              [(_, tokenName, amt)] -> amt == 1
+              [(_, _, amt)] -> amt == 1
               _ -> False
        in oneInput && oneOutput
 
