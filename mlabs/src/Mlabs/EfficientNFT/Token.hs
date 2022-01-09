@@ -56,16 +56,26 @@ data PlatformConfig = PlatformConfig
 PlutusTx.unstableMakeIsData ''PlatformConfig
 
 data MintAct
-  = MintToken OwnerData BuiltinByteString
+  = MintToken OwnerData
   | ChangePrice OwnerData Natural
   | ChangeOwner OwnerData PubKeyHash
 
 PlutusTx.unstableMakeIsData ''MintAct
 
-mkPolicy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> MintAct -> ScriptContext -> Bool
-mkPolicy oref authorPkh royalty platformConfig mintAct ctx =
+type ContentHash = BuiltinByteString
+
+mkPolicy ::
+  TxOutRef ->
+  PubKeyHash ->
+  Natural ->
+  PlatformConfig ->
+  ContentHash ->
+  MintAct ->
+  ScriptContext ->
+  Bool
+mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
   case mintAct of
-    MintToken (OwnerData ownerPkh price) _ ->
+    MintToken (OwnerData ownerPkh price) ->
       traceIfFalse "UTXo specified as the parameter must be consumed" checkConsumedUtxo
         && traceIfFalse "Exactly one NFT must be minted" checkMintedAmount
         && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
