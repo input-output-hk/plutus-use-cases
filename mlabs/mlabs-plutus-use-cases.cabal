@@ -115,6 +115,7 @@ library
     Mlabs.Deploy.Utils
     Mlabs.EfficientNFT.Types
     Mlabs.EfficientNFT.Contract.Aux
+    Mlabs.EfficientNFT.Contract.ChangeOwner
     Mlabs.EfficientNFT.Contract.SetPrice
     Mlabs.EfficientNFT.Contract.Mint
     Mlabs.EfficientNFT.Token

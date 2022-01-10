@@ -22,7 +22,7 @@ mint :: PlatformConfig -> MintParams -> UserContract ()
 mint pc mp = do
   pkh <- Contract.ownPubKeyHash
   (utxo, utxoIndex) <- getFirstUtxo
-  let policy' = policy utxo pkh (mp'price mp) pc (getContent . mp'content $ mp)
+  let policy' = policy utxo pkh (mp'share mp) pc (getContent . mp'content $ mp)
       curr = scriptCurrencySymbol policy'
       tn = mkTokenName pkh (mp'price mp)
       nftValue = singleton curr tn 1
@@ -39,5 +39,13 @@ mint pc mp = do
           , Constraints.mustBeSignedBy pkh
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
-  Contract.tell . Hask.pure $ NftId (assetClass curr tn) policy'
+  Contract.tell . Hask.pure $
+    NftId
+      { nftId'assetClass = assetClass curr tn
+      , nftId'policy = policy'
+      , nftId'price = mp'price mp
+      , nftId'owner = pkh
+      , nftId'author = pkh
+      , nftId'authorShare = mp'share mp
+      }
   Contract.logInfo @Hask.String $ printf "Mint successful: %s" (Hask.show $ assetClass curr tn)

@@ -39,5 +39,13 @@ setPrice _ sp = do
           , Constraints.mustBeSignedBy pkh
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
-  Contract.tell . Hask.pure $ NftId (assetClass curr tn) policy'
+  Contract.tell . Hask.pure $
+    NftId
+      { nftId'assetClass = assetClass curr tn
+      , nftId'policy = policy'
+      , nftId'price = sp'price sp
+      , nftId'owner = pkh
+      , nftId'author = nftId'author . sp'nftId $ sp
+      , nftId'authorShare = nftId'authorShare . sp'nftId $ sp
+      }
   Contract.logInfo @Hask.String $ printf "Set price successful: %s" (Hask.show $ assetClass curr tn)
