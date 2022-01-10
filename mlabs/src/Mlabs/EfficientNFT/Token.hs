@@ -13,9 +13,11 @@ module Mlabs.EfficientNFT.Token (
 import Data.Binary qualified as Binary
 import Data.ByteString.Lazy (toStrict)
 import Ledger (
+  Datum (Datum),
   ScriptContext,
   TxOut (TxOut),
   TxOutRef,
+  datumHash,
   ownCurrencySymbol,
   pubKeyHashAddress,
   scriptContextTxInfo,
@@ -50,7 +52,8 @@ PlutusTx.unstableMakeIsData ''OwnerData
 
 data PlatformConfig = PlatformConfig
   { pcMarketplacePkh :: !PubKeyHash
-  , pcMarketplaceShare :: !Natural
+  , -- | % share of the marketplace multiplied by 100
+    pcMarketplaceShare :: !Natural
   }
 
 PlutusTx.unstableMakeIsData ''PlatformConfig
@@ -129,7 +132,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
               _ -> False
        in oneInput && oneOutput
 
-    -- Check that royalties are correctly paid
+    -- Check that royalties are correctly paid, and the payment utxos have the correct datum attached
     checkRoyaltyPaid price =
       let outs = txInfoOutputs info
           price' = fromEnum price
@@ -139,10 +142,15 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           authorAddr = pubKeyHashAddress authorPkh
           authorShare = Ada.lovelaceValueOf $ price' * 10000 `div` royalty'
 
+          !curSymDH = datumHash $ Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
+
           marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig)
           marketplShare = Ada.lovelaceValueOf $ price' * 10000 `div` mpShare
-       in any (\(TxOut addr val _) -> addr == authorAddr && val == authorShare) outs
-            && any (\(TxOut addr val _) -> addr == marketplAddr && val == marketplShare) outs
+
+          checkPaymentTxOut addr val (TxOut addr' val' dh) =
+            addr == addr' && val == val' && dh == Just curSymDH
+       in any (checkPaymentTxOut authorAddr authorShare) outs
+            && any (checkPaymentTxOut marketplAddr marketplShare) outs
 
 {-# INLINEABLE mkTokenName #-}
 mkTokenName :: PubKeyHash -> Natural -> TokenName
