@@ -113,6 +113,7 @@ library
     Mlabs.Deploy.Governance
     Mlabs.Deploy.Nft
     Mlabs.Deploy.Utils
+    Mlabs.EfficientNFT.Api
     Mlabs.EfficientNFT.Types
     Mlabs.EfficientNFT.Contract.Aux
     Mlabs.EfficientNFT.Contract.ChangeOwner
