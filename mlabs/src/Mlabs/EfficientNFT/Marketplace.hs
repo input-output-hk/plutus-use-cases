@@ -1,6 +1,4 @@
-
 {-# LANGUAGE ImportQualifiedPost #-}
-
 
 module Mlabs.EfficientNFT.Marketplace (
   mkPolicy,

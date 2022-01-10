@@ -3,7 +3,8 @@ module Mlabs.EfficientNFT.Types (
   UserContract,
   Content (..),
   MintParams (..),
-  NftId(..),
+  NftId (..),
+  SetPriceParams (..),
 ) where
 
 import PlutusTx qualified
@@ -16,10 +17,10 @@ import Data.Text (Text)
 import GHC.Generics (Generic)
 import Mlabs.NFT.PAB.MarketplaceContract (MarketplaceContracts (UserContract))
 import Plutus.Contract (Contract)
+import Plutus.V1.Ledger.Api (MintingPolicy)
 import Plutus.V1.Ledger.Value (AssetClass)
 import PlutusTx.Natural (Natural)
 import Schema (ToSchema (toSchema))
-import Plutus.V1.Ledger.Api (MintingPolicy)
 
 newtype Content = Content {getContent :: BuiltinByteString}
   deriving stock (Hask.Show, Generic, Hask.Eq)
@@ -38,6 +39,7 @@ data MintParams = MintParams
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
+
 PlutusTx.unstableMakeIsData ''MintParams
 PlutusTx.makeLift ''MintParams
 
@@ -48,6 +50,14 @@ data NftId = NftId
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
 
+data SetPriceParams = SetPriceParams
+  { -- | Token which price is set.
+    sp'nftId :: NftId
+  , -- | New price, in Lovelace.
+    sp'price :: Natural
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving anyclass (FromJSON, ToJSON)
 
 type GenericContract a = forall w s. Contract w s Text a
 type UserContract a = forall s. Contract (Last NftId) s Text a
