@@ -1,6 +1,6 @@
-{-# LANGUAGE BangPatterns #-}
+
 {-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE TypeApplications #-}
+
 
 module Mlabs.EfficientNFT.Marketplace (
   mkPolicy,

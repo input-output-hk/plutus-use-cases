@@ -7,13 +7,15 @@ module Mlabs.EfficientNFT.Token (
   MintAct (MintToken, ChangePrice, ChangeOwner),
   OwnerData (..),
   PlatformConfig (..),
-  -- policy,
+  policy,
+  mkTokenName,
 ) where
 
 import Data.Binary qualified as Binary
 import Data.ByteString.Lazy (toStrict)
 import Ledger (
   Datum (Datum),
+  MintingPolicy,
   ScriptContext,
   TxOut (TxOut),
   TxOutRef,
@@ -157,7 +159,9 @@ mkTokenName :: PubKeyHash -> Natural -> TokenName
 mkTokenName (PubKeyHash pkh) price =
   TokenName $ sha2_256 $ pkh <> toBuiltin (toStrict (Binary.encode (fromEnum price)))
 
--- policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> MintingPolicy
+policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
+policy = error "TODO"
+
 -- policy oref authorPkh royalty platformConfig =
 --   Scripts.mkMintingPolicyScript $
 --     $$(PlutusTx.compile [||\oref' pkh roy pc -> wrapMintingPolicy $ mkPolicy oref' pkh roy pc ||])
