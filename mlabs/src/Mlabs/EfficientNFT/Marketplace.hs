@@ -16,6 +16,7 @@ import Ledger.Value qualified as Value
 import PlutusTx.Prelude
 
 -- | An escrow-like validator, that holds an NFT until sold or pulled out
+{-# INLINEABLE mkValidator #-}
 mkValidator :: BuiltinData -> ScriptContext -> Bool
 mkValidator _ ctx =
   traceIfFalse "Tokens can only be redeemed when the policy allows a remint" checkRemint
