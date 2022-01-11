@@ -15,18 +15,13 @@ import Data.ByteString.Lazy (toStrict)
 import Ledger (
   Datum (Datum),
   ScriptContext,
-  TxOut (TxOut),
+  TxInInfo (txInInfoOutRef, txInInfoResolved),
+  TxInfo (txInfoData, txInfoInputs, txInfoMint, txInfoOutputs),
+  TxOut (TxOut, txOutValue),
   TxOutRef,
-  datumHash,
   ownCurrencySymbol,
   pubKeyHashAddress,
   scriptContextTxInfo,
-  txInInfoOutRef,
-  txInInfoResolved,
-  txInfoInputs,
-  txInfoMint,
-  txInfoOutputs,
-  txOutValue,
   txSignedBy,
  )
 import Ledger.Ada qualified as Ada
@@ -142,13 +137,14 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           authorAddr = pubKeyHashAddress authorPkh
           authorShare = Ada.lovelaceValueOf $ price' * 10000 `div` royalty'
 
-          !curSymDH = datumHash $ Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
-
           marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig)
           marketplShare = Ada.lovelaceValueOf $ price' * 10000 `div` mpShare
 
+          !curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
+          !datums = txInfoData info
+
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
-            addr == addr' && val == val' && dh == Just curSymDH
+            addr == addr' && val == val' && (dh >>= (`lookup` datums)) == Just curSymDatum
        in any (checkPaymentTxOut authorAddr authorShare) outs
             && any (checkPaymentTxOut marketplAddr marketplShare) outs
 
