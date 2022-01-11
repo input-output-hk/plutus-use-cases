@@ -93,10 +93,9 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           (checkTokenName ownerPkh newPrice)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
     ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
-      traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
-        && traceIfFalse
-          "Token name must be the hash of the owner pkh and the price"
-          (checkTokenName newOwnerPkh price)
+      traceIfFalse
+        "Token name must be the hash of the owner pkh and the price"
+        (checkTokenName newOwnerPkh price)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
         && traceIfFalse
           "Royalties must be paid to the author and the marketplace when selling the NFT"
