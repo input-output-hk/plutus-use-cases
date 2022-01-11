@@ -7,6 +7,7 @@ import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
 
 import Test.Demo.Contract.Mint qualified as Demo.Contract.Mint
+import Test.EfficientNFT.Size qualified as ENFT.Size
 import Test.Governance.Contract qualified as Governance.Contract
 import Test.Lending.Contract qualified as Lending.Contract
 import Test.Lending.Logic qualified as Lending.Logic
@@ -15,7 +16,6 @@ import Test.NFT.Contract qualified as NFT.Contract
 import Test.NFT.QuickCheck qualified as NFT.QuickCheck
 import Test.NFT.Script.Main qualified as NFT.Script
 import Test.NFT.Size qualified as NFT.Size
-import Test.EfficientNFT.Size qualified as ENFT.Size
 import Test.NftStateMachine.Contract qualified as Nft.Contract
 import Test.NftStateMachine.Logic qualified as Nft.Logic
 
