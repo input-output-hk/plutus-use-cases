@@ -4,45 +4,34 @@
 
 module Mlabs.EfficientNFT.Marketplace (mkValidator) where
 
-import Data.Map qualified as Map
 import Ledger (
   ScriptContext,
   TxInInfo (txInInfoResolved),
-  TxInfo (txInfoInputs, txInfoOutputs),
-  TxOut (TxOut),
-  ownHash,
+  TxInfo (txInfoOutputs),
+  findOwnInput,
   scriptContextTxInfo,
-  scriptHashAddress,
   txOutValue,
-  txSignedBy,
  )
 import Ledger.Value qualified as Value
-import Mlabs.EfficientNFT.Token (OwnerData (OwnerData), mkTokenName')
 import PlutusTx.Prelude
 
 -- | An escrow-like validator, that holds an NFT until sold or pulled out
-mkValidator :: BuiltinData -> [OwnerData] -> ScriptContext -> Bool
-mkValidator _ ownerData ctx =
-  traceIfFalse "Only the owner can redeem tokens" checkSignedByOwner
+mkValidator :: BuiltinData -> ScriptContext -> Bool
+mkValidator _ ctx =
+  traceIfFalse "Tokens can only be redeemed when the policy allows a remint" checkRemint
   where
     !info = scriptContextTxInfo ctx
-    -- Check if the transaction is signed by the owner of the NFT
-    checkSignedByOwner =
-      let inputs =
-            filter
-              (\(TxOut addr _ _) -> addr == scriptHashAddress (ownHash ctx))
-              $ map txInInfoResolved $ txInfoInputs info
-          inputCurSymbols =
-            map (\(cs, _, _) -> cs) $ Value.flattenValue $ mconcat $ map txOutValue inputs
+    -- Check if each token from the current input is reminted
+    checkRemint =
+      let !inputVals =
+            maybe [] (Value.flattenValue . txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-          matchingOutputVals =
-            filter (\(cs, _, _) -> cs `elem` inputCurSymbols) $
-              Value.flattenValue $ mconcat $ map txOutValue $ txInfoOutputs info
-          tokenNameMap = Map.fromList $ zip (map mkTokenName' ownerData) ownerData
+          outputVals = Value.flattenValue $ mconcat $ map txOutValue $ txInfoOutputs info
        in all
-            ( \(_, tn, _) ->
-                case Map.lookup tn tokenNameMap of
-                  Nothing -> False
-                  Just (OwnerData pkh _) -> txSignedBy info pkh
+            ( \(inCS, inTN, _) ->
+                maybe
+                  False
+                  (\(_, outTN, _) -> outTN /= inTN)
+                  (find (\(outCS, _, _) -> inCS == outCS) outputVals)
             )
-            matchingOutputVals
+            inputVals
