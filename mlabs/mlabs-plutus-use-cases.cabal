@@ -295,6 +295,7 @@ test-suite mlabs-plutus-use-cases-tests
     Test.NftStateMachine.Init
     Test.NftStateMachine.Logic
     Test.Utils
+    Test.EfficientNFT.Size
 
   default-extensions:
     OverloadedStrings
