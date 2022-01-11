@@ -4,6 +4,8 @@
 
 module Mlabs.EfficientNFT.Token (
   mkPolicy,
+  mkTokenName,
+  mkTokenName',
   MintAct (MintToken, ChangePrice, ChangeOwner),
   OwnerData (..),
   PlatformConfig (..),
@@ -156,6 +158,11 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
 mkTokenName :: PubKeyHash -> Natural -> TokenName
 mkTokenName (PubKeyHash pkh) price =
   TokenName $ sha2_256 $ pkh <> toBuiltin (toStrict (Binary.encode (fromEnum price)))
+
+{-# INLINEABLE mkTokenName' #-}
+mkTokenName' :: OwnerData -> TokenName
+mkTokenName' (OwnerData pkh price) =
+  mkTokenName pkh price
 
 -- policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> MintingPolicy
 -- policy oref authorPkh royalty platformConfig =

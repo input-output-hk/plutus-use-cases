@@ -113,6 +113,7 @@ library
     Mlabs.Deploy.Governance
     Mlabs.Deploy.Nft
     Mlabs.Deploy.Utils
+    Mlabs.EfficientNFT.Marketplace
     Mlabs.EfficientNFT.Token
     Mlabs.Emulator.App
     Mlabs.Emulator.Blockchain
