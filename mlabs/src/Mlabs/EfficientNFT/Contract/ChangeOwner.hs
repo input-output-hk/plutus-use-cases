@@ -42,7 +42,6 @@ changeOwner pc cp = do
       tx =
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
-          , Constraints.mustBeSignedBy pkh
           , Constraints.mustPayToPubKey (nftId'author . cp'nftId $ cp) authorShare
           , Constraints.mustPayToPubKey (nftId'owner . cp'nftId $ cp) ownerShare
           , -- TODO: attach datum here. Blocked by plutus-apps update

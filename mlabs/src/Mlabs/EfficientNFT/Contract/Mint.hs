@@ -37,6 +37,7 @@ mint pc mp = do
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer nftValue
           , Constraints.mustBeSignedBy pkh
+          , Constraints.mustSpendPubKeyOutput utxo
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
   Contract.tell . Hask.pure $
