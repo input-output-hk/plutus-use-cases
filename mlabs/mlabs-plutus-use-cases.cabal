@@ -118,6 +118,7 @@ library
     Mlabs.EfficientNFT.Contract.Aux
     Mlabs.EfficientNFT.Contract.ChangeOwner
     Mlabs.EfficientNFT.Contract.SetPrice
+    Mlabs.EfficientNFT.Contract.MarketplaceBuy
     Mlabs.EfficientNFT.Contract.MarketplaceDeposit
     Mlabs.EfficientNFT.Contract.MarketplaceRedeem
     Mlabs.EfficientNFT.Contract.Mint
