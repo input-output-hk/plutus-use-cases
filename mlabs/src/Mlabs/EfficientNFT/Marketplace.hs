@@ -1,7 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ImportQualifiedPost #-}
 
-module Mlabs.EfficientNFT.Marketplace (mkValidator) where
+module Mlabs.EfficientNFT.Marketplace (mkValidator, marketplaceValidator) where
+
+import PlutusTx qualified
+import PlutusTx.Prelude
 
 import Ledger (
   CurrencySymbol,
@@ -9,16 +12,17 @@ import Ledger (
   TxInInfo (txInInfoResolved),
   TxInfo (txInfoMint),
   findOwnInput,
+  mkValidatorScript,
   scriptContextTxInfo,
   txOutValue,
  )
+import Ledger.Typed.Scripts (Any, TypedValidator, unsafeMkTypedValidator, wrapValidator)
 import Ledger.Value qualified as Value
-import PlutusTx.Prelude
 
 -- | An escrow-like validator, that holds an NFT until sold or pulled out
 {-# INLINEABLE mkValidator #-}
-mkValidator :: CurrencySymbol -> BuiltinData -> ScriptContext -> Bool
-mkValidator nftCS _ ctx =
+mkValidator :: CurrencySymbol -> BuiltinData -> BuiltinData -> ScriptContext -> Bool
+mkValidator nftCS _ _ ctx =
   traceIfFalse "Tokens can only be redeemed when the policy allows a remint" checkRemint
     && traceIfFalse "Inputs with more than one token are invalid" checkInputUTxO
   where
@@ -35,3 +39,11 @@ mkValidator nftCS _ ctx =
       case filter (\(cs, _, _) -> cs == nftCS) $ Value.flattenValue $ txInfoMint info of
         [(_, tn, amt), (_, tn', amt')] -> tn /= tn' && amt + amt' == 0
         _ -> False
+
+marketplaceValidator :: CurrencySymbol -> TypedValidator Any
+marketplaceValidator nftCs = unsafeMkTypedValidator v
+  where
+    v =
+      mkValidatorScript
+        ($$(PlutusTx.compile [||wrap||]) `PlutusTx.applyCode` ($$(PlutusTx.compile [||mkValidator||]) `PlutusTx.applyCode` PlutusTx.liftCode nftCs))
+    wrap = wrapValidator

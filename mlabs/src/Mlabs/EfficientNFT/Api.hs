@@ -15,6 +15,7 @@ import Mlabs.EfficientNFT.Contract.Mint (mint)
 import Mlabs.EfficientNFT.Contract.SetPrice (setPrice)
 import Mlabs.EfficientNFT.Types
 import Mlabs.Plutus.Contract (selectForever)
+import Mlabs.EfficientNFT.Contract.MarketplaceDeposit (marketplaceDeposit)
 
 -- | A common App schema works for now.
 type NFTAppSchema =
@@ -23,6 +24,7 @@ type NFTAppSchema =
     -- User Action Endpoints
     .\/ Endpoint "change-owner" ChangeOwnerParams
     .\/ Endpoint "set-price" SetPriceParams
+    .\/ Endpoint "marketplace-deposit" NftId
 
 -- ENDPOINTS --
 
@@ -42,4 +44,5 @@ tokenEndpointsList pc =
   [ endpoint @"mint" (mint pc)
   , endpoint @"change-owner" (changeOwner pc)
   , endpoint @"set-price" (setPrice pc)
+  , endpoint @"marketplace-deposit" (marketplaceDeposit pc)
   ]
