@@ -17,8 +17,8 @@ import PlutusTx.Prelude
 
 -- | An escrow-like validator, that holds an NFT until sold or pulled out
 {-# INLINEABLE mkValidator #-}
-mkValidator :: BuiltinData -> ScriptContext -> Bool
-mkValidator _ ctx =
+mkValidator :: BuiltinByteString -> BuiltinData -> ScriptContext -> Bool
+mkValidator nftCS _ ctx =
   traceIfFalse "Tokens can only be redeemed when the policy allows a remint" checkRemint
   where
     !info = scriptContextTxInfo ctx
@@ -33,6 +33,6 @@ mkValidator _ ctx =
                 maybe
                   False
                   (\(_, outTN, _) -> outTN /= inTN)
-                  (find (\(outCS, _, _) -> inCS == outCS) outputVals)
+                  (find (\(outCS, _, _) -> inCS == outCS && inCS == nftCS) outputVals)
             )
             inputVals
