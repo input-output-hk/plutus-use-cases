@@ -26,4 +26,4 @@ jobs:
           authToken: "${{ secrets.CACHIXKEY }}"
       - name: Build all project components
         working-directory: ./mlabs
-        run: nix build .#check.x86_64-linux
+        run: nix build -L .#check.x86_64-linux
