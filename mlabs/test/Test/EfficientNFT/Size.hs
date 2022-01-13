@@ -18,4 +18,4 @@ scriptName :: String
 scriptName = "Efficient NFT marketplace"
 
 script :: Script
-script = fromCompiledCode $$(PlutusTx.compile [||mkPolicy||]) 
+script = fromCompiledCode $$(PlutusTx.compile [||mkPolicy||])

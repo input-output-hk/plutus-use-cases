@@ -7,26 +7,23 @@ module Mlabs.EfficientNFT.Token (
   MintAct (MintToken, ChangePrice, ChangeOwner),
   OwnerData (..),
   PlatformConfig (..),
-  -- policy,
+  policy,
+  mkTokenName,
 ) where
 
 import Data.Binary qualified as Binary
 import Data.ByteString.Lazy (toStrict)
 import Ledger (
   Datum (Datum),
+  MintingPolicy,
   ScriptContext,
-  TxOut (TxOut),
+  TxInInfo (txInInfoOutRef, txInInfoResolved),
+  TxInfo (txInfoData, txInfoInputs, txInfoMint, txInfoOutputs),
+  TxOut (TxOut, txOutValue),
   TxOutRef,
-  datumHash,
   ownCurrencySymbol,
   pubKeyHashAddress,
   scriptContextTxInfo,
-  txInInfoOutRef,
-  txInInfoResolved,
-  txInfoInputs,
-  txInfoMint,
-  txInfoOutputs,
-  txOutValue,
   txSignedBy,
  )
 import Ledger.Ada qualified as Ada
@@ -93,10 +90,9 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           (checkTokenName ownerPkh newPrice)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
     ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
-      traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
-        && traceIfFalse
-          "Token name must be the hash of the owner pkh and the price"
-          (checkTokenName newOwnerPkh price)
+      traceIfFalse
+        "Token name must be the hash of the owner pkh and the price"
+        (checkTokenName newOwnerPkh price)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
         && traceIfFalse
           "Royalties must be paid to the author and the marketplace when selling the NFT"
@@ -142,13 +138,14 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           authorAddr = pubKeyHashAddress authorPkh
           authorShare = Ada.lovelaceValueOf $ price' * 10000 `div` royalty'
 
-          !curSymDH = datumHash $ Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
-
           marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig)
           marketplShare = Ada.lovelaceValueOf $ price' * 10000 `div` mpShare
 
+          !curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
+          !datums = txInfoData info
+
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
-            addr == addr' && val == val' && dh == Just curSymDH
+            addr == addr' && val == val' && (dh >>= (`lookup` datums)) == Just curSymDatum
        in any (checkPaymentTxOut authorAddr authorShare) outs
             && any (checkPaymentTxOut marketplAddr marketplShare) outs
 
@@ -157,7 +154,9 @@ mkTokenName :: PubKeyHash -> Natural -> TokenName
 mkTokenName (PubKeyHash pkh) price =
   TokenName $ sha2_256 $ pkh <> toBuiltin (toStrict (Binary.encode (fromEnum price)))
 
--- policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> MintingPolicy
+policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
+policy = error "TODO"
+
 -- policy oref authorPkh royalty platformConfig =
 --   Scripts.mkMintingPolicyScript $
 --     $$(PlutusTx.compile [||\oref' pkh roy pc -> wrapMintingPolicy $ mkPolicy oref' pkh roy pc ||])

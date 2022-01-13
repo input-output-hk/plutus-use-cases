@@ -7,6 +7,7 @@ import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
 
 import Test.Demo.Contract.Mint qualified as Demo.Contract.Mint
+import Test.EfficientNFT.Size qualified as ENFT.Size
 import Test.Governance.Contract qualified as Governance.Contract
 import Test.Lending.Contract qualified as Lending.Contract
 import Test.Lending.Logic qualified as Lending.Logic
