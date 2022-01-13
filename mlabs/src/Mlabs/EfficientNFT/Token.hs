@@ -62,16 +62,18 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           "Token name must be the hash of the owner pkh and the price"
           (checkTokenName ownerPkh newPrice)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
-    ChangeOwner (OwnerData _ price) newOwnerPkh ->
+    ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
       traceIfFalse
         "Token name must be the hash of the owner pkh and the price"
         (checkTokenName newOwnerPkh price)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
         && traceIfFalse
           "Royalties must be paid to the author and the marketplace when selling the NFT"
-          (checkRoyaltyPaid price)
+          (checkPartiesGotCorrectPayments price ownerPkh)
   where
     !info = scriptContextTxInfo ctx
+    -- ! force evaluation of `ownCs` causes compilation error
+    ownCs = ownCurrencySymbol ctx
     checkConsumedUtxo = any (\i -> txInInfoOutRef i == oref) $ txInfoInputs info
 
     -- Check if the tokenname is the hash of the owner's pkh and the price
@@ -84,7 +86,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
 
     -- Check if only one token is minted
     checkMintedAmount = case Value.flattenValue (txInfoMint info) of
-      [(cs, _, amt)] -> cs == ownCurrencySymbol ctx && amt == 1
+      [(cs, _, amt)] -> cs == ownCs && amt == 1
       _ -> False
 
     -- Check if the old token is burnt
@@ -92,17 +94,18 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
       let outVal = mconcat $ map txOutValue $ txInfoOutputs info
           inVal = mconcat $ map (txOutValue . txInInfoResolved) $ txInfoInputs info
           oneInput =
-            case filter (\(cs, _, _) -> cs == ownCurrencySymbol ctx) $ Value.flattenValue inVal of
+            case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue inVal of
               [(_, _, amt)] -> amt == 1
               _ -> False
           oneOutput =
-            case filter (\(cs, _, _) -> cs == ownCurrencySymbol ctx) $ Value.flattenValue outVal of
+            case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue outVal of
               [(_, _, amt)] -> amt == 1
               _ -> False
        in oneInput && oneOutput
 
-    -- Check that royalties are correctly paid, and the payment utxos have the correct datum attached
-    checkRoyaltyPaid price =
+    -- Check that all parties received corresponding payments,
+    -- and the payment utxos have the correct datum attached
+    checkPartiesGotCorrectPayments price ownerPkh =
       let outs = txInfoOutputs info
           price' = fromEnum price
           royalty' = fromEnum royalty
@@ -114,7 +117,10 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig)
           marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
 
-          curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
+          ownerAddr = pubKeyHashAddress ownerPkh
+          ownerShare = (Ada.lovelaceValueOf $ price' * 10000) - authorShare - marketplShare
+
+          curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCs
 
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
             addr == addr' && val == val'
@@ -122,6 +128,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
        in 
           any (checkPaymentTxOut authorAddr authorShare) outs
             && any (checkPaymentTxOut marketplAddr marketplShare) outs
+            && any (checkPaymentTxOut ownerAddr ownerShare) outs
             
 -- todo: docs
 {-# INLINEABLE mkTokenName #-}
