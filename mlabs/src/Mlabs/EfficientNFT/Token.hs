@@ -4,17 +4,11 @@
 
 module Mlabs.EfficientNFT.Token (
   mkPolicy,
-  MintAct (MintToken, ChangePrice, ChangeOwner),
-  OwnerData (..),
-  PlatformConfig (..),
   policy,
   mkTokenName,
 ) where
 
-import Data.Binary qualified as Binary
-import Data.ByteString.Lazy (toStrict)
 import Ledger (
-  Datum (Datum),
   MintingPolicy,
   ScriptContext,
   TxInInfo (txInInfoOutRef, txInInfoResolved),
@@ -28,42 +22,19 @@ import Ledger (
  )
 import Ledger.Ada qualified as Ada
 import Ledger.Crypto (PubKeyHash (PubKeyHash))
+import Ledger.Scripts qualified as Scripts
+import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
 import PlutusTx qualified
-import PlutusTx.Builtins (BuiltinByteString, sha2_256, toBuiltin)
-import PlutusTx.Enum (Enum (fromEnum))
 import PlutusTx.Natural (Natural)
-import PlutusTx.Trace (traceIfFalse)
-import Prelude hiding (Enum (fromEnum))
 
--- import Ledger.Typed.Scripts (MintingPolicy, wrapMintingPolicy)
--- import Plutus.V1.Ledger.Scripts qualified as Scripts
+import PlutusTx.Prelude
 
-data OwnerData = OwnerData
-  { odOwnerPkh :: !PubKeyHash
-  , odPrice :: !Natural
-  }
+import Mlabs.EfficientNFT.Types
 
-PlutusTx.unstableMakeIsData ''OwnerData
-
-data PlatformConfig = PlatformConfig
-  { pcMarketplacePkh :: !PubKeyHash
-  , -- | % share of the marketplace multiplied by 100
-    pcMarketplaceShare :: !Natural
-  }
-
-PlutusTx.unstableMakeIsData ''PlatformConfig
-
-data MintAct
-  = MintToken OwnerData
-  | ChangePrice OwnerData Natural
-  | ChangeOwner OwnerData PubKeyHash
-
-PlutusTx.unstableMakeIsData ''MintAct
-
-type ContentHash = BuiltinByteString
-
+-- todo: docs
+{-# INLINEABLE mkPolicy #-}
 mkPolicy ::
   TxOutRef ->
   PubKeyHash ->
@@ -78,7 +49,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
     MintToken (OwnerData ownerPkh price) ->
       traceIfFalse "UTXo specified as the parameter must be consumed" checkConsumedUtxo
         && traceIfFalse "Exactly one NFT must be minted" checkMintedAmount
-        && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
+        -- && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
         && traceIfFalse "The author must be the first owner of the NFT" (ownerPkh == authorPkh)
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
@@ -89,7 +60,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           "Token name must be the hash of the owner pkh and the price"
           (checkTokenName ownerPkh newPrice)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
-    ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
+    ChangeOwner (OwnerData _ price) newOwnerPkh ->
       traceIfFalse
         "Token name must be the hash of the owner pkh and the price"
         (checkTokenName newOwnerPkh price)
@@ -136,31 +107,45 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           mpShare = fromEnum $ pcMarketplaceShare platformConfig
 
           authorAddr = pubKeyHashAddress authorPkh
-          authorShare = Ada.lovelaceValueOf $ price' * 10000 `div` royalty'
+          authorShare = Ada.lovelaceValueOf $ price' * 10000 `divide` royalty'
 
           marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig)
-          marketplShare = Ada.lovelaceValueOf $ price' * 10000 `div` mpShare
+          marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
 
-          !curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
-          !datums = txInfoData info
+          -- FIXME: Next line causes "Exception: Error: Unsupported feature: Type constructor: GHC.Prim.Addr#"
+          -- !curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
+          -- related to issue above, underscore to name to suppress linter
+          !_datums = txInfoData info
 
-          checkPaymentTxOut addr val (TxOut addr' val' dh) =
-            addr == addr' && val == val' && (dh >>= (`lookup` datums)) == Just curSymDatum
-       in any (checkPaymentTxOut authorAddr authorShare) outs
+          checkPaymentTxOut addr val (TxOut addr' val' _) =
+            addr == addr' && val == val'
+       in -- FIXME: see `curSymDatum`
+          -- && (dh >>= (`lookup` datums)) == Just curSymDatum
+          any (checkPaymentTxOut authorAddr authorShare) outs
             && any (checkPaymentTxOut marketplAddr marketplShare) outs
-
+            
+-- todo: docs
 {-# INLINEABLE mkTokenName #-}
 mkTokenName :: PubKeyHash -> Natural -> TokenName
 mkTokenName (PubKeyHash pkh) price =
-  TokenName $ sha2_256 $ pkh <> toBuiltin (toStrict (Binary.encode (fromEnum price)))
+  TokenName $ sha2_256 $ (pkh <> toBin (fromEnum price))
+
+{-# INLINEABLE toBin #-}
+toBin :: Integer -> BuiltinByteString
+toBin n
+  | n == 0 = "0"
+  | n == 1 = "1"
+  | even n = rest <> "0"
+  | otherwise = rest <> "1"
+  where
+    rest = toBin (divide n 2)
 
 policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
-policy = error "TODO"
-
--- policy oref authorPkh royalty platformConfig =
---   Scripts.mkMintingPolicyScript $
---     $$(PlutusTx.compile [||\oref' pkh roy pc -> wrapMintingPolicy $ mkPolicy oref' pkh roy pc ||])
---       `PlutusTx.applyCode` PlutusTx.liftCode oref
---       `PlutusTx.applyCode` PlutusTx.liftCode authorPkh
---       `PlutusTx.applyCode` PlutusTx.liftCode royalty
---       `PlutusTx.applyCode` PlutusTx.liftCode platformConfig
+policy oref authorPkh royalty platformConfig contentHash =
+  Scripts.mkMintingPolicyScript $
+    $$(PlutusTx.compile [||\oref' pkh roy pc ch -> wrapMintingPolicy (mkPolicy oref' pkh roy pc ch)||])
+      `PlutusTx.applyCode` PlutusTx.liftCode oref
+      `PlutusTx.applyCode` PlutusTx.liftCode authorPkh
+      `PlutusTx.applyCode` PlutusTx.liftCode royalty
+      `PlutusTx.applyCode` PlutusTx.liftCode platformConfig
+      `PlutusTx.applyCode` PlutusTx.liftCode contentHash
