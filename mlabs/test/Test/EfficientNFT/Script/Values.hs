@@ -25,17 +25,17 @@ mintTxOutRef :: TxOutRef
 mintTxOutRef = TxOutRef txId 1
   where
     txId =
-      unsafeDecode $
+      unsafeDecode
         "{\"getTxId\" : \"3a9e96cbb9e2399046e7b653e29e2cc27ac88b3810b15f448b91425a9a27ef3a\"}"
 
 authorPkh :: PubKeyHash
 authorPkh =
-  unsafeDecode $
+  unsafeDecode
     "{\"getPubKeyHash\" : \"25bd24abedaf5c68d898484d757f715c7b4413ad91a80d3cb0b3660d\"}"
 
 platformPkh :: PubKeyHash
 platformPkh =
-  unsafeDecode $
+  unsafeDecode
     "{\"getPubKeyHash\" : \"bcd6bceeb0d22a7ca6ba1cd00669f7eb60ca8938d853666d30d56a56\"}"
 
 nftPrice :: Natural

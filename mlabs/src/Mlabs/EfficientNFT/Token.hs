@@ -9,18 +9,18 @@ module Mlabs.EfficientNFT.Token (
 ) where
 
 import Ledger (
-  Datum(..),
+  Datum (..),
   MintingPolicy,
   ScriptContext,
   TxInInfo (txInInfoOutRef, txInInfoResolved),
   TxInfo (txInfoInputs, txInfoMint, txInfoOutputs),
   TxOut (TxOut, txOutValue),
   TxOutRef,
+  findDatum,
   ownCurrencySymbol,
   pubKeyHashAddress,
   scriptContextTxInfo,
   txSignedBy,
-  findDatum,
  )
 import Ledger.Ada qualified as Ada
 import Ledger.Crypto (PubKeyHash (PubKeyHash))
@@ -30,6 +30,7 @@ import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
 import PlutusTx qualified
 import PlutusTx.Natural (Natural)
+
 -- import PlutusTx.Builtins (consByteString)
 
 import PlutusTx.Prelude
@@ -119,29 +120,28 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
 
           ownerAddr = pubKeyHashAddress ownerPkh
-          ownerShare = (Ada.lovelaceValueOf $ price' * 10000) - authorShare - marketplShare
+          ownerShare = Ada.lovelaceValueOf (price' * 10000) - authorShare - marketplShare
 
-          curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCs
+          curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
 
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
             addr == addr' && val == val'
-            && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
-       in 
-          any (checkPaymentTxOut authorAddr authorShare) outs
+              && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
+       in any (checkPaymentTxOut authorAddr authorShare) outs
             && any (checkPaymentTxOut marketplAddr marketplShare) outs
             && any (checkPaymentTxOut ownerAddr ownerShare) outs
-            
+
 -- todo: docs
 {-# INLINEABLE mkTokenName #-}
 mkTokenName :: PubKeyHash -> Natural -> TokenName
 mkTokenName (PubKeyHash pkh) price =
-  TokenName $ sha2_256 $ (pkh <> toBin (fromEnum price))
+  TokenName $ sha2_256 (pkh <> toBin (fromEnum price))
 
 {-# INLINEABLE toBin #-}
 toBin :: Integer -> BuiltinByteString
 toBin n = toBin' n mempty
-  where 
-    toBin' n' rest 
+  where
+    toBin' n' rest
       | n' < 256 = consByteString n' rest
       | otherwise = toBin' (n' `divide` 256) (consByteString (n' `modulo` 256) rest)
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ImportQualifiedPost #-}
 
 module Mlabs.EfficientNFT.Marketplace (mkValidator) where
