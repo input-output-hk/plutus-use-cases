@@ -9,16 +9,18 @@ module Mlabs.EfficientNFT.Token (
 ) where
 
 import Ledger (
+  Datum(..),
   MintingPolicy,
   ScriptContext,
   TxInInfo (txInInfoOutRef, txInInfoResolved),
-  TxInfo (txInfoData, txInfoInputs, txInfoMint, txInfoOutputs),
+  TxInfo (txInfoInputs, txInfoMint, txInfoOutputs),
   TxOut (TxOut, txOutValue),
   TxOutRef,
   ownCurrencySymbol,
   pubKeyHashAddress,
   scriptContextTxInfo,
   txSignedBy,
+  findDatum,
  )
 import Ledger.Ada qualified as Ada
 import Ledger.Crypto (PubKeyHash (PubKeyHash))
@@ -112,15 +114,12 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig)
           marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
 
-          -- FIXME: Next line causes "Exception: Error: Unsupported feature: Type constructor: GHC.Prim.Addr#"
-          -- !curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
-          -- related to issue above, underscore to name to suppress linter
-          !_datums = txInfoData info
+          curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
 
-          checkPaymentTxOut addr val (TxOut addr' val' _) =
+          checkPaymentTxOut addr val (TxOut addr' val' dh) =
             addr == addr' && val == val'
-       in -- FIXME: see `curSymDatum`
-          -- && (dh >>= (`lookup` datums)) == Just curSymDatum
+            && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
+       in 
           any (checkPaymentTxOut authorAddr authorShare) outs
             && any (checkPaymentTxOut marketplAddr marketplShare) outs
             
