@@ -7,6 +7,8 @@ import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
 
 import Test.Demo.Contract.Mint qualified as Demo.Contract.Mint
+import Test.EfficientNFT.Script.TokenMint qualified as ENFT.TokenMint
+import Test.EfficientNFT.Size qualified as ENFT.Size
 import Test.Governance.Contract qualified as Governance.Contract
 import Test.Lending.Contract qualified as Lending.Contract
 import Test.Lending.Logic qualified as Lending.Logic
@@ -39,6 +41,11 @@ main =
             -- memory usage issues with the QuickCheck tests.
             -- This will run 100 tests
             <> replicate 10 (contract NFT.QuickCheck.test)
+      , testGroup
+          "Efficient NFT"
+          [ ENFT.Size.test
+          , ENFT.TokenMint.test
+          ]
       , testGroup
           "Lending"
           [ Lending.Logic.test
