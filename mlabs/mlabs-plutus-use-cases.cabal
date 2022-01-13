@@ -113,8 +113,14 @@ library
     Mlabs.Deploy.Governance
     Mlabs.Deploy.Nft
     Mlabs.Deploy.Utils
+    Mlabs.EfficientNFT.Api
+    Mlabs.EfficientNFT.Contract.Aux
+    Mlabs.EfficientNFT.Contract.ChangeOwner
+    Mlabs.EfficientNFT.Contract.Mint
+    Mlabs.EfficientNFT.Contract.SetPrice
     Mlabs.EfficientNFT.Marketplace
     Mlabs.EfficientNFT.Token
+    Mlabs.EfficientNFT.Types
     Mlabs.Emulator.App
     Mlabs.Emulator.Blockchain
     Mlabs.Emulator.Scene
@@ -276,6 +282,7 @@ test-suite mlabs-plutus-use-cases-tests
 
   other-modules:
     Test.Demo.Contract.Mint
+    Test.EfficientNFT.Size
     Test.Governance.Contract
     Test.Governance.Init
     Test.Lending.Contract
