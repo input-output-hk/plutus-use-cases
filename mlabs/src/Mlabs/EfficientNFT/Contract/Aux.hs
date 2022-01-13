@@ -15,7 +15,7 @@ import Mlabs.EfficientNFT.Types
 
 -- | Get the current Wallet's publick key.
 getUserAddr :: GenericContract Address
-getUserAddr = pubKeyHashAddress <$> Contract.ownPubKeyHash
+getUserAddr = (`pubKeyHashAddress` Nothing) <$> Contract.ownPaymentPubKeyHash
 
 -- | Get the current wallet's utxos.
 getUserUtxos :: GenericContract (Map.Map TxOutRef ChainIndexTxOut)

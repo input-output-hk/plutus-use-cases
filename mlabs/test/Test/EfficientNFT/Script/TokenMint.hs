@@ -2,6 +2,7 @@ module Test.EfficientNFT.Script.TokenMint (test) where
 
 import Ledger (
   MintingPolicy,
+  PaymentPubKeyHash (unPaymentPubKeyHash),
   TxOutRef (txOutRefId),
   mkMintingPolicyScript,
  )
@@ -12,7 +13,10 @@ import Prelude (mconcat)
 
 import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context
+import Test.Tasty.Plutus.Options
 import Test.Tasty.Plutus.Script.Unit
+import Test.Tasty.Plutus.TestData
+import Test.Tasty.Plutus.WithScript
 
 import Mlabs.EfficientNFT.Types (
   MintAct (MintToken),
@@ -33,16 +37,15 @@ test =
     withMintingPolicy "Token policy" testTokenPolicy $ do
       shouldValidate "valid mint" validData validCtx
 
-validData :: TestData 'ForMinting
-validData = MintingTest redeemer
+validData :: TestData ( 'ForMinting MintAct)
+validData = MintingTest redeemer $ token TestValues.tokenName 1
   where
     redeemer = MintToken $ OwnerData TestValues.authorPkh TestValues.nftPrice
 
-validCtx :: ContextBuilder 'ForMinting
+validCtx :: ContextBuilder ( 'ForMinting r)
 validCtx =
   mconcat
-    [ input $ Input (PubKeyType TestValues.authorPkh) (Value.lovelaceValueOf 1000000)
-    , mintsWithSelf TestValues.tokenName 1
+    [ input $ Input (PubKeyType $ unPaymentPubKeyHash TestValues.authorPkh) (Value.lovelaceValueOf 1000000)
     ]
 
 -- TODO: move to values ?

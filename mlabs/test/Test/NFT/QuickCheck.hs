@@ -13,7 +13,7 @@ import Data.Monoid (Last (..))
 import Data.String (IsString (..))
 import Data.Text (Text)
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
-import Plutus.Contract.Test (Wallet (..), walletPubKeyHash)
+import Plutus.Contract.Test (Wallet (..), mockWalletPaymentPubKeyHash)
 import Plutus.Contract.Test.ContractModel (
   Action,
   Actions,
@@ -25,6 +25,7 @@ import Plutus.Contract.Test.ContractModel (
   assertModel,
   contractState,
   currentSlot,
+  defaultCoverageOptions,
   deposit,
   forAllDL,
   getModelState,
@@ -49,6 +50,7 @@ import Test.Tasty.QuickCheck (testProperty)
 import Prelude ((<$>), (<*>), (==))
 import Prelude qualified as Hask
 
+import Ledger (PaymentPubKeyHash (unPaymentPubKeyHash))
 import Mlabs.NFT.Api (NFTAppSchema, adminEndpoints, endpoints)
 import Mlabs.NFT.Contract (hashData)
 import Mlabs.NFT.Spooky (toSpooky, toSpookyPubKeyHash, unSpookyValue)
@@ -151,6 +153,8 @@ instance ContractModel NftModel where
     UserKey :: Wallet -> ContractInstanceKey NftModel (Last (Either NftId QueryResponse)) NFTAppSchema Text
 
   instanceTag key _ = fromString $ Hask.show key
+
+  initialHandleSpecs = instanceSpec
 
   arbitraryAction model =
     let nfts = Map.keys (model ^. contractState . mMarket)
@@ -361,7 +365,7 @@ instance ContractModel NftModel where
             InitParams
               [toUserId wAdmin]
               (5 % 1000)
-              (toSpookyPubKeyHash . walletPubKeyHash $ wAdmin)
+              (toSpookyPubKeyHash . unPaymentPubKeyHash . mockWalletPaymentPubKeyHash $ wAdmin)
       callEndpoint @"app-init" hAdmin params
       void $ Trace.waitNSlots 5
     ActionMint {..} -> do
@@ -446,7 +450,7 @@ propContract =
   QC.withMaxSuccess 10
     . propRunActionsWithOptions
       checkOptions
-      instanceSpec
+      defaultCoverageOptions
       (const $ Hask.pure True)
 
 noLockedFunds :: DL NftModel ()

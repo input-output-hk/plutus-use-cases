@@ -23,6 +23,7 @@ pkgs.haskell-nix.cabalProject {
       plutus-extra
       tasty-plutus
       plutus-pretty
+      plutus-laws
       plutus-numeric
       base-deriving-via
       cardano-addresses
@@ -47,6 +48,7 @@ pkgs.haskell-nix.cabalProject {
       orphans-deriving-via
       playground-common
       plutus-chain-index
+      plutus-ledger-constraints
       plutus-contract
       plutus-core
       plutus-ledger
@@ -282,6 +284,7 @@ pkgs.haskell-nix.cabalProject {
         "plutus-chain-index"
         "plutus-chain-index-core"
         "plutus-contract"
+        "plutus-ledger-constraints"
         "plutus-ledger"
         "plutus-pab"
         "plutus-playground-server"
@@ -297,6 +300,12 @@ pkgs.haskell-nix.cabalProject {
         "tasty-plutus"
         "plutus-pretty"
         "plutus-numeric"
+        "plutus-golden"
+        "plutus-laws"
+        "plutus-list"
+        "plutus-size-check"
+        "quickcheck-plutus-instances"
+        "plutus-deriving"
       ];
     }
     {

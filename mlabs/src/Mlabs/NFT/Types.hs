@@ -79,6 +79,8 @@ import GHC.Generics (Generic)
 import Ledger (
   ChainIndexTxOut,
   POSIXTime,
+  -- PaymentPubKeyHash,
+  -- PubKeyHash,
   TxOutRef,
  )
 import Plutus.ChainIndex (ChainIndexTx)
@@ -88,6 +90,7 @@ import Mlabs.NFT.Spooky (
   Address,
   AssetClass (..),
   CurrencySymbol,
+  PaymentPubKeyHash,
   PubKeyHash,
   Spooky,
   TokenName (..),
@@ -128,7 +131,7 @@ instance Eq Title where
 getTitle :: Title -> BuiltinByteString
 getTitle = unSpooky . getTitle'
 
-newtype UserId = UserId {getUserId' :: Spooky PubKeyHash}
+newtype UserId = UserId {getUserId' :: Spooky PaymentPubKeyHash}
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 PlutusTx.unstableMakeIsData ''UserId
@@ -140,13 +143,13 @@ instance Eq UserId where
 
 instance Ord UserId where
   {-# INLINEABLE (<=) #-}
-  (UserId u1) <= (UserId u2) = unSpooky @PubKeyHash u1 <= unSpooky u2
+  (UserId u1) <= (UserId u2) = unSpooky @PaymentPubKeyHash u1 <= unSpooky u2
 
 instance Hask.Ord UserId where
-  (UserId u1) <= (UserId u2) = unSpooky @PubKeyHash u1 <= unSpooky u2
+  (UserId u1) <= (UserId u2) = unSpooky @PaymentPubKeyHash u1 <= unSpooky u2
 
 {-# INLINEABLE getUserId #-}
-getUserId :: UserId -> PubKeyHash
+getUserId :: UserId -> PaymentPubKeyHash
 getUserId = unSpooky . getUserId'
 
 {- | Unique identifier of NFT.

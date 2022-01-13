@@ -25,7 +25,7 @@ import Mlabs.NftStateMachine.Contract.Api (AuthorSchema, Buy, IsUserAct, SetPric
 import Mlabs.NftStateMachine.Contract.StateMachine qualified as SM
 import Mlabs.NftStateMachine.Logic.Types (Act (UserAct), NftId, initNft, toNftId)
 import Mlabs.Plutus.Contract (getEndpoint, selectForever)
-import Plutus.Contract (Contract, logError, ownPubKeyHash, tell, throwError, toContract, utxosAt)
+import Plutus.Contract (Contract, logError, ownPaymentPubKeyHash, tell, throwError, toContract, utxosAt)
 import Plutus.V1.Ledger.Api (Datum)
 import PlutusTx.Prelude hiding ((<>))
 
@@ -54,12 +54,12 @@ authorEndpoints = forever startNft'
 
 userAction :: IsUserAct a => NftId -> a -> UserContract ()
 userAction nid input = do
-  pkh <- ownPubKeyHash
+  pkh <- ownPaymentPubKeyHash
   act <- getUserAct input
   inputDatum <- findInputStateDatum nid
   let lookups =
         mintingPolicy (SM.nftPolicy nid)
-          <> Constraints.ownPubKeyHash pkh
+          <> Constraints.ownPaymentPubKeyHash pkh
       constraints = mustIncludeDatum inputDatum
   SM.runStepWith nid act lookups constraints
 
@@ -68,7 +68,7 @@ userAction nid input = do
 -}
 startNft :: StartParams -> AuthorContract ()
 startNft StartParams {..} = do
-  orefs <- M.keys <$> (utxosAt . pubKeyHashAddress =<< ownPubKeyHash)
+  orefs <- M.keys <$> (utxosAt . (`pubKeyHashAddress` Nothing) =<< ownPaymentPubKeyHash)
   case orefs of
     [] -> logError @String "No UTXO found"
     oref : _ -> do

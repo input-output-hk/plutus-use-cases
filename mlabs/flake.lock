@@ -553,51 +553,51 @@
     "plutus": {
       "flake": false,
       "locked": {
-        "lastModified": 1634957126,
-        "narHash": "sha256-BhGQPiCv4UxVs0XEdMMddaNWiztmkoeJotpW/lrtqNs=",
+        "lastModified": 1636924888,
+        "narHash": "sha256-80ReuqPGaZrg6GnvyaG/f2Qn6GheCK9RvYQ63+i/6Ak=",
         "owner": "input-output-hk",
         "repo": "plutus",
-        "rev": "3f089ccf0ca746b399c99afe51e063b0640af547",
+        "rev": "2721c59fd2302b75c4138456c29fd5b509e8340a",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "plutus",
-        "rev": "3f089ccf0ca746b399c99afe51e063b0640af547",
+        "rev": "2721c59fd2302b75c4138456c29fd5b509e8340a",
         "type": "github"
       }
     },
     "plutus-apps": {
       "flake": false,
       "locked": {
-        "lastModified": 1636122782,
-        "narHash": "sha256-+T9TGzHEzyfixBysxLwy5VWVrL5xqKF5pcbRlHQr+wI=",
+        "lastModified": 1641988365,
+        "narHash": "sha256-5bXrO/8DN5jew5SiwpIlTu6zd1KH3sMeL18DHz98hyE=",
         "owner": "input-output-hk",
         "repo": "plutus-apps",
-        "rev": "404af7ac3e27ebcb218c05f79d9a70ca966407c9",
+        "rev": "21b592b1ea4bc727c1d486432e8aa8388d9e706c",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "plutus-apps",
-        "rev": "404af7ac3e27ebcb218c05f79d9a70ca966407c9",
+        "rev": "21b592b1ea4bc727c1d486432e8aa8388d9e706c",
         "type": "github"
       }
     },
     "plutus-extra": {
       "flake": false,
       "locked": {
-        "lastModified": 1636574475,
-        "narHash": "sha256-vssKgnhXffV8IQxJV1E3nof5kACegXtcd374hjO0vV8=",
-        "owner": "Liqwid-Labs",
+        "lastModified": 1642046198,
+        "narHash": "sha256-H7CZBoPUyK9+l9jCFeuFtCUGukQWYhz7CO5i8dMYstA=",
+        "owner": "t4ccer",
         "repo": "plutus-extra",
-        "rev": "cf3d12645fd461a73ef64471852092d215399e86",
+        "rev": "80b48c148b49deb68c436e8bbdf289633c042b06",
         "type": "github"
       },
       "original": {
-        "owner": "Liqwid-Labs",
+        "owner": "t4ccer",
         "repo": "plutus-extra",
-        "rev": "cf3d12645fd461a73ef64471852092d215399e86",
+        "rev": "80b48c148b49deb68c436e8bbdf289633c042b06",
         "type": "github"
       }
     },

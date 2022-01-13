@@ -47,7 +47,11 @@ type AppInitHandle = Trace.ContractHandle (Last NftAppInstance) NFTAppSchema Tex
 appInitTrace :: EmulatorTrace NftAppInstance
 appInitTrace = do
   let admin = walletFromNumber 4 :: Emulator.Wallet
-  let params = InitParams [UserId . toSpooky . Emulator.walletPubKeyHash $ admin] (5 % 1000) (toSpookyPubKeyHash . Emulator.walletPubKeyHash $ admin)
+  let params =
+        InitParams
+          [UserId . toSpooky . Emulator.mockWalletPaymentPubKeyHash $ admin]
+          (5 % 1000)
+          (unPaymentPubKeyHash . toSpookyPaymentPubKeyHash . Emulator.mockWalletPaymentPubKeyHash $ admin)
   hAdmin :: AppInitHandle <- activateContractWallet admin adminEndpoints
   callEndpoint @"app-init" hAdmin params
   void $ Trace.waitNSlots 3

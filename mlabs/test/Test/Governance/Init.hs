@@ -29,7 +29,7 @@ import Mlabs.Governance.Contract.Api qualified as Api
 import Mlabs.Governance.Contract.Server qualified as Gov
 import Mlabs.Governance.Contract.Validation qualified as Gov
 
-import Ledger (Address, CurrencySymbol, Value)
+import Ledger (Address, CurrencySymbol, Value, unPaymentPubKeyHash)
 import Ledger qualified
 import Mlabs.Utils.Wallet (walletFromNumber)
 
@@ -40,7 +40,7 @@ import Plutus.Contract.Test (
   assertOutcome,
   defaultCheckOptions,
   emulatorConfig,
-  walletPubKeyHash,
+  mockWalletPaymentPubKeyHash,
  )
 
 import Plutus.Trace.Emulator (initialChainState)
@@ -78,14 +78,14 @@ xgov wallet =
   where
     (Gov.AssetClassGov cs tn) = acGOV
     mkPkh :: Wallet -> Ledger.PubKeyHash
-    mkPkh = walletPubKeyHash
+    mkPkh = unPaymentPubKeyHash . mockWalletPaymentPubKeyHash
 
 xgovEP :: Wallet -> Integer -> [(Ledger.PubKeyHash, Integer)]
 xgovEP wallet value = [(mkPkh wallet, value)]
   where
     (Gov.AssetClassGov cs tn) = acGOV
     mkPkh :: Wallet -> Ledger.PubKeyHash
-    mkPkh = walletPubKeyHash
+    mkPkh = unPaymentPubKeyHash . mockWalletPaymentPubKeyHash
 
 -- | Make `Ada` `Value`
 ada :: Integer -> Value

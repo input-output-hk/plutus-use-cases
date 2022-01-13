@@ -15,11 +15,8 @@ import GHC.Generics (Generic)
 
 import Prettyprinter (Pretty (..), viaShow)
 
-import Language.PureScript.Bridge (argonaut, equal, genericShow, mkSumType)
-
 import Plutus.PAB.Effects.Contract.Builtin (HasDefinitions (..), SomeBuiltin (..))
 import Plutus.PAB.Effects.Contract.Builtin qualified as Builtin
-import Plutus.PAB.Run.PSGenerator (HasPSTypes (..))
 
 import Mlabs.NFT.Api qualified as Contract.NFT
 import Mlabs.NFT.Contract.Init (uniqueTokenName)
@@ -43,11 +40,6 @@ data MarketplaceContracts
 
 instance Pretty MarketplaceContracts where
   pretty = viaShow
-
-instance HasPSTypes MarketplaceContracts where
-  psTypes =
-    [ equal . genericShow . argonaut $ mkSumType @MarketplaceContracts
-    ]
 
 -- todo: fix put correct currencySymbol.
 instance HasDefinitions MarketplaceContracts where

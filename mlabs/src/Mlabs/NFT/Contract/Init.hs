@@ -18,7 +18,7 @@ import Ledger (AssetClass, scriptCurrencySymbol)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorHash)
 import Ledger.Value as Value (singleton)
-import Plutus.Contract (Contract, mapError, ownPubKeyHash)
+import Plutus.Contract (Contract, mapError)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import Plutus.V1.Ledger.Value (TokenName (..), assetClass, assetClassValue)
@@ -113,7 +113,7 @@ createListHead InitParams {..} = do
     -- Contract that mints a unique token to be used in the minting of the head
     generateUniqueToken :: GenericContract AssetClass
     generateUniqueToken = do
-      self <- ownPubKeyHash
+      self <- Contract.ownPaymentPubKeyHash
       let tn = TokenName uniqueTokenName --PlutusTx.Prelude.emptyByteString
       x <-
         mapError

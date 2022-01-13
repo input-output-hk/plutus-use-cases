@@ -17,7 +17,7 @@ import Mlabs.Governance.Contract.Simulator.Handler (GovernanceContracts (..))
 import Mlabs.Governance.Contract.Simulator.Handler qualified as Handler
 import Mlabs.Governance.Contract.Validation (AssetClassGov (..))
 
-import Ledger (CurrencySymbol, PubKeyHash, TokenName, pubKeyHash, txId)
+import Ledger (CurrencySymbol, PaymentPubKeyHash (unPaymentPubKeyHash), PubKeyHash, TokenName, pubKeyHash, txId)
 import Ledger.Constraints (mustPayToPubKey)
 import Plutus.V1.Ledger.Value qualified as Value
 
@@ -25,12 +25,12 @@ import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import Plutus.PAB.Simulator (Simulation)
 import Plutus.PAB.Simulator qualified as Simulator
 import Plutus.PAB.Webserver.Server qualified as PWS
-import Wallet.Emulator.Types (Wallet (..), walletPubKeyHash)
-import Wallet.Emulator.Wallet (walletAddress)
+import Wallet.Emulator.Types (Wallet (..), mockWalletPaymentPubKeyHash)
 
 import Mlabs.Plutus.PAB (call, waitForLast)
 import Mlabs.System.Console.PrettyLogger (logNewLine)
 import Mlabs.System.Console.Utils (logAction, logBalance, logMlabs)
+import Wallet.Emulator.Wallet (mockWalletAddress)
 
 -- | Main function to run simulator
 main :: IO ()
@@ -112,16 +112,16 @@ itializeContracts admin = do
 -- shortcits for endpoint calls
 deposit cid amount = call cid $ Deposit amount
 
-withdraw cid wallet amount = call cid $ Withdraw [(walletPubKeyHash wallet, amount)]
+withdraw cid wallet amount = call cid $ Withdraw [(unPaymentPubKeyHash $ mockWalletPaymentPubKeyHash wallet, amount)]
 
 getBalance cid wallet = do
-  call cid $ QueryBalance $ walletPubKeyHash wallet
+  call cid $ QueryBalance $ unPaymentPubKeyHash $ mockWalletPaymentPubKeyHash wallet
   govBalance :: Integer <- waitForLast cid
   logAction $ "Balance is " ++ show govBalance
 
 printBalance :: Wallet -> Simulation (Builtin schema) ()
 printBalance wallet = do
-  v <- Simulator.valueAt $ walletAddress wallet
+  v <- Simulator.valueAt $ mockWalletAddress wallet
   logBalance ("WALLET " <> show wallet) v
 
 -- cfg =

@@ -33,31 +33,31 @@ authorWallet :: Emu.Wallet
 authorWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 1)
 
 authorAddr :: Ledger.Address
-authorAddr = Emu.walletAddress authorWallet
+authorAddr = Emu.mockWalletAddress authorWallet
 
-authorPkh :: Ledger.PubKeyHash
-authorPkh = Emu.walletPubKeyHash authorWallet
+authorPkh :: Ledger.PaymentPubKeyHash
+authorPkh = Emu.mockWalletPaymentPubKeyHash authorWallet
 
 -- User 1
 userOneWallet :: Emu.Wallet
 userOneWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 2)
 
-userOnePkh :: Ledger.PubKeyHash
-userOnePkh = Emu.walletPubKeyHash userOneWallet
+userOnePkh :: Ledger.PaymentPubKeyHash
+userOnePkh = Emu.mockWalletPaymentPubKeyHash userOneWallet
 
 -- User 2
 userTwoWallet :: Emu.Wallet
 userTwoWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 3)
 
-userTwoPkh :: Ledger.PubKeyHash
-userTwoPkh = Emu.walletPubKeyHash userTwoWallet
+userTwoPkh :: Ledger.PaymentPubKeyHash
+userTwoPkh = Emu.mockWalletPaymentPubKeyHash userTwoWallet
 
 -- User 3
 userThreeWallet :: Emu.Wallet
 userThreeWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 4)
 
-userThreePkh :: Ledger.PubKeyHash
-userThreePkh = Emu.walletPubKeyHash userThreeWallet
+userThreePkh :: Ledger.PaymentPubKeyHash
+userThreePkh = Emu.mockWalletPaymentPubKeyHash userThreeWallet
 
 testTxId :: Ledger.TxId
 testTxId = fromJust $ Aeson.decode "{\"getTxId\" : \"61626364\"}"
@@ -108,57 +108,6 @@ uniqueAsset :: UniqueToken
 uniqueAsset = assetClass (CurrencySymbol . toSpooky @BuiltinByteString $ "00a6b45b792d07aa2a778d84c49c6a0d0c0b2bf80d6c1c16accdbe01") (TokenName . toSpooky $ uniqueTokenName)
 
 includeGovHead :: ContextBuilder a
-includeGovHead = paysOther (NFT.txValHash uniqueAsset) (Value.assetClassValue (unSpookyAssetClass uniqueAsset) 1) govHeadDatum
+includeGovHead = paysToOther (NFT.txValHash uniqueAsset) (Value.assetClassValue (unSpookyAssetClass uniqueAsset) 1) govHeadDatum
   where
     govHeadDatum = GovDatum $ HeadLList (GovLHead (5 % 1000) "") Nothing
-
--- We need to keep it until something happens with https://github.com/Liqwid-Labs/plutus-extra/issues/140
--- Functions are copy-pasted, only signatures are generalised
-
-{-# INLINEABLE myToTestValidator #-}
-myToTestValidator ::
-  forall (datum :: Type) (redeemer :: Type) (ctx :: Type).
-  (FromData datum, FromData redeemer, FromData ctx) =>
-  (datum -> redeemer -> ctx -> Bool) ->
-  (BuiltinData -> BuiltinData -> BuiltinData -> ())
-myToTestValidator f d r p = case PlutusTx.fromBuiltinData d of
-  Nothing -> reportParseFailed "Datum"
-  Just d' -> case PlutusTx.fromBuiltinData r of
-    Nothing -> reportParseFailed "Redeemer"
-    Just r' -> case PlutusTx.fromBuiltinData p of
-      Nothing -> reportParseFailed "ScriptContext"
-      Just p' ->
-        if f d' r' p'
-          then reportPass
-          else reportFail
-
-{-# INLINEABLE myToTestMintingPolicy #-}
-myToTestMintingPolicy ::
-  forall (ctx :: Type) (redeemer :: Type).
-  (FromData redeemer, FromData ctx) =>
-  (redeemer -> ctx -> Bool) ->
-  (BuiltinData -> BuiltinData -> ())
-myToTestMintingPolicy f r p = case PlutusTx.fromBuiltinData r of
-  Nothing -> reportParseFailed "Redeemer"
-  Just r' -> case PlutusTx.fromBuiltinData p of
-    Nothing -> reportParseFailed "ScriptContext"
-    Just p' ->
-      if f r' p'
-        then reportPass
-        else reportFail
-
-{-# INLINEABLE reportParseFailed #-}
-reportParseFailed :: BuiltinString -> ()
-reportParseFailed what = report ("Parse failed: " `appendString` what)
-
-{-# INLINEABLE reportPass #-}
-reportPass :: ()
-reportPass = report "Pass"
-
-{-# INLINEABLE reportFail #-}
-reportFail :: ()
-reportFail = report "Fail"
-
-{-# INLINEABLE report #-}
-report :: BuiltinString -> ()
-report what = trace ("tasty-plutus: " `appendString` what) ()

@@ -3,8 +3,9 @@ module Test.NFT.Script.Minting (
 ) where
 
 import Data.Semigroup ((<>))
+import Ledger (unPaymentPubKeyHash)
 import Ledger qualified
-import Ledger.Value (AssetClass (..))
+import Ledger.Value (AssetClass (..), singleton)
 import PlutusTx qualified
 import PlutusTx.Prelude hiding ((<>))
 import PlutusTx.Prelude qualified as PlutusPrelude
@@ -12,7 +13,10 @@ import PlutusTx.Prelude qualified as PlutusPrelude
 import Test.NFT.Script.Values as TestValues
 import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context
+import Test.Tasty.Plutus.Options (TestCurrencySymbol (TestCurrencySymbol), TestTxId (TestTxId))
 import Test.Tasty.Plutus.Script.Unit
+import Test.Tasty.Plutus.TestData
+import Test.Tasty.Plutus.WithScript
 
 import Mlabs.NFT.Spooky (toSpooky, toSpookyAssetClass, toSpookyTokenName, unSpookyTokenName)
 import Mlabs.NFT.Types qualified as NFT
@@ -28,22 +32,22 @@ testMinting = localOption (TestCurrencySymbol TestValues.nftCurrencySymbol) $
       shouldn'tValidate "Pays wrong amount" validData wrongAmountCtx
       shouldn'tValidate "Mismatching id" validData mismatchingIdCtx
 
-baseCtx :: ContextBuilder 'ForMinting
+baseCtx :: ContextBuilder ( 'ForMinting r)
 baseCtx =
   -- FIXME: hacky way to pass "UTXO not consumed"
-  input $ Input (PubKeyType TestValues.authorPkh) TestValues.oneAda
+  input $ Input (PubKeyType $ unPaymentPubKeyHash TestValues.authorPkh) TestValues.oneAda
 
-mintingCtx :: ContextBuilder 'ForMinting
-mintingCtx = mintsWithSelf (unSpookyTokenName TestValues.testTokenName) 1
+mintingCtx :: ContextBuilder ( 'ForMinting r)
+mintingCtx = mintsValue $ singleton TestValues.nftCurrencySymbol (unSpookyTokenName TestValues.testTokenName) 1
 
-paysNftToScriptCtx :: ContextBuilder 'ForMinting
-paysNftToScriptCtx = paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ()
+paysNftToScriptCtx :: ContextBuilder ( 'ForMinting r)
+paysNftToScriptCtx = paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft ()
 
-paysDatumToScriptCtx :: ContextBuilder 'ForMinting
+paysDatumToScriptCtx :: ContextBuilder ( 'ForMinting r)
 paysDatumToScriptCtx =
   spendsFromOther (NFT.txValHash uniqueAsset) TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead (toSpooky @(Maybe NFT.Pointer) Nothing) (toSpooky TestValues.appInstance))
-    <> paysOther (NFT.txValHash uniqueAsset) mempty nodeDatum
-    <> paysOther (NFT.txValHash uniqueAsset) mempty headDatum
+    <> paysToOther (NFT.txValHash uniqueAsset) mempty nodeDatum
+    <> paysToOther (NFT.txValHash uniqueAsset) mempty headDatum
   where
     nodeDatum =
       NFT.NodeDatum $
@@ -64,44 +68,44 @@ paysDatumToScriptCtx =
     ptr = NFT.Pointer . toSpooky . toSpookyAssetClass $ AssetClass (TestValues.nftCurrencySymbol, unSpookyTokenName TestValues.testTokenName)
     headDatum = NFT.HeadDatum $ NFT.NftListHead (toSpooky $ Just ptr) (toSpooky TestValues.appInstance)
 
-paysWrongAmountCtx :: ContextBuilder 'ForMinting
+paysWrongAmountCtx :: ContextBuilder ( 'ForMinting r)
 paysWrongAmountCtx =
   baseCtx <> mintingCtx
-    <> paysOther
+    <> paysToOther
       (NFT.txValHash uniqueAsset)
       (TestValues.oneNft PlutusPrelude.<> TestValues.oneNft)
       TestValues.testNftId
 
-validCtx :: ContextBuilder 'ForMinting
+validCtx :: ContextBuilder ( 'ForMinting r)
 validCtx = baseCtx <> mintingCtx <> paysNftToScriptCtx <> paysDatumToScriptCtx
 
-noMintingCtx :: ContextBuilder 'ForMinting
+noMintingCtx :: ContextBuilder ( 'ForMinting r)
 noMintingCtx = baseCtx <> paysNftToScriptCtx <> paysDatumToScriptCtx
 
-noPayeeCtx :: ContextBuilder 'ForMinting
+noPayeeCtx :: ContextBuilder ( 'ForMinting r)
 noPayeeCtx = baseCtx <> paysDatumToScriptCtx <> paysNftToScriptCtx
 
-validData :: TestData 'ForMinting
-validData = MintingTest (NFT.Mint $ toSpooky TestValues.testNftId)
+validData :: TestData ( 'ForMinting NFT.MintAct)
+validData = MintingTest (NFT.Mint $ toSpooky TestValues.testNftId) (token (unSpookyTokenName TestValues.testTokenName) 1)
 
-nonMintingCtx :: ContextBuilder 'ForMinting
+nonMintingCtx :: ContextBuilder ( 'ForMinting r)
 nonMintingCtx =
-  paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft TestValues.testNftId
-    <> input (Input (PubKeyType TestValues.authorPkh) TestValues.oneAda)
+  paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft TestValues.testNftId
+    <> input (Input (PubKeyType $ unPaymentPubKeyHash TestValues.authorPkh) TestValues.oneAda)
 
-wrongAmountCtx :: ContextBuilder 'ForMinting
+wrongAmountCtx :: ContextBuilder ( 'ForMinting r)
 wrongAmountCtx =
   baseCtx <> mintingCtx <> paysDatumToScriptCtx
-    <> paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft PlutusPrelude.<> TestValues.oneNft) ()
+    <> paysToOther (NFT.txValHash uniqueAsset) (TestValues.oneNft PlutusPrelude.<> TestValues.oneNft) ()
 
-mismatchingIdCtx :: ContextBuilder 'ForMinting
+mismatchingIdCtx :: ContextBuilder ( 'ForMinting r)
 mismatchingIdCtx =
   baseCtx
     <> mintingCtx
     <> paysNftToScriptCtx
     <> spendsFromOther (NFT.txValHash uniqueAsset) TestValues.oneNft (NFT.HeadDatum $ NFT.NftListHead (toSpooky @(Maybe NFT.Pointer) Nothing) (toSpooky TestValues.appInstance))
-    <> paysOther (NFT.txValHash uniqueAsset) mempty nodeDatum
-    <> paysOther (NFT.txValHash uniqueAsset) mempty headDatum
+    <> paysToOther (NFT.txValHash uniqueAsset) mempty nodeDatum
+    <> paysToOther (NFT.txValHash uniqueAsset) mempty headDatum
   where
     nodeDatum =
       NFT.NodeDatum $
@@ -130,4 +134,4 @@ nftMintPolicy =
                               `PlutusTx.applyCode` PlutusTx.liftCode TestValues.appInstance
                            )
   where
-    go = TestValues.myToTestMintingPolicy
+    go = toTestMintingPolicy

@@ -18,7 +18,7 @@ import PlutusTx.Prelude
 import Control.Monad.State.Strict (evalStateT)
 import Data.Either (fromRight)
 
-import Ledger (CurrencySymbol)
+import Ledger (CurrencySymbol, PaymentPubKeyHash (PaymentPubKeyHash))
 import Ledger.Constraints (TxConstraints, checkScriptContext, mustPayToPubKey)
 import Ledger.Contexts qualified as Contexts
 import Ledger.Typed.Scripts as Scripts (MintingPolicy, wrapMintingPolicy)
@@ -155,7 +155,7 @@ validate lendexId _ !ctx = case (getInState, getOutState) of
 
     getDeposit uid !coin !st = evalStateT (getsWallet (Types.UserId uid) coin wallet'deposit) st
 
-    !users = Contexts.txInfoSignatories info
+    !users = PaymentPubKeyHash <$> Contexts.txInfoSignatories info
     !info = Contexts.scriptContextTxInfo ctx
 
 -------------------------------------------------------------------------------
