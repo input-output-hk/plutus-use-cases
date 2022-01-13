@@ -16,12 +16,11 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Monoid (Last)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Mlabs.NFT.PAB.MarketplaceContract (MarketplaceContracts (UserContract))
 import Plutus.Contract (Contract)
 import Plutus.V1.Ledger.Api (MintingPolicy, PubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass)
 import PlutusTx.Natural (Natural)
-import Schema (ToSchema (toSchema))
+import Schema (ToSchema)
 
 newtype Content = Content {getContent :: BuiltinByteString}
   deriving stock (Hask.Show, Generic, Hask.Eq)

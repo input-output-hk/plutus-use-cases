@@ -89,7 +89,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           "Token name must be the hash of the owner pkh and the price"
           (checkTokenName ownerPkh newPrice)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
-    ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
+    ChangeOwner (OwnerData _ price) newOwnerPkh ->
       traceIfFalse
         "Token name must be the hash of the owner pkh and the price"
         (checkTokenName newOwnerPkh price)
