@@ -52,13 +52,7 @@ New:
 
 ### Build all derivations that will be built in CI
 
-(See note about IFD problem above).
-
-As currently configured, `nix flake check` will build all project components, including the tests
-and executables. If the `-L` flag is included, the build logs will be fully printed to stdout.
-
-You can also run the `run-tests.sh` script in the repository root which will build all project
-components.
+`nix build .#check.<SYSTEM>` builds all of the project packages and runs the tests.
 
 ## More helpful commands
 

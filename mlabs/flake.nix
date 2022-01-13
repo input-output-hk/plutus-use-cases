@@ -123,7 +123,6 @@
           overlays = [
             haskell-nix.overlay
             iohk-nix.overlays.crypto
-            # (final: prev: { libsodium = final.libsodium-vrf; })
           ];
           inherit (haskell-nix) config;
           inherit system;
@@ -157,16 +156,18 @@
 
       # This will build all of the project's executables and the tests
       check = perSystem (system:
-        (nixpkgsFor system).runCommand "combined-executables"
+        (nixpkgsFor system).runCommand "combined-check"
           {
-            nativeBuildInputs = builtins.attrValues self.checks.${system};
-          } "touch $out");
+            nativeBuildInputs = builtins.attrValues self.checks.${system}
+              ++ builtins.attrValues self.flake.${system}.packages;
+          } "touch $out"
+      );
 
       # NOTE `nix flake check` will not work at the moment due to use of
       # IFD in haskell.nix
       #
       # Includes all of the packages in the `checks`, otherwise only the
       # test suite would be included
-      checks = perSystem (system: self.flake.${system}.packages);
+      checks = perSystem (system: self.flake.${system}.checks);
     };
 }
