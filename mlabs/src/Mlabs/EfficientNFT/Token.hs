@@ -30,6 +30,7 @@ import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
 import PlutusTx qualified
 import PlutusTx.Natural (Natural)
+-- import PlutusTx.Builtins (consByteString)
 
 import PlutusTx.Prelude
 
@@ -72,7 +73,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           (checkPartiesGotCorrectPayments price ownerPkh)
   where
     !info = scriptContextTxInfo ctx
-    -- ! force evaluation of `ownCs` causes compilation error
+    -- ! force evaluation of `ownCs` causes policy compilation error
     ownCs = ownCurrencySymbol ctx
     checkConsumedUtxo = any (\i -> txInInfoOutRef i == oref) $ txInfoInputs info
 
@@ -138,13 +139,11 @@ mkTokenName (PubKeyHash pkh) price =
 
 {-# INLINEABLE toBin #-}
 toBin :: Integer -> BuiltinByteString
-toBin n
-  | n == 0 = "0"
-  | n == 1 = "1"
-  | even n = rest <> "0"
-  | otherwise = rest <> "1"
-  where
-    rest = toBin (divide n 2)
+toBin n = toBin' n mempty
+  where 
+    toBin' n' rest 
+      | n' < 256 = consByteString n' rest
+      | otherwise = toBin' (n' `divide` 256) (consByteString (n' `modulo` 256) rest)
 
 policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
 policy oref authorPkh royalty platformConfig contentHash =
