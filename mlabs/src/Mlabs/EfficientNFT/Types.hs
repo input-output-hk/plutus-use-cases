@@ -6,6 +6,10 @@ module Mlabs.EfficientNFT.Types (
   NftId (..),
   SetPriceParams (..),
   ChangeOwnerParams (..),
+  MintAct (MintToken, ChangePrice, ChangeOwner),
+  OwnerData (..),
+  PlatformConfig (..),
+  ContentHash,
 ) where
 
 import PlutusTx qualified
@@ -25,6 +29,7 @@ import Schema (ToSchema)
 newtype Content = Content {getContent :: BuiltinByteString}
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
+
 PlutusTx.unstableMakeIsData ''Content
 PlutusTx.makeLift ''Content
 
@@ -74,3 +79,32 @@ data ChangeOwnerParams = ChangeOwnerParams
 
 type GenericContract a = forall w s. Contract w s Text a
 type UserContract a = forall s. Contract (Last NftId) s Text a
+
+data OwnerData = OwnerData
+  { odOwnerPkh :: !PubKeyHash
+  , odPrice :: !Natural
+  }
+  deriving stock (Hask.Show)
+
+PlutusTx.makeLift ''OwnerData
+PlutusTx.unstableMakeIsData ''OwnerData
+
+data PlatformConfig = PlatformConfig
+  { pcMarketplacePkh :: !PubKeyHash
+  , -- | % share of the marketplace multiplied by 100
+    pcMarketplaceShare :: !Natural
+  }
+  deriving stock (Hask.Show)
+
+PlutusTx.makeLift ''PlatformConfig
+PlutusTx.unstableMakeIsData ''PlatformConfig
+
+data MintAct
+  = MintToken OwnerData
+  | ChangePrice OwnerData Natural
+  | ChangeOwner OwnerData PubKeyHash
+  deriving stock (Hask.Show)
+
+PlutusTx.unstableMakeIsData ''MintAct
+
+type ContentHash = BuiltinByteString

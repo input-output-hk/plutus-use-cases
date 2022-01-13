@@ -4,66 +4,40 @@
 
 module Mlabs.EfficientNFT.Token (
   mkPolicy,
-  MintAct (MintToken, ChangePrice, ChangeOwner),
-  OwnerData (..),
-  PlatformConfig (..),
   policy,
   mkTokenName,
 ) where
 
-import Data.Binary qualified as Binary
-import Data.ByteString.Lazy (toStrict)
 import Ledger (
-  Datum (Datum),
+  Datum(..),
   MintingPolicy,
   ScriptContext,
   TxInInfo (txInInfoOutRef, txInInfoResolved),
-  TxInfo (txInfoData, txInfoInputs, txInfoMint, txInfoOutputs),
+  TxInfo (txInfoInputs, txInfoMint, txInfoOutputs),
   TxOut (TxOut, txOutValue),
   TxOutRef,
   ownCurrencySymbol,
   pubKeyHashAddress,
   scriptContextTxInfo,
   txSignedBy,
+  findDatum,
  )
 import Ledger.Ada qualified as Ada
 import Ledger.Crypto (PubKeyHash (PubKeyHash))
+import Ledger.Scripts qualified as Scripts
+import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
 import PlutusTx qualified
-import PlutusTx.Builtins (BuiltinByteString, sha2_256, toBuiltin)
-import PlutusTx.Enum (Enum (fromEnum))
 import PlutusTx.Natural (Natural)
-import PlutusTx.Trace (traceIfFalse)
-import Prelude hiding (Enum (fromEnum))
+-- import PlutusTx.Builtins (consByteString)
 
--- import Ledger.Typed.Scripts (MintingPolicy, wrapMintingPolicy)
--- import Plutus.V1.Ledger.Scripts qualified as Scripts
+import PlutusTx.Prelude
 
-data OwnerData = OwnerData
-  { odOwnerPkh :: !PubKeyHash
-  , odPrice :: !Natural
-  }
+import Mlabs.EfficientNFT.Types
 
-PlutusTx.unstableMakeIsData ''OwnerData
-
-data PlatformConfig = PlatformConfig
-  { pcMarketplacePkh :: !PubKeyHash
-  , -- | % share of the marketplace multiplied by 100
-    pcMarketplaceShare :: !Natural
-  }
-
-PlutusTx.unstableMakeIsData ''PlatformConfig
-
-data MintAct
-  = MintToken OwnerData
-  | ChangePrice OwnerData Natural
-  | ChangeOwner OwnerData PubKeyHash
-
-PlutusTx.unstableMakeIsData ''MintAct
-
-type ContentHash = BuiltinByteString
-
+-- todo: docs
+{-# INLINEABLE mkPolicy #-}
 mkPolicy ::
   TxOutRef ->
   PubKeyHash ->
@@ -78,7 +52,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
     MintToken (OwnerData ownerPkh price) ->
       traceIfFalse "UTXo specified as the parameter must be consumed" checkConsumedUtxo
         && traceIfFalse "Exactly one NFT must be minted" checkMintedAmount
-        && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
+        -- && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
         && traceIfFalse "The author must be the first owner of the NFT" (ownerPkh == authorPkh)
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
@@ -96,9 +70,11 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
         && traceIfFalse
           "Royalties must be paid to the author and the marketplace when selling the NFT"
-          (checkRoyaltyPaid price)
+          (checkPartiesGotCorrectPayments price ownerPkh)
   where
     !info = scriptContextTxInfo ctx
+    -- ! force evaluation of `ownCs` causes policy compilation error
+    ownCs = ownCurrencySymbol ctx
     checkConsumedUtxo = any (\i -> txInInfoOutRef i == oref) $ txInfoInputs info
 
     -- Check if the tokenname is the hash of the owner's pkh and the price
@@ -111,7 +87,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
 
     -- Check if only one token is minted
     checkMintedAmount = case Value.flattenValue (txInfoMint info) of
-      [(cs, _, amt)] -> cs == ownCurrencySymbol ctx && amt == 1
+      [(cs, _, amt)] -> cs == ownCs && amt == 1
       _ -> False
 
     -- Check if the old token is burnt
@@ -119,48 +95,62 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
       let outVal = mconcat $ map txOutValue $ txInfoOutputs info
           inVal = mconcat $ map (txOutValue . txInInfoResolved) $ txInfoInputs info
           oneInput =
-            case filter (\(cs, _, _) -> cs == ownCurrencySymbol ctx) $ Value.flattenValue inVal of
+            case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue inVal of
               [(_, _, amt)] -> amt == 1
               _ -> False
           oneOutput =
-            case filter (\(cs, _, _) -> cs == ownCurrencySymbol ctx) $ Value.flattenValue outVal of
+            case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue outVal of
               [(_, _, amt)] -> amt == 1
               _ -> False
        in oneInput && oneOutput
 
-    -- Check that royalties are correctly paid, and the payment utxos have the correct datum attached
-    checkRoyaltyPaid price =
+    -- Check that all parties received corresponding payments,
+    -- and the payment utxos have the correct datum attached
+    checkPartiesGotCorrectPayments price ownerPkh =
       let outs = txInfoOutputs info
           price' = fromEnum price
           royalty' = fromEnum royalty
           mpShare = fromEnum $ pcMarketplaceShare platformConfig
 
           authorAddr = pubKeyHashAddress authorPkh
-          authorShare = Ada.lovelaceValueOf $ price' * 10000 `div` royalty'
+          authorShare = Ada.lovelaceValueOf $ price' * 10000 `divide` royalty'
 
           marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig)
-          marketplShare = Ada.lovelaceValueOf $ price' * 10000 `div` mpShare
+          marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
 
-          !curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCurrencySymbol ctx
-          !datums = txInfoData info
+          ownerAddr = pubKeyHashAddress ownerPkh
+          ownerShare = (Ada.lovelaceValueOf $ price' * 10000) - authorShare - marketplShare
+
+          curSymDatum = Datum $ PlutusTx.toBuiltinData $ ownCs
 
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
-            addr == addr' && val == val' && (dh >>= (`lookup` datums)) == Just curSymDatum
-       in any (checkPaymentTxOut authorAddr authorShare) outs
+            addr == addr' && val == val'
+            && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
+       in 
+          any (checkPaymentTxOut authorAddr authorShare) outs
             && any (checkPaymentTxOut marketplAddr marketplShare) outs
-
+            && any (checkPaymentTxOut ownerAddr ownerShare) outs
+            
+-- todo: docs
 {-# INLINEABLE mkTokenName #-}
 mkTokenName :: PubKeyHash -> Natural -> TokenName
 mkTokenName (PubKeyHash pkh) price =
-  TokenName $ sha2_256 $ pkh <> toBuiltin (toStrict (Binary.encode (fromEnum price)))
+  TokenName $ sha2_256 $ (pkh <> toBin (fromEnum price))
+
+{-# INLINEABLE toBin #-}
+toBin :: Integer -> BuiltinByteString
+toBin n = toBin' n mempty
+  where 
+    toBin' n' rest 
+      | n' < 256 = consByteString n' rest
+      | otherwise = toBin' (n' `divide` 256) (consByteString (n' `modulo` 256) rest)
 
 policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
-policy = error "TODO"
-
--- policy oref authorPkh royalty platformConfig =
---   Scripts.mkMintingPolicyScript $
---     $$(PlutusTx.compile [||\oref' pkh roy pc -> wrapMintingPolicy $ mkPolicy oref' pkh roy pc ||])
---       `PlutusTx.applyCode` PlutusTx.liftCode oref
---       `PlutusTx.applyCode` PlutusTx.liftCode authorPkh
---       `PlutusTx.applyCode` PlutusTx.liftCode royalty
---       `PlutusTx.applyCode` PlutusTx.liftCode platformConfig
+policy oref authorPkh royalty platformConfig contentHash =
+  Scripts.mkMintingPolicyScript $
+    $$(PlutusTx.compile [||\oref' pkh roy pc ch -> wrapMintingPolicy (mkPolicy oref' pkh roy pc ch)||])
+      `PlutusTx.applyCode` PlutusTx.liftCode oref
+      `PlutusTx.applyCode` PlutusTx.liftCode authorPkh
+      `PlutusTx.applyCode` PlutusTx.liftCode royalty
+      `PlutusTx.applyCode` PlutusTx.liftCode platformConfig
+      `PlutusTx.applyCode` PlutusTx.liftCode contentHash

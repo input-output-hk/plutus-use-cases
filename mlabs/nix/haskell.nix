@@ -57,6 +57,7 @@ pkgs.haskell-nix.cabalProject {
       measures
       orphans-deriving-via
       playground-common
+      plutus-chain-index
       plutus-contract
       plutus-core
       plutus-ledger
