@@ -13,7 +13,6 @@ import Data.Text (Text)
 import Mlabs.EfficientNFT.Contract.ChangeOwner (changeOwner)
 import Mlabs.EfficientNFT.Contract.Mint (mint)
 import Mlabs.EfficientNFT.Contract.SetPrice (setPrice)
-import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 import Mlabs.Plutus.Contract (selectForever)
 

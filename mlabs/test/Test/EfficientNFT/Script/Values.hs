@@ -11,7 +11,6 @@ import PlutusTx.Prelude
 import Ledger (
   PubKeyHash,
   TokenName,
-  TxId (TxId),
   TxOutRef (TxOutRef),
  )
 
