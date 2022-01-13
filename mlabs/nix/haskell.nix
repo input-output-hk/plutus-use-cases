@@ -300,6 +300,12 @@ pkgs.haskell-nix.cabalProject {
       ];
     }
     {
+      src = inputs.plutus-tx-spooky;
+      subdirs = [
+        "."
+      ];
+    }
+    {
       src = inputs.purescript-bridge;
       subdirs = [
         "."

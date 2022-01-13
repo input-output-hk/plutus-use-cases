@@ -89,6 +89,11 @@
         "github:Liqwid-Labs/plutus-extra/cf3d12645fd461a73ef64471852092d215399e86";
       flake = false;
     };
+    plutus-tx-spooky = {
+      url =
+        "gitlab:fresheyeball/plutus-tx-spooky/0c409907fa5b6aee4a2f2d18f871b850a8547fdf";
+      flake = false;
+    };
     purescript-bridge = {
       url =
         "github:input-output-hk/purescript-bridge/366fc70b341e2633f3ad0158a577d52e1cd2b138";

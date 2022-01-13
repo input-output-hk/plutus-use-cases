@@ -601,6 +601,23 @@
         "type": "github"
       }
     },
+    "plutus-tx-spooky": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1639082449,
+        "narHash": "sha256-VrUwoB5l1GhmU9g3dafdbvcHERDzeyl78VESYRrUWXY=",
+        "owner": "fresheyeball",
+        "repo": "plutus-tx-spooky",
+        "rev": "0c409907fa5b6aee4a2f2d18f871b850a8547fdf",
+        "type": "gitlab"
+      },
+      "original": {
+        "owner": "fresheyeball",
+        "repo": "plutus-tx-spooky",
+        "rev": "0c409907fa5b6aee4a2f2d18f871b850a8547fdf",
+        "type": "gitlab"
+      }
+    },
     "purescript-bridge": {
       "flake": false,
       "locked": {
@@ -643,6 +660,7 @@
         "plutus": "plutus",
         "plutus-apps": "plutus-apps",
         "plutus-extra": "plutus-extra",
+        "plutus-tx-spooky": "plutus-tx-spooky",
         "purescript-bridge": "purescript-bridge",
         "servant-purescript": "servant-purescript"
       }
