@@ -24,15 +24,6 @@ jobs:
         with:
           name: mlabs
           authToken: "${{ secrets.CACHIXKEY }}"
-      - name: Cache cabal folder
-        id: cabal
-        uses: actions/cache@v2.1.4
-        with:
-          path: |
-            ~/.cabal/packages
-            ~/.cabal/store
-            dist-newstyle
-          key: ${{ runner.os }}-cabal
       - name: Build all project components
         working-directory: ./mlabs
-        run: ./run-tests.sh
+        run: nix build -L .#check.x86_64-linux

@@ -1,36 +1,25 @@
 { src
+, inputs
 , pkgs
-, plutus
 , doCoverage ? false
 , deferPluginErrors ? true
 , ...
 }:
 
-let
-  plutusPkgs = plutus.pkgs;
-
-  sources = import ./sources.nix {};
-in
 pkgs.haskell-nix.cabalProject {
   inherit src;
 
   name = "mlabs-plutus-use-cases";
 
-  cabalProjectFileName = "cabal.project";
-
-  # Plutus uses a patched GHC. And so shall we.
-  compiler-nix-name = "ghc810420210212";
-
-  # -- Materialization
-  # See https://input-output-hk.github.io/haskell.nix/tutorials/materialization/:
-  # Update using:
-  #   nix-build default.nix 2>&1 | grep -om1 '/nix/store/.*-updateMaterialized' | bash
-  # plan-sha256 = "0000000000000000000000000000000000000000000000000000";
-  # materialized = ./materialization/mlabs-plutus-use-cases.materialized;
+  compiler-nix-name = "ghc8107";
 
   shell = {
+    inputsFrom = [ pkgs.libsodium-vrf ];
+
     # Make sure to keep this list updated after upgrading git dependencies!
     additional = ps: with ps; [
+      filemanip
+      ieee
       plutus-extra
       tasty-plutus
       plutus-pretty
@@ -76,27 +65,21 @@ pkgs.haskell-nix.cabalProject {
 
     withHoogle = true;
 
-    tools.cabal = "latest";
+    tools = {
+      cabal = "latest";
+      haskell-language-server = "latest";
+    };
 
     exactDeps = true;
 
     nativeBuildInputs = with pkgs;
       [
         # Haskell Tools
+        haskellPackages.fourmolu
+        hlint
         entr
         ghcid
         git
-
-        # Use plutus for these packages for now, the versions from haskell.nix
-        # nixpkgs are too new and require builds
-        plutusPkgs.haskellPackages.fourmolu
-        plutusPkgs.niv
-        plutusPkgs.stack
-
-        plutus.plutus.haskell-language-server
-        plutus.plutus.hlint
-        jq
-        nixfmt
 
         # hls doesn't support preprocessors yet so this has to exist in PATH
         haskellPackages.record-dot-preprocessor
@@ -104,7 +87,7 @@ pkgs.haskell-nix.cabalProject {
         # Graphviz Diagrams for documentation
         graphviz
         pkg-config
-        plutusPkgs.libsodium-vrf
+        libsodium-vrf
       ] ++ (
         lib.optionals (!stdenv.isDarwin) [
           rPackages.plotly
@@ -134,63 +117,211 @@ pkgs.haskell-nix.cabalProject {
         plutus-ledger.doHaddock = deferPluginErrors;
         plutus-ledger.flags.defer-plugin-errors = deferPluginErrors;
 
+        # see https://github.com/input-output-hk/haskell.nix/issues/1128
+        ieee.components.library.libs = pkgs.lib.mkForce [ ];
+
         cardano-crypto-praos.components.library.pkgconfig =
-          plutusPkgs.lib.mkForce [ [ plutusPkgs.libsodium-vrf ] ];
+          pkgs.lib.mkForce [ [ pkgs.libsodium-vrf ] ];
         cardano-crypto-class.components.library.pkgconfig =
-          plutusPkgs.lib.mkForce [ [ plutusPkgs.libsodium-vrf ] ];
+          pkgs.lib.mkForce [ [ pkgs.libsodium-vrf ] ];
       };
     }
   ];
 
-  # Using this allows us to leave these nix-specific hashes _out_ of cabal.project
-  # Normally, they'd be placed under the `source-repository-package` section as a comment like so:
-  # `--sha256: ...`
-  sha256map = {
-    # Enforce we are using the same hash as niv has
-    # i.e. this will now fail to nix-build if you bump it but don't bump the `cabal.project`.
-
-    # `plutus`, `plutus-apps`, & `plutus-extra`
-    "https://github.com/input-output-hk/plutus.git"."${sources.plutus.rev}" =
-      sources.plutus.sha256;
-    "https://github.com/input-output-hk/plutus-apps.git"."${sources.plutus-apps.rev}" =
-      sources.plutus-apps.sha256;
-    "https://github.com/Liqwid-Labs/plutus-extra.git"."${sources.plutus-extra.rev}" =
-      sources.plutus-extra.sha256;
-
-    # `cardano-*`
-    "https://github.com/input-output-hk/cardano-addresses"."${sources.cardano-addresses.rev}" =
-      sources.cardano-addresses.sha256;
-    "https://github.com/input-output-hk/cardano-base"."${sources.cardano-base.rev}" =
-      sources.cardano-base.sha256;
-    "https://github.com/input-output-hk/cardano-crypto.git"."${sources.cardano-crypto.rev}" =
-      sources.cardano-crypto.sha256;
-    "https://github.com/input-output-hk/cardano-ledger-specs"."${sources.cardano-ledger-specs.rev}" =
-      sources.cardano-ledger-specs.sha256;
-    "https://github.com/input-output-hk/cardano-node.git"."${sources.cardano-node.rev}" =
-      sources.cardano-node.sha256;
-    "https://github.com/input-output-hk/cardano-prelude"."${sources.cardano-prelude.rev}" =
-      sources.cardano-prelude.sha256;
-    "https://github.com/j-mueller/cardano-wallet"."${sources.cardano-wallet.rev}" =
-      sources.cardano-wallet.sha256;
-
-    # other git dependencies
-    "https://github.com/Quid2/flat.git"."${sources.flat.rev}" =
-      sources.flat.sha256;
-    "https://github.com/input-output-hk/goblins"."${sources.goblins.rev}" =
-      sources.goblins.sha256;
-    "https://github.com/input-output-hk/iohk-monitoring-framework"."${sources.iohk-monitoring-framework.rev}" =
-      sources.iohk-monitoring-framework.sha256;
-    "https://github.com/input-output-hk/ouroboros-network"."${sources.ouroboros-network.rev}" =
-      sources.ouroboros-network.sha256;
-    "https://github.com/input-output-hk/optparse-applicative"."${sources.optparse-applicative.rev}" =
-      sources.optparse-applicative.sha256;
-    "https://github.com/input-output-hk/purescript-bridge.git"."${sources.purescript-bridge.rev}" =
-      sources.purescript-bridge.sha256;
-    "https://github.com/input-output-hk/servant-purescript.git"."${sources.servant-purescript.rev}" =
-      sources.servant-purescript.sha256;
-    "https://github.com/input-output-hk/Win32-network"."${sources.Win32-network.rev}" =
-      sources.Win32-network.sha256;
-    "https://gitlab.com/fresheyeball/plutus-tx-spooky"."${sources.plutus-tx-spooky.rev}" =
-      sources.plutus-tx-spooky.sha256;
-  };
+  extraSources = [
+    {
+      src = inputs.cardano-addresses;
+      subdirs = [
+        "core"
+        "command-line"
+      ];
+    }
+    {
+      src = inputs.cardano-base;
+      subdirs = [
+        "base-deriving-via"
+        "binary"
+        "binary/test"
+        "cardano-crypto-class"
+        "cardano-crypto-praos"
+        "cardano-crypto-tests"
+        "measures"
+        "orphans-deriving-via"
+        "slotting"
+        "strict-containers"
+      ];
+    }
+    {
+      src = inputs.cardano-crypto;
+      subdirs = [
+        "."
+      ];
+    }
+    {
+      src = inputs.cardano-ledger-specs;
+      subdirs = [
+        "byron/ledger/impl"
+        "cardano-ledger-core"
+        "cardano-protocol-tpraos"
+        "eras/alonzo/impl"
+        "eras/byron/chain/executable-spec"
+        "eras/byron/crypto"
+        "eras/byron/crypto/test"
+        "eras/byron/ledger/executable-spec"
+        "eras/byron/ledger/impl/test"
+        "eras/shelley/impl"
+        "eras/shelley-ma/impl"
+        "eras/shelley/chain-and-ledger/executable-spec"
+        "eras/shelley/test-suite"
+        "shelley/chain-and-ledger/shelley-spec-ledger-test"
+        "libs/non-integral"
+        "libs/small-steps"
+        "libs/cardano-ledger-pretty"
+        "semantics/small-steps-test"
+      ];
+    }
+    {
+      src = inputs.cardano-node;
+      subdirs = [
+        "cardano-api"
+        "cardano-node"
+        "cardano-cli"
+        "cardano-config"
+      ];
+    }
+    {
+      src = inputs.cardano-prelude;
+      subdirs = [
+        "cardano-prelude"
+        "cardano-prelude-test"
+      ];
+    }
+    {
+      src = inputs.cardano-wallet;
+      subdirs = [
+        "lib/text-class"
+        "lib/strict-non-empty-containers"
+        "lib/core"
+        "lib/test-utils"
+        "lib/numeric"
+        "lib/launcher"
+        "lib/core-integration"
+        "lib/cli"
+        "lib/shelley"
+      ];
+    }
+    {
+      src = inputs.flat;
+      subdirs = [
+        "."
+      ];
+    }
+    {
+      src = inputs.goblins;
+      subdirs = [
+        "."
+      ];
+    }
+    {
+      src = inputs.iohk-monitoring-framework;
+      subdirs = [
+        "iohk-monitoring"
+        "tracer-transformers"
+        "contra-tracer"
+        "plugins/backend-aggregation"
+        "plugins/backend-ekg"
+        "plugins/backend-monitoring"
+        "plugins/backend-trace-forwarder"
+        "plugins/scribe-systemd"
+      ];
+    }
+    {
+      src = inputs.optparse-applicative;
+      subdirs = [
+        "."
+      ];
+    }
+    {
+      src = inputs.ouroboros-network;
+      subdirs = [
+        "monoidal-synchronisation"
+        "typed-protocols"
+        "typed-protocols-cborg"
+        "typed-protocols-examples"
+        "ouroboros-network"
+        "ouroboros-network-testing"
+        "ouroboros-network-framework"
+        "ouroboros-consensus"
+        "ouroboros-consensus-byron"
+        "ouroboros-consensus-cardano"
+        "ouroboros-consensus-shelley"
+        "io-sim"
+        "io-classes"
+        "network-mux"
+        "ntp-client"
+      ];
+    }
+    {
+      src = inputs.plutus;
+      subdirs = [
+        "plutus-core"
+        "plutus-ledger-api"
+        "plutus-tx"
+        "plutus-tx-plugin"
+        "word-array"
+        "prettyprinter-configurable"
+        "stubs/plutus-ghc-stub"
+      ];
+    }
+    {
+      src = inputs.plutus-apps;
+      subdirs = [
+        "doc"
+        "freer-extras"
+        "playground-common"
+        "plutus-chain-index"
+        "plutus-chain-index-core"
+        "plutus-contract"
+        "plutus-ledger"
+        "plutus-pab"
+        "plutus-playground-server"
+        "plutus-use-cases"
+        "quickcheck-dynamic"
+        "web-ghc"
+      ];
+    }
+    {
+      src = inputs.plutus-extra;
+      subdirs = [
+        "plutus-extra"
+        "tasty-plutus"
+        "plutus-pretty"
+        "plutus-numeric"
+      ];
+    }
+    {
+      src = inputs.plutus-tx-spooky;
+      subdirs = [
+        "."
+      ];
+    }
+    {
+      src = inputs.purescript-bridge;
+      subdirs = [
+        "."
+      ];
+    }
+    {
+      src = inputs.servant-purescript;
+      subdirs = [
+        "."
+      ];
+    }
+    {
+      src = inputs.Win32-network;
+      subdirs = [
+        "."
+      ];
+    }
+  ];
 }
