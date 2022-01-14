@@ -20,7 +20,7 @@ import Mlabs.EfficientNFT.Types
 
 mint :: PlatformConfig -> MintParams -> UserContract ()
 mint pc mp = do
-  pkh <- Contract.ownPubKeyHash
+  pkh <- Contract.ownPaymentPubKeyHash
   (utxo, utxoIndex) <- getFirstUtxo
   let policy' = policy utxo pkh (mp'share mp) pc (getContent . mp'content $ mp)
       curr = scriptCurrencySymbol policy'

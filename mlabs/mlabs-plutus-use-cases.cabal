@@ -33,6 +33,7 @@ common common-imports
     , plutus-extra
     , plutus-ledger
     , plutus-ledger-api
+    , plutus-ledger-constraints
     , plutus-numeric
     , plutus-pab
     , plutus-tx
@@ -263,6 +264,7 @@ test-suite mlabs-plutus-use-cases-tests
     , plutus-core
     , plutus-ledger
     , plutus-ledger-api
+    , plutus-ledger-constraints
     , plutus-pab
     , plutus-tx
     , plutus-tx-plugin

@@ -17,7 +17,7 @@ import Mlabs.EfficientNFT.Types
 
 setPrice :: PlatformConfig -> SetPriceParams -> UserContract ()
 setPrice _ sp = do
-  pkh <- Contract.ownPubKeyHash
+  pkh <- Contract.ownPaymentPubKeyHash
   let policy' = nftId'policy . sp'nftId $ sp
       curr = fst . unAssetClass . nftId'assetClass . sp'nftId $ sp
       tn = mkTokenName pkh (sp'price sp)

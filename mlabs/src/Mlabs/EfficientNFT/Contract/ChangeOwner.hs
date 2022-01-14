@@ -20,7 +20,7 @@ import Mlabs.EfficientNFT.Types
 
 changeOwner :: PlatformConfig -> ChangeOwnerParams -> UserContract ()
 changeOwner pc cp = do
-  pkh <- Contract.ownPubKeyHash
+  pkh <- Contract.ownPaymentPubKeyHash
   utxos <- getUserUtxos
   let policy' = nftId'policy . cp'nftId $ cp
       nftPrice = nftId'price . cp'nftId $ cp

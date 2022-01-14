@@ -12,6 +12,7 @@ import Prelude
 
 import Data.Functor (void)
 import Data.Semigroup (Last (..))
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash))
 import Plutus.Trace.Emulator (EmulatorRuntimeError (..), EmulatorTrace, activateContractWallet, callEndpoint, observableState, throwError)
 import Plutus.V1.Ledger.Tx
 import Wallet.Emulator qualified as Emulator
@@ -39,7 +40,7 @@ callUserAct lid wal act = do
     Types.FlashLoanAct -> pure () -- todo
     Types.LiquidationCallAct {..} ->
       case act'debt of
-        Types.BadBorrow (Types.UserId pkh) asset -> callEndpoint' hdl $ Api.LiquidationCall act'collateral pkh asset act'debtToCover act'receiveAToken
+        Types.BadBorrow (Types.UserId (PaymentPubKeyHash pkh)) asset -> callEndpoint' hdl $ Api.LiquidationCall act'collateral pkh asset act'debtToCover act'receiveAToken
         _ -> throwError $ GenericError "Bad borrow has wrong settings"
 
 -- | Calls query act

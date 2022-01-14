@@ -33,14 +33,14 @@ import Data.Text (Text, pack)
 import GHC.Generics (Generic)
 
 import Control.Monad.Freer (interpret)
-import Plutus.Contract (Contract, EmptySchema, awaitTxConfirmed, mapError, ownPubKeyHash, submitTx, tell)
+import Plutus.Contract (Contract, EmptySchema, awaitTxConfirmed, mapError, ownPaymentPubKeyHash, submitTx, tell)
 
-import Ledger (CurrencySymbol, PubKeyHash, getCardanoTxId)
+import Ledger (CurrencySymbol, getCardanoTxId)
 import Ledger.Constraints (mustPayToPubKey)
 import Mlabs.Utils.Wallet (walletFromNumber)
 import Plutus.Contracts.Currency as Currency
 import Plutus.V1.Ledger.Value qualified as Value
-import Wallet.Emulator.Types (Wallet, walletPubKeyHash)
+import Wallet.Emulator.Types (Wallet, mockWalletPaymentPubKeyHash)
 
 import Plutus.PAB.Core (EffectHandlers)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, BuiltinHandler (contractHandler), HasDefinitions (..), SomeBuiltin (..), endpointsToSchemas, handleBuiltin)
@@ -110,18 +110,15 @@ bootstrapGovernance = do
     mintRequredTokens ::
       Contract w EmptySchema Currency.CurrencyError Currency.OneShotCurrency
     mintRequredTokens = do
-      ownPK <- ownPubKeyHash
+      ownPK <- ownPaymentPubKeyHash
       Currency.mintContract ownPK [(govTokenName, govAmount * length wallets)]
 
     distributeGov govPerWallet = do
-      ownPK <- ownPubKeyHash
+      ownPK <- ownPaymentPubKeyHash
       forM_ wallets $ \w -> do
-        let pkh = walletPKH w
+        let pkh = mockWalletPaymentPubKeyHash w
         when (pkh /= ownPK) $ do
           tx <- submitTx $ mustPayToPubKey pkh govPerWallet
           awaitTxConfirmed $ getCardanoTxId tx
 
     toText = pack . show
-
-walletPKH :: Wallet -> PubKeyHash
-walletPKH = walletPubKeyHash
