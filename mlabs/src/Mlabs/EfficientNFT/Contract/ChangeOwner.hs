@@ -1,11 +1,12 @@
 module Mlabs.EfficientNFT.Contract.ChangeOwner (changeOwner) where
 
+import PlutusTx qualified
 import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
 
 import Control.Monad (void)
 import Data.Void (Void)
-import Ledger (Redeemer (Redeemer))
+import Ledger (Datum (Datum), Redeemer (Redeemer))
 import Ledger.Constraints qualified as Constraints
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Ada (lovelaceValueOf)
@@ -34,6 +35,7 @@ changeOwner pc cp = do
       authorShare = getShare (addExtend . nftId'authorShare . cp'nftId $ cp)
       marketplaceShare = getShare (addExtend . pcMarketplaceShare $ pc)
       ownerShare = lovelaceValueOf (addExtend nftPrice) - authorShare - marketplaceShare
+      datum = Datum . PlutusTx.toBuiltinData $ curr
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
@@ -42,10 +44,9 @@ changeOwner pc cp = do
       tx =
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
-          , Constraints.mustPayToPubKey (nftId'author . cp'nftId $ cp) authorShare
-          , Constraints.mustPayToPubKey (nftId'owner . cp'nftId $ cp) ownerShare
-          , -- TODO: attach datum here. Blocked by plutus-apps update
-            Constraints.mustPayToPubKey (pcMarketplacePkh pc) marketplaceShare
+          , Constraints.mustPayWithDatumToPubKey (nftId'author . cp'nftId $ cp) datum authorShare
+          , Constraints.mustPayWithDatumToPubKey (nftId'owner . cp'nftId $ cp) datum ownerShare
+          , Constraints.mustPayWithDatumToPubKey (pcMarketplacePkh pc) datum marketplaceShare
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
   Contract.tell . Hask.pure $
