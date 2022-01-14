@@ -11,19 +11,29 @@ import Ledger.Value (TokenName (TokenName, unTokenName))
 import Plutus.V1.Ledger.Ada qualified as Value
 import PlutusTx qualified
 
-import PlutusTx.Prelude hiding (mconcat, mempty, (<>))
-import Prelude ((<>))
+import PlutusTx.Prelude hiding (elem, mconcat, mempty, (<>))
+import Prelude (String, elem, (<>))
 
 import Test.Tasty (TestTree, localOption, testGroup)
 import Test.Tasty.Plutus.Context
 import Test.Tasty.Plutus.Script.Unit
+
+import Type.Reflection (Typeable)
 
 import Mlabs.EfficientNFT.Types (
   MintAct (MintToken),
   OwnerData (OwnerData, odOwnerPkh),
  )
 
-import Mlabs.EfficientNFT.Token (mkPolicy)
+import Mlabs.EfficientNFT.Token (
+  errAuthorNotOwner,
+  errMalformedTokenName,
+  errNotExactlyOneMinted,
+  errNotSignedByOwner,
+  errPaymentsNotCorrect,
+  errUtxoNotConsumed,
+  mkPolicy,
+ )
 
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
@@ -46,11 +56,35 @@ test =
       withMintingPolicy "Token policy" testTokenPolicy $ do
         shouldValidate "valid data and context" validData validCtx
         -- maybe, property test here will be better (`plutus-extra` update required)
-        shouldn'tValidate "fail if author is not the owner" (breakAuthorPkh validData) validCtx
-        shouldn'tValidate "fail if token has wrong name" validData wrongNftNameCtx
-        shouldn'tValidate "fail if minted amount not 1" validData wrongNftQuantityCtx
-        shouldn'tValidate "fail if additional tokens minted" validData manyTokensCtx
-        shouldn'tValidate "fail if no NFT minted" validData noTokensCtx
+        shouldFailWithErr
+          "fail if author is not the owner"
+          errAuthorNotOwner
+          (breakAuthorPkh validData)
+          validCtx
+
+        shouldFailWithErr
+          "fail if token has wrong name"
+          errMalformedTokenName
+          validData
+          wrongNftNameCtx
+
+        shouldFailWithErr
+          "fail if minted amount not 1"
+          errNotExactlyOneMinted
+          validData
+          wrongNftQuantityCtx
+
+        shouldFailWithErr
+          "fail if additional tokens minted"
+          errNotExactlyOneMinted
+          validData
+          manyTokensCtx
+
+        shouldFailWithErr
+          "fail if no NFT minted"
+          errNotExactlyOneMinted
+          validData
+          noTokensCtx
 
 -- test data
 validData :: TestData 'ForMinting
@@ -107,3 +141,16 @@ testTokenPolicy =
     royalty' = toEnum 3
     platformCfg' = TestValues.platformCfg
     contentHash' = TestValues.contentHash
+
+shouldFailWithErr ::
+  forall (p :: Purpose).
+  Typeable p =>
+  String ->
+  BuiltinString ->
+  TestData p ->
+  ContextBuilder p ->
+  WithScript p ()
+shouldFailWithErr name errMsg =
+  shouldn'tValidateTracing name (errMsg' `elem`)
+  where
+    errMsg' = fromBuiltin errMsg
