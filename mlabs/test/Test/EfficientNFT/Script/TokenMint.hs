@@ -26,12 +26,6 @@ import Mlabs.EfficientNFT.Types (
  )
 
 import Mlabs.EfficientNFT.Token (
-  errAuthorNotOwner,
-  errMalformedTokenName,
-  errNotExactlyOneMinted,
-  errNotSignedByOwner,
-  errPaymentsNotCorrect,
-  errUtxoNotConsumed,
   mkPolicy,
  )
 
@@ -58,31 +52,31 @@ test =
         -- maybe, property test here will be better (`plutus-extra` update required)
         shouldFailWithErr
           "fail if author is not the owner"
-          errAuthorNotOwner
+          "The author must be the first owner of the NFT"
           (breakAuthorPkh validData)
           validCtx
 
         shouldFailWithErr
           "fail if token has wrong name"
-          errMalformedTokenName
+          "Token name must be the hash of the owner pkh and the price"
           validData
           wrongNftNameCtx
 
         shouldFailWithErr
           "fail if minted amount not 1"
-          errNotExactlyOneMinted
+          "Exactly one NFT must be minted"
           validData
           wrongNftQuantityCtx
 
         shouldFailWithErr
           "fail if additional tokens minted"
-          errNotExactlyOneMinted
+          "Exactly one NFT must be minted"
           validData
           manyTokensCtx
 
         shouldFailWithErr
           "fail if no NFT minted"
-          errNotExactlyOneMinted
+          "Exactly one NFT must be minted"
           validData
           noTokensCtx
 

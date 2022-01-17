@@ -6,12 +6,6 @@ module Mlabs.EfficientNFT.Token (
   mkPolicy,
   policy,
   mkTokenName,
-  errUtxoNotConsumed,
-  errNotExactlyOneMinted,
-  errAuthorNotOwner,
-  errMalformedTokenName,
-  errNotSignedByOwner,
-  errPaymentsNotCorrect,
 ) where
 
 import Ledger (
@@ -57,19 +51,19 @@ mkPolicy ::
 mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
   case mintAct of
     MintToken (OwnerData ownerPkh price) ->
-      traceIfFalse errUtxoNotConsumed checkConsumedUtxo
-        && traceIfFalse errNotExactlyOneMinted checkMintedAmount
+      traceIfFalse "UTXo specified as the parameter must be consumed" checkConsumedUtxo
+        && traceIfFalse "Exactly one NFT must be minted" checkMintedAmount
         -- && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
-        && traceIfFalse errAuthorNotOwner (ownerPkh == authorPkh)
-        && traceIfFalse errMalformedTokenName (checkTokenName ownerPkh price)
+        && traceIfFalse "The author must be the first owner of the NFT" (ownerPkh == authorPkh)
+        && traceIfFalse "Token name must be the hash of the owner pkh and the price" (checkTokenName ownerPkh price)
     ChangePrice (OwnerData ownerPkh _) newPrice ->
-      traceIfFalse errNotSignedByOwner (txSignedBy info ownerPkh)
-        && traceIfFalse errMalformedTokenName (checkTokenName ownerPkh newPrice)
-        && traceIfFalse errOldNotBurnt checkBurnOld
+      traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
+        && traceIfFalse "Token name must be the hash of the owner pkh and the price" (checkTokenName ownerPkh newPrice)
+        && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
     ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
-      traceIfFalse errMalformedTokenName (checkTokenName newOwnerPkh price)
-        && traceIfFalse errOldNotBurnt checkBurnOld
-        && traceIfFalse errPaymentsNotCorrect (checkPartiesGotCorrectPayments price ownerPkh)
+      traceIfFalse "Token name must be the hash of the owner pkh and the price" (checkTokenName newOwnerPkh price)
+        && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
+        && traceIfFalse "All parties must receive corresponding payments when selling the NFT" (checkPartiesGotCorrectPayments price ownerPkh)
   where
     !info = scriptContextTxInfo ctx
     -- ! force evaluation of `ownCs` causes policy compilation error
@@ -154,27 +148,3 @@ policy oref authorPkh royalty platformConfig contentHash =
       `PlutusTx.applyCode` PlutusTx.liftCode royalty
       `PlutusTx.applyCode` PlutusTx.liftCode platformConfig
       `PlutusTx.applyCode` PlutusTx.liftCode contentHash
-
--- Error messages
-errUtxoNotConsumed :: BuiltinString
-errUtxoNotConsumed = "UTXo specified as the parameter must be consumed"
-
-errNotExactlyOneMinted :: BuiltinString
-errNotExactlyOneMinted = "Exactly one NFT must be minted"
-
-errAuthorNotOwner :: BuiltinString
-errAuthorNotOwner = "The author must be the first owner of the NFT"
-
-errMalformedTokenName :: BuiltinString
-errMalformedTokenName =
-  "Token name must be the hash of the owner pkh and the price"
-
-errNotSignedByOwner :: BuiltinString
-errNotSignedByOwner = "Owner must sign the transaction"
-
-errOldNotBurnt :: BuiltinString
-errOldNotBurnt = "Old version must be burnt when reminting"
-
-errPaymentsNotCorrect :: BuiltinString
-errPaymentsNotCorrect =
-  "All parties must receive corresponding payments when selling the NFT"
