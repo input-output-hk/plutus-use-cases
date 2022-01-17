@@ -14,7 +14,7 @@ import PlutusTx.Prelude
 import Ledger (
   Datum (Datum),
   MintingPolicy,
-  PaymentPubKeyHash (PaymentPubKeyHash, unPaymentPubKeyHash),
+  PaymentPubKeyHash (PaymentPubKeyHash),
   PubKeyHash (PubKeyHash),
   ScriptContext,
   TxInInfo (txInInfoOutRef, txInInfoResolved),
@@ -62,11 +62,11 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
           (checkTokenName ownerPkh price)
-    ChangePrice (OwnerData ownerPkh _) newPrice ->
+    ChangePrice (OwnerData (PaymentPubKeyHash ownerPkh) _) newPrice ->
       traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
-          (checkTokenName ownerPkh newPrice)
+          (checkTokenName (PaymentPubKeyHash ownerPkh) newPrice)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
     ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
       traceIfFalse
