@@ -28,7 +28,7 @@ import PlutusTx.Prelude hiding ((%))
 import Prelude qualified as Hask (uncurry)
 
 import Data.Map.Strict qualified as M
-import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash))
 import Plutus.V1.Ledger.Value qualified as Value
 import PlutusTx.AssocMap qualified as AM
 
@@ -93,7 +93,7 @@ defaultAppConfig = AppConfig reserves users curSym admins oracles
   where
     admins = [user1]
     oracles = [user1]
-    user1 = Types.UserId $ PubKeyHash "1" -- only user 1 can set the price and be admin
+    user1 = Types.UserId $ PaymentPubKeyHash "1" -- only user 1 can set the price and be admin
     curSym = Value.currencySymbol "lending-app"
     userNames = ["1", "2", "3"]
     coinNames = ["Dollar", "Euro", "Lira"]
@@ -111,7 +111,7 @@ defaultAppConfig = AppConfig reserves users curSym admins oracles
         )
         coinNames
 
-    users = zipWith (\coinName userName -> (Types.UserId (PubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames
+    users = zipWith (\coinName userName -> (Types.UserId (PaymentPubKeyHash userName), wal (toCoin coinName, 100))) coinNames userNames
     wal cs = BchWallet $ Hask.uncurry M.singleton cs
 
     toAToken name = Value.TokenName $ "a" <> name

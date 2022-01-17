@@ -8,7 +8,7 @@ module Test.Governance.Contract (
 import Data.Functor (void)
 import Data.Text (Text)
 import PlutusTx.Prelude hiding (error)
-import Prelude (Show (..), error)
+import Prelude (error)
 
 -- import Data.Monoid ((<>), mempty)
 
@@ -27,9 +27,8 @@ import Mlabs.Plutus.Contract (callEndpoint')
 import Plutus.Trace.Emulator (ContractInstanceTag)
 import Plutus.Trace.Emulator qualified as Trace
 import Plutus.Trace.Emulator.Types (ContractHandle)
-import Plutus.V1.Ledger.Scripts (ScriptError (EvaluationError))
 
-import Control.Monad.Freer (Eff, Member)
+import Control.Monad.Freer (Eff, Members)
 import Data.Semigroup (Last)
 import Data.Text as T (isInfixOf)
 import Test.Tasty (TestTree, testGroup)
@@ -45,7 +44,7 @@ import Test.Utils (concatPredicates, next)
 
 import Ledger.Index (ValidationError (..))
 
-import Plutus.Trace.Effects.RunContract (RunContract)
+import Plutus.Trace.Effects.RunContract (RunContract, StartContract)
 
 --import Control.Monad.Writer (Monoid(mempty))
 
@@ -54,7 +53,7 @@ theContract = Gov.governanceEndpoints Test.acGOV
 
 type Handle = ContractHandle (Maybe (Last Integer)) GovernanceSchema Text
 setup ::
-  (Member RunContract effs) =>
+  (Members [RunContract, StartContract] effs) =>
   Wallet ->
   (Wallet, Gov.GovernanceContract (), ContractInstanceTag, Eff effs Handle)
 setup wallet = (wallet, theContract, Trace.walletInstanceTag wallet, Trace.activateContractWallet wallet theContract)

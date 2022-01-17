@@ -25,7 +25,7 @@ import Mlabs.NFT.Contract.Aux
 import Mlabs.NFT.Contract.Gov.Aux
 import Mlabs.NFT.Governance.Types
 import Mlabs.NFT.Governance.Validation
-import Mlabs.NFT.Spooky (unSpookyAddress, unSpookyPubKeyHash)
+import Mlabs.NFT.Spooky (unPaymentPubKeyHash, unSpookyAddress, unSpookyPubKeyHash)
 import Mlabs.NFT.Types
 
 -- | Returns current `listGov` stake for user
@@ -41,7 +41,7 @@ querryCurrentStake uT _ = do
     Just (PointInfo (HeadDatum x) _ _ _) -> Hask.pure x
     _ -> Contract.throwError "queryCurrentStake: NFT HEAD not found"
   let ownPkh = getUserId user
-      listGovTokenName = TokenName . ("listGov" <>) . getPubKeyHash . unSpookyPubKeyHash $ ownPkh
+      listGovTokenName = TokenName . ("listGov" <>) . getPubKeyHash . unSpookyPubKeyHash $ unPaymentPubKeyHash ownPkh
       newGovDatum = GovDatum $ NodeLList user GovLNode Nothing
       appInstance = head'appInstance nftHead
       govAddr = unSpookyAddress . appInstance'Governance $ appInstance

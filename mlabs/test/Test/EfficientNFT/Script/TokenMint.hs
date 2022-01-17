@@ -16,7 +16,10 @@ import Prelude (String, elem, (<>))
 
 import Test.Tasty (TestTree, localOption, testGroup)
 import Test.Tasty.Plutus.Context
+import Test.Tasty.Plutus.Options
 import Test.Tasty.Plutus.Script.Unit
+import Test.Tasty.Plutus.TestData
+import Test.Tasty.Plutus.WithScript
 
 import Type.Reflection (Typeable)
 

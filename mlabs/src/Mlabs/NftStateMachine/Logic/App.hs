@@ -22,6 +22,7 @@ import PlutusTx.Prelude
 import Prelude qualified as Hask (uncurry)
 
 import Data.Map.Strict qualified as M
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash))
 import Playground.Contract (TxOutRef (..))
 import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Plutus.V1.Ledger.TxId (TxId (TxId))
@@ -72,7 +73,7 @@ defaultAppCfg = AppCfg users dummyOutRef "mona-lisa" (fst . head $ users)
 
     userNames = ["1", "2", "3"]
 
-    users = fmap (\userName -> (UserId (PubKeyHash userName), wal (adaCoin, 1000))) userNames
+    users = fmap (\userName -> (UserId (PaymentPubKeyHash (PubKeyHash userName)), wal (adaCoin, 1000))) userNames
     wal cs = BchWallet $ Hask.uncurry M.singleton cs
 
 -------------------------------------------------------

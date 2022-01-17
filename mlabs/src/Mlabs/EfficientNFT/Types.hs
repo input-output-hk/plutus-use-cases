@@ -20,8 +20,9 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Monoid (Last)
 import Data.Text (Text)
 import GHC.Generics (Generic)
+import Ledger (PaymentPubKeyHash)
 import Plutus.Contract (Contract)
-import Plutus.V1.Ledger.Api (MintingPolicy, PubKeyHash)
+import Plutus.V1.Ledger.Api (MintingPolicy)
 import Plutus.V1.Ledger.Value (AssetClass)
 import PlutusTx.Natural (Natural)
 import Schema (ToSchema)
@@ -52,8 +53,8 @@ data NftId = NftId
   { nftId'assetClass :: AssetClass
   , nftId'policy :: MintingPolicy
   , nftId'price :: Natural
-  , nftId'owner :: PubKeyHash
-  , nftId'author :: PubKeyHash
+  , nftId'owner :: PaymentPubKeyHash
+  , nftId'author :: PaymentPubKeyHash
   , nftId'authorShare :: Natural
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
@@ -72,7 +73,7 @@ data ChangeOwnerParams = ChangeOwnerParams
   { -- | Token which owner is set.
     cp'nftId :: NftId
   , -- | New Owner
-    cp'owner :: PubKeyHash
+    cp'owner :: PaymentPubKeyHash
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
@@ -81,7 +82,7 @@ type GenericContract a = forall w s. Contract w s Text a
 type UserContract a = forall s. Contract (Last NftId) s Text a
 
 data OwnerData = OwnerData
-  { odOwnerPkh :: !PubKeyHash
+  { odOwnerPkh :: !PaymentPubKeyHash
   , odPrice :: !Natural
   }
   deriving stock (Hask.Show)
@@ -90,7 +91,7 @@ PlutusTx.makeLift ''OwnerData
 PlutusTx.unstableMakeIsData ''OwnerData
 
 data PlatformConfig = PlatformConfig
-  { pcMarketplacePkh :: !PubKeyHash
+  { pcMarketplacePkh :: !PaymentPubKeyHash
   , -- | % share of the marketplace multiplied by 100
     pcMarketplaceShare :: !Natural
   }
@@ -102,7 +103,7 @@ PlutusTx.unstableMakeIsData ''PlatformConfig
 data MintAct
   = MintToken OwnerData
   | ChangePrice OwnerData Natural
-  | ChangeOwner OwnerData PubKeyHash
+  | ChangeOwner OwnerData PaymentPubKeyHash
   deriving stock (Hask.Show)
 
 PlutusTx.unstableMakeIsData ''MintAct

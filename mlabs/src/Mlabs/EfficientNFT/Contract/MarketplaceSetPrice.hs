@@ -1,25 +1,31 @@
-module Mlabs.EfficientNFT.Contract.SetPrice (setPrice) where
+module Mlabs.EfficientNFT.Contract.MarketplaceSetPrice (marketplaceSetPrice) where
 
 import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
 
 import Control.Monad (void)
-import Data.Void (Void)
-import Ledger (Redeemer (Redeemer))
+import Ledger (Datum (Datum), Redeemer (Redeemer), scriptAddress)
 import Ledger.Constraints qualified as Constraints
+import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import Plutus.V1.Ledger.Value (assetClass, assetClassValue, singleton, unAssetClass)
 import Text.Printf (printf)
 
+import Mlabs.EfficientNFT.Contract.Aux
+import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 
-setPrice :: PlatformConfig -> SetPriceParams -> UserContract ()
-setPrice _ sp = do
+marketplaceSetPrice :: PlatformConfig -> SetPriceParams -> UserContract ()
+marketplaceSetPrice _ sp = do
+  let curr = fst . unAssetClass . nftId'assetClass . sp'nftId $ sp
+      validator = marketplaceValidator curr
+      scriptAddr = scriptAddress . validatorScript $ validator
+  scriptUtxos <- getAddrUtxos scriptAddr
   pkh <- Contract.ownPaymentPubKeyHash
   let policy' = nftId'policy . sp'nftId $ sp
-      curr = fst . unAssetClass . nftId'assetClass . sp'nftId $ sp
+      valHash = validatorHash validator
       tn = mkTokenName pkh (sp'price sp)
       newNftValue = singleton curr tn 1
       oldNftValue = assetClassValue (nftId'assetClass . sp'nftId $ sp) (-1)
@@ -28,13 +34,15 @@ setPrice _ sp = do
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
+          , Constraints.unspentOutputs scriptUtxos
           ]
       tx =
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
           , Constraints.mustBeSignedBy pkh
+          , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) newNftValue
           ]
-  void $ Contract.submitTxConstraintsWith @Void lookup tx
+  void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $
     NftId
       { nftId'assetClass = assetClass curr tn

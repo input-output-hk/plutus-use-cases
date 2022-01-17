@@ -6,6 +6,10 @@ module Mlabs.NFT.Spooky (
   getPubKeyHash,
   toSpookyPubKeyHash,
   unSpookyPubKeyHash,
+  PaymentPubKeyHash (..),
+  unPaymentPubKeyHash,
+  toSpookyPaymentPubKeyHash,
+  unSpookyPaymentPubKeyHash,
   DatumHash (..),
   getDatumHash,
   CurrencySymbol (..),
@@ -120,6 +124,28 @@ toSpookyPubKeyHash (Crypto.PubKeyHash hash) = PubKeyHash . toSpooky $ hash
 {-# INLINEABLE unSpookyPubKeyHash #-}
 unSpookyPubKeyHash :: PubKeyHash -> Crypto.PubKeyHash
 unSpookyPubKeyHash (PubKeyHash hash) = Crypto.PubKeyHash . unSpooky $ hash
+
+newtype PaymentPubKeyHash = PaymentPubKeyHash {unPaymentPubKeyHash' :: Spooky PubKeyHash}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''PaymentPubKeyHash
+
+instance Ord PaymentPubKeyHash where
+  {-# INLINEABLE compare #-}
+  compare h h' = compare (unPaymentPubKeyHash h) (unPaymentPubKeyHash h')
+
+{-# INLINEABLE unPaymentPubKeyHash #-}
+unPaymentPubKeyHash :: PaymentPubKeyHash -> PubKeyHash
+unPaymentPubKeyHash = unSpooky . unPaymentPubKeyHash'
+
+{-# INLINEABLE toSpookyPaymentPubKeyHash #-}
+toSpookyPaymentPubKeyHash :: Ledger.PaymentPubKeyHash -> PaymentPubKeyHash
+toSpookyPaymentPubKeyHash (Ledger.PaymentPubKeyHash hash) = PaymentPubKeyHash . toSpooky . toSpookyPubKeyHash $ hash
+
+{-# INLINEABLE unSpookyPaymentPubKeyHash #-}
+unSpookyPaymentPubKeyHash :: PaymentPubKeyHash -> Ledger.PaymentPubKeyHash
+unSpookyPaymentPubKeyHash (PaymentPubKeyHash hash) = Ledger.PaymentPubKeyHash . unSpookyPubKeyHash . unSpooky $ hash
 
 newtype DatumHash = DatumHash {getDatumHash' :: Spooky BuiltinByteString}
   deriving stock (Generic)

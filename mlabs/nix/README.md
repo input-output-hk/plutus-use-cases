@@ -9,48 +9,7 @@ Use nixfmt (provided by the shell) to format the nix sources.
 
 # Pinning git dependencies
 
-Use `niv` to update the git dependencies in `haskell-nix-cabal.project`.
-
-- to update a pinned dependency:
-
-```shell
-niv update <dependency_name> -r <dependency_tag>
-```
-
-This will update both the revision, and the sha256 of the said dependency, that
-will then get pulled by haskell-nix.
-
-To update all of the dependencies with `niv`, run the `update-sha256map.sh` script
-in the repository root.
-
-# Updating plutus
-
-In the case of a `plutus` upgrade, you _must_ also update the `rev` field of `plutusSrc`
-in `flake.nix` in addition to the steps above:
-
-```shell
-niv update plutus -r <revision>
-```
-
-then
-
-```nix
-# ../flake.nix
-{
-  inputs = {
-
-    plutusSrc = {
-      type = "github";
-      owner = "input-output-hk";
-      repo = "plutus";
-      rev = "3f089ccf0ca746b399c99afe51e063b0640af547"; # update here!
-      flake = false;
-    };
-
-  }
-
-}
-```
+Git dependencies are pinned in the `inputs` of the flake. Make sure to set `flake = false;` when adding a new dependencies. When upgrading an existing dependency, replace the commit hash in its `url`.
 
 # Using flakes commands
 
@@ -93,13 +52,7 @@ New:
 
 ### Build all derivations that will be built in CI
 
-(See note about IFD problem above).
-
-As currently configured, `nix flake check` will build all project components, including the tests
-and executables. If the `-L` flag is included, the build logs will be fully printed to stdout.
-
-You can also run the `run-tests.sh` script in the repository root which will build all project
-components.
+`nix build .#check.<SYSTEM>` builds all of the project packages and runs the tests.
 
 ## More helpful commands
 

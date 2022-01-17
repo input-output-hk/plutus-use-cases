@@ -8,9 +8,14 @@ module Mlabs.EfficientNFT.Token (
   mkTokenName,
 ) where
 
+import PlutusTx qualified
+import PlutusTx.Prelude
+
 import Ledger (
-  Datum (..),
+  Datum (Datum),
   MintingPolicy,
+  PaymentPubKeyHash (PaymentPubKeyHash, unPaymentPubKeyHash),
+  PubKeyHash (PubKeyHash),
   ScriptContext,
   TxInInfo (txInInfoOutRef, txInInfoResolved),
   TxInfo (txInfoInputs, txInfoMint, txInfoOutputs),
@@ -23,17 +28,11 @@ import Ledger (
   txSignedBy,
  )
 import Ledger.Ada qualified as Ada
-import Ledger.Crypto (PubKeyHash (PubKeyHash))
 import Ledger.Scripts qualified as Scripts
 import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
-import PlutusTx qualified
 import PlutusTx.Natural (Natural)
-
--- import PlutusTx.Builtins (consByteString)
-
-import PlutusTx.Prelude
 
 import Mlabs.EfficientNFT.Types
 
@@ -41,7 +40,7 @@ import Mlabs.EfficientNFT.Types
 {-# INLINEABLE mkPolicy #-}
 mkPolicy ::
   TxOutRef ->
-  PubKeyHash ->
+  PaymentPubKeyHash ->
   Natural ->
   PlatformConfig ->
   ContentHash ->
@@ -51,19 +50,32 @@ mkPolicy ::
 mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
   case mintAct of
     MintToken (OwnerData ownerPkh price) ->
-      traceIfFalse "UTXo specified as the parameter must be consumed" checkConsumedUtxo
-        && traceIfFalse "Exactly one NFT must be minted" checkMintedAmount
-        -- && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
-        && traceIfFalse "The author must be the first owner of the NFT" (ownerPkh == authorPkh)
-        && traceIfFalse "Token name must be the hash of the owner pkh and the price" (checkTokenName ownerPkh price)
+      traceIfFalse
+        "UTXo specified as the parameter must be consumed"
+        checkConsumedUtxo
+        && traceIfFalse
+          "Exactly one NFT must be minted"
+          checkMintedAmount
+        && traceIfFalse
+          "The author must be the first owner of the NFT"
+          (ownerPkh == authorPkh)
+        && traceIfFalse
+          "Token name must be the hash of the owner pkh and the price"
+          (checkTokenName ownerPkh price)
     ChangePrice (OwnerData ownerPkh _) newPrice ->
       traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
-        && traceIfFalse "Token name must be the hash of the owner pkh and the price" (checkTokenName ownerPkh newPrice)
+        && traceIfFalse
+          "Token name must be the hash of the owner pkh and the price"
+          (checkTokenName ownerPkh newPrice)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
     ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
-      traceIfFalse "Token name must be the hash of the owner pkh and the price" (checkTokenName newOwnerPkh price)
+      traceIfFalse
+        "Token name must be the hash of the owner pkh and the price"
+        (checkTokenName newOwnerPkh price)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
-        && traceIfFalse "All parties must receive corresponding payments when selling the NFT" (checkPartiesGotCorrectPayments price ownerPkh)
+        && traceIfFalse
+          "All parties must receive corresponding payments when selling the NFT"
+          (checkPartiesGotCorrectPayments price ownerPkh)
   where
     !info = scriptContextTxInfo ctx
     -- ! force evaluation of `ownCs` causes policy compilation error
@@ -105,13 +117,13 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           royalty' = fromEnum royalty
           mpShare = fromEnum $ pcMarketplaceShare platformConfig
 
-          authorAddr = pubKeyHashAddress authorPkh
+          authorAddr = pubKeyHashAddress authorPkh Nothing
           authorShare = Ada.lovelaceValueOf $ price' * 10000 `divide` royalty'
 
-          marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig)
+          marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig) Nothing
           marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
 
-          ownerAddr = pubKeyHashAddress ownerPkh
+          ownerAddr = pubKeyHashAddress ownerPkh Nothing
           ownerShare = Ada.lovelaceValueOf (price' * 10000) - authorShare - marketplShare
 
           curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
@@ -125,8 +137,8 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
 
 -- todo: docs
 {-# INLINEABLE mkTokenName #-}
-mkTokenName :: PubKeyHash -> Natural -> TokenName
-mkTokenName (PubKeyHash pkh) price =
+mkTokenName :: PaymentPubKeyHash -> Natural -> TokenName
+mkTokenName (PaymentPubKeyHash (PubKeyHash pkh)) price =
   TokenName $ sha2_256 (pkh <> toBin (fromEnum price))
 
 {-# INLINEABLE toBin #-}
@@ -139,7 +151,7 @@ toBin n = toBin' n mempty
       | otherwise =
         toBin' (n' `divide` 256) (consByteString (n' `modulo` 256) rest)
 
-policy :: TxOutRef -> PubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
+policy :: TxOutRef -> PaymentPubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
 policy oref authorPkh royalty platformConfig contentHash =
   Scripts.mkMintingPolicyScript $
     $$(PlutusTx.compile [||\oref' pkh roy pc ch -> wrapMintingPolicy (mkPolicy oref' pkh roy pc ch)||])

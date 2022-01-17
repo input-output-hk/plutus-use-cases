@@ -26,7 +26,8 @@ import Data.List.Extra (firstJust)
 import Data.Map qualified as Map
 import Data.Semigroup (Last (..))
 
-import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPubKeyHash)
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash))
+import Ledger.Constraints (mintingPolicy, mustIncludeDatum, ownPaymentPubKeyHash)
 import Ledger.Tx (ChainIndexTxOut, ciTxOutAddress)
 
 import Plutus.Contract ()
@@ -119,12 +120,12 @@ queryEndpoints lid =
 
 userAction :: Api.IsUserAct a => Types.LendexId -> a -> UserContract ()
 userAction lid input = do
-  pkh <- Contract.ownPubKeyHash
+  pkh <- Contract.ownPaymentPubKeyHash
   act <- getUserAct input
   inputDatum <- findInputStateDatum lid
   let lookups =
         mintingPolicy (currencyPolicy lid)
-          Hask.<> ownPubKeyHash pkh
+          Hask.<> ownPaymentPubKeyHash pkh
       constraints = mustIncludeDatum inputDatum
   StateMachine.runStepWith lid act lookups constraints
 
@@ -140,7 +141,7 @@ adminAction lid input = StateMachine.runStep lid =<< getGovernAct input
 
 startLendex :: Types.LendexId -> Api.StartLendex -> AdminContract ()
 startLendex lid (Api.StartLendex Types.StartParams {..}) =
-  StateMachine.runInitialise lid (Types.initLendingPool (currencySymbol lid) sp'coins (fmap Types.UserId sp'admins) (fmap Types.UserId sp'oracles)) sp'initValue
+  StateMachine.runInitialise lid (Types.initLendingPool (currencySymbol lid) sp'coins (fmap (Types.UserId . PaymentPubKeyHash) sp'admins) (fmap (Types.UserId . PaymentPubKeyHash) sp'oracles)) sp'initValue
 
 -- Query actions
 
@@ -164,8 +165,8 @@ queryAllLendexes lid (Api.QueryAllLendexes spm) = do
   where
     startedWith :: Types.LendingPool -> Types.StartParams -> Maybe Types.LendingPool
     startedWith lp@Types.LendingPool {..} Types.StartParams {..} = do
-      guard (map UserId sp'admins == lp'admins)
-      guard (map UserId sp'oracles == lp'trustedOracles)
+      guard (map (UserId . PaymentPubKeyHash) sp'admins == lp'admins)
+      guard (map (UserId . PaymentPubKeyHash) sp'oracles == lp'trustedOracles)
       -- unsure if we can check that the tokens in StartParams are still being dealt in
       -- there is no 100% certainty since AddReserve can add new Coin types
       -- todo: we could check that the Coins is SartParams are a subset of the ones being dealt in now?
