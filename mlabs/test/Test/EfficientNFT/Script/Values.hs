@@ -4,6 +4,8 @@ module Test.EfficientNFT.Script.Values (
   platformPkh,
   nftPrice,
   tokenName,
+  platformCfg,
+  contentHash,
 ) where
 
 import PlutusTx.Prelude
@@ -19,6 +21,11 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Maybe (fromJust)
 import Mlabs.EfficientNFT.Token (mkTokenName)
 import PlutusTx.Natural (Natural)
+
+import Mlabs.EfficientNFT.Types (
+  ContentHash,
+  PlatformConfig (PlatformConfig, pcMarketplacePkh, pcMarketplaceShare),
+ )
 
 mintTxOutRef :: TxOutRef
 mintTxOutRef = TxOutRef txId 1
@@ -47,3 +54,13 @@ tokenName = mkTokenName authorPkh nftPrice
 
 unsafeDecode :: FromJSON a => ByteString -> a
 unsafeDecode = fromJust . decode
+
+platformCfg :: PlatformConfig
+platformCfg =
+  PlatformConfig
+    { pcMarketplacePkh = platformPkh
+    , pcMarketplaceShare = nftPrice
+    }
+
+contentHash :: ContentHash
+contentHash = sha2_256 "Some NFT content"

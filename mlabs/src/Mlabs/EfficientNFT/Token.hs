@@ -14,7 +14,7 @@ import PlutusTx.Prelude
 import Ledger (
   Datum (Datum),
   MintingPolicy,
-  PaymentPubKeyHash (PaymentPubKeyHash, unPaymentPubKeyHash),
+  PaymentPubKeyHash (PaymentPubKeyHash),
   PubKeyHash (PubKeyHash),
   ScriptContext,
   TxInInfo (txInInfoOutRef, txInInfoResolved),
@@ -50,18 +50,23 @@ mkPolicy ::
 mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
   case mintAct of
     MintToken (OwnerData ownerPkh price) ->
-      traceIfFalse "UTXo specified as the parameter must be consumed" checkConsumedUtxo
-        && traceIfFalse "Exactly one NFT must be minted" checkMintedAmount
-        -- && traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
-        && traceIfFalse "The author must be the first owner of the NFT" (ownerPkh == authorPkh)
+      traceIfFalse
+        "UTXo specified as the parameter must be consumed"
+        checkConsumedUtxo
+        && traceIfFalse
+          "Exactly one NFT must be minted"
+          checkMintedAmount
+        && traceIfFalse
+          "The author must be the first owner of the NFT"
+          (ownerPkh == authorPkh)
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
           (checkTokenName ownerPkh price)
-    ChangePrice (OwnerData ownerPkh _) newPrice ->
-      traceIfFalse "Owner must sign the transaction" (txSignedBy info $ unPaymentPubKeyHash ownerPkh)
+    ChangePrice (OwnerData (PaymentPubKeyHash ownerPkh) _) newPrice ->
+      traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
         && traceIfFalse
           "Token name must be the hash of the owner pkh and the price"
-          (checkTokenName ownerPkh newPrice)
+          (checkTokenName (PaymentPubKeyHash ownerPkh) newPrice)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
     ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
       traceIfFalse
@@ -69,7 +74,7 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
         (checkTokenName newOwnerPkh price)
         && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
         && traceIfFalse
-          "Royalties must be paid to the author and the marketplace when selling the NFT"
+          "All parties must receive corresponding payments when selling the NFT"
           (checkPartiesGotCorrectPayments price ownerPkh)
   where
     !info = scriptContextTxInfo ctx
@@ -141,8 +146,10 @@ toBin :: Integer -> BuiltinByteString
 toBin n = toBin' n mempty
   where
     toBin' n' rest
-      | n' < 256 = consByteString n' rest
-      | otherwise = toBin' (n' `divide` 256) (consByteString (n' `modulo` 256) rest)
+      | n' < 256 =
+        consByteString n' rest
+      | otherwise =
+        toBin' (n' `divide` 256) (consByteString (n' `modulo` 256) rest)
 
 policy :: TxOutRef -> PaymentPubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
 policy oref authorPkh royalty platformConfig contentHash =
