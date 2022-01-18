@@ -18,6 +18,7 @@ import Test.Tasty.ExpectedFailure (ignoreTest)
 -- import Test.NftStateMachine.Logic qualified as Nft.Logic
 
 import Test.EfficientNFT.Script.TokenMint qualified as ENFT.TokenMint
+import Test.EfficientNFT.Script.TokenChangeOwner qualified as ENFT.TokenChangeOwner
 import Test.EfficientNFT.Size qualified as ENFT.Size
 import Test.NFT.Size qualified as NFT.Size
 
@@ -46,6 +47,7 @@ main =
           "Efficient NFT"
           [ ENFT.Size.test
           , ENFT.TokenMint.test
+          , ENFT.TokenChangeOwner.test
           ]
           -- , testGroup
           --     "Lending"

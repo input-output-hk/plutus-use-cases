@@ -4,12 +4,24 @@ module Test.EfficientNFT.Script.Values (
   platformPkh,
   nftPrice,
   tokenName,
+<<<<<<< Updated upstream
   platformCfg,
   contentHash,
+||||||| constructed merge base
+=======
+  marketplShare,
+  marketplShareVal,
+  authorShare,
+  authorShareVal,
+  ownerShareVal,
+  userOnePkh,
+  userTwoPkh,
+>>>>>>> Stashed changes
 ) where
 
 import PlutusTx.Prelude
 
+import Ledger.CardanoWallet qualified as CardanoWallet
 import Ledger (
   PaymentPubKeyHash (PaymentPubKeyHash),
   TokenName,
@@ -18,9 +30,12 @@ import Ledger (
 
 import Data.Aeson (FromJSON, decode)
 import Data.ByteString.Lazy (ByteString)
+import Ledger.Ada qualified as Ada
+import Ledger.Value (Value)
 import Data.Maybe (fromJust)
 import Mlabs.EfficientNFT.Token (mkTokenName)
 import PlutusTx.Natural (Natural)
+import Wallet.Emulator.Wallet qualified as Emu
 
 import Mlabs.EfficientNFT.Types (
   ContentHash,
@@ -46,8 +61,37 @@ platformPkh =
     unsafeDecode
       "{\"getPubKeyHash\" : \"bcd6bceeb0d22a7ca6ba1cd00669f7eb60ca8938d853666d30d56a56\"}"
 
+-- User 1
+userOneWallet :: Emu.Wallet
+userOneWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 2)
+
+userOnePkh :: Ledger.PubKeyHash
+userOnePkh = Emu.walletPubKeyHash userOneWallet
+
+-- User 2
+userTwoWallet :: Emu.Wallet
+userTwoWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 3)
+
+userTwoPkh :: Ledger.PubKeyHash
+userTwoPkh = Emu.walletPubKeyHash userTwoWallet
+
 nftPrice :: Natural
 nftPrice = toEnum 2_000_000
+
+marketplShare :: Natural
+marketplShare = toEnum 10_00
+
+marketplShareVal :: Value
+marketplShareVal = Ada.lovelaceValueOf 200_000
+
+authorShare :: Natural
+authorShare = toEnum 15_00
+
+authorShareVal :: Value
+authorShareVal = Ada.lovelaceValueOf 300_000
+
+ownerShareVal :: Value
+ownerShareVal = Ada.lovelaceValueOf 1_500_000
 
 tokenName :: TokenName
 tokenName = mkTokenName authorPkh nftPrice

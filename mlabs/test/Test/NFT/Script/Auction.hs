@@ -188,7 +188,7 @@ testAuctionAfterDeadline = error ()
 
 -- openAuctionContext1 :: ContextBuilder 'ForSpending
 -- openAuctionContext1 =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
 --     <> paysSelf mempty ownerUserOneAuctionOpenDatum
 --     <> includeGovHead
 
@@ -207,7 +207,7 @@ testAuctionAfterDeadline = error ()
 
 -- closeAuctionContext1 :: ContextBuilder 'ForSpending
 -- closeAuctionContext1 =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
 --     <> paysSelf mempty ownerUserOneDatum
 --     <> includeGovHead
 
@@ -226,7 +226,7 @@ testAuctionAfterDeadline = error ()
 
 -- validOpenAuctionContext :: ContextBuilder 'ForSpending
 -- validOpenAuctionContext =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneAuctionOpenDatum
 --     <> signedWith userOnePkh
 --     <> includeGovHead
 
@@ -245,7 +245,7 @@ testAuctionAfterDeadline = error ()
 
 -- validCloseAuctionContext :: ContextBuilder 'ForSpending
 -- validCloseAuctionContext =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft ownerUserOneDatum
 --     <> signedWith userOnePkh
 --     <> includeGovHead
 
@@ -264,7 +264,7 @@ testAuctionAfterDeadline = error ()
 
 -- validBidContext :: ContextBuilder 'ForSpending
 -- validBidContext =
---   paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft <> TestValues.adaValue 300) ownerUserOneAuctionBidDatum
+--   paysToOther (NFT.txValHash uniqueAsset) (TestValues.oneNft <> TestValues.adaValue 300) ownerUserOneAuctionBidDatum
 --     <> includeGovHead
 
 -- validSecondBidData :: TestData 'ForSpending
@@ -282,7 +282,7 @@ testAuctionAfterDeadline = error ()
 
 -- validSecondBidContext :: ContextBuilder 'ForSpending
 -- validSecondBidContext =
---   paysOther (NFT.txValHash uniqueAsset) (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
+--   paysToOther (NFT.txValHash uniqueAsset) (TestValues.oneNft PlutusPrelude.<> TestValues.adaValue 500) ownerUserOneAuctionSecondBidDatum
 --     <> paysToWallet TestValues.userTwoWallet (TestValues.adaValue 300)
 --     <> includeGovHead
 
@@ -301,7 +301,7 @@ testAuctionAfterDeadline = error ()
 
 -- closeAuctionWithBidContext :: ContextBuilder 'ForSpending
 -- closeAuctionWithBidContext =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
 --     <> signedWith userOnePkh
 --     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
 --     <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
@@ -309,7 +309,7 @@ testAuctionAfterDeadline = error ()
 
 -- closeAuctionWithBidNoAuthorContext :: ContextBuilder 'ForSpending
 -- closeAuctionWithBidNoAuthorContext =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
 --     <> paysSelf mempty auctionWithBidCloseDatum
 --     <> signedWith userOnePkh
 --     <> paysToWallet TestValues.userOneWallet (TestValues.adaValue 150)
@@ -317,7 +317,7 @@ testAuctionAfterDeadline = error ()
 
 -- closeAuctionWithBidNoOwnerContext :: ContextBuilder 'ForSpending
 -- closeAuctionWithBidNoOwnerContext =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
 --     <> paysSelf mempty auctionWithBidCloseDatum
 --     <> signedWith userOnePkh
 --     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
@@ -337,7 +337,7 @@ testAuctionAfterDeadline = error ()
 
 -- closeAuctionWithBidAuthorContext :: ContextBuilder 'ForSpending
 -- closeAuctionWithBidAuthorContext =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionWithBidCloseDatum
 --     <> paysSelf mempty auctionWithBidCloseDatum
 --     <> signedWith authorPkh
 --     <> paysToWallet TestValues.authorWallet (TestValues.adaValue 150)
@@ -357,7 +357,7 @@ testAuctionAfterDeadline = error ()
 
 -- closeAuctionInconsistentContext :: ContextBuilder 'ForSpending
 -- closeAuctionInconsistentContext =
---   paysOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionCloseInconsistentDatum
+--   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft auctionCloseInconsistentDatum
 --     <> paysSelf mempty auctionCloseInconsistentDatum
 --     <> signedWith authorPkh
 --     <> includeGovHead

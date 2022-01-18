@@ -7,16 +7,24 @@ import Ledger (
   TxId (TxId),
   TxOutRef (txOutRefId),
   mkMintingPolicyScript,
+  CurrencySymbol,
+  scriptCurrencySymbol,
  )
 import Ledger.Value (TokenName (TokenName, unTokenName))
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Ada qualified as Value
 import PlutusTx qualified
+<<<<<<< Updated upstream
 import PlutusTx.AssocMap qualified as Map
+||||||| constructed merge base
+=======
+import Ledger.Value qualified as Value
+>>>>>>> Stashed changes
 
 import PlutusTx.Prelude hiding (elem, mconcat, mempty, (<>))
 import Prelude (String, elem, (<>))
 
+<<<<<<< Updated upstream
 import Test.Tasty (TestTree, localOption, testGroup)
 import Test.Tasty.Plutus.Context (
   ContextBuilder,
@@ -44,15 +52,35 @@ import Test.Tasty.Plutus.WithScript (
  )
 
 import Type.Reflection (Typeable)
+||||||| constructed merge base
+import Test.Tasty (TestTree, localOption)
+import Test.Tasty.Plutus.Context
+import Test.Tasty.Plutus.Script.Unit
+=======
+import Test.Tasty (TestTree, localOption)
+import Test.Tasty.Plutus.Context
+import Test.Tasty.Plutus.Script.Unit
+import Test.Tasty.Plutus.TestData (TestData (MintingTest), token)
+import Test.Tasty.Plutus.Options (TestTxId (TestTxId))
+import Test.Tasty.Plutus.WithScript (withMintingPolicy, toTestMintingPolicy)
+
+>>>>>>> Stashed changes
 
 import Mlabs.EfficientNFT.Types (
   MintAct (MintToken),
   OwnerData (OwnerData, odOwnerPkh),
  )
+<<<<<<< Updated upstream
 
 import Mlabs.EfficientNFT.Token (
   mkPolicy,
  )
+||||||| constructed merge base
+
+import Mlabs.EfficientNFT.Token (mkPolicy)
+=======
+import Mlabs.EfficientNFT.Token (mkPolicy)
+>>>>>>> Stashed changes
 
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
@@ -90,6 +118,7 @@ test =
           wrongNftQuantityData
           validCtx
 
+<<<<<<< Updated upstream
         shouldFailWithErr
           "fail if additional tokens minted"
           "Exactly one NFT must be minted"
@@ -145,13 +174,27 @@ badTokenNameData =
   MintingTest
     (MintToken testRedeemer)
     badTokens
+||||||| constructed merge base
+validData :: TestData 'ForMinting
+validData = MintingTest redeemer
+=======
+validData :: TestData ('ForMinting MintAct)
+validData = MintingTest redeemer (token TestValues.tokenName 1)
+>>>>>>> Stashed changes
   where
     breakName = TokenName . sha2_256 . unTokenName
     badTokens = token (breakName TestValues.tokenName) 1
 
+<<<<<<< Updated upstream
 -- test context
 validCtx :: ContextBuilder ( 'ForMinting r)
+||||||| constructed merge base
+validCtx :: ContextBuilder 'ForMinting
+=======
+validCtx :: ContextBuilder ('ForMinting MintAct)
+>>>>>>> Stashed changes
 validCtx =
+<<<<<<< Updated upstream
   input $
     Input
       (PubKeyType $ unPaymentPubKeyHash TestValues.authorPkh)
@@ -163,8 +206,28 @@ manyTokensCtx =
     <> mintsValue additionalValue
   where
     additionalValue = Value.singleton (Value.CurrencySymbol "aa") (TokenName "ff") 1
+||||||| constructed merge base
+  mconcat
+    [ input $ Input (PubKeyType TestValues.authorPkh) (Value.lovelaceValueOf 1000000)
+    , mintsWithSelf TestValues.tokenName 1
+    ]
+=======
+  mconcat
+    [ input $ Input (PubKeyType TestValues.authorPkh Nothing) (Value.lovelaceValueOf 1000000)
+    , mintsValue (Value.singleton testTokenCurSym TestValues.tokenName 1)
+    ]
+>>>>>>> Stashed changes
 
+<<<<<<< Updated upstream
 -- test policy
+||||||| constructed merge base
+-- TODO: move to values ?
+=======
+testTokenCurSym :: CurrencySymbol
+testTokenCurSym = scriptCurrencySymbol testTokenPolicy
+
+-- TODO: move to values ?
+>>>>>>> Stashed changes
 testTokenPolicy :: MintingPolicy
 testTokenPolicy =
   mkMintingPolicyScript $

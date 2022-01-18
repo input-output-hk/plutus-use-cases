@@ -8,9 +8,9 @@ import Data.Kind (Type)
 
 -- import Ledger.Value (TokenName (..))
 import Ledger.Value qualified as Value
-
 import Ledger.CardanoWallet qualified as CardanoWallet
 import Test.Tasty.Plutus.Context
+import Test.Tasty.Plutus.TestData (TestData)
 
 import Plutus.V1.Ledger.Ada qualified as Ada
 import PlutusTx qualified
@@ -111,3 +111,54 @@ includeGovHead :: ContextBuilder a
 includeGovHead = paysToOther (NFT.txValHash uniqueAsset) (Value.assetClassValue (unSpookyAssetClass uniqueAsset) 1) govHeadDatum
   where
     govHeadDatum = GovDatum $ HeadLList (GovLHead (5 % 1000) "") Nothing
+
+-- We need to keep it until something happens with https://github.com/Liqwid-Labs/plutus-extra/issues/140
+-- Functions are copy-pasted, only signatures are generalised
+
+{-# INLINEABLE myToTestValidator #-}
+myToTestValidator ::
+  forall (datum :: Type) (redeemer :: Type) (ctx :: Type).
+  (FromData datum, FromData redeemer, FromData ctx) =>
+  (datum -> redeemer -> ctx -> Bool) ->
+  (BuiltinData -> BuiltinData -> BuiltinData -> ())
+myToTestValidator f d r p = case PlutusTx.fromBuiltinData d of
+  Nothing -> reportParseFailed "Datum"
+  Just d' -> case PlutusTx.fromBuiltinData r of
+    Nothing -> reportParseFailed "Redeemer"
+    Just r' -> case PlutusTx.fromBuiltinData p of
+      Nothing -> reportParseFailed "ScriptContext"
+      Just p' ->
+        if f d' r' p'
+          then reportPass
+          else reportFail
+
+{-# INLINEABLE myToTestMintingPolicy #-}
+myToTestMintingPolicy ::
+  forall (ctx :: Type) (redeemer :: Type).
+  (FromData redeemer, FromData ctx) =>
+  (redeemer -> ctx -> Bool) ->
+  (BuiltinData -> BuiltinData -> ())
+myToTestMintingPolicy f r p = case PlutusTx.fromBuiltinData r of
+  Nothing -> reportParseFailed "Redeemer"
+  Just r' -> case PlutusTx.fromBuiltinData p of
+    Nothing -> reportParseFailed "ScriptContext"
+    Just p' ->
+      if f r' p'
+        then reportPass
+        else reportFail
+
+{-# INLINEABLE reportParseFailed #-}
+reportParseFailed :: BuiltinString -> ()
+reportParseFailed what = report ("Parse failed: " `appendString` what)
+
+{-# INLINEABLE reportPass #-}
+reportPass :: ()
+reportPass = report "Pass"
+
+{-# INLINEABLE reportFail #-}
+reportFail :: ()
+reportFail = report "Fail"
+
+{-# INLINEABLE report #-}
+report :: BuiltinString -> ()
+report what = trace ("tasty-plutus: " `appendString` what) ()
