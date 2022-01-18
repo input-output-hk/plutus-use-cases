@@ -311,6 +311,7 @@ test-suite mlabs-plutus-use-cases-tests
     Test.Utils
     Test.EfficientNFT.Size
     Test.EfficientNFT.Script.TokenMint
+    Test.EfficientNFT.Script.TokenChangePrice
     Test.EfficientNFT.Script.Values
 
   default-extensions:
