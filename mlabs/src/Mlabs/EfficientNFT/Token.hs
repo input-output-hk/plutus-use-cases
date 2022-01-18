@@ -12,15 +12,15 @@ import PlutusTx qualified
 import PlutusTx.Prelude
 
 import Ledger (
+  AssetClass,
+  CurrencySymbol,
   Datum (Datum),
   MintingPolicy,
-  PaymentPubKeyHash (PaymentPubKeyHash),
-  PubKeyHash (PubKeyHash),
+  PaymentPubKeyHash (unPaymentPubKeyHash),
   ScriptContext,
-  TxInInfo (txInInfoOutRef, txInInfoResolved),
-  TxInfo (txInfoInputs, txInfoMint, txInfoOutputs),
-  TxOut (TxOut, txOutValue),
-  TxOutRef,
+  TxInfo (txInfoMint, txInfoOutputs),
+  TxOut (TxOut, txOutAddress, txOutValue),
+  ValidatorHash,
   findDatum,
   ownCurrencySymbol,
   pubKeyHashAddress,
@@ -28,102 +28,108 @@ import Ledger (
   txSignedBy,
  )
 import Ledger.Ada qualified as Ada
+import Ledger.Address (
+  scriptHashAddress,
+ )
 import Ledger.Scripts qualified as Scripts
 import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
-import PlutusTx.Natural (Natural)
 
-import Mlabs.EfficientNFT.Types
+import Mlabs.EfficientNFT.Types (
+  MintAct (..),
+  NftId,
+  hash,
+  nftId'author,
+  nftId'authorShare,
+  nftId'collectionNft,
+  nftId'marketplaceShare,
+  nftId'marketplaceValHash,
+  nftId'owner,
+  nftId'price,
+ )
 
--- todo: docs
 {-# INLINEABLE mkPolicy #-}
 mkPolicy ::
-  TxOutRef ->
-  PaymentPubKeyHash ->
-  Natural ->
-  PlatformConfig ->
-  ContentHash ->
+  ValidatorHash ->
+  Maybe CurrencySymbol ->
+  AssetClass ->
   MintAct ->
   ScriptContext ->
   Bool
-mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
+mkPolicy burnHash previousNft collectionNftP mintAct ctx =
   case mintAct of
-    MintToken (OwnerData ownerPkh price) ->
-      traceIfFalse
-        "UTXo specified as the parameter must be consumed"
-        checkConsumedUtxo
-        && traceIfFalse
-          "Exactly one NFT must be minted"
-          checkMintedAmount
-        && traceIfFalse
-          "The author must be the first owner of the NFT"
-          (ownerPkh == authorPkh)
-        && traceIfFalse
-          "Token name must be the hash of the owner pkh and the price"
-          (checkTokenName ownerPkh price)
-    ChangePrice (OwnerData (PaymentPubKeyHash ownerPkh) _) newPrice ->
-      traceIfFalse "Owner must sign the transaction" (txSignedBy info ownerPkh)
-        && traceIfFalse
-          "Token name must be the hash of the owner pkh and the price"
-          (checkTokenName (PaymentPubKeyHash ownerPkh) newPrice)
-        && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
-    ChangeOwner (OwnerData ownerPkh price) newOwnerPkh ->
-      traceIfFalse
-        "Token name must be the hash of the owner pkh and the price"
-        (checkTokenName newOwnerPkh price)
-        && traceIfFalse "Old version must be burnt when reminting" checkBurnOld
-        && traceIfFalse
-          "All parties must receive corresponding payments when selling the NFT"
-          (checkPartiesGotCorrectPayments price ownerPkh)
+    MintToken nft ->
+      traceIfFalse "Exactly one NFT must be minted" (checkMint nft)
+        && traceIfFalse "collectionNftP must match collectionNft" (collectionNftP == nftId'collectionNft nft)
+        && case previousNft of
+          Nothing ->
+            traceIfFalse "Collection NFT must be burned" checkCollectionNftBurned
+          Just previousNft' ->
+            traceIfFalse "Previous NFT must be burned" (checkPreviousNftBurned previousNft' nft)
+    ChangePrice nft newPrice ->
+      traceIfFalse "Old version must be burnt when reminting" (checkMintAndBurn nft newPrice (nftId'owner nft))
+        && traceIfFalse "Owner must sign the transaction" (txSignedBy info . unPaymentPubKeyHash . nftId'owner $ nft)
+    ChangeOwner nft newOwner ->
+      traceIfFalse "Old version must be burnt when reminting" (checkMintAndBurn nft (nftId'price nft) newOwner)
+        && traceIfFalse "Royalities not paid" (checkPartiesGotCorrectPayments nft)
+    BurnToken nft ->
+      traceIfFalse "NFT must be burned" (checkBurn nft)
+        && traceIfFalse "Owner must sign the transaction" (txSignedBy info . unPaymentPubKeyHash . nftId'owner $ nft)
   where
     !info = scriptContextTxInfo ctx
     -- ! force evaluation of `ownCs` causes policy compilation error
     ownCs = ownCurrencySymbol ctx
-    checkConsumedUtxo = any (\i -> txInInfoOutRef i == oref) $ txInfoInputs info
 
-    -- Check if the tokenname is the hash of the owner's pkh and the price
-    checkTokenName ownerPkh price =
-      case Value.flattenValue (txInfoMint info) of
-        [(_, actualTokenName, _)] ->
-          let computedTokenName = mkTokenName ownerPkh price
-           in actualTokenName == computedTokenName
-        _ -> False
+    -- Check if only one token is minted and name is correct
+    checkMint nft =
+      let newName = mkTokenName nft
+       in case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue (txInfoMint info) of
+            [(_, tn, amt)] -> tn == newName && amt == 1
+            _ -> False
 
-    -- Check if only one token is minted
-    checkMintedAmount = case Value.flattenValue (txInfoMint info) of
-      [(cs, _, amt)] -> cs == ownCs && amt == 1
-      _ -> False
+    -- Check if the old token is burnt and new is minted with correct name
+    checkMintAndBurn nft newPrice newOwner =
+      let oldName = mkTokenName nft
+          newName = mkTokenName nft {nftId'price = newPrice, nftId'owner = newOwner}
+          validBurn = Value.valueOf (txInfoMint info) ownCs oldName == -1
+          validMint = case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue (txInfoMint info) of
+            [(_, tn, amt)] -> tn == newName && amt == 1
+            _ -> False
+       in validBurn && validMint
 
-    -- Check if the old token is burnt
-    checkBurnOld =
-      let outVal = mconcat $ map txOutValue $ txInfoOutputs info
-          inVal = mconcat $ map (txOutValue . txInInfoResolved) $ txInfoInputs info
-          oneInput =
-            case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue inVal of
-              [(_, _, amt)] -> amt == 1
-              _ -> False
-          oneOutput =
-            case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue outVal of
-              [(_, _, amt)] -> amt == 1
-              _ -> False
-       in oneInput && oneOutput
+    checkBurn nft =
+      let oldName = mkTokenName nft
+       in Value.valueOf (txInfoMint info) ownCs oldName == -1
+
+    -- Check if collection nft is burned
+    checkCollectionNftBurned =
+      let burnAddress = scriptHashAddress burnHash
+          containsCollectonNft tx =
+            txOutAddress tx == burnAddress
+              && Value.assetClassValueOf (txOutValue tx) collectionNftP == 1
+       in any containsCollectonNft (txInfoOutputs info)
+
+    -- Check if previous nft is burned and token names match
+    checkPreviousNftBurned previousNft' nft =
+      let newName = mkTokenName nft
+       in Value.valueOf (txInfoMint info) previousNft' newName == -1
 
     -- Check that all parties received corresponding payments,
     -- and the payment utxos have the correct datum attached
-    checkPartiesGotCorrectPayments price ownerPkh =
+    checkPartiesGotCorrectPayments nft =
       let outs = txInfoOutputs info
-          price' = fromEnum price
-          royalty' = fromEnum royalty
-          mpShare = fromEnum $ pcMarketplaceShare platformConfig
+          price' = fromEnum $ nftId'price nft
+          royalty' = fromEnum $ nftId'authorShare nft
+          mpShare = fromEnum $ nftId'marketplaceShare nft
 
-          authorAddr = pubKeyHashAddress authorPkh Nothing
+          authorAddr = pubKeyHashAddress (nftId'author nft) Nothing
           authorShare = Ada.lovelaceValueOf $ price' * 10000 `divide` royalty'
 
-          marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig) Nothing
+          marketplAddr = scriptHashAddress (nftId'marketplaceValHash nft)
           marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
 
-          ownerAddr = pubKeyHashAddress ownerPkh Nothing
+          ownerAddr = pubKeyHashAddress (nftId'owner nft) Nothing
           ownerShare = Ada.lovelaceValueOf (price' * 10000) - authorShare - marketplShare
 
           curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
@@ -135,28 +141,15 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
             && any (checkPaymentTxOut marketplAddr marketplShare) outs
             && any (checkPaymentTxOut ownerAddr ownerShare) outs
 
--- todo: docs
 {-# INLINEABLE mkTokenName #-}
-mkTokenName :: PaymentPubKeyHash -> Natural -> TokenName
-mkTokenName (PaymentPubKeyHash (PubKeyHash pkh)) price =
-  TokenName $ sha2_256 (pkh <> toBin (fromEnum price))
+mkTokenName :: NftId -> TokenName
+mkTokenName nft =
+  TokenName $ hash nft
 
-{-# INLINEABLE toBin #-}
-toBin :: Integer -> BuiltinByteString
-toBin n = toBin' n mempty
-  where
-    toBin' n' rest
-      | n' < 256 =
-        consByteString n' rest
-      | otherwise =
-        toBin' (n' `divide` 256) (consByteString (n' `modulo` 256) rest)
-
-policy :: TxOutRef -> PaymentPubKeyHash -> Natural -> PlatformConfig -> ContentHash -> MintingPolicy
-policy oref authorPkh royalty platformConfig contentHash =
+policy :: ValidatorHash -> Maybe CurrencySymbol -> AssetClass -> MintingPolicy
+policy burnHash previousNft collectionNftP =
   Scripts.mkMintingPolicyScript $
-    $$(PlutusTx.compile [||\oref' pkh roy pc ch -> wrapMintingPolicy (mkPolicy oref' pkh roy pc ch)||])
-      `PlutusTx.applyCode` PlutusTx.liftCode oref
-      `PlutusTx.applyCode` PlutusTx.liftCode authorPkh
-      `PlutusTx.applyCode` PlutusTx.liftCode royalty
-      `PlutusTx.applyCode` PlutusTx.liftCode platformConfig
-      `PlutusTx.applyCode` PlutusTx.liftCode contentHash
+    $$(PlutusTx.compile [||\x y z -> wrapMintingPolicy (mkPolicy x y z)||])
+      `PlutusTx.applyCode` PlutusTx.liftCode burnHash
+      `PlutusTx.applyCode` PlutusTx.liftCode previousNft
+      `PlutusTx.applyCode` PlutusTx.liftCode collectionNftP

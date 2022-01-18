@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingVia #-}
+
 module Mlabs.EfficientNFT.Types (
   GenericContract,
   UserContract,
@@ -6,10 +8,9 @@ module Mlabs.EfficientNFT.Types (
   NftId (..),
   SetPriceParams (..),
   ChangeOwnerParams (..),
-  MintAct (MintToken, ChangePrice, ChangeOwner),
-  OwnerData (..),
-  PlatformConfig (..),
+  MintAct (..),
   ContentHash,
+  Hashable (..),
 ) where
 
 import PlutusTx qualified
@@ -20,10 +21,10 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Monoid (Last)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Ledger (PaymentPubKeyHash)
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash), ValidatorHash (ValidatorHash))
 import Plutus.Contract (Contract)
-import Plutus.V1.Ledger.Api (MintingPolicy)
-import Plutus.V1.Ledger.Value (AssetClass)
+import Plutus.V1.Ledger.Crypto (PubKeyHash (PubKeyHash))
+import Plutus.V1.Ledger.Value (AssetClass (AssetClass), CurrencySymbol (CurrencySymbol), TokenName (TokenName))
 import PlutusTx.Natural (Natural)
 import Schema (ToSchema)
 
@@ -50,15 +51,19 @@ PlutusTx.unstableMakeIsData ''MintParams
 PlutusTx.makeLift ''MintParams
 
 data NftId = NftId
-  { nftId'assetClass :: AssetClass
-  , nftId'policy :: MintingPolicy
+  { nftId'content :: Content
+  , nftId'collectionNft :: AssetClass
   , nftId'price :: Natural
   , nftId'owner :: PaymentPubKeyHash
   , nftId'author :: PaymentPubKeyHash
   , nftId'authorShare :: Natural
+  , nftId'marketplaceValHash :: ValidatorHash
+  , nftId'marketplaceShare :: Natural
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON)
+
+PlutusTx.unstableMakeIsData ''NftId
 
 data SetPriceParams = SetPriceParams
   { -- | Token which price is set.
@@ -81,31 +86,57 @@ data ChangeOwnerParams = ChangeOwnerParams
 type GenericContract a = forall w s. Contract w s Text a
 type UserContract a = forall s. Contract (Last NftId) s Text a
 
-data OwnerData = OwnerData
-  { odOwnerPkh :: !PaymentPubKeyHash
-  , odPrice :: !Natural
-  }
-  deriving stock (Hask.Show)
-
-PlutusTx.makeLift ''OwnerData
-PlutusTx.unstableMakeIsData ''OwnerData
-
-data PlatformConfig = PlatformConfig
-  { pcMarketplacePkh :: !PaymentPubKeyHash
-  , -- | % share of the marketplace multiplied by 100
-    pcMarketplaceShare :: !Natural
-  }
-  deriving stock (Hask.Show)
-
-PlutusTx.makeLift ''PlatformConfig
-PlutusTx.unstableMakeIsData ''PlatformConfig
-
 data MintAct
-  = MintToken OwnerData
-  | ChangePrice OwnerData Natural
-  | ChangeOwner OwnerData PaymentPubKeyHash
+  = MintToken NftId
+  | ChangePrice NftId Natural
+  | ChangeOwner NftId PaymentPubKeyHash
+  | BurnToken NftId
   deriving stock (Hask.Show)
 
 PlutusTx.unstableMakeIsData ''MintAct
 
 type ContentHash = BuiltinByteString
+
+class Hashable a where
+  hash :: a -> BuiltinByteString
+
+instance Hashable BuiltinByteString where
+  {-# INLINEABLE hash #-}
+  hash = sha2_256
+
+instance Hashable Natural where
+  {-# INLINEABLE hash #-}
+  hash = sha2_256 . toBin . fromEnum
+    where
+      {-# INLINEABLE toBin #-}
+      toBin :: Integer -> BuiltinByteString
+      toBin n = toBin' n mempty
+        where
+          toBin' n' rest
+            | n' < 256 = consByteString n' rest
+            | otherwise = toBin' (n' `divide` 256) (consByteString (n' `modulo` 256) rest)
+
+instance (Hashable a, Hashable b) => Hashable (a, b) where
+  hash (a, b) = hash (hash a <> hash b)
+
+deriving via BuiltinByteString instance Hashable Content
+deriving via BuiltinByteString instance Hashable ValidatorHash
+deriving via BuiltinByteString instance Hashable PaymentPubKeyHash
+deriving via BuiltinByteString instance Hashable TokenName
+deriving via BuiltinByteString instance Hashable CurrencySymbol
+deriving via (CurrencySymbol, TokenName) instance Hashable AssetClass
+
+instance Hashable NftId where
+  {-# INLINEABLE hash #-}
+  hash nft =
+    hash $
+      mconcat
+        [ hash $ nftId'content nft
+        , hash $ nftId'collectionNft nft
+        , hash $ nftId'price nft
+        , hash $ nftId'owner nft
+        , hash $ nftId'author nft
+        , hash $ nftId'authorShare nft
+        , hash $ nftId'marketplaceValHash nft
+        , hash $ nftId'marketplaceShare nft
+        ]

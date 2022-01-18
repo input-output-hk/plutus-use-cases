@@ -4,28 +4,32 @@ module Test.EfficientNFT.Script.Values (
   platformPkh,
   nftPrice,
   tokenName,
-  platformCfg,
-  contentHash,
+  collectionNft,
+  nft1,
+  burnHash,
 ) where
 
 import PlutusTx.Prelude
 
 import Ledger (
+  AssetClass,
   PaymentPubKeyHash (PaymentPubKeyHash),
   TokenName,
   TxOutRef (TxOutRef),
+  ValidatorHash,
  )
+import Plutus.V1.Ledger.Value (assetClass)
 
 import Data.Aeson (FromJSON, decode)
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe (fromJust)
-import Mlabs.EfficientNFT.Token (mkTokenName)
+import Ledger.Typed.Scripts (validatorHash)
 import PlutusTx.Natural (Natural)
 
-import Mlabs.EfficientNFT.Types (
-  ContentHash,
-  PlatformConfig (PlatformConfig, pcMarketplacePkh, pcMarketplaceShare),
- )
+import Mlabs.EfficientNFT.Burn
+import Mlabs.EfficientNFT.Marketplace
+import Mlabs.EfficientNFT.Token (mkTokenName)
+import Mlabs.EfficientNFT.Types
 
 mintTxOutRef :: TxOutRef
 mintTxOutRef = TxOutRef txId 1
@@ -50,17 +54,26 @@ nftPrice :: Natural
 nftPrice = toEnum 2_000_000
 
 tokenName :: TokenName
-tokenName = mkTokenName authorPkh nftPrice
+tokenName = mkTokenName nft1
 
 unsafeDecode :: FromJSON a => ByteString -> a
 unsafeDecode = fromJust . decode
 
-platformCfg :: PlatformConfig
-platformCfg =
-  PlatformConfig
-    { pcMarketplacePkh = platformPkh
-    , pcMarketplaceShare = nftPrice
+collectionNft :: AssetClass
+collectionNft = assetClass "abcd" "NFT"
+
+nft1 :: NftId
+nft1 =
+  NftId
+    { nftId'content = Content "NFT content"
+    , nftId'price = toEnum 10_000_000
+    , nftId'owner = authorPkh
+    , nftId'author = authorPkh
+    , nftId'authorShare = toEnum 10
+    , nftId'collectionNft = collectionNft
+    , nftId'marketplaceValHash = validatorHash . marketplaceValidator $ "ff"
+    , nftId'marketplaceShare = toEnum 5
     }
 
-contentHash :: ContentHash
-contentHash = sha2_256 "Some NFT content"
+burnHash :: ValidatorHash
+burnHash = validatorHash burnValidator

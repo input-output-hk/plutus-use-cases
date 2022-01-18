@@ -5,7 +5,6 @@ module Mlabs.EfficientNFT.Api (
 ) where
 
 import Plutus.Contract (Contract, Endpoint, Promise, endpoint, type (.\/))
-import Prelude as Hask
 
 import Data.Monoid (Last (..))
 import Data.Text (Text)
@@ -36,22 +35,18 @@ type NFTAppSchema =
 
 type ApiUserContract a = Contract (Last NftId) NFTAppSchema Text a
 
--- | Utility function to create endpoints from promises.
-mkEndpoints :: forall w s e a b. (b -> [Promise w s e a]) -> b -> Contract w s e a
-mkEndpoints listCont = selectForever . listCont
-
 -- | User Endpoints .
-endpoints :: PlatformConfig -> ApiUserContract ()
-endpoints = mkEndpoints tokenEndpointsList
+endpoints :: ApiUserContract ()
+endpoints = selectForever tokenEndpointsList
 
 -- | List of User Promises.
-tokenEndpointsList :: PlatformConfig -> [Promise (Last NftId) NFTAppSchema Text ()]
-tokenEndpointsList pc =
-  [ endpoint @"mint" (mint pc)
-  , endpoint @"change-owner" (changeOwner pc)
-  , endpoint @"set-price" (setPrice pc)
-  , endpoint @"marketplace-deposit" (marketplaceDeposit pc)
-  , endpoint @"marketplace-redeem" (marketplaceRedeem pc)
-  , endpoint @"marketplace-buy" (marketplaceBuy pc)
-  , endpoint @"marketplace-set-price" (marketplaceSetPrice pc)
+tokenEndpointsList :: [Promise (Last NftId) NFTAppSchema Text ()]
+tokenEndpointsList =
+  [ endpoint @"mint" mint
+  , endpoint @"change-owner" changeOwner
+  , endpoint @"set-price" setPrice
+  , endpoint @"marketplace-deposit" marketplaceDeposit
+  , endpoint @"marketplace-redeem" marketplaceRedeem
+  , endpoint @"marketplace-buy" marketplaceBuy
+  , endpoint @"marketplace-set-price" marketplaceSetPrice
   ]
