@@ -6,23 +6,28 @@ import Prelude qualified as Hask
 import Control.Monad (void)
 import Ledger (Datum (Datum))
 import Ledger.Constraints qualified as Constraints
+import Ledger.Contexts (scriptCurrencySymbol)
 import Ledger.Typed.Scripts (Any, validatorHash)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
-import Plutus.V1.Ledger.Value (assetClassValue, unAssetClass)
+import Plutus.V1.Ledger.Value (assetClass, singleton)
 import Text.Printf (printf)
 
+import Mlabs.EfficientNFT.Burn (burnValidator)
 import Mlabs.EfficientNFT.Contract.Aux
 import Mlabs.EfficientNFT.Marketplace
+import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types
 
 -- | Deposit nft in the marketplace
-marketplaceDeposit :: PlatformConfig -> NftId -> UserContract ()
-marketplaceDeposit _ nft = do
+marketplaceDeposit :: NftId -> UserContract ()
+marketplaceDeposit nft = do
   utxos <- getUserUtxos
-  let policy' = nftId'policy nft
-      curr = fst . unAssetClass . nftId'assetClass $ nft
-      nftValue = assetClassValue (nftId'assetClass nft) 1
+  let burnHash = validatorHash burnValidator
+      policy' = policy burnHash Nothing (nftId'collectionNft nft)
+      curr = scriptCurrencySymbol policy'
+      tn = mkTokenName nft
+      nftValue = singleton curr tn 1
       valHash = validatorHash $ marketplaceValidator curr
       lookup =
         Hask.mconcat
@@ -35,4 +40,4 @@ marketplaceDeposit _ nft = do
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ nft
-  Contract.logInfo @Hask.String $ printf "Deposit successful: %s" (Hask.show . nftId'assetClass $ nft)
+  Contract.logInfo @Hask.String $ printf "Deposit successful: %s" (Hask.show $ assetClass curr tn)

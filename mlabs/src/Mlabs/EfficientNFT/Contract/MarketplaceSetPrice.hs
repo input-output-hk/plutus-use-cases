@@ -6,31 +6,35 @@ import Prelude qualified as Hask
 import Control.Monad (void)
 import Ledger (Datum (Datum), Redeemer (Redeemer), scriptAddress)
 import Ledger.Constraints qualified as Constraints
+import Ledger.Contexts (scriptCurrencySymbol)
 import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
-import Plutus.V1.Ledger.Value (assetClass, assetClassValue, singleton, unAssetClass)
+import Plutus.V1.Ledger.Value (assetClass, singleton)
 import Text.Printf (printf)
 
+import Mlabs.EfficientNFT.Burn (burnValidator)
 import Mlabs.EfficientNFT.Contract.Aux
 import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 
-marketplaceSetPrice :: PlatformConfig -> SetPriceParams -> UserContract ()
-marketplaceSetPrice _ sp = do
-  let curr = fst . unAssetClass . nftId'assetClass . sp'nftId $ sp
+marketplaceSetPrice :: SetPriceParams -> UserContract ()
+marketplaceSetPrice sp = do
+  let burnHash = validatorHash burnValidator
+      policy' = policy burnHash Nothing (nftId'collectionNft . sp'nftId $ sp)
+      curr = scriptCurrencySymbol policy'
       validator = marketplaceValidator curr
       scriptAddr = scriptAddress . validatorScript $ validator
   scriptUtxos <- getAddrUtxos scriptAddr
   pkh <- Contract.ownPaymentPubKeyHash
-  let policy' = nftId'policy . sp'nftId $ sp
-      valHash = validatorHash validator
-      tn = mkTokenName pkh (sp'price sp)
-      newNftValue = singleton curr tn 1
-      oldNftValue = assetClassValue (nftId'assetClass . sp'nftId $ sp) (-1)
-      ownerData = OwnerData pkh (sp'price sp)
-      mintRedeemer = Redeemer . toBuiltinData $ ChangePrice ownerData (sp'price sp)
+  let valHash = validatorHash validator
+      newNft = (sp'nftId sp) {nftId'price = sp'price sp}
+      oldName = mkTokenName . sp'nftId $ sp
+      newName = mkTokenName newNft
+      oldNftValue = singleton curr oldName (-1)
+      newNftValue = singleton curr newName 1
+      mintRedeemer = Redeemer . toBuiltinData $ ChangePrice (sp'nftId sp) (sp'price sp)
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
@@ -43,13 +47,5 @@ marketplaceSetPrice _ sp = do
           , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) newNftValue
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
-  Contract.tell . Hask.pure $
-    NftId
-      { nftId'assetClass = assetClass curr tn
-      , nftId'policy = policy'
-      , nftId'price = sp'price sp
-      , nftId'owner = pkh
-      , nftId'author = nftId'author . sp'nftId $ sp
-      , nftId'authorShare = nftId'authorShare . sp'nftId $ sp
-      }
-  Contract.logInfo @Hask.String $ printf "Set price successful: %s" (Hask.show $ assetClass curr tn)
+  Contract.tell . Hask.pure $ newNft
+  Contract.logInfo @Hask.String $ printf "Set price successful: %s" (Hask.show $ assetClass curr newName)
