@@ -93,4 +93,3 @@ newPriceNft1 = nft1 {nftId'price = nftId'price nft1 * toEnum 2}
 
 burnHash :: ValidatorHash
 burnHash = validatorHash burnValidator
-
