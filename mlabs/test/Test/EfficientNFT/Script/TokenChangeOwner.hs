@@ -30,7 +30,6 @@ import Test.Tasty.Plutus.WithScript (toTestMintingPolicy, withMintingPolicy)
 import Mlabs.EfficientNFT.Token (mkPolicy, mkTokenName)
 import Mlabs.EfficientNFT.Types (
   MintAct (ChangeOwner),
-  OwnerData (OwnerData),
  )
 
 import Test.EfficientNFT.Script.Values qualified as TestValues
@@ -45,13 +44,13 @@ validData :: TestData ( 'ForMinting MintAct)
 validData = MintingTest redeemer tokens
   where
     tokens = token validOldTokenName (-1) <> token validNewTokenName 1
-    redeemer = ChangeOwner (OwnerData TestValues.userOnePkh TestValues.nftPrice) TestValues.userTwoPkh
+    redeemer = ChangeOwner TestValues.nft2 TestValues.userTwoPkh
 
 validOldTokenName :: TokenName
-validOldTokenName = mkTokenName TestValues.userOnePkh TestValues.nftPrice
+validOldTokenName = mkTokenName TestValues.nft2
 
 validNewTokenName :: TokenName
-validNewTokenName = mkTokenName TestValues.userTwoPkh TestValues.nftPrice
+validNewTokenName = mkTokenName TestValues.nft3
 
 validCtx :: ContextBuilder ( 'ForMinting MintAct)
 validCtx =
@@ -82,16 +81,15 @@ validCtx =
 testTokenCurSym :: CurrencySymbol
 testTokenCurSym = scriptCurrencySymbol testTokenPolicy
 
+-- test policy
 testTokenPolicy :: MintingPolicy
 testTokenPolicy =
   mkMintingPolicyScript $
     $$(PlutusTx.compile [||go||])
       `PlutusTx.applyCode` ( $$(PlutusTx.compile [||mkPolicy||])
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.mintTxOutRef
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.authorPkh
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.authorShare
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.platformCfg
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.contentHash
+                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
+                              `PlutusTx.applyCode` PlutusTx.liftCode Nothing
+                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
                            )
   where
     go = toTestMintingPolicy

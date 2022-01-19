@@ -4,8 +4,6 @@ module Test.EfficientNFT.Script.Values (
   platformPkh,
   nftPrice,
   tokenName,
-  platformCfg,
-  contentHash,
   marketplShare,
   marketplShareVal,
   authorShare,
@@ -13,16 +11,24 @@ module Test.EfficientNFT.Script.Values (
   ownerShareVal,
   userOnePkh,
   userTwoPkh,
+  collectionNft,
+  nft1,
+  nft2,
+  nft3,
+  burnHash,
 ) where
 
 import PlutusTx.Prelude
 
 import Ledger (
+  AssetClass,
   PaymentPubKeyHash (PaymentPubKeyHash),
   TokenName,
   TxOutRef (TxOutRef),
+  ValidatorHash,
  )
 import Ledger.CardanoWallet qualified as CardanoWallet
+import Plutus.V1.Ledger.Value (assetClass)
 
 import Data.Aeson (FromJSON, decode)
 import Data.ByteString.Lazy (ByteString)
@@ -30,13 +36,13 @@ import Data.Maybe (fromJust)
 import Ledger.Ada qualified as Ada
 import Ledger.Value (Value)
 import Mlabs.EfficientNFT.Token (mkTokenName)
+import Ledger.Typed.Scripts (validatorHash)
 import PlutusTx.Natural (Natural)
 import Wallet.Emulator.Types qualified as Emu
 
-import Mlabs.EfficientNFT.Types (
-  ContentHash,
-  PlatformConfig (PlatformConfig, pcMarketplacePkh, pcMarketplaceShare),
- )
+import Mlabs.EfficientNFT.Burn
+import Mlabs.EfficientNFT.Marketplace
+import Mlabs.EfficientNFT.Types
 
 mintTxOutRef :: TxOutRef
 mintTxOutRef = TxOutRef txId 1
@@ -90,17 +96,52 @@ ownerShareVal :: Value
 ownerShareVal = Ada.lovelaceValueOf 1_500_000
 
 tokenName :: TokenName
-tokenName = mkTokenName authorPkh nftPrice
+tokenName = mkTokenName nft1
 
 unsafeDecode :: FromJSON a => ByteString -> a
 unsafeDecode = fromJust . decode
 
-platformCfg :: PlatformConfig
-platformCfg =
-  PlatformConfig
-    { pcMarketplacePkh = platformPkh
-    , pcMarketplaceShare = marketplShare
+collectionNft :: AssetClass
+collectionNft = assetClass "abcd" "NFT"
+
+nft1 :: NftId
+nft1 =
+  NftId
+    { nftId'content = Content "NFT content"
+    , nftId'price = toEnum 10_000_000
+    , nftId'owner = authorPkh
+    , nftId'author = authorPkh
+    , nftId'authorShare = toEnum 10
+    , nftId'collectionNft = collectionNft
+    , nftId'marketplaceValHash = validatorHash . marketplaceValidator $ "ff"
+    , nftId'marketplaceShare = toEnum 5
     }
 
-contentHash :: ContentHash
-contentHash = sha2_256 "Some NFT content"
+nft2 :: NftId
+nft2 =
+  NftId
+    { nftId'content = Content "NFT content"
+    , nftId'price = toEnum 10_000_000
+    , nftId'owner = userOnePkh
+    , nftId'author = authorPkh
+    , nftId'authorShare = toEnum 10
+    , nftId'collectionNft = collectionNft
+    , nftId'marketplaceValHash = validatorHash . marketplaceValidator $ "ff"
+    , nftId'marketplaceShare = toEnum 5
+    }
+
+nft3 :: NftId
+nft3 =
+  NftId
+    { nftId'content = Content "NFT content"
+    , nftId'price = toEnum 10_000_000
+    , nftId'owner = userTwoPkh
+    , nftId'author = authorPkh
+    , nftId'authorShare = toEnum 10
+    , nftId'collectionNft = collectionNft
+    , nftId'marketplaceValHash = validatorHash . marketplaceValidator $ "ff"
+    , nftId'marketplaceShare = toEnum 5
+    }
+
+burnHash :: ValidatorHash
+burnHash = validatorHash burnValidator
