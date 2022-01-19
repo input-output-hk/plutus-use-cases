@@ -35,6 +35,7 @@ import Ledger.Scripts qualified as Scripts
 import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
+import Mlabs.Data.List (sortOn)
 
 import Mlabs.EfficientNFT.Types (
   MintAct (..),
@@ -90,13 +91,21 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
 
     -- Check if the old token is burnt and new is minted with correct name
     checkMintAndBurn nft newPrice newOwner =
-      let oldName = mkTokenName nft
+      let burntMinted =
+            sortOn (\(_, _, amt) -> amt)
+              . filter (\(cs, _, _) -> cs == ownCs)
+              $ Value.flattenValue (txInfoMint info)
+          oldName = mkTokenName nft
           newName = mkTokenName nft {nftId'price = newPrice, nftId'owner = newOwner}
-          validBurn = Value.valueOf (txInfoMint info) ownCs oldName == -1
-          validMint = case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue (txInfoMint info) of
-            [(_, tn, amt)] -> tn == newName && amt == 1
+       in case burntMinted of
+            [(_, oldTokenName, oldTnAmt), (_, newTokenName, newTnAmt)] ->
+              and
+                [ oldTnAmt == -1
+                , oldName == oldTokenName
+                , newTnAmt == 1
+                , newName == newTokenName
+                ]
             _ -> False
-       in validBurn && validMint
 
     checkBurn nft =
       let oldName = mkTokenName nft

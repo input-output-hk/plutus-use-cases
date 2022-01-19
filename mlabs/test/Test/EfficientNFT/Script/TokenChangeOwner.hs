@@ -18,6 +18,7 @@ import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context (
   ContextBuilder,
   Purpose (ForMinting),
+  paysToOther,
   paysToPubKey,
   paysToPubKeyWithDatum,
   spendsFromPubKey,
@@ -65,8 +66,8 @@ validCtx =
         (unPaymentPubKeyHash TestValues.authorPkh)
         TestValues.authorShareVal
         testTokenCurSym
-    , paysToPubKeyWithDatum
-        (unPaymentPubKeyHash TestValues.platformPkh)
+    , paysToOther
+        TestValues.marketplValHash
         TestValues.marketplShareVal
         testTokenCurSym
     , paysToPubKeyWithDatum
