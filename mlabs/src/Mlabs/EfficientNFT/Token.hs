@@ -93,7 +93,7 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
       let oldName = mkTokenName nft
           newName = mkTokenName nft {nftId'price = newPrice, nftId'owner = newOwner}
           validBurn = Value.valueOf (txInfoMint info) ownCs oldName == -1
-          validMint = case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue (txInfoMint info) of
+          validMint = case filter (\(cs, _, am) -> cs == ownCs && am > 0) $ Value.flattenValue (txInfoMint info) of
             [(_, tn, amt)] -> tn == newName && amt == 1
             _ -> False
        in validBurn && validMint

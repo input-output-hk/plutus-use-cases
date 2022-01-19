@@ -313,6 +313,7 @@ test-suite mlabs-plutus-use-cases-tests
     Test.EfficientNFT.Size
     Test.EfficientNFT.Script.TokenMint
     Test.EfficientNFT.Script.Values
+    Test.EfficientNFT.Trace
 
   default-extensions:
     OverloadedStrings
