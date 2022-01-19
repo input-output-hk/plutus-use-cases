@@ -17,7 +17,7 @@ import PlutusTx qualified
 import PlutusTx.AssocMap qualified as Map
 import PlutusTx.Prelude hiding (elem, mconcat, pure, (<>))
 import Test.EfficientNFT.Script.Values qualified as TestValues
-import Test.Tasty (TestTree, localOption, testGroup)
+import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context (
   ContextBuilder,
   ExternalType (PubKeyType, ScriptType),
@@ -43,13 +43,13 @@ import Test.Tasty.Plutus.WithScript (
   toTestMintingPolicy,
   withMintingPolicy,
  )
-import Prelude (elem, mconcat, pure, (<>))
+import Prelude (elem, mconcat, (<>))
 
 test :: TestTree
 test =
   localOption (TestTxId $ txOutRefId TestValues.mintTxOutRef) $
-    withMintingPolicy "Token policy" testTokenPolicy $ do
-      shouldValidate "Valid data and context" validData validCtx
+    withMintingPolicy "Mint" testTokenPolicy $ do
+      shouldValidate "Mint with valid data and context" validData validCtx
 
       shouldFailWithErr
         "Fail if token has wrong name"

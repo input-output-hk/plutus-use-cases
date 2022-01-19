@@ -13,15 +13,13 @@ module Test.EfficientNFT.Script.Values (
 
 import PlutusTx.Prelude
 
-import Ledger
-    ( AssetClass,
-      PaymentPubKeyHash(PaymentPubKeyHash),
-      TokenName,
-      TxOutRef(TxOutRef),
-      ValidatorHash,
-      PaymentPubKeyHash(PaymentPubKeyHash),
-      TokenName,
-      TxOutRef(TxOutRef) )
+import Ledger (
+  AssetClass,
+  PaymentPubKeyHash (PaymentPubKeyHash),
+  TokenName,
+  TxOutRef (TxOutRef),
+  ValidatorHash,
+ )
 import Plutus.V1.Ledger.Value (assetClass)
 
 import Data.Aeson (FromJSON, decode)

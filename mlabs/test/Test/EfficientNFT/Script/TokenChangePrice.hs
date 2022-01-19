@@ -28,7 +28,6 @@ import Test.Tasty.Plutus.Context (
  )
 import Test.Tasty.Plutus.Script.Unit (
   shouldValidate,
-  shouldn'tValidate,
   shouldn'tValidateTracing,
  )
 import Test.Tasty.Plutus.TestData (
@@ -67,7 +66,7 @@ test =
       validCtx
 
     shouldFailWithErr
-      "Fail if wrong amount burned"
+      "Fail if wrong amount minted"
       "Invalid reminting: Exactly 1 new token should be minted"
       wrongAmtMintedData
       validCtx
@@ -76,6 +75,18 @@ test =
       "Fail if wrong amount burned"
       "Invalid reminting: Exactly 1 old token should be burned"
       wrongAmtBurnedData
+      validCtx
+
+    shouldFailWithErr
+      "Fail if token with wrong name minted"
+      "Invalid reminting: Exactly 1 new token should be minted"
+      wrongNameMintedData
+      validCtx
+
+    shouldFailWithErr
+      "Fail if token with wrong name burned"
+      "Invalid reminting: Exactly 1 old token should be burned"
+      wrongNameBurnedData
       validCtx
 
 -- test data
@@ -131,6 +142,22 @@ validCtx =
         )
         <> signedWith pkh
 
+wrongNameMintedData :: TestData ( 'ForMinting MintAct)
+wrongNameMintedData =
+  MintingTest
+    testRedeemer
+    ( token TestValues.tokenName (-1)
+        <> token (breakName TestValues.newPriceTokenName) 1
+    )
+
+wrongNameBurnedData :: TestData ( 'ForMinting MintAct)
+wrongNameBurnedData =
+  MintingTest
+    testRedeemer
+    ( token (breakName TestValues.tokenName) (-1)
+        <> token TestValues.newPriceTokenName 1
+    )
+
 wrongSignCtx :: ContextBuilder ( 'ForMinting r)
 wrongSignCtx =
   input
@@ -165,3 +192,6 @@ shouldFailWithErr name errMsg =
   shouldn'tValidateTracing name (errMsg' `elem`)
   where
     errMsg' = fromBuiltin errMsg
+
+breakName :: TokenName -> TokenName
+breakName = TokenName . sha2_256 . unTokenName
