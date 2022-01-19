@@ -1,32 +1,38 @@
-module Test.EfficientNFT.Script.Values
-  ( mintTxOutRef,
-    authorPkh,
-    platformPkh,
-    nftPrice,
-    tokenName,
-    newPrice,
-    newPriceTokenName,
-    platformCfg,
-    contentHash,
-    otherPkh,
-  )
-where
+module Test.EfficientNFT.Script.Values (
+  authorPkh,
+  burnHash,
+  collectionNft,
+  mintTxOutRef,
+  nft1,
+  newPriceNft1,
+  otherPkh,
+  platformPkh,
+  tokenName,
+  newPriceTokenName,
+) where
+
+import PlutusTx.Prelude
+
+import Ledger
+    ( AssetClass,
+      PaymentPubKeyHash(PaymentPubKeyHash),
+      TokenName,
+      TxOutRef(TxOutRef),
+      ValidatorHash,
+      PaymentPubKeyHash(PaymentPubKeyHash),
+      TokenName,
+      TxOutRef(TxOutRef) )
+import Plutus.V1.Ledger.Value (assetClass)
 
 import Data.Aeson (FromJSON, decode)
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe (fromJust)
-import Ledger
-  ( PaymentPubKeyHash (PaymentPubKeyHash),
-    TokenName,
-    TxOutRef (TxOutRef),
-  )
+import Ledger.Typed.Scripts (validatorHash)
+
+import Mlabs.EfficientNFT.Burn
+import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token (mkTokenName)
 import Mlabs.EfficientNFT.Types
-  ( ContentHash,
-    PlatformConfig (PlatformConfig, pcMarketplacePkh, pcMarketplaceShare),
-  )
-import PlutusTx.Natural (Natural)
-import PlutusTx.Prelude
 
 mintTxOutRef :: TxOutRef
 mintTxOutRef = TxOutRef txId 1
@@ -53,27 +59,39 @@ otherPkh =
     unsafeDecode
       "{\"getPubKeyHash\" : \"75bd24abfdaf5c68d898484d757f715c7b4413ad91a80d3cb0b3660d\"}"
 
-nftPrice :: Natural
-nftPrice = toEnum 2_000_000
-
 tokenName :: TokenName
-tokenName = mkTokenName authorPkh nftPrice
-
-newPrice :: Natural
-newPrice = nftPrice + nftPrice
+tokenName = mkTokenName nft1
 
 newPriceTokenName :: TokenName
-newPriceTokenName = mkTokenName authorPkh newPrice
+newPriceTokenName = mkTokenName newPriceNft1
+
+-- newPrice :: Natural
+-- newPrice = nftPrice + nftPrice
+
+-- newPriceTokenName :: TokenName
+-- newPriceTokenName = mkTokenName authorPkh newPrice
 
 unsafeDecode :: FromJSON a => ByteString -> a
 unsafeDecode = fromJust . decode
 
-platformCfg :: PlatformConfig
-platformCfg =
-  PlatformConfig
-    { pcMarketplacePkh = platformPkh,
-      pcMarketplaceShare = nftPrice
+collectionNft :: AssetClass
+collectionNft = assetClass "abcd" "NFT"
+
+nft1 :: NftId
+nft1 =
+  NftId
+    { nftId'content = Content "NFT content"
+    , nftId'price = toEnum 10_000_000
+    , nftId'owner = authorPkh
+    , nftId'author = authorPkh
+    , nftId'authorShare = toEnum 10
+    , nftId'collectionNft = collectionNft
+    , nftId'marketplaceValHash = validatorHash . marketplaceValidator $ "ff"
+    , nftId'marketplaceShare = toEnum 5
     }
 
-contentHash :: ContentHash
-contentHash = sha2_256 "Some NFT content"
+newPriceNft1 :: NftId
+newPriceNft1 = nft1 {nftId'price = nftId'price nft1 * toEnum 2}
+
+burnHash :: ValidatorHash
+burnHash = validatorHash burnValidator

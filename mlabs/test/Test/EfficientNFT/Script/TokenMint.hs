@@ -1,35 +1,36 @@
 module Test.EfficientNFT.Script.TokenMint (test) where
 
+import Data.Data (Typeable)
+import Data.String (String)
 import Ledger (
   MintingPolicy,
-  PaymentPubKeyHash (PaymentPubKeyHash, unPaymentPubKeyHash),
-  PubKeyHash (PubKeyHash, getPubKeyHash),
-  TxId (TxId),
   TxOutRef (txOutRefId),
   mkMintingPolicyScript,
+  unPaymentPubKeyHash,
  )
-import Ledger.Value (TokenName (TokenName, unTokenName))
-import Ledger.Value qualified as Value
-import Plutus.V1.Ledger.Ada qualified as Value
+import Ledger.Value (TokenName (TokenName), unTokenName)
+import Mlabs.EfficientNFT.Token (mkPolicy)
+import Mlabs.EfficientNFT.Types (MintAct (MintToken))
+import Plutus.V1.Ledger.Ada qualified as Ada
+import Plutus.V1.Ledger.Value qualified as Value
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as Map
-
-import PlutusTx.Prelude hiding (elem, mconcat, mempty, (<>))
-import Prelude (String, elem, (<>))
-
+import PlutusTx.Prelude hiding (elem, mconcat, pure, (<>))
+import Test.EfficientNFT.Script.Values qualified as TestValues
 import Test.Tasty (TestTree, localOption, testGroup)
 import Test.Tasty.Plutus.Context (
   ContextBuilder,
-  ExternalType (PubKeyType),
+  ExternalType (PubKeyType, ScriptType),
   Input (Input),
+  Output (Output),
   Purpose (ForMinting),
   input,
   mintsValue,
+  output,
  )
 import Test.Tasty.Plutus.Options (TestTxId (TestTxId))
 import Test.Tasty.Plutus.Script.Unit (
   shouldValidate,
-  shouldn'tValidate,
   shouldn'tValidateTracing,
  )
 import Test.Tasty.Plutus.TestData (
@@ -42,120 +43,82 @@ import Test.Tasty.Plutus.WithScript (
   toTestMintingPolicy,
   withMintingPolicy,
  )
-
-import Type.Reflection (Typeable)
-
-import Mlabs.EfficientNFT.Types (
-  MintAct (MintToken),
-  OwnerData (OwnerData, odOwnerPkh),
- )
-
-import Mlabs.EfficientNFT.Token (
-  mkPolicy,
- )
-
-import Test.EfficientNFT.Script.Values qualified as TestValues
+import Prelude (elem, mconcat, pure, (<>))
 
 test :: TestTree
 test =
-  testGroup
-    "Minting"
-    [ wrongUtxo
-    , okMint
-    ]
-  where
-    wrongUtxo = localOption (TestTxId $ TxId "ff") $
-      withMintingPolicy "UTXO parametrization test" testTokenPolicy $ do
-        shouldn'tValidate "fails with wrong UTXO consumed" validData validCtx
+  localOption (TestTxId $ txOutRefId TestValues.mintTxOutRef) $
+    withMintingPolicy "Token policy" testTokenPolicy $ do
+      shouldValidate "Valid data and context" validData validCtx
 
-    okMint = localOption (TestTxId $ txOutRefId TestValues.mintTxOutRef) $
-      withMintingPolicy "Token policy" testTokenPolicy $ do
-        shouldValidate "valid data and context" validData validCtx
-        -- maybe, property test here will be better (`plutus-extra` update required)
-        shouldFailWithErr
-          "fail if author is not the owner"
-          "The author must be the first owner of the NFT"
-          (breakAuthorPkh validData)
-          validCtx
+      shouldFailWithErr
+        "Fail if token has wrong name"
+        "Exactly one NFT must be minted"
+        badTokenNameData
+        validCtx
 
-        shouldFailWithErr
-          "fail if token has wrong name"
-          "Token name must be the hash of the owner pkh and the price"
-          badTokenNameData
-          validCtx
+      shouldFailWithErr
+        "Fail if minted amount not 1"
+        "Exactly one NFT must be minted"
+        wrongNftQuantityData
+        validCtx
 
-        shouldFailWithErr
-          "fail if minted amount not 1"
-          "Exactly one NFT must be minted"
-          wrongNftQuantityData
-          validCtx
+      shouldValidate
+        "Pass if additional tokens (non-NFT) minted"
+        validData
+        manyTokensCtx
 
-        shouldFailWithErr
-          "fail if additional tokens minted"
-          "Exactly one NFT must be minted"
-          validData
-          manyTokensCtx
-
-        shouldFailWithErr
-          "fail if no NFT minted"
-          "Exactly one NFT must be minted"
-          noMintedTokensData
-          validCtx
+      shouldFailWithErr
+        "Fail if no NFT minted"
+        "Exactly one NFT must be minted"
+        noMintedTokensData
+        validCtx
 
 -- test data
-testRedeemer :: OwnerData
-testRedeemer = OwnerData TestValues.authorPkh TestValues.nftPrice
-
 correctTokens :: Tokens
 correctTokens = token TestValues.tokenName 1
 
 validData :: TestData ( 'ForMinting MintAct)
 validData =
   MintingTest
-    (MintToken testRedeemer)
+    redeemer
     correctTokens
+  where
+    redeemer = MintToken TestValues.nft1
 
 wrongNftQuantityData :: TestData ( 'ForMinting MintAct)
 wrongNftQuantityData =
   MintingTest
-    (MintToken testRedeemer)
+    redeemer
     (correctTokens <> correctTokens)
-
-breakAuthorPkh :: TestData ( 'ForMinting MintAct) -> TestData ( 'ForMinting MintAct)
-breakAuthorPkh (MintingTest rmr toks) =
-  let Just (MintToken ownerData) = PlutusTx.fromData . PlutusTx.toData $ rmr
-      brokenPkh =
-        PaymentPubKeyHash .PubKeyHash
-          . sha2_256
-          . getPubKeyHash
-          . unPaymentPubKeyHash
-          . odOwnerPkh
-          $ ownerData
-      brokenData = ownerData {odOwnerPkh = brokenPkh}
-   in MintingTest (MintToken brokenData) toks
+  where
+    redeemer = MintToken TestValues.nft1
 
 noMintedTokensData :: TestData ( 'ForMinting MintAct)
 noMintedTokensData =
   MintingTest
-    (MintToken testRedeemer)
+    redeemer
     (Tokens Map.empty)
+  where
+    redeemer = MintToken TestValues.nft1
 
 badTokenNameData :: TestData ( 'ForMinting MintAct)
 badTokenNameData =
   MintingTest
-    (MintToken testRedeemer)
+    redeemer
     badTokens
   where
     breakName = TokenName . sha2_256 . unTokenName
     badTokens = token (breakName TestValues.tokenName) 1
+    redeemer = MintToken TestValues.nft1
 
 -- test context
 validCtx :: ContextBuilder ( 'ForMinting r)
 validCtx =
-  input $
-    Input
-      (PubKeyType $ unPaymentPubKeyHash TestValues.authorPkh)
-      (Value.lovelaceValueOf 1000000)
+  mconcat
+    [ input $ Input (PubKeyType $ unPaymentPubKeyHash TestValues.authorPkh) (Ada.lovelaceValueOf 1000000)
+    , output $ Output (ScriptType TestValues.burnHash (PlutusTx.toBuiltinData ())) (Value.assetClassValue TestValues.collectionNft 1)
+    ]
 
 manyTokensCtx :: ContextBuilder ( 'ForMinting r)
 manyTokensCtx =
@@ -170,19 +133,12 @@ testTokenPolicy =
   mkMintingPolicyScript $
     $$(PlutusTx.compile [||go||])
       `PlutusTx.applyCode` ( $$(PlutusTx.compile [||mkPolicy||])
-                              `PlutusTx.applyCode` PlutusTx.liftCode oref'
-                              `PlutusTx.applyCode` PlutusTx.liftCode authorPkh'
-                              `PlutusTx.applyCode` PlutusTx.liftCode royalty'
-                              `PlutusTx.applyCode` PlutusTx.liftCode platformCfg'
-                              `PlutusTx.applyCode` PlutusTx.liftCode contentHash'
+                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
+                              `PlutusTx.applyCode` PlutusTx.liftCode Nothing
+                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
                            )
   where
     go = toTestMintingPolicy
-    oref' = TestValues.mintTxOutRef
-    authorPkh' = TestValues.authorPkh
-    royalty' = toEnum 3
-    platformCfg' = TestValues.platformCfg
-    contentHash' = TestValues.contentHash
 
 shouldFailWithErr ::
   forall (p :: Purpose).
