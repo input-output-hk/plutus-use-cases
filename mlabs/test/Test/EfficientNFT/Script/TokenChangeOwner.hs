@@ -6,15 +6,14 @@ import Ledger (
   mkMintingPolicyScript,
   scriptCurrencySymbol,
  )
-import Ledger.Ada qualified as Ada
 import Ledger.Value (CurrencySymbol, TokenName (TokenName, unTokenName))
 import Ledger.Value qualified as Value
 import PlutusTx qualified
 
 import Data.Data (Typeable)
 import Data.String (String)
-import PlutusTx.Prelude hiding (elem, mconcat, (<>))
-import Prelude (elem, mconcat, (<>))
+import PlutusTx.Prelude hiding (elem, (<>))
+import Prelude (elem, (<>))
 
 import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context (
@@ -23,9 +22,7 @@ import Test.Tasty.Plutus.Context (
   makeIncompleteContexts,
   mintsValue,
   paysToOther,
-  paysToPubKey,
   paysToPubKeyWithDatum,
-  spendsFromPubKey,
  )
 import Test.Tasty.Plutus.Options (TestCurrencySymbol (TestCurrencySymbol))
 import Test.Tasty.Plutus.Script.Unit (shouldValidate, shouldn'tValidateTracing)
@@ -33,9 +30,7 @@ import Test.Tasty.Plutus.TestData (TestData (MintingTest), token)
 import Test.Tasty.Plutus.WithScript (WithScript, toTestMintingPolicy, withMintingPolicy)
 
 import Mlabs.EfficientNFT.Token (mkPolicy, mkTokenName)
-import Mlabs.EfficientNFT.Types (
-  MintAct (ChangeOwner),
- )
+import Mlabs.EfficientNFT.Types (MintAct (ChangeOwner))
 
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
