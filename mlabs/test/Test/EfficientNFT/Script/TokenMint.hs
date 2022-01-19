@@ -118,14 +118,14 @@ badTokenNameData =
     redeemer = MintToken TestValues.nft1
 
 -- test context
-validCtx :: ContextBuilder ( 'ForMinting r)
+validCtx :: ContextBuilder ( 'ForMinting MintAct)
 validCtx =
   mconcat
     [ input $ Input (PubKeyType (unPaymentPubKeyHash TestValues.authorPkh) Nothing) (Ada.lovelaceValueOf 1000000)
     , output $ Output (ScriptType TestValues.burnHash (PlutusTx.toBuiltinData ())) (Value.assetClassValue TestValues.collectionNft 1)
     ]
 
-manyTokensCtx :: ContextBuilder ( 'ForMinting r)
+manyTokensCtx :: ContextBuilder ( 'ForMinting MintAct)
 manyTokensCtx =
   validCtx
     <> mintsValue additionalValue
