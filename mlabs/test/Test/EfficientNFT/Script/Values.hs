@@ -34,9 +34,9 @@ import Data.Aeson (FromJSON, decode)
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe (fromJust)
 import Ledger.Ada qualified as Ada
+import Ledger.Typed.Scripts (validatorHash)
 import Ledger.Value (Value)
 import Mlabs.EfficientNFT.Token (mkTokenName)
-import Ledger.Typed.Scripts (validatorHash)
 import PlutusTx.Natural (Natural)
 import Wallet.Emulator.Types qualified as Emu
 
