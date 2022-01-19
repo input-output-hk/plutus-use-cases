@@ -289,7 +289,6 @@ test-suite mlabs-plutus-use-cases-tests
 
   other-modules:
     Test.Demo.Contract.Mint
-    Test.EfficientNFT.Size
     Test.Governance.Contract
     Test.Governance.Init
     Test.Lending.Contract
@@ -314,6 +313,7 @@ test-suite mlabs-plutus-use-cases-tests
     Test.EfficientNFT.Script.TokenMint
     Test.EfficientNFT.Script.Values
     Test.EfficientNFT.Trace
+    Test.EfficientNFT.Quickcheck
 
   default-extensions:
     OverloadedStrings

@@ -8,21 +8,23 @@ import Plutus.Contract (Contract, Endpoint, Promise, endpoint, type (.\/))
 
 import Data.Monoid (Last (..))
 import Data.Text (Text)
+import Plutus.V1.Ledger.Value (AssetClass)
 
 import Mlabs.EfficientNFT.Contract.ChangeOwner (changeOwner)
 import Mlabs.EfficientNFT.Contract.MarketplaceBuy (marketplaceBuy)
 import Mlabs.EfficientNFT.Contract.MarketplaceDeposit (marketplaceDeposit)
 import Mlabs.EfficientNFT.Contract.MarketplaceRedeem (marketplaceRedeem)
 import Mlabs.EfficientNFT.Contract.MarketplaceSetPrice (marketplaceSetPrice)
-import Mlabs.EfficientNFT.Contract.Mint (mint)
+import Mlabs.EfficientNFT.Contract.Mint (mint, mintWithCollection)
 import Mlabs.EfficientNFT.Contract.SetPrice (setPrice)
 import Mlabs.EfficientNFT.Types
 import Mlabs.Plutus.Contract (selectForever)
 
 -- | A common App schema works for now.
 type NFTAppSchema =
-  -- Author Endpoint
+  -- Author Endpoints
   Endpoint "mint" MintParams
+    .\/ Endpoint "mint-with-collection" (AssetClass, MintParams)
     -- User Action Endpoints
     .\/ Endpoint "change-owner" ChangeOwnerParams
     .\/ Endpoint "set-price" SetPriceParams
@@ -43,6 +45,7 @@ endpoints = selectForever tokenEndpointsList
 tokenEndpointsList :: [Promise (Last NftId) NFTAppSchema Text ()]
 tokenEndpointsList =
   [ endpoint @"mint" mint
+  , endpoint @"mint-with-collection" mintWithCollection
   , endpoint @"change-owner" changeOwner
   , endpoint @"set-price" setPrice
   , endpoint @"marketplace-deposit" marketplaceDeposit
