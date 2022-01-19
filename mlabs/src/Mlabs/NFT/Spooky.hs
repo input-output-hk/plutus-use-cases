@@ -40,6 +40,7 @@ module Mlabs.NFT.Spooky (
   Address (..),
   toSpookyAddress,
   unSpookyAddress,
+  mkTypedValidator,
   TxId (..),
   getTxId,
   TxOutRef (..),
@@ -75,6 +76,7 @@ import PlutusTx qualified
 import PlutusTx.Prelude
 import Prelude qualified as Hask
 
+import Data.Kind (Type)
 import GHC.Generics (Generic)
 
 import Control.Monad (guard)
@@ -85,6 +87,9 @@ import Ledger (
  )
 import Ledger qualified
 import Ledger.Crypto qualified as Crypto
+import Ledger.Scripts qualified as Scripts
+import Ledger.Typed.Scripts.Validators (DatumType, RedeemerType, TypedValidator, WrappedValidatorType)
+import Ledger.Typed.Scripts.Validators qualified as Validators
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import Plutus.V1.Ledger.Api (DCert)
 import Plutus.V1.Ledger.Credential qualified as Credential
@@ -93,6 +98,7 @@ import PlutusTx.AssocMap qualified as Map
 import PlutusTx.Spooky
 import PlutusTx.These (These (..))
 import Schema (ToSchema (toSchema))
+import Unsafe.Coerce (unsafeCoerce)
 
 instance ToSchema BuiltinData where
   toSchema = toSchema @Hask.String
@@ -646,3 +652,17 @@ ownCurrencySymbol context =
    in case purpose of
         Minting cs -> unSpooky cs
         _ -> error ()
+
+-- | The type of validators for the given connection type.
+type ValidatorType (a :: Type) = DatumType a -> RedeemerType a -> ScriptContext -> Bool
+
+-- | Make a 'TypedValidator' from the 'CompiledCode' of a validator script and its wrapper.
+mkTypedValidator ::
+  -- | Validator script (compiled)
+  PlutusTx.CompiledCode (ValidatorType a) ->
+  -- | A wrapper for the compiled validator
+  PlutusTx.CompiledCode (ValidatorType a -> WrappedValidatorType) ->
+  TypedValidator a
+mkTypedValidator vc wrapper =
+  let val = Scripts.mkValidatorScript $ wrapper `PlutusTx.applyCode` vc
+   in unsafeCoerce $ Validators.unsafeMkTypedValidator val

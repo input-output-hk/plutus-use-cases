@@ -17,9 +17,9 @@ import Ledger (
   PaymentPubKeyHash (PaymentPubKeyHash),
   PubKeyHash (PubKeyHash),
   ScriptContext,
-  TxInInfo (txInInfoOutRef, txInInfoResolved),
+  TxInInfo (txInInfoOutRef),
   TxInfo (txInfoInputs, txInfoMint, txInfoOutputs),
-  TxOut (TxOut, txOutValue),
+  TxOut (TxOut),
   TxOutRef,
   findDatum,
   ownCurrencySymbol,
@@ -80,15 +80,16 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
     !info = scriptContextTxInfo ctx
     -- ! force evaluation of `ownCs` causes policy compilation error
     ownCs = ownCurrencySymbol ctx
+    ownMinted =
+      filter (\(cs, _, _) -> ownCs == cs) $ Value.flattenValue (txInfoMint info)
     checkConsumedUtxo = any (\i -> txInInfoOutRef i == oref) $ txInfoInputs info
 
     -- Check if the tokenname is the hash of the owner's pkh and the price
     checkTokenName ownerPkh price =
-      case Value.flattenValue (txInfoMint info) of
-        [(_, actualTokenName, _)] ->
-          let computedTokenName = mkTokenName ownerPkh price
-           in actualTokenName == computedTokenName
-        _ -> False
+      let computedTokenName = mkTokenName ownerPkh price
+       in case filter (\(_, _, amt) -> amt > 0) ownMinted of
+            [(_, actualTokenName, _)] -> actualTokenName == computedTokenName
+            _ -> False
 
     -- Check if only one token is minted
     checkMintedAmount = case Value.flattenValue (txInfoMint info) of
@@ -97,17 +98,9 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
 
     -- Check if the old token is burnt
     checkBurnOld =
-      let outVal = mconcat $ map txOutValue $ txInfoOutputs info
-          inVal = mconcat $ map (txOutValue . txInInfoResolved) $ txInfoInputs info
-          oneInput =
-            case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue inVal of
-              [(_, _, amt)] -> amt == 1
-              _ -> False
-          oneOutput =
-            case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue outVal of
-              [(_, _, amt)] -> amt == 1
-              _ -> False
-       in oneInput && oneOutput
+      case ownMinted of
+        [(_, _, amt), (_, _, amt')] -> amt + amt' == 0
+        _ -> False
 
     -- Check that all parties received corresponding payments,
     -- and the payment utxos have the correct datum attached
@@ -118,13 +111,13 @@ mkPolicy oref authorPkh royalty platformConfig _ mintAct ctx =
           mpShare = fromEnum $ pcMarketplaceShare platformConfig
 
           authorAddr = pubKeyHashAddress authorPkh Nothing
-          authorShare = Ada.lovelaceValueOf $ price' * 10000 `divide` royalty'
+          authorShare = Ada.lovelaceValueOf $ (price' * royalty') `divide` 100_00
 
           marketplAddr = pubKeyHashAddress (pcMarketplacePkh platformConfig) Nothing
-          marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
+          marketplShare = Ada.lovelaceValueOf $ (price' * mpShare) `divide` 100_00
 
           ownerAddr = pubKeyHashAddress ownerPkh Nothing
-          ownerShare = Ada.lovelaceValueOf (price' * 10000) - authorShare - marketplShare
+          ownerShare = Ada.lovelaceValueOf price' - (authorShare + marketplShare)
 
           curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
 
