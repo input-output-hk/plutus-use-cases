@@ -7,7 +7,7 @@ import PlutusTx.Prelude hiding ((<>))
 
 import Data.Semigroup ((<>))
 
-import Ledger (ScriptContext, unPaymentPubKeyHash)
+import Ledger (unPaymentPubKeyHash)
 import Ledger.Typed.Scripts.Validators (
   DatumType,
   RedeemerType,
@@ -29,15 +29,15 @@ import Test.Tasty.Plutus.Script.Unit (
   shouldn'tValidate,
  )
 import Test.Tasty.Plutus.TestData (TestData (SpendingTest))
-import Test.Tasty.Plutus.WithScript (toTestValidator, withValidator)
+import Test.Tasty.Plutus.TestScript (TestScript, mkTestValidator, toTestValidator)
+import Test.Tasty.Plutus.WithScript (WithScript, withTestScript)
 
 import Mlabs.NFT.Spooky (toSpooky)
-import Mlabs.NFT.Spooky qualified as Spooky
 import Mlabs.NFT.Types qualified as NFT
 import Mlabs.NFT.Validation qualified as NFT
 
 testDealing :: TestTree
-testDealing = withValidator "Test NFT dealing validator" dealingValidator $ do
+testDealing = withTestScript "Test NFT dealing validator" dealingValidator $ do
   shouldValidate "Can buy from author" validBuyData validBuyContext
   shouldValidate "Author can set price when owner" validSetPriceData validSetPriceContext
   shouldValidate "Owner can set price" ownerUserOneSetPriceData ownerUserOneSetPriceContext
@@ -280,19 +280,8 @@ mismathingIdSetPriceContext =
           { NFT.node'information' = toSpooky ((NFT.node'information initialNode) {NFT.info'id' = toSpooky . NFT.NftId . toSpooky @BuiltinByteString $ "I AM INVALID"})
           }
 
-data TestScript
-
-instance ValidatorTypes TestScript where
-  type RedeemerType TestScript = NFT.UserAct
-  type DatumType TestScript = NFT.DatumNft
-
-dealingValidator :: TypedValidator TestScript
+dealingValidator :: TestScript ( 'ForSpending NFT.DatumNft NFT.UserAct)
 dealingValidator =
-  Spooky.mkTypedValidator @TestScript
+  mkTestValidator
     ($$(PlutusTx.compile [||NFT.mkTxPolicy||]) `PlutusTx.applyCode` PlutusTx.liftCode TestValues.uniqueAsset)
-    $$(PlutusTx.compile [||wrap||])
-  where
-    wrap ::
-      (NFT.DatumNft -> NFT.UserAct -> Spooky.ScriptContext -> Bool) ->
-      (BuiltinData -> BuiltinData -> BuiltinData -> ())
-    wrap = toTestValidator
+    $$(PlutusTx.compile [||toTestValidator||])

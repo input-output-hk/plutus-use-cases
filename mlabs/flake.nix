@@ -86,7 +86,7 @@
     };
     plutus-extra = {
       url =
-        "github:gege251/plutus-extra/6610fea171d194b012a7fa19d047c7192647978e";
+        "github:gege251/plutus-extra/2bdb0153a932e391af2aba3cef6796794c7c3605";
       flake = false;
     };
     plutus-tx-spooky = {

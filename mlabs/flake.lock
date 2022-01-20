@@ -587,17 +587,17 @@
     "plutus-extra": {
       "flake": false,
       "locked": {
-        "lastModified": 1642523956,
-        "narHash": "sha256-iV15z3MQunNbMheLNoE3JsNBF6X8RMy/L+so/IyCZEU=",
+        "lastModified": 1642674520,
+        "narHash": "sha256-jNIHvMVNcwPyYcZEN4kwgBnYsYu67vkBn6RDhUYkUIM=",
         "owner": "gege251",
         "repo": "plutus-extra",
-        "rev": "6610fea171d194b012a7fa19d047c7192647978e",
+        "rev": "2bdb0153a932e391af2aba3cef6796794c7c3605",
         "type": "github"
       },
       "original": {
         "owner": "gege251",
         "repo": "plutus-extra",
-        "rev": "6610fea171d194b012a7fa19d047c7192647978e",
+        "rev": "2bdb0153a932e391af2aba3cef6796794c7c3605",
         "type": "github"
       }
     },

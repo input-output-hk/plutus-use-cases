@@ -4,13 +4,14 @@ import Ledger (
   MintingPolicy,
   PaymentPubKeyHash (unPaymentPubKeyHash),
   mkMintingPolicyScript,
-  scriptCurrencySymbol,
  )
 import Ledger.Value (CurrencySymbol, TokenName (TokenName, unTokenName))
 import Ledger.Value qualified as Value
 import PlutusTx qualified
+import PlutusTx.Positive (positive)
 
 import Data.Data (Typeable)
+import Data.List.NonEmpty (NonEmpty)
 import Data.String (String)
 import PlutusTx.Prelude hiding (elem, (<>))
 import Prelude (elem, (<>))
@@ -26,8 +27,20 @@ import Test.Tasty.Plutus.Context (
  )
 import Test.Tasty.Plutus.Options (TestCurrencySymbol (TestCurrencySymbol))
 import Test.Tasty.Plutus.Script.Unit (shouldValidate, shouldn'tValidateTracing)
-import Test.Tasty.Plutus.TestData (TestData (MintingTest), token)
-import Test.Tasty.Plutus.WithScript (WithScript, toTestMintingPolicy, withMintingPolicy)
+import Test.Tasty.Plutus.TestData (
+  Methodology,
+  MintingPolicyTask,
+  Outcome,
+  TestData (MintingTest),
+  TestItems (ItemsForMinting, mpCB, mpOutcome, mpRedeemer, mpTasks),
+  Tokens (Tokens),
+  burnTokens,
+  fromArbitrary,
+  mintTokens,
+  passIf,
+ )
+import Test.Tasty.Plutus.TestScript (TestScript, mkTestMintingPolicy, toTestMintingPolicy)
+import Test.Tasty.Plutus.WithScript (WithScript, withTestScript)
 
 import Mlabs.EfficientNFT.Token (mkPolicy, mkTokenName)
 import Mlabs.EfficientNFT.Types (MintAct (ChangeOwner))
@@ -37,46 +50,51 @@ import Test.EfficientNFT.Script.Values qualified as TestValues
 test :: TestTree
 test =
   localOption (TestCurrencySymbol testTokenCurSym) $
-    withMintingPolicy "Token change owner" testTokenPolicy $ do
-      shouldValidate "valid buy" validData validCtx
-      shouldFailWithErr
-        "Fail if token has wrong name"
-        "Old version must be burnt when reminting"
-        badTokenNameData
-        validCtx
+    withTestScript "Token change owner" testTokenPolicy $
+      do
+        shouldValidate "valid buy" validData validCtx
+        shouldFailWithErr
+          "Fail if token has wrong name"
+          "Old version must be burnt when reminting"
+          badTokenNameData
+          validCtx
 
-      shouldFailWithErr
-        "Fail if old token is not burnt"
-        "Old version must be burnt when reminting"
-        oldTokenNotBurntData
-        validCtx
+        shouldFailWithErr
+          "Fail if old token is not burnt"
+          "Old version must be burnt when reminting"
+          oldTokenNotBurntData
+          validCtx
 
-      shouldValidate
-        "Pass if additional tokens (non-NFT) minted"
-        validData
-        manyTokensCtx
+        shouldValidate
+          "Pass if additional tokens (non-NFT) minted"
+          validData
+          manyTokensCtx
 
-      mapM_
-        (\(ctx, str) -> shouldFailWithErr str "Royalities not paid" validData ctx)
-        insufficientShareCtxs
+        mapM_
+          (\(ctx, str) -> shouldFailWithErr str "Royalities not paid" validData ctx)
+          insufficientShareCtxs
 
 validData :: TestData ( 'ForMinting MintAct)
-validData = MintingTest redeemer tokens
+validData = MintingTest redeemer tasks
   where
-    tokens = token validOldTokenName (-1) <> token validNewTokenName 1
+    tasks =
+      burnTokens (Tokens validOldTokenName [positive| 1 |])
+        <> mintTokens (Tokens validNewTokenName [positive| 1 |])
     redeemer = ChangeOwner TestValues.nft2 TestValues.userTwoPkh
 
 badTokenNameData :: TestData ( 'ForMinting MintAct)
-badTokenNameData = MintingTest redeemer tokens
+badTokenNameData = MintingTest redeemer tasks
   where
     breakName = TokenName . sha2_256 . unTokenName
-    tokens = token validOldTokenName (-1) <> token (breakName validNewTokenName) 1
+    tasks =
+      burnTokens (Tokens validOldTokenName [positive| 1 |])
+        <> mintTokens (Tokens (breakName validNewTokenName) [positive| 1 |])
     redeemer = ChangeOwner TestValues.nft2 TestValues.userTwoPkh
 
 oldTokenNotBurntData :: TestData ( 'ForMinting MintAct)
-oldTokenNotBurntData = MintingTest redeemer tokens
+oldTokenNotBurntData = MintingTest redeemer tasks
   where
-    tokens = token validNewTokenName 1
+    tasks = mintTokens (Tokens validNewTokenName [positive| 1 |])
     redeemer = ChangeOwner TestValues.nft2 TestValues.userTwoPkh
 
 validOldTokenName :: TokenName
@@ -125,20 +143,18 @@ manyTokensCtx =
     additionalValue = Value.singleton (Value.CurrencySymbol "aa") (TokenName "ff") 1
 
 testTokenCurSym :: CurrencySymbol
-testTokenCurSym = scriptCurrencySymbol testTokenPolicy
+testTokenCurSym = "aabbcc"
 
 -- test policy
-testTokenPolicy :: MintingPolicy
+testTokenPolicy :: TestScript ( 'ForMinting MintAct)
 testTokenPolicy =
-  mkMintingPolicyScript $
-    $$(PlutusTx.compile [||go||])
-      `PlutusTx.applyCode` ( $$(PlutusTx.compile [||mkPolicy||])
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
-                              `PlutusTx.applyCode` PlutusTx.liftCode Nothing
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
-                           )
-  where
-    go = toTestMintingPolicy
+  mkTestMintingPolicy
+    ( $$(PlutusTx.compile [||mkPolicy||])
+        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
+        `PlutusTx.applyCode` PlutusTx.liftCode Nothing
+        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
+    )
+    $$(PlutusTx.compile [||toTestMintingPolicy||])
 
 shouldFailWithErr ::
   forall (p :: Purpose).

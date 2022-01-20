@@ -4,9 +4,9 @@ module Test.NFT.Script.Minting (
 
 import Data.Semigroup ((<>))
 import Ledger (unPaymentPubKeyHash)
-import Ledger qualified
 import Ledger.Value (AssetClass (..), singleton)
 import PlutusTx qualified
+import PlutusTx.Positive (positive)
 import PlutusTx.Prelude hiding ((<>))
 import PlutusTx.Prelude qualified as PlutusPrelude
 
@@ -15,8 +15,9 @@ import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context
 import Test.Tasty.Plutus.Options (TestCurrencySymbol (TestCurrencySymbol), TestTxId (TestTxId))
 import Test.Tasty.Plutus.Script.Unit
-import Test.Tasty.Plutus.TestData (TestData (MintingTest), token)
-import Test.Tasty.Plutus.WithScript (toTestMintingPolicy, withMintingPolicy)
+import Test.Tasty.Plutus.TestData (TestData (MintingTest), Tokens (Tokens), mintTokens)
+import Test.Tasty.Plutus.TestScript (TestScript, mkTestMintingPolicy, toTestMintingPolicy)
+import Test.Tasty.Plutus.WithScript (withTestScript)
 
 import Mlabs.NFT.Spooky (toSpooky, toSpookyAssetClass, unSpookyTokenName)
 import Mlabs.NFT.Types qualified as NFT
@@ -25,7 +26,7 @@ import Mlabs.NFT.Validation qualified as NFT
 testMinting :: TestTree
 testMinting = localOption (TestCurrencySymbol TestValues.nftCurrencySymbol) $
   localOption (TestTxId TestValues.testTxId) $
-    withMintingPolicy "Test NFT minting policy" nftMintPolicy $ do
+    withTestScript "Test NFT minting policy" nftMintPolicy $ do
       shouldValidate "Valid case" validData validCtx
       shouldn'tValidate "Not minting" validData noMintingCtx
       shouldn'tValidate "No payee" validData noPayeeCtx
@@ -35,7 +36,7 @@ testMinting = localOption (TestCurrencySymbol TestValues.nftCurrencySymbol) $
 baseCtx :: ContextBuilder ( 'ForMinting NFT.MintAct)
 baseCtx =
   -- FIXME: hacky way to pass "UTXO not consumed"
-  input $ Input (PubKeyType (unPaymentPubKeyHash TestValues.authorPkh) Nothing) TestValues.oneAda
+  spendsFromPubKey (unPaymentPubKeyHash TestValues.authorPkh) TestValues.oneAda
 
 mintingCtx :: ContextBuilder ( 'ForMinting NFT.MintAct)
 mintingCtx = mintsValue $ singleton TestValues.nftCurrencySymbol (unSpookyTokenName TestValues.testTokenName) 1
@@ -86,12 +87,15 @@ noPayeeCtx :: ContextBuilder ( 'ForMinting NFT.MintAct)
 noPayeeCtx = baseCtx <> paysDatumToScriptCtx <> paysNftToScriptCtx
 
 validData :: TestData ( 'ForMinting NFT.MintAct)
-validData = MintingTest (NFT.Mint $ toSpooky TestValues.testNftId) (token (unSpookyTokenName TestValues.testTokenName) 1)
+validData =
+  MintingTest
+    (NFT.Mint $ toSpooky TestValues.testNftId)
+    (mintTokens (Tokens (unSpookyTokenName TestValues.testTokenName) [positive| 1 |]))
 
 nonMintingCtx :: ContextBuilder ( 'ForMinting NFT.MintAct)
 nonMintingCtx =
   paysToOther (NFT.txValHash uniqueAsset) TestValues.oneNft TestValues.testNftId
-    <> input (Input (PubKeyType (unPaymentPubKeyHash TestValues.authorPkh) Nothing) TestValues.oneAda)
+    <> spendsFromPubKey (unPaymentPubKeyHash TestValues.authorPkh) TestValues.oneAda
 
 wrongAmountCtx :: ContextBuilder ( 'ForMinting NFT.MintAct)
 wrongAmountCtx =
@@ -126,12 +130,10 @@ mismatchingIdCtx =
     ptr = NFT.Pointer . toSpooky . toSpookyAssetClass $ AssetClass (TestValues.nftCurrencySymbol, unSpookyTokenName TestValues.testTokenName)
     headDatum = NFT.HeadDatum $ NFT.NftListHead (toSpooky $ Just ptr) (toSpooky TestValues.appInstance)
 
-nftMintPolicy :: Ledger.MintingPolicy
+nftMintPolicy :: TestScript ( 'ForMinting NFT.MintAct)
 nftMintPolicy =
-  Ledger.mkMintingPolicyScript $
-    $$(PlutusTx.compile [||go||])
-      `PlutusTx.applyCode` ( $$(PlutusTx.compile [||NFT.mkMintPolicy||])
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.appInstance
-                           )
-  where
-    go = toTestMintingPolicy
+  mkTestMintingPolicy
+    ( $$(PlutusTx.compile [||NFT.mkMintPolicy||])
+        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.appInstance
+    )
+    $$(PlutusTx.compile [||toTestMintingPolicy||])
