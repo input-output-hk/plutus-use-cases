@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Test.EfficientNFT.Script.TokenChangeOwner (test) where
 
 import Ledger (PaymentPubKeyHash (unPaymentPubKeyHash))

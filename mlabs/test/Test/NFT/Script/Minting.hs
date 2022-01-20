@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Test.NFT.Script.Minting (
   testMinting,
 ) where

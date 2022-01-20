@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Test.EfficientNFT.Script.TokenMint (test) where
 
 import PlutusTx qualified
