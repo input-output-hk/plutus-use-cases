@@ -32,7 +32,6 @@ import Ledger.Scripts qualified as Scripts
 import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
-import Mlabs.Data.List (sortOn)
 import Mlabs.EfficientNFT.Types (
   MintAct (..),
   NftId,
@@ -46,6 +45,7 @@ import Mlabs.EfficientNFT.Types (
   nftId'price,
  )
 import PlutusTx qualified
+import PlutusTx.AssocMap qualified as Map
 import PlutusTx.Prelude
 
 {-# INLINEABLE mkPolicy #-}
@@ -67,10 +67,14 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
           Just previousNft' ->
             traceIfFalse "Previous NFT must be burned" (checkPreviousNftBurned previousNft' nft)
     ChangePrice nft newPrice ->
-      checkReMint nft newPrice (nftId'owner nft)
+      traceIfFalse
+        "Exactly one new token must be minted and exactly one old burnt"
+        (checkMintAndBurn nft newPrice (nftId'owner nft))
         && traceIfFalse "Owner must sign the transaction" (txSignedBy info . unPaymentPubKeyHash . nftId'owner $ nft)
     ChangeOwner nft newOwner ->
-      checkReMint nft (nftId'price nft) newOwner
+      traceIfFalse
+        "Exactly one new token must be minted and exactly one old burnt"
+        (checkMintAndBurn nft (nftId'price nft) newOwner)
         && traceIfFalse "Royalities not paid" (checkPartiesGotCorrectPayments nft)
     BurnToken nft ->
       traceIfFalse "NFT must be burned" (checkBurn nft)
@@ -79,35 +83,29 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
     !info = scriptContextTxInfo ctx
     -- ! force evaluation of `ownCs` causes policy compilation error
     ownCs = ownCurrencySymbol ctx
+    !mintedValue = txInfoMint info
 
     -- Check if only one token is minted and name is correct
     checkMint nft =
       let newName = mkTokenName nft
-       in case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue (txInfoMint info) of
+       in case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue mintedValue of
             [(_, tn, amt)] -> tn == newName && amt == 1
             _ -> False
 
     -- Check if the old token is burnt and new is minted with correct name
-    checkReMint nft newPrice newOwner =
-      let minted =
-            sortOn (\(_, _, amt) -> amt)
-              . filter (\(cs, _, _) -> cs == ownCs)
-              $ Value.flattenValue (txInfoMint info)
+    checkMintAndBurn nft newPrice newOwner =
+      let minted = Map.toList <$> (Map.lookup ownCs . Value.getValue . txInfoMint $ info)
           oldName = mkTokenName nft
           newName = mkTokenName nft {nftId'price = newPrice, nftId'owner = newOwner}
        in case minted of
-            [(_, burntName, oldTnAmt), (_, mintedName, newTnAmt)] ->
-              traceIfFalse
-                "Invalid reminting: Exactly 1 old token should be burned"
-                (oldTnAmt == -1 && oldName == burntName)
-                && traceIfFalse
-                  "Invalid reminting: Exactly 1 new token should be minted"
-                  (newTnAmt == 1 && newName == mintedName)
-            _ -> traceError "Invalid reminting: wrong tokens amount"
+            Just [(tokenName1, tnAmt1), (tokenName2, tnAmt2)] ->
+              (tokenName1 == oldName && tnAmt1 == -1 && tokenName2 == newName && tnAmt2 == 1)
+                || (tokenName2 == oldName && tnAmt2 == -1 && tokenName1 == newName && tnAmt1 == 1)
+            _ -> False
 
     checkBurn nft =
       let oldName = mkTokenName nft
-       in Value.valueOf (txInfoMint info) ownCs oldName == -1
+       in Value.valueOf mintedValue ownCs oldName == -1
 
     -- Check if collection nft is burned
     checkCollectionNftBurned =
@@ -120,7 +118,7 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
     -- Check if previous nft is burned and token names match
     checkPreviousNftBurned previousNft' nft =
       let newName = mkTokenName nft
-       in Value.valueOf (txInfoMint info) previousNft' newName == -1
+       in Value.valueOf mintedValue previousNft' newName == -1
 
     -- Check that all parties received corresponding payments,
     -- and the payment utxos have the correct datum attached

@@ -55,37 +55,37 @@ test =
 
     shouldFailWithErr
       "Fail if new token not minted"
-      "Invalid reminting: wrong tokens amount"
+      "Exactly one new token must be minted and exactly one old burnt"
       newNotMintedData
       validCtx
 
     shouldFailWithErr
       "Fail if old token not burnt"
-      "Invalid reminting: wrong tokens amount"
+      "Exactly one new token must be minted and exactly one old burnt"
       oldNotBurntData
       validCtx
 
     shouldFailWithErr
       "Fail if wrong amount minted"
-      "Invalid reminting: Exactly 1 new token should be minted"
+      "Exactly one new token must be minted and exactly one old burnt"
       wrongAmtMintedData
       validCtx
 
     shouldFailWithErr
       "Fail if wrong amount burned"
-      "Invalid reminting: Exactly 1 old token should be burned"
+      "Exactly one new token must be minted and exactly one old burnt"
       wrongAmtBurnedData
       validCtx
 
     shouldFailWithErr
       "Fail if token with wrong name minted"
-      "Invalid reminting: Exactly 1 new token should be minted"
+      "Exactly one new token must be minted and exactly one old burnt"
       wrongNameMintedData
       validCtx
 
     shouldFailWithErr
       "Fail if token with wrong name burned"
-      "Invalid reminting: Exactly 1 old token should be burned"
+      "Exactly one new token must be minted and exactly one old burnt"
       wrongNameBurnedData
       validCtx
 
