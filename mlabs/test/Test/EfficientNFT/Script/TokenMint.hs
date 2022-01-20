@@ -1,9 +1,5 @@
 module Test.EfficientNFT.Script.TokenMint (test) where
 
-import PlutusTx qualified
-import PlutusTx.Prelude hiding (elem, mconcat, pure, (<>))
-import Prelude (elem, mconcat, pure, (<>))
-
 import Data.Data (Typeable)
 import Data.String (String)
 import Ledger (
@@ -13,10 +9,15 @@ import Ledger (
   unPaymentPubKeyHash,
  )
 import Ledger.Value (TokenName (TokenName), unTokenName)
+import Mlabs.EfficientNFT.Token (mkPolicy)
+import Mlabs.EfficientNFT.Types (MintAct (MintToken))
 import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Value qualified as Value
+import PlutusTx qualified
 import PlutusTx.AssocMap qualified as Map
-import Test.Tasty (TestTree, localOption, testGroup)
+import PlutusTx.Prelude hiding (elem, mconcat, pure, (<>))
+import Test.EfficientNFT.Script.Values qualified as TestValues
+import Test.Tasty (TestTree, localOption)
 import Test.Tasty.Plutus.Context (
   ContextBuilder,
   ExternalType (PubKeyType, ScriptType),
@@ -42,42 +43,36 @@ import Test.Tasty.Plutus.WithScript (
   toTestMintingPolicy,
   withMintingPolicy,
  )
-
-import Mlabs.EfficientNFT.Token (mkPolicy)
-import Mlabs.EfficientNFT.Types (MintAct (MintToken))
-import Test.EfficientNFT.Script.Values qualified as TestValues
+import Prelude (elem, mconcat, (<>))
 
 test :: TestTree
 test =
-  testGroup
-    "Minting"
-    $ pure $
-      localOption (TestTxId $ txOutRefId TestValues.mintTxOutRef) $
-        withMintingPolicy "Token policy" testTokenPolicy $ do
-          shouldValidate "Valid data and context" validData validCtx
+  localOption (TestTxId $ txOutRefId TestValues.mintTxOutRef) $
+    withMintingPolicy "Mint" testTokenPolicy $ do
+      shouldValidate "Mint with valid data and context" validData validCtx
 
-          shouldFailWithErr
-            "Fail if token has wrong name"
-            "Exactly one NFT must be minted"
-            badTokenNameData
-            validCtx
+      shouldFailWithErr
+        "Fail if token has wrong name"
+        "Exactly one NFT must be minted"
+        badTokenNameData
+        validCtx
 
-          shouldFailWithErr
-            "Fail if minted amount not 1"
-            "Exactly one NFT must be minted"
-            wrongNftQuantityData
-            validCtx
+      shouldFailWithErr
+        "Fail if minted amount not 1"
+        "Exactly one NFT must be minted"
+        wrongNftQuantityData
+        validCtx
 
-          shouldValidate
-            "Pass if additional tokens (non-NFT) minted"
-            validData
-            manyTokensCtx
+      shouldValidate
+        "Pass if additional tokens (non-NFT) minted"
+        validData
+        manyTokensCtx
 
-          shouldFailWithErr
-            "Fail if no NFT minted"
-            "Exactly one NFT must be minted"
-            noMintedTokensData
-            validCtx
+      shouldFailWithErr
+        "Fail if no NFT minted"
+        "Exactly one NFT must be minted"
+        noMintedTokensData
+        validCtx
 
 -- test data
 correctTokens :: Tokens

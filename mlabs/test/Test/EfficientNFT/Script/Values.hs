@@ -1,12 +1,14 @@
 module Test.EfficientNFT.Script.Values (
-  mintTxOutRef,
   authorPkh,
-  platformPkh,
-  nftPrice,
-  tokenName,
-  collectionNft,
-  nft1,
   burnHash,
+  collectionNft,
+  mintTxOutRef,
+  nft1,
+  newPriceNft1,
+  otherPkh,
+  platformPkh,
+  tokenName,
+  newPriceTokenName,
 ) where
 
 import PlutusTx.Prelude
@@ -24,7 +26,6 @@ import Data.Aeson (FromJSON, decode)
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe (fromJust)
 import Ledger.Typed.Scripts (validatorHash)
-import PlutusTx.Natural (Natural)
 
 import Mlabs.EfficientNFT.Burn
 import Mlabs.EfficientNFT.Marketplace
@@ -50,11 +51,23 @@ platformPkh =
     unsafeDecode
       "{\"getPubKeyHash\" : \"bcd6bceeb0d22a7ca6ba1cd00669f7eb60ca8938d853666d30d56a56\"}"
 
-nftPrice :: Natural
-nftPrice = toEnum 2_000_000
+otherPkh :: PaymentPubKeyHash
+otherPkh =
+  PaymentPubKeyHash $
+    unsafeDecode
+      "{\"getPubKeyHash\" : \"75bd24abfdaf5c68d898484d757f715c7b4413ad91a80d3cb0b3660d\"}"
 
 tokenName :: TokenName
 tokenName = mkTokenName nft1
+
+newPriceTokenName :: TokenName
+newPriceTokenName = mkTokenName newPriceNft1
+
+-- newPrice :: Natural
+-- newPrice = nftPrice + nftPrice
+
+-- newPriceTokenName :: TokenName
+-- newPriceTokenName = mkTokenName authorPkh newPrice
 
 unsafeDecode :: FromJSON a => ByteString -> a
 unsafeDecode = fromJust . decode
@@ -74,6 +87,9 @@ nft1 =
     , nftId'marketplaceValHash = validatorHash . marketplaceValidator $ "ff"
     , nftId'marketplaceShare = toEnum 5
     }
+
+newPriceNft1 :: NftId
+newPriceNft1 = nft1 {nftId'price = nftId'price nft1 * toEnum 2}
 
 burnHash :: ValidatorHash
 burnHash = validatorHash burnValidator
