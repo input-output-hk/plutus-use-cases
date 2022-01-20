@@ -94,9 +94,9 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
           oldName = mkTokenName nft
           newName = mkTokenName nft {nftId'price = newPrice, nftId'owner = newOwner}
        in case burntMinted of
-            [(_, tokenName1, tnAmt1), (_, tokenName2, tnAmt2)] ->
-              (tokenName1 == oldName && tnAmt1 == -1 && tokenName2 == newName && tnAmt2 == 1)
-                || (tokenName2 == oldName && tnAmt2 == -1 && tokenName1 == newName && tnAmt1 == 1)
+            [(_, tokenName1, tnAmt1), (_, tokenName2, tnAmt2)]
+              | tokenName1 == oldName && tokenName2 == newName -> tnAmt1 == -1 && tnAmt2 == 1
+              | tokenName2 == oldName && tokenName1 == newName -> tnAmt2 == -1 && tnAmt1 == 1
             _ -> False
 
     checkBurn nft =
