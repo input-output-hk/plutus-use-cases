@@ -118,12 +118,12 @@ library
     Mlabs.EfficientNFT.Burn
     Mlabs.EfficientNFT.Contract.Aux
     Mlabs.EfficientNFT.Contract.ChangeOwner
-    Mlabs.EfficientNFT.Contract.SetPrice
     Mlabs.EfficientNFT.Contract.MarketplaceBuy
     Mlabs.EfficientNFT.Contract.MarketplaceDeposit
-    Mlabs.EfficientNFT.Contract.MarketplaceSetPrice
     Mlabs.EfficientNFT.Contract.MarketplaceRedeem
+    Mlabs.EfficientNFT.Contract.MarketplaceSetPrice
     Mlabs.EfficientNFT.Contract.Mint
+    Mlabs.EfficientNFT.Contract.SetPrice
     Mlabs.EfficientNFT.Marketplace
     Mlabs.EfficientNFT.Token
     Mlabs.EfficientNFT.Types
@@ -289,6 +289,10 @@ test-suite mlabs-plutus-use-cases-tests
 
   other-modules:
     Test.Demo.Contract.Mint
+    Test.EfficientNFT.Script.TokenChangeOwner
+    Test.EfficientNFT.Script.TokenChangePrice
+    Test.EfficientNFT.Script.TokenMint
+    Test.EfficientNFT.Script.Values
     Test.EfficientNFT.Size
     Test.Governance.Contract
     Test.Governance.Init
@@ -310,10 +314,6 @@ test-suite mlabs-plutus-use-cases-tests
     Test.NftStateMachine.Init
     Test.NftStateMachine.Logic
     Test.Utils
-    Test.EfficientNFT.Size
-    Test.EfficientNFT.Script.TokenMint
-    Test.EfficientNFT.Script.TokenChangePrice
-    Test.EfficientNFT.Script.Values
 
   default-extensions:
     OverloadedStrings

@@ -1,7 +1,7 @@
 cradle:
   cabal:
     - path: "./src/Mlabs/"
-      component: "exe:mlabs-plutus-use-cases"
+      component: "lib:mlabs-plutus-use-cases"
     - path: "./app/"
       component: "exe:mlabs-plutus-use-cases"
     - path: "./governance-demo/"
@@ -15,4 +15,4 @@ cradle:
     - path: "./deploy-app/"
       component: "exe:deploy-app"
     - path: "./test"
-      component: "test-suite:mlabs-plutus-use-cases-tests"
+      component: "test:mlabs-plutus-use-cases-tests"

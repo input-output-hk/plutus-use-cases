@@ -1,10 +1,8 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Test.EfficientNFT.Script.TokenChangePrice (test) where
 
-import Ledger (
-  MintingPolicy,
-  PaymentPubKeyHash (unPaymentPubKeyHash),
-  mkMintingPolicyScript,
- )
+import Ledger (PaymentPubKeyHash (unPaymentPubKeyHash))
 import Ledger.Value (TokenName (TokenName, unTokenName))
 import Mlabs.EfficientNFT.Token (
   mkPolicy,
@@ -15,36 +13,34 @@ import Mlabs.EfficientNFT.Types (
  )
 import Plutus.V1.Ledger.Ada qualified as Value
 import PlutusTx qualified
+import PlutusTx.Positive (positive)
 import PlutusTx.Prelude hiding (elem, mconcat, mempty, (<>))
 import Test.EfficientNFT.Script.Values qualified as TestValues
 import Test.Tasty (TestTree)
 import Test.Tasty.Plutus.Context (
   ContextBuilder,
-  ExternalType (PubKeyType),
-  Input (Input),
   Purpose (ForMinting),
   input,
   signedWith,
+  spendsFromPubKey,
+  spendsFromPubKeySigned,
  )
 import Test.Tasty.Plutus.Script.Unit (
   shouldValidate,
   shouldn'tValidateTracing,
  )
-import Test.Tasty.Plutus.TestData (
-  TestData (MintingTest),
-  token,
- )
+import Test.Tasty.Plutus.TestData (TestData (MintingTest), Tokens (Tokens), burnTokens, mintTokens)
+import Test.Tasty.Plutus.TestScript (TestScript, mkTestMintingPolicy, toTestMintingPolicy)
 import Test.Tasty.Plutus.WithScript (
   WithScript,
-  toTestMintingPolicy,
-  withMintingPolicy,
+  withTestScript,
  )
 import Type.Reflection (Typeable)
 import Prelude (String, elem, (<>))
 
 test :: TestTree
 test =
-  withMintingPolicy "Change price" testTokenPolicy $ do
+  withTestScript "Change price" testTokenPolicy $ do
     shouldValidate "Change price with valid data and context" validData validCtx
 
     shouldFailWithErr
@@ -99,86 +95,75 @@ validData :: TestData ( 'ForMinting MintAct)
 validData =
   MintingTest
     testRedeemer
-    ( token TestValues.tokenName (-1)
-        <> token TestValues.newPriceTokenName 1
+    ( burnTokens (Tokens TestValues.tokenName [positive| 1 |])
+        <> mintTokens (Tokens TestValues.newPriceTokenName [positive| 1 |])
     )
 
 newNotMintedData :: TestData ( 'ForMinting MintAct)
 newNotMintedData =
   MintingTest
     testRedeemer
-    (token TestValues.tokenName (-1))
+    (burnTokens (Tokens TestValues.tokenName [positive| 1 |]))
 
 oldNotBurntData :: TestData ( 'ForMinting MintAct)
 oldNotBurntData =
   MintingTest
     testRedeemer
-    (token TestValues.newPriceTokenName 1)
+    (burnTokens (Tokens TestValues.newPriceTokenName [positive| 1 |]))
 
 wrongAmtMintedData :: TestData ( 'ForMinting MintAct)
 wrongAmtMintedData =
   MintingTest
     testRedeemer
-    ( token TestValues.tokenName (-1)
-        <> token TestValues.newPriceTokenName 2
+    ( burnTokens (Tokens TestValues.tokenName [positive| 1 |])
+        <> mintTokens (Tokens TestValues.newPriceTokenName [positive| 2 |])
     )
 
 wrongAmtBurnedData :: TestData ( 'ForMinting MintAct)
 wrongAmtBurnedData =
   MintingTest
     testRedeemer
-    ( token TestValues.tokenName 1
-        <> token TestValues.newPriceTokenName 1
+    ( mintTokens (Tokens TestValues.tokenName [positive| 1 |])
+        <> mintTokens (Tokens TestValues.newPriceTokenName [positive| 1 |])
     )
 
 -- test context
 validCtx :: ContextBuilder ( 'ForMinting r)
 validCtx =
   let pkh = unPaymentPubKeyHash TestValues.authorPkh
-   in input
-        ( Input
-            (PubKeyType pkh)
-            (Value.lovelaceValueOf 1000000)
-        )
-        <> signedWith pkh
+   in spendsFromPubKeySigned pkh (Value.lovelaceValueOf 1000000)
 
 wrongNameMintedData :: TestData ( 'ForMinting MintAct)
 wrongNameMintedData =
   MintingTest
     testRedeemer
-    ( token TestValues.tokenName (-1)
-        <> token (breakName TestValues.newPriceTokenName) 1
+    ( burnTokens (Tokens TestValues.tokenName [positive| 1 |])
+        <> mintTokens (Tokens (breakName TestValues.newPriceTokenName) [positive| 1 |])
     )
 
 wrongNameBurnedData :: TestData ( 'ForMinting MintAct)
 wrongNameBurnedData =
   MintingTest
     testRedeemer
-    ( token (breakName TestValues.tokenName) (-1)
-        <> token TestValues.newPriceTokenName 1
+    ( burnTokens (Tokens (breakName TestValues.tokenName) [positive| 1 |])
+        <> mintTokens (Tokens TestValues.newPriceTokenName [positive| 1 |])
     )
 
 wrongSignCtx :: ContextBuilder ( 'ForMinting r)
 wrongSignCtx =
-  input
-    ( Input
-        (PubKeyType (unPaymentPubKeyHash TestValues.authorPkh))
-        (Value.lovelaceValueOf 1000000)
-    )
+  spendsFromPubKey (unPaymentPubKeyHash TestValues.authorPkh) (Value.lovelaceValueOf 1000000)
     <> signedWith (unPaymentPubKeyHash TestValues.otherPkh)
 
 -- test policy
-testTokenPolicy :: MintingPolicy
+testTokenPolicy :: TestScript ( 'ForMinting MintAct)
 testTokenPolicy =
-  mkMintingPolicyScript $
-    $$(PlutusTx.compile [||go||])
-      `PlutusTx.applyCode` ( $$(PlutusTx.compile [||mkPolicy||])
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
-                              `PlutusTx.applyCode` PlutusTx.liftCode Nothing
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
-                           )
-  where
-    go = toTestMintingPolicy
+  mkTestMintingPolicy
+    ( $$(PlutusTx.compile [||mkPolicy||])
+        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
+        `PlutusTx.applyCode` PlutusTx.liftCode Nothing
+        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
+    )
+    $$(PlutusTx.compile [||toTestMintingPolicy||])
 
 shouldFailWithErr ::
   forall (p :: Purpose).

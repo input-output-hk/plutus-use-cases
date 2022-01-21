@@ -98,9 +98,9 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
           oldName = mkTokenName nft
           newName = mkTokenName nft {nftId'price = newPrice, nftId'owner = newOwner}
        in case minted of
-            Just [(tokenName1, tnAmt1), (tokenName2, tnAmt2)] ->
-              (tokenName1 == oldName && tnAmt1 == -1 && tokenName2 == newName && tnAmt2 == 1)
-                || (tokenName2 == oldName && tnAmt2 == -1 && tokenName1 == newName && tnAmt1 == 1)
+            Just [(tokenName1, tnAmt1), (tokenName2, tnAmt2)]
+              | tokenName1 == oldName && tokenName2 == newName -> tnAmt1 == -1 && tnAmt2 == 1
+              | tokenName2 == oldName && tokenName1 == newName -> tnAmt2 == -1 && tnAmt1 == 1
             _ -> False
 
     checkBurn nft =
@@ -129,13 +129,13 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
           mpShare = fromEnum $ nftId'marketplaceShare nft
 
           authorAddr = pubKeyHashAddress (nftId'author nft) Nothing
-          authorShare = Ada.lovelaceValueOf $ price' * 10000 `divide` royalty'
+          authorShare = Ada.lovelaceValueOf $ (price' * royalty') `divide` 100_00
 
           marketplAddr = scriptHashAddress (nftId'marketplaceValHash nft)
-          marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
+          marketplShare = Ada.lovelaceValueOf $ (price' * mpShare) `divide` 100_00
 
           ownerAddr = pubKeyHashAddress (nftId'owner nft) Nothing
-          ownerShare = Ada.lovelaceValueOf (price' * 10000) - authorShare - marketplShare
+          ownerShare = Ada.lovelaceValueOf price' - (authorShare + marketplShare)
 
           curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
 
