@@ -4,13 +4,16 @@ import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
 
 import Control.Monad (void)
-import Ledger (Datum (Datum), Redeemer (Redeemer), scriptAddress)
+import Data.Map qualified as Map
+import Data.Monoid (mconcat)
+import Ledger (Datum (Datum), Redeemer (Redeemer), minAdaTxOut, scriptHashAddress, _ciTxOutValue)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
 import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Plutus.Contract qualified as Contract
+import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
-import Plutus.V1.Ledger.Value (assetClass, singleton)
+import Plutus.V1.Ledger.Value (assetClass, singleton, valueOf)
 import Text.Printf (printf)
 
 import Mlabs.EfficientNFT.Burn (burnValidator)
@@ -25,27 +28,40 @@ marketplaceSetPrice sp = do
       policy' = policy burnHash Nothing (nftId'collectionNft . sp'nftId $ sp)
       curr = scriptCurrencySymbol policy'
       validator = marketplaceValidator curr
-      scriptAddr = scriptAddress . validatorScript $ validator
-  scriptUtxos <- getAddrUtxos scriptAddr
-  pkh <- Contract.ownPaymentPubKeyHash
-  let valHash = validatorHash validator
+      valHash = validatorHash validator
+      scriptAddr = scriptHashAddress valHash
       newNft = (sp'nftId sp) {nftId'price = sp'price sp}
       oldName = mkTokenName . sp'nftId $ sp
       newName = mkTokenName newNft
       oldNftValue = singleton curr oldName (-1)
       newNftValue = singleton curr newName 1
       mintRedeemer = Redeemer . toBuiltinData $ ChangePrice (sp'nftId sp) (sp'price sp)
+      containsNft (_, tx) = valueOf (_ciTxOutValue tx) curr oldName == 1
+  utxo' <- find containsNft . Map.toList <$> getAddrUtxos scriptAddr
+  (utxo, utxoIndex) <- case utxo' of
+    Nothing -> Contract.throwError "NFT not found on marketplace"
+    Just x -> Hask.pure x
+  pkh <- Contract.ownPaymentPubKeyHash
+  userUtxos <- getUserUtxos
+  Contract.logInfo @Hask.String $ printf "Script UTXOs: %s" (Hask.show . _ciTxOutValue $ utxoIndex)
+  let userValues = mconcat . fmap _ciTxOutValue . Map.elems $ userUtxos
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
-          , Constraints.unspentOutputs scriptUtxos
+          , Constraints.typedValidatorLookups validator
+          , Constraints.otherScript (validatorScript validator)
+          , Constraints.unspentOutputs $ Map.insert utxo utxoIndex userUtxos
+          , Constraints.ownPaymentPubKeyHash pkh
           ]
       tx =
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
           , Constraints.mustBeSignedBy pkh
-          , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) newNftValue
+          , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ ())
+          , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) (newNftValue <> toValue minAdaTxOut)
+          , -- Hack to overcome broken balancing
+            Constraints.mustPayToPubKey pkh (userValues - toValue (minAdaTxOut * 3))
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ newNft
-  Contract.logInfo @Hask.String $ printf "Set price successful: %s" (Hask.show $ assetClass curr newName)
+  Contract.logInfo @Hask.String $ printf "Marketplace set price successful: %s" (Hask.show $ assetClass curr newName)

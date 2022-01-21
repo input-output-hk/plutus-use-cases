@@ -22,6 +22,7 @@ import Ledger (
   TxOut (TxOut, txOutAddress, txOutValue),
   ValidatorHash,
   findDatum,
+  minAdaTxOut,
   ownCurrencySymbol,
   pubKeyHashAddress,
   scriptContextTxInfo,
@@ -48,6 +49,7 @@ import Mlabs.EfficientNFT.Types (
   nftId'owner,
   nftId'price,
  )
+import Plutus.V1.Ledger.Ada (getLovelace)
 
 {-# INLINEABLE mkPolicy #-}
 mkPolicy ::
@@ -96,7 +98,7 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
           validMint = case filter (\(cs, _, am) -> cs == ownCs && am > 0) $ Value.flattenValue (txInfoMint info) of
             [(_, tn, amt)] -> tn == newName && amt == 1
             _ -> False
-       in validBurn && validMint
+       in traceIfFalse "foo" validBurn && traceIfFalse "bar" validMint
 
     checkBurn nft =
       let oldName = mkTokenName nft
@@ -124,22 +126,29 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
           mpShare = fromEnum $ nftId'marketplaceShare nft
 
           authorAddr = pubKeyHashAddress (nftId'author nft) Nothing
-          authorShare = Ada.lovelaceValueOf $ price' * 10000 `divide` royalty'
+          authorShare = price' * royalty' `divide` 10000
 
           marketplAddr = scriptHashAddress (nftId'marketplaceValHash nft)
-          marketplShare = Ada.lovelaceValueOf $ price' * 10000 `divide` mpShare
+          marketplShare = price' * mpShare `divide` 10000
 
           ownerAddr = pubKeyHashAddress (nftId'owner nft) Nothing
-          ownerShare = Ada.lovelaceValueOf (price' * 10000) - authorShare - marketplShare
+          ownerShare = Ada.lovelaceValueOf (price' - authorShare - marketplShare)
 
           curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
+
+          -- Don't check royalties when lower than min ada
+          filterLowValue v cond
+            | v < getLovelace minAdaTxOut = True
+            | otherwise = any (checkPaymentTxOut cond $ Ada.lovelaceValueOf v) outs
 
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
             addr == addr' && val == val'
               && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
-       in any (checkPaymentTxOut authorAddr authorShare) outs
-            && any (checkPaymentTxOut marketplAddr marketplShare) outs
-            && any (checkPaymentTxOut ownerAddr ownerShare) outs
+          checkPaymentTxOutWithoutDatum addr val (TxOut addr' val' _) =
+            addr == addr' && val == val'
+       in filterLowValue marketplShare marketplAddr
+            && filterLowValue authorShare authorAddr
+            && any (checkPaymentTxOutWithoutDatum ownerAddr ownerShare) outs
 
 {-# INLINEABLE mkTokenName #-}
 mkTokenName :: NftId -> TokenName

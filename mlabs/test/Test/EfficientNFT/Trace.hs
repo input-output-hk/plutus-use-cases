@@ -3,14 +3,11 @@ module Test.EfficientNFT.Trace where
 import PlutusTx.Prelude
 import Prelude qualified as Hask
 
-import Data.Default (def)
+import Wallet.Emulator (Wallet)
+import Data.Maybe (fromJust)
 import Data.Monoid (Last (..))
-import Data.Text (Text)
-
 import Control.Monad (void)
 import Control.Monad.Freer.Extras.Log as Extra (logInfo)
-
-import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Plutus.Trace.Emulator (EmulatorTrace, activateContractWallet, callEndpoint, runEmulatorTraceIO)
 import Plutus.Trace.Emulator qualified as Trace
 import Wallet.Emulator qualified as Emulator
@@ -18,8 +15,6 @@ import Wallet.Emulator qualified as Emulator
 import Mlabs.EfficientNFT.Api
 import Mlabs.EfficientNFT.Types
 import Mlabs.Utils.Wallet (walletFromNumber)
-import Wallet.Emulator (Wallet)
-import Data.Maybe (fromJust)
 
 type AppTraceHandle a = Trace.ContractHandle NftId NFTAppSchema a
 
@@ -37,7 +32,19 @@ mintTrace wallet = do
   nft2 <- fromJust . getLast Hask.<$> Trace.observableState h1
   logInfo $ Hask.show nft2
 
-  void $ Trace.waitNSlots 1
+  callEndpoint @"marketplace-deposit" h1 nft2
+  void $ Trace.waitNSlots 5
+
+  -- callEndpoint @"marketplace-redeem" h1 nft2
+  -- void $ Trace.waitNSlots 5
+
+  callEndpoint @"marketplace-set-price" h1 $ SetPriceParams nft2 (toEnum 9_000_000)
+  void $ Trace.waitNSlots 5
+  nft3 <- fromJust . getLast Hask.<$> Trace.observableState h1
+  logInfo $ Hask.show nft3
+
+  -- callEndpoint @"marketplace-redeem" h1 nft3
+  -- void $ Trace.waitNSlots 5
   where
     artwork =
       MintParams

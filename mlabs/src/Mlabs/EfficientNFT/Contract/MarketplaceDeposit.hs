@@ -4,11 +4,12 @@ import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
 
 import Control.Monad (void)
-import Ledger (Datum (Datum))
+import Ledger (Datum (Datum), minAdaTxOut)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
-import Ledger.Typed.Scripts (Any, validatorHash)
+import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Plutus.Contract qualified as Contract
+import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import Plutus.V1.Ledger.Value (assetClass, singleton)
 import Text.Printf (printf)
@@ -22,21 +23,27 @@ import Mlabs.EfficientNFT.Types
 -- | Deposit nft in the marketplace
 marketplaceDeposit :: NftId -> UserContract ()
 marketplaceDeposit nft = do
-  utxos <- getUserUtxos
   let burnHash = validatorHash burnValidator
       policy' = policy burnHash Nothing (nftId'collectionNft nft)
       curr = scriptCurrencySymbol policy'
       tn = mkTokenName nft
       nftValue = singleton curr tn 1
-      valHash = validatorHash $ marketplaceValidator curr
-      lookup =
+      validator = marketplaceValidator curr
+      valHash = validatorHash validator
+  utxos <- getUserUtxos
+  let lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
           , Constraints.unspentOutputs utxos
+          , Constraints.typedValidatorLookups validator
+          , Constraints.otherScript (validatorScript validator)
           ]
       tx =
         Hask.mconcat
-          [ Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) nftValue
+          [ Constraints.mustPayToOtherScript
+              valHash
+              (Datum $ toBuiltinData ())
+              (nftValue <> toValue minAdaTxOut)
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ nft
