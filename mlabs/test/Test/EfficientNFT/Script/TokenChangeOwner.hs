@@ -28,7 +28,6 @@ import Test.Tasty.Plutus.Script.Property (scriptPropertyFail)
 import Test.Tasty.Plutus.Script.Unit (shouldValidate, shouldn'tValidateTracing)
 import Test.Tasty.Plutus.TestData (
   Generator (GenForMinting),
-  Methodology,
   MintingPolicyTask,
   Outcome,
   TestData (MintingTest),
@@ -55,19 +54,19 @@ test =
         shouldValidate "valid buy" validData validCtx
         shouldFailWithErr
           "Fail if token has wrong name"
-          "Old version must be burnt when reminting"
+          "Exactly one new token must be minted and exactly one old burnt"
           badTokenNameData
           validCtx
 
         shouldFailWithErr
           "Fail if old token is not burnt"
-          "Old version must be burnt when reminting"
+          "Exactly one new token must be minted and exactly one old burnt"
           oldTokenNotBurntData
           validCtx
 
         shouldFailWithErr
           "Fail if new token is not minted"
-          "Old version must be burnt when reminting"
+          "Exactly one new token must be minted and exactly one old burnt"
           newTokenNotMintedData
           validCtx
 
@@ -168,7 +167,7 @@ oneTokenMintAndBurn (mintAmt, burnAmt) =
     }
   where
     mintAmt' = mintAmt + [positive| 1 |]
-    burnAmt' = mintAmt + [positive| 1 |]
+    burnAmt' = burnAmt + [positive| 1 |]
 
     toksMint = Tokens validNewTokenName mintAmt'
     toksBurn = Tokens validOldTokenName burnAmt'

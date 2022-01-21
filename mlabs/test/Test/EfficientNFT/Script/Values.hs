@@ -1,5 +1,4 @@
 module Test.EfficientNFT.Script.Values (
-  mintTxOutRef,
   authorPkh,
   nftPrice,
   tokenName,
@@ -15,7 +14,18 @@ module Test.EfficientNFT.Script.Values (
   nft1,
   nft2,
   nft3,
+  nftPrice,
+  tokenName,
+  collectionNft,
+  nft1,
   burnHash,
+  collectionNft,
+  mintTxOutRef,
+  nft1,
+  newPriceNft1,
+  otherPkh,
+  tokenName,
+  newPriceTokenName,
 ) where
 
 import PlutusTx.Prelude
@@ -92,8 +102,23 @@ authorShareVal = Ada.lovelaceValueOf 1_500_000
 ownerShareVal :: Value
 ownerShareVal = Ada.lovelaceValueOf 7_500_000
 
+otherPkh :: PaymentPubKeyHash
+otherPkh =
+  PaymentPubKeyHash $
+    unsafeDecode
+      "{\"getPubKeyHash\" : \"75bd24abfdaf5c68d898484d757f715c7b4413ad91a80d3cb0b3660d\"}"
+
 tokenName :: TokenName
 tokenName = mkTokenName nft1
+
+newPriceTokenName :: TokenName
+newPriceTokenName = mkTokenName newPriceNft1
+
+-- newPrice :: Natural
+-- newPrice = nftPrice + nftPrice
+
+-- newPriceTokenName :: TokenName
+-- newPriceTokenName = mkTokenName authorPkh newPrice
 
 unsafeDecode :: FromJSON a => ByteString -> a
 unsafeDecode = fromJust . decode
@@ -121,6 +146,9 @@ nft2 =
 nft3 :: NftId
 nft3 =
   nft1 {nftId'owner = userTwoPkh}
+
+newPriceNft1 :: NftId
+newPriceNft1 = nft1 {nftId'price = nftId'price nft1 * toEnum 2}
 
 burnHash :: ValidatorHash
 burnHash = validatorHash burnValidator

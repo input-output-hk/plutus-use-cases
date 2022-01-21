@@ -8,9 +8,6 @@ module Mlabs.EfficientNFT.Token (
   mkTokenName,
 ) where
 
-import PlutusTx qualified
-import PlutusTx.Prelude
-
 import Ledger (
   AssetClass,
   CurrencySymbol,
@@ -35,7 +32,6 @@ import Ledger.Scripts qualified as Scripts
 import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Ledger.Value (TokenName (TokenName))
 import Ledger.Value qualified as Value
-
 import Mlabs.EfficientNFT.Types (
   MintAct (..),
   NftId,
@@ -48,6 +44,9 @@ import Mlabs.EfficientNFT.Types (
   nftId'owner,
   nftId'price,
  )
+import PlutusTx qualified
+import PlutusTx.AssocMap qualified as Map
+import PlutusTx.Prelude
 
 {-# INLINEABLE mkPolicy #-}
 mkPolicy ::
@@ -68,10 +67,14 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
           Just previousNft' ->
             traceIfFalse "Previous NFT must be burned" (checkPreviousNftBurned previousNft' nft)
     ChangePrice nft newPrice ->
-      traceIfFalse "Old version must be burnt when reminting" (checkMintAndBurn nft newPrice (nftId'owner nft))
+      traceIfFalse
+        "Exactly one new token must be minted and exactly one old burnt"
+        (checkMintAndBurn nft newPrice (nftId'owner nft))
         && traceIfFalse "Owner must sign the transaction" (txSignedBy info . unPaymentPubKeyHash . nftId'owner $ nft)
     ChangeOwner nft newOwner ->
-      traceIfFalse "Old version must be burnt when reminting" (checkMintAndBurn nft (nftId'price nft) newOwner)
+      traceIfFalse
+        "Exactly one new token must be minted and exactly one old burnt"
+        (checkMintAndBurn nft (nftId'price nft) newOwner)
         && traceIfFalse "Royalities not paid" (checkPartiesGotCorrectPayments nft)
     BurnToken nft ->
       traceIfFalse "NFT must be burned" (checkBurn nft)
@@ -80,28 +83,29 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
     !info = scriptContextTxInfo ctx
     -- ! force evaluation of `ownCs` causes policy compilation error
     ownCs = ownCurrencySymbol ctx
+    !mintedValue = txInfoMint info
 
     -- Check if only one token is minted and name is correct
     checkMint nft =
       let newName = mkTokenName nft
-       in case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue (txInfoMint info) of
+       in case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue mintedValue of
             [(_, tn, amt)] -> tn == newName && amt == 1
             _ -> False
 
     -- Check if the old token is burnt and new is minted with correct name
     checkMintAndBurn nft newPrice newOwner =
-      let burntMinted = filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue (txInfoMint info)
+      let minted = Map.toList <$> (Map.lookup ownCs . Value.getValue . txInfoMint $ info)
           oldName = mkTokenName nft
           newName = mkTokenName nft {nftId'price = newPrice, nftId'owner = newOwner}
-       in case burntMinted of
-            [(_, tokenName1, tnAmt1), (_, tokenName2, tnAmt2)]
+       in case minted of
+            Just [(tokenName1, tnAmt1), (tokenName2, tnAmt2)]
               | tokenName1 == oldName && tokenName2 == newName -> tnAmt1 == -1 && tnAmt2 == 1
               | tokenName2 == oldName && tokenName1 == newName -> tnAmt2 == -1 && tnAmt1 == 1
             _ -> False
 
     checkBurn nft =
       let oldName = mkTokenName nft
-       in Value.valueOf (txInfoMint info) ownCs oldName == -1
+       in Value.valueOf mintedValue ownCs oldName == -1
 
     -- Check if collection nft is burned
     checkCollectionNftBurned =
@@ -114,7 +118,7 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
     -- Check if previous nft is burned and token names match
     checkPreviousNftBurned previousNft' nft =
       let newName = mkTokenName nft
-       in Value.valueOf (txInfoMint info) previousNft' newName == -1
+       in Value.valueOf mintedValue previousNft' newName == -1
 
     -- Check that all parties received corresponding payments,
     -- and the payment utxos have the correct datum attached
