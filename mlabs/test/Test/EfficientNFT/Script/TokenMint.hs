@@ -1,31 +1,28 @@
-module Test.EfficientNFT.Script.TokenMint (test) where
+{-# LANGUAGE QuasiQuotes #-}
 
-import PlutusTx qualified
-import PlutusTx.Prelude hiding (elem, mconcat, pure, (<>))
-import Prelude (elem, mconcat, pure, (<>))
+module Test.EfficientNFT.Script.TokenMint (test) where
 
 import Data.Data (Typeable)
 import Data.String (String)
 import Ledger (
-  MintingPolicy,
   TxOutRef (txOutRefId),
-  mkMintingPolicyScript,
   unPaymentPubKeyHash,
  )
 import Ledger.Value (TokenName (TokenName), unTokenName)
 import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Value qualified as Value
+import PlutusTx qualified
 import PlutusTx.AssocMap qualified as Map
+import PlutusTx.Positive (positive)
+import PlutusTx.Prelude hiding (elem, mconcat, pure, (<>))
 import Test.Tasty (TestTree, localOption, testGroup)
 import Test.Tasty.Plutus.Context (
   ContextBuilder,
-  ExternalType (PubKeyType, ScriptType),
-  Input (Input),
-  Output (Output),
   Purpose (ForMinting),
-  input,
   mintsValue,
-  output,
+  paysToOther,
+  paysToPubKey,
+  spendsFromPubKey,
  )
 import Test.Tasty.Plutus.Options (TestTxId (TestTxId))
 import Test.Tasty.Plutus.Script.Unit (
@@ -35,13 +32,11 @@ import Test.Tasty.Plutus.Script.Unit (
 import Test.Tasty.Plutus.TestData (
   TestData (MintingTest),
   Tokens (Tokens),
-  token,
+  mintTokens,
  )
-import Test.Tasty.Plutus.WithScript (
-  WithScript,
-  toTestMintingPolicy,
-  withMintingPolicy,
- )
+import Test.Tasty.Plutus.TestScript (TestScript, mkTestMintingPolicy, toTestMintingPolicy)
+import Test.Tasty.Plutus.WithScript (WithScript, withTestScript)
+import Prelude (elem, mconcat, pure, (<>))
 
 import Mlabs.EfficientNFT.Token (mkPolicy)
 import Mlabs.EfficientNFT.Types (MintAct (MintToken))
@@ -49,45 +44,36 @@ import Test.EfficientNFT.Script.Values qualified as TestValues
 
 test :: TestTree
 test =
-  testGroup
-    "Minting"
-    $ pure $
-      localOption (TestTxId $ txOutRefId TestValues.mintTxOutRef) $
-        withMintingPolicy "Token policy" testTokenPolicy $ do
-          shouldValidate "Valid data and context" validData validCtx
+  localOption (TestTxId $ txOutRefId TestValues.mintTxOutRef) $
+    withTestScript "Mint" testTokenPolicy $ do
+      shouldValidate "Valid data and context" validData validCtx
 
-          shouldFailWithErr
-            "Fail if token has wrong name"
-            "Exactly one NFT must be minted"
-            badTokenNameData
-            validCtx
+      shouldFailWithErr
+        "Fail if token has wrong name"
+        "Exactly one NFT must be minted"
+        badTokenNameData
+        validCtx
 
-          shouldFailWithErr
-            "Fail if minted amount not 1"
-            "Exactly one NFT must be minted"
-            wrongNftQuantityData
-            validCtx
+      shouldFailWithErr
+        "Fail if minted amount not 1"
+        "Exactly one NFT must be minted"
+        wrongNftQuantityData
+        validCtx
 
-          shouldValidate
-            "Pass if additional tokens (non-NFT) minted"
-            validData
-            manyTokensCtx
-
-          shouldFailWithErr
-            "Fail if no NFT minted"
-            "Exactly one NFT must be minted"
-            noMintedTokensData
-            validCtx
+      shouldValidate
+        "Pass if additional tokens (non-NFT) minted"
+        validData
+        manyTokensCtx
 
 -- test data
 correctTokens :: Tokens
-correctTokens = token TestValues.tokenName 1
+correctTokens = Tokens TestValues.tokenName [positive| 1 |]
 
 validData :: TestData ( 'ForMinting MintAct)
 validData =
   MintingTest
     redeemer
-    correctTokens
+    (mintTokens (Tokens TestValues.tokenName [positive| 1 |]))
   where
     redeemer = MintToken TestValues.nft1
 
@@ -95,15 +81,7 @@ wrongNftQuantityData :: TestData ( 'ForMinting MintAct)
 wrongNftQuantityData =
   MintingTest
     redeemer
-    (correctTokens <> correctTokens)
-  where
-    redeemer = MintToken TestValues.nft1
-
-noMintedTokensData :: TestData ( 'ForMinting MintAct)
-noMintedTokensData =
-  MintingTest
-    redeemer
-    (Tokens Map.empty)
+    (mintTokens (Tokens TestValues.tokenName [positive| 2 |]))
   where
     redeemer = MintToken TestValues.nft1
 
@@ -111,21 +89,21 @@ badTokenNameData :: TestData ( 'ForMinting MintAct)
 badTokenNameData =
   MintingTest
     redeemer
-    badTokens
+    (mintTokens badTokens)
   where
     breakName = TokenName . sha2_256 . unTokenName
-    badTokens = token (breakName TestValues.tokenName) 1
+    badTokens = Tokens (breakName TestValues.tokenName) [positive| 1 |]
     redeemer = MintToken TestValues.nft1
 
 -- test context
-validCtx :: ContextBuilder ( 'ForMinting r)
+validCtx :: ContextBuilder ( 'ForMinting MintAct)
 validCtx =
   mconcat
-    [ input $ Input (PubKeyType $ unPaymentPubKeyHash TestValues.authorPkh) (Ada.lovelaceValueOf 1000000)
-    , output $ Output (ScriptType TestValues.burnHash (PlutusTx.toBuiltinData ())) (Value.assetClassValue TestValues.collectionNft 1)
+    [ spendsFromPubKey (unPaymentPubKeyHash TestValues.authorPkh) (Ada.lovelaceValueOf 1000000)
+    , paysToOther TestValues.burnHash (Value.assetClassValue TestValues.collectionNft 1) ()
     ]
 
-manyTokensCtx :: ContextBuilder ( 'ForMinting r)
+manyTokensCtx :: ContextBuilder ( 'ForMinting MintAct)
 manyTokensCtx =
   validCtx
     <> mintsValue additionalValue
@@ -133,17 +111,15 @@ manyTokensCtx =
     additionalValue = Value.singleton (Value.CurrencySymbol "aa") (TokenName "ff") 1
 
 -- test policy
-testTokenPolicy :: MintingPolicy
+testTokenPolicy :: TestScript ( 'ForMinting MintAct)
 testTokenPolicy =
-  mkMintingPolicyScript $
-    $$(PlutusTx.compile [||go||])
-      `PlutusTx.applyCode` ( $$(PlutusTx.compile [||mkPolicy||])
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
-                              `PlutusTx.applyCode` PlutusTx.liftCode Nothing
-                              `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
-                           )
-  where
-    go = toTestMintingPolicy
+  mkTestMintingPolicy
+    ( $$(PlutusTx.compile [||mkPolicy||])
+        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
+        `PlutusTx.applyCode` PlutusTx.liftCode Nothing
+        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
+    )
+    $$(PlutusTx.compile [||toTestMintingPolicy||])
 
 shouldFailWithErr ::
   forall (p :: Purpose).

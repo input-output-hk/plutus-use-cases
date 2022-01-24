@@ -4,17 +4,11 @@ import Data.Aeson qualified as Aeson
 import Data.Maybe (fromJust)
 import Ledger qualified
 
-import Data.Kind (Type)
-
--- import Ledger.Value (TokenName (..))
-import Ledger.Value qualified as Value
-
 import Ledger.CardanoWallet qualified as CardanoWallet
+import Ledger.Value qualified as Value
 import Test.Tasty.Plutus.Context
 
 import Plutus.V1.Ledger.Ada qualified as Ada
-import PlutusTx qualified
-import PlutusTx.IsData.Class (FromData)
 import PlutusTx.Prelude hiding ((<>))
 import Wallet.Emulator.Wallet qualified as Emu
 
@@ -111,3 +105,19 @@ includeGovHead :: ContextBuilder a
 includeGovHead = paysToOther (NFT.txValHash uniqueAsset) (Value.assetClassValue (unSpookyAssetClass uniqueAsset) 1) govHeadDatum
   where
     govHeadDatum = GovDatum $ HeadLList (GovLHead (5 % 1000) "") Nothing
+
+{-# INLINEABLE reportParseFailed #-}
+reportParseFailed :: BuiltinString -> ()
+reportParseFailed what = report ("Parse failed: " `appendString` what)
+
+{-# INLINEABLE reportPass #-}
+reportPass :: ()
+reportPass = report "Pass"
+
+{-# INLINEABLE reportFail #-}
+reportFail :: ()
+reportFail = report "Fail"
+
+{-# INLINEABLE report #-}
+report :: BuiltinString -> ()
+report what = trace ("tasty-plutus: " `appendString` what) ()
