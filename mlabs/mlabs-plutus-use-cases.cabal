@@ -294,6 +294,8 @@ test-suite mlabs-plutus-use-cases-tests
     Test.EfficientNFT.Script.TokenMint
     Test.EfficientNFT.Script.Values
     Test.EfficientNFT.Size
+    Test.EfficientNFT.Trace
+    Test.EfficientNFT.Quickcheck
     Test.Governance.Contract
     Test.Governance.Init
     Test.Lending.Contract

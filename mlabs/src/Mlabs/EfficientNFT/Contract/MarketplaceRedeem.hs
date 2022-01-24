@@ -4,12 +4,15 @@ import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
 
 import Control.Monad (void)
-import Ledger (scriptAddress)
+import Data.Map qualified as Map
+import Ledger (ChainIndexTxOut (_ciTxOutValue), Redeemer (Redeemer), minAdaTxOut, scriptAddress)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
 import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Plutus.Contract qualified as Contract
-import Plutus.V1.Ledger.Value (assetClass, singleton)
+import Plutus.V1.Ledger.Ada (toValue)
+import Plutus.V1.Ledger.Api (toBuiltinData)
+import Plutus.V1.Ledger.Value (assetClass, singleton, valueOf)
 import Text.Printf (printf)
 
 import Mlabs.EfficientNFT.Burn (burnValidator)
@@ -26,18 +29,26 @@ marketplaceRedeem nft = do
       curr = scriptCurrencySymbol policy'
       validator = marketplaceValidator curr
       scriptAddr = scriptAddress . validatorScript $ validator
-  utxos <- getAddrUtxos scriptAddr
+      tn = mkTokenName nft
+      containsNft (_, tx) = valueOf (_ciTxOutValue tx) curr tn == 1
+  utxo' <- find containsNft . Map.toList <$> getAddrUtxos scriptAddr
+  (utxo, utxoIndex) <- case utxo' of
+    Nothing -> Contract.throwError "NFT not found on marketplace"
+    Just x -> Hask.pure x
   pkh <- Contract.ownPaymentPubKeyHash
-  let tn = mkTokenName nft
-      nftValue = singleton curr tn 1
+  let nftValue = singleton curr tn 1
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
-          , Constraints.unspentOutputs utxos
+          , Constraints.unspentOutputs $ Map.singleton utxo utxoIndex
+          , Constraints.typedValidatorLookups validator
+          , Constraints.otherScript (validatorScript validator)
+          , Constraints.ownPaymentPubKeyHash pkh
           ]
       tx =
         Hask.mconcat
-          [ Constraints.mustPayToPubKey pkh nftValue
+          [ Constraints.mustPayToPubKey pkh (nftValue <> toValue minAdaTxOut)
+          , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ ())
           , Constraints.mustBeSignedBy pkh
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx

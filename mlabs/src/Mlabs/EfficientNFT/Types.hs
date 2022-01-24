@@ -29,7 +29,7 @@ import PlutusTx.Natural (Natural)
 import Schema (ToSchema)
 
 newtype Content = Content {getContent :: BuiltinByteString}
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''Content
@@ -60,7 +60,7 @@ data NftId = NftId
   , nftId'marketplaceValHash :: ValidatorHash
   , nftId'marketplaceShare :: Natural
   }
-  deriving stock (Hask.Show, Generic, Hask.Eq)
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON)
 
 PlutusTx.unstableMakeIsData ''NftId

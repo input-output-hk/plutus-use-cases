@@ -5,10 +5,11 @@ import Prelude qualified as Hask
 
 import Control.Monad (void)
 import Data.Void (Void)
-import Ledger (Redeemer (Redeemer), scriptCurrencySymbol)
+import Ledger (Redeemer (Redeemer), minAdaTxOut, scriptCurrencySymbol)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (validatorHash)
 import Plutus.Contract qualified as Contract
+import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import Plutus.V1.Ledger.Value (assetClass, singleton)
 import Text.Printf (printf)
@@ -35,11 +36,12 @@ setPrice sp = do
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
           , Constraints.unspentOutputs utxos
+          , Constraints.ownPaymentPubKeyHash pkh
           ]
       tx =
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
-          , Constraints.mustPayToPubKey pkh newNftValue
+          , Constraints.mustPayToPubKey pkh (newNftValue <> toValue minAdaTxOut)
           , Constraints.mustBeSignedBy pkh
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx

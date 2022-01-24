@@ -1,4 +1,4 @@
-module Mlabs.EfficientNFT.Contract.Mint (mint) where
+module Mlabs.EfficientNFT.Contract.Mint (mint, mintWithCollection) where
 
 import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
@@ -6,13 +6,14 @@ import Prelude qualified as Hask
 import Control.Monad (void)
 import Data.Text (pack)
 import Data.Void (Void)
-import Ledger (Redeemer (Redeemer))
+import Ledger (Datum (Datum), Redeemer (Redeemer), minAdaTxOut)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
 import Ledger.Typed.Scripts (validatorHash)
 import Plutus.Contract qualified as Contract
+import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData), TokenName (TokenName))
-import Plutus.V1.Ledger.Value (AssetClass, assetClass, singleton)
+import Plutus.V1.Ledger.Value (AssetClass, assetClass, assetClassValue, singleton)
 import Text.Printf (printf)
 
 {- Drop-in replacement for
@@ -31,9 +32,13 @@ import Mlabs.EfficientNFT.Types
 
 mint :: MintParams -> UserContract ()
 mint mp = do
+  ac <- generateNft
+  mintWithCollection (ac, mp)
+
+mintWithCollection :: (AssetClass, MintParams) -> UserContract ()
+mintWithCollection (ac, mp) = do
   pkh <- Contract.ownPaymentPubKeyHash
   utxos <- getUserUtxos
-  ac <- generateNft
   let burnHash = validatorHash burnValidator
       policy' = policy burnHash Nothing ac
       curr = scriptCurrencySymbol policy'
@@ -59,10 +64,12 @@ mint mp = do
       tx =
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer nftValue
-          , Constraints.mustPayToPubKey pkh nftValue
+          , Constraints.mustPayToPubKey pkh (nftValue <> toValue minAdaTxOut)
+          , Constraints.mustPayToOtherScript burnHash (Datum $ toBuiltinData ()) (assetClassValue ac 1 <> toValue minAdaTxOut)
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
   Contract.tell . Hask.pure $ nft
+  Contract.logInfo @Hask.String $ Hask.show nft
   Contract.logInfo @Hask.String $ printf "Mint successful: %s" (Hask.show $ assetClass curr tn)
 
 generateNft :: GenericContract AssetClass
