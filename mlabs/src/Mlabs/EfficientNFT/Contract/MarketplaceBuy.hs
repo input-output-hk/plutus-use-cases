@@ -11,7 +11,7 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
 import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Plutus.Contract qualified as Contract
-import Plutus.V1.Ledger.Ada (adaSymbol, adaToken, getLovelace, lovelaceValueOf, toValue)
+import Plutus.V1.Ledger.Ada (getLovelace, lovelaceValueOf, toValue)
 import Plutus.V1.Ledger.Api (Redeemer (Redeemer), toBuiltinData)
 import Plutus.V1.Ledger.Value (assetClass, singleton, valueOf)
 import PlutusTx.Numeric.Extra (addExtend)
@@ -40,27 +40,22 @@ marketplaceBuy nft = do
       oldNftValue = singleton curr oldName (-1)
       newNftValue = singleton curr newName 1
       mintRedeemer = Redeemer . toBuiltinData $ ChangeOwner nft pkh
-      getShare share
-        | val < getLovelace minAdaTxOut = lovelaceValueOf 0
-        | otherwise = lovelaceValueOf val
-        where
-          val = addExtend nftPrice * share `divide` 10000
+      getShare share = (addExtend nftPrice * share) `divide` 10000
       authorShare = getShare (addExtend . nftId'authorShare $ nft)
       marketplaceShare = getShare (addExtend . nftId'marketplaceShare $ nft)
-      ownerShare = lovelaceValueOf (addExtend nftPrice) - authorShare - marketplaceShare
+      shareToSubtract v
+        | v < getLovelace minAdaTxOut = 0
+        | otherwise = v
+      ownerShare = lovelaceValueOf (addExtend nftPrice - shareToSubtract authorShare - shareToSubtract marketplaceShare)
       datum = Datum . toBuiltinData $ curr
       filterLowValue v t
-        | valueOf v adaSymbol adaToken < getLovelace minAdaTxOut = mempty
-        | otherwise = t v
+        | v < getLovelace minAdaTxOut = mempty
+        | otherwise = t (lovelaceValueOf v)
   userUtxos <- getUserUtxos
   utxo' <- find containsNft . Map.toList <$> getAddrUtxos scriptAddr
   (utxo, utxoIndex) <- case utxo' of
     Nothing -> Contract.throwError "NFT not found on marketplace"
     Just x -> Hask.pure x
-  Contract.logInfo @Hask.String $ printf "UTXO: %s" (Hask.show $ _ciTxOutValue utxoIndex)
-  Contract.logInfo @Hask.String $ printf "OwnerShare: %s" (Hask.show ownerShare)
-  Contract.logInfo @Hask.String $ printf "AuthorShare: %s" (Hask.show authorShare)
-  Contract.logInfo @Hask.String $ printf "MarketplaceShare: %s" (Hask.show marketplaceShare)
   let userValues = mconcat . fmap _ciTxOutValue . Map.elems $ userUtxos
       lookup =
         Hask.mconcat

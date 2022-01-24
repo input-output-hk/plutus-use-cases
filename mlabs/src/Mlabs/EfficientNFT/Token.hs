@@ -31,7 +31,7 @@ import Ledger.Address (
  )
 import Ledger.Scripts qualified as Scripts
 import Ledger.Typed.Scripts (wrapMintingPolicy)
-import Ledger.Value (TokenName (TokenName))
+import Ledger.Value (TokenName (TokenName), valueOf)
 import Ledger.Value qualified as Value
 import Mlabs.EfficientNFT.Types (
   MintAct (..),
@@ -129,27 +129,31 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
           royalty' = fromEnum $ nftId'authorShare nft
           mpShare = fromEnum $ nftId'marketplaceShare nft
 
+          shareToSubtract v
+            | v < Ada.getLovelace minAdaTxOut = 0
+            | otherwise = v
+
           authorAddr = pubKeyHashAddress (nftId'author nft) Nothing
-          authorShare = price' * royalty' `divide` 10000
+          authorShare = (price' * royalty') `divide` 100_00
 
           marketplAddr = scriptHashAddress (nftId'marketplaceValHash nft)
-          marketplShare = price' * mpShare `divide` 10000
+          marketplShare = (price' * mpShare) `divide` 100_00
 
           ownerAddr = pubKeyHashAddress (nftId'owner nft) Nothing
-          ownerShare = Ada.lovelaceValueOf (price' - authorShare - marketplShare)
+          ownerShare = price' - shareToSubtract authorShare - shareToSubtract marketplShare
 
           curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
 
           -- Don't check royalties when lower than min ada
           filterLowValue v cond
             | v < Ada.getLovelace minAdaTxOut = True
-            | otherwise = any (checkPaymentTxOut cond $ Ada.lovelaceValueOf v) outs
+            | otherwise = any (checkPaymentTxOut cond v) outs
 
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
-            addr == addr' && val == val'
+            addr == addr' && val == valueOf val' Ada.adaSymbol Ada.adaToken
               && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
           checkPaymentTxOutWithoutDatum addr val (TxOut addr' val' _) =
-            addr == addr' && val == val'
+            addr == addr' && val == valueOf val' Ada.adaSymbol Ada.adaToken
        in filterLowValue marketplShare marketplAddr
             && filterLowValue authorShare authorAddr
             && any (checkPaymentTxOutWithoutDatum ownerAddr ownerShare) outs

@@ -50,9 +50,9 @@ main =
           "Efficient NFT"
           [ ENFT.Size.test
           , ENFT.TokenMint.test
-          , ENFT.Quickcheck.test
           , ENFT.TokenChangeOwner.test
           , ENFT.TokenChangePrice.test
+          , ENFT.Quickcheck.test
           ]
           -- , testGroup
           --     "Lending"

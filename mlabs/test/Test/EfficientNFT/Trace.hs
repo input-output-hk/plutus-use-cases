@@ -3,13 +3,13 @@ module Test.EfficientNFT.Trace where
 import PlutusTx.Prelude
 import Prelude qualified as Hask
 
-import Wallet.Emulator (Wallet)
-import Data.Maybe (fromJust)
-import Data.Monoid (Last (..))
 import Control.Monad (void)
 import Control.Monad.Freer.Extras.Log as Extra (logInfo)
+import Data.Maybe (fromJust)
+import Data.Monoid (Last (..))
 import Plutus.Trace.Emulator (EmulatorTrace, activateContractWallet, callEndpoint, runEmulatorTraceIO)
 import Plutus.Trace.Emulator qualified as Trace
+import Wallet.Emulator (Wallet)
 import Wallet.Emulator qualified as Emulator
 
 import Mlabs.EfficientNFT.Api
@@ -42,10 +42,10 @@ mintTrace wallet = do
   void $ Trace.waitNSlots 5
   nft3 <- fromJust . getLast Hask.<$> Trace.observableState h1
   logInfo $ Hask.show nft3
-
-  -- callEndpoint @"marketplace-redeem" h1 nft3
-  -- void $ Trace.waitNSlots 5
   where
+    -- callEndpoint @"marketplace-redeem" h1 nft3
+    -- void $ Trace.waitNSlots 5
+
     artwork =
       MintParams
         { mp'content = Content "A painting."

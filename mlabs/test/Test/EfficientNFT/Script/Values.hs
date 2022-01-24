@@ -82,7 +82,7 @@ userTwoPkh :: Ledger.PaymentPubKeyHash
 userTwoPkh = Emu.mockWalletPaymentPubKeyHash userTwoWallet
 
 nftPrice :: Natural
-nftPrice = toEnum 10_000_000
+nftPrice = toEnum 100_000_000
 
 marketplValHash :: ValidatorHash
 marketplValHash = validatorHash . marketplaceValidator $ "ff"
@@ -91,16 +91,16 @@ marketplShare :: Natural
 marketplShare = toEnum 10_00
 
 marketplShareVal :: Value
-marketplShareVal = Ada.lovelaceValueOf 1_000_000
+marketplShareVal = Ada.lovelaceValueOf 10_000_000
 
 authorShare :: Natural
 authorShare = toEnum 15_00
 
 authorShareVal :: Value
-authorShareVal = Ada.lovelaceValueOf 1_500_000
+authorShareVal = Ada.lovelaceValueOf 15_000_000
 
 ownerShareVal :: Value
-ownerShareVal = Ada.lovelaceValueOf 7_500_000
+ownerShareVal = Ada.lovelaceValueOf 75_000_000
 
 otherPkh :: PaymentPubKeyHash
 otherPkh =
