@@ -29,6 +29,7 @@ import Control.Monad.Freer.Extras.Log as Extra (logInfo)
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Plutus.Trace.Emulator (EmulatorTrace, activateContractWallet, callEndpoint, runEmulatorTraceIO)
 import Plutus.Trace.Emulator qualified as Trace
+import PlutusTx.Ratio qualified as R
 import Wallet.Emulator qualified as Emulator
 
 import Mlabs.NFT.Api
@@ -50,7 +51,7 @@ appInitTrace = do
   let params =
         InitParams
           [UserId . toSpooky . Emulator.mockWalletPaymentPubKeyHash $ admin]
-          (5 % 1000)
+          (R.reduce 5 1000)
           (unPaymentPubKeyHash . toSpookyPaymentPubKeyHash . Emulator.mockWalletPaymentPubKeyHash $ admin)
   hAdmin :: AppInitHandle <- activateContractWallet admin adminEndpoints
   callEndpoint @"app-init" hAdmin params
@@ -73,7 +74,7 @@ mintTrace aSymb wallet = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
 
@@ -92,7 +93,7 @@ mint1Trace = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
 
@@ -120,7 +121,7 @@ getContentTrace1 = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
 
@@ -151,21 +152,21 @@ getContentTrace2 = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
     artwork2 =
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "Another painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
     artwork3 =
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "Another painting2."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
 
@@ -185,14 +186,14 @@ mintTrace2 = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
     artwork2 =
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "Another painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
 
@@ -216,7 +217,7 @@ mintFail1 = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
 
@@ -248,7 +249,7 @@ eTrace1 = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
     buyParams nftId = BuyRequestUser nftId 6 (Just 200)
@@ -285,7 +286,7 @@ severalBuysTrace = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
     buyParams nftId bid = BuyRequestUser nftId bid (Just 200)
@@ -359,7 +360,7 @@ setPriceTrace = do
 --       MintParams
 --         { mp'content = Content "A painting."
 --         , mp'title = Title "Fiona Lisa"
---         , mp'share = 1 % 10
+--         , mp'share = R.reduce 1 10
 --         , mp'price = Just 100
 --         }
 
@@ -431,7 +432,7 @@ auctionTrace1 = do
       MintParams
         { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
         , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-        , mp'share = 1 % 10
+        , mp'share = R.reduce 1 10
         , mp'price = Just 5
         }
 

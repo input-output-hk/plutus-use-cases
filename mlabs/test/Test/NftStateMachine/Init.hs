@@ -69,7 +69,7 @@ runScript script = do
     N.callStartNft w1 $
       N.StartParams
         { sp'content = nftContent
-        , sp'share = 1 R.% 10
+        , sp'share = R.reduce 1 10
         , sp'price = Nothing
         }
   next
