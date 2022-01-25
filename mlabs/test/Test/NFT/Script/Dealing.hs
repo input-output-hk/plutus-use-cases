@@ -15,6 +15,7 @@ import Ledger.Typed.Scripts.Validators (
   ValidatorTypes,
   mkTypedValidator,
  )
+import PlutusTx.Ratio qualified as R
 import Test.NFT.Script.Values qualified as TestValues
 import Test.Tasty (TestTree)
 import Test.Tasty.Plutus.Context (
@@ -59,7 +60,7 @@ initialNode =
         toSpooky $
           NFT.InformationNft
             { info'id' = toSpooky TestValues.testNftId
-            , info'share' = toSpooky (1 % 2)
+            , info'share' = toSpooky (R.reduce 1 2)
             , info'author' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
             , info'owner' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
             , info'price' = toSpooky @(Maybe Integer) $ Just (100 * 1_000_000)
@@ -104,7 +105,7 @@ inconsistentDatum =
       { NFT.node'information' =
           toSpooky $
             (NFT.node'information initialNode)
-              { NFT.info'share' = toSpooky (1 % 10)
+              { NFT.info'share' = toSpooky (R.reduce 1 10)
               }
       }
 

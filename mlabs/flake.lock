@@ -104,50 +104,50 @@
     "cardano-base": {
       "flake": false,
       "locked": {
-        "lastModified": 1633939430,
-        "narHash": "sha256-zbjq43Bnhv1/LhJCFlI8gdd61dGvVlkEa6wkCvLqEFg=",
+        "lastModified": 1633088283,
+        "narHash": "sha256-JKpOlruMX5sr9eaQ3AuOppCbBjQIRKwF4ny20tdPnUg=",
         "owner": "input-output-hk",
         "repo": "cardano-base",
-        "rev": "4ea7e2d927c9a7f78ddc69738409a5827ab66b98",
+        "rev": "654f5b7c76f7cc57900b4ddc664a82fc3b925fb0",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "cardano-base",
-        "rev": "4ea7e2d927c9a7f78ddc69738409a5827ab66b98",
+        "rev": "654f5b7c76f7cc57900b4ddc664a82fc3b925fb0",
         "type": "github"
       }
     },
     "cardano-crypto": {
       "flake": false,
       "locked": {
-        "lastModified": 1621376239,
-        "narHash": "sha256-oxIOVlgm07FAEmgGRF1C2me9TXqVxQulEOcJ22zpTRs=",
+        "lastModified": 1604244485,
+        "narHash": "sha256-2Fipex/WjIRMrvx6F3hjJoAeMtFd2wGnZECT0kuIB9k=",
         "owner": "input-output-hk",
         "repo": "cardano-crypto",
-        "rev": "07397f0e50da97eaa0575d93bee7ac4b2b2576ec",
+        "rev": "f73079303f663e028288f9f4a9e08bcca39a923e",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "cardano-crypto",
-        "rev": "07397f0e50da97eaa0575d93bee7ac4b2b2576ec",
+        "rev": "f73079303f663e028288f9f4a9e08bcca39a923e",
         "type": "github"
       }
     },
-    "cardano-ledger-specs": {
+    "cardano-ledger": {
       "flake": false,
       "locked": {
         "lastModified": 1634701482,
         "narHash": "sha256-HTPOmVOXgBD/3uAxZip/HSttaKcJ+uImYDbuwANAw1c=",
         "owner": "input-output-hk",
-        "repo": "cardano-ledger-specs",
+        "repo": "cardano-ledger",
         "rev": "bf008ce028751cae9fb0b53c3bef20f07c06e333",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
-        "repo": "cardano-ledger-specs",
+        "repo": "cardano-ledger",
         "rev": "bf008ce028751cae9fb0b53c3bef20f07c06e333",
         "type": "github"
       }
@@ -155,34 +155,34 @@
     "cardano-node": {
       "flake": false,
       "locked": {
-        "lastModified": 1634904623,
-        "narHash": "sha256-tuEtSCJOk1MA9sguxL13XLa+qHaz//v7eNyhxHC9tHw=",
+        "lastModified": 1638955893,
+        "narHash": "sha256-PWcWv2RKsxHrsDs+ZjNeCOJlfmIW9CGilPA+UDN2aQI=",
         "owner": "input-output-hk",
         "repo": "cardano-node",
-        "rev": "b6ca519f97a0e795611a63174687e6bb70c9f752",
+        "rev": "4f65fb9a27aa7e3a1873ab4211e412af780a3648",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "cardano-node",
-        "rev": "b6ca519f97a0e795611a63174687e6bb70c9f752",
+        "rev": "4f65fb9a27aa7e3a1873ab4211e412af780a3648",
         "type": "github"
       }
     },
     "cardano-prelude": {
       "flake": false,
       "locked": {
-        "lastModified": 1617239936,
-        "narHash": "sha256-BtbT5UxOAADvQD4qTPNrGfnjQNgbYNO4EAJwH2ZsTQo=",
+        "lastModified": 1617089317,
+        "narHash": "sha256-kgX3DKyfjBb8/XcDEd+/adlETsFlp5sCSurHWgsFAQI=",
         "owner": "input-output-hk",
         "repo": "cardano-prelude",
-        "rev": "fd773f7a58412131512b9f694ab95653ac430852",
+        "rev": "bb4ed71ba8e587f672d06edf9d2e376f4b055555",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "cardano-prelude",
-        "rev": "fd773f7a58412131512b9f694ab95653ac430852",
+        "rev": "bb4ed71ba8e587f672d06edf9d2e376f4b055555",
         "type": "github"
       }
     },
@@ -205,17 +205,17 @@
     "cardano-wallet": {
       "flake": false,
       "locked": {
-        "lastModified": 1635781445,
-        "narHash": "sha256-5IZuqlE/4aGH3TEuGYQsZwOpI/Q7DYzJ4q3stuqGpWc=",
+        "lastModified": 1639607349,
+        "narHash": "sha256-JuYH5pAF7gOsliES0Beo86PinoBmmKXWShXT3NqVlgQ=",
         "owner": "j-mueller",
         "repo": "cardano-wallet",
-        "rev": "6be73ab852c0592713dfe78218856d4a8a0ee69e",
+        "rev": "760140e238a5fbca61d1b286d7a80ece058dc729",
         "type": "github"
       },
       "original": {
         "owner": "j-mueller",
         "repo": "cardano-wallet",
-        "rev": "6be73ab852c0592713dfe78218856d4a8a0ee69e",
+        "rev": "760140e238a5fbca61d1b286d7a80ece058dc729",
         "type": "github"
       }
     },
@@ -536,68 +536,68 @@
     "ouroboros-network": {
       "flake": false,
       "locked": {
-        "lastModified": 1634917006,
-        "narHash": "sha256-lwTgyoZBQAaU6Sh7BouGJGUvK1tSVrWhJP63v7MpwKA=",
+        "lastModified": 1637082154,
+        "narHash": "sha256-FNYcUjoy0ZpletEXUIAMbag2Hwb9K3bDRl793NyNy1E=",
         "owner": "input-output-hk",
         "repo": "ouroboros-network",
-        "rev": "1f4973f36f689d6da75b5d351fb124d66ef1057d",
+        "rev": "d613de3d872ec8b4a5da0c98afb443f322dc4dab",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "ouroboros-network",
-        "rev": "1f4973f36f689d6da75b5d351fb124d66ef1057d",
+        "rev": "d613de3d872ec8b4a5da0c98afb443f322dc4dab",
         "type": "github"
       }
     },
     "plutus": {
       "flake": false,
       "locked": {
-        "lastModified": 1636924888,
-        "narHash": "sha256-80ReuqPGaZrg6GnvyaG/f2Qn6GheCK9RvYQ63+i/6Ak=",
+        "lastModified": 1642090150,
+        "narHash": "sha256-0l8kWR9R0XkkJInbKP/1l8e5jCVhZQ7fVo7IRaXepQ8=",
         "owner": "input-output-hk",
         "repo": "plutus",
-        "rev": "2721c59fd2302b75c4138456c29fd5b509e8340a",
+        "rev": "65bad0fd53e432974c3c203b1b1999161b6c2dce",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "plutus",
-        "rev": "2721c59fd2302b75c4138456c29fd5b509e8340a",
+        "rev": "65bad0fd53e432974c3c203b1b1999161b6c2dce",
         "type": "github"
       }
     },
     "plutus-apps": {
       "flake": false,
       "locked": {
-        "lastModified": 1641988365,
-        "narHash": "sha256-5bXrO/8DN5jew5SiwpIlTu6zd1KH3sMeL18DHz98hyE=",
+        "lastModified": 1642502716,
+        "narHash": "sha256-UULYQppoNjj+EOcV75UT3DOwJF+d609FOYsZZFeAQcM=",
         "owner": "input-output-hk",
         "repo": "plutus-apps",
-        "rev": "21b592b1ea4bc727c1d486432e8aa8388d9e706c",
+        "rev": "34fe6eeff441166fee0cd0ceba68c1439f0e93d2",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
         "repo": "plutus-apps",
-        "rev": "21b592b1ea4bc727c1d486432e8aa8388d9e706c",
+        "rev": "34fe6eeff441166fee0cd0ceba68c1439f0e93d2",
         "type": "github"
       }
     },
     "plutus-extra": {
       "flake": false,
       "locked": {
-        "lastModified": 1642674520,
-        "narHash": "sha256-jNIHvMVNcwPyYcZEN4kwgBnYsYu67vkBn6RDhUYkUIM=",
-        "owner": "gege251",
+        "lastModified": 1643071526,
+        "narHash": "sha256-cPp2tgQMRvgl+0XrtkaY4jLYFt7jBQwjPi9z7FIYu+8=",
+        "owner": "Liqwid-Labs",
         "repo": "plutus-extra",
-        "rev": "2bdb0153a932e391af2aba3cef6796794c7c3605",
+        "rev": "4722305495c8c4b03ff06debf0f4a041768a5467",
         "type": "github"
       },
       "original": {
-        "owner": "gege251",
+        "owner": "Liqwid-Labs",
         "repo": "plutus-extra",
-        "rev": "2bdb0153a932e391af2aba3cef6796794c7c3605",
+        "rev": "4722305495c8c4b03ff06debf0f4a041768a5467",
         "type": "github"
       }
     },
@@ -641,7 +641,7 @@
         "cardano-addresses": "cardano-addresses",
         "cardano-base": "cardano-base",
         "cardano-crypto": "cardano-crypto",
-        "cardano-ledger-specs": "cardano-ledger-specs",
+        "cardano-ledger": "cardano-ledger",
         "cardano-node": "cardano-node",
         "cardano-prelude": "cardano-prelude",
         "cardano-wallet": "cardano-wallet",

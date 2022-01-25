@@ -114,7 +114,7 @@ depositScript = do
                   , coinCfg'rate = R.fromInteger 1
                   , coinCfg'aToken = aCoin
                   , coinCfg'interestModel = defaultInterestModel
-                  , coinCfg'liquidationBonus = 5 R.% 100
+                  , coinCfg'liquidationBonus = R.reduce 5 100
                   }
             )
             [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
@@ -314,7 +314,7 @@ queryAllLendexesScript = do
                     , coinCfg'rate = R.fromInteger 1
                     , coinCfg'aToken = aCoin
                     , coinCfg'interestModel = defaultInterestModel
-                    , coinCfg'liquidationBonus = 5 R.% 100
+                    , coinCfg'liquidationBonus = R.reduce 5 100
                     }
               )
               [(adaCoin, aAda), (coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]
@@ -364,7 +364,7 @@ testQuerrySupportedCurrencies =
     initLendex lid = L.callStartLendex lid wAdmin . StartLendex $ sp
     contract = Server.queryEndpoints lendexId
     tag = Trace.walletInstanceTag w1
-    coins = [(adaCoin, aAda, 1 R.% 1), (coin1, aToken1, 1 R.% 2)]
+    coins = [(adaCoin, aAda, R.reduce 1 1), (coin1, aToken1, R.reduce 1 2)]
     expectedQueryResult =
       Just . Last . QueryResSupportedCurrencies $
         (\(coin, aCoin, rate) -> SupportedCurrency coin aCoin (CoinRate rate 0)) <$> coins
@@ -378,7 +378,7 @@ testQuerrySupportedCurrencies =
                     , coinCfg'rate = rate
                     , coinCfg'aToken = aCoin
                     , coinCfg'interestModel = defaultInterestModel
-                    , coinCfg'liquidationBonus = 5 R.% 100
+                    , coinCfg'liquidationBonus = R.reduce 5 100
                     }
               )
               coins
