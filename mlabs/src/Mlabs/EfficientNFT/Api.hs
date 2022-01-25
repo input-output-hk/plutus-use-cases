@@ -28,21 +28,21 @@ type NFTAppSchema =
     -- User Action Endpoints
     .\/ Endpoint "change-owner" ChangeOwnerParams
     .\/ Endpoint "set-price" SetPriceParams
-    .\/ Endpoint "marketplace-deposit" NftId
-    .\/ Endpoint "marketplace-redeem" NftId
-    .\/ Endpoint "marketplace-buy" NftId
+    .\/ Endpoint "marketplace-deposit" NftData
+    .\/ Endpoint "marketplace-redeem" NftData
+    .\/ Endpoint "marketplace-buy" NftData
     .\/ Endpoint "marketplace-set-price" SetPriceParams
 
 -- ENDPOINTS --
 
-type ApiUserContract a = Contract (Last NftId) NFTAppSchema Text a
+type ApiUserContract a = Contract (Last NftData) NFTAppSchema Text a
 
 -- | User Endpoints .
 endpoints :: ApiUserContract ()
 endpoints = selectForever tokenEndpointsList
 
 -- | List of User Promises.
-tokenEndpointsList :: [Promise (Last NftId) NFTAppSchema Text ()]
+tokenEndpointsList :: [Promise (Last NftData) NFTAppSchema Text ()]
 tokenEndpointsList =
   [ endpoint @"mint" mint
   , endpoint @"mint-with-collection" mintWithCollection

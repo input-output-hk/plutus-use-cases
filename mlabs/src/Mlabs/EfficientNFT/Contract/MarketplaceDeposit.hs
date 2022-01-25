@@ -14,29 +14,26 @@ import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import Plutus.V1.Ledger.Value (assetClass, singleton)
 import Text.Printf (printf)
 
-import Mlabs.EfficientNFT.Burn (burnValidator)
 import Mlabs.EfficientNFT.Contract.Aux
 import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types
 
 -- | Deposit nft in the marketplace
-marketplaceDeposit :: NftId -> UserContract ()
-marketplaceDeposit nft = do
-  let burnHash = validatorHash burnValidator
-      policy' = policy burnHash Nothing (nftId'collectionNft nft)
+marketplaceDeposit :: NftData -> UserContract ()
+marketplaceDeposit nftData = do
+  let policy' = policy . nftData'nftCollection $ nftData
       curr = scriptCurrencySymbol policy'
-      tn = mkTokenName nft
+      tn = mkTokenName . nftData'nftId $ nftData
       nftValue = singleton curr tn 1
-      validator = marketplaceValidator curr
-      valHash = validatorHash validator
+      valHash = validatorHash marketplaceValidator
   utxos <- getUserUtxos
   let lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
           , Constraints.unspentOutputs utxos
-          , Constraints.typedValidatorLookups validator
-          , Constraints.otherScript (validatorScript validator)
+          , Constraints.typedValidatorLookups marketplaceValidator
+          , Constraints.otherScript (validatorScript marketplaceValidator)
           ]
       tx =
         Hask.mconcat
@@ -46,5 +43,5 @@ marketplaceDeposit nft = do
               (nftValue <> toValue minAdaTxOut)
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
-  Contract.tell . Hask.pure $ nft
+  Contract.tell . Hask.pure $ nftData
   Contract.logInfo @Hask.String $ printf "Deposit successful: %s" (Hask.show $ assetClass curr tn)

@@ -13,7 +13,7 @@ import Ledger.Typed.Scripts (validatorHash)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData), TokenName (TokenName))
-import Plutus.V1.Ledger.Value (AssetClass, assetClass, assetClassValue, singleton)
+import Plutus.V1.Ledger.Value (AssetClass, assetClass, assetClassValue, singleton, unAssetClass)
 import Text.Printf (printf)
 
 {- Drop-in replacement for
@@ -39,20 +39,23 @@ mintWithCollection :: (AssetClass, MintParams) -> UserContract ()
 mintWithCollection (ac, mp) = do
   pkh <- Contract.ownPaymentPubKeyHash
   utxos <- getUserUtxos
-  let burnHash = validatorHash burnValidator
-      policy' = policy burnHash Nothing ac
-      curr = scriptCurrencySymbol policy'
-      nft =
+  let nft =
         NftId
-          { nftId'content = mp'content mp
-          , nftId'price = mp'price mp
+          { nftId'price = mp'price mp
           , nftId'owner = pkh
-          , nftId'author = pkh
-          , nftId'authorShare = mp'share mp
-          , nftId'collectionNft = ac
-          , nftId'marketplaceValHash = validatorHash . marketplaceValidator $ curr
-          , nftId'marketplaceShare = toEnum 5
+          , nftId'collectionNftTn = snd . unAssetClass $ ac
           }
+      collection =
+        NftCollection
+          { nftCollection'collectionNftCs = fst . unAssetClass $ ac
+          , nftCollection'lockingScript = validatorHash burnValidator
+          , nftCollection'author = pkh
+          , nftCollection'authorShare = mp'share mp
+          , nftCollection'marketplaceScript = validatorHash marketplaceValidator
+          , nftCollection'marketplaceShare = toEnum 5
+          }
+      policy' = policy collection
+      curr = scriptCurrencySymbol policy'
       tn = mkTokenName nft
       nftValue = singleton curr tn 1
       mintRedeemer = Redeemer . toBuiltinData . MintToken $ nft
@@ -65,10 +68,13 @@ mintWithCollection (ac, mp) = do
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer nftValue
           , Constraints.mustPayToPubKey pkh (nftValue <> toValue minAdaTxOut)
-          , Constraints.mustPayToOtherScript burnHash (Datum $ toBuiltinData ()) (assetClassValue ac 1 <> toValue minAdaTxOut)
+          , Constraints.mustPayToOtherScript
+              (nftCollection'lockingScript collection)
+              (Datum $ toBuiltinData ())
+              (assetClassValue ac 1 <> toValue minAdaTxOut)
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
-  Contract.tell . Hask.pure $ nft
+  Contract.tell . Hask.pure $ NftData collection nft
   Contract.logInfo @Hask.String $ Hask.show nft
   Contract.logInfo @Hask.String $ printf "Mint successful: %s" (Hask.show $ assetClass curr tn)
 

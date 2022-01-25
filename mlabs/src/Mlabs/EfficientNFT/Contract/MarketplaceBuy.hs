@@ -17,22 +17,20 @@ import Plutus.V1.Ledger.Value (assetClass, singleton, valueOf)
 import PlutusTx.Numeric.Extra (addExtend)
 import Text.Printf (printf)
 
-import Mlabs.EfficientNFT.Burn (burnValidator)
 import Mlabs.EfficientNFT.Contract.Aux
 import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 
-marketplaceBuy :: NftId -> UserContract ()
-marketplaceBuy nft = do
+marketplaceBuy :: NftData -> UserContract ()
+marketplaceBuy nftData = do
   pkh <- Contract.ownPaymentPubKeyHash
-  let burnHash = validatorHash burnValidator
-      policy' = policy burnHash Nothing (nftId'collectionNft nft)
+  let policy' = policy . nftData'nftCollection $ nftData
+      nft = nftData'nftId nftData
       curr = scriptCurrencySymbol policy'
-      validator = marketplaceValidator curr
-      scriptAddr = scriptAddress . validatorScript $ validator
+      scriptAddr = scriptAddress . validatorScript $ marketplaceValidator
       containsNft (_, tx) = valueOf (_ciTxOutValue tx) curr oldName == 1
-      valHash = validatorHash validator
+      valHash = validatorHash marketplaceValidator
       nftPrice = nftId'price nft
       newNft = nft {nftId'owner = pkh}
       oldName = mkTokenName nft
@@ -41,8 +39,8 @@ marketplaceBuy nft = do
       newNftValue = singleton curr newName 1
       mintRedeemer = Redeemer . toBuiltinData $ ChangeOwner nft pkh
       getShare share = (addExtend nftPrice * share) `divide` 10000
-      authorShare = getShare (addExtend . nftId'authorShare $ nft)
-      marketplaceShare = getShare (addExtend . nftId'marketplaceShare $ nft)
+      authorShare = getShare (addExtend . nftCollection'authorShare . nftData'nftCollection $ nftData)
+      marketplaceShare = getShare (addExtend . nftCollection'marketplaceShare . nftData'nftCollection $ nftData)
       shareToSubtract v
         | v < getLovelace minAdaTxOut = 0
         | otherwise = v
@@ -60,14 +58,18 @@ marketplaceBuy nft = do
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
-          , Constraints.typedValidatorLookups validator
-          , Constraints.otherScript (validatorScript validator)
+          , Constraints.typedValidatorLookups marketplaceValidator
+          , Constraints.otherScript (validatorScript marketplaceValidator)
           , Constraints.unspentOutputs $ Map.insert utxo utxoIndex userUtxos
           , Constraints.ownPaymentPubKeyHash pkh
           ]
       tx =
-        filterLowValue marketplaceShare (Constraints.mustPayToOtherScript (nftId'marketplaceValHash nft) datum)
-          <> filterLowValue authorShare (Constraints.mustPayWithDatumToPubKey (nftId'author nft) datum)
+        filterLowValue
+          marketplaceShare
+          (Constraints.mustPayToOtherScript (nftCollection'marketplaceScript . nftData'nftCollection $ nftData) datum)
+          <> filterLowValue
+            authorShare
+            (Constraints.mustPayWithDatumToPubKey (nftCollection'author . nftData'nftCollection $ nftData) datum)
           <> Hask.mconcat
             [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
             , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ ())
@@ -77,5 +79,5 @@ marketplaceBuy nft = do
               Constraints.mustPayToPubKey pkh (userValues - toValue (minAdaTxOut * 3) - lovelaceValueOf (addExtend nftPrice))
             ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
-  Contract.tell . Hask.pure $ newNft
+  Contract.tell . Hask.pure $ NftData (nftData'nftCollection nftData) newNft
   Contract.logInfo @Hask.String $ printf "Change owner successful: %s" (Hask.show $ assetClass curr newName)
