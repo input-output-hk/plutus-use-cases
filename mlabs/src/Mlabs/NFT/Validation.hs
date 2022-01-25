@@ -50,7 +50,6 @@ import Ledger.Typed.Scripts (
   wrapMintingPolicy,
  )
 import Ledger.Typed.TypeUtils (Any)
-import PlutusTx.Ratio qualified as R
 
 import Data.Function (on)
 import Data.Maybe (catMaybes)
@@ -405,7 +404,7 @@ mkTxPolicy _ !datum' !act !ctx =
     nftCurr = app'symbol . act'symbol $ act
 
     feeRate :: Rational
-    feeRate = R.reduce 5 1000
+    feeRate = 5 % 1000
     --  | [GovLHead {..}] <- mapMaybe (getGHead . gov'list . fst) $ getOutputDatumsWithTx @GovDatum ctx =
     --    govLHead'feeRate
     --  | otherwise = traceError' "Expecting excatly one gov head"

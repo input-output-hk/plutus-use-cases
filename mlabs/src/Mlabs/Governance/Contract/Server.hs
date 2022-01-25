@@ -36,7 +36,6 @@ import Plutus.V1.Ledger.Api (
   toBuiltinData,
  )
 import Plutus.V1.Ledger.Value (Value (..), valueOf)
-import PlutusTx.Ratio qualified as R
 import Text.Printf (printf)
 
 import Mlabs.Governance.Contract.Api qualified as Api
@@ -133,13 +132,13 @@ provideRewards :: AssetClassGov -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards gov (Api.ProvideRewards val) = do
   depositMap <- depositMapC
   let -- annotates each depositor with the total percentage of GOV deposited to the contract
-      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm + t, (pkh, R.reduce amm total) : p)) (0, mempty) depositMap
+      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm + t, (pkh, amm % total) : p)) (0, mempty) depositMap
 
       dispatch =
         map
           ( \(pkh, prop) ->
               case pkh of
-                Just pkh' -> Just (PaymentPubKeyHash pkh', Value $ fmap (round.(prop *).(`R.reduce` 1)) <$> getValue val)
+                Just pkh' -> Just (PaymentPubKeyHash pkh', Value $ fmap (round.(prop *).(% 1)) <$> getValue val)
                 Nothing -> Nothing
           )
           props

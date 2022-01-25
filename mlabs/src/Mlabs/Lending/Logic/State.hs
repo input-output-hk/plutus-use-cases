@@ -233,16 +233,16 @@ getReserve coin = do
 -- | Convert given currency to base currency
 toAda :: Types.Coin -> Integer -> St Integer
 toAda coin val = do
-  ratio' <- fmap (coinRate'value . reserve'rate) $ getReserve coin
-  pure $ R.round $ R.fromInteger val N.* ratio'
+  ratio <- fmap (coinRate'value . reserve'rate) $ getReserve coin
+  pure $ R.round $ R.fromInteger val N.* ratio
 
 {-# INLINEABLE fromAda #-}
 
 -- | Convert given currency from base currency
 fromAda :: Types.Coin -> Integer -> St Integer
 fromAda coin val = do
-  ratio' <- fmap (coinRate'value . reserve'rate) $ getReserve coin
-  pure $ R.round $ R.fromInteger val N.* R.recip ratio'
+  ratio <- fmap (coinRate'value . reserve'rate) $ getReserve coin
+  pure $ R.round $ R.fromInteger val N.* R.recip ratio
 
 -- | Conversion between coins
 data Convert = Convert

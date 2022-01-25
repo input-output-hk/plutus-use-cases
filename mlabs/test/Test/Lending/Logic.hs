@@ -281,7 +281,7 @@ testAppConfig = AppConfig reserves users lendingPoolCurrency admins oracles
               , coinCfg'rate = R.fromInteger 1
               , coinCfg'aToken = aCoin
               , coinCfg'interestModel = defaultInterestModel
-              , coinCfg'liquidationBonus = R.reduce 5 100
+              , coinCfg'liquidationBonus = 5 R.% 100
               }
         )
         [(coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]

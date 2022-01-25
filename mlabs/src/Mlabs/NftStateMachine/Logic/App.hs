@@ -57,7 +57,7 @@ runNftApp cfg = runApp react (initApp cfg)
 initApp :: AppCfg -> NftApp
 initApp AppCfg {..} =
   App
-    { app'st = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (R.reduce 1 10) Nothing
+    { app'st = initNft appCfg'nftInRef appCfg'nftAuthor appCfg'nftData (1 R.% 10) Nothing
     , app'log = []
     , app'wallets = BchState $ M.fromList $ (Self, defaultBchWallet) : appCfg'users
     }

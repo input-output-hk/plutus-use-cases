@@ -11,7 +11,6 @@ import PlutusTx qualified
 import PlutusTx.Positive (positive)
 import PlutusTx.Prelude hiding ((<>))
 import PlutusTx.Prelude qualified as PlutusPrelude
-import PlutusTx.Ratio qualified as R
 
 import Test.NFT.Script.Values as TestValues
 import Test.Tasty (TestTree, localOption)
@@ -60,7 +59,7 @@ paysDatumToScriptCtx =
               toSpooky $
                 NFT.InformationNft
                   { info'id' = toSpooky TestValues.testNftId
-                  , info'share' = toSpooky (R.reduce 1 2)
+                  , info'share' = toSpooky (1 % 2)
                   , info'author' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
                   , info'owner' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
                   , info'price' = toSpooky $ Just (100 * 1_000_000 :: Integer)
@@ -121,7 +120,7 @@ mismatchingIdCtx =
               toSpooky $
                 NFT.InformationNft
                   { info'id' = toSpooky . NFT.NftId . toSpooky @BuiltinByteString $ "I AM INVALID"
-                  , info'share' = toSpooky (R.reduce 1 2)
+                  , info'share' = toSpooky (1 % 2)
                   , info'author' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
                   , info'owner' = toSpooky . NFT.UserId . toSpooky $ TestValues.authorPkh
                   , info'price' = toSpooky $ Just (100 * 1_000_000 :: Integer)

@@ -202,7 +202,7 @@ startParams cur =
                 , coinCfg'rate = R.fromInteger 1
                 , coinCfg'aToken = aCoin
                 , coinCfg'interestModel = defaultInterestModel
-                , coinCfg'liquidationBonus = R.reduce 5 100
+                , coinCfg'liquidationBonus = 5 R.% 100
                 }
           )
           [(adaCoin, aAda), (toCoin cur token1, aToken1), (toCoin cur token2, aToken2), (toCoin cur token3, aToken3)]

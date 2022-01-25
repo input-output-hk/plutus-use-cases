@@ -147,7 +147,7 @@ pkgs.haskell-nix.cabalProject {
       subdirs = [ "." ];
     }
     {
-      src = inputs.cardano-ledger;
+      src = inputs.cardano-ledger-specs;
       subdirs = [
         "byron/ledger/impl"
         "cardano-ledger-core"
@@ -171,7 +171,7 @@ pkgs.haskell-nix.cabalProject {
     }
     {
       src = inputs.cardano-node;
-      subdirs = [ "cardano-api" ];
+      subdirs = [ "cardano-api" "cardano-node" "cardano-cli" "cardano-config" ];
     }
     {
       src = inputs.cardano-prelude;
@@ -180,7 +180,6 @@ pkgs.haskell-nix.cabalProject {
     {
       src = inputs.cardano-wallet;
       subdirs = [
-        "lib/dbvar"
         "lib/text-class"
         "lib/strict-non-empty-containers"
         "lib/core"

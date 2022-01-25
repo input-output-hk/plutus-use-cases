@@ -105,6 +105,6 @@ startParams :: Nft.StartParams
 startParams =
   Nft.StartParams
     { sp'content = nftContent
-    , sp'share = R.reduce 1 10
+    , sp'share = 1 R.% 10
     , sp'price = Nothing
     }

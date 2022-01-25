@@ -24,7 +24,7 @@ module Mlabs.Lending.Logic.App (
   queryAct,
 ) where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude hiding ((%))
 import Prelude qualified as Hask (uncurry)
 
 import Data.Map.Strict qualified as M
@@ -106,7 +106,7 @@ defaultAppConfig = AppConfig reserves users curSym admins oracles
               , coinCfg'rate = R.fromInteger 1
               , coinCfg'aToken = toAToken name
               , coinCfg'interestModel = Types.defaultInterestModel
-              , coinCfg'liquidationBonus = R.reduce 5 100
+              , coinCfg'liquidationBonus = 5 R.% 100
               }
         )
         coinNames

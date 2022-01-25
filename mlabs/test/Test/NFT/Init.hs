@@ -70,7 +70,6 @@ import Plutus.Trace.Emulator (
  )
 import Plutus.Trace.Emulator.Types (ContractInstanceLog (..), ContractInstanceMsg (..), walletInstanceTag)
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken)
-import PlutusTx.Ratio qualified as R
 
 -- import Plutus.V1.Ledger.Api (getPubKeyHash)
 import Plutus.V1.Ledger.Value (AssetClass (..), CurrencySymbol, TokenName (..), Value, assetClassValue, singleton, valueOf)
@@ -139,7 +138,7 @@ callStartNft wal = do
   let params =
         InitParams
           [UserId . toSpooky . mockWalletPaymentPubKeyHash $ wal]
-          (R.reduce 5 1000)
+          (5 % 1000)
           (unPaymentPubKeyHash . toSpookyPaymentPubKeyHash $ mockWalletPaymentPubKeyHash wal)
   callEndpoint @"app-init" hAdmin params
   waitInit
@@ -156,7 +155,7 @@ callStartNftFail wal = do
       params =
         InitParams
           [UserId . toSpooky . mockWalletPaymentPubKeyHash $ w5]
-          (R.reduce 5 1000)
+          (5 % 1000)
           (unPaymentPubKeyHash . toSpookyPaymentPubKeyHash $ mockWalletPaymentPubKeyHash wal)
   lift $ do
     hAdmin <- activateContractWallet wal adminEndpoints
@@ -322,7 +321,7 @@ artwork1 =
   MintParams
     { mp'content = Content . toSpooky @BuiltinByteString $ "A painting."
     , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-    , mp'share = R.reduce 1 10
+    , mp'share = 1 % 10
     , mp'price = Nothing
     }
 
@@ -331,7 +330,7 @@ artwork2 =
   MintParams
     { mp'content = Content . toSpooky @BuiltinByteString $ "Another painting."
     , mp'title = Title . toSpooky @BuiltinByteString $ "Fiona Lisa"
-    , mp'share = R.reduce 1 10
+    , mp'share = 1 % 10
     , mp'price = Just 300
     }
 

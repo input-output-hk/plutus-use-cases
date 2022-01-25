@@ -10,7 +10,6 @@ import Test.Tasty.Plutus.Context
 
 import Plutus.V1.Ledger.Ada qualified as Ada
 import PlutusTx.Prelude hiding ((<>))
-import PlutusTx.Ratio qualified as R
 import Wallet.Emulator.Wallet qualified as Emu
 
 import Mlabs.NFT.Contract.Aux qualified as NFT
@@ -105,7 +104,7 @@ uniqueAsset = assetClass (CurrencySymbol . toSpooky @BuiltinByteString $ "00a6b4
 includeGovHead :: ContextBuilder a
 includeGovHead = paysToOther (NFT.txValHash uniqueAsset) (Value.assetClassValue (unSpookyAssetClass uniqueAsset) 1) govHeadDatum
   where
-    govHeadDatum = GovDatum $ HeadLList (GovLHead (R.reduce 5 1000) "") Nothing
+    govHeadDatum = GovDatum $ HeadLList (GovLHead (5 % 1000) "") Nothing
 
 {-# INLINEABLE reportParseFailed #-}
 reportParseFailed :: BuiltinString -> ()

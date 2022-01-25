@@ -9,7 +9,7 @@
 
 module Test.Lending.QuickCheck where
 
-import PlutusTx.Prelude hiding (abs, fmap, length, (<$>), (<*>))
+import PlutusTx.Prelude hiding (fmap, length, (<$>), (<*>))
 import Prelude (
   Int,
   Show,

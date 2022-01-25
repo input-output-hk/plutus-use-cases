@@ -54,7 +54,7 @@ module Mlabs.Lending.Logic.Types (
   InsolventAccount (..),
 ) where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude hiding ((%))
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
@@ -65,10 +65,10 @@ import Plutus.V1.Ledger.Value (AssetClass (..), CurrencySymbol (..), TokenName (
 import PlutusTx qualified
 import PlutusTx.AssocMap (Map)
 import PlutusTx.AssocMap qualified as M
-import PlutusTx.Ratio qualified as R
 import Prelude qualified as Hask (Eq, Show)
 
 import Mlabs.Emulator.Types (Coin, UserId (..), adaCoin)
+import PlutusTx.Ratio qualified as R
 
 -- | Unique identifier of the lending pool state.
 newtype LendexId = LendexId BuiltinByteString
@@ -232,9 +232,9 @@ defaultInterestModel :: InterestModel
 defaultInterestModel =
   InterestModel
     { im'base = R.fromInteger 0
-    , im'slope1 = R.reduce 1 5
+    , im'slope1 = 1 R.% 5
     , im'slope2 = R.fromInteger 4
-    , im'optimalUtilisation = R.reduce 8 10
+    , im'optimalUtilisation = 8 R.% 10
     }
 
 -- | Coin configuration
@@ -282,7 +282,7 @@ initReserve CoinCfg {..} =
           { coinRate'value = coinCfg'rate
           , coinRate'lastUpdateTime = 0
           }
-    , reserve'liquidationThreshold = R.reduce 8 10
+    , reserve'liquidationThreshold = 8 R.% 10
     , reserve'liquidationBonus = coinCfg'liquidationBonus
     , reserve'aToken = coinCfg'aToken
     , reserve'interest = initInterest coinCfg'interestModel

@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 -- | Missing plutus functions for Lists
 module Mlabs.Data.List (
   take,
@@ -58,6 +60,49 @@ take n
 sortOn :: Ord b => (a -> b) -> [a] -> [a]
 sortOn f =
   map snd . sortBy (comparing fst) . map (\x -> let y = f x in y `Hask.seq` (y, x))
+
+{-# INLINEABLE sortBy #-}
+
+{- | The 'sortBy' function is the non-overloaded version of 'sort'.
+
+ >>> sortBy (\(a,_) (b,_) -> compare a b) [(2, "world"), (4, "!"), (1, "Hello")]
+ [(1,"Hello"),(2,"world"),(4,"!")]
+-}
+sortBy :: (a -> a -> Ordering) -> [a] -> [a]
+sortBy cmp = mergeAll . sequences
+  where
+    sequences (a : b : xs) = case a `cmp` b of
+      GT -> descending b [a] xs
+      _ -> ascending b (a :) xs
+    sequences xs = [xs]
+
+    descending a as (b : bs) = case a `cmp` b of
+      GT -> descending b (a : as) bs
+      _ -> (a : as) : sequences bs
+    descending a as bs = (a : as) : sequences bs
+
+    ascending a as (b : bs) = case a `cmp` b of
+      GT ->
+        let !x = as [a]
+         in x : sequences bs
+      _ -> ascending b (\ys -> as (a : ys)) bs
+    ascending a as bs =
+      let !x = as [a]
+       in x : sequences bs
+
+    mergeAll [x] = x
+    mergeAll xs = mergeAll (mergePairs xs)
+
+    mergePairs (a : b : xs) =
+      let !x = merge a b
+       in x : mergePairs xs
+    mergePairs xs = xs
+
+    merge as@(a : as') bs@(b : bs') = case a `cmp` b of
+      GT -> b : merge as bs'
+      _ -> a : merge as' bs
+    merge [] bs = bs
+    merge as [] = as
 
 {-# INLINEABLE mapM_ #-}
 mapM_ :: Hask.Monad f => (a -> f ()) -> [a] -> f ()

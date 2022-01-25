@@ -21,32 +21,32 @@
     };
     cardano-base = {
       url =
-        "github:input-output-hk/cardano-base/654f5b7c76f7cc57900b4ddc664a82fc3b925fb0";
+        "github:input-output-hk/cardano-base/4ea7e2d927c9a7f78ddc69738409a5827ab66b98";
       flake = false;
     };
     cardano-crypto = {
       url =
-        "github:input-output-hk/cardano-crypto/f73079303f663e028288f9f4a9e08bcca39a923e";
+        "github:input-output-hk/cardano-crypto/07397f0e50da97eaa0575d93bee7ac4b2b2576ec";
       flake = false;
     };
-    cardano-ledger = {
+    cardano-ledger-specs = {
       url =
-        "github:input-output-hk/cardano-ledger/bf008ce028751cae9fb0b53c3bef20f07c06e333";
+        "github:input-output-hk/cardano-ledger-specs/bf008ce028751cae9fb0b53c3bef20f07c06e333";
       flake = false;
     };
     cardano-node = {
       url =
-        "github:input-output-hk/cardano-node/4f65fb9a27aa7e3a1873ab4211e412af780a3648";
+        "github:input-output-hk/cardano-node/b6ca519f97a0e795611a63174687e6bb70c9f752";
       flake = false;
     };
     cardano-prelude = {
       url =
-        "github:input-output-hk/cardano-prelude/bb4ed71ba8e587f672d06edf9d2e376f4b055555";
+        "github:input-output-hk/cardano-prelude/fd773f7a58412131512b9f694ab95653ac430852";
       flake = false;
     };
     cardano-wallet = {
       url =
-        "github:j-mueller/cardano-wallet/760140e238a5fbca61d1b286d7a80ece058dc729";
+        "github:j-mueller/cardano-wallet/6be73ab852c0592713dfe78218856d4a8a0ee69e";
       flake = false;
     };
     flat = {
@@ -71,22 +71,22 @@
     };
     ouroboros-network = {
       url =
-        "github:input-output-hk/ouroboros-network/d613de3d872ec8b4a5da0c98afb443f322dc4dab";
+        "github:input-output-hk/ouroboros-network/1f4973f36f689d6da75b5d351fb124d66ef1057d";
       flake = false;
     };
     plutus = {
       url =
-        "github:input-output-hk/plutus/65bad0fd53e432974c3c203b1b1999161b6c2dce";
+        "github:input-output-hk/plutus/2721c59fd2302b75c4138456c29fd5b509e8340a";
       flake = false;
     };
     plutus-apps = {
       url =
-        "github:input-output-hk/plutus-apps/34fe6eeff441166fee0cd0ceba68c1439f0e93d2";
+        "github:input-output-hk/plutus-apps/21b592b1ea4bc727c1d486432e8aa8388d9e706c";
       flake = false;
     };
     plutus-extra = {
       url =
-        "github:Liqwid-Labs/plutus-extra/4722305495c8c4b03ff06debf0f4a041768a5467";
+        "github:gege251/plutus-extra/2bdb0153a932e391af2aba3cef6796794c7c3605";
       flake = false;
     };
     plutus-tx-spooky = {
