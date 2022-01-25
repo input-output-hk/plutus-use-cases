@@ -9,7 +9,6 @@ module Mlabs.EfficientNFT.Token (
 ) where
 
 import Ledger (
-  AssetClass,
   CurrencySymbol,
   Datum (Datum),
   MintingPolicy,
@@ -35,38 +34,34 @@ import Ledger.Value (TokenName (TokenName), valueOf)
 import Ledger.Value qualified as Value
 import Mlabs.EfficientNFT.Types (
   MintAct (..),
+  NftCollection (..),
   NftId,
   hash,
-  nftId'author,
-  nftId'authorShare,
-  nftId'collectionNft,
-  nftId'marketplaceShare,
-  nftId'marketplaceValHash,
+  nftId'collectionNftTn,
   nftId'owner,
   nftId'price,
  )
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as Map
+import PlutusTx.Natural (Natural)
 import PlutusTx.Prelude
 
 {-# INLINEABLE mkPolicy #-}
 mkPolicy ::
+  CurrencySymbol ->
   ValidatorHash ->
-  Maybe CurrencySymbol ->
-  AssetClass ->
+  PaymentPubKeyHash ->
+  Natural ->
+  ValidatorHash ->
+  Natural ->
   MintAct ->
   ScriptContext ->
   Bool
-mkPolicy burnHash previousNft collectionNftP mintAct ctx =
+mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript marketplaceShare mintAct ctx =
   case mintAct of
     MintToken nft ->
       traceIfFalse "Exactly one NFT must be minted" (checkMint nft)
-        && traceIfFalse "collectionNftP must match collectionNft" (collectionNftP == nftId'collectionNft nft)
-        && case previousNft of
-          Nothing ->
-            traceIfFalse "Collection NFT must be burned" checkCollectionNftBurned
-          Just previousNft' ->
-            traceIfFalse "Previous NFT must be burned" (checkPreviousNftBurned previousNft' nft)
+        && traceIfFalse "Collection NFT must be burned" (checkCollectionNftBurned nft)
     ChangePrice nft newPrice ->
       traceIfFalse
         "Exactly one new token must be minted and exactly one old burnt"
@@ -109,38 +104,33 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
        in Value.valueOf mintedValue ownCs oldName == -1
 
     -- Check if collection nft is burned
-    checkCollectionNftBurned =
-      let burnAddress = scriptHashAddress burnHash
+    checkCollectionNftBurned nft =
+      let lockingAddress = scriptHashAddress lockingScript
           containsCollectonNft tx =
-            txOutAddress tx == burnAddress
-              && Value.assetClassValueOf (txOutValue tx) collectionNftP == 1
+            txOutAddress tx == lockingAddress
+              && Value.valueOf (txOutValue tx) collectionNftCs (nftId'collectionNftTn nft) == 1
        in any containsCollectonNft (txInfoOutputs info)
-
-    -- Check if previous nft is burned and token names match
-    checkPreviousNftBurned previousNft' nft =
-      let newName = mkTokenName nft
-       in Value.valueOf mintedValue previousNft' newName == -1
 
     -- Check that all parties received corresponding payments,
     -- and the payment utxos have the correct datum attached
     checkPartiesGotCorrectPayments nft =
       let outs = txInfoOutputs info
           price' = fromEnum $ nftId'price nft
-          royalty' = fromEnum $ nftId'authorShare nft
-          mpShare = fromEnum $ nftId'marketplaceShare nft
+          royalty' = fromEnum authorShare
+          mpShare = fromEnum marketplaceShare
 
           shareToSubtract v
             | v < Ada.getLovelace minAdaTxOut = 0
             | otherwise = v
 
-          authorAddr = pubKeyHashAddress (nftId'author nft) Nothing
-          authorShare = (price' * royalty') `divide` 100_00
+          authorAddr = pubKeyHashAddress author Nothing
+          authorShareVal = (price' * royalty') `divide` 100_00
 
-          marketplAddr = scriptHashAddress (nftId'marketplaceValHash nft)
-          marketplShare = (price' * mpShare) `divide` 100_00
+          marketplAddr = scriptHashAddress marketplaceScript
+          marketplShareVal = (price' * mpShare) `divide` 100_00
 
           ownerAddr = pubKeyHashAddress (nftId'owner nft) Nothing
-          ownerShare = price' - shareToSubtract authorShare - shareToSubtract marketplShare
+          ownerShare = price' - shareToSubtract authorShareVal - shareToSubtract marketplShareVal
 
           curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
 
@@ -154,19 +144,21 @@ mkPolicy burnHash previousNft collectionNftP mintAct ctx =
               && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
           checkPaymentTxOutWithoutDatum addr val (TxOut addr' val' _) =
             addr == addr' && val == valueOf val' Ada.adaSymbol Ada.adaToken
-       in filterLowValue marketplShare marketplAddr
-            && filterLowValue authorShare authorAddr
+       in filterLowValue marketplShareVal marketplAddr
+            && filterLowValue authorShareVal authorAddr
             && any (checkPaymentTxOutWithoutDatum ownerAddr ownerShare) outs
 
 {-# INLINEABLE mkTokenName #-}
 mkTokenName :: NftId -> TokenName
-mkTokenName nft =
-  TokenName $ hash nft
+mkTokenName = TokenName . hash
 
-policy :: ValidatorHash -> Maybe CurrencySymbol -> AssetClass -> MintingPolicy
-policy burnHash previousNft collectionNftP =
+policy :: NftCollection -> MintingPolicy
+policy NftCollection {..} =
   Scripts.mkMintingPolicyScript $
-    $$(PlutusTx.compile [||\x y z -> wrapMintingPolicy (mkPolicy x y z)||])
-      `PlutusTx.applyCode` PlutusTx.liftCode burnHash
-      `PlutusTx.applyCode` PlutusTx.liftCode previousNft
-      `PlutusTx.applyCode` PlutusTx.liftCode collectionNftP
+    $$(PlutusTx.compile [||\a b c d e f -> wrapMintingPolicy (mkPolicy a b c d e f)||])
+      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'collectionNftCs
+      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'lockingScript
+      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'author
+      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'authorShare
+      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'marketplaceScript
+      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'marketplaceShare
