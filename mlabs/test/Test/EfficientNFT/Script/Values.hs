@@ -11,6 +11,7 @@ module Test.EfficientNFT.Script.Values (
   userOnePkh,
   userTwoPkh,
   collectionNft,
+  collection,
   nft1,
   nft2,
   nft3,
@@ -26,8 +27,10 @@ module Test.EfficientNFT.Script.Values (
   otherPkh,
   tokenName,
   newPriceTokenName,
+  testTokenPolicy,
 ) where
 
+import PlutusTx qualified
 import PlutusTx.Prelude
 
 import Ledger (
@@ -38,7 +41,11 @@ import Ledger (
   ValidatorHash,
  )
 import Ledger.CardanoWallet qualified as CardanoWallet
-import Plutus.V1.Ledger.Value (assetClass)
+import Plutus.V1.Ledger.Value (AssetClass (unAssetClass), assetClass)
+import Test.Tasty.Plutus.Context (
+  Purpose (ForMinting),
+ )
+import Test.Tasty.Plutus.TestScript (TestScript, mkTestMintingPolicy, toTestMintingPolicy)
 
 import Data.Aeson (FromJSON, decode)
 import Data.ByteString.Lazy (ByteString)
@@ -46,7 +53,7 @@ import Data.Maybe (fromJust)
 import Ledger.Ada qualified as Ada
 import Ledger.Typed.Scripts (validatorHash)
 import Ledger.Value (Value)
-import Mlabs.EfficientNFT.Token (mkTokenName)
+import Mlabs.EfficientNFT.Token (mkPolicy, mkTokenName)
 import PlutusTx.Natural (Natural)
 import Wallet.Emulator.Types qualified as Emu
 
@@ -85,7 +92,7 @@ nftPrice :: Natural
 nftPrice = toEnum 100_000_000
 
 marketplValHash :: ValidatorHash
-marketplValHash = validatorHash . marketplaceValidator $ "ff"
+marketplValHash = validatorHash marketplaceValidator
 
 marketplShare :: Natural
 marketplShare = toEnum 10_00
@@ -126,17 +133,23 @@ unsafeDecode = fromJust . decode
 collectionNft :: AssetClass
 collectionNft = assetClass "abcd" "NFT"
 
+collection :: NftCollection
+collection =
+  NftCollection
+    { nftCollection'collectionNftCs = fst . unAssetClass $ collectionNft
+    , nftCollection'lockingScript = validatorHash burnValidator
+    , nftCollection'author = authorPkh
+    , nftCollection'authorShare = authorShare
+    , nftCollection'marketplaceScript = validatorHash marketplaceValidator
+    , nftCollection'marketplaceShare = marketplShare
+    }
+
 nft1 :: NftId
 nft1 =
   NftId
-    { nftId'content = Content "NFT content"
-    , nftId'price = nftPrice
+    { nftId'price = nftPrice
     , nftId'owner = authorPkh
-    , nftId'author = authorPkh
-    , nftId'authorShare = authorShare
-    , nftId'collectionNft = collectionNft
-    , nftId'marketplaceValHash = marketplValHash
-    , nftId'marketplaceShare = marketplShare
+    , nftId'collectionNftTn = snd . unAssetClass $ collectionNft
     }
 
 nft2 :: NftId
@@ -152,3 +165,16 @@ newPriceNft1 = nft1 {nftId'price = nftId'price nft1 * toEnum 2}
 
 burnHash :: ValidatorHash
 burnHash = validatorHash burnValidator
+
+testTokenPolicy :: TestScript ( 'ForMinting MintAct)
+testTokenPolicy =
+  mkTestMintingPolicy
+    ( $$(PlutusTx.compile [||mkPolicy||])
+        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'collectionNftCs collection)
+        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'lockingScript collection)
+        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'author collection)
+        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'authorShare collection)
+        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'marketplaceScript collection)
+        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'marketplaceShare collection)
+    )
+    $$(PlutusTx.compile [||toTestMintingPolicy||])
