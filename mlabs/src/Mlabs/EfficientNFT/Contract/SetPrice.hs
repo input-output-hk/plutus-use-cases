@@ -7,14 +7,12 @@ import Control.Monad (void)
 import Data.Void (Void)
 import Ledger (Redeemer (Redeemer), minAdaTxOut, scriptCurrencySymbol)
 import Ledger.Constraints qualified as Constraints
-import Ledger.Typed.Scripts (validatorHash)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import Plutus.V1.Ledger.Value (assetClass, singleton)
 import Text.Printf (printf)
 
-import Mlabs.EfficientNFT.Burn (burnValidator)
 import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 import Mlabs.NFT.Contract.Aux (getUserUtxos)
