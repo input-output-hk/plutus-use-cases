@@ -16,7 +16,6 @@ import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import Plutus.V1.Ledger.Value (assetClass, singleton, valueOf)
 import Text.Printf (printf)
 
-import Mlabs.EfficientNFT.Burn (burnValidator)
 import Mlabs.EfficientNFT.Contract.Aux
 import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token
@@ -24,18 +23,18 @@ import Mlabs.EfficientNFT.Types
 
 marketplaceSetPrice :: SetPriceParams -> UserContract ()
 marketplaceSetPrice sp = do
-  let burnHash = validatorHash burnValidator
-      policy' = policy burnHash Nothing (nftId'collectionNft . sp'nftId $ sp)
+  let collection = nftData'nftCollection . sp'nftData $ sp
+      policy' = policy collection
       curr = scriptCurrencySymbol policy'
-      validator = marketplaceValidator curr
-      valHash = validatorHash validator
+      valHash = validatorHash marketplaceValidator
       scriptAddr = scriptHashAddress valHash
-      newNft = (sp'nftId sp) {nftId'price = sp'price sp}
-      oldName = mkTokenName . sp'nftId $ sp
+      oldNft = nftData'nftId . sp'nftData $ sp
+      newNft = oldNft {nftId'price = sp'price sp}
+      oldName = mkTokenName oldNft
       newName = mkTokenName newNft
       oldNftValue = singleton curr oldName (-1)
       newNftValue = singleton curr newName 1
-      mintRedeemer = Redeemer . toBuiltinData $ ChangePrice (sp'nftId sp) (sp'price sp)
+      mintRedeemer = Redeemer . toBuiltinData $ ChangePrice oldNft (sp'price sp)
       containsNft (_, tx) = valueOf (_ciTxOutValue tx) curr oldName == 1
   utxo' <- find containsNft . Map.toList <$> getAddrUtxos scriptAddr
   (utxo, utxoIndex) <- case utxo' of
@@ -48,8 +47,8 @@ marketplaceSetPrice sp = do
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
-          , Constraints.typedValidatorLookups validator
-          , Constraints.otherScript (validatorScript validator)
+          , Constraints.typedValidatorLookups marketplaceValidator
+          , Constraints.otherScript (validatorScript marketplaceValidator)
           , Constraints.unspentOutputs $ Map.insert utxo utxoIndex userUtxos
           , Constraints.ownPaymentPubKeyHash pkh
           ]
@@ -63,5 +62,5 @@ marketplaceSetPrice sp = do
             Constraints.mustPayToPubKey pkh (userValues - toValue (minAdaTxOut * 3))
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
-  Contract.tell . Hask.pure $ newNft
+  Contract.tell . Hask.pure $ NftData collection newNft
   Contract.logInfo @Hask.String $ printf "Marketplace set price successful: %s" (Hask.show $ assetClass curr newName)

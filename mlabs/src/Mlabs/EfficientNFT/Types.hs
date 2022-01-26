@@ -6,6 +6,8 @@ module Mlabs.EfficientNFT.Types (
   Content (..),
   MintParams (..),
   NftId (..),
+  NftCollection (..),
+  NftData (..),
   SetPriceParams (..),
   ChangeOwnerParams (..),
   MintAct (..),
@@ -51,23 +53,38 @@ PlutusTx.unstableMakeIsData ''MintParams
 PlutusTx.makeLift ''MintParams
 
 data NftId = NftId
-  { nftId'content :: Content
-  , nftId'collectionNft :: AssetClass
+  { nftId'collectionNftTn :: TokenName
   , nftId'price :: Natural
   , nftId'owner :: PaymentPubKeyHash
-  , nftId'author :: PaymentPubKeyHash
-  , nftId'authorShare :: Natural
-  , nftId'marketplaceValHash :: ValidatorHash
-  , nftId'marketplaceShare :: Natural
   }
   deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON)
 
 PlutusTx.unstableMakeIsData ''NftId
 
+data NftCollection = NftCollection
+  { nftCollection'collectionNftCs :: CurrencySymbol
+  , nftCollection'lockingScript :: ValidatorHash
+  , nftCollection'author :: PaymentPubKeyHash
+  , nftCollection'authorShare :: Natural
+  , nftCollection'marketplaceScript :: ValidatorHash
+  , nftCollection'marketplaceShare :: Natural
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
+  deriving anyclass (FromJSON, ToJSON)
+
+PlutusTx.unstableMakeIsData ''NftCollection
+
+data NftData = NftData
+  { nftData'nftCollection :: NftCollection
+  , nftData'nftId :: NftId
+  }
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
+  deriving anyclass (FromJSON, ToJSON)
+
 data SetPriceParams = SetPriceParams
   { -- | Token which price is set.
-    sp'nftId :: NftId
+    sp'nftData :: NftData
   , -- | New price, in Lovelace.
     sp'price :: Natural
   }
@@ -76,7 +93,7 @@ data SetPriceParams = SetPriceParams
 
 data ChangeOwnerParams = ChangeOwnerParams
   { -- | Token which owner is set.
-    cp'nftId :: NftId
+    cp'nftData :: NftData
   , -- | New Owner
     cp'owner :: PaymentPubKeyHash
   }
@@ -84,7 +101,7 @@ data ChangeOwnerParams = ChangeOwnerParams
   deriving anyclass (FromJSON, ToJSON)
 
 type GenericContract a = forall w s. Contract w s Text a
-type UserContract a = forall s. Contract (Last NftId) s Text a
+type UserContract a = forall s. Contract (Last NftData) s Text a
 
 data MintAct
   = MintToken NftId
@@ -131,12 +148,7 @@ instance Hashable NftId where
   hash nft =
     hash $
       mconcat
-        [ hash $ nftId'content nft
-        , hash $ nftId'collectionNft nft
-        , hash $ nftId'price nft
+        [ hash $ nftId'price nft
         , hash $ nftId'owner nft
-        , hash $ nftId'author nft
-        , hash $ nftId'authorShare nft
-        , hash $ nftId'marketplaceValHash nft
-        , hash $ nftId'marketplaceShare nft
+        , hash $ nftId'collectionNftTn nft
         ]

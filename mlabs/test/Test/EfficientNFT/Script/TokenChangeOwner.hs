@@ -49,7 +49,7 @@ import Test.EfficientNFT.Script.Values qualified as TestValues
 test :: TestTree
 test =
   localOption (TestCurrencySymbol testTokenCurSym) $
-    withTestScript "Token change owner" testTokenPolicy $
+    withTestScript "Token change owner" TestValues.testTokenPolicy $
       do
         shouldValidate "valid buy" validData validCtx
         shouldFailWithErr
@@ -182,17 +182,6 @@ oneTokenMintAndBurn (mintAmt, burnAmt) =
 
 testTokenCurSym :: CurrencySymbol
 testTokenCurSym = "aabbcc"
-
--- test policy
-testTokenPolicy :: TestScript ( 'ForMinting MintAct)
-testTokenPolicy =
-  mkTestMintingPolicy
-    ( $$(PlutusTx.compile [||mkPolicy||])
-        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
-        `PlutusTx.applyCode` PlutusTx.liftCode Nothing
-        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
-    )
-    $$(PlutusTx.compile [||toTestMintingPolicy||])
 
 shouldFailWithErr ::
   forall (p :: Purpose).

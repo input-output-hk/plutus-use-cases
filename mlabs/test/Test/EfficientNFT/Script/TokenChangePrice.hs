@@ -40,7 +40,7 @@ import Prelude (String, elem, (<>))
 
 test :: TestTree
 test =
-  withTestScript "Change price" testTokenPolicy $ do
+  withTestScript "Change price" TestValues.testTokenPolicy $ do
     shouldValidate "Change price with valid data and context" validData validCtx
 
     shouldFailWithErr
@@ -153,17 +153,6 @@ wrongSignCtx :: ContextBuilder ( 'ForMinting r)
 wrongSignCtx =
   spendsFromPubKey (unPaymentPubKeyHash TestValues.authorPkh) (Value.lovelaceValueOf 1000000)
     <> signedWith (unPaymentPubKeyHash TestValues.otherPkh)
-
--- test policy
-testTokenPolicy :: TestScript ( 'ForMinting MintAct)
-testTokenPolicy =
-  mkTestMintingPolicy
-    ( $$(PlutusTx.compile [||mkPolicy||])
-        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
-        `PlutusTx.applyCode` PlutusTx.liftCode Nothing
-        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
-    )
-    $$(PlutusTx.compile [||toTestMintingPolicy||])
 
 shouldFailWithErr ::
   forall (p :: Purpose).

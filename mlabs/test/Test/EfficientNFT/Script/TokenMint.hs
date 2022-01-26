@@ -39,13 +39,13 @@ import Test.Tasty.Plutus.WithScript (WithScript, withTestScript)
 import Prelude (elem, mconcat, pure, (<>))
 
 import Mlabs.EfficientNFT.Token (mkPolicy)
-import Mlabs.EfficientNFT.Types (MintAct (MintToken))
+import Mlabs.EfficientNFT.Types (MintAct (MintToken), NftCollection (..))
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
 test :: TestTree
 test =
   localOption (TestTxId $ txOutRefId TestValues.mintTxOutRef) $
-    withTestScript "Mint" testTokenPolicy $ do
+    withTestScript "Mint" TestValues.testTokenPolicy $ do
       shouldValidate "Valid data and context" validData validCtx
 
       shouldFailWithErr
@@ -109,17 +109,6 @@ manyTokensCtx =
     <> mintsValue additionalValue
   where
     additionalValue = Value.singleton (Value.CurrencySymbol "aa") (TokenName "ff") 1
-
--- test policy
-testTokenPolicy :: TestScript ( 'ForMinting MintAct)
-testTokenPolicy =
-  mkTestMintingPolicy
-    ( $$(PlutusTx.compile [||mkPolicy||])
-        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.burnHash
-        `PlutusTx.applyCode` PlutusTx.liftCode Nothing
-        `PlutusTx.applyCode` PlutusTx.liftCode TestValues.collectionNft
-    )
-    $$(PlutusTx.compile [||toTestMintingPolicy||])
 
 shouldFailWithErr ::
   forall (p :: Purpose).

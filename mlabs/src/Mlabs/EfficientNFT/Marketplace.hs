@@ -41,13 +41,13 @@ mkValidator nftCS _ _ ctx =
         _ -> False
 
 -- FIXME: Remove when proper validator is fixed
-mkValidator' :: CurrencySymbol -> BuiltinData -> BuiltinData -> ScriptContext -> Bool
-mkValidator' _ _ _ _ = True
+mkValidator' :: BuiltinData -> BuiltinData -> ScriptContext -> Bool
+mkValidator' _ _ _ = True
 
-marketplaceValidator :: CurrencySymbol -> TypedValidator Any
-marketplaceValidator nftCs = unsafeMkTypedValidator v
+marketplaceValidator :: TypedValidator Any
+marketplaceValidator = unsafeMkTypedValidator v
   where
     v =
       mkValidatorScript
-        ($$(PlutusTx.compile [||wrap||]) `PlutusTx.applyCode` ($$(PlutusTx.compile [||mkValidator'||]) `PlutusTx.applyCode` PlutusTx.liftCode nftCs))
+        ($$(PlutusTx.compile [||wrap||]) `PlutusTx.applyCode` $$(PlutusTx.compile [||mkValidator'||]))
     wrap = wrapValidator

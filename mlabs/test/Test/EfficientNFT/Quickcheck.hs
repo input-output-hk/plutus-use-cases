@@ -32,7 +32,7 @@ import Plutus.Contract.Test.ContractModel (
 import Plutus.Trace.Emulator (callEndpoint, initialChainState)
 import Plutus.Trace.Emulator qualified as Trace
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken, getLovelace, lovelaceValueOf, toValue)
-import Plutus.V1.Ledger.Value (CurrencySymbol, Value, assetClass, assetClassValue, singleton, valueOf)
+import Plutus.V1.Ledger.Value (CurrencySymbol (CurrencySymbol), Value, assetClass, assetClassValue, singleton, unAssetClass, valueOf)
 import PlutusTx.Natural (Natural)
 import PlutusTx.Prelude hiding ((<$>), (<*>), (==))
 import Test.QuickCheck qualified as QC
@@ -56,9 +56,9 @@ makeLenses ''MockInfo
 
 data NftModel = NftModel
   { -- | Map of NFTs and owners
-    _mNfts :: Map NftId MockInfo
+    _mNfts :: Map NftData MockInfo
   , -- |
-    _mMarketplace :: Map NftId MockInfo
+    _mMarketplace :: Map NftData MockInfo
   , -- | Preminted not used collection NFTs
     _mUnusedCollections :: Set AssetClass
   }
@@ -75,32 +75,32 @@ instance ContractModel NftModel where
         , aCollection :: AssetClass
         }
     | ActionSetPrice
-        { aNftId :: NftId
+        { aNftData :: NftData
         , aMockInfo :: MockInfo
         , aPrice :: Natural
         }
     | ActionMarketplaceDeposit
-        { aNftId :: NftId
+        { aNftData :: NftData
         , aMockInfo :: MockInfo
         }
     | ActionMarketplaceWithdraw
-        { aNftId :: NftId
+        { aNftData :: NftData
         , aMockInfo :: MockInfo
         }
     | ActionMarketplaceSetPrice
-        { aNftId :: NftId
+        { aNftData :: NftData
         , aMockInfo :: MockInfo
         , aPrice :: Natural
         }
     | ActionMarketplaceBuy
-        { aNftId :: NftId
+        { aNftData :: NftData
         , aMockInfo :: MockInfo
         , aNewOwner :: Wallet
         }
     deriving (Hask.Show, Hask.Eq)
 
   data ContractInstanceKey NftModel w s e where
-    UserKey :: Wallet -> ContractInstanceKey NftModel (Last NftId) NFTAppSchema Text
+    UserKey :: Wallet -> ContractInstanceKey NftModel (Last NftData) NFTAppSchema Text
 
   initialHandleSpecs = Hask.fmap (\w -> ContractInstanceSpec (UserKey w) w endpoints) wallets
 
@@ -117,7 +117,7 @@ instance ContractModel NftModel where
         genCollection = QC.elements hardcodedCollections
         -- We need this hack cause `QC.elements` cannot take an empty list.
         -- It will be filtered out in `precondition` check
-        addNonExistingNFT = ((nonExsistingNFT, MockInfo w1 w1) :)
+        addNonExistingNFT = ((NftData nonExistingCollection nonExsistingNFT, MockInfo w1 w1) :)
      in QC.oneof
           [ ActionMint
               <$> genWallet
@@ -144,103 +144,114 @@ instance ContractModel NftModel where
     Set.member aCollection (s ^. contractState . mUnusedCollections)
   precondition s ActionSetPrice {..} =
     not (Map.null $ s ^. contractState . mNfts)
-      && Map.member aNftId (s ^. contractState . mNfts)
-      && aPrice /= nftId'price aNftId
+      && Map.member aNftData (s ^. contractState . mNfts)
+      && aPrice /= nftId'price (nftData'nftId aNftData)
   precondition s ActionMarketplaceDeposit {..} =
     not (Map.null $ s ^. contractState . mNfts)
-      && Map.member aNftId (s ^. contractState . mNfts)
+      && Map.member aNftData (s ^. contractState . mNfts)
   precondition s ActionMarketplaceWithdraw {..} =
     not (Map.null $ s ^. contractState . mMarketplace)
-      && Map.member aNftId (s ^. contractState . mMarketplace)
+      && Map.member aNftData (s ^. contractState . mMarketplace)
   precondition s ActionMarketplaceSetPrice {..} =
     not (Map.null $ s ^. contractState . mMarketplace)
-      && Map.member aNftId (s ^. contractState . mMarketplace)
-      && aPrice /= nftId'price aNftId
+      && Map.member aNftData (s ^. contractState . mMarketplace)
+      && aPrice /= nftId'price (nftData'nftId aNftData)
   precondition s ActionMarketplaceBuy {..} =
     not (Map.null $ s ^. contractState . mMarketplace)
-      && Map.member aNftId (s ^. contractState . mMarketplace)
-      && mockWalletPaymentPubKeyHash aNewOwner /= nftId'owner aNftId
+      && Map.member aNftData (s ^. contractState . mMarketplace)
+      && mockWalletPaymentPubKeyHash aNewOwner /= nftId'owner (nftData'nftId aNftData)
 
   perform h _ ActionMint {..} = do
     let params = MintParams aContent aShare aPrice
     callEndpoint @"mint-with-collection" (h $ UserKey aAuthor) (aCollection, params)
     void $ Trace.waitNSlots 5
   perform h _ ActionSetPrice {..} = do
-    let params = SetPriceParams aNftId aPrice
+    let params = SetPriceParams aNftData aPrice
     callEndpoint @"set-price" (h $ UserKey (aMockInfo ^. mock'owner)) params
     void $ Trace.waitNSlots 5
   perform h _ ActionMarketplaceDeposit {..} = do
-    callEndpoint @"marketplace-deposit" (h $ UserKey (aMockInfo ^. mock'owner)) aNftId
+    callEndpoint @"marketplace-deposit" (h $ UserKey (aMockInfo ^. mock'owner)) aNftData
     void $ Trace.waitNSlots 5
   perform h _ ActionMarketplaceWithdraw {..} = do
-    callEndpoint @"marketplace-redeem" (h $ UserKey (aMockInfo ^. mock'owner)) aNftId
+    callEndpoint @"marketplace-redeem" (h $ UserKey (aMockInfo ^. mock'owner)) aNftData
     void $ Trace.waitNSlots 5
   perform h _ ActionMarketplaceSetPrice {..} = do
-    let params = SetPriceParams aNftId aPrice
+    let params = SetPriceParams aNftData aPrice
     callEndpoint @"marketplace-set-price" (h $ UserKey (aMockInfo ^. mock'owner)) params
     void $ Trace.waitNSlots 5
   perform h _ ActionMarketplaceBuy {..} = do
-    callEndpoint @"marketplace-buy" (h $ UserKey aNewOwner) aNftId
+    callEndpoint @"marketplace-buy" (h $ UserKey aNewOwner) aNftData
     void $ Trace.waitNSlots 5
 
   nextState ActionMint {..} = do
-    let burnHash = validatorHash burnValidator
-        policy' = policy burnHash Nothing aCollection
-        curr = scriptCurrencySymbol policy'
-        nft =
+    let nft =
           NftId
-            { nftId'content = aContent
-            , nftId'price = aPrice
+            { nftId'price = aPrice
             , nftId'owner = mockWalletPaymentPubKeyHash aAuthor
-            , nftId'author = mockWalletPaymentPubKeyHash aAuthor
-            , nftId'authorShare = aShare
-            , nftId'collectionNft = aCollection
-            , nftId'marketplaceValHash = validatorHash . marketplaceValidator $ curr
-            , nftId'marketplaceShare = toEnum 5
+            , nftId'collectionNftTn = snd . unAssetClass $ aCollection
             }
-    mNfts $~ Map.insert nft (MockInfo aAuthor aAuthor)
+        collection =
+          NftCollection
+            { nftCollection'collectionNftCs = fst . unAssetClass $ aCollection
+            , nftCollection'lockingScript = validatorHash burnValidator
+            , nftCollection'author = mockWalletPaymentPubKeyHash aAuthor
+            , nftCollection'authorShare = aShare
+            , nftCollection'marketplaceScript = validatorHash marketplaceValidator
+            , nftCollection'marketplaceShare = toEnum 5
+            }
+        nftData = NftData collection nft
+        curr = getCurr nftData
+    mNfts $~ Map.insert nftData (MockInfo aAuthor aAuthor)
     mUnusedCollections $~ Set.delete aCollection
     deposit aAuthor $ singleton curr (mkTokenName nft) 1
     withdraw aAuthor (toValue minAdaTxOut <> assetClassValue aCollection 1)
     wait 5
   nextState ActionSetPrice {..} = do
-    let newNft = aNftId {nftId'price = aPrice}
+    let oldNft = nftData'nftId aNftData
+        newNft = oldNft {nftId'price = aPrice}
+        collection = nftData'nftCollection aNftData
         wal = aMockInfo ^. mock'owner
-        curr = getCurr aNftId
-    mNfts $~ (Map.insert newNft aMockInfo . Map.delete aNftId)
+        curr = getCurr aNftData
+    mNfts $~ (Map.insert (NftData collection newNft) aMockInfo . Map.delete aNftData)
     deposit wal $ singleton curr (mkTokenName newNft) 1
-    withdraw wal $ singleton curr (mkTokenName aNftId) 1
+    withdraw wal $ singleton curr (mkTokenName oldNft) 1
     wait 5
   nextState ActionMarketplaceDeposit {..} = do
     let wal = aMockInfo ^. mock'owner
-        curr = getCurr aNftId
-    mNfts $~ Map.delete aNftId
-    mMarketplace $~ Map.insert aNftId aMockInfo
-    withdraw wal (singleton curr (mkTokenName aNftId) 1 <> toValue minAdaTxOut)
+        curr = getCurr aNftData
+        nft = nftData'nftId aNftData
+    mNfts $~ Map.delete aNftData
+    mMarketplace $~ Map.insert aNftData aMockInfo
+    withdraw wal (singleton curr (mkTokenName nft) 1 <> toValue minAdaTxOut)
     wait 5
   nextState ActionMarketplaceWithdraw {..} = do
     let wal = aMockInfo ^. mock'owner
-        curr = getCurr aNftId
-    mNfts $~ Map.insert aNftId aMockInfo
-    mMarketplace $~ Map.delete aNftId
-    deposit wal (singleton curr (mkTokenName aNftId) 1 <> toValue minAdaTxOut)
+        curr = getCurr aNftData
+        nft = nftData'nftId aNftData
+    mNfts $~ Map.insert aNftData aMockInfo
+    mMarketplace $~ Map.delete aNftData
+    deposit wal (singleton curr (mkTokenName nft) 1 <> toValue minAdaTxOut)
     wait 5
   nextState ActionMarketplaceSetPrice {..} = do
-    let newNft = aNftId {nftId'price = aPrice}
-    mMarketplace $~ (Map.insert newNft aMockInfo . Map.delete aNftId)
+    let oldNft = nftData'nftId aNftData
+        newNft = oldNft {nftId'price = aPrice}
+        collection = nftData'nftCollection aNftData
+    mMarketplace $~ (Map.insert (NftData collection newNft) aMockInfo . Map.delete aNftData)
     wait 5
   nextState ActionMarketplaceBuy {..} = do
-    let newNft = aNftId {nftId'owner = mockWalletPaymentPubKeyHash aNewOwner}
+    let oldNft = nftData'nftId aNftData
+        newNft = oldNft {nftId'owner = mockWalletPaymentPubKeyHash aNewOwner}
+        collection = nftData'nftCollection aNftData
         newInfo = mock'owner .~ aNewOwner $ aMockInfo
-        nftPrice = nftId'price aNftId
+        nftPrice = nftId'price oldNft
         getShare share = lovelaceValueOf $ fromEnum nftPrice * share `divide` 10000
-        authorShare = getShare (fromEnum . nftId'authorShare $ aNftId)
-        marketplaceShare = getShare (fromEnum . nftId'marketplaceShare $ aNftId)
+        authorShare = getShare (fromEnum . nftCollection'authorShare $ collection)
+        marketplaceShare = getShare (fromEnum . nftCollection'marketplaceShare $ collection)
         ownerShare = lovelaceValueOf (fromEnum nftPrice) - authorShare - marketplaceShare
         filterLowValue v t
           | valueOf v adaSymbol adaToken < getLovelace minAdaTxOut = Hask.pure ()
           | otherwise = t
-    mMarketplace $~ (Map.insert newNft newInfo . Map.delete aNftId)
+    mMarketplace $~ (Map.insert (NftData collection newNft) newInfo . Map.delete aNftData)
     filterLowValue authorShare $ transfer aNewOwner (aMockInfo ^. mock'author) authorShare
     filterLowValue authorShare $ withdraw aNewOwner marketplaceShare
     transfer aNewOwner (aMockInfo ^. mock'owner) ownerShare
@@ -249,14 +260,13 @@ instance ContractModel NftModel where
 deriving instance Hask.Eq (ContractInstanceKey NftModel w s e)
 deriving instance Hask.Show (ContractInstanceKey NftModel w s e)
 
-getCurr :: NftId -> CurrencySymbol
+getCurr :: NftData -> CurrencySymbol
 getCurr nft =
-  let burnHash = validatorHash burnValidator
-      policy' = policy burnHash Nothing (nftId'collectionNft nft)
+  let policy' = policy . nftData'nftCollection $ nft
    in scriptCurrencySymbol policy'
 
 hardcodedCollections :: [AssetClass]
-hardcodedCollections = fmap (`assetClass` "NFT") ["aa", "bb", "cc"]
+hardcodedCollections = [assetClass cs tn | cs <- ["aa", "bb"], tn <- ["NFT1", "NFT2"]]
 
 w1, w2, w3 :: Wallet
 w1 = walletFromNumber 1
@@ -289,14 +299,20 @@ initialDistribution =
 nonExsistingNFT :: NftId
 nonExsistingNFT =
   NftId
-    { nftId'content = Content ""
-    , nftId'price = toEnum 0
+    { nftId'price = toEnum 0
     , nftId'owner = PaymentPubKeyHash ""
-    , nftId'author = PaymentPubKeyHash ""
-    , nftId'authorShare = toEnum 0
-    , nftId'collectionNft = assetClass "ff" ""
-    , nftId'marketplaceValHash = ValidatorHash ""
-    , nftId'marketplaceShare = toEnum 0
+    , nftId'collectionNftTn = ""
+    }
+
+nonExistingCollection :: NftCollection
+nonExistingCollection =
+  NftCollection
+    { nftCollection'collectionNftCs = CurrencySymbol "ff"
+    , nftCollection'lockingScript = ValidatorHash ""
+    , nftCollection'author = PaymentPubKeyHash ""
+    , nftCollection'authorShare = toEnum 0
+    , nftCollection'marketplaceScript = ValidatorHash ""
+    , nftCollection'marketplaceShare = toEnum 0
     }
 
 test :: TestTree
