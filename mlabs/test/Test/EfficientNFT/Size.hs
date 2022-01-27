@@ -1,21 +1,28 @@
 module Test.EfficientNFT.Size (test) where
 
-import Plutus.V1.Ledger.Scripts (Script, fromCompiledCode)
+import Plutus.V1.Ledger.Scripts (fromCompiledCode)
 import PlutusTx qualified
+import PlutusTx.Prelude
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Plutus.Script.Size (fitsOnChain)
-import Prelude (String)
 
+import Mlabs.EfficientNFT.Lock (mkValidator)
 import Mlabs.EfficientNFT.Token (mkPolicy)
 
 test :: TestTree
-test = testGroup "Size" [testFitOnChain]
+test =
+  testGroup
+    "Size"
+    [ testMintingPolicyFitOnChain
+    , testLockScriptFitOnChain
+    ]
 
-testFitOnChain :: TestTree
-testFitOnChain = fitsOnChain scriptName script
+testMintingPolicyFitOnChain :: TestTree
+testMintingPolicyFitOnChain =
+  fitsOnChain "Minting policy" $
+    fromCompiledCode $$(PlutusTx.compile [||mkPolicy||])
 
-scriptName :: String
-scriptName = "Efficient NFT marketplace"
-
-script :: Script
-script = fromCompiledCode $$(PlutusTx.compile [||mkPolicy||])
+testLockScriptFitOnChain :: TestTree
+testLockScriptFitOnChain =
+  fitsOnChain "Lock script" $
+    fromCompiledCode $$(PlutusTx.compile [||mkValidator||])

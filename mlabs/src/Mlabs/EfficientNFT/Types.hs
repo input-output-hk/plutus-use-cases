@@ -13,6 +13,8 @@ module Mlabs.EfficientNFT.Types (
   MintAct (..),
   ContentHash,
   Hashable (..),
+  LockAct(..),
+  LockDatum(..),
 ) where
 
 import PlutusTx qualified
@@ -23,7 +25,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Monoid (Last)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Ledger (PaymentPubKeyHash (PaymentPubKeyHash), ValidatorHash (ValidatorHash))
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash), ValidatorHash (ValidatorHash), Slot)
 import Plutus.Contract (Contract)
 import Plutus.V1.Ledger.Crypto (PubKeyHash (PubKeyHash))
 import Plutus.V1.Ledger.Value (AssetClass (AssetClass), CurrencySymbol (CurrencySymbol), TokenName (TokenName))
@@ -152,3 +154,23 @@ instance Hashable NftId where
         , hash $ nftId'owner nft
         , hash $ nftId'collectionNftTn nft
         ]
+
+data LockAct
+  = Unstake PaymentPubKeyHash Natural
+  | Restake PaymentPubKeyHash Natural
+  deriving stock (Hask.Show)
+
+PlutusTx.unstableMakeIsData ''LockAct
+
+data LockDatum = LockDatum
+  { ld'sgNft :: CurrencySymbol
+  , ld'entered :: Slot
+  , ld'underlyingTn :: TokenName
+  }
+  deriving stock (Hask.Show)
+
+instance Eq LockDatum where
+  {-# INLINEABLE (==) #-}
+  LockDatum a b c == LockDatum a' b' c' = a == a' && b == b' && c == c'
+
+PlutusTx.unstableMakeIsData ''LockDatum

@@ -57,7 +57,7 @@ import Mlabs.EfficientNFT.Token (mkPolicy, mkTokenName)
 import PlutusTx.Natural (Natural)
 import Wallet.Emulator.Types qualified as Emu
 
-import Mlabs.EfficientNFT.Burn
+import Mlabs.EfficientNFT.Lock
 import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Types
 
@@ -137,7 +137,7 @@ collection :: NftCollection
 collection =
   NftCollection
     { nftCollection'collectionNftCs = fst . unAssetClass $ collectionNft
-    , nftCollection'lockingScript = validatorHash burnValidator
+    , nftCollection'lockingScript = validatorHash $ lockValidator (fst $ unAssetClass collectionNft) 7776000 7776000
     , nftCollection'author = authorPkh
     , nftCollection'authorShare = authorShare
     , nftCollection'marketplaceScript = validatorHash marketplaceValidator
@@ -164,7 +164,7 @@ newPriceNft1 :: NftId
 newPriceNft1 = nft1 {nftId'price = nftId'price nft1 * toEnum 2}
 
 burnHash :: ValidatorHash
-burnHash = validatorHash burnValidator
+burnHash = validatorHash $ lockValidator (fst $ unAssetClass collectionNft) 7776000 7776000
 
 testTokenPolicy :: TestScript ( 'ForMinting MintAct)
 testTokenPolicy =

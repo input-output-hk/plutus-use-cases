@@ -4,15 +4,17 @@ import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
 
 import Control.Monad (void)
+import Data.Default (def)
 import Data.Text (pack)
 import Data.Void (Void)
 import Ledger (Datum (Datum), Redeemer (Redeemer), minAdaTxOut)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
+import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Ledger.Typed.Scripts (validatorHash)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Ada (toValue)
-import Plutus.V1.Ledger.Api (ToData (toBuiltinData), TokenName (TokenName))
+import Plutus.V1.Ledger.Api (Extended (Finite, PosInf), Interval (Interval), LowerBound (LowerBound), ToData (toBuiltinData), TokenName (TokenName), UpperBound (UpperBound))
 import Plutus.V1.Ledger.Value (AssetClass, assetClass, assetClassValue, singleton, unAssetClass)
 import Text.Printf (printf)
 
@@ -24,8 +26,8 @@ for details -}
 import Mlabs.Plutus.Contracts.Currency (CurrencyError, mintContract)
 import Mlabs.Plutus.Contracts.Currency qualified as MC
 
-import Mlabs.EfficientNFT.Burn (burnValidator)
 import Mlabs.EfficientNFT.Contract.Aux
+import Mlabs.EfficientNFT.Lock
 import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
@@ -39,7 +41,12 @@ mintWithCollection :: (AssetClass, MintParams) -> UserContract ()
 mintWithCollection (ac, mp) = do
   pkh <- Contract.ownPaymentPubKeyHash
   utxos <- getUserUtxos
-  let nft =
+  currSlot <- Contract.currentSlot
+  Contract.logInfo @Hask.String $ printf "Curr slot: %s" (Hask.show currSlot)
+  let lockup = 7776000 -- 90 days in seconds
+      now = slotToBeginPOSIXTime def currSlot
+      lockupEnd = 7776000
+      nft =
         NftId
           { nftId'price = mp'price mp
           , nftId'owner = pkh
@@ -48,7 +55,7 @@ mintWithCollection (ac, mp) = do
       collection =
         NftCollection
           { nftCollection'collectionNftCs = fst . unAssetClass $ ac
-          , nftCollection'lockingScript = validatorHash burnValidator
+          , nftCollection'lockingScript = validatorHash $ lockValidator (fst $ unAssetClass ac) lockup lockupEnd
           , nftCollection'author = pkh
           , nftCollection'authorShare = mp'share mp
           , nftCollection'marketplaceScript = validatorHash marketplaceValidator
@@ -70,8 +77,12 @@ mintWithCollection (ac, mp) = do
           , Constraints.mustPayToPubKey pkh (nftValue <> toValue minAdaTxOut)
           , Constraints.mustPayToOtherScript
               (nftCollection'lockingScript collection)
-              (Datum $ toBuiltinData ())
+              (Datum $ toBuiltinData $ LockDatum curr currSlot (snd $ unAssetClass ac))
               (assetClassValue ac 1 <> toValue minAdaTxOut)
+          , Constraints.mustValidateIn $
+              Interval
+                (LowerBound (Finite now) True)
+                (UpperBound PosInf False)
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
   Contract.tell . Hask.pure $ NftData collection nft

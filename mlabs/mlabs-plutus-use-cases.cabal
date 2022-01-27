@@ -115,7 +115,7 @@ library
     Mlabs.Deploy.Nft
     Mlabs.Deploy.Utils
     Mlabs.EfficientNFT.Api
-    Mlabs.EfficientNFT.Burn
+    Mlabs.EfficientNFT.Lock
     Mlabs.EfficientNFT.Contract.Aux
     Mlabs.EfficientNFT.Contract.ChangeOwner
     Mlabs.EfficientNFT.Contract.MarketplaceBuy
