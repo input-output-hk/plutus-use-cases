@@ -21,6 +21,7 @@ import Test.EfficientNFT.Quickcheck qualified as ENFT.Quickcheck
 import Test.EfficientNFT.Script.TokenChangeOwner qualified as ENFT.TokenChangeOwner
 import Test.EfficientNFT.Script.TokenChangePrice qualified as ENFT.TokenChangePrice
 import Test.EfficientNFT.Script.TokenMint qualified as ENFT.TokenMint
+import Test.EfficientNFT.Script.TokenUnstake qualified as ENFT.TokenUnstake
 import Test.EfficientNFT.Size qualified as ENFT.Size
 import Test.EfficientNFT.Trace qualified as ENFT.Trace
 import Test.NFT.Size qualified as NFT.Size
@@ -52,6 +53,7 @@ main =
           , ENFT.TokenMint.test
           , ENFT.TokenChangeOwner.test
           , ENFT.TokenChangePrice.test
+          , ENFT.TokenUnstake.test
           , ENFT.Quickcheck.test
           ]
           -- , testGroup

@@ -13,8 +13,8 @@ module Mlabs.EfficientNFT.Types (
   MintAct (..),
   ContentHash,
   Hashable (..),
-  LockAct(..),
-  LockDatum(..),
+  LockAct (..),
+  LockDatum (..),
 ) where
 
 import PlutusTx qualified
@@ -25,7 +25,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Monoid (Last)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Ledger (PaymentPubKeyHash (PaymentPubKeyHash), ValidatorHash (ValidatorHash), Slot)
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash), Slot, ValidatorHash (ValidatorHash))
 import Plutus.Contract (Contract)
 import Plutus.V1.Ledger.Crypto (PubKeyHash (PubKeyHash))
 import Plutus.V1.Ledger.Value (AssetClass (AssetClass), CurrencySymbol (CurrencySymbol), TokenName (TokenName))

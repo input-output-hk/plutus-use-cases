@@ -40,6 +40,7 @@ import Prelude (elem, mconcat, pure, (<>))
 
 import Mlabs.EfficientNFT.Token (mkPolicy)
 import Mlabs.EfficientNFT.Types (MintAct (MintToken), NftCollection (..))
+import Test.EfficientNFT.Script.Values (shouldFailWithErr)
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
 test :: TestTree
@@ -109,16 +110,3 @@ manyTokensCtx =
     <> mintsValue additionalValue
   where
     additionalValue = Value.singleton (Value.CurrencySymbol "aa") (TokenName "ff") 1
-
-shouldFailWithErr ::
-  forall (p :: Purpose).
-  Typeable p =>
-  String ->
-  BuiltinString ->
-  TestData p ->
-  ContextBuilder p ->
-  WithScript p ()
-shouldFailWithErr name errMsg =
-  shouldn'tValidateTracing name (errMsg' `elem`)
-  where
-    errMsg' = fromBuiltin errMsg
