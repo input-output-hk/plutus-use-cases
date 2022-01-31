@@ -293,6 +293,7 @@ test-suite mlabs-plutus-use-cases-tests
     Test.EfficientNFT.Script.TokenChangePrice
     Test.EfficientNFT.Script.TokenMint
     Test.EfficientNFT.Script.TokenUnstake
+    Test.EfficientNFT.Script.TokenRestake
     Test.EfficientNFT.Script.Values
     Test.EfficientNFT.Size
     Test.EfficientNFT.Trace
