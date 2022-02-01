@@ -143,7 +143,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
           ownerAddr = pubKeyHashAddress (nftId'owner nft) Nothing
           ownerShare = price' - shareToSubtract authorShareVal - shareToSubtract marketplShareVal
 
-          curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
+          curSymDatum = Datum $ PlutusTx.toBuiltinData (ownCs, mkTokenName nft)
 
           -- Don't check royalties when lower than min ada
           filterLowValue v cond
@@ -153,11 +153,9 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
             addr == addr' && val == valueOf val' Ada.adaSymbol Ada.adaToken
               && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
-          checkPaymentTxOutWithoutDatum addr val (TxOut addr' val' _) =
-            addr == addr' && val == valueOf val' Ada.adaSymbol Ada.adaToken
        in filterLowValue marketplShareVal marketplAddr
             && filterLowValue authorShareVal authorAddr
-            && any (checkPaymentTxOutWithoutDatum ownerAddr ownerShare) outs
+            && any (checkPaymentTxOut ownerAddr ownerShare) outs
 
 {-# INLINEABLE mkTokenName #-}
 mkTokenName :: NftId -> TokenName

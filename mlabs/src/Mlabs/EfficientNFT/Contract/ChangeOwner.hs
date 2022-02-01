@@ -37,7 +37,7 @@ changeOwner cp = do
       authorShare = getShare (addExtend . nftCollection'authorShare $ collection)
       marketplaceShare = getShare (addExtend . nftCollection'marketplaceShare $ collection)
       ownerShare = lovelaceValueOf (addExtend nftPrice) - authorShare - marketplaceShare
-      datum = Datum . PlutusTx.toBuiltinData $ curr
+      datum = Datum . PlutusTx.toBuiltinData $ (curr, oldName)
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
