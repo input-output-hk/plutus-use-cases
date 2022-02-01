@@ -82,7 +82,7 @@
     };
     plutus-apps = {
       url =
-        "github:input-output-hk/plutus-apps/34fe6eeff441166fee0cd0ceba68c1439f0e93d2";
+        "github:t4ccer/plutus-apps/0d3ad307e5875cd5a90df8aa8cea46962eaa5c85";
       flake = false;
     };
     plutus-extra = {
