@@ -71,7 +71,7 @@ getLiquidityRate Types.Reserve {..} = r * u
 
 {-# INLINEABLE getUtilisation #-}
 getUtilisation :: Types.Wallet -> Rational
-getUtilisation Types.Wallet {..} = wallet'borrow R.% liquidity
+getUtilisation Types.Wallet {..} = R.reduce wallet'borrow liquidity
   where
     liquidity = wallet'deposit + wallet'borrow
 

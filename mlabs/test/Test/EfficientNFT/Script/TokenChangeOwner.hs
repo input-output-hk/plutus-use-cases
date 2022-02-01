@@ -5,7 +5,6 @@ module Test.EfficientNFT.Script.TokenChangeOwner (test) where
 import Ledger (PaymentPubKeyHash (unPaymentPubKeyHash))
 import Ledger.Value (CurrencySymbol, TokenName (TokenName, unTokenName))
 import Ledger.Value qualified as Value
-import PlutusTx qualified
 import PlutusTx.Positive (Positive, positive)
 
 import Data.Data (Typeable)
@@ -38,10 +37,9 @@ import Test.Tasty.Plutus.TestData (
   mintTokens,
   passIf,
  )
-import Test.Tasty.Plutus.TestScript (TestScript, mkTestMintingPolicy, toTestMintingPolicy)
 import Test.Tasty.Plutus.WithScript (WithScript, withTestScript)
 
-import Mlabs.EfficientNFT.Token (mkPolicy, mkTokenName)
+import Mlabs.EfficientNFT.Token (mkTokenName)
 import Mlabs.EfficientNFT.Types (MintAct (ChangeOwner))
 
 import Test.EfficientNFT.Script.Values qualified as TestValues

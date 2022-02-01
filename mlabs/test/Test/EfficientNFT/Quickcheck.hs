@@ -42,7 +42,7 @@ import Prelude ((<$>), (<*>))
 import Prelude qualified as Hask
 
 import Mlabs.EfficientNFT.Api (NFTAppSchema, endpoints)
-import Mlabs.EfficientNFT.Burn (burnValidator)
+import Mlabs.EfficientNFT.Lock (lockValidator)
 import Mlabs.EfficientNFT.Marketplace (marketplaceValidator)
 import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types
@@ -184,6 +184,7 @@ instance ContractModel NftModel where
     void $ Trace.waitNSlots 5
 
   nextState ActionMint {..} = do
+    wait 1
     let nft =
           NftId
             { nftId'price = aPrice
@@ -193,7 +194,8 @@ instance ContractModel NftModel where
         collection =
           NftCollection
             { nftCollection'collectionNftCs = fst . unAssetClass $ aCollection
-            , nftCollection'lockingScript = validatorHash burnValidator
+            , nftCollection'lockingScript =
+                validatorHash $ lockValidator (fst $ unAssetClass aCollection) 7776000 7776000
             , nftCollection'author = mockWalletPaymentPubKeyHash aAuthor
             , nftCollection'authorShare = aShare
             , nftCollection'marketplaceScript = validatorHash marketplaceValidator
@@ -205,7 +207,7 @@ instance ContractModel NftModel where
     mUnusedCollections $~ Set.delete aCollection
     deposit aAuthor $ singleton curr (mkTokenName nft) 1
     withdraw aAuthor (toValue minAdaTxOut <> assetClassValue aCollection 1)
-    wait 5
+    wait 4
   nextState ActionSetPrice {..} = do
     let oldNft = nftData'nftId aNftData
         newNft = oldNft {nftId'price = aPrice}

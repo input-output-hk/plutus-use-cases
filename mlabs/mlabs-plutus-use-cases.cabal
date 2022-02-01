@@ -115,7 +115,7 @@ library
     Mlabs.Deploy.Nft
     Mlabs.Deploy.Utils
     Mlabs.EfficientNFT.Api
-    Mlabs.EfficientNFT.Burn
+    Mlabs.EfficientNFT.Lock
     Mlabs.EfficientNFT.Contract.Aux
     Mlabs.EfficientNFT.Contract.ChangeOwner
     Mlabs.EfficientNFT.Contract.MarketplaceBuy
@@ -292,6 +292,8 @@ test-suite mlabs-plutus-use-cases-tests
     Test.EfficientNFT.Script.TokenChangeOwner
     Test.EfficientNFT.Script.TokenChangePrice
     Test.EfficientNFT.Script.TokenMint
+    Test.EfficientNFT.Script.TokenUnstake
+    Test.EfficientNFT.Script.TokenRestake
     Test.EfficientNFT.Script.Values
     Test.EfficientNFT.Size
     Test.EfficientNFT.Trace

@@ -44,6 +44,7 @@ import Plutus.V1.Ledger.Ada (lovelaceValueOf)
 import Plutus.V1.Ledger.Slot (Slot (..))
 import Plutus.V1.Ledger.Value (valueOf)
 import PlutusTx.Prelude hiding ((<$>), (<*>), (==))
+import PlutusTx.Ratio qualified as R
 import Test.QuickCheck qualified as QC
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
@@ -167,7 +168,7 @@ instance ContractModel NftModel where
         genContent = MockContent . Content . toSpooky @BuiltinByteString . fromString . ('x' :) <$> genString
         -- genTitle = Title . fromString <$> genString
         genTitle = Hask.pure (Title . toSpooky @BuiltinByteString $ "")
-        genShare = (% 100) <$> QC.elements [1 .. 99]
+        genShare = (`R.reduce` 100) <$> QC.elements [1 .. 99]
         genNftId = QC.elements nfts
      in QC.oneof
           [ Hask.pure ActionInit
@@ -364,7 +365,7 @@ instance ContractModel NftModel where
           params =
             InitParams
               [toUserId wAdmin]
-              (5 % 1000)
+              (R.reduce 5 1000)
               (toSpookyPubKeyHash . unPaymentPubKeyHash . mockWalletPaymentPubKeyHash $ wAdmin)
       callEndpoint @"app-init" hAdmin params
       void $ Trace.waitNSlots 5
@@ -428,7 +429,7 @@ deriving instance Hask.Eq (ContractInstanceKey NftModel w s e)
 deriving instance Hask.Show (ContractInstanceKey NftModel w s e)
 
 feeRate :: Rational
-feeRate = 5 % 1000
+feeRate = R.reduce 5 1000
 
 wallets :: [Wallet]
 wallets = [w1, w2, w3]

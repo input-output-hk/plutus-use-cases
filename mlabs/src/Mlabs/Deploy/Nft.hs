@@ -12,6 +12,7 @@ import Mlabs.NftStateMachine.Logic.Types
 import Ledger (PaymentPubKeyHash (PaymentPubKeyHash))
 import Ledger.Typed.Scripts.Validators as VS
 import Plutus.V1.Ledger.Api qualified as Plutus
+import PlutusTx.Ratio qualified as R
 
 import Mlabs.Deploy.Utils
 
@@ -28,7 +29,7 @@ serializeNft txId txIx ownerPkh content outDir = do
           (Plutus.TxId txId)
           txIx
       userId = UserId $ PaymentPubKeyHash $ Plutus.PubKeyHash ownerPkh
-      initNftDatum = initNft txOutRef userId content (1 % 2) (Just 1000)
+      initNftDatum = initNft txOutRef userId content (R.reduce 1 2) (Just 1000)
       nftId = nft'id initNftDatum
       typedValidator = SM.scriptInstance nftId
       policy = F.currencyPolicy (validatorAddress typedValidator) nftId

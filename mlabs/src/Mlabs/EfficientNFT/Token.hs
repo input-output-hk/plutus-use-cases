@@ -84,8 +84,10 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
     -- Check if only one token is minted and name is correct
     checkMint nft =
       let newName = mkTokenName nft
-       in case filter (\(cs, _, _) -> cs == ownCs) $ Value.flattenValue mintedValue of
-            [(_, tn, amt)] -> tn == newName && amt == 1
+          valMap = Value.getValue mintedValue
+          tokens = Map.toList $ fromMaybe (traceError "unreachable") $ Map.lookup ownCs valMap
+       in case tokens of
+            [(tn, amt)] -> tn == newName && amt == 1
             _ -> False
 
     -- Check if the old token is burnt and new is minted with correct name

@@ -1,4 +1,5 @@
 module Test.EfficientNFT.Script.Values (
+  authorWallet,
   authorPkh,
   nftPrice,
   tokenName,
@@ -15,49 +16,64 @@ module Test.EfficientNFT.Script.Values (
   nft1,
   nft2,
   nft3,
-  nftPrice,
-  tokenName,
-  collectionNft,
-  nft1,
   burnHash,
-  collectionNft,
   mintTxOutRef,
-  nft1,
+  newNftPrice,
   newPriceNft1,
   otherPkh,
-  tokenName,
   newPriceTokenName,
   testTokenPolicy,
+  testLockup,
+  testLockupEnd,
+  testLockScript,
+  shouldFailWithErr,
+  afterDeadline,
+  afterDeadlineAndLockup,
+  beforeDeadline,
 ) where
 
 import PlutusTx qualified
-import PlutusTx.Prelude
-
-import Ledger (
-  AssetClass,
-  PaymentPubKeyHash (PaymentPubKeyHash),
-  TokenName,
-  TxOutRef (TxOutRef),
-  ValidatorHash,
- )
-import Ledger.CardanoWallet qualified as CardanoWallet
-import Plutus.V1.Ledger.Value (AssetClass (unAssetClass), assetClass)
-import Test.Tasty.Plutus.Context (
-  Purpose (ForMinting),
- )
-import Test.Tasty.Plutus.TestScript (TestScript, mkTestMintingPolicy, toTestMintingPolicy)
+import PlutusTx.Prelude hiding (elem)
 
 import Data.Aeson (FromJSON, decode)
 import Data.ByteString.Lazy (ByteString)
+import Data.Data (Typeable)
+import Data.Default (def)
 import Data.Maybe (fromJust)
+import Data.String (String)
+import Ledger (
+  AssetClass,
+  Extended (Finite, PosInf),
+  Interval (Interval),
+  LowerBound (LowerBound),
+  PaymentPubKeyHash (PaymentPubKeyHash),
+  Slot (Slot),
+  TokenName,
+  TxOutRef (TxOutRef),
+  UpperBound (UpperBound),
+  ValidatorHash,
+ )
 import Ledger.Ada qualified as Ada
+import Ledger.CardanoWallet qualified as CardanoWallet
+import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Ledger.Typed.Scripts (validatorHash)
 import Ledger.Value (Value)
 import Mlabs.EfficientNFT.Token (mkPolicy, mkTokenName)
+import Plutus.V1.Ledger.Value (AssetClass (unAssetClass), assetClass)
 import PlutusTx.Natural (Natural)
+import Test.Tasty.Plutus.Context (
+  ContextBuilder,
+  Purpose (ForMinting, ForSpending),
+ )
+import Test.Tasty.Plutus.Options (TimeRange (TimeRange))
+import Test.Tasty.Plutus.Script.Unit (shouldn'tValidateTracing)
+import Test.Tasty.Plutus.TestData (TestData)
+import Test.Tasty.Plutus.TestScript (TestScript, mkTestMintingPolicy, mkTestValidator, toTestMintingPolicy, toTestValidator)
+import Test.Tasty.Plutus.WithScript (WithScript)
 import Wallet.Emulator.Types qualified as Emu
+import Prelude (elem)
 
-import Mlabs.EfficientNFT.Burn
+import Mlabs.EfficientNFT.Lock
 import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Types
 
@@ -68,11 +84,11 @@ mintTxOutRef = TxOutRef txId 1
       unsafeDecode
         "{\"getTxId\" : \"3a9e96cbb9e2399046e7b653e29e2cc27ac88b3810b15f448b91425a9a27ef3a\"}"
 
+authorWallet :: Emu.Wallet
+authorWallet = Emu.fromWalletNumber (CardanoWallet.WalletNumber 1)
+
 authorPkh :: PaymentPubKeyHash
-authorPkh =
-  PaymentPubKeyHash $
-    unsafeDecode
-      "{\"getPubKeyHash\" : \"25bd24abedaf5c68d898484d757f715c7b4413ad91a80d3cb0b3660d\"}"
+authorPkh = Emu.mockWalletPaymentPubKeyHash authorWallet
 
 -- User 1
 userOneWallet :: Emu.Wallet
@@ -137,7 +153,7 @@ collection :: NftCollection
 collection =
   NftCollection
     { nftCollection'collectionNftCs = fst . unAssetClass $ collectionNft
-    , nftCollection'lockingScript = validatorHash burnValidator
+    , nftCollection'lockingScript = validatorHash $ lockValidator (fst $ unAssetClass collectionNft) 7776000 7776000
     , nftCollection'author = authorPkh
     , nftCollection'authorShare = authorShare
     , nftCollection'marketplaceScript = validatorHash marketplaceValidator
@@ -160,11 +176,14 @@ nft3 :: NftId
 nft3 =
   nft1 {nftId'owner = userTwoPkh}
 
+newNftPrice :: Natural
+newNftPrice = nftPrice * toEnum 2
+
 newPriceNft1 :: NftId
-newPriceNft1 = nft1 {nftId'price = nftId'price nft1 * toEnum 2}
+newPriceNft1 = nft1 {nftId'price = newNftPrice}
 
 burnHash :: ValidatorHash
-burnHash = validatorHash burnValidator
+burnHash = validatorHash $ lockValidator (fst $ unAssetClass collectionNft) 7776000 7776000
 
 testTokenPolicy :: TestScript ( 'ForMinting MintAct)
 testTokenPolicy =
@@ -178,3 +197,48 @@ testTokenPolicy =
         `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'marketplaceShare collection)
     )
     $$(PlutusTx.compile [||toTestMintingPolicy||])
+
+testLockup :: Integer
+testLockup = 7776000
+
+testLockupEnd :: Slot
+testLockupEnd = 7776000
+
+testLockScript :: TestScript ( 'ForSpending LockDatum LockAct)
+testLockScript =
+  mkTestValidator
+    ( $$(PlutusTx.compile [||Mlabs.EfficientNFT.Lock.mkValidator||])
+        `PlutusTx.applyCode` PlutusTx.liftCode (fst . unAssetClass $ collectionNft)
+        `PlutusTx.applyCode` PlutusTx.liftCode testLockup
+        `PlutusTx.applyCode` PlutusTx.liftCode testLockupEnd
+    )
+    $$(PlutusTx.compile [||toTestValidator||])
+
+shouldFailWithErr ::
+  forall (p :: Purpose).
+  Typeable p =>
+  String ->
+  BuiltinString ->
+  TestData p ->
+  ContextBuilder p ->
+  WithScript p ()
+shouldFailWithErr name errMsg =
+  shouldn'tValidateTracing name (errMsg' `elem`)
+  where
+    errMsg' = fromBuiltin errMsg
+
+mkRange :: Slot -> TimeRange
+mkRange slot =
+  TimeRange $
+    Interval
+      (LowerBound (Finite (slotToBeginPOSIXTime def slot)) True)
+      (UpperBound PosInf False)
+
+afterDeadline :: TimeRange
+afterDeadline = mkRange (testLockupEnd + 1)
+
+afterDeadlineAndLockup :: TimeRange
+afterDeadlineAndLockup = mkRange (testLockupEnd + Slot testLockup + 1)
+
+beforeDeadline :: TimeRange
+beforeDeadline = mkRange (testLockupEnd - 1)
