@@ -18,6 +18,7 @@ import Test.Tasty.ExpectedFailure (ignoreTest)
 -- import Test.NftStateMachine.Logic qualified as Nft.Logic
 
 import Test.EfficientNFT.Quickcheck qualified as ENFT.Quickcheck
+import Test.EfficientNFT.Script.TokenBurn qualified as ENFT.TokenBurn
 import Test.EfficientNFT.Script.TokenChangeOwner qualified as ENFT.TokenChangeOwner
 import Test.EfficientNFT.Script.TokenChangePrice qualified as ENFT.TokenChangePrice
 import Test.EfficientNFT.Script.TokenMint qualified as ENFT.TokenMint
@@ -54,6 +55,7 @@ main =
           , ENFT.TokenMint.test
           , ENFT.TokenChangeOwner.test
           , ENFT.TokenChangePrice.test
+          , ENFT.TokenBurn.test
           , ENFT.TokenUnstake.test
           , ENFT.TokenRestake.test
           , ENFT.Quickcheck.test

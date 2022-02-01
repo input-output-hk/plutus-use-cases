@@ -61,7 +61,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
   case mintAct of
     MintToken nft ->
       traceIfFalse "Exactly one NFT must be minted" (checkMint nft)
-        && traceIfFalse "Collection NFT must be burned" (checkCollectionNftBurned nft)
+        && traceIfFalse "Underlying NFT must be locked" (checkCollectionNftBurned nft)
     ChangePrice nft newPrice ->
       traceIfFalse
         "Exactly one new token must be minted and exactly one old burnt"
@@ -75,6 +75,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
     BurnToken nft ->
       traceIfFalse "NFT must be burned" (checkBurn nft)
         && traceIfFalse "Owner must sign the transaction" (txSignedBy info . unPaymentPubKeyHash . nftId'owner $ nft)
+        && traceIfFalse "Underlying NFT must be unlocked" (checkUnlockNft nft)
   where
     !info = scriptContextTxInfo ctx
     -- ! force evaluation of `ownCs` causes policy compilation error
@@ -103,13 +104,21 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
 
     checkBurn nft =
       let oldName = mkTokenName nft
-       in Value.valueOf mintedValue ownCs oldName == -1
+          valMap = Value.getValue mintedValue
+       in Map.singleton oldName (negate 1) == fromMaybe (traceError "unreachable") (Map.lookup ownCs valMap)
 
     -- Check if collection nft is burned
     checkCollectionNftBurned nft =
       let lockingAddress = scriptHashAddress lockingScript
           containsCollectonNft tx =
             txOutAddress tx == lockingAddress
+              && Value.valueOf (txOutValue tx) collectionNftCs (nftId'collectionNftTn nft) == 1
+       in any containsCollectonNft (txInfoOutputs info)
+
+    checkUnlockNft nft =
+      let lockingAddress = scriptHashAddress lockingScript
+          containsCollectonNft tx =
+            txOutAddress tx /= lockingAddress
               && Value.valueOf (txOutValue tx) collectionNftCs (nftId'collectionNftTn nft) == 1
        in any containsCollectonNft (txInfoOutputs info)
 
