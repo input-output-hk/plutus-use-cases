@@ -11,6 +11,9 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
 
 
 module Plutus.Contracts.Oracle.Core
@@ -48,13 +51,15 @@ import           Ledger.Ada                as Ada
 import           Plutus.Contracts.Currency as Currency
 import           Prelude                   (Semigroup (..))
 import qualified Prelude                   as Prelude
+import           Data.OpenApi.Schema           as OpenApi
+import           Playground.Contract           as Playground
 
 --Paramenter data of oracle to be used in oraclle validator
 data Oracle = Oracle
     { oNftSymbol   :: !CurrencySymbol -- Nft symbol to identify correct utxo for getting exchange rate
-    , oOperator    :: !PubKeyHash      -- Public key hash of operator of oracle like for updating the price
+    , oOperator    :: !PaymentPubKeyHash      -- Public key hash of operator of oracle like for updating the price
     , oFee         :: !Integer          -- Fee taken by oracle to use its value as an exchange rate
-    } deriving (Prelude.Show, Generic, FromJSON, ToJSON)
+    } deriving (Prelude.Eq, Prelude.Ord, Prelude.Show, Generic, FromJSON, ToJSON, OpenApi.ToSchema,Playground.ToSchema)
 
 PlutusTx.makeLift ''Oracle
 PlutusTx.unstableMakeIsData ''Oracle
@@ -75,14 +80,6 @@ oracleTokenName = TokenName emptyByteString
 oracleNftAsset :: Oracle -> AssetClass
 oracleNftAsset oracle = AssetClass (oNftSymbol oracle, oracleTokenName)
 
---Find value of oracle from tx output
-{-# INLINABLE oracleValue #-}
-oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe Integer
-oracleValue o f = do
-    dh      <- txOutDatum o
-    Datum d <- f dh
-    PlutusTx.fromBuiltinData d
-
 --Oracle validator for checking update and use of oracle value
 {-# INLINABLE mkOracleValidator #-}
 mkOracleValidator :: Oracle -> Integer -> OracleRedeemer -> ScriptContext -> Bool
@@ -90,7 +87,7 @@ mkOracleValidator oracle x r ctx =
     traceIfFalse "token missing from input"  inputHasToken  &&
     traceIfFalse "token missing from output" outputHasToken &&
     case r of
-        Update -> traceIfFalse "operator signature missing" (txSignedBy info $ oOperator oracle) &&
+        Update -> traceIfFalse "operator signature missing" (txSignedBy info $ unPaymentPubKeyHash $ oOperator oracle) &&
                   traceIfFalse "invalid output datum"       validOutputDatum
         Use    -> traceIfFalse "oracle value changed"       (outputDatum == Just x)              &&
                   traceIfFalse "fees not paid"              feesPaid
@@ -150,12 +147,13 @@ oracleAddress = scriptAddress . oracleValidator
 startOracle :: forall w s. Contract w s Text Oracle
 startOracle = do
     logInfo @Prelude.String $ "Starting oracle "
-    pkh <- pubKeyHash <$> Contract.ownPubKey
-    osc <- mapError (pack . Prelude.show) (mintContract pkh [(oracleTokenName, 1)] :: Contract w s CurrencyError OneShotCurrency)
+    payPkh <- Contract.ownPaymentPubKeyHash
+
+    osc <- mapError (pack . Prelude.show) (mintContract payPkh [(oracleTokenName, 1)] :: Contract w s CurrencyError OneShotCurrency)
     let cs     = Currency.currencySymbol osc
         oracle = Oracle
             { oNftSymbol   = cs
-            , oOperator = pkh
+            , oOperator = payPkh
             , oFee      = 1_000_000
             }
     logInfo @Prelude.String $ "started oracle " ++ Prelude.show oracle
@@ -166,34 +164,62 @@ startOracle = do
 -- Otherwise spent previous ouput and construct new utxo with new oracle value at oracle address
 updateOracle :: forall w s. Oracle -> Integer -> Contract w s Text ()
 updateOracle oracle x = do
-    m <- findOracle oracle
-    let c = Constraints.mustPayToTheScript x $ assetClassValue (oracleNftAsset oracle) 1
-    case m of
+    oracleOutput <- findOracle oracle
+
+    let oracleNftValue = assetClassValue (oracleNftAsset oracle) 1
+        valueToKeep = oracleNftValue <> (Ada.lovelaceValueOf 2_000_000)
+        constraint = Constraints.mustPayToTheScript x valueToKeep
+    case oracleOutput of
         Nothing -> do
-            ledgerTx <- submitTxConstraints (oracleInst oracle) c
-            awaitTxConfirmed $ txId ledgerTx
+            ledgerTx <- submitTxConstraints (oracleInst oracle) constraint
+            awaitTxConfirmed $ getCardanoTxId ledgerTx
             logInfo @Prelude.String $ "set initial oracle value to " ++ Prelude.show x
         Just (oref, o,  _) -> do
             let lookups = Constraints.unspentOutputs (Map.singleton oref o)     <>
                           Constraints.typedValidatorLookups (oracleInst oracle) <>
                           Constraints.otherScript (oracleValidator oracle)
-                tx      = c <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
+                tx      = constraint <> Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Update)
             ledgerTx <- submitTxConstraintsWith @Oracling lookups tx
-            awaitTxConfirmed $ txId ledgerTx
+            void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
             logInfo @Prelude.String $ "updated oracle value to " ++ Prelude.show x
 
+
+--Find value of oracle from tx output
+{-# INLINABLE oracleValue #-}
+oracleValue :: TxOut -> (DatumHash -> Maybe Datum) -> Maybe Integer
+oracleValue o f = do
+    dHash      <- txOutDatum o
+    Datum d <- f dHash
+    PlutusTx.fromBuiltinData d
+
+getOracleDatum :: ChainIndexTxOut -> Contract w s Text Integer
+getOracleDatum ScriptChainIndexTxOut { _ciTxOutDatum } = do
+        (Datum e) <- either getDatum pure _ciTxOutDatum
+        maybe (throwError "datum hash wrong type") pure (PlutusTx.fromBuiltinData e)
+  where
+    getDatum :: DatumHash -> Contract w s Text Datum
+    getDatum =
+      datumFromHash >=>
+      \case Nothing -> throwError "datum not found"
+            Just d  -> pure d
+getOracleDatum _ = throwError "no datum for a txout of a public key address"
+
 -- Helper function to find oracle from list of utxos that are present at oracle address
-findOracle :: forall w s. Oracle -> Contract w s Text (Maybe (TxOutRef, TxOutTx, Integer))
+findOracle :: forall w s. Oracle -> Contract w s Text (Maybe (TxOutRef, ChainIndexTxOut, Integer))
 findOracle oracle = do
-    utxos <- Map.filter f <$> utxoAt (oracleAddress oracle)
+    utxos <- Map.filter f <$> utxosAt (oracleAddress oracle)
     return $ case Map.toList utxos of
-        [(oref, o)] -> do
-            x <- oracleValue (txOutTxOut o) $ \dh -> Map.lookup dh $ txData $ txOutTxTx o
-            return (oref, o, x)
+        [(oref, o)] -> case o of 
+            PublicKeyChainIndexTxOut {}  -> Nothing
+            ScriptChainIndexTxOut {..} -> case _ciTxOutDatum of
+                                Right (Datum d) -> case PlutusTx.fromBuiltinData d of
+                                            Nothing  -> Nothing
+                                            Just dat -> return (oref, o, dat)
+                                Left _ -> Nothing
         _           -> Nothing
   where
-    f :: TxOutTx -> Bool
-    f o = assetClassValueOf (txOutValue $ txOutTxOut o) (oracleNftAsset oracle) == 1
+    f :: ChainIndexTxOut -> Bool
+    f o = assetClassValueOf (_ciTxOutValue o) (oracleNftAsset oracle) == 1
 
 type OracleSchema = Endpoint "update" Integer
 

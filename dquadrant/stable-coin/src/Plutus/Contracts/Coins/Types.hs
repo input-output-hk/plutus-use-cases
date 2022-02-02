@@ -40,15 +40,15 @@ where
 import           Data.Aeson                             (FromJSON, ToJSON)
 import           GHC.Generics                            (Generic)
 import qualified Prelude
-import           PlutusTx.Ratio as Ratio
 import           Ledger.Scripts               (MintingPolicyHash)
 import           Ledger.Value                 (TokenName (TokenName))
 import           Plutus.Contracts.Oracle.Core
 import qualified PlutusTx                      as PlutusTx
 import           PlutusTx.Prelude
 import           Ledger                        hiding (to)
-import           Playground.Contract           (ToSchema)
-
+import           Playground.Contract           as Playground
+import           Data.OpenApi.Schema           as OpenApi
+import Plutus.V1.Ledger.Credential
 
 data ContractStatus = Paused | Running
   deriving stock (Generic,Prelude.Show)
@@ -61,7 +61,7 @@ data CoinsMachineState = CoinsMachineState
     stableCoinAmount :: Integer, -- Current amount of stable coins in circulation
     reserveCoinAmount :: Integer, -- Current amount of reserve coins in circulation
     policyScript :: MintingPolicyHash, -- Policy script used for minting of coins
-    bankFee :: Ratio Integer, -- Fees charged by contract to contirbute some portion of forged amount to kept in reserve,
+    bankFee :: Rational, -- Fees charged by contract to contirbute some portion of forged amount to kept in reserve,
                               -- Used as state so that it can be changed by smart contract owner or starter Not hardcoded into contract param
     contractStatus :: ContractStatus
   }
@@ -72,16 +72,20 @@ data CoinsMachineState = CoinsMachineState
 data BankParam = BankParam
   { stableCoinTokenName :: TokenName, -- Token name used for stable coin token
     reserveCoinTokenName :: TokenName, -- Token name used for reserve coin token
-    minReserveRatio :: Ratio Integer, -- Minimum reserve ratio that must be kept in contract no tokens forging is allowded below the minimum amount 
-    maxReserveRatio :: Ratio Integer, -- Maximum reserve ratio that must be kept within contract no tokens forging is allowded above maximum amount
+    minReserveRatio :: Rational, -- Minimum reserve ratio that must be kept in contract no tokens forging is allowded below the minimum amount 
+    maxReserveRatio :: Rational, -- Maximum reserve ratio that must be kept within contract no tokens forging is allowded above maximum amount
     rcDefaultRate :: Integer, -- Default rate of reserve token if there are no reserve coins minted yet
     oracleParam :: Oracle,    -- Oracle used to getting exchange rate
     oracleAddr :: Address, -- Address of the oracle used to get oracle value to verify its integrity that value is obtained from this oracle address
     bankCurrencyAsset :: AssetClass, -- Underlying base currency which is locked by bank in which tokens exchange happens
-    bankContractOwner :: PubKeyHash  -- Owner of the bank contract who can update certain contract state
+    bankContractOwner :: PaymentPubKeyHash  -- Owner of the bank contract who can update certain contract state
   }
-  deriving stock (Generic, Prelude.Show)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving (Generic, Prelude.Show, ToJSON, FromJSON,Prelude.Eq, Prelude.Ord)
+
+-- instance Playground.ToSchema Address
+-- instance Playground.ToSchema Credential
+-- instance Playground.ToSchema StakingCredential
+
 
 -- Actions that can be performed in stable coin contract
 data BankInputAction
@@ -108,7 +112,7 @@ data EndpointInput = EndpointInput
     tokenAmount :: Integer -- Tokens amount to be forged
   }
   deriving stock (Generic)
-  deriving anyclass (ToJSON, FromJSON, ToSchema)
+  deriving anyclass (ToJSON, FromJSON, Playground.ToSchema)
 
 --Data used from the endpoint to be used as input of contract definitions
 --To support float percentage 
@@ -118,7 +122,7 @@ data BankFeeInput = BankFeeInput
     percentDenominator :: Integer -- Numerator value of percent in integer eg: 1 Percent
   }
   deriving stock (Generic)
-  deriving anyclass (ToJSON, FromJSON, ToSchema)
+  deriving anyclass (ToJSON, FromJSON, Playground.ToSchema)
 
 --Data used from the endpoint to be used as input of contract definitions
 data ContractStatusInput = ContractStatusInput
@@ -126,7 +130,7 @@ data ContractStatusInput = ContractStatusInput
     shouldPause :: Bool -- Numerator value of percent in integer eg: 1 Percent
   }
   deriving stock (Generic,Prelude.Show)
-  deriving anyclass (ToJSON, FromJSON, ToSchema)
+  deriving anyclass (ToJSON, FromJSON, Playground.ToSchema)
 
 
 --Data used for getting current exchange rates of peg, stable coin and reserve coin

@@ -14,9 +14,10 @@ library
                        Plutus.Contracts.Coins.Types
                        Plutus.Contracts.Coins.Endpoints
                        Plutus.Contracts.Oracle.Core
+                       Plutus.Contracts.Utils.RatioUtils
                      
   build-depends:       aeson
-                     , base ^>=4.14.1.0
+                     , base >=4.9 && <5
                      , containers
                      , data-default
                      , lens
@@ -25,55 +26,27 @@ library
                      , plutus-contract
                      , plutus-ledger
                      , plutus-ledger-api
+                     , plutus-ledger-constraints
                      , plutus-tx-plugin
                      , plutus-tx
                      , text
                      , bytestring
                      , plutus-use-cases
                      , prettyprinter
+                     , openapi3
+                     , cardano-api
+                     , serialise
 
 
   default-language:    Haskell2010
   ghc-options:         -Wall -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr -fno-specialise
-
-  default-extensions: BangPatterns
-                      ExplicitForAll
-                      FlexibleContexts
-                      ScopedTypeVariables
-                      DerivingStrategies
-                      DeriveAnyClass
-                      DeriveGeneric
-                      StandaloneDeriving
-                      DeriveLift
-                      GeneralizedNewtypeDeriving
-                      DeriveFunctor
-                      DeriveFoldable
-                      DeriveTraversable
-                      LambdaCase
-                      MonoLocalBinds
-                      MultiParamTypeClasses
-                      NoImplicitPrelude
-                      RecordWildCards
-                      OverloadedStrings
-                      TypeFamilies
-                      QuasiQuotes
-                      TemplateHaskell
-                      DataKinds
-                      TypeOperators
-                      TypeApplications
-                      FlexibleInstances
-                      TypeSynonymInstances
-                      TupleSections
-                      NumericUnderscores
-                      ImportQualifiedPost
-                      RankNTypes
 
 executable stablecoin-pab
   main-is: Main.hs
   hs-source-dirs: pab
   ghc-options:         -Wall
   build-depends:       aeson
-                     , base ^>= 4.14.1.0
+                     , base >=4.9 && <5
                      , lens
                      , plutus-ledger
                      , plutus-pab         
@@ -89,9 +62,39 @@ executable stablecoin-pab
                      , plutus-contract -any
                      , stable-coin-starter
                      , plutus-use-cases
+                     , plutus-ledger-constraints
                      , data-default -any
+                     , openapi3
   default-language:    Haskell2010
-  default-extensions: AllowAmbiguousTypes BlockArguments BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveFunctor DeriveGeneric DerivingStrategies DerivingVia DuplicateRecordFields EmptyCase ExplicitNamespaces FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude NumericUnderscores OverloadedLabels OverloadedStrings PatternSynonyms RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators TypeSynonymInstances UndecidableInstances ViewPatterns ImportQualifiedPost RoleAnnotations
+
+executable trace
+  main-is: Main.hs
+  hs-source-dirs: emulator
+  ghc-options:         -Wall
+  other-modules:
+    Config
+  build-depends:       aeson
+                     , base >=4.9 && <5
+                     , lens
+                     , plutus-ledger
+                     , plutus-pab         
+                     , plutus-tx
+                     , req ^>= 3.9.0
+                     , text -any
+                     , bytestring
+                     , uuid
+                     , containers
+                     , freer-extras
+                     , freer-simple -any
+                     , prettyprinter -any
+                     , plutus-contract -any
+                     , plutus-use-cases
+                     , plutus-ledger-constraints
+                     , data-default -any
+                     , stable-coin-starter
+                     , openapi3
+
+  default-language:    Haskell2010
 
 
 executable oracle-client
@@ -135,19 +138,40 @@ test-suite stablecoin-tests
                      , text
                      , foldl
                      , aeson
+                     , plutus-ledger-constraints
+                     , openapi3
+
+
   hs-source-dirs:      src/test
   Main-is:             Spec.hs
   Other-modules:
                        Spec.StableCoinTest
                        Spec.OracleTest
                        Utils.ValidatorTestFramework
-  default-extensions:
-    RecordWildCards
-    OverloadedStrings
-    QuasiQuotes
-    TupleSections
 
-
+executable stable-io
+  hs-source-dirs:      testnet
+  ghc-options:         -Wall -threaded -rtsopts
+  default-Language:    Haskell2010
+  Main-is:             Main.hs
+  build-depends:       aeson
+                     , base              >=4.9 && <5
+                     , containers
+                     , data-default
+                     , lens
+                     , freer-extras
+                     , playground-common
+                     , plutus-contract
+                     , plutus-ledger
+                     , plutus-ledger-api
+                     , plutus-ledger-constraints
+                     , plutus-tx-plugin
+                     , plutus-tx
+                     , text
+                     , bytestring
+                     , cardano-api
+                     , stable-coin-starter
+                     , easy-cardano
 
 
 

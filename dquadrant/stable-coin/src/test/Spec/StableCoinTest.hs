@@ -41,11 +41,10 @@ import Plutus.Contracts.Coins.Types
 import Plutus.Contracts.Coins.Endpoints
 import Plutus.Contracts.Oracle.Core
 import qualified Data.Aeson.Types as Types
+import PlutusTx.Ratio (unsafeRatio)
 
-oracleW1, w2 ,w3:: Wallet
-oracleW1 = Wallet 1
-w2 =       Wallet 2
-w3 =       Wallet 3
+oracleW1 :: Wallet
+oracleW1 = knownWallet 1
 
 stableCoinName :: TokenName
 stableCoinName = "StableToken"
@@ -68,9 +67,9 @@ bp = BankParam
             { 
             stableCoinTokenName = stableCoinName,
             reserveCoinTokenName = reserveCoinName,
-            minReserveRatio = P.zero,
-            maxReserveRatio = 4 % 1,
-            rcDefaultRate = 1,
+            minReserveRatio = R.zero,
+            maxReserveRatio = unsafeRatio 4 1,
+            rcDefaultRate = 1000000,
             oracleParam = oracle,
             oracleAddr = oracleAddress oracle,
             bankCurrencyAsset = Value.assetClass Ada.adaSymbol Ada.adaToken

@@ -10,6 +10,6 @@ main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "stablecoin" [
-    Spec.StableCoinTest.tests,
+    -- Spec.StableCoinTest.tests,
     Spec.OracleTest.tests
     ]

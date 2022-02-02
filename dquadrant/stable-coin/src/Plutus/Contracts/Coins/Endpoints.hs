@@ -21,20 +21,16 @@ module Plutus.Contracts.Coins.Endpoints
 where
 
 import           Control.Monad             hiding (fmap)
-import           Data.Aeson                (FromJSON, ToJSON)
+-- import           Data.Aeson                (FromJSON, ToJSON,toJSON)
 import qualified Data.Map                  as Map
-import           Data.Monoid               (Last (..))
 import           Data.Text                 (Text, pack)
-import           GHC.Generics              (Generic)
-import           Plutus.Contract           as Contract hiding (when)
-import qualified PlutusTx
+-- import           GHC.Generics              (Generic)
+import           Plutus.Contract           as Contract
 import           PlutusTx.Prelude          hiding (Semigroup(..), unless)
 import           Ledger                    hiding (singleton)
 import           Ledger.Constraints        as Constraints
 import qualified Ledger.Typed.Scripts      as Scripts
 import           Ledger.Value              as Value
-import           Ledger.Ada                as Ada
-import           Plutus.Contracts.Currency as Currency
 import           Prelude                   (Semigroup (..))
 import qualified Prelude                   as Prelude
 
@@ -43,11 +39,15 @@ import Plutus.Contracts.Oracle.Core
 import qualified Plutus.Contract.StateMachine     as SM
 import           Plutus.Contracts.Coins.CoinsStateMachine
 import           Plutus.Contract.StateMachine     (SMContractError, StateMachineClient (..))
-import           Playground.TH                     (mkSchemaDefinitions)
 import           Ledger.Typed.Tx              (TypedScriptTxOut (..))
 import qualified Data.Aeson.Types as Types
-import Data.Aeson (toJSON)
-import           Ledger.AddressMap                 (UtxoMap)
+import PlutusTx.Ratio (unsafeRatio)
+import qualified Ledger.Ada  as Ada
+import qualified PlutusTx.Numeric                        as P
+import           Wallet.Emulator.Types                   
+import           Ledger.Ada                              (adaSymbol, adaToken, adaValueOf,lovelaceValueOf)
+
+
 
 -- Get forwarding monteragy policy script hash from state machine instance
 forwardMPS :: StateMachineClient CoinsMachineState BankInput -> MintingPolicyHash
@@ -61,7 +61,7 @@ initialState smClient =
       stableCoinAmount = 0,
       reserveCoinAmount = 0,
       policyScript = forwardMPS smClient,
-      bankFee = 1 % 1,
+      bankFee = unsafeRatio 1 1,
       contractStatus = Running
     }
 
@@ -84,25 +84,25 @@ smRunStep bankParam@BankParam{oracleParam} bankInputAction = do
       let lookups = Constraints.unspentOutputs (Map.singleton oref o)
                     <> Constraints.otherScript (oracleValidator oracleParam)               
                                  
-          input = BankInput bankInputAction (oref, txOutTxOut o, x)
+          input = BankInput bankInputAction (oref, toTxOut o, x)
               
 
       result <-  mapError' $ SM.runStepWith lookups mempty client input
       
       case result of
         SM.TransitionFailure e -> do
-          void $ logInfo @Prelude.String $ "Transistion Faliure "
+          void $ logInfo @Prelude.String $ "Transistion Faliure " ++ Prelude.show e
           throwError "Transistion Faliure"
         _ -> do
           void $ logInfo @Prelude.String $ "Endpoint call completed " ++ Prelude.show bankInputAction
 
---TODO check for handling multiple start call
---Endpoint to start the stable coint contract with  parameters supplied to banks
-start :: BankParam -> Promise w BankStateSchema Text ()
-start bankParam = (endpoint @"start") $ \_ -> do
-    let client = machineClient (scriptInstance bankParam) bankParam
-    void $ mapError' $ SM.runInitialise client (initialState client) mempty
-    void $ logInfo @Prelude.String $ "Stable coin contract started. " ++ Prelude.show (initialState client)
+-- --TODO check for handling multiple start call
+-- --Endpoint to start the stable coint contract with  parameters supplied to banks
+-- start :: BankParam -> Promise w BankStateSchema Text ()
+-- start bankParam = (endpoint @"start") $ \_ -> do
+--     let client = machineClient (scriptInstance bankParam) bankParam
+--     void $ mapError' $ SM.runInitialise client (initialState client) (Ada.lovelaceValueOf 2)
+--     void $ logInfo @Prelude.String $ "Stable coin contract started. " ++ Prelude.show (initialState client)
 
 --TODO check for validation in offchain
 -- Contract endpoint for minting of stable coin
@@ -138,7 +138,7 @@ updateBankFee bankParam =
     result <- mapError' $ SM.runStep client input
     case result of
       SM.TransitionFailure e -> do
-        void $ logInfo @Prelude.String $ "Transistion Faliure "
+        void $ logInfo @Prelude.String $ "Transistion Faliure " ++ Prelude.show e
         throwError "Transistion Faliure"
       _ -> do
         void $ logInfo @Prelude.String $ "Endpoint call completed " ++ Prelude.show input
@@ -153,7 +153,7 @@ updateContractStatus bankParam =
 
     case result of
       SM.TransitionFailure e -> do
-        void $ logInfo @Prelude.String $ "Transistion Faliure Couldn't proceed further."
+        void $ logInfo @Prelude.String $ "Transistion Faliure " ++ Prelude.show e
         throwError "Transistion Faliure"
       _ -> do
         void $ logInfo @Prelude.String $ "Endpoint call completed " ++ Prelude.show input
@@ -169,94 +169,122 @@ type BankStateSchema =
     .\/ Endpoint "updateBankFee" BankFeeInput
     .\/ Endpoint "updateContractStatus" ContractStatusInput
 
-    .\/ Endpoint "funds" Prelude.String
-    .\/ Endpoint "currentState" Prelude.String
-    .\/ Endpoint "currentRates" Prelude.String
+    -- .\/ Endpoint "funds" Prelude.String
+    -- .\/ Endpoint "currentState" Prelude.String
+    -- .\/ Endpoint "currentRates" Prelude.String
+
+stableCoinName :: TokenName
+stableCoinName = "StableToken"
+
+reserveCoinName :: TokenName
+reserveCoinName = "ReserveToken"
+
+bankOwnerWallet :: Wallet
+bankOwnerWallet = knownWallet 2
 
 --TODO writer value [Types.Value]
 --Starting point of the contract which combines all the endpoints to be available for call
-coinsEndpoints :: BankParam -> Contract [Types.Value] BankStateSchema Text ()
-coinsEndpoints bankParam = handleError handler (void selections) >> coinsEndpoints bankParam
+coinsEndpoints :: Oracle -> Promise [Types.Value] BankStateSchema Text ()
+coinsEndpoints oracle = (endpoint @"start") $ \_ -> do
+    let bankParam = BankParam
+          { stableCoinTokenName = stableCoinName,
+          reserveCoinTokenName = reserveCoinName,
+          minReserveRatio = P.zero,
+          maxReserveRatio = unsafeRatio 100  1,
+          rcDefaultRate = 1_000_000,
+          oracleParam = oracle,
+          oracleAddr = oracleAddress oracle,
+          bankCurrencyAsset = Value.assetClass adaSymbol adaToken,
+          bankContractOwner = mockWalletPaymentPubKeyHash bankOwnerWallet
+          }
+    let client = machineClient (scriptInstance bankParam) bankParam
+    void $ mapError' $ SM.runInitialise client (initialState client) (Ada.lovelaceValueOf 2)  
+    go bankParam
   where 
-    selections= selectList
-      [ 
-        start bankParam
-      , mintStableCoin bankParam
+
+    go bankParam = (handleError handler (void $ selections bankParam)) >> go bankParam
+
+    selections bankParam = selectList
+      [ mintStableCoin bankParam
       , redeemStableCoin bankParam
       , mintReserveCoin bankParam
       , redeemReserveCoin bankParam
       , updateBankFee bankParam
       , updateContractStatus bankParam
-      , ownFunds
-      , currentCoinsMachineState bankParam
-      , currentRates bankParam
+      -- , ownFunds
+      -- , currentCoinsMachineState bankParam
+      -- , currentRates bankParam
       ]
     
     handler :: Prelude.Show a => a -> Contract w s e ()
     handler e = do
         Contract.logError $ Prelude.show e
 
---Endpoint for getting current funds held in a users public key
-ownFunds:: Promise [Types.Value ] BankStateSchema Text  ()
-ownFunds = 
-  (endpoint @"funds") $ \_ -> do
-    pk    <- ownPubKey
-    utxos <- utxoAt $ pubKeyAddress pk
-    let v = mconcat $ Map.elems $ txOutValue . txOutTxOut Prelude.<$> utxos
-    logInfo @Prelude.String $ "own funds: " ++ Prelude.show (flattenValue v)
-    tell [ toJSON v]
+-- --Endpoint for getting current funds held in a users public key
+-- ownFunds:: Promise [Types.Value ] BankStateSchema Text  ()
+-- ownFunds = 
+--   (endpoint @"funds") $ \_ -> do
+--     pkh    <- Contract.ownPubKeyHash
+--     utxos <- utxosAt $ pubKeyHashAddress pkh
+--     -- let v = mconcat $ Map.elems $ f <$> utxos
+--     -- logInfo @Prelude.String $ "own funds: " ++ Prelude.show (Value.flattenValue v)
+--     tell [ toJSON utxos]
+
+--     where
+--     f :: ChainIndexTxOut -> Value
+--     f o = _ciTxOutValue o
                  
---Endpoint for getting current state of state machine i.e current tokesn supply, base reserves etc.
-currentCoinsMachineState:: BankParam -> Promise [Types.Value ] BankStateSchema Text  ()
-currentCoinsMachineState bankParam = 
-  (endpoint @"currentState") $ \_ -> do
-    currentState <- mapError' $ getCurrentState bankParam
-    case currentState of
-      Just state -> do
-          logInfo @Prelude.String $ "Current state: " ++ Prelude.show state
-          let stateResponse = StateResponse{
-            currentCoinsState = state
-          }
-          tell [toJSON stateResponse]
-      Nothing -> logWarn @Prelude.String $ "Current state is not present yet."
+-- --Endpoint for getting current state of state machine i.e current tokesn supply, base reserves etc.
+-- currentCoinsMachineState:: BankParam -> Promise [Types.Value ] BankStateSchema Text  ()
+-- currentCoinsMachineState bankParam = 
+--   (endpoint @"currentState") $ \_ -> do
+--     currentState <- mapError' $ getCurrentState bankParam
+--     case currentState of
+--       Just state -> do
+--           logInfo @Prelude.String $ "Current state: " ++ Prelude.show state
+--           let stateResponse = StateResponse{
+--             currentCoinsState = state
+--           }
+--           tell [toJSON stateResponse]
+--       Nothing -> logWarn @Prelude.String $ "Current state is not present yet."
 
---Endpoint for getting combined rates of peg, stable coin rate and reserve coin rate
-currentRates :: BankParam -> Promise [Types.Value ] BankStateSchema Text  ()
-currentRates bankParam = 
-  (endpoint @"currentRates") $ \_ -> do
-    oracle <- findOracle $ oracleParam bankParam
-    case oracle of
-      Nothing -> logWarn @Prelude.String "Oracle not found"
-      Just (oref, o, rate) -> do
-        currentState <- mapError' $ getCurrentState bankParam
-        case currentState of
-          Just state -> do
-              let rcRate = calcReserveCoinRate bankParam state rate
-                  scRate = calcStableCoinRate state rate
-                  rates = Rates {
-                            pegRate = rate,
-                            scRate = scRate,
-                            rcRate = rcRate
-                  }
-                  ratesResponse = RatesResponse{
-                    currentCoinsRates = rates
-                  }
-              logInfo @Prelude.String $ "Current rates: " ++ Prelude.show rates
-              tell [toJSON ratesResponse]
-          Nothing -> logWarn @Prelude.String $ "Current state is not present yet."
+-- --Endpoint for getting combined rates of peg, stable coin rate and reserve coin rate
+-- currentRates :: BankParam -> Promise [Types.Value ] BankStateSchema Text  ()
+-- currentRates bankParam = 
+--   (endpoint @"currentRates") $ \_ -> do
+--     oracle <- findOracle $ oracleParam bankParam
+--     case oracle of
+--       Nothing -> logWarn @Prelude.String "Oracle not found"
+--       Just (oref, o, rate) -> do
+--         currentState <- mapError' $ getCurrentState bankParam
+--         case currentState of
+--           Just state -> do
+--               let rcRate = calcReserveCoinRate bankParam state rate
+--                   scRate = calcStableCoinRate state rate
+--                   rates = Rates {
+--                             pegRate = rate,
+--                             scRate = scRate,
+--                             rcRate = rcRate
+--                   }
+--                   ratesResponse = RatesResponse{
+--                     currentCoinsRates = rates
+--                   }
+--               logInfo @Prelude.String $ "Current rates: " ++ Prelude.show rates
+--               tell [toJSON ratesResponse]
+--           Nothing -> logWarn @Prelude.String $ "Current state is not present yet."
 
---Helper fucntion for getting current state of state machine
-getCurrentState :: ( SM.AsSMContractError e)
-    => BankParam -> Contract w schema e (Maybe CoinsMachineState)
-getCurrentState bankParam = do
-  let client = machineClient (scriptInstance bankParam) bankParam
+-- --Helper fucntion for getting current state of state machine
+-- getCurrentState :: ( SM.AsSMContractError e)
+--     => BankParam -> Contract w schema e (Maybe CoinsMachineState)
+-- getCurrentState bankParam = do
+--   let client = machineClient (scriptInstance bankParam) bankParam
   
-  currentStateVal <- SM.getOnChainState client
+--   currentStateVal <- SM.getOnChainState client
   
-  case currentStateVal of
-      Just (onChainState, utxo) -> do
-        let SM.OnChainState{ocsTxOut=TypedScriptTxOut{tyTxOutData=state, tyTxOutTxOut}, ocsTxOutRef} = onChainState
-        pure $ Just state
-      Nothing -> do
-        logWarn @Prelude.String $ "Current state is not present yet."
-        pure $ Nothing
+--   case currentStateVal of
+--       Just (onChainState, utxo) -> do
+--         let SM.OnChainState{SM.ocsTxOut=TypedScriptTxOut{tyTxOutData=state, tyTxOutTxOut}, SM.ocsTxOutRef} = onChainState
+--         pure $ Just state
+--       Nothing -> do
+--         logWarn @Prelude.String $ "Current state is not present yet."
+--         pure $ Nothing
