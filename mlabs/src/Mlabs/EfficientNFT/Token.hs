@@ -78,11 +78,15 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
         && traceIfFalse "Underlying NFT must be unlocked" (checkUnlockNft nft)
   where
     !info = scriptContextTxInfo ctx
+    info :: TxInfo
     -- ! force evaluation of `ownCs` causes policy compilation error
     ownCs = ownCurrencySymbol ctx
+    ownCs :: CurrencySymbol
+
     !mintedValue = txInfoMint info
 
     -- Check if only one token is minted and name is correct
+    checkMint :: NftId -> Bool
     checkMint nft =
       let newName = mkTokenName nft
           valMap = Value.getValue mintedValue
@@ -92,6 +96,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
             _ -> False
 
     -- Check if the old token is burnt and new is minted with correct name
+    checkMintAndBurn :: NftId -> Natural -> PaymentPubKeyHash -> Bool
     checkMintAndBurn nft newPrice newOwner =
       let minted = Map.toList <$> (Map.lookup ownCs . Value.getValue . txInfoMint $ info)
           oldName = mkTokenName nft
@@ -102,12 +107,14 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
               | tokenName2 == oldName && tokenName1 == newName -> tnAmt2 == -1 && tnAmt1 == 1
             _ -> False
 
+    checkBurn :: NftId -> Bool
     checkBurn nft =
       let oldName = mkTokenName nft
           valMap = Value.getValue mintedValue
        in Map.singleton oldName (negate 1) == fromMaybe (traceError "unreachable") (Map.lookup ownCs valMap)
 
     -- Check if collection nft is burned
+    checkCollectionNftBurned :: NftId -> Bool
     checkCollectionNftBurned nft =
       let lockingAddress = scriptHashAddress lockingScript
           containsCollectonNft tx =
@@ -115,6 +122,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
               && Value.valueOf (txOutValue tx) collectionNftCs (nftId'collectionNftTn nft) == 1
        in any containsCollectonNft (txInfoOutputs info)
 
+    checkUnlockNft :: NftId -> Bool
     checkUnlockNft nft =
       let lockingAddress = scriptHashAddress lockingScript
           containsCollectonNft tx =
@@ -124,6 +132,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
 
     -- Check that all parties received corresponding payments,
     -- and the payment utxos have the correct datum attached
+    checkPartiesGotCorrectPayments :: NftId -> Bool
     checkPartiesGotCorrectPayments nft =
       let outs = txInfoOutputs info
           price' = fromEnum $ nftId'price nft
