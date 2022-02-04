@@ -95,6 +95,11 @@
         "gitlab:fresheyeball/plutus-tx-spooky/0c409907fa5b6aee4a2f2d18f871b850a8547fdf";
       flake = false;
     };
+    plutus-simple-model = {
+      url =
+        "github:t4ccer/plutus-simple-model/48c186f96e3a8a07bceb1a4b39a7dfeacddde42b";
+      flake = false;
+    };
     purescript-bridge = {
       url =
         "github:input-output-hk/purescript-bridge/366fc70b341e2633f3ad0158a577d52e1cd2b138";
