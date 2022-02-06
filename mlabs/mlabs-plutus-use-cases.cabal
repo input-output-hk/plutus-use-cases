@@ -290,6 +290,7 @@ test-suite mlabs-plutus-use-cases-tests
 
   other-modules:
     Test.Demo.Contract.Mint
+    Test.EfficientNFT.Resources
     Test.EfficientNFT.Script.TokenBurn
     Test.EfficientNFT.Script.TokenChangeOwner
     Test.EfficientNFT.Script.TokenChangePrice
