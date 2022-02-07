@@ -5,7 +5,6 @@ import Prelude qualified as Hask
 
 import Control.Monad (void)
 import Data.Map qualified as Map
-import Data.Monoid (mconcat)
 import Ledger (Datum (Datum), minAdaTxOut, scriptAddress, _ciTxOutValue)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
@@ -45,7 +44,7 @@ marketplaceBuy nftData = do
         | v < getLovelace minAdaTxOut = 0
         | otherwise = v
       ownerShare = lovelaceValueOf (addExtend nftPrice - shareToSubtract authorShare - shareToSubtract marketplaceShare)
-      datum = Datum . toBuiltinData $ curr
+      datum = Datum . toBuiltinData $ (curr, oldName)
       filterLowValue v t
         | v < getLovelace minAdaTxOut = mempty
         | otherwise = t (lovelaceValueOf v)
@@ -54,8 +53,7 @@ marketplaceBuy nftData = do
   (utxo, utxoIndex) <- case utxo' of
     Nothing -> Contract.throwError "NFT not found on marketplace"
     Just x -> Hask.pure x
-  let userValues = mconcat . fmap _ciTxOutValue . Map.elems $ userUtxos
-      lookup =
+  let lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
           , Constraints.typedValidatorLookups marketplaceValidator
@@ -73,11 +71,9 @@ marketplaceBuy nftData = do
           <> Hask.mconcat
             [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
             , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ ())
-            , Constraints.mustPayToPubKey (nftId'owner nft) ownerShare
+            , Constraints.mustPayWithDatumToPubKey (nftId'owner nft) datum ownerShare
             , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) (newNftValue <> toValue minAdaTxOut)
-            , -- Hack to overcome broken balancing
-              Constraints.mustPayToPubKey pkh (userValues - toValue (minAdaTxOut * 3) - lovelaceValueOf (addExtend nftPrice))
             ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ NftData (nftData'nftCollection nftData) newNft
-  Contract.logInfo @Hask.String $ printf "Change owner successful: %s" (Hask.show $ assetClass curr newName)
+  Contract.logInfo @Hask.String $ printf "Buy successful: %s" (Hask.show $ assetClass curr newName)

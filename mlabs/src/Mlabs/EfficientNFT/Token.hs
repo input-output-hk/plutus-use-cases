@@ -61,7 +61,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
   case mintAct of
     MintToken nft ->
       traceIfFalse "Exactly one NFT must be minted" (checkMint nft)
-        && traceIfFalse "Collection NFT must be burned" (checkCollectionNftBurned nft)
+        && traceIfFalse "Underlying NFT must be locked" (checkCollectionNftBurned nft)
     ChangePrice nft newPrice ->
       traceIfFalse
         "Exactly one new token must be minted and exactly one old burnt"
@@ -75,13 +75,18 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
     BurnToken nft ->
       traceIfFalse "NFT must be burned" (checkBurn nft)
         && traceIfFalse "Owner must sign the transaction" (txSignedBy info . unPaymentPubKeyHash . nftId'owner $ nft)
+        && traceIfFalse "Underlying NFT must be unlocked" (checkUnlockNft nft)
   where
     !info = scriptContextTxInfo ctx
+    info :: TxInfo
     -- ! force evaluation of `ownCs` causes policy compilation error
     ownCs = ownCurrencySymbol ctx
+    ownCs :: CurrencySymbol
+
     !mintedValue = txInfoMint info
 
     -- Check if only one token is minted and name is correct
+    checkMint :: NftId -> Bool
     checkMint nft =
       let newName = mkTokenName nft
           valMap = Value.getValue mintedValue
@@ -91,6 +96,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
             _ -> False
 
     -- Check if the old token is burnt and new is minted with correct name
+    checkMintAndBurn :: NftId -> Natural -> PaymentPubKeyHash -> Bool
     checkMintAndBurn nft newPrice newOwner =
       let minted = Map.toList <$> (Map.lookup ownCs . Value.getValue . txInfoMint $ info)
           oldName = mkTokenName nft
@@ -101,11 +107,14 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
               | tokenName2 == oldName && tokenName1 == newName -> tnAmt2 == -1 && tnAmt1 == 1
             _ -> False
 
+    checkBurn :: NftId -> Bool
     checkBurn nft =
       let oldName = mkTokenName nft
-       in Value.valueOf mintedValue ownCs oldName == -1
+          valMap = Value.getValue mintedValue
+       in Map.singleton oldName (negate 1) == fromMaybe (traceError "unreachable") (Map.lookup ownCs valMap)
 
     -- Check if collection nft is burned
+    checkCollectionNftBurned :: NftId -> Bool
     checkCollectionNftBurned nft =
       let lockingAddress = scriptHashAddress lockingScript
           containsCollectonNft tx =
@@ -113,8 +122,17 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
               && Value.valueOf (txOutValue tx) collectionNftCs (nftId'collectionNftTn nft) == 1
        in any containsCollectonNft (txInfoOutputs info)
 
+    checkUnlockNft :: NftId -> Bool
+    checkUnlockNft nft =
+      let lockingAddress = scriptHashAddress lockingScript
+          containsCollectonNft tx =
+            txOutAddress tx /= lockingAddress
+              && Value.valueOf (txOutValue tx) collectionNftCs (nftId'collectionNftTn nft) == 1
+       in any containsCollectonNft (txInfoOutputs info)
+
     -- Check that all parties received corresponding payments,
     -- and the payment utxos have the correct datum attached
+    checkPartiesGotCorrectPayments :: NftId -> Bool
     checkPartiesGotCorrectPayments nft =
       let outs = txInfoOutputs info
           price' = fromEnum $ nftId'price nft
@@ -134,7 +152,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
           ownerAddr = pubKeyHashAddress (nftId'owner nft) Nothing
           ownerShare = price' - shareToSubtract authorShareVal - shareToSubtract marketplShareVal
 
-          curSymDatum = Datum $ PlutusTx.toBuiltinData ownCs
+          curSymDatum = Datum $ PlutusTx.toBuiltinData (ownCs, mkTokenName nft)
 
           -- Don't check royalties when lower than min ada
           filterLowValue v cond
@@ -144,11 +162,9 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
             addr == addr' && val == valueOf val' Ada.adaSymbol Ada.adaToken
               && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
-          checkPaymentTxOutWithoutDatum addr val (TxOut addr' val' _) =
-            addr == addr' && val == valueOf val' Ada.adaSymbol Ada.adaToken
        in filterLowValue marketplShareVal marketplAddr
             && filterLowValue authorShareVal authorAddr
-            && any (checkPaymentTxOutWithoutDatum ownerAddr ownerShare) outs
+            && any (checkPaymentTxOut ownerAddr ownerShare) outs
 
 {-# INLINEABLE mkTokenName #-}
 mkTokenName :: NftId -> TokenName

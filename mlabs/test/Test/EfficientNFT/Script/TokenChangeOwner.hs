@@ -120,21 +120,21 @@ marketplShareCtx =
   paysToOther
     TestValues.marketplValHash
     TestValues.marketplShareVal
-    testTokenCurSym
+    (testTokenCurSym, validOldTokenName)
 
 ownerShareCtx :: ContextBuilder ( 'ForMinting MintAct)
 ownerShareCtx =
   paysToPubKeyWithDatum
     (unPaymentPubKeyHash TestValues.userOnePkh)
     TestValues.ownerShareVal
-    testTokenCurSym
+    (testTokenCurSym, validOldTokenName)
 
 authorShareCtx :: ContextBuilder ( 'ForMinting MintAct)
 authorShareCtx =
   paysToPubKeyWithDatum
     (unPaymentPubKeyHash TestValues.authorPkh)
     TestValues.authorShareVal
-    testTokenCurSym
+    (testTokenCurSym, validOldTokenName)
 
 validCtx :: ContextBuilder ( 'ForMinting MintAct)
 validCtx = marketplShareCtx <> authorShareCtx <> ownerShareCtx
