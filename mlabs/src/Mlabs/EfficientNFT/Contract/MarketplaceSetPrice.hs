@@ -56,7 +56,7 @@ marketplaceSetPrice sp = do
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
           , Constraints.mustBeSignedBy pkh
-          , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ ())
+          , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ Update)
           , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) (newNftValue <> toValue minAdaTxOut)
           , -- Hack to overcome broken balancing
             Constraints.mustPayToPubKey pkh (userValues - toValue (minAdaTxOut * 3))

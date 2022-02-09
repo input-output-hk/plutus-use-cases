@@ -42,8 +42,8 @@ import Prelude ((<$>), (<*>))
 import Prelude qualified as Hask
 
 import Mlabs.EfficientNFT.Api (NFTAppSchema, endpoints)
+import Mlabs.EfficientNFT.Dao (daoValidator)
 import Mlabs.EfficientNFT.Lock (lockValidator)
-import Mlabs.EfficientNFT.Marketplace (marketplaceValidator)
 import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types
 
@@ -83,7 +83,7 @@ instance ContractModel NftModel where
         { aNftData :: NftData
         , aMockInfo :: MockInfo
         }
-    | ActionMarketplaceWithdraw
+    | ActionMarketplaceRedeem
         { aNftData :: NftData
         , aMockInfo :: MockInfo
         }
@@ -130,7 +130,7 @@ instance ContractModel NftModel where
               <*> genNonNeg
           , uncurry ActionMarketplaceDeposit
               <$> genNftId
-          , uncurry ActionMarketplaceWithdraw
+          , uncurry ActionMarketplaceRedeem
               <$> genMarketplaceNftId
           , uncurry ActionMarketplaceSetPrice
               <$> genMarketplaceNftId
@@ -149,7 +149,7 @@ instance ContractModel NftModel where
   precondition s ActionMarketplaceDeposit {..} =
     not (Map.null $ s ^. contractState . mNfts)
       && Map.member aNftData (s ^. contractState . mNfts)
-  precondition s ActionMarketplaceWithdraw {..} =
+  precondition s ActionMarketplaceRedeem {..} =
     not (Map.null $ s ^. contractState . mMarketplace)
       && Map.member aNftData (s ^. contractState . mMarketplace)
   precondition s ActionMarketplaceSetPrice {..} =
@@ -172,7 +172,7 @@ instance ContractModel NftModel where
   perform h _ ActionMarketplaceDeposit {..} = do
     callEndpoint @"marketplace-deposit" (h $ UserKey (aMockInfo ^. mock'owner)) aNftData
     void $ Trace.waitNSlots 5
-  perform h _ ActionMarketplaceWithdraw {..} = do
+  perform h _ ActionMarketplaceRedeem {..} = do
     callEndpoint @"marketplace-redeem" (h $ UserKey (aMockInfo ^. mock'owner)) aNftData
     void $ Trace.waitNSlots 5
   perform h _ ActionMarketplaceSetPrice {..} = do
@@ -198,8 +198,8 @@ instance ContractModel NftModel where
                 validatorHash $ lockValidator (fst $ unAssetClass aCollection) 7776000 7776000
             , nftCollection'author = mockWalletPaymentPubKeyHash aAuthor
             , nftCollection'authorShare = aShare
-            , nftCollection'marketplaceScript = validatorHash marketplaceValidator
-            , nftCollection'marketplaceShare = toEnum 5
+            , nftCollection'daoScript = validatorHash daoValidator
+            , nftCollection'daoShare = toEnum 5
             }
         nftData = NftData collection nft
         curr = getCurr nftData
@@ -226,7 +226,7 @@ instance ContractModel NftModel where
     mMarketplace $~ Map.insert aNftData aMockInfo
     withdraw wal (singleton curr (mkTokenName nft) 1 <> toValue minAdaTxOut)
     wait 5
-  nextState ActionMarketplaceWithdraw {..} = do
+  nextState ActionMarketplaceRedeem {..} = do
     let wal = aMockInfo ^. mock'owner
         curr = getCurr aNftData
         nft = nftData'nftId aNftData
@@ -248,14 +248,14 @@ instance ContractModel NftModel where
         nftPrice = nftId'price oldNft
         getShare share = lovelaceValueOf $ fromEnum nftPrice * share `divide` 10000
         authorShare = getShare (fromEnum . nftCollection'authorShare $ collection)
-        marketplaceShare = getShare (fromEnum . nftCollection'marketplaceShare $ collection)
-        ownerShare = lovelaceValueOf (fromEnum nftPrice) - authorShare - marketplaceShare
+        daoShare = getShare (fromEnum . nftCollection'daoShare $ collection)
+        ownerShare = lovelaceValueOf (fromEnum nftPrice) - authorShare - daoShare
         filterLowValue v t
           | valueOf v adaSymbol adaToken < getLovelace minAdaTxOut = Hask.pure ()
           | otherwise = t
     mMarketplace $~ (Map.insert (NftData collection newNft) newInfo . Map.delete aNftData)
     filterLowValue authorShare $ transfer aNewOwner (aMockInfo ^. mock'author) authorShare
-    filterLowValue authorShare $ withdraw aNewOwner marketplaceShare
+    filterLowValue authorShare $ withdraw aNewOwner daoShare
     transfer aNewOwner (aMockInfo ^. mock'owner) ownerShare
     wait 5
 
@@ -313,8 +313,8 @@ nonExistingCollection =
     , nftCollection'lockingScript = ValidatorHash ""
     , nftCollection'author = PaymentPubKeyHash ""
     , nftCollection'authorShare = toEnum 0
-    , nftCollection'marketplaceScript = ValidatorHash ""
-    , nftCollection'marketplaceShare = toEnum 0
+    , nftCollection'daoScript = ValidatorHash ""
+    , nftCollection'daoShare = toEnum 0
     }
 
 test :: TestTree

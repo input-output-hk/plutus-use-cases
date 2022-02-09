@@ -3,9 +3,9 @@ module Test.EfficientNFT.Script.Values (
   authorPkh,
   nftPrice,
   tokenName,
-  marketplValHash,
-  marketplShare,
-  marketplShareVal,
+  daoValHash,
+  daoShare,
+  daoShareVal,
   authorShare,
   authorShareVal,
   ownerShareVal,
@@ -73,9 +73,9 @@ import Test.Tasty.Plutus.WithScript (WithScript)
 import Wallet.Emulator.Types qualified as Emu
 import Prelude (elem)
 
-import Mlabs.EfficientNFT.Lock
-import Mlabs.EfficientNFT.Marketplace
-import Mlabs.EfficientNFT.Types
+import Mlabs.EfficientNFT.Dao (daoValidator)
+import Mlabs.EfficientNFT.Lock (lockValidator, mkValidator)
+import Mlabs.EfficientNFT.Types (LockAct, LockDatum, MintAct, NftCollection (..), NftId (..))
 
 mintTxOutRef :: TxOutRef
 mintTxOutRef = TxOutRef txId 1
@@ -107,14 +107,14 @@ userTwoPkh = Emu.mockWalletPaymentPubKeyHash userTwoWallet
 nftPrice :: Natural
 nftPrice = toEnum 100_000_000
 
-marketplValHash :: ValidatorHash
-marketplValHash = validatorHash marketplaceValidator
+daoValHash :: ValidatorHash
+daoValHash = validatorHash daoValidator
 
-marketplShare :: Natural
-marketplShare = toEnum 10_00
+daoShare :: Natural
+daoShare = toEnum 10_00
 
-marketplShareVal :: Value
-marketplShareVal = Ada.lovelaceValueOf 10_000_000
+daoShareVal :: Value
+daoShareVal = Ada.lovelaceValueOf 10_000_000
 
 authorShare :: Natural
 authorShare = toEnum 15_00
@@ -156,8 +156,8 @@ collection =
     , nftCollection'lockingScript = validatorHash $ lockValidator (fst $ unAssetClass collectionNft) 7776000 7776000
     , nftCollection'author = authorPkh
     , nftCollection'authorShare = authorShare
-    , nftCollection'marketplaceScript = validatorHash marketplaceValidator
-    , nftCollection'marketplaceShare = marketplShare
+    , nftCollection'daoScript = validatorHash daoValidator
+    , nftCollection'daoShare = daoShare
     }
 
 nft1 :: NftId
@@ -193,8 +193,8 @@ testTokenPolicy =
         `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'lockingScript collection)
         `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'author collection)
         `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'authorShare collection)
-        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'marketplaceScript collection)
-        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'marketplaceShare collection)
+        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'daoScript collection)
+        `PlutusTx.applyCode` PlutusTx.liftCode (nftCollection'daoShare collection)
     )
     $$(PlutusTx.compile [||toTestMintingPolicy||])
 

@@ -46,7 +46,7 @@ marketplaceRedeem nftData = do
       tx =
         Hask.mconcat
           [ Constraints.mustPayToPubKey pkh (nftValue <> toValue minAdaTxOut)
-          , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ ())
+          , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ Redeem nft)
           , Constraints.mustBeSignedBy pkh
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
