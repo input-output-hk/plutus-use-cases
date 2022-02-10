@@ -274,6 +274,7 @@ test-suite mlabs-plutus-use-cases-tests
     , plutus-tx
     , plutus-tx-plugin
     , plutus-tx-spooky
+    , plutus-simple-model
     , plutus-use-cases
     , pretty-show
     , prettyprinter
@@ -289,6 +290,7 @@ test-suite mlabs-plutus-use-cases-tests
 
   other-modules:
     Test.Demo.Contract.Mint
+    Test.EfficientNFT.Resources
     Test.EfficientNFT.Script.TokenBurn
     Test.EfficientNFT.Script.TokenChangeOwner
     Test.EfficientNFT.Script.TokenChangePrice

@@ -53,6 +53,7 @@ pkgs.haskell-nix.cabalProject {
         plutus-tx
         plutus-tx-plugin
         plutus-tx-spooky
+        plutus-simple-model
         plutus-use-cases
         prettyprinter-configurable
         quickcheck-dynamic
@@ -107,6 +108,9 @@ pkgs.haskell-nix.cabalProject {
 
       plutus-ledger.doHaddock = deferPluginErrors;
       plutus-ledger.flags.defer-plugin-errors = deferPluginErrors;
+
+      plutus-simple-model.doHaddock = false;
+      plutus-simple-model.flags.defer-plugin-errors = deferPluginErrors;
 
       # see https://github.com/input-output-hk/haskell.nix/issues/1128
       ieee.components.library.libs = pkgs.lib.mkForce [ ];
@@ -284,6 +288,10 @@ pkgs.haskell-nix.cabalProject {
     }
     {
       src = inputs.plutus-tx-spooky;
+      subdirs = [ "." ];
+    }
+    {
+      src = inputs.plutus-simple-model;
       subdirs = [ "." ];
     }
     {

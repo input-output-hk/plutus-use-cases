@@ -3,6 +3,7 @@ module Main (main) where
 import PlutusTx.Prelude
 import Prelude (IO, replicate)
 
+import Plutus.Test.Model (readDefaultBchConfig)
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.ExpectedFailure (ignoreTest)
 
@@ -18,6 +19,7 @@ import Test.Tasty.ExpectedFailure (ignoreTest)
 -- import Test.NftStateMachine.Logic qualified as Nft.Logic
 
 import Test.EfficientNFT.Quickcheck qualified as ENFT.Quickcheck
+import Test.EfficientNFT.Resources qualified as ENFT.Resources
 import Test.EfficientNFT.Script.TokenBurn qualified as ENFT.TokenBurn
 import Test.EfficientNFT.Script.TokenChangeOwner qualified as ENFT.TokenChangeOwner
 import Test.EfficientNFT.Script.TokenChangePrice qualified as ENFT.TokenChangePrice
@@ -29,7 +31,8 @@ import Test.EfficientNFT.Trace qualified as ENFT.Trace
 import Test.NFT.Size qualified as NFT.Size
 
 main :: IO ()
-main =
+main = do
+  cfg <- readDefaultBchConfig
   defaultMain $
     testGroup
       "tests"
@@ -52,6 +55,7 @@ main =
         testGroup
           "Efficient NFT"
           [ ENFT.Size.test
+          , ENFT.Resources.test cfg
           , ENFT.TokenMint.test
           , ENFT.TokenChangeOwner.test
           , ENFT.TokenChangePrice.test

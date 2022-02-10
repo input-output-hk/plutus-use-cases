@@ -602,6 +602,23 @@
         "type": "github"
       }
     },
+    "plutus-simple-model": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1644261923,
+        "narHash": "sha256-bs8XhMhh6Kx2jy9zdjW8NfgsWgBu4+iAQriSXXT3bro=",
+        "owner": "t4ccer",
+        "repo": "plutus-simple-model",
+        "rev": "48c186f96e3a8a07bceb1a4b39a7dfeacddde42b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "t4ccer",
+        "repo": "plutus-simple-model",
+        "rev": "48c186f96e3a8a07bceb1a4b39a7dfeacddde42b",
+        "type": "github"
+      }
+    },
     "plutus-tx-spooky": {
       "flake": false,
       "locked": {
@@ -661,6 +678,7 @@
         "plutus": "plutus",
         "plutus-apps": "plutus-apps",
         "plutus-extra": "plutus-extra",
+        "plutus-simple-model": "plutus-simple-model",
         "plutus-tx-spooky": "plutus-tx-spooky",
         "purescript-bridge": "purescript-bridge",
         "servant-purescript": "servant-purescript"
