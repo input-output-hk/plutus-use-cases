@@ -7,93 +7,68 @@ import PlutusTx qualified
 import PlutusTx.Prelude
 
 import Ledger (
+  CurrencySymbol,
   ScriptContext,
+  TokenName,
   TxInInfo (txInInfoResolved),
   TxInfo (txInfoInputs, txInfoMint),
   TxOut (txOutAddress),
-  getContinuingOutputs,
+  Value,
   mkValidatorScript,
   ownHash,
   scriptContextTxInfo,
   scriptHashAddress,
   txOutValue,
-  txSignedBy,
-  unPaymentPubKeyHash,
  )
 import Ledger.Typed.Scripts (Any, TypedValidator, unsafeMkTypedValidator, wrapValidator)
 import Ledger.Value (getValue, valueOf)
-import Mlabs.EfficientNFT.Token (mkTokenName)
-import Mlabs.EfficientNFT.Types (MarketplaceAct (Redeem, Update), nftId'owner)
 import Plutus.V1.Ledger.Ada (adaSymbol)
 import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Bifunctor (second)
 
 -- | An escrow-like validator, that holds an NFT until sold or pulled out
 {-# INLINEABLE mkValidator #-}
-mkValidator :: BuiltinData -> MarketplaceAct -> ScriptContext -> Bool
-mkValidator _ act ctx =
-  case act of
-    Redeem nft ->
-      traceIfFalse "Must be signed by the owner" (checkSignedByOwner nft)
-    Update ->
-      traceIfFalse "Token can only be updated when the policy allows a remint" checkRemint
+mkValidator :: BuiltinData -> BuiltinData -> ScriptContext -> Bool
+mkValidator _ _ ctx =
+  traceIfFalse "All spent tokens must be reminted" checkRemint
   where
-    (nftCS, nftTN) =
-      let vals =
-            fmap (second AssocMap.toList)
-              . filter ((/= adaSymbol) . fst)
-              . AssocMap.toList
-              . getValue
-              . txOutValue
-              $ inTx
-       in case vals of
-            [(cs, [(tn, _)])] -> (cs, tn)
-            _ -> error ()
-
+    info :: TxInfo
     info = scriptContextTxInfo ctx
 
-    inTx :: TxOut
-    !inTx =
-      ( \case
-          [] -> traceError "Unreachable: No input"
-          [tx] -> tx
-          _ -> traceError "More than one input"
-      )
-        . filter ((== scriptHashAddress (ownHash ctx)) . txOutAddress)
+    getSeabugs :: [TxOut] -> [(CurrencySymbol, TokenName)]
+    getSeabugs =
+      filter (\(cs, _) -> cs /= adaSymbol)
+        . fmap (\(cs, tn, _) -> (cs, tn))
+        . flattenValue
+        . mconcat
+        . fmap txOutValue
+
+    inputs :: [TxOut]
+    inputs =
+      filter ((== scriptHashAddress (ownHash ctx)) . txOutAddress)
         . fmap txInInfoResolved
         . txInfoInputs
         $ info
 
-    outTx :: TxOut
-    outTx =
-      ( \case
-          [] -> traceError "No CO"
-          [tx] -> tx
-          _ -> traceError "More than one CO"
-      )
-        . getContinuingOutputs
-        $ ctx
-
-    -- Check if owner of nft sign transaction
-    checkSignedByOwner nft =
-      let isSigned = txSignedBy info . unPaymentPubKeyHash . nftId'owner $ nft
-          namesMatch = nftTN == mkTokenName nft
-       in isSigned && namesMatch
-
-    -- Check if token from the current input is reminted
+    checkRemint :: Bool
     checkRemint =
-      let getSg =
-            head
-              . AssocMap.keys
-              . fromMaybe (traceError "Mising Sg in output")
-              . AssocMap.lookup nftCS
-              . getValue
-              . txOutValue
-          oldTN = getSg inTx
-          burnOld = valueOf (txInfoMint info) nftCS oldTN == -1
-          newTN = getSg outTx
-          mintNew = valueOf (txInfoMint info) nftCS newTN == 1
-       in burnOld && mintNew
+      let checkRemintOne (cs, tn) = valueOf (txInfoMint info) cs tn == -1
+       in all checkRemintOne (getSeabugs inputs)
+
+-- FIXME: For some reason plutus can't compile `flattenValue` from lib
+--        so here is a hack (literally copy-pasted from lib)
+{-# INLINEABLE flattenValue #-}
+
+-- | Convert a value to a simple list, keeping only the non-zero amounts.
+flattenValue :: Value -> [(CurrencySymbol, TokenName, Integer)]
+flattenValue v = goOuter [] (AssocMap.toList $ getValue v)
+  where
+    goOuter acc [] = acc
+    goOuter acc ((cs, m) : tl) = goOuter (goInner cs acc (AssocMap.toList m)) tl
+
+    goInner _ acc [] = acc
+    goInner cs acc ((tn, a) : tl)
+      | a /= 0 = goInner cs ((cs, tn, a) : acc) tl
+      | otherwise = goInner cs acc tl
 
 marketplaceValidator :: TypedValidator Any
 marketplaceValidator = unsafeMkTypedValidator v

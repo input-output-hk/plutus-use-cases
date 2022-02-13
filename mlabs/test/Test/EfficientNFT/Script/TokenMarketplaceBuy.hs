@@ -3,7 +3,7 @@ module Test.EfficientNFT.Script.TokenMarketplaceBuy (test) where
 import Prelude
 
 import Ledger (CurrencySymbol, minAdaTxOut, unPaymentPubKeyHash)
-import Ledger.Value (CurrencySymbol (CurrencySymbol), TokenName (TokenName), singleton)
+import Ledger.Value (CurrencySymbol (CurrencySymbol), TokenName (TokenName, unTokenName), singleton)
 import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import PlutusTx.Builtins (BuiltinData)
@@ -14,18 +14,15 @@ import Test.Tasty.Plutus.TestData (TestData (SpendingTest))
 import Test.Tasty.Plutus.WithScript (withTestScript)
 
 import Mlabs.EfficientNFT.Token (mkTokenName)
-import Mlabs.EfficientNFT.Types
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
 test :: TestTree
 test = withTestScript "Buy" TestValues.testMarketplaceScript $ do
   shouldValidate "Buy with valid data and context" validData validCtx
 
-  shouldn'tValidate "Fail when consuming two inputs 1" twoInputsData1 twoInputsCtx1
+  shouldValidate "Buy multiple tokens" multipleTokensData multipleTokensCtx
 
-  shouldn'tValidate "Fail when consuming two inputs 2" twoInputsData2 twoInputsCtx2
-
-  shouldn'tValidate "Fail when not minting" validData noMintCtx
+  shouldn'tValidate "Fail when not minting" multipleTokensData noMintCtx
 
 dtm :: BuiltinData
 dtm = toBuiltinData ()
@@ -45,39 +42,29 @@ validOldTokenName = mkTokenName TestValues.nft2
 validNewTokenName :: TokenName
 validNewTokenName = mkTokenName TestValues.nft3
 
-validData :: TestData ( 'ForSpending BuiltinData MarketplaceAct)
+validData :: TestData ( 'ForSpending BuiltinData BuiltinData)
 validData = SpendingTest dtm redeemer val
   where
-    redeemer = Update
+    redeemer = dtm
     val =
       mconcat
         [ toValue minAdaTxOut
         , singleton mockSgCs validOldTokenName 1
         ]
 
-twoInputsData1 :: TestData ( 'ForSpending BuiltinData MarketplaceAct)
-twoInputsData1 = SpendingTest dtm redeemer val
+multipleTokensData :: TestData ( 'ForSpending BuiltinData BuiltinData)
+multipleTokensData = SpendingTest dtm redeemer val
   where
-    redeemer = Update
+    redeemer = dtm
     val =
       mconcat
         [ toValue minAdaTxOut
-        , singleton mockSgCs TestValues.tokenName 1
+        , singleton mockSgCs validOldTokenName 1
+        , singleton mockSgCs secondTn 1
         , singleton secondCs TestValues.tokenName 1
         ]
 
-twoInputsData2 :: TestData ( 'ForSpending BuiltinData MarketplaceAct)
-twoInputsData2 = SpendingTest dtm redeemer val
-  where
-    redeemer = Update
-    val =
-      mconcat
-        [ toValue minAdaTxOut
-        , singleton mockSgCs TestValues.tokenName 1
-        , singleton mockSgCs secondTn 1
-        ]
-
-validCtx :: ContextBuilder ( 'ForSpending BuiltinData MarketplaceAct)
+validCtx :: ContextBuilder ( 'ForSpending BuiltinData BuiltinData)
 validCtx =
   mconcat
     [ mintsValue $
@@ -95,50 +82,45 @@ validCtx =
     , royalitiesCtx
     ]
 
-noMintCtx :: ContextBuilder ( 'ForSpending BuiltinData MarketplaceAct)
+multipleTokensCtx :: ContextBuilder ( 'ForSpending BuiltinData BuiltinData)
+multipleTokensCtx =
+  mconcat
+    [ mintsValue $
+        mconcat
+          [ singleton mockSgCs validOldTokenName (negate 1)
+          , singleton mockSgCs validNewTokenName 1
+          , singleton mockSgCs secondTn (negate 1)
+          , singleton mockSgCs (TokenName (unTokenName secondTn <> "x")) 1
+          , singleton secondCs TestValues.tokenName (negate 1)
+          , singleton secondCs (TokenName (unTokenName TestValues.tokenName <> "x")) 1
+          ]
+    , paysToSelf
+        ( mconcat
+            [ singleton mockSgCs validNewTokenName 1
+            , singleton mockSgCs (TokenName (unTokenName secondTn <> "x")) 1
+            , singleton secondCs (TokenName (unTokenName TestValues.tokenName <> "x")) 1
+            , toValue minAdaTxOut
+            ]
+        )
+        dtm
+    , royalitiesCtx
+    ]
+
+noMintCtx :: ContextBuilder ( 'ForSpending BuiltinData BuiltinData)
 noMintCtx =
   mconcat
-    [ paysToSelf
-        ( mconcat
-            [ singleton mockSgCs validOldTokenName 1
-            , toValue minAdaTxOut
-            ]
-        )
-        dtm
-    , royalitiesCtx
-    ]
-
-twoInputsCtx1 :: ContextBuilder ( 'ForSpending BuiltinData MarketplaceAct)
-twoInputsCtx1 =
-  mconcat
     [ mintsValue $
         mconcat
-          [ singleton mockSgCs validOldTokenName (negate 1)
-          , singleton mockSgCs validNewTokenName 1
+          [ singleton mockSgCs validOldTokenName 1
+          , toValue minAdaTxOut
+          , singleton mockSgCs secondTn (negate 1)
+          , singleton mockSgCs (TokenName (unTokenName secondTn <> "x")) 1
           ]
     , paysToSelf
         ( mconcat
             [ singleton mockSgCs validNewTokenName 1
-            , singleton secondCs validNewTokenName 1
-            , toValue minAdaTxOut
-            ]
-        )
-        dtm
-    , royalitiesCtx
-    ]
-
-twoInputsCtx2 :: ContextBuilder ( 'ForSpending BuiltinData MarketplaceAct)
-twoInputsCtx2 =
-  mconcat
-    [ mintsValue $
-        mconcat
-          [ singleton mockSgCs validOldTokenName (negate 1)
-          , singleton mockSgCs validNewTokenName 1
-          ]
-    , paysToSelf
-        ( mconcat
-            [ singleton mockSgCs validNewTokenName 1
-            , singleton mockSgCs secondTn 1
+            , singleton mockSgCs (TokenName (unTokenName secondTn <> "x")) 1
+            , singleton secondCs TestValues.tokenName 1
             , toValue minAdaTxOut
             ]
         )

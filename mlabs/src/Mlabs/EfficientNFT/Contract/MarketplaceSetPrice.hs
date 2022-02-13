@@ -5,7 +5,6 @@ import Prelude qualified as Hask
 
 import Control.Monad (void)
 import Data.Map qualified as Map
-import Data.Monoid (mconcat)
 import Ledger (Datum (Datum), Redeemer (Redeemer), minAdaTxOut, scriptHashAddress, _ciTxOutValue)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
@@ -43,8 +42,7 @@ marketplaceSetPrice sp = do
   pkh <- Contract.ownPaymentPubKeyHash
   userUtxos <- getUserUtxos
   Contract.logInfo @Hask.String $ printf "Script UTXOs: %s" (Hask.show . _ciTxOutValue $ utxoIndex)
-  let userValues = mconcat . fmap _ciTxOutValue . Map.elems $ userUtxos
-      lookup =
+  let lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
           , Constraints.typedValidatorLookups marketplaceValidator
@@ -56,10 +54,8 @@ marketplaceSetPrice sp = do
         Hask.mconcat
           [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
           , Constraints.mustBeSignedBy pkh
-          , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ Update)
+          , Constraints.mustSpendScriptOutput utxo (Redeemer $ toBuiltinData ())
           , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) (newNftValue <> toValue minAdaTxOut)
-          , -- Hack to overcome broken balancing
-            Constraints.mustPayToPubKey pkh (userValues - toValue (minAdaTxOut * 3))
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ NftData collection newNft

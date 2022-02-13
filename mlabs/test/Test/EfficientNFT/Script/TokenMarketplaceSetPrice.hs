@@ -3,7 +3,7 @@ module Test.EfficientNFT.Script.TokenMarketplaceSetPrice (test) where
 import Prelude
 
 import Ledger (CurrencySymbol, minAdaTxOut)
-import Ledger.Value (CurrencySymbol (CurrencySymbol), TokenName (TokenName), singleton)
+import Ledger.Value (CurrencySymbol (CurrencySymbol), TokenName (TokenName), singleton, unTokenName)
 import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (ToData (toBuiltinData))
 import PlutusTx.Builtins (BuiltinData)
@@ -13,18 +13,15 @@ import Test.Tasty.Plutus.Script.Unit (shouldValidate, shouldn'tValidate)
 import Test.Tasty.Plutus.TestData (TestData (SpendingTest))
 import Test.Tasty.Plutus.WithScript (withTestScript)
 
-import Mlabs.EfficientNFT.Types
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
 test :: TestTree
 test = withTestScript "Change price" TestValues.testMarketplaceScript $ do
   shouldValidate "Change price with valid data and context" validData validCtx
 
-  shouldn'tValidate "Fail when consuming two inputs 1" twoInputsData1 twoInputsCtx1
+  shouldValidate "Change price of multiple tokens" multipleTokensData multipleTokensCtx
 
-  shouldn'tValidate "Fail when consuming two inputs 2" twoInputsData2 twoInputsCtx2
-
-  shouldn'tValidate "Fail when not minting" validData noMintCtx
+  shouldn'tValidate "Fail when not minting" multipleTokensData noMintCtx
 
 dtm :: BuiltinData
 dtm = toBuiltinData ()
@@ -38,39 +35,29 @@ secondCs = CurrencySymbol "aa"
 secondTn :: TokenName
 secondTn = TokenName "foo"
 
-validData :: TestData ( 'ForSpending BuiltinData MarketplaceAct)
+validData :: TestData ( 'ForSpending BuiltinData BuiltinData)
 validData = SpendingTest dtm redeemer val
   where
-    redeemer = Update
+    redeemer = dtm
     val =
       mconcat
         [ toValue minAdaTxOut
         , singleton mockSgCs TestValues.tokenName 1
         ]
 
-twoInputsData1 :: TestData ( 'ForSpending BuiltinData MarketplaceAct)
-twoInputsData1 = SpendingTest dtm redeemer val
+multipleTokensData :: TestData ( 'ForSpending BuiltinData BuiltinData)
+multipleTokensData = SpendingTest dtm redeemer val
   where
-    redeemer = Update
-    val =
-      mconcat
-        [ toValue minAdaTxOut
-        , singleton mockSgCs TestValues.tokenName 1
-        , singleton secondCs TestValues.tokenName 1
-        ]
-
-twoInputsData2 :: TestData ( 'ForSpending BuiltinData MarketplaceAct)
-twoInputsData2 = SpendingTest dtm redeemer val
-  where
-    redeemer = Update
+    redeemer = dtm
     val =
       mconcat
         [ toValue minAdaTxOut
         , singleton mockSgCs TestValues.tokenName 1
         , singleton mockSgCs secondTn 1
+        , singleton secondCs TestValues.tokenName 1
         ]
 
-validCtx :: ContextBuilder ( 'ForSpending BuiltinData MarketplaceAct)
+validCtx :: ContextBuilder ( 'ForSpending BuiltinData BuiltinData)
 validCtx =
   mconcat
     [ mintsValue $
@@ -87,31 +74,17 @@ validCtx =
         dtm
     ]
 
-twoInputsCtx1 :: ContextBuilder ( 'ForSpending BuiltinData MarketplaceAct)
-twoInputsCtx1 =
+multipleTokensCtx :: ContextBuilder ( 'ForSpending BuiltinData BuiltinData)
+multipleTokensCtx =
   mconcat
     [ mintsValue $
         mconcat
           [ singleton mockSgCs TestValues.tokenName (negate 1)
           , singleton mockSgCs TestValues.newPriceTokenName 1
-          ]
-    , paysToSelf
-        ( mconcat
-            [ singleton mockSgCs TestValues.newPriceTokenName 1
-            , singleton secondCs TestValues.tokenName 1
-            , toValue minAdaTxOut
-            ]
-        )
-        dtm
-    ]
-
-twoInputsCtx2 :: ContextBuilder ( 'ForSpending BuiltinData MarketplaceAct)
-twoInputsCtx2 =
-  mconcat
-    [ mintsValue $
-        mconcat
-          [ singleton mockSgCs TestValues.tokenName (negate 1)
-          , singleton mockSgCs TestValues.newPriceTokenName 1
+          , singleton mockSgCs secondTn (negate 1)
+          , singleton mockSgCs (TokenName (unTokenName secondTn <> "x")) 1
+          , singleton secondCs TestValues.tokenName (negate 1)
+          , singleton secondCs (TokenName (unTokenName TestValues.tokenName <> "x")) 1
           ]
     , paysToSelf
         ( mconcat
@@ -122,13 +95,21 @@ twoInputsCtx2 =
         )
         dtm
     ]
-
-noMintCtx :: ContextBuilder ( 'ForSpending BuiltinData MarketplaceAct)
+noMintCtx :: ContextBuilder ( 'ForSpending BuiltinData BuiltinData)
 noMintCtx =
   mconcat
-    [ paysToSelf
+    [ mintsValue $
+        mconcat
+          [ singleton mockSgCs TestValues.newPriceTokenName 1
+          , toValue minAdaTxOut
+          , singleton mockSgCs secondTn (negate 1)
+          , singleton mockSgCs (TokenName (unTokenName secondTn <> "x")) 1
+          ]
+    , paysToSelf
         ( mconcat
-            [ singleton mockSgCs TestValues.tokenName 1
+            [ singleton mockSgCs TestValues.newPriceTokenName 1
+            , singleton mockSgCs (TokenName (unTokenName secondTn <> "x")) 1
+            , singleton secondCs TestValues.tokenName 1
             , toValue minAdaTxOut
             ]
         )

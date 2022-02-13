@@ -70,7 +70,7 @@ marketplaceBuy nftData = do
             (Constraints.mustPayWithDatumToPubKey (nftCollection'author . nftData'nftCollection $ nftData) datum)
           <> Hask.mconcat
             [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
-            , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ Update)
+            , Constraints.mustSpendScriptOutput utxo (Redeemer $ toBuiltinData ())
             , Constraints.mustPayWithDatumToPubKey (nftId'owner nft) datum ownerShare
             , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) (newNftValue <> toValue minAdaTxOut)
             ]

@@ -59,12 +59,18 @@ main = do
           "Efficient NFT"
           [ ENFT.Size.test
           , ENFT.Resources.test cfg
-          , ENFT.TokenMint.test
-          , ENFT.TokenChangeOwner.test
-          , ENFT.TokenChangePrice.test
-          , ENFT.TokenBurn.test
-          , ENFT.TokenUnstake.test
-          , ENFT.TokenRestake.test
+          , testGroup
+              "Token"
+              [ ENFT.TokenMint.test
+              , ENFT.TokenChangeOwner.test
+              , ENFT.TokenChangePrice.test
+              , ENFT.TokenBurn.test
+              ]
+          , testGroup
+              "Staking"
+              [ ENFT.TokenUnstake.test
+              , ENFT.TokenRestake.test
+              ]
           , testGroup
               "Marketplace"
               [ ENFT.TokenMarketplaceSetPrice.test

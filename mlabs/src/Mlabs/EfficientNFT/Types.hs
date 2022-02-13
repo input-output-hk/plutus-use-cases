@@ -15,7 +15,6 @@ module Mlabs.EfficientNFT.Types (
   Hashable (..),
   LockAct (..),
   LockDatum (..),
-  MarketplaceAct (..),
 ) where
 
 import PlutusTx qualified
@@ -175,10 +174,3 @@ PlutusTx.unstableMakeIsData ''LockDatum
 instance Eq LockDatum where
   {-# INLINEABLE (==) #-}
   LockDatum a b c == LockDatum a' b' c' = a == a' && b == b' && c == c'
-
-data MarketplaceAct
-  = Update
-  | Redeem NftId
-  deriving stock (Hask.Show)
-
-PlutusTx.unstableMakeIsData ''MarketplaceAct

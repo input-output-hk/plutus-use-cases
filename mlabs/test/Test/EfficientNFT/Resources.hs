@@ -29,7 +29,6 @@ import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types (
   LockAct (Unstake),
   LockDatum (LockDatum),
-  MarketplaceAct (Redeem, Update),
   MintAct (BurnToken, ChangeOwner, ChangePrice, MintToken),
   NftCollection (NftCollection),
   NftData (NftData),
@@ -78,7 +77,6 @@ import PlutusTx.Enum (fromEnum, toEnum)
 import PlutusTx.Prelude (divide)
 import Test.Tasty (TestTree, testGroup)
 
--- test :: TestTree
 test :: BchConfig -> TestTree
 test cfg =
   testGroup
@@ -159,7 +157,7 @@ marketplaceBuy newOwner nftData = do
     . mconcat
     $ [ mintValue policy' (newNftVal <> oldNftVal)
       , payToScript marketplaceValidator (toBuiltinData ()) (newNftVal <> toValue minAdaTxOut)
-      , spendBox marketplaceValidator (toBuiltinData Update) box
+      , spendBox marketplaceValidator (toBuiltinData ()) box
       , payWithDatumToPubKey oldOwner datum (lovelaceValueOf oldPrice)
       , userSpend utxos
       ]
@@ -202,7 +200,7 @@ marketplaceChangePrice newPrice nftData = do
     . mconcat
     $ [ mintValue policy' (newNftVal <> oldNftVal)
       , payToScript marketplaceValidator (toBuiltinData ()) (newNftVal <> toValue minAdaTxOut)
-      , spendBox marketplaceValidator (toBuiltinData Update) box
+      , spendBox marketplaceValidator (toBuiltinData ()) box
       ]
   pure $ NftData (nftData'nftCollection nftData) newNft
   where
@@ -223,18 +221,26 @@ marketplaceRedeem nftData = do
   box <- fromJust . find findNft <$> scriptBoxAt marketplaceValidator
   void
     . (sendTx <=< signTx owner)
+    . addMintRedeemer policy' redeemer
     . mconcat
-    $ [ spendBox marketplaceValidator (toBuiltinData . Redeem . nftData'nftId $ nftData) box
-      , payToPubKey owner (nftVal <> toValue minAdaTxOut)
+    $ [ mintValue policy' (newNftVal <> oldNftVal)
+      , payToPubKey owner (newNftVal <> toValue minAdaTxOut)
+      , spendBox marketplaceValidator (toBuiltinData ()) box
       ]
-  pure nftData
+  pure $ NftData (nftData'nftCollection nftData) newNft
   where
-    findNft box = valueOf (txOutValue . txBoxOut $ box) nftCS nftTN == 1
+    findNft box = valueOf (txOutValue . txBoxOut $ box) nftCS oldNftTN == 1
+    redeemer = ChangePrice oldNft (toEnum newPrice)
     policy' = policy (nftData'nftCollection nftData)
-    nftTN = mkTokenName . nftData'nftId $ nftData
     nftCS = scriptCurrencySymbol policy'
-    nftVal = singleton nftCS nftTN 1
-    owner = unPaymentPubKeyHash . nftId'owner . nftData'nftId $ nftData
+    oldNft = nftData'nftId nftData
+    oldNftTN = mkTokenName oldNft
+    oldNftVal = singleton nftCS oldNftTN (-1)
+    newNft = oldNft {nftId'price = toEnum newPrice}
+    newNftTN = mkTokenName newNft
+    newNftVal = singleton nftCS newNftTN 1
+    owner = unPaymentPubKeyHash . nftId'owner $ oldNft
+    newPrice = subtract 1 . fromEnum . nftId'price $ oldNft
 
 marketplaceDeposit :: NftData -> Run NftData
 marketplaceDeposit nftData = do

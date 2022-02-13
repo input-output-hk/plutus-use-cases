@@ -229,10 +229,13 @@ instance ContractModel NftModel where
   nextState ActionMarketplaceRedeem {..} = do
     let wal = aMockInfo ^. mock'owner
         curr = getCurr aNftData
-        nft = nftData'nftId aNftData
-    mNfts $~ Map.insert aNftData aMockInfo
+        newPrice = toEnum (fromEnum (nftId'price oldNft) + 1)
+        oldNft = nftData'nftId aNftData
+        newNft = oldNft {nftId'price = newPrice}
+        collection = nftData'nftCollection aNftData
+    mNfts $~ Map.insert (NftData collection newNft) aMockInfo
     mMarketplace $~ Map.delete aNftData
-    deposit wal (singleton curr (mkTokenName nft) 1 <> toValue minAdaTxOut)
+    deposit wal (singleton curr (mkTokenName newNft) 1 <> toValue minAdaTxOut)
     wait 5
   nextState ActionMarketplaceSetPrice {..} = do
     let oldNft = nftData'nftId aNftData
