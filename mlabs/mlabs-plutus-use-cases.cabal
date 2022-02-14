@@ -258,6 +258,7 @@ test-suite mlabs-plutus-use-cases-tests
 
   build-depends:
     , base
+    , bot-plutus-interface
     , containers
     , data-default
     , freer-extras
@@ -277,6 +278,7 @@ test-suite mlabs-plutus-use-cases-tests
     , plutus-tx-spooky
     , plutus-simple-model
     , plutus-use-cases
+    , plutip
     , pretty-show
     , prettyprinter
     , QuickCheck

@@ -38,7 +38,6 @@
     cardano-node = {
       url =
         "github:input-output-hk/cardano-node/4f65fb9a27aa7e3a1873ab4211e412af780a3648";
-      flake = false;
     };
     cardano-prelude = {
       url =
@@ -115,6 +114,15 @@
         "github:input-output-hk/Win32-network/3825d3abf75f83f406c1f7161883c438dac7277d";
       flake = false;
     };
+    plutip = {
+      url = "github:mlabs-haskell/plutip/5506f9c26d0548b50ca1d647a2a209682ac0e47e";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.cardano-node.follows = "cardano-node";
+      inputs.haskell-nix.follows = "haskell-nix";
+    };
+    bot-plutus-interface = {
+      follows = "plutip/bot-plutus-interface";
+    };
   };
 
   outputs = { self, nixpkgs, haskell-nix, iohk-nix, ... }@inputs:
@@ -135,7 +143,9 @@
           pkgs = nixpkgsFor system;
           plutus = import inputs.plutus { inherit system; };
           src = ./.;
-        in import ./nix/haskell.nix { inherit src inputs pkgs system; };
+          cardano-cli = (builtins.getFlake "github:input-output-hk/cardano-node/${inputs.cardano-node.rev}").packages.${system}.cardano-cli;
+          cardano-node = (builtins.getFlake "github:input-output-hk/cardano-node/${inputs.cardano-node.rev}").packages.${system}.cardano-node;
+        in import ./nix/haskell.nix { inherit src inputs pkgs cardano-cli cardano-node system; };
 
     in {
       flake = perSystem (system: (projectFor system).flake { });
@@ -154,7 +164,8 @@
       check = perSystem (system:
         (nixpkgsFor system).runCommand "combined-check" {
           nativeBuildInputs = builtins.attrValues self.checks.${system}
-            ++ builtins.attrValues self.flake.${system}.packages;
+            ++ builtins.attrValues self.flake.${system}.packages
+            ++ [ self.flake.${system}.devShell.inputDerivation ];
         } "touch $out");
 
       # NOTE `nix flake check` will not work at the moment due to use of

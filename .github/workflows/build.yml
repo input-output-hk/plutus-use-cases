@@ -26,4 +26,7 @@ jobs:
           authToken: "${{ secrets.CACHIXKEY }}"
       - name: Build all project components
         working-directory: ./mlabs
-        run: nix build -L .#check.x86_64-linux
+        run: nix build -L .#packages.x86_64-linux."mlabs-plutus-use-cases:test:mlabs-plutus-use-cases-tests"
+      - name: Run tests
+        working-directory: ./mlabs
+        run: ./result/bin/mlabs-plutus-use-cases-tests
