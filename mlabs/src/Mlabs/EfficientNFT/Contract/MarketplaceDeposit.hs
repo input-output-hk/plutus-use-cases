@@ -39,7 +39,7 @@ marketplaceDeposit nftData = do
         Hask.mconcat
           [ Constraints.mustPayToOtherScript
               valHash
-              (Datum $ toBuiltinData ())
+              (Datum . toBuiltinData . MarketplaceDatum $ assetClass curr tn)
               (nftValue <> toValue minAdaTxOut)
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx

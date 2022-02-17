@@ -8,6 +8,7 @@ import Data.Default (def)
 import Data.List (find)
 import Data.Maybe (fromJust)
 import Ledger (
+  Datum (Datum),
   Extended (Finite, PosInf),
   Interval (Interval),
   LowerBound (LowerBound),
@@ -21,7 +22,7 @@ import Ledger (
  )
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Ledger.Typed.Scripts (validatorHash)
-import Ledger.Value (Value, singleton, unAssetClass, valueOf)
+import Ledger.Value (Value, assetClass, singleton, unAssetClass, valueOf)
 import Mlabs.EfficientNFT.Dao (daoValidator)
 import Mlabs.EfficientNFT.Lock (lockValidator)
 import Mlabs.EfficientNFT.Marketplace (marketplaceValidator)
@@ -29,6 +30,7 @@ import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types (
   LockAct (Unstake),
   LockDatum (LockDatum),
+  MarketplaceDatum (MarketplaceDatum),
   MintAct (BurnToken, ChangeOwner, ChangePrice, MintToken),
   NftCollection (NftCollection),
   NftData (NftData),
@@ -156,7 +158,10 @@ marketplaceBuy newOwner nftData = do
     . addMintRedeemer policy' redeemer
     . mconcat
     $ [ mintValue policy' (newNftVal <> oldNftVal)
-      , payToScript marketplaceValidator (toBuiltinData ()) (newNftVal <> toValue minAdaTxOut)
+      , payToScript
+          marketplaceValidator
+          (toBuiltinData . MarketplaceDatum $ assetClass nftCS newNftTN)
+          (newNftVal <> toValue minAdaTxOut)
       , spendBox marketplaceValidator (toBuiltinData ()) box
       , payWithDatumToPubKey oldOwner datum (lovelaceValueOf oldPrice)
       , userSpend utxos
@@ -199,7 +204,10 @@ marketplaceChangePrice newPrice nftData = do
     . addMintRedeemer policy' redeemer
     . mconcat
     $ [ mintValue policy' (newNftVal <> oldNftVal)
-      , payToScript marketplaceValidator (toBuiltinData ()) (newNftVal <> toValue minAdaTxOut)
+      , payToScript
+          marketplaceValidator
+          (toBuiltinData . MarketplaceDatum $ assetClass nftCS newNftTN)
+          (newNftVal <> toValue minAdaTxOut)
       , spendBox marketplaceValidator (toBuiltinData ()) box
       ]
   pure $ NftData (nftData'nftCollection nftData) newNft
@@ -248,7 +256,10 @@ marketplaceDeposit nftData = do
   void
     . (sendTx <=< signTx owner)
     . mconcat
-    $ [ payToScript marketplaceValidator (toBuiltinData ()) (nftVal <> toValue minAdaTxOut)
+    $ [ payToScript
+          marketplaceValidator
+          (toBuiltinData . MarketplaceDatum $ assetClass nftCS nftTN)
+          (nftVal <> toValue minAdaTxOut)
       , userSpend utxos
       ]
   pure nftData

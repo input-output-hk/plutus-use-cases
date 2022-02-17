@@ -77,7 +77,7 @@ import Prelude (elem)
 import Mlabs.EfficientNFT.Dao (daoValidator)
 import Mlabs.EfficientNFT.Lock (lockValidator, mkValidator)
 import Mlabs.EfficientNFT.Marketplace (mkValidator)
-import Mlabs.EfficientNFT.Types (LockAct, LockDatum, MintAct, NftCollection (..), NftId (..))
+import Mlabs.EfficientNFT.Types (LockAct, LockDatum, MarketplaceDatum (MarketplaceDatum), MintAct, NftCollection (..), NftId (..))
 
 mintTxOutRef :: TxOutRef
 mintTxOutRef = TxOutRef txId 1
@@ -245,7 +245,7 @@ afterDeadlineAndLockup = mkRange (testLockupEnd + Slot testLockup + 1)
 beforeDeadline :: TimeRange
 beforeDeadline = mkRange (testLockupEnd - 1)
 
-testMarketplaceScript :: TestScript ( 'ForSpending BuiltinData BuiltinData)
+testMarketplaceScript :: TestScript ( 'ForSpending MarketplaceDatum BuiltinData)
 testMarketplaceScript =
   mkTestValidator
     $$(PlutusTx.compile [||Mlabs.EfficientNFT.Marketplace.mkValidator||])

@@ -55,7 +55,10 @@ marketplaceSetPrice sp = do
           [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
           , Constraints.mustBeSignedBy pkh
           , Constraints.mustSpendScriptOutput utxo (Redeemer $ toBuiltinData ())
-          , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) (newNftValue <> toValue minAdaTxOut)
+          , Constraints.mustPayToOtherScript
+              valHash
+              (Datum . toBuiltinData . MarketplaceDatum $ assetClass curr newName)
+              (newNftValue <> toValue minAdaTxOut)
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ NftData collection newNft
