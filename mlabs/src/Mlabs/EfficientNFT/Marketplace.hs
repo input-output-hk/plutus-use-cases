@@ -11,13 +11,12 @@ import Ledger (
   ScriptContext,
   TokenName,
   TxInInfo (txInInfoResolved),
-  TxInfo (txInfoInputs, txInfoMint),
-  TxOut (txOutAddress),
+  TxInfo (txInfoMint),
+  TxOut,
   Value,
+  findOwnInput,
   mkValidatorScript,
-  ownHash,
   scriptContextTxInfo,
-  scriptHashAddress,
   txOutValue,
  )
 import Ledger.Typed.Scripts (Any, TypedValidator, unsafeMkTypedValidator, wrapValidator)
@@ -34,25 +33,25 @@ mkValidator _ _ ctx =
     info :: TxInfo
     info = scriptContextTxInfo ctx
 
-    getSeabugs :: [TxOut] -> [(CurrencySymbol, TokenName)]
-    getSeabugs =
-      filter (\(cs, _) -> cs /= adaSymbol)
+    getSeabug :: TxOut -> (CurrencySymbol, TokenName)
+    getSeabug =
+      head
+        . filter (\(cs, _) -> cs /= adaSymbol)
         . fmap (\(cs, tn, _) -> (cs, tn))
         . flattenValue
-        . mconcat
-        . fmap txOutValue
+        . txOutValue
 
-    inputs :: [TxOut]
-    inputs =
-      filter ((== scriptHashAddress (ownHash ctx)) . txOutAddress)
-        . fmap txInInfoResolved
-        . txInfoInputs
-        $ info
+    input :: TxOut
+    input =
+      txInInfoResolved
+        . fromMaybe (traceError "Missing own input")
+        . findOwnInput
+        $ ctx
 
     checkRemint :: Bool
     checkRemint =
-      let checkRemintOne (cs, tn) = valueOf (txInfoMint info) cs tn == -1
-       in all checkRemintOne (getSeabugs inputs)
+      let checkBurned (cs, tn) = valueOf (txInfoMint info) cs tn == -1
+       in checkBurned . getSeabug $ input
 
 -- FIXME: For some reason plutus can't compile `flattenValue` from lib
 --        so here is a hack (literally copy-pasted from lib)
