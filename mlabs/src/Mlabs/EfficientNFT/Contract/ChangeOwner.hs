@@ -35,8 +35,8 @@ changeOwner cp = do
       mintRedeemer = Redeemer . toBuiltinData $ ChangeOwner oldNft (cp'owner cp)
       getShare share = lovelaceValueOf $ (addExtend nftPrice * 10000) `divide` share
       authorShare = getShare (addExtend . nftCollection'authorShare $ collection)
-      marketplaceShare = getShare (addExtend . nftCollection'marketplaceShare $ collection)
-      ownerShare = lovelaceValueOf (addExtend nftPrice) - authorShare - marketplaceShare
+      daoShare = getShare (addExtend . nftCollection'daoShare $ collection)
+      ownerShare = lovelaceValueOf (addExtend nftPrice) - authorShare - daoShare
       datum = Datum . PlutusTx.toBuiltinData $ (curr, oldName)
       lookup =
         Hask.mconcat
@@ -49,7 +49,7 @@ changeOwner cp = do
           , Constraints.mustPayToPubKey (cp'owner cp) newNftValue
           , Constraints.mustPayWithDatumToPubKey (nftCollection'author collection) datum authorShare
           , Constraints.mustPayWithDatumToPubKey (nftId'owner oldNft) datum ownerShare
-          , Constraints.mustPayToOtherScript (nftCollection'marketplaceScript collection) datum marketplaceShare
+          , Constraints.mustPayToOtherScript (nftCollection'daoScript collection) datum daoShare
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
   Contract.tell . Hask.pure $ NftData collection newNft

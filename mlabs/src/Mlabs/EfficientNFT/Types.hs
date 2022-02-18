@@ -15,6 +15,7 @@ module Mlabs.EfficientNFT.Types (
   Hashable (..),
   LockAct (..),
   LockDatum (..),
+  MarketplaceDatum (..),
 ) where
 
 import PlutusTx qualified
@@ -69,8 +70,8 @@ data NftCollection = NftCollection
   , nftCollection'lockingScript :: ValidatorHash
   , nftCollection'author :: PaymentPubKeyHash
   , nftCollection'authorShare :: Natural
-  , nftCollection'marketplaceScript :: ValidatorHash
-  , nftCollection'marketplaceShare :: Natural
+  , nftCollection'daoScript :: ValidatorHash
+  , nftCollection'daoShare :: Natural
   }
   deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON)
@@ -169,8 +170,13 @@ data LockDatum = LockDatum
   }
   deriving stock (Hask.Show)
 
+PlutusTx.unstableMakeIsData ''LockDatum
+
 instance Eq LockDatum where
   {-# INLINEABLE (==) #-}
   LockDatum a b c == LockDatum a' b' c' = a == a' && b == b' && c == c'
 
-PlutusTx.unstableMakeIsData ''LockDatum
+newtype MarketplaceDatum = MarketplaceDatum {getMarketplaceDatum :: AssetClass}
+  deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+  deriving newtype (PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)

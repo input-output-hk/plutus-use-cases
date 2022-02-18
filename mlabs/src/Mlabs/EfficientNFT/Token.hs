@@ -57,7 +57,7 @@ mkPolicy ::
   MintAct ->
   ScriptContext ->
   Bool
-mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript marketplaceShare mintAct ctx =
+mkPolicy collectionNftCs lockingScript author authorShare daoScript daoShare mintAct ctx =
   case mintAct of
     MintToken nft ->
       traceIfFalse "Exactly one NFT must be minted" (checkMint nft)
@@ -137,7 +137,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
       let outs = txInfoOutputs info
           price' = fromEnum $ nftId'price nft
           royalty' = fromEnum authorShare
-          mpShare = fromEnum marketplaceShare
+          mpShare = fromEnum daoShare
 
           shareToSubtract v
             | v < Ada.getLovelace minAdaTxOut = 0
@@ -146,11 +146,11 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
           authorAddr = pubKeyHashAddress author Nothing
           authorShareVal = (price' * royalty') `divide` 100_00
 
-          marketplAddr = scriptHashAddress marketplaceScript
-          marketplShareVal = (price' * mpShare) `divide` 100_00
+          daoAddr = scriptHashAddress daoScript
+          daoShareVal = (price' * mpShare) `divide` 100_00
 
           ownerAddr = pubKeyHashAddress (nftId'owner nft) Nothing
-          ownerShare = price' - shareToSubtract authorShareVal - shareToSubtract marketplShareVal
+          ownerShare = price' - shareToSubtract authorShareVal - shareToSubtract daoShareVal
 
           curSymDatum = Datum $ PlutusTx.toBuiltinData (ownCs, mkTokenName nft)
 
@@ -162,7 +162,7 @@ mkPolicy collectionNftCs lockingScript author authorShare marketplaceScript mark
           checkPaymentTxOut addr val (TxOut addr' val' dh) =
             addr == addr' && val == valueOf val' Ada.adaSymbol Ada.adaToken
               && (dh >>= \dh' -> findDatum dh' info) == Just curSymDatum
-       in filterLowValue marketplShareVal marketplAddr
+       in filterLowValue daoShareVal daoAddr
             && filterLowValue authorShareVal authorAddr
             && any (checkPaymentTxOut ownerAddr ownerShare) outs
 
@@ -178,5 +178,5 @@ policy NftCollection {..} =
       `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'lockingScript
       `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'author
       `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'authorShare
-      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'marketplaceScript
-      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'marketplaceShare
+      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'daoScript
+      `PlutusTx.applyCode` PlutusTx.liftCode nftCollection'daoShare

@@ -39,11 +39,11 @@ marketplaceBuy nftData = do
       mintRedeemer = Redeemer . toBuiltinData $ ChangeOwner nft pkh
       getShare share = (addExtend nftPrice * share) `divide` 10000
       authorShare = getShare (addExtend . nftCollection'authorShare . nftData'nftCollection $ nftData)
-      marketplaceShare = getShare (addExtend . nftCollection'marketplaceShare . nftData'nftCollection $ nftData)
+      daoShare = getShare (addExtend . nftCollection'daoShare . nftData'nftCollection $ nftData)
       shareToSubtract v
         | v < getLovelace minAdaTxOut = 0
         | otherwise = v
-      ownerShare = lovelaceValueOf (addExtend nftPrice - shareToSubtract authorShare - shareToSubtract marketplaceShare)
+      ownerShare = lovelaceValueOf (addExtend nftPrice - shareToSubtract authorShare - shareToSubtract daoShare)
       datum = Datum . toBuiltinData $ (curr, oldName)
       filterLowValue v t
         | v < getLovelace minAdaTxOut = mempty
@@ -63,16 +63,19 @@ marketplaceBuy nftData = do
           ]
       tx =
         filterLowValue
-          marketplaceShare
-          (Constraints.mustPayToOtherScript (nftCollection'marketplaceScript . nftData'nftCollection $ nftData) datum)
+          daoShare
+          (Constraints.mustPayToOtherScript (nftCollection'daoScript . nftData'nftCollection $ nftData) datum)
           <> filterLowValue
             authorShare
             (Constraints.mustPayWithDatumToPubKey (nftCollection'author . nftData'nftCollection $ nftData) datum)
           <> Hask.mconcat
             [ Constraints.mustMintValueWithRedeemer mintRedeemer (newNftValue <> oldNftValue)
-            , Constraints.mustSpendScriptOutput utxo (Redeemer . toBuiltinData $ ())
+            , Constraints.mustSpendScriptOutput utxo (Redeemer $ toBuiltinData ())
             , Constraints.mustPayWithDatumToPubKey (nftId'owner nft) datum ownerShare
-            , Constraints.mustPayToOtherScript valHash (Datum $ toBuiltinData ()) (newNftValue <> toValue minAdaTxOut)
+            , Constraints.mustPayToOtherScript
+                valHash
+                (Datum . toBuiltinData . MarketplaceDatum $ assetClass curr newName)
+                (newNftValue <> toValue minAdaTxOut)
             ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ NftData (nftData'nftCollection nftData) newNft

@@ -115,11 +115,11 @@ validOldTokenName = mkTokenName TestValues.nft2
 validNewTokenName :: TokenName
 validNewTokenName = mkTokenName TestValues.nft3
 
-marketplShareCtx :: ContextBuilder ( 'ForMinting MintAct)
-marketplShareCtx =
+daoShareCtx :: ContextBuilder ( 'ForMinting MintAct)
+daoShareCtx =
   paysToOther
-    TestValues.marketplValHash
-    TestValues.marketplShareVal
+    TestValues.daoValHash
+    TestValues.daoShareVal
     (testTokenCurSym, validOldTokenName)
 
 ownerShareCtx :: ContextBuilder ( 'ForMinting MintAct)
@@ -137,12 +137,12 @@ authorShareCtx =
     (testTokenCurSym, validOldTokenName)
 
 validCtx :: ContextBuilder ( 'ForMinting MintAct)
-validCtx = marketplShareCtx <> authorShareCtx <> ownerShareCtx
+validCtx = daoShareCtx <> authorShareCtx <> ownerShareCtx
 
 insufficientShareCtxs :: [(ContextBuilder ( 'ForMinting MintAct), String)]
 insufficientShareCtxs =
   makeIncompleteContexts
-    [ (marketplShareCtx, "Fails when marketplace share is insufficient")
+    [ (daoShareCtx, "Fails when marketplace share is insufficient")
     , (authorShareCtx, "Fails when author share is insufficient")
     , (ownerShareCtx, "Fails when owner share is insufficient")
     ]

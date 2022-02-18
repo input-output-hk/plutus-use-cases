@@ -27,8 +27,8 @@ import Mlabs.Plutus.Contracts.Currency (CurrencyError, mintContract)
 import Mlabs.Plutus.Contracts.Currency qualified as MC
 
 import Mlabs.EfficientNFT.Contract.Aux
+import Mlabs.EfficientNFT.Dao (daoValidator)
 import Mlabs.EfficientNFT.Lock
-import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 
@@ -58,8 +58,8 @@ mintWithCollection (ac, mp) = do
           , nftCollection'lockingScript = validatorHash $ lockValidator (fst $ unAssetClass ac) lockup lockupEnd
           , nftCollection'author = pkh
           , nftCollection'authorShare = mp'share mp
-          , nftCollection'marketplaceScript = validatorHash marketplaceValidator
-          , nftCollection'marketplaceShare = toEnum 5
+          , nftCollection'daoScript = validatorHash daoValidator
+          , nftCollection'daoShare = toEnum 5
           }
       policy' = policy collection
       curr = scriptCurrencySymbol policy'
