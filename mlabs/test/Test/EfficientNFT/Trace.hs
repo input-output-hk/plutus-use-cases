@@ -48,8 +48,7 @@ mintTrace wallet = do
 
     artwork =
       MintParams
-        { mp'content = Content "A painting."
-        , mp'share = toEnum 10
+        { mp'share = toEnum 10
         , mp'price = toEnum 5_000_000
         }
 

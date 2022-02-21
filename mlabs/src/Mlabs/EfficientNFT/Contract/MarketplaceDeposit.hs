@@ -20,7 +20,7 @@ import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types
 
 -- | Deposit nft in the marketplace
-marketplaceDeposit :: NftData -> UserContract ()
+marketplaceDeposit :: NftData -> UserContract NftData
 marketplaceDeposit nftData = do
   let policy' = policy . nftData'nftCollection $ nftData
       curr = scriptCurrencySymbol policy'
@@ -45,3 +45,4 @@ marketplaceDeposit nftData = do
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ nftData
   Contract.logInfo @Hask.String $ printf "Deposit successful: %s" (Hask.show $ assetClass curr tn)
+  Hask.pure nftData

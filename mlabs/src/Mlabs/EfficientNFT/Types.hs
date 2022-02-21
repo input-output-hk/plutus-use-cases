@@ -42,12 +42,12 @@ PlutusTx.makeLift ''Content
 
 -- | Parameters that need to be submitted when minting a new NFT.
 data MintParams = MintParams
-  { -- | Content to be minted.
-    mp'content :: Content
-  , -- | Shares retained by author.
+  { -- | Shares retained by author.
     mp'share :: Natural
   , -- | Listing price of the NFT, in Lovelace.
     mp'price :: Natural
+  , mp'lockLockup :: Integer
+  , mp'lockLockupEnd :: Slot
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)
@@ -67,6 +67,8 @@ PlutusTx.unstableMakeIsData ''NftId
 
 data NftCollection = NftCollection
   { nftCollection'collectionNftCs :: CurrencySymbol
+  , nftCollection'lockLockup :: Integer
+  , nftCollection'lockLockupEnd :: Slot
   , nftCollection'lockingScript :: ValidatorHash
   , nftCollection'author :: PaymentPubKeyHash
   , nftCollection'authorShare :: Natural
@@ -76,7 +78,7 @@ data NftCollection = NftCollection
   deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON)
 
-PlutusTx.unstableMakeIsData ''NftCollection
+-- PlutusTx.unstableMakeIsData ''NftCollection
 
 data NftData = NftData
   { nftData'nftCollection :: NftCollection

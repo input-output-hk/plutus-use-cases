@@ -118,6 +118,7 @@ library
     Mlabs.EfficientNFT.Lock
     Mlabs.EfficientNFT.Contract.Aux
     Mlabs.EfficientNFT.Contract.ChangeOwner
+    Mlabs.EfficientNFT.Contract.Burn
     Mlabs.EfficientNFT.Contract.MarketplaceBuy
     Mlabs.EfficientNFT.Contract.MarketplaceDeposit
     Mlabs.EfficientNFT.Contract.MarketplaceRedeem
@@ -307,6 +308,7 @@ test-suite mlabs-plutus-use-cases-tests
     Test.EfficientNFT.Size
     Test.EfficientNFT.Trace
     Test.EfficientNFT.Quickcheck
+    Test.EfficientNFT.Plutip
     Test.Governance.Contract
     Test.Governance.Init
     Test.Lending.Contract

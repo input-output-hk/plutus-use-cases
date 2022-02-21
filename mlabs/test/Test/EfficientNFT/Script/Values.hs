@@ -155,6 +155,8 @@ collection :: NftCollection
 collection =
   NftCollection
     { nftCollection'collectionNftCs = fst . unAssetClass $ collectionNft
+    , nftCollection'lockLockup = 7776000
+    , nftCollection'lockLockupEnd = 7776000
     , nftCollection'lockingScript = validatorHash $ lockValidator (fst $ unAssetClass collectionNft) 7776000 7776000
     , nftCollection'author = authorPkh
     , nftCollection'authorShare = authorShare

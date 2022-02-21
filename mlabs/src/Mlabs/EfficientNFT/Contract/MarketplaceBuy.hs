@@ -21,7 +21,7 @@ import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 
-marketplaceBuy :: NftData -> UserContract ()
+marketplaceBuy :: NftData -> UserContract NftData
 marketplaceBuy nftData = do
   pkh <- Contract.ownPaymentPubKeyHash
   let policy' = policy . nftData'nftCollection $ nftData
@@ -48,6 +48,7 @@ marketplaceBuy nftData = do
       filterLowValue v t
         | v < getLovelace minAdaTxOut = mempty
         | otherwise = t (lovelaceValueOf v)
+      newNftData = NftData (nftData'nftCollection nftData) newNft
   userUtxos <- getUserUtxos
   utxo' <- find containsNft . Map.toList <$> getAddrUtxos scriptAddr
   (utxo, utxoIndex) <- case utxo' of
@@ -78,5 +79,6 @@ marketplaceBuy nftData = do
                 (newNftValue <> toValue minAdaTxOut)
             ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
-  Contract.tell . Hask.pure $ NftData (nftData'nftCollection nftData) newNft
+  Contract.tell . Hask.pure $ newNftData
   Contract.logInfo @Hask.String $ printf "Buy successful: %s" (Hask.show $ assetClass curr newName)
+  Hask.pure newNftData

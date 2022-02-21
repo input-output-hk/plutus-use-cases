@@ -1,23 +1,12 @@
 module Main (main) where
 
 import PlutusTx.Prelude
-import Prelude (IO, replicate)
+import Prelude (IO)
 
 import Plutus.Test.Model (readDefaultBchConfig)
 import Test.Tasty (defaultMain, testGroup)
-import Test.Tasty.ExpectedFailure (ignoreTest)
 
--- import Test.Demo.Contract.Mint qualified as Demo.Contract.Mint
--- import Test.Governance.Contract qualified as Governance.Contract
--- import Test.Lending.Contract qualified as Lending.Contract
--- import Test.Lending.Logic qualified as Lending.Logic
--- import Test.Lending.QuickCheck qualified as Lending.QuickCheck
--- import Test.NFT.Contract qualified as NFT.Contract
--- import Test.NFT.QuickCheck qualified as NFT.QuickCheck
--- import Test.NFT.Script.Main qualified as NFT.Script
--- import Test.NftStateMachine.Contract qualified as Nft.Contract
--- import Test.NftStateMachine.Logic qualified as Nft.Logic
-
+import Test.EfficientNFT.Plutip qualified as ENFT.Plutip
 import Test.EfficientNFT.Quickcheck qualified as ENFT.Quickcheck
 import Test.EfficientNFT.Resources qualified as ENFT.Resources
 import Test.EfficientNFT.Script.TokenBurn qualified as ENFT.TokenBurn
@@ -35,27 +24,17 @@ import Test.NFT.Size qualified as NFT.Size
 
 main :: IO ()
 main = do
+  -- To move this below tasty we must write cutom main
+  ENFT.Plutip.test
   cfg <- readDefaultBchConfig
   defaultMain $
     testGroup
       "tests"
-      -- [ testGroup
-      --     "NFT - legacy" []
-      --     [ Nft.Logic.test
-      --     , contract Nft.Contract.test
-      --     ]
       [ testGroup
           "NFT"
           [ NFT.Size.test
-          -- , NFT.Script.test
-          -- , contract NFT.Contract.test
           ]
-      , -- HACK
-        -- Doing it this way relieves some of the time +
-        -- memory usage issues with the QuickCheck tests.
-        -- This will run 100 tests
-        -- <> replicate 10 (contract NFT.QuickCheck.test)
-        testGroup
+      , testGroup
           "Efficient NFT"
           [ ENFT.Size.test
           , ENFT.Resources.test cfg
@@ -79,19 +58,4 @@ main = do
               ]
           , ENFT.Quickcheck.test
           ]
-          -- , testGroup
-          --     "Lending"
-          --     [ Lending.Logic.test
-          --     , contract Lending.Contract.test
-          --     , Lending.QuickCheck.test
-          --     ]
-          -- , contract Lending.Contract.test
-          -- , testGroup "Demo" [Demo.Contract.Mint.test]
-          -- , testGroup "Governance" [Governance.Contract.test]
       ]
-  where
-    contract
-      | ignoreContract = ignoreTest
-      | otherwise = id
-
-    ignoreContract = False

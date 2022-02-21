@@ -9,7 +9,6 @@ import Data.Map.Strict qualified as Map
 import Data.Monoid (Last (..))
 import Data.Set (Set)
 import Data.Set qualified as Set
-import Data.String (IsString (..))
 import Data.Text (Text)
 import Ledger (AssetClass, PaymentPubKeyHash (PaymentPubKeyHash), ValidatorHash (ValidatorHash), minAdaTxOut, scriptCurrencySymbol)
 import Ledger.Typed.Scripts (validatorHash)
@@ -69,7 +68,6 @@ instance ContractModel NftModel where
   data Action NftModel
     = ActionMint
         { aAuthor :: Wallet
-        , aContent :: Content
         , aPrice :: Natural
         , aShare :: Natural
         , aCollection :: AssetClass
@@ -109,8 +107,6 @@ instance ContractModel NftModel where
   arbitraryAction model =
     let genWallet = QC.elements wallets
         genNonNeg = toEnum . (* 1_000_000) . (+ 10) . QC.getNonNegative <$> QC.arbitrary
-        genString = QC.listOf (QC.elements [Hask.minBound .. Hask.maxBound])
-        genContent = Content . fromString . ('x' :) <$> genString
         genShare = toEnum <$> QC.elements [10 .. 100]
         genNftId = QC.elements $ addNonExistingNFT $ Map.toList (model ^. contractState . mNfts)
         genMarketplaceNftId = QC.elements $ addNonExistingNFT $ Map.toList (model ^. contractState . mMarketplace)
@@ -121,7 +117,6 @@ instance ContractModel NftModel where
      in QC.oneof
           [ ActionMint
               <$> genWallet
-              <*> genContent
               <*> genNonNeg
               <*> genShare
               <*> genCollection
@@ -162,7 +157,7 @@ instance ContractModel NftModel where
       && mockWalletPaymentPubKeyHash aNewOwner /= nftId'owner (nftData'nftId aNftData)
 
   perform h _ ActionMint {..} = do
-    let params = MintParams aContent aShare aPrice
+    let params = MintParams aShare aPrice 5 5
     callEndpoint @"mint-with-collection" (h $ UserKey aAuthor) (aCollection, params)
     void $ Trace.waitNSlots 5
   perform h _ ActionSetPrice {..} = do
@@ -194,8 +189,10 @@ instance ContractModel NftModel where
         collection =
           NftCollection
             { nftCollection'collectionNftCs = fst . unAssetClass $ aCollection
+            , nftCollection'lockLockup = 5 -- 7776000
+            , nftCollection'lockLockupEnd = 5 -- 7776000
             , nftCollection'lockingScript =
-                validatorHash $ lockValidator (fst $ unAssetClass aCollection) 7776000 7776000
+                validatorHash $ lockValidator (fst $ unAssetClass aCollection) 5 5 -- 7776000 7776000
             , nftCollection'author = mockWalletPaymentPubKeyHash aAuthor
             , nftCollection'authorShare = aShare
             , nftCollection'daoScript = validatorHash daoValidator
@@ -313,6 +310,8 @@ nonExistingCollection :: NftCollection
 nonExistingCollection =
   NftCollection
     { nftCollection'collectionNftCs = CurrencySymbol "ff"
+    , nftCollection'lockLockup = 0
+    , nftCollection'lockLockupEnd = 0
     , nftCollection'lockingScript = ValidatorHash ""
     , nftCollection'author = PaymentPubKeyHash ""
     , nftCollection'authorShare = toEnum 0

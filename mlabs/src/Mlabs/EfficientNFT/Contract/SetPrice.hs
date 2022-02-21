@@ -17,7 +17,7 @@ import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 import Mlabs.NFT.Contract.Aux (getUserUtxos)
 
-setPrice :: SetPriceParams -> UserContract ()
+setPrice :: SetPriceParams -> UserContract NftData
 setPrice sp = do
   pkh <- Contract.ownPaymentPubKeyHash
   utxos <- getUserUtxos
@@ -31,6 +31,7 @@ setPrice sp = do
       oldNftValue = singleton curr oldName (-1)
       newNftValue = singleton curr newName 1
       mintRedeemer = Redeemer . toBuiltinData $ ChangePrice oldNft (sp'price sp)
+      nftData = NftData collection newNft
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
@@ -44,5 +45,6 @@ setPrice sp = do
           , Constraints.mustBeSignedBy pkh
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
-  Contract.tell . Hask.pure $ NftData collection newNft
+  Contract.tell . Hask.pure $ nftData
   Contract.logInfo @Hask.String $ printf "Set price successful: %s" (Hask.show $ assetClass curr newName)
+  Hask.pure nftData
