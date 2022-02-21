@@ -29,4 +29,4 @@ jobs:
         run: nix build -L .#packages.x86_64-linux."mlabs-plutus-use-cases:test:mlabs-plutus-use-cases-tests"
       - name: Run tests
         working-directory: ./mlabs
-        run: ./result/bin/mlabs-plutus-use-cases-tests
+        run: nix shell -i "github:input-output-hk/cardano-node/4f65fb9a27aa7e3a1873ab4211e412af780a3648#packages.x86_64-linux.cardano-cli" "github:input-output-hk/cardano-node/4f65fb9a27aa7e3a1873ab4211e412af780a3648#packages.x86_64-linux.cardano-node" -c ./result/bin/mlabs-plutus-use-cases-tests

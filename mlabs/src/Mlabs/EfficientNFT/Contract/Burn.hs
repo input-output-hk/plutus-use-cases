@@ -4,32 +4,32 @@ import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
 
 import Control.Monad (void)
-import Data.Map qualified as Map
 import Data.Default (def)
+import Data.Map qualified as Map
 import Ledger (
-  Redeemer (Redeemer),
   Extended (Finite, PosInf),
   Interval (Interval),
   LowerBound (LowerBound),
+  Redeemer (Redeemer),
   UpperBound (UpperBound),
-  _ciTxOutValue,
   minAdaTxOut,
-  scriptHashAddress
+  scriptHashAddress,
+  _ciTxOutValue,
  )
 import Ledger.Constraints qualified as Constraints
 import Ledger.Contexts (scriptCurrencySymbol)
+import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Ledger.Typed.Scripts (Any, validatorScript)
 import Plutus.Contract qualified as Contract
 import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (toBuiltinData)
 import Plutus.V1.Ledger.Value (singleton, valueOf)
 import Text.Printf (printf)
-import Ledger.TimeSlot (slotToBeginPOSIXTime)
 
 import Mlabs.EfficientNFT.Contract.Aux (getAddrUtxos, getUserUtxos)
+import Mlabs.EfficientNFT.Lock (lockValidator)
 import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types
-import Mlabs.EfficientNFT.Lock (lockValidator)
 
 burn :: NftData -> UserContract ()
 burn nftData = do
@@ -53,7 +53,7 @@ burn nftData = do
       containsCnft (_, tx) = valueOf (_ciTxOutValue tx) cnftCs cnftTn == 1
       now = slotToBeginPOSIXTime def currSlot
       validRange = Interval (LowerBound (Finite now) True) (UpperBound PosInf False)
-  utxo' <- find containsCnft . Map.toList <$> (getAddrUtxos $ scriptHashAddress $ nftCollection'lockingScript $ collection)
+  utxo' <- find containsCnft . Map.toList <$> getAddrUtxos (scriptHashAddress $ nftCollection'lockingScript collection)
   (utxo, utxoIndex) <- case utxo' of
     Nothing -> do
       Contract.throwError "NFT not found in locking address"
