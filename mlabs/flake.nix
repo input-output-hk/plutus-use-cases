@@ -5,7 +5,7 @@
     haskell-nix.url = "github:L-as/haskell.nix/ac825b91c202947ec59b1a477003564cc018fcec";
     haskell-nix.inputs.nixpkgs.follows = "haskell-nix/nixpkgs-unstable";
 
-    nixpkgs.follows = "haskell-nix/nixpkgs-2105";
+    nixpkgs.follows = "haskell-nix/nixpkgs";
 
     iohk-nix.url = "github:input-output-hk/iohk-nix";
 
@@ -36,8 +36,8 @@
       flake = false;
     };
     cardano-node = {
-      url =
-        "github:input-output-hk/cardano-node/4f65fb9a27aa7e3a1873ab4211e412af780a3648";
+      url = "github:input-output-hk/cardano-node/4f65fb9a27aa7e3a1873ab4211e412af780a3648";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
     cardano-prelude = {
       url =
@@ -115,10 +115,10 @@
       flake = false;
     };
     plutip = {
-      url = "github:mlabs-haskell/plutip/5506f9c26d0548b50ca1d647a2a209682ac0e47e";
+      url = "github:mlabs-haskell/plutip/c2d0ed381cda64bc46dbf68f52cb0d05f76f3a86";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.cardano-node.follows = "cardano-node";
       inputs.haskell-nix.follows = "haskell-nix";
+      inputs.cardano-node.follows = "cardano-node";
     };
     bot-plutus-interface = {
       follows = "plutip/bot-plutus-interface";
@@ -138,14 +138,14 @@
           inherit system;
         };
 
+      nixpkgsFor' = system: import nixpkgs { inherit system; };
+
       projectFor = system:
         let
           pkgs = nixpkgsFor system;
           plutus = import inputs.plutus { inherit system; };
           src = ./.;
-          cardano-cli = (builtins.getFlake "github:input-output-hk/cardano-node/${inputs.cardano-node.rev}").packages.${system}.cardano-cli;
-          cardano-node = (builtins.getFlake "github:input-output-hk/cardano-node/${inputs.cardano-node.rev}").packages.${system}.cardano-node;
-        in import ./nix/haskell.nix { inherit src inputs pkgs cardano-cli cardano-node system; };
+        in import ./nix/haskell.nix { inherit src inputs pkgs system; };
 
     in {
       flake = perSystem (system: (projectFor system).flake { });

@@ -1,4 +1,4 @@
-{ src, inputs, pkgs, cardano-cli, cardano-node, doCoverage ? false, deferPluginErrors ? true, ... }:
+{ src, inputs, pkgs, system, doCoverage ? false, deferPluginErrors ? true, ... }:
 
 pkgs.haskell-nix.cabalProject {
   inherit src;
@@ -72,11 +72,6 @@ pkgs.haskell-nix.cabalProject {
 
     exactDeps = true;
 
-    buildInputs = [
-      cardano-cli
-      cardano-node
-    ];
-
     nativeBuildInputs = with pkgs;
       [
         # Haskell Tools
@@ -130,6 +125,12 @@ pkgs.haskell-nix.cabalProject {
         [ pkgs.buildPackages.buildPackages.gitMinimal ];
       cardano-config.components.library.build-tools =
         [ pkgs.buildPackages.buildPackages.gitMinimal ];
+
+      mlabs-plutus-use-cases.components.tests."mlabs-plutus-use-cases-tests".build-tools =
+        [ inputs.cardano-node.packages.${system}.cardano-node
+          inputs.cardano-node.packages.${system}.cardano-cli
+        ];
+
     };
   }];
 
