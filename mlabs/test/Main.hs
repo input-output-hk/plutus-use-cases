@@ -24,8 +24,6 @@ import Test.NFT.Size qualified as NFT.Size
 
 main :: IO ()
 main = do
-  -- To move this below tasty we must write cutom main
-  ENFT.Plutip.test
   cfg <- readDefaultBchConfig
   defaultMain $
     testGroup
@@ -57,5 +55,6 @@ main = do
               , ENFT.TokenMarketplaceRedeem.test
               ]
           , ENFT.Quickcheck.test
+          , ENFT.Plutip.test
           ]
       ]

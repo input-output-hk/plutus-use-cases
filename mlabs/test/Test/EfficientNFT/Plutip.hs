@@ -4,10 +4,17 @@ module Test.EfficientNFT.Plutip (test) where
 
 import Prelude hiding (toEnum)
 
+import Control.Monad.Reader (ReaderT)
+import Data.List.NonEmpty (NonEmpty)
+import Data.Monoid (Last)
+import Data.Text (Text)
+import Ledger (Value)
+import Plutus.Contract (waitNSlots)
 import PlutusTx.Enum (toEnum)
-import System.Environment (setEnv)
-import Test.Plutip
-import Test.Plutip.Internal.LocalCluster.Types (Outcome (Success), RunResult (RunResult))
+import Test.Plutip.Contract (initAda, shouldFail, shouldSucceed, withContractAs)
+import Test.Plutip.Internal.Types (ClusterEnv, ExecutionResult (ExecutionResult))
+import Test.Plutip.LocalCluster (BpiWallet, withCluster)
+import Test.Tasty (TestTree)
 
 import Mlabs.EfficientNFT.Contract.Burn (burn)
 import Mlabs.EfficientNFT.Contract.MarketplaceBuy (marketplaceBuy)
@@ -16,83 +23,107 @@ import Mlabs.EfficientNFT.Contract.MarketplaceRedeem (marketplaceRedeem)
 import Mlabs.EfficientNFT.Contract.MarketplaceSetPrice (marketplaceSetPrice)
 import Mlabs.EfficientNFT.Contract.Mint (generateNft, mintWithCollection)
 import Mlabs.EfficientNFT.Contract.SetPrice (setPrice)
-import Mlabs.EfficientNFT.Types
+import Mlabs.EfficientNFT.Types (MintParams (MintParams), NftData, SetPriceParams (SetPriceParams))
 
-test :: IO ()
-test = do
-  setEnv "SHELLEY_TEST_DATA" "cluster-data"
-  setEnv "NO_POOLS" "1"
+-- TODO: Partial value asserts here when added (https://github.com/mlabs-haskell/plutip/issues/42)
+test :: TestTree
+test =
+  withCluster
+    "Integration tests"
+    [ shouldSucceed "Happy path" (initAda 100 <> initAda 100) testValid
+    , shouldFail "Fail to change price when not owner" (initAda 100 <> initAda 100) testChangePriceNotOwner
+    , shouldFail "Fail to redeem when not owner" (initAda 100 <> initAda 100) testRedeemNotOwner
+    , shouldFail "Fail unlocking too early" (initAda 100) testBurnTooEarly
+    ]
 
-  runUsingCluster $ do
-    w1 <- addSomeWallet (ada 100)
-    w2 <- addSomeWallet (ada 100)
-    w3 <- addSomeWallet (ada 100)
-    waitSeconds 2
+type TestCase = ReaderT (ClusterEnv, NonEmpty BpiWallet) IO (ExecutionResult (Last NftData) Text ((), NonEmpty Value))
 
-    cnft1 <-
-      runContract @() w1 generateNft
-        >>= getResult
+testValid :: TestCase
+testValid = do
+  (ExecutionResult (Right (nft3, _)) _) <- withContractAs 0 $
+    const $ do
+      cnft <- generateNft
+      waitNSlots 1
 
-    nft1_1 <-
-      runContract w1 (mintWithCollection (cnft1, MintParams (toEnum 10) (toEnum 10_000_000) 5 5))
-        >>= getResult
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing)
+      waitNSlots 1
 
-    nft1_2 <-
-      runContract w1 (setPrice (SetPriceParams nft1_1 (toEnum 20_000_000)))
-        >>= getResult
+      nft2 <- setPrice (SetPriceParams nft1 (toEnum 20_000_000))
+      waitNSlots 1
 
-    cnft2 <-
-      runContract @() w2 generateNft
-        >>= getResult
+      nft3 <- marketplaceDeposit nft2
+      waitNSlots 1
 
-    nft1_3 <-
-      runContract w1 (marketplaceDeposit nft1_2)
-        >>= getResult
+      pure nft3
 
-    nft2_1 <-
-      runContract w2 (mintWithCollection (cnft2, MintParams (toEnum 10) (toEnum 10_000_000) 5 5))
-        >>= getResult
+  withContractAs 1 $
+    const $ do
+      nft4 <- marketplaceBuy nft3
+      waitNSlots 1
 
-    nft2_2 <-
-      runContract w2 (setPrice (SetPriceParams nft2_1 (toEnum 20_000_000)))
-        >>= getResult
+      nft5 <- marketplaceSetPrice (SetPriceParams nft4 (toEnum 25_000_000))
+      waitNSlots 1
 
-    nft1_4 <-
-      runContract w1 (marketplaceSetPrice (SetPriceParams nft1_3 (toEnum 25_000_000)))
-        >>= getResult
+      nft6 <- marketplaceRedeem nft5
+      waitNSlots 1
 
-    nft2_3 <-
-      runContract w2 (marketplaceDeposit nft2_2)
-        >>= getResult
+      nft7 <- setPrice (SetPriceParams nft6 (toEnum 20_000_000))
+      waitNSlots 1
 
-    nft1_5 <-
-      runContract w3 (marketplaceBuy nft1_4)
-        >>= getResult
+      burn nft7
 
-    nft2_4 <-
-      runContract w3 (marketplaceBuy nft2_3)
-        >>= getResult
+testChangePriceNotOwner :: TestCase
+testChangePriceNotOwner = do
+  (ExecutionResult (Right (nft2, _)) _) <- withContractAs 0 $
+    const $ do
+      cnft <- generateNft
+      waitNSlots 1
 
-    nft1_6 <-
-      runContract w3 (marketplaceSetPrice (SetPriceParams nft1_5 (toEnum 20_000_000)))
-        >>= getResult
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing)
+      waitNSlots 1
 
-    nft1_7 <-
-      runContract w3 (marketplaceRedeem nft1_6)
-        >>= getResult
+      nft2 <- marketplaceDeposit nft1
+      waitNSlots 1
 
-    nft2_5 <-
-      runContract w3 (marketplaceRedeem nft2_4)
-        >>= getResult
+      pure nft2
 
-    runContract w3 (burn nft1_7) >>= getResult
+  withContractAs 1 $
+    const $ do
+      marketplaceSetPrice (SetPriceParams nft2 (toEnum 20_000_000))
+      waitNSlots 1
 
-    runContract w3 (burn nft2_5) >>= getResult
+      pure ()
 
-    pure ()
-  where
-    getResult r = case r of
-      RunResult _ (Success x _) -> do
-        waitSeconds 2
-        pure x
-      _ -> error . show $ r
+testRedeemNotOwner :: TestCase
+testRedeemNotOwner = do
+  (ExecutionResult (Right (nft2, _)) _) <- withContractAs 0 $
+    const $ do
+      cnft <- generateNft
+      waitNSlots 1
+
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing)
+      waitNSlots 1
+
+      nft2 <- marketplaceDeposit nft1
+      waitNSlots 1
+
+      pure nft2
+
+  withContractAs 1 $
+    const $ do
+      marketplaceRedeem nft2
+      waitNSlots 1
+
+      pure ()
+
+testBurnTooEarly :: TestCase
+testBurnTooEarly = do
+  withContractAs 0 $
+    const $ do
+      cnft <- generateNft
+      waitNSlots 1
+
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5_000_000_000 5_000_000_000 Nothing)
+      waitNSlots 1
+
+      burn nft1

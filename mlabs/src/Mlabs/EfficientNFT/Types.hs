@@ -48,6 +48,7 @@ data MintParams = MintParams
     mp'price :: Natural
   , mp'lockLockup :: Integer
   , mp'lockLockupEnd :: Slot
+  , mp'fakeAuthor :: Maybe PaymentPubKeyHash
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)

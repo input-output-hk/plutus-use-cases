@@ -157,7 +157,7 @@ instance ContractModel NftModel where
       && mockWalletPaymentPubKeyHash aNewOwner /= nftId'owner (nftData'nftId aNftData)
 
   perform h _ ActionMint {..} = do
-    let params = MintParams aShare aPrice 5 5
+    let params = MintParams aShare aPrice 5 5 Nothing
     callEndpoint @"mint-with-collection" (h $ UserKey aAuthor) (aCollection, params)
     void $ Trace.waitNSlots 5
   perform h _ ActionSetPrice {..} = do
