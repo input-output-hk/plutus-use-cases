@@ -157,7 +157,7 @@ instance ContractModel NftModel where
       && mockWalletPaymentPubKeyHash aNewOwner /= nftId'owner (nftData'nftId aNftData)
 
   perform h _ ActionMint {..} = do
-    let params = MintParams aShare aPrice 5 5 Nothing
+    let params = MintParams aShare aPrice 5 5 Nothing []
     callEndpoint @"mint-with-collection" (h $ UserKey aAuthor) (aCollection, params)
     void $ Trace.waitNSlots 5
   perform h _ ActionSetPrice {..} = do
@@ -195,7 +195,7 @@ instance ContractModel NftModel where
                 validatorHash $ lockValidator (fst $ unAssetClass aCollection) 5 5 -- 7776000 7776000
             , nftCollection'author = mockWalletPaymentPubKeyHash aAuthor
             , nftCollection'authorShare = aShare
-            , nftCollection'daoScript = validatorHash daoValidator
+            , nftCollection'daoScript = validatorHash $ daoValidator []
             , nftCollection'daoShare = toEnum 5
             }
         nftData = NftData collection nft

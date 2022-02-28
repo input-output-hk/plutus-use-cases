@@ -110,7 +110,7 @@ nftPrice :: Natural
 nftPrice = toEnum 100_000_000
 
 daoValHash :: ValidatorHash
-daoValHash = validatorHash daoValidator
+daoValHash = validatorHash $ daoValidator []
 
 daoShare :: Natural
 daoShare = toEnum 10_00
@@ -160,7 +160,7 @@ collection =
     , nftCollection'lockingScript = validatorHash $ lockValidator (fst $ unAssetClass collectionNft) 7776000 7776000
     , nftCollection'author = authorPkh
     , nftCollection'authorShare = authorShare
-    , nftCollection'daoScript = validatorHash daoValidator
+    , nftCollection'daoScript = validatorHash $ daoValidator []
     , nftCollection'daoShare = daoShare
     }
 

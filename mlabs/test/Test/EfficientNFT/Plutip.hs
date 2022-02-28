@@ -45,7 +45,7 @@ testValid = do
       cnft <- generateNft
       waitNSlots 1
 
-      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing)
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing [])
       waitNSlots 1
 
       nft2 <- setPrice (SetPriceParams nft1 (toEnum 20_000_000))
@@ -79,7 +79,7 @@ testChangePriceNotOwner = do
       cnft <- generateNft
       waitNSlots 1
 
-      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing)
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing [])
       waitNSlots 1
 
       nft2 <- marketplaceDeposit nft1
@@ -101,7 +101,7 @@ testRedeemNotOwner = do
       cnft <- generateNft
       waitNSlots 1
 
-      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing)
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing [])
       waitNSlots 1
 
       nft2 <- marketplaceDeposit nft1
@@ -123,7 +123,7 @@ testBurnTooEarly = do
       cnft <- generateNft
       waitNSlots 1
 
-      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5_000_000_000 5_000_000_000 Nothing)
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5_000_000_000 5_000_000_000 Nothing [])
       waitNSlots 1
 
       burn nft1

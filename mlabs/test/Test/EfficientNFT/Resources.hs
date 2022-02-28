@@ -310,7 +310,7 @@ mint pkh cnftCoin price = do
   where
     redeemer = MintToken nft
     lockScript = lockValidator cnftCS 5 5
-    marketplaceHash = validatorHash daoValidator
+    marketplaceHash = validatorHash $ daoValidator []
     collection =
       NftCollection
         cnftCS

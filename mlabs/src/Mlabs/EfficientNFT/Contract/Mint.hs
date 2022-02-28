@@ -54,7 +54,7 @@ mintWithCollection (ac, mp) = do
               validatorHash $ lockValidator (fst $ unAssetClass ac) (mp'lockLockup mp) (mp'lockLockupEnd mp)
           , nftCollection'author = author
           , nftCollection'authorShare = mp'share mp
-          , nftCollection'daoScript = validatorHash daoValidator
+          , nftCollection'daoScript = validatorHash $ daoValidator $ mp'feeVaultKeys mp
           , nftCollection'daoShare = toEnum 5
           }
       policy' = policy collection
