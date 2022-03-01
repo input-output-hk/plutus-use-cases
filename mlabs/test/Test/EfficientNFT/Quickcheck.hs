@@ -2,15 +2,15 @@
 
 module Test.EfficientNFT.Quickcheck (test) where
 
-import Control.Lens (makeLenses, (&), (.~), (^.))
-import Control.Monad (void)
+import Control.Lens (makeLenses, view, (&), (.~), (^.))
+import Control.Monad (void, when)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Monoid (Last (..))
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
-import Ledger (AssetClass, PaymentPubKeyHash (PaymentPubKeyHash), ValidatorHash (ValidatorHash), minAdaTxOut, scriptCurrencySymbol)
+import Ledger (AssetClass, PaymentPubKeyHash (PaymentPubKeyHash), PubKeyHash, ValidatorHash (ValidatorHash), minAdaTxOut, scriptCurrencySymbol, unPaymentPubKeyHash)
 import Ledger.Typed.Scripts (validatorHash)
 import Mlabs.Utils.Wallet (walletFromNumber)
 import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, mockWalletPaymentPubKeyHash)
@@ -22,16 +22,18 @@ import Plutus.Contract.Test.ContractModel (
   contractState,
   defaultCoverageOptions,
   deposit,
+  getModelState,
   propRunActionsWithOptions,
   transfer,
   wait,
   withdraw,
+  ($=),
   ($~),
  )
 import Plutus.Trace.Emulator (callEndpoint, initialChainState)
 import Plutus.Trace.Emulator qualified as Trace
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken, getLovelace, lovelaceValueOf, toValue)
-import Plutus.V1.Ledger.Value (CurrencySymbol (CurrencySymbol), Value, assetClass, assetClassValue, singleton, unAssetClass, valueOf)
+import Plutus.V1.Ledger.Value (CurrencySymbol (CurrencySymbol), Value, assetClass, assetClassValue, singleton, unAssetClass)
 import PlutusTx.Natural (Natural)
 import PlutusTx.Prelude hiding ((<$>), (<*>), (==))
 import Test.QuickCheck qualified as QC
@@ -60,6 +62,7 @@ data NftModel = NftModel
     _mMarketplace :: Map NftData MockInfo
   , -- | Preminted not used collection NFTs
     _mUnusedCollections :: Set AssetClass
+  , _mLockedFees :: Integer
   }
   deriving (Hask.Show, Hask.Eq)
 makeLenses ''NftModel
@@ -69,7 +72,8 @@ instance ContractModel NftModel where
     = ActionMint
         { aAuthor :: Wallet
         , aPrice :: Natural
-        , aShare :: Natural
+        , aAuthorShare :: Natural
+        , aDaoShare :: Natural
         , aCollection :: AssetClass
         }
     | ActionSetPrice
@@ -95,19 +99,22 @@ instance ContractModel NftModel where
         , aMockInfo :: MockInfo
         , aNewOwner :: Wallet
         }
+    | ActionFeeWithdraw
+        { aPerformer :: Wallet -- TODO: better name
+        }
     deriving (Hask.Show, Hask.Eq)
 
   data ContractInstanceKey NftModel w s e where
     UserKey :: Wallet -> ContractInstanceKey NftModel (Last NftData) NFTAppSchema Text
 
-  initialHandleSpecs = Hask.fmap (\w -> ContractInstanceSpec (UserKey w) w endpoints) wallets
+  initialHandleSpecs = Hask.fmap (\w -> ContractInstanceSpec (UserKey w) w endpoints) (wallets <> feeValultKeys)
 
-  initialState = NftModel Hask.mempty Hask.mempty (Set.fromList hardcodedCollections)
+  initialState = NftModel Hask.mempty Hask.mempty (Set.fromList hardcodedCollections) 0
 
   arbitraryAction model =
     let genWallet = QC.elements wallets
-        genNonNeg = toEnum . (* 1_000_000) . (+ 10) . QC.getNonNegative <$> QC.arbitrary
-        genShare = toEnum <$> QC.elements [10 .. 100]
+        genNonNeg = toEnum . (* 1_000_000) . (+ 25) . QC.getNonNegative <$> QC.arbitrary
+        genShare = toEnum <$> QC.elements [0 .. 4500]
         genNftId = QC.elements $ addNonExistingNFT $ Map.toList (model ^. contractState . mNfts)
         genMarketplaceNftId = QC.elements $ addNonExistingNFT $ Map.toList (model ^. contractState . mMarketplace)
         genCollection = QC.elements hardcodedCollections
@@ -118,6 +125,7 @@ instance ContractModel NftModel where
           [ ActionMint
               <$> genWallet
               <*> genNonNeg
+              <*> genShare
               <*> genShare
               <*> genCollection
           , uncurry ActionSetPrice
@@ -133,6 +141,8 @@ instance ContractModel NftModel where
           , uncurry ActionMarketplaceBuy
               <$> genMarketplaceNftId
               <*> genWallet
+          , ActionFeeWithdraw
+              <$> QC.elements feeValultKeys
           ]
 
   precondition s ActionMint {..} =
@@ -155,9 +165,11 @@ instance ContractModel NftModel where
     not (Map.null $ s ^. contractState . mMarketplace)
       && Map.member aNftData (s ^. contractState . mMarketplace)
       && mockWalletPaymentPubKeyHash aNewOwner /= nftId'owner (nftData'nftId aNftData)
+  precondition s ActionFeeWithdraw {} =
+    (s ^. contractState . mLockedFees) > 0
 
   perform h _ ActionMint {..} = do
-    let params = MintParams aShare aPrice 5 5 Nothing []
+    let params = MintParams aAuthorShare aDaoShare aPrice 5 5 Nothing feeValultKeys'
     callEndpoint @"mint-with-collection" (h $ UserKey aAuthor) (aCollection, params)
     void $ Trace.waitNSlots 5
   perform h _ ActionSetPrice {..} = do
@@ -177,6 +189,9 @@ instance ContractModel NftModel where
   perform h _ ActionMarketplaceBuy {..} = do
     callEndpoint @"marketplace-buy" (h $ UserKey aNewOwner) aNftData
     void $ Trace.waitNSlots 5
+  perform h _ ActionFeeWithdraw {..} = do
+    callEndpoint @"fee-withdraw" (h $ UserKey aPerformer) feeValultKeys'
+    void $ Trace.waitNSlots 5
 
   nextState ActionMint {..} = do
     wait 1
@@ -194,9 +209,10 @@ instance ContractModel NftModel where
             , nftCollection'lockingScript =
                 validatorHash $ lockValidator (fst $ unAssetClass aCollection) 5 5 -- 7776000 7776000
             , nftCollection'author = mockWalletPaymentPubKeyHash aAuthor
-            , nftCollection'authorShare = aShare
-            , nftCollection'daoScript = validatorHash $ daoValidator []
-            , nftCollection'daoShare = toEnum 5
+            , nftCollection'authorShare = aAuthorShare
+            , nftCollection'daoScript =
+                validatorHash $ daoValidator feeValultKeys'
+            , nftCollection'daoShare = aDaoShare
             }
         nftData = NftData collection nft
         curr = getCurr nftData
@@ -246,18 +262,26 @@ instance ContractModel NftModel where
         collection = nftData'nftCollection aNftData
         newInfo = mock'owner .~ aNewOwner $ aMockInfo
         nftPrice = nftId'price oldNft
-        getShare share = lovelaceValueOf $ fromEnum nftPrice * share `divide` 10000
+        getShare share = (fromEnum nftPrice * share) `divide` 100_00
         authorShare = getShare (fromEnum . nftCollection'authorShare $ collection)
         daoShare = getShare (fromEnum . nftCollection'daoShare $ collection)
-        ownerShare = lovelaceValueOf (fromEnum nftPrice) - authorShare - daoShare
-        filterLowValue v t
-          | valueOf v adaSymbol adaToken < getLovelace minAdaTxOut = Hask.pure ()
-          | otherwise = t
+        ownerShare = lovelaceValueOf (fromEnum nftPrice - filterLow authorShare - filterLow daoShare)
+        filterLow v
+          | fromEnum v < getLovelace minAdaTxOut = 0
+          | otherwise = fromEnum v
+        moreThanMinAda v =
+          v > getLovelace minAdaTxOut
     mMarketplace $~ (Map.insert (NftData collection newNft) newInfo . Map.delete aNftData)
-    filterLowValue authorShare $ transfer aNewOwner (aMockInfo ^. mock'author) authorShare
-    filterLowValue authorShare $ withdraw aNewOwner daoShare
+    when (moreThanMinAda authorShare) $ transfer aNewOwner (aMockInfo ^. mock'author) (lovelaceValueOf authorShare)
+    when (moreThanMinAda daoShare) $ do
+      withdraw aNewOwner (lovelaceValueOf daoShare)
+      mLockedFees $~ (+ daoShare)
     transfer aNewOwner (aMockInfo ^. mock'owner) ownerShare
     wait 5
+  nextState ActionFeeWithdraw {..} = do
+    s <- view contractState <$> getModelState
+    deposit aPerformer $ lovelaceValueOf (s ^. mLockedFees)
+    mLockedFees $= 0
 
 deriving instance Hask.Eq (ContractInstanceKey NftModel w s e)
 deriving instance Hask.Show (ContractInstanceKey NftModel w s e)
@@ -270,13 +294,21 @@ getCurr nft =
 hardcodedCollections :: [AssetClass]
 hardcodedCollections = [assetClass cs tn | cs <- ["aa", "bb"], tn <- ["NFT1", "NFT2"]]
 
-w1, w2, w3 :: Wallet
+w1, w2, w3, w4, w5 :: Wallet
 w1 = walletFromNumber 1
 w2 = walletFromNumber 2
 w3 = walletFromNumber 3
+w4 = walletFromNumber 4
+w5 = walletFromNumber 5
 
 wallets :: [Wallet]
 wallets = [w1, w2, w3]
+
+feeValultKeys :: [Wallet]
+feeValultKeys = [w4, w5]
+
+feeValultKeys' :: [PubKeyHash]
+feeValultKeys' = fmap (unPaymentPubKeyHash . mockWalletPaymentPubKeyHash) feeValultKeys
 
 propContract :: Actions NftModel -> QC.Property
 propContract =
@@ -292,7 +324,7 @@ checkOptions = defaultCheckOptions & emulatorConfig . initialChainState .~ Left 
 initialDistribution :: Map Wallet Value
 initialDistribution =
   Map.fromList $
-    fmap (,vals) wallets
+    fmap (,vals) (wallets <> feeValultKeys)
   where
     vals =
       singleton adaSymbol adaToken 100_000_000_000

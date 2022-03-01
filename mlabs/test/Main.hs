@@ -9,6 +9,7 @@ import Test.Tasty (defaultMain, testGroup)
 import Test.EfficientNFT.Plutip qualified as ENFT.Plutip
 import Test.EfficientNFT.Quickcheck qualified as ENFT.Quickcheck
 import Test.EfficientNFT.Resources qualified as ENFT.Resources
+import Test.EfficientNFT.Script.FeeWithdraw qualified as ENFT.FeeWithdraw
 import Test.EfficientNFT.Script.TokenBurn qualified as ENFT.TokenBurn
 import Test.EfficientNFT.Script.TokenChangeOwner qualified as ENFT.TokenChangeOwner
 import Test.EfficientNFT.Script.TokenChangePrice qualified as ENFT.TokenChangePrice
@@ -54,6 +55,7 @@ main = do
               , ENFT.TokenMarketplaceBuy.test
               , ENFT.TokenMarketplaceRedeem.test
               ]
+          , ENFT.FeeWithdraw.test
           , ENFT.Quickcheck.test
           , ENFT.Plutip.test
           ]

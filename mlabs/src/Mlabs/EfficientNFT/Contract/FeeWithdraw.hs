@@ -5,13 +5,13 @@ import Prelude qualified as Hask
 
 import Control.Monad (void)
 import Data.Map qualified as Map
-import Ledger (ChainIndexTxOut (_ciTxOutValue), scriptHashAddress, PubKeyHash, Redeemer (Redeemer))
+import Ledger (ChainIndexTxOut (_ciTxOutValue), PubKeyHash, Redeemer (Redeemer), scriptHashAddress)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Typed.Scripts (Any, validatorHash, validatorScript)
 import Plutus.Contract qualified as Contract
 import Text.Printf (printf)
 
-import Mlabs.EfficientNFT.Contract.Aux (getAddrUtxos, getUserUtxos)
+import Mlabs.EfficientNFT.Contract.Aux (getAddrUtxos)
 import Mlabs.EfficientNFT.Dao (daoValidator)
 import Mlabs.EfficientNFT.Types (UserContract)
 import Plutus.V1.Ledger.Api (toBuiltinData)
@@ -23,20 +23,20 @@ feeWithdraw pkhs = do
       scriptAddr = scriptHashAddress valHash
   pkh <- Contract.ownPaymentPubKeyHash
   utxos <- getAddrUtxos scriptAddr
-  userUtxos <- getUserUtxos
   let feeValues = mconcat $ map _ciTxOutValue $ Map.elems utxos
-  let lookup =
+      lookup =
         Hask.mconcat
           [ Constraints.typedValidatorLookups daoValidator'
           , Constraints.otherScript (validatorScript daoValidator')
-          , Constraints.unspentOutputs (utxos Hask.<> userUtxos)
+          , Constraints.unspentOutputs utxos
           , Constraints.ownPaymentPubKeyHash pkh
           ]
       tx =
-        Hask.mconcat (
-          [ Constraints.mustBeSignedBy pkh
-          , Constraints.mustPayToPubKey pkh feeValues
-          ]
-        <> fmap (\utxo -> Constraints.mustSpendScriptOutput utxo (Redeemer $ toBuiltinData ())) (Map.keys utxos))
+        Hask.mconcat
+          ( [ Constraints.mustBeSignedBy pkh
+            , Constraints.mustPayToPubKey pkh feeValues
+            ]
+              <> fmap (\utxo -> Constraints.mustSpendScriptOutput utxo (Redeemer $ toBuiltinData ())) (Map.keys utxos)
+          )
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.logInfo @Hask.String $ printf "Fee withdraw successful: %s" (Hask.show feeValues)

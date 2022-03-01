@@ -8,7 +8,7 @@ import Control.Monad.Reader (ReaderT)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Monoid (Last)
 import Data.Text (Text)
-import Ledger (Value)
+import Ledger (PaymentPubKeyHash (unPaymentPubKeyHash), Value)
 import Plutus.Contract (waitNSlots)
 import PlutusTx.Enum (toEnum)
 import Test.Plutip.Contract (initAda, shouldFail, shouldSucceed, withContractAs)
@@ -16,7 +16,9 @@ import Test.Plutip.Internal.Types (ClusterEnv, ExecutionResult (ExecutionResult)
 import Test.Plutip.LocalCluster (BpiWallet, withCluster)
 import Test.Tasty (TestTree)
 
+import Control.Monad (void)
 import Mlabs.EfficientNFT.Contract.Burn (burn)
+import Mlabs.EfficientNFT.Contract.FeeWithdraw (feeWithdraw)
 import Mlabs.EfficientNFT.Contract.MarketplaceBuy (marketplaceBuy)
 import Mlabs.EfficientNFT.Contract.MarketplaceDeposit (marketplaceDeposit)
 import Mlabs.EfficientNFT.Contract.MarketplaceRedeem (marketplaceRedeem)
@@ -30,7 +32,7 @@ test :: TestTree
 test =
   withCluster
     "Integration tests"
-    [ shouldSucceed "Happy path" (initAda 100 <> initAda 100) testValid
+    [ shouldSucceed "Happy path" (initAda 100 <> initAda 100 <> initAda 100) testValid
     , shouldFail "Fail to change price when not owner" (initAda 100 <> initAda 100) testChangePriceNotOwner
     , shouldFail "Fail to redeem when not owner" (initAda 100 <> initAda 100) testRedeemNotOwner
     , shouldFail "Fail unlocking too early" (initAda 100) testBurnTooEarly
@@ -40,21 +42,21 @@ type TestCase = ReaderT (ClusterEnv, NonEmpty BpiWallet) IO (ExecutionResult (La
 
 testValid :: TestCase
 testValid = do
-  (ExecutionResult (Right (nft3, _)) _) <- withContractAs 0 $
-    const $ do
-      cnft <- generateNft
-      waitNSlots 1
+  (ExecutionResult (Right ((nft3, pkhs), _)) _) <- withContractAs 0 $ \[_, pkh] -> do
+    let pkhs = pure $ unPaymentPubKeyHash pkh
+    cnft <- generateNft
+    waitNSlots 1
 
-      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing [])
-      waitNSlots 1
+    nft1 <- mintWithCollection (cnft, MintParams (toEnum 0) (toEnum 50_00) (toEnum 10_000_000) 5 5 Nothing pkhs)
+    waitNSlots 1
 
-      nft2 <- setPrice (SetPriceParams nft1 (toEnum 20_000_000))
-      waitNSlots 1
+    nft2 <- setPrice (SetPriceParams nft1 (toEnum 50_000_000))
+    waitNSlots 1
 
-      nft3 <- marketplaceDeposit nft2
-      waitNSlots 1
+    nft3 <- marketplaceDeposit nft2
+    waitNSlots 1
 
-      pure nft3
+    pure (nft3, pkhs)
 
   withContractAs 1 $
     const $ do
@@ -71,6 +73,12 @@ testValid = do
       waitNSlots 1
 
       burn nft7
+      waitNSlots 1
+
+  withContractAs 2 $
+    const $ do
+      feeWithdraw pkhs
+      void $ waitNSlots 1
 
 testChangePriceNotOwner :: TestCase
 testChangePriceNotOwner = do
@@ -79,7 +87,7 @@ testChangePriceNotOwner = do
       cnft <- generateNft
       waitNSlots 1
 
-      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing [])
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 0) (toEnum 0) (toEnum 10_000_000) 5 5 Nothing [])
       waitNSlots 1
 
       nft2 <- marketplaceDeposit nft1
@@ -101,7 +109,7 @@ testRedeemNotOwner = do
       cnft <- generateNft
       waitNSlots 1
 
-      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5 5 Nothing [])
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 0) (toEnum 0) (toEnum 10_000_000) 5 5 Nothing [])
       waitNSlots 1
 
       nft2 <- marketplaceDeposit nft1
@@ -123,7 +131,7 @@ testBurnTooEarly = do
       cnft <- generateNft
       waitNSlots 1
 
-      nft1 <- mintWithCollection (cnft, MintParams (toEnum 10) (toEnum 10_000_000) 5_000_000_000 5_000_000_000 Nothing [])
+      nft1 <- mintWithCollection (cnft, MintParams (toEnum 0) (toEnum 0) (toEnum 10_000_000) 5_000_000_000 5_000_000_000 Nothing [])
       waitNSlots 1
 
       burn nft1

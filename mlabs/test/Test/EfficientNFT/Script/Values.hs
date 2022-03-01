@@ -31,6 +31,7 @@ module Test.EfficientNFT.Script.Values (
   afterDeadlineAndLockup,
   beforeDeadline,
   testMarketplaceScript,
+  testDaoScript,
 ) where
 
 import PlutusTx qualified
@@ -53,6 +54,7 @@ import Ledger (
   TxOutRef (TxOutRef),
   UpperBound (UpperBound),
   ValidatorHash,
+  unPaymentPubKeyHash,
  )
 import Ledger.Ada qualified as Ada
 import Ledger.CardanoWallet qualified as CardanoWallet
@@ -74,10 +76,10 @@ import Test.Tasty.Plutus.WithScript (WithScript)
 import Wallet.Emulator.Types qualified as Emu
 import Prelude (elem)
 
-import Mlabs.EfficientNFT.Dao (daoValidator)
+import Mlabs.EfficientNFT.Dao (daoValidator, mkValidator)
 import Mlabs.EfficientNFT.Lock (lockValidator, mkValidator)
 import Mlabs.EfficientNFT.Marketplace (mkValidator)
-import Mlabs.EfficientNFT.Types (LockAct, LockDatum, MarketplaceDatum (MarketplaceDatum), MintAct, NftCollection (..), NftId (..))
+import Mlabs.EfficientNFT.Types (LockAct, LockDatum, MarketplaceDatum, MintAct, NftCollection (..), NftId (..))
 
 mintTxOutRef :: TxOutRef
 mintTxOutRef = TxOutRef txId 1
@@ -251,4 +253,12 @@ testMarketplaceScript :: TestScript ( 'ForSpending MarketplaceDatum BuiltinData)
 testMarketplaceScript =
   mkTestValidator
     $$(PlutusTx.compile [||Mlabs.EfficientNFT.Marketplace.mkValidator||])
+    $$(PlutusTx.compile [||toTestValidator||])
+
+testDaoScript :: TestScript ( 'ForSpending BuiltinData BuiltinData)
+testDaoScript =
+  mkTestValidator
+    ( $$(PlutusTx.compile [||Mlabs.EfficientNFT.Dao.mkValidator||])
+        `PlutusTx.applyCode` PlutusTx.liftCode [unPaymentPubKeyHash userOnePkh, unPaymentPubKeyHash userTwoPkh]
+    )
     $$(PlutusTx.compile [||toTestValidator||])
