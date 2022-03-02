@@ -40,7 +40,7 @@ import Test.Tasty.Plutus.TestData (
 import Test.Tasty.Plutus.WithScript (WithScript, withTestScript)
 
 import Mlabs.EfficientNFT.Token (mkTokenName)
-import Mlabs.EfficientNFT.Types (MintAct (ChangeOwner))
+import Mlabs.EfficientNFT.Types (MintAct (ChangeOwner), hash)
 
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
@@ -91,7 +91,7 @@ validData = MintingTest redeemer tasks
 badTokenNameData :: TestData ( 'ForMinting MintAct)
 badTokenNameData = MintingTest redeemer tasks
   where
-    breakName = TokenName . sha2_256 . unTokenName
+    breakName = TokenName . hash . unTokenName
     tasks =
       burnTokens (Tokens validOldTokenName [positive| 1 |])
         <> mintTokens (Tokens (breakName validNewTokenName) [positive| 1 |])

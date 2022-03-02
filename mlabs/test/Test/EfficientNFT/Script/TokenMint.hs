@@ -39,7 +39,7 @@ import Test.Tasty.Plutus.WithScript (WithScript, withTestScript)
 import Prelude (elem, mconcat, pure, (<>))
 
 import Mlabs.EfficientNFT.Token (mkPolicy)
-import Mlabs.EfficientNFT.Types (MintAct (MintToken), NftCollection (..))
+import Mlabs.EfficientNFT.Types (MintAct (MintToken), NftCollection (..), hash)
 import Test.EfficientNFT.Script.Values (shouldFailWithErr)
 import Test.EfficientNFT.Script.Values qualified as TestValues
 
@@ -92,7 +92,7 @@ badTokenNameData =
     redeemer
     (mintTokens badTokens)
   where
-    breakName = TokenName . sha2_256 . unTokenName
+    breakName = TokenName . hash . unTokenName
     badTokens = Tokens (breakName TestValues.tokenName) [positive| 1 |]
     redeemer = MintToken TestValues.nft1
 
