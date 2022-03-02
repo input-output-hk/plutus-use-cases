@@ -1,4 +1,4 @@
-module Mlabs.EfficientNFT.Contract.Mint (mint, mintWithCollection) where
+module Mlabs.EfficientNFT.Contract.Mint (mint, mintWithCollection, generateNft) where
 
 import PlutusTx.Prelude hiding (mconcat)
 import Prelude qualified as Hask
@@ -13,50 +13,46 @@ import Ledger.Contexts (scriptCurrencySymbol)
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Ledger.Typed.Scripts (validatorHash)
 import Plutus.Contract qualified as Contract
+import Plutus.Contracts.Currency (CurrencyError, mintContract)
+import Plutus.Contracts.Currency qualified as MC
 import Plutus.V1.Ledger.Ada (toValue)
 import Plutus.V1.Ledger.Api (Extended (Finite, PosInf), Interval (Interval), LowerBound (LowerBound), ToData (toBuiltinData), TokenName (TokenName), UpperBound (UpperBound))
 import Plutus.V1.Ledger.Value (AssetClass, assetClass, assetClassValue, singleton, unAssetClass)
 import Text.Printf (printf)
 
-{- Drop-in replacement for
-import Plutus.Contracts.Currency (CurrencyError, mintContract)
-import Plutus.Contracts.Currency qualified as MC
-till it will be fixed, see `Mlabs.Plutus.Contracts.Currency.mintContract`
-for details -}
-import Mlabs.Plutus.Contracts.Currency (CurrencyError, mintContract)
-import Mlabs.Plutus.Contracts.Currency qualified as MC
-
-import Mlabs.EfficientNFT.Contract.Aux
+import Mlabs.EfficientNFT.Contract.Aux (getUserUtxos)
 import Mlabs.EfficientNFT.Dao (daoValidator)
-import Mlabs.EfficientNFT.Lock
-import Mlabs.EfficientNFT.Token
+import Mlabs.EfficientNFT.Lock (lockValidator)
+import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types
 
-mint :: MintParams -> UserContract ()
+mint :: MintParams -> UserContract NftData
 mint mp = do
   ac <- generateNft
   mintWithCollection (ac, mp)
 
-mintWithCollection :: (AssetClass, MintParams) -> UserContract ()
+mintWithCollection :: (AssetClass, MintParams) -> UserContract NftData
 mintWithCollection (ac, mp) = do
   pkh <- Contract.ownPaymentPubKeyHash
   utxos <- getUserUtxos
   currSlot <- Contract.currentSlot
   Contract.logInfo @Hask.String $ printf "Curr slot: %s" (Hask.show currSlot)
-  let lockup = 7776000 -- 90 days in seconds
-      now = slotToBeginPOSIXTime def currSlot
-      lockupEnd = 7776000
+  let now = slotToBeginPOSIXTime def currSlot
+      author = fromMaybe pkh $ mp'fakeAuthor mp
       nft =
         NftId
           { nftId'price = mp'price mp
-          , nftId'owner = pkh
+          , nftId'owner = author
           , nftId'collectionNftTn = snd . unAssetClass $ ac
           }
       collection =
         NftCollection
           { nftCollection'collectionNftCs = fst . unAssetClass $ ac
-          , nftCollection'lockingScript = validatorHash $ lockValidator (fst $ unAssetClass ac) lockup lockupEnd
-          , nftCollection'author = pkh
+          , nftCollection'lockLockup = mp'lockLockup mp
+          , nftCollection'lockLockupEnd = mp'lockLockupEnd mp
+          , nftCollection'lockingScript =
+              validatorHash $ lockValidator (fst $ unAssetClass ac) (mp'lockLockup mp) (mp'lockLockupEnd mp)
+          , nftCollection'author = author
           , nftCollection'authorShare = mp'share mp
           , nftCollection'daoScript = validatorHash daoValidator
           , nftCollection'daoShare = toEnum 5
@@ -66,6 +62,7 @@ mintWithCollection (ac, mp) = do
       tn = mkTokenName nft
       nftValue = singleton curr tn 1
       mintRedeemer = Redeemer . toBuiltinData . MintToken $ nft
+      nftData = NftData collection nft
       lookup =
         Hask.mconcat
           [ Constraints.mintingPolicy policy'
@@ -85,11 +82,12 @@ mintWithCollection (ac, mp) = do
                 (UpperBound PosInf False)
           ]
   void $ Contract.submitTxConstraintsWith @Void lookup tx
-  Contract.tell . Hask.pure $ NftData collection nft
+  Contract.tell . Hask.pure $ nftData
   Contract.logInfo @Hask.String $ Hask.show nft
   Contract.logInfo @Hask.String $ printf "Mint successful: %s" (Hask.show $ assetClass curr tn)
+  Hask.pure nftData
 
-generateNft :: GenericContract AssetClass
+generateNft :: UserContract AssetClass
 generateNft = do
   self <- Contract.ownPaymentPubKeyHash
   let tn = TokenName "NFT"

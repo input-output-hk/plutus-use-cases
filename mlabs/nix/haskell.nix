@@ -1,4 +1,4 @@
-{ src, inputs, pkgs, doCoverage ? false, deferPluginErrors ? true, ... }:
+{ src, inputs, pkgs, system, doCoverage ? false, deferPluginErrors ? true, ... }:
 
 pkgs.haskell-nix.cabalProject {
   inherit src;
@@ -13,6 +13,7 @@ pkgs.haskell-nix.cabalProject {
     # Make sure to keep this list updated after upgrading git dependencies!
     additional = ps:
       with ps; [
+        bot-plutus-interface
         filemanip
         ieee
         plutus-extra
@@ -55,6 +56,7 @@ pkgs.haskell-nix.cabalProject {
         plutus-tx-spooky
         plutus-simple-model
         plutus-use-cases
+        plutip
         prettyprinter-configurable
         quickcheck-dynamic
         Win32-network
@@ -123,6 +125,12 @@ pkgs.haskell-nix.cabalProject {
         [ pkgs.buildPackages.buildPackages.gitMinimal ];
       cardano-config.components.library.build-tools =
         [ pkgs.buildPackages.buildPackages.gitMinimal ];
+
+      mlabs-plutus-use-cases.components.tests."mlabs-plutus-use-cases-tests".build-tools =
+        [ inputs.cardano-node.packages.${system}.cardano-node
+          inputs.cardano-node.packages.${system}.cardano-cli
+        ];
+
     };
   }];
 
@@ -304,6 +312,14 @@ pkgs.haskell-nix.cabalProject {
     }
     {
       src = inputs.Win32-network;
+      subdirs = [ "." ];
+    }
+    {
+      src = inputs.plutip;
+      subdirs = [ "." ];
+    }
+    {
+      src = inputs.bot-plutus-interface;
       subdirs = [ "." ];
     }
   ];

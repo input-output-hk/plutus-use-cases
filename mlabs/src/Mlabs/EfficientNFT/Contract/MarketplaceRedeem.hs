@@ -21,7 +21,7 @@ import Mlabs.EfficientNFT.Token (mkTokenName, policy)
 import Mlabs.EfficientNFT.Types
 
 -- | Redeem nft from the marketplace. To redeem nft it must be reminted so price is increased by 1 lovelace
-marketplaceRedeem :: NftData -> UserContract ()
+marketplaceRedeem :: NftData -> UserContract NftData
 marketplaceRedeem nftData = do
   let collection = nftData'nftCollection nftData
       policy' = policy collection
@@ -61,3 +61,4 @@ marketplaceRedeem nftData = do
   void $ Contract.submitTxConstraintsWith @Any lookup tx
   Contract.tell . Hask.pure $ NftData collection newNft
   Contract.logInfo @Hask.String $ printf "Redeem successful: %s" (Hask.show $ assetClass curr newName)
+  Hask.pure $ NftData collection newNft

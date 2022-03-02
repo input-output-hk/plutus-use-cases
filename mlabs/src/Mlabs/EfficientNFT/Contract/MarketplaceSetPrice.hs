@@ -20,7 +20,7 @@ import Mlabs.EfficientNFT.Marketplace
 import Mlabs.EfficientNFT.Token
 import Mlabs.EfficientNFT.Types
 
-marketplaceSetPrice :: SetPriceParams -> UserContract ()
+marketplaceSetPrice :: SetPriceParams -> UserContract NftData
 marketplaceSetPrice sp = do
   let collection = nftData'nftCollection . sp'nftData $ sp
       policy' = policy collection
@@ -35,6 +35,7 @@ marketplaceSetPrice sp = do
       newNftValue = singleton curr newName 1
       mintRedeemer = Redeemer . toBuiltinData $ ChangePrice oldNft (sp'price sp)
       containsNft (_, tx) = valueOf (_ciTxOutValue tx) curr oldName == 1
+      nftData = NftData collection newNft
   utxo' <- find containsNft . Map.toList <$> getAddrUtxos scriptAddr
   (utxo, utxoIndex) <- case utxo' of
     Nothing -> Contract.throwError "NFT not found on marketplace"
@@ -61,5 +62,6 @@ marketplaceSetPrice sp = do
               (newNftValue <> toValue minAdaTxOut)
           ]
   void $ Contract.submitTxConstraintsWith @Any lookup tx
-  Contract.tell . Hask.pure $ NftData collection newNft
+  Contract.tell . Hask.pure $ nftData
   Contract.logInfo @Hask.String $ printf "Marketplace set price successful: %s" (Hask.show $ assetClass curr newName)
+  Hask.pure nftData
