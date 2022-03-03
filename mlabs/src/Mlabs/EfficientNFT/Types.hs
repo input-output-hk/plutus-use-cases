@@ -43,12 +43,14 @@ PlutusTx.makeLift ''Content
 -- | Parameters that need to be submitted when minting a new NFT.
 data MintParams = MintParams
   { -- | Shares retained by author.
-    mp'share :: Natural
+    mp'authorShare :: Natural
+  , mp'daoShare :: Natural
   , -- | Listing price of the NFT, in Lovelace.
     mp'price :: Natural
   , mp'lockLockup :: Integer
   , mp'lockLockupEnd :: Slot
   , mp'fakeAuthor :: Maybe PaymentPubKeyHash
+  , mp'feeVaultKeys :: [PubKeyHash]
   }
   deriving stock (Hask.Show, Generic, Hask.Eq)
   deriving anyclass (FromJSON, ToJSON, ToSchema)

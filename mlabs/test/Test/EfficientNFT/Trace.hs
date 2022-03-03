@@ -48,8 +48,13 @@ mintTrace wallet = do
 
     artwork =
       MintParams
-        { mp'share = toEnum 10
+        { mp'authorShare = toEnum 10
+        , mp'daoShare = toEnum 10
         , mp'price = toEnum 5_000_000
+        , mp'lockLockup = 5
+        , mp'lockLockupEnd = 5
+        , mp'fakeAuthor = Nothing
+        , mp'feeVaultKeys = []
         }
 
 w1, w2, w3 :: Wallet
@@ -57,4 +62,5 @@ w1 = walletFromNumber 1
 w2 = walletFromNumber 2
 w3 = walletFromNumber 3
 
+test :: Hask.IO ()
 test = runEmulatorTraceIO $ mintTrace w1

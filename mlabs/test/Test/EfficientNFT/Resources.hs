@@ -8,7 +8,6 @@ import Data.Default (def)
 import Data.List (find)
 import Data.Maybe (fromJust)
 import Ledger (
-  Datum (Datum),
   Extended (Finite, PosInf),
   Interval (Interval),
   LowerBound (LowerBound),
@@ -40,6 +39,9 @@ import Mlabs.EfficientNFT.Types (
   nftCollection'collectionNftCs,
   nftCollection'daoScript,
   nftCollection'daoShare,
+  nftCollection'lockLockup,
+  nftCollection'lockLockupEnd,
+  nftCollection'lockingScript,
   nftData'nftCollection,
   nftData'nftId,
   nftId'collectionNftTn,
@@ -57,6 +59,7 @@ import Plutus.Test.Model (
   fakeCoin,
   fakeValue,
   filterSlot,
+  logError,
   mintValue,
   newUser,
   payToPubKey,
@@ -83,7 +86,7 @@ test :: BchConfig -> TestTree
 test cfg =
   testGroup
     "Resources usage"
-    [ good "Seabug scripts" 2 seabugActions
+    [ good "Seabug scripts" 3 seabugActions
     ]
   where
     good msg n act =
@@ -100,7 +103,7 @@ cnftCoinA :: FakeCoin
 cnftCoinA = FakeCoin "aa"
 
 initFunds :: Value
-initFunds = mconcat [lovelaceValueOf 200_000_000, fakeValue cnftCoinA 1]
+initFunds = mconcat [lovelaceValueOf 300_000_000, fakeValue cnftCoinA 1]
 
 seabugActions :: Run ()
 seabugActions = do
@@ -109,16 +112,29 @@ seabugActions = do
 
   w1 <- newUser $ lovelaceValueOf 100_000_000 <> fakeValue cnftCoinA 1
   w2 <- newUser $ lovelaceValueOf 100_000_000
+  w3 <- newUser $ lovelaceValueOf 100_000_000
 
-  void $
-    mint w1 cnftCoinA 10_000_000
-      >>= changePrice 8_000_000
-      >>= marketplaceDeposit
-      >>= marketplaceChangePrice 20_000_000
-      >>= marketplaceBuy w2
-      >>= marketplaceChangePrice 10_000_000
-      >>= marketplaceRedeem
-      >>= unstake
+  mint w1 [w3] cnftCoinA 10_000_000
+    >>= changePrice 8_000_000
+    >>= marketplaceDeposit
+    >>= marketplaceChangePrice 50_000_000
+    >>= marketplaceBuy w2
+    >>= marketplaceChangePrice 10_000_000
+    >>= marketplaceRedeem
+    >>= unstake
+  feeWithdraw w3 [w3]
+
+feeWithdraw :: PubKeyHash -> [PubKeyHash] -> Run ()
+feeWithdraw pkh vaultKeys = do
+  boxes <- scriptBoxAt daoValidator'
+  let feeValue = foldMap (txOutValue . txBoxOut) boxes
+  void
+    . (sendTx <=< signTx pkh)
+    . mconcat
+    $ payToPubKey pkh feeValue :
+    fmap (spendBox daoValidator' (toBuiltinData ())) boxes
+  where
+    daoValidator' = daoValidator vaultKeys
 
 unstake :: NftData -> Run ()
 unstake nftData = do
@@ -163,7 +179,7 @@ marketplaceBuy newOwner nftData = do
           (toBuiltinData . MarketplaceDatum $ assetClass nftCS newNftTN)
           (newNftVal <> toValue minAdaTxOut)
       , spendBox marketplaceValidator (toBuiltinData ()) box
-      , payWithDatumToPubKey oldOwner datum (lovelaceValueOf oldPrice)
+      , payWithDatumToPubKey oldOwner datum (lovelaceValueOf ownerShare)
       , userSpend utxos
       ]
       <> filterLowValue
@@ -193,6 +209,10 @@ marketplaceBuy newOwner nftData = do
     newNftVal = singleton nftCS newNftTN 1
     oldOwner = unPaymentPubKeyHash . nftId'owner $ oldNft
     oldPrice = fromEnum . nftId'price $ oldNft
+    filterLow x
+      | x < getLovelace minAdaTxOut = 0
+      | otherwise = x
+    ownerShare = oldPrice - filterLow daoShare - filterLow authorShare
     authorPkh = unPaymentPubKeyHash . nftCollection'author . nftData'nftCollection $ nftData
     daoHash = nftCollection'daoScript . nftData'nftCollection $ nftData
 
@@ -294,8 +314,8 @@ changePrice newPrice nftData = do
     newNftVal = singleton nftCS newNftTN 1
     owner = unPaymentPubKeyHash . nftId'owner . nftData'nftId $ nftData
 
-mint :: PubKeyHash -> FakeCoin -> Integer -> Run NftData
-mint pkh cnftCoin price = do
+mint :: PubKeyHash -> [PubKeyHash] -> FakeCoin -> Integer -> Run NftData
+mint pkh vaultKeys cnftCoin price = do
   utxos <- spend pkh (cnftVal <> toValue minAdaTxOut)
   void
     . (sendTx <=< signTx pkh)
@@ -310,17 +330,18 @@ mint pkh cnftCoin price = do
   where
     redeemer = MintToken nft
     lockScript = lockValidator cnftCS 5 5
-    marketplaceHash = validatorHash daoValidator
+    daoHash = validatorHash $ daoValidator vaultKeys
     collection =
       NftCollection
-        cnftCS
-        5
-        5
-        (validatorHash lockScript)
-        (PaymentPubKeyHash pkh)
-        (toEnum 10)
-        marketplaceHash
-        (toEnum 10)
+        { nftCollection'collectionNftCs = cnftCS
+        , nftCollection'lockLockup = 5
+        , nftCollection'lockLockupEnd = 5
+        , nftCollection'lockingScript = validatorHash lockScript
+        , nftCollection'author = PaymentPubKeyHash pkh
+        , nftCollection'authorShare = toEnum 0
+        , nftCollection'daoScript = daoHash
+        , nftCollection'daoShare = toEnum 10_00
+        }
     policy' = policy collection
     nft = NftId cnftTN (toEnum price) (PaymentPubKeyHash pkh)
     nftTN = mkTokenName nft

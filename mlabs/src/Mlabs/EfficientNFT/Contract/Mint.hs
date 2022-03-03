@@ -53,9 +53,9 @@ mintWithCollection (ac, mp) = do
           , nftCollection'lockingScript =
               validatorHash $ lockValidator (fst $ unAssetClass ac) (mp'lockLockup mp) (mp'lockLockupEnd mp)
           , nftCollection'author = author
-          , nftCollection'authorShare = mp'share mp
-          , nftCollection'daoScript = validatorHash daoValidator
-          , nftCollection'daoShare = toEnum 5
+          , nftCollection'authorShare = mp'authorShare mp
+          , nftCollection'daoScript = validatorHash $ daoValidator $ mp'feeVaultKeys mp
+          , nftCollection'daoShare = mp'daoShare mp
           }
       policy' = policy collection
       curr = scriptCurrencySymbol policy'
