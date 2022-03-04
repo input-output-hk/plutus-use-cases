@@ -30,6 +30,7 @@ import Ledger (PaymentPubKeyHash (PaymentPubKeyHash), Slot, ValidatorHash (Valid
 import Plutus.Contract (Contract)
 import Plutus.V1.Ledger.Crypto (PubKeyHash (PubKeyHash))
 import Plutus.V1.Ledger.Value (AssetClass (AssetClass), CurrencySymbol (CurrencySymbol), TokenName (TokenName))
+import PlutusTx.Builtins (blake2b_256)
 import PlutusTx.Natural (Natural)
 import Schema (ToSchema)
 
@@ -127,11 +128,11 @@ class Hashable a where
 
 instance Hashable BuiltinByteString where
   {-# INLINEABLE hash #-}
-  hash = sha2_256
+  hash = blake2b_256
 
 instance Hashable Natural where
   {-# INLINEABLE hash #-}
-  hash = sha2_256 . toBin . fromEnum
+  hash = hash . toBin . fromEnum
     where
       {-# INLINEABLE toBin #-}
       toBin :: Integer -> BuiltinByteString

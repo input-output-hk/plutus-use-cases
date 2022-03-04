@@ -10,6 +10,7 @@ import Mlabs.EfficientNFT.Token (
 import Mlabs.EfficientNFT.Types (
   MintAct (ChangePrice),
   NftId (nftId'price),
+  hash,
  )
 import Plutus.V1.Ledger.Ada qualified as Value
 import PlutusTx qualified
@@ -168,4 +169,4 @@ shouldFailWithErr name errMsg =
     errMsg' = fromBuiltin errMsg
 
 breakName :: TokenName -> TokenName
-breakName = TokenName . sha2_256 . unTokenName
+breakName = TokenName . hash . unTokenName
