@@ -16,8 +16,8 @@ import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as Map
 import Data.Semigroup (Last (..), sconcat)
 import Data.Text (Text)
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash, unPaymentPubKeyHash))
 import Ledger.Constraints qualified as Constraints
-import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Tx (
   ChainIndexTxOut,
   TxOut (..),
@@ -36,6 +36,7 @@ import Plutus.V1.Ledger.Api (
   toBuiltinData,
  )
 import Plutus.V1.Ledger.Value (Value (..), valueOf)
+import PlutusTx.Ratio qualified as R
 import Text.Printf (printf)
 
 import Mlabs.Governance.Contract.Api qualified as Api
@@ -60,7 +61,7 @@ governanceEndpoints gov =
 
 deposit :: AssetClassGov -> Api.Deposit -> GovernanceContract ()
 deposit gov (Api.Deposit amnt) = do
-  ownPkh <- Contract.ownPubKeyHash
+  ownPkh <- Contract.ownPaymentPubKeyHash
   g <- findGovernance ownPkh gov
   let (tx, lookups) = case g of
         Just (datum, utxo, oref) ->
@@ -77,7 +78,7 @@ deposit gov (Api.Deposit amnt) = do
               ]
           )
         Nothing ->
-          let datum = GovernanceDatum ownPkh $ Validation.xGovCurrencySymbol gov
+          let datum = GovernanceDatum (unPaymentPubKeyHash ownPkh) $ Validation.xGovCurrencySymbol gov
            in ( sconcat
                   [ Constraints.mustMintValue xGovValue
                   , Constraints.mustPayToTheScript datum $ Validation.govSingleton gov amnt
@@ -89,7 +90,7 @@ deposit gov (Api.Deposit amnt) = do
                   ]
               )
 
-      xGovValue = Validation.xgovSingleton gov ownPkh amnt
+      xGovValue = Validation.xgovSingleton gov (unPaymentPubKeyHash ownPkh) amnt
 
   ledgerTx <- Contract.submitTxConstraintsWith @Validation.Governance lookups tx
   void $ Contract.awaitTxConfirmed $ getCardanoTxId ledgerTx
@@ -97,11 +98,11 @@ deposit gov (Api.Deposit amnt) = do
 
 withdraw :: AssetClassGov -> Api.Withdraw -> GovernanceContract ()
 withdraw gov (Api.Withdraw assets) = do
-  ownPkh <- Contract.ownPubKeyHash
+  ownPkh <- Contract.ownPaymentPubKeyHash
   let trav f ~(x NE.:| xs) = (NE.:|) <$> f x <*> traverse f xs
   -- for some reason NonEmpty doesn't have a Traversible instance in scope
   (tx, lookups) <- fmap sconcat . flip trav (NE.fromList assets) $ \ac -> do
-    g <- findGovernance (fst ac) gov
+    g <- findGovernance (PaymentPubKeyHash $ fst ac) gov
     case g of
       Nothing -> Contract.throwError "not found governance to withdraw from"
       Just (datum, utxo, oref) ->
@@ -132,13 +133,13 @@ provideRewards :: AssetClassGov -> Api.ProvideRewards -> GovernanceContract ()
 provideRewards gov (Api.ProvideRewards val) = do
   depositMap <- depositMapC
   let -- annotates each depositor with the total percentage of GOV deposited to the contract
-      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm + t, (pkh, amm % total) : p)) (0, mempty) depositMap
+      (total, props) = foldr (\(pkh, amm) (t, p) -> (amm + t, (pkh, R.reduce amm total) : p)) (0, mempty) depositMap
 
       dispatch =
         map
           ( \(pkh, prop) ->
               case pkh of
-                Just pkh' -> Just (pkh', Value $ fmap (round.(prop *).(% 1)) <$> getValue val)
+                Just pkh' -> Just (PaymentPubKeyHash pkh', Value $ fmap (round.(prop *).(`R.reduce` 1)) <$> getValue val)
                 Nothing -> Nothing
           )
           props
@@ -167,7 +168,7 @@ provideRewards gov (Api.ProvideRewards val) = do
 
 queryBalance :: AssetClassGov -> Api.QueryBalance -> GovernanceContract ()
 queryBalance gov (Api.QueryBalance pkh) = do
-  amm <- maybe 0 foo <$> findGovernance pkh gov
+  amm <- maybe 0 foo <$> findGovernance (PaymentPubKeyHash pkh) gov
   Contract.tell . Just $ Last amm
   where
     foo (_, tx, _) = govOf $ tx ^. ciTxOutValue
@@ -177,7 +178,7 @@ queryBalance gov (Api.QueryBalance pkh) = do
 
 -- looks for governance, returns one with the biggest GOV value attached to it, if it exists
 findGovernance ::
-  PubKeyHash ->
+  PaymentPubKeyHash ->
   AssetClassGov ->
   GovernanceContract (Maybe (Validation.GovernanceDatum, ChainIndexTxOut, TxOutRef))
 findGovernance pkh gov@AssetClassGov {..} = do
@@ -191,6 +192,6 @@ findGovernance pkh gov@AssetClassGov {..} = do
     getVal (_, tx, _) = govOf $ tx ^. ciTxOutValue
     foo (oref, o) = case o ^? ciTxOutDatum of
       Just (Right (Datum e)) -> case fromBuiltinData e of
-        Just gd | gd == pkh -> [(GovernanceDatum gd acGovCurrencySymbol, o, oref)]
+        Just gd | gd == pkh -> [(GovernanceDatum (unPaymentPubKeyHash gd) acGovCurrencySymbol, o, oref)]
         _ -> mempty
       _ -> mempty

@@ -12,6 +12,7 @@ import Ledger.TimeSlot (slotToBeginPOSIXTime)
 import Plutus.Contract.Test (assertFailedTransaction)
 import Plutus.V1.Ledger.Value (AssetClass (..), flattenValue)
 import PlutusTx.Prelude hiding (check, mconcat)
+import PlutusTx.Ratio qualified as R
 import Test.Tasty (TestTree, testGroup)
 import Prelude (mconcat)
 import Prelude qualified as Hask
@@ -333,6 +334,6 @@ subtractFee price = price - calcFee price
 
 calcFee price = round (fromInteger price * feeRate)
 
-feeRate = 5 % 1000
+feeRate = R.reduce 5 1000
 
 ownsGov wal am = wal `owns` (fmap (\(cur, tn, amt) -> (AssetClass (cur, tn), amt)) . flattenValue $ mkFreeGov wal am)

@@ -19,7 +19,6 @@ import PlutusTx.Prelude hiding (mconcat, mempty, (<>))
 
 import Ledger (
   Address,
-  getPubKeyHash,
   scriptCurrencySymbol,
   txOutValue,
  )
@@ -56,7 +55,7 @@ getFeesConstraints uT nftId price user = do
       govScriptHash = validatorHash govValidator
 
   feeRate <- queryCurrFeeRate uT
-  feePkh <- queryFeePkh uT
+  feePkh <- PaymentPubKeyHash . toSpooky . toSpookyPubKeyHash <$> queryFeePkh uT
   govHead' <- getGovHead govAddr
   govHead <- case govHead' of
     Just x -> Hask.pure x
@@ -68,7 +67,7 @@ getFeesConstraints uT nftId price user = do
       mkGov name =
         Value.singleton
           (scriptCurrencySymbol govPolicy)
-          (TokenName . (name <>) . getPubKeyHash $ ownPkh)
+          (Value.TokenName . (name <>) . getPubKeyHash . unPaymentPubKeyHash $ ownPkh)
           feeValue
       mintedFreeGov = mkGov "freeGov"
       mintedListGov = mkGov "listGov"
@@ -86,8 +85,8 @@ getFeesConstraints uT nftId price user = do
           ]
       sharedGovTx =
         [ Constraints.mustMintValueWithRedeemer govRedeemer (mintedFreeGov <> mintedListGov)
-        , Constraints.mustPayToPubKey ownPkh mintedFreeGov
-        , Constraints.mustPayToPubKey feePkh (Ada.lovelaceValueOf feeValue)
+        , Constraints.mustPayToPubKey (unSpookyPaymentPubKeyHash ownPkh) mintedFreeGov
+        , Constraints.mustPayToPubKey (unSpookyPaymentPubKeyHash feePkh) (Ada.lovelaceValueOf feeValue)
         ]
       sharedGovLookup =
         [ Constraints.mintingPolicy govPolicy

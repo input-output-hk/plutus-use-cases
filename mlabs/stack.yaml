@@ -21,6 +21,7 @@ extra-deps:
     - plutus-tx-plugin
     - prettyprinter-configurable
     - plutus-ledger-api
+    - plutus-ledger-constraints
     - plutus-pab
     - plutus-use-cases
     - freer-extras

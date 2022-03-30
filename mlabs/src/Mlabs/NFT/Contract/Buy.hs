@@ -36,7 +36,7 @@ import Mlabs.NFT.Contract.Aux (
  )
 import Mlabs.NFT.Contract.Gov.Fees (getFeesConstraints)
 import Mlabs.NFT.Contract.Gov.Query (queryCurrFeeRate)
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, unSpookyPaymentPubKeyHash, unSpookyValue)
 import Mlabs.NFT.Types (
   BuyRequestUser (..),
   DatumNft (NodeDatum),
@@ -63,7 +63,7 @@ import Mlabs.NFT.Validation (calculateShares, txPolicy)
 buy :: forall s. UniqueToken -> BuyRequestUser -> Contract UserWriter s Text ()
 buy uT BuyRequestUser {..} = do
   ownOrefTxOut <- getUserAddr >>= fstUtxoAt
-  ownPkh <- Contract.ownPubKeyHash
+  ownPkh <- Contract.ownPaymentPubKeyHash
   nftPi <- findNft ur'nftId uT
   node <- case pi'data nftPi of
     NodeDatum n -> Hask.pure n
@@ -106,8 +106,8 @@ buy uT BuyRequestUser {..} = do
         mconcat $
           [ Constraints.mustPayToTheScript (toBuiltinData nftDatum) nftVal
           , Constraints.mustIncludeDatum (Datum . PlutusTx.toBuiltinData $ nftDatum)
-          , Constraints.mustPayToPubKey (getUserId . info'author . node'information $ node) paidToAuthor
-          , Constraints.mustPayToPubKey (getUserId . info'owner . node'information $ node) paidToOwner
+          , Constraints.mustPayToPubKey (unSpookyPaymentPubKeyHash . getUserId . info'author . node'information $ node) (unSpookyValue paidToAuthor)
+          , Constraints.mustPayToPubKey (unSpookyPaymentPubKeyHash . getUserId . info'owner . node'information $ node) (unSpookyValue paidToOwner)
           , Constraints.mustSpendPubKeyOutput (fst ownOrefTxOut)
           , Constraints.mustSpendScriptOutput
               (pi'TOR nftPi)

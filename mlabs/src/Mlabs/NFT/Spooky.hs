@@ -1,11 +1,46 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Mlabs.NFT.Spooky (
+  ValidatorHash (..),
+  PubKeyHash (..),
+  getPubKeyHash,
+  toSpookyPubKeyHash,
+  unSpookyPubKeyHash,
+  PaymentPubKeyHash (..),
+  unPaymentPubKeyHash,
+  toSpookyPaymentPubKeyHash,
+  unSpookyPaymentPubKeyHash,
+  DatumHash (..),
+  getDatumHash,
+  CurrencySymbol (..),
+  toSpookyCurrencySymbol,
+  unSpookyCurrencySymbol,
+  TokenName (..),
+  toSpookyTokenName,
+  unSpookyTokenName,
+  unTokenName,
+  Value (..),
+  unSpookyValue,
+  flattenValue,
+  singleton,
+  valueOf,
+  lovelaceValueOf,
+  symbols,
+  adaSymbol,
+  adaToken,
+  AssetClass (..),
+  toSpookyAssetClass,
+  unSpookyAssetClass,
+  unAssetClass,
+  assetClass,
+  assetClassValue,
+  assetClassValueOf,
   Credential (..),
   StakingCredential (..),
   Address (..),
   toSpookyAddress,
   unSpookyAddress,
+  mkTypedValidator,
   TxId (..),
   getTxId,
   TxOutRef (..),
@@ -41,24 +76,304 @@ import PlutusTx qualified
 import PlutusTx.Prelude
 import Prelude qualified as Hask
 
+import Data.Kind (Type)
 import GHC.Generics (Generic)
 
+import Control.Monad (guard)
+import Data.OpenApi.Schema qualified as OpenApi
 import Ledger (
-  CurrencySymbol,
   Datum,
   POSIXTimeRange,
-  ValidatorHash,
  )
 import Ledger qualified
-import Ledger.Scripts (DatumHash)
-import Ledger.Value (Value)
-import Plutus.V1.Ledger.Api (DCert, PubKeyHash)
+import Ledger.Crypto qualified as Crypto
+import Ledger.Scripts qualified as Scripts
+import Ledger.Typed.Scripts.Validators (DatumType, RedeemerType, TypedValidator, WrappedValidatorType)
+import Ledger.Typed.Scripts.Validators qualified as Validators
+import Playground.Contract (FromJSON, ToJSON, ToSchema)
+import Plutus.V1.Ledger.Api (DCert)
 import Plutus.V1.Ledger.Credential qualified as Credential
-import PlutusTx.Spooky (Spooky, toSpooky, unSpooky)
+import Plutus.V1.Ledger.Value qualified as Value
+import PlutusTx.AssocMap qualified as Map
+import PlutusTx.Spooky
+import PlutusTx.These (These (..))
 import Schema (ToSchema (toSchema))
+import Unsafe.Coerce (unsafeCoerce)
 
 instance ToSchema BuiltinData where
   toSchema = toSchema @Hask.String
+
+newtype ValidatorHash = ValidatorHash {getValidatorHash' :: Spooky BuiltinByteString}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''ValidatorHash
+
+newtype PubKeyHash = PubKeyHash {getPubKeyHash' :: Spooky BuiltinByteString}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''PubKeyHash
+
+instance Ord PubKeyHash where
+  {-# INLINEABLE compare #-}
+  compare h h' = compare (getPubKeyHash h) (getPubKeyHash h')
+
+{-# INLINEABLE getPubKeyHash #-}
+getPubKeyHash :: PubKeyHash -> BuiltinByteString
+getPubKeyHash = unSpooky . getPubKeyHash'
+
+{-# INLINEABLE toSpookyPubKeyHash #-}
+toSpookyPubKeyHash :: Crypto.PubKeyHash -> PubKeyHash
+toSpookyPubKeyHash (Crypto.PubKeyHash hash) = PubKeyHash . toSpooky $ hash
+
+{-# INLINEABLE unSpookyPubKeyHash #-}
+unSpookyPubKeyHash :: PubKeyHash -> Crypto.PubKeyHash
+unSpookyPubKeyHash (PubKeyHash hash) = Crypto.PubKeyHash . unSpooky $ hash
+
+newtype PaymentPubKeyHash = PaymentPubKeyHash {unPaymentPubKeyHash' :: Spooky PubKeyHash}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''PaymentPubKeyHash
+
+instance Ord PaymentPubKeyHash where
+  {-# INLINEABLE compare #-}
+  compare h h' = compare (unPaymentPubKeyHash h) (unPaymentPubKeyHash h')
+
+{-# INLINEABLE unPaymentPubKeyHash #-}
+unPaymentPubKeyHash :: PaymentPubKeyHash -> PubKeyHash
+unPaymentPubKeyHash = unSpooky . unPaymentPubKeyHash'
+
+{-# INLINEABLE toSpookyPaymentPubKeyHash #-}
+toSpookyPaymentPubKeyHash :: Ledger.PaymentPubKeyHash -> PaymentPubKeyHash
+toSpookyPaymentPubKeyHash (Ledger.PaymentPubKeyHash hash) = PaymentPubKeyHash . toSpooky . toSpookyPubKeyHash $ hash
+
+{-# INLINEABLE unSpookyPaymentPubKeyHash #-}
+unSpookyPaymentPubKeyHash :: PaymentPubKeyHash -> Ledger.PaymentPubKeyHash
+unSpookyPaymentPubKeyHash (PaymentPubKeyHash hash) = Ledger.PaymentPubKeyHash . unSpookyPubKeyHash . unSpooky $ hash
+
+newtype DatumHash = DatumHash {getDatumHash' :: Spooky BuiltinByteString}
+  deriving stock (Generic)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+
+{-# INLINEABLE getDatumHash #-}
+getDatumHash :: DatumHash -> BuiltinByteString
+getDatumHash = unSpooky . getDatumHash'
+
+newtype CurrencySymbol = CurrencySymbol {unCurrencySymbol' :: Spooky BuiltinByteString}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.UnsafeFromData, PlutusTx.FromData, PlutusTx.ToData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''CurrencySymbol
+
+instance Ord CurrencySymbol where
+  {-# INLINEABLE compare #-}
+  compare cs cs' = compare (unCurrencySymbol cs) (unCurrencySymbol cs')
+
+{-# INLINEABLE unCurrencySymbol #-}
+unCurrencySymbol :: CurrencySymbol -> BuiltinByteString
+unCurrencySymbol = unSpooky . unCurrencySymbol'
+
+{-# INLINEABLE toSpookyCurrencySymbol #-}
+toSpookyCurrencySymbol :: Ledger.CurrencySymbol -> CurrencySymbol
+toSpookyCurrencySymbol (Value.CurrencySymbol cs) = CurrencySymbol . toSpooky $ cs
+
+{-# INLINEABLE unSpookyCurrencySymbol #-}
+unSpookyCurrencySymbol :: CurrencySymbol -> Ledger.CurrencySymbol
+unSpookyCurrencySymbol (CurrencySymbol cs) = Value.CurrencySymbol . unSpooky $ cs
+
+newtype TokenName = TokenName {unTokenName' :: Spooky BuiltinByteString}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.UnsafeFromData, PlutusTx.FromData, PlutusTx.ToData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''TokenName
+
+instance Ord TokenName where
+  {-# INLINEABLE compare #-}
+  compare tn tn' = compare (unTokenName tn) (unTokenName tn')
+
+{-# INLINEABLE unTokenName #-}
+unTokenName :: TokenName -> BuiltinByteString
+unTokenName = unSpooky . unTokenName'
+
+{-# INLINEABLE toSpookyTokenName #-}
+toSpookyTokenName :: Ledger.TokenName -> TokenName
+toSpookyTokenName (Value.TokenName tn) = TokenName . toSpooky $ tn
+
+{-# INLINEABLE unSpookyTokenName #-}
+unSpookyTokenName :: TokenName -> Ledger.TokenName
+unSpookyTokenName (TokenName tn) = Value.TokenName . unSpooky $ tn
+
+newtype AssetClass = AssetClass {unAssetClass' :: Spooky (CurrencySymbol, TokenName)}
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.UnsafeFromData, PlutusTx.FromData, PlutusTx.ToData)
+  deriving anyclass (ToJSON, FromJSON, ToSchema, OpenApi.ToSchema)
+PlutusTx.makeLift ''AssetClass
+
+instance Ord AssetClass where
+  {-# INLINEABLE compare #-}
+  compare ac ac' = compare (unAssetClass ac) (unAssetClass ac')
+
+{-# INLINEABLE unAssetClass #-}
+unAssetClass :: AssetClass -> (CurrencySymbol, TokenName)
+unAssetClass = unSpooky . unAssetClass'
+
+{-# INLINEABLE toSpookyAssetClass #-}
+toSpookyAssetClass :: Ledger.AssetClass -> AssetClass
+toSpookyAssetClass ac =
+  let (c, t) = Value.unAssetClass ac
+   in assetClass (toSpookyCurrencySymbol c) (toSpookyTokenName t)
+
+{-# INLINEABLE unSpookyAssetClass #-}
+unSpookyAssetClass :: AssetClass -> Ledger.AssetClass
+unSpookyAssetClass ac =
+  let (c, t) = unAssetClass ac
+   in Value.assetClass (unSpookyCurrencySymbol c) (unSpookyTokenName t)
+
+{-# INLINEABLE assetClass #-}
+assetClass :: CurrencySymbol -> TokenName -> AssetClass
+assetClass s t = AssetClass $ toSpooky (s, t)
+
+newtype Value = Value {getValue' :: Map.Map CurrencySymbol (Map.Map TokenName Integer)}
+  deriving stock (Generic)
+  deriving newtype (PlutusTx.UnsafeFromData, PlutusTx.FromData, PlutusTx.ToData)
+  deriving anyclass (ToJSON, FromJSON)
+PlutusTx.makeLift ''Value
+
+instance Hask.Semigroup Value where
+  (<>) = unionWith (+)
+
+instance Semigroup Value where
+  {-# INLINEABLE (<>) #-}
+  (<>) = unionWith (+)
+
+instance Hask.Monoid Value where
+  mempty = Value Map.empty
+
+instance Monoid Value where
+  {-# INLINEABLE mempty #-}
+  mempty = Value Map.empty
+
+instance Hask.Eq Value where
+  (==) = eq
+
+instance Eq Value where
+  {-# INLINEABLE (==) #-}
+  (==) = eq
+
+{-# INLINEABLE unSpookyValue #-}
+unSpookyValue :: Value -> Value.Value
+unSpookyValue =
+  mconcat
+    . fmap (\(cs, tn, v) -> Value.singleton (unSpookyCurrencySymbol cs) (unSpookyTokenName tn) v)
+    . flattenValue
+
+{-# INLINEABLE checkPred #-}
+checkPred :: (These Integer Integer -> Bool) -> Value -> Value -> Bool
+checkPred f l r =
+  let inner :: Map.Map TokenName (These Integer Integer) -> Bool
+      inner = Map.all f
+   in Map.all inner (unionVal l r)
+
+{-# INLINEABLE checkBinRel #-}
+
+{- | Check whether a binary relation holds for value pairs of two 'Value' maps,
+   supplying 0 where a key is only present in one of them.
+-}
+checkBinRel :: (Integer -> Integer -> Bool) -> Value -> Value -> Bool
+checkBinRel f l r =
+  let unThese k' = case k' of
+        This a -> f a 0
+        That b -> f 0 b
+        These a b -> f a b
+   in checkPred unThese l r
+
+{-# INLINEABLE eq #-}
+
+-- | Check whether one 'Value' is equal to another. See 'Value' for an explanation of how operations on 'Value's work.
+eq :: Value -> Value -> Bool
+-- If both are zero then checkBinRel will be vacuously true, but this is fine.
+eq = checkBinRel (==)
+
+{-# INLINEABLE unionVal #-}
+
+-- | Combine two 'Value' maps
+unionVal :: Value -> Value -> Map.Map CurrencySymbol (Map.Map TokenName (These Integer Integer))
+unionVal (Value l) (Value r) =
+  let combined = Map.union l r
+      unThese k = case k of
+        This a -> This <$> a
+        That b -> That <$> b
+        These a b -> Map.union a b
+   in unThese <$> combined
+
+{-# INLINEABLE unionWith #-}
+unionWith :: (Integer -> Integer -> Integer) -> Value -> Value -> Value
+unionWith f ls rs =
+  let combined = unionVal ls rs
+      unThese k' = case k' of
+        This a -> f a 0
+        That b -> f 0 b
+        These a b -> f a b
+   in Value (fmap (fmap unThese) combined)
+
+{-# INLINEABLE flattenValue #-}
+flattenValue :: Value -> [(CurrencySymbol, TokenName, Integer)]
+flattenValue (Value v) = do
+  (cs, m) <- Map.toList v
+  (tn, a) <- Map.toList m
+  guard $ a /= 0
+  return (cs, tn, a)
+
+{-# INLINEABLE singleton #-}
+
+-- | Make a 'Value' containing only the given quantity of the given currency.
+singleton :: CurrencySymbol -> TokenName -> Integer -> Value
+singleton c tn i = Value (Map.singleton c (Map.singleton tn i))
+
+{-# INLINEABLE valueOf #-}
+
+-- | Get the quantity of the given currency in the 'Value'.
+valueOf :: Value -> CurrencySymbol -> TokenName -> Integer
+valueOf (Value mp) cur tn =
+  case Map.lookup cur mp of
+    Nothing -> 0 :: Integer
+    Just i -> fromMaybe 0 (Map.lookup tn i)
+
+{-# INLINEABLE lovelaceValueOf #-}
+lovelaceValueOf :: Integer -> Value
+lovelaceValueOf = singleton adaSymbol adaToken
+
+{-# INLINEABLE symbols #-}
+
+-- | The list of 'CurrencySymbol's of a 'Value'.
+symbols :: Value -> [CurrencySymbol]
+symbols (Value mp) = Map.keys mp
+
+{-# INLINEABLE assetClassValue #-}
+
+-- | A 'Value' containing the given amount of the asset class.
+assetClassValue :: AssetClass -> Integer -> Value
+assetClassValue ac i =
+  let (c, t) = unAssetClass ac
+   in singleton c t i
+
+{-# INLINEABLE assetClassValueOf #-}
+
+-- | Get the quantity of the given 'AssetClass' class in the 'Value'.
+assetClassValueOf :: Value -> AssetClass -> Integer
+assetClassValueOf v ac =
+  let (c, t) = unAssetClass ac
+   in valueOf v c t
+
+{-# INLINEABLE adaSymbol #-}
+adaSymbol :: CurrencySymbol
+adaSymbol = CurrencySymbol . toSpooky @BuiltinByteString $ ""
+
+{-# INLINEABLE adaToken #-}
+adaToken :: TokenName
+adaToken = TokenName . toSpooky @BuiltinByteString $ ""
 
 data Credential
   = PubKeyCredential (Spooky PubKeyHash)
@@ -68,6 +383,7 @@ PlutusTx.unstableMakeIsData ''Credential
 PlutusTx.makeLift ''Credential
 
 instance Eq Credential where
+  {-# INLINEABLE (==) #-}
   PubKeyCredential pkh == PubKeyCredential pkh' = pkh == pkh'
   ScriptCredential vh == ScriptCredential vh' = vh == vh'
   _ == _ = False
@@ -133,13 +449,10 @@ toSpookyAddress (Ledger.Address cred sCred) =
   Address (toSpooky . toSpookyCredential $ cred) (toSpooky . fmap toSpookyStakingCredential $ sCred)
 
 newtype TxId = TxId {getTxId' :: Spooky BuiltinByteString}
-  deriving stock (Generic, Hask.Show, Hask.Eq)
-PlutusTx.unstableMakeIsData ''TxId
-
-instance Eq TxId where
-  {-# INLINEABLE (==) #-}
-  TxId a == TxId a' =
-    a == a'
+  deriving stock (Generic, Hask.Show)
+  deriving newtype (Hask.Eq, Hask.Ord, Eq, PlutusTx.ToData, PlutusTx.FromData, PlutusTx.UnsafeFromData)
+  deriving anyclass (FromJSON, ToJSON, ToSchema)
+PlutusTx.makeLift ''TxId
 
 {-# INLINEABLE getTxId #-}
 getTxId :: TxId -> BuiltinByteString
@@ -339,3 +652,17 @@ ownCurrencySymbol context =
    in case purpose of
         Minting cs -> unSpooky cs
         _ -> error ()
+
+-- | The type of validators for the given connection type.
+type ValidatorType (a :: Type) = DatumType a -> RedeemerType a -> ScriptContext -> Bool
+
+-- | Make a 'TypedValidator' from the 'CompiledCode' of a validator script and its wrapper.
+mkTypedValidator ::
+  -- | Validator script (compiled)
+  PlutusTx.CompiledCode (ValidatorType a) ->
+  -- | A wrapper for the compiled validator
+  PlutusTx.CompiledCode (ValidatorType a -> WrappedValidatorType) ->
+  TypedValidator a
+mkTypedValidator vc wrapper =
+  let val = Scripts.mkValidatorScript $ wrapper `PlutusTx.applyCode` vc
+   in unsafeCoerce $ Validators.unsafeMkTypedValidator val

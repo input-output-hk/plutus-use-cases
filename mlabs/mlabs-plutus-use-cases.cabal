@@ -1,117 +1,108 @@
-cabal-version:       2.4
-name:                mlabs-plutus-use-cases
-version:             0.1.0.0
-license-file:        LICENSE
-author:              mlabs
-maintainer:          anton@mlabs.gmail
-build-type:          Simple
-extra-source-files:  CHANGELOG.md
+cabal-version:      2.4
+name:               mlabs-plutus-use-cases
+version:            0.1.0.0
+license-file:       LICENSE
+author:             mlabs
+maintainer:         anton@mlabs.gmail
+build-type:         Simple
+extra-source-files: CHANGELOG.md
 
 common common-imports
   build-depends:
-    base 
     , aeson
     , ansi-terminal
+    , base
+    , binary
     , bytestring
+    , cardano-api
+    , cardano-ledger-alonzo
     , containers
     , data-default
     , extra
+    , freer-extras
     , freer-simple
+    , insert-ordered-containers
+    , lens
     , mtl
     , openapi3
     , playground-common
-    , plutus-core
-    , plutus-contract
-    , plutus-ledger
-    , plutus-tx
-    , plutus-tx-spooky
-    , plutus-ledger-api
     , plutus-chain-index
     , plutus-chain-index-core
-    , plutus-tx-plugin
+    , plutus-contract
+    , plutus-core
+    , plutus-extra
+    , plutus-ledger
+    , plutus-ledger-api
+    , plutus-ledger-constraints
+    , plutus-numeric
     , plutus-pab
+    , plutus-tx
+    , plutus-tx-plugin
+    , plutus-tx-spooky
     , plutus-use-cases
-    , prettyprinter
     , pretty-show
+    , prettyprinter
+    , purescript-bridge
     , row-types
+    , serialise
     , stm
-    , lens
     , tasty
     , tasty-hunit
     , text
-    , freer-extras
-    , insert-ordered-containers
-    , serialise
-    , cardano-api
-    , cardano-ledger-alonzo
-    , plutus-extra
-    , purescript-bridge
 
 common common-language
-    default-extensions:
-      BangPatterns
-      ExplicitForAll
-      FlexibleContexts
-      ScopedTypeVariables
-      DerivingStrategies
-      DeriveAnyClass
-      DeriveGeneric
-      StandaloneDeriving
-      DeriveLift
-      GeneralizedNewtypeDeriving
-      DeriveFunctor
-      DeriveFoldable
-      DeriveTraversable
-      LambdaCase
-      MonoLocalBinds
-      MultiParamTypeClasses
-      NoImplicitPrelude
-      RecordWildCards
-      OverloadedStrings
-      TypeFamilies
-      QuasiQuotes
-      TemplateHaskell
-      DataKinds
-      TypeOperators
-      TypeApplications
-      FlexibleInstances
-      TypeSynonymInstances
-      TupleSections
-      NumericUnderscores
-      ImportQualifiedPost
-      RankNTypes
-      
+  default-extensions:
+    NoImplicitPrelude
+    BangPatterns
+    DataKinds
+    DeriveAnyClass
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveLift
+    DeriveTraversable
+    DerivingStrategies
+    ExplicitForAll
+    FlexibleContexts
+    FlexibleInstances
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    LambdaCase
+    MonoLocalBinds
+    MultiParamTypeClasses
+    NumericUnderscores
+    OverloadedStrings
+    QuasiQuotes
+    RankNTypes
+    RecordWildCards
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+    TypeSynonymInstances
+
 common common-configs
   default-language: Haskell2010
 
 common common-ghc-options
-  Ghc-Options:
-    -fno-ignore-interface-pragmas
-    -fno-omit-interface-pragmas
-    -fno-specialize
-    -fno-strictness
-    -fno-warn-orphans
-    -fobject-code
+  ghc-options:
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fno-specialize -fno-strictness -fno-warn-orphans -fobject-code
     -fplugin-opt PlutusTx.Plugin:defer-errors
 
 library
-  import:  common-imports
-  import:  common-language
-  import:  common-configs
-  import:  common-ghc-options
-                  
-  Ghc-Options:
-    -Wall
-    -Wcompat
-    -Wincomplete-uni-patterns
-    -Wredundant-constraints
-    -Wmissing-export-lists
-    -Wmissing-deriving-strategies
-    -Werror
+  import:          common-imports
+  import:          common-language
+  import:          common-configs
+  import:          common-ghc-options
+  ghc-options:
+    -Wall -Wcompat -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wmissing-export-lists -Wmissing-deriving-strategies -Werror
 
-  hs-source-dirs:
-    src/
-    
+  hs-source-dirs:  src/
   exposed-modules:
     Mlabs.Control.Check
     Mlabs.Control.Monad.State
@@ -123,6 +114,22 @@ library
     Mlabs.Deploy.Governance
     Mlabs.Deploy.Nft
     Mlabs.Deploy.Utils
+    Mlabs.EfficientNFT.Api
+    Mlabs.EfficientNFT.Lock
+    Mlabs.EfficientNFT.Contract.Aux
+    Mlabs.EfficientNFT.Contract.ChangeOwner
+    Mlabs.EfficientNFT.Contract.Burn
+    Mlabs.EfficientNFT.Contract.MarketplaceBuy
+    Mlabs.EfficientNFT.Contract.MarketplaceDeposit
+    Mlabs.EfficientNFT.Contract.MarketplaceRedeem
+    Mlabs.EfficientNFT.Contract.MarketplaceSetPrice
+    Mlabs.EfficientNFT.Contract.Mint
+    Mlabs.EfficientNFT.Contract.SetPrice
+    Mlabs.EfficientNFT.Contract.FeeWithdraw
+    Mlabs.EfficientNFT.Marketplace
+    Mlabs.EfficientNFT.Dao
+    Mlabs.EfficientNFT.Token
+    Mlabs.EfficientNFT.Types
     Mlabs.Emulator.App
     Mlabs.Emulator.Blockchain
     Mlabs.Emulator.Scene
@@ -181,144 +188,152 @@ library
     Mlabs.NftStateMachine.Logic.State
     Mlabs.NftStateMachine.Logic.Types
     Mlabs.Plutus.Contract
+    Mlabs.Plutus.Contracts.Currency
     Mlabs.Plutus.PAB
     Mlabs.System.Console.PrettyLogger
     Mlabs.System.Console.Utils
     Mlabs.Utils.Wallet
-    Mlabs.Plutus.Contracts.Currency
 
 executable mlabs-plutus-use-cases
-  import:  common-imports
-  import:  common-language
-  import:  common-configs
-  import:  common-ghc-options
-
-  main-is: app/Main.hs
+  import:        common-imports
+  import:        common-language
+  import:        common-configs
+  import:        common-ghc-options
+  main-is:       app/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable deploy-app
-  import:  common-imports
-  import:  common-language
-  import:  common-configs
-  import:  common-ghc-options
-
-  main-is: deploy-app/Main.hs
-  build-depends: 
-      mlabs-plutus-use-cases
+  import:        common-imports
+  import:        common-language
+  import:        common-configs
+  import:        common-ghc-options
+  main-is:       deploy-app/Main.hs
+  build-depends:
+    , cardano-api
     , cardano-ledger-alonzo
-    , cardano-api
+    , mlabs-plutus-use-cases
     , serialise
-    , cardano-api
 
 executable nft-state-machine-demo
-  import:  common-imports
-  import:  common-language
-  import:  common-configs
-  import:  common-ghc-options  
-
-  main-is: nft-state-machine-demo/Main.hs
+  import:        common-imports
+  import:        common-language
+  import:        common-configs
+  import:        common-ghc-options  
+  main-is:       nft-state-machine-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable governance-demo
-  import:  common-imports
-  import:  common-language
-  import:  common-configs
-  import:  common-ghc-options  
-
-  main-is: governance-demo/Main.hs
+  import:        common-imports
+  import:        common-language
+  import:        common-configs
+  import:        common-ghc-options  
+  main-is:       governance-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable lendex-demo
-  import:  common-imports
-  import:  common-language
-  import:  common-configs
-  import:  common-ghc-options  
-
-  main-is: lendex-demo/Main.hs
+  import:        common-imports
+  import:        common-language
+  import:        common-configs
+  import:        common-ghc-options  
+  main-is:       lendex-demo/Main.hs
   build-depends: mlabs-plutus-use-cases
 
 executable nft-marketplace
-  import:  common-imports
-  import:  common-language
-  import:  common-configs
-  import:  common-ghc-options  
-
-  main-is: nft-marketplace/Main.hs
+  import:        common-imports
+  import:        common-language
+  import:        common-configs
+  import:        common-ghc-options  
+  main-is:       nft-marketplace/Main.hs
   build-depends: mlabs-plutus-use-cases
 
-Test-suite mlabs-plutus-use-cases-tests
-  import:  common-imports
-  import:  common-language
-  import:  common-configs
-  import:  common-ghc-options  
+test-suite mlabs-plutus-use-cases-tests
+  import:             common-imports
+  import:             common-language
+  import:             common-configs
+  import:             common-ghc-options  
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  main-is:            Main.hs
+  ghc-options:        -Wall -threaded -rtsopts
 
-  Type:            exitcode-stdio-1.0
-  hs-source-dirs:  test
-  Main-is:         Main.hs
-  
-  Ghc-options:
-    -Wall
-    -threaded
-    -rtsopts
-    -- -fplugin=RecordDotPreprocessor
-  
-  Build-Depends:
-    base 
+  -- -fplugin=RecordDotPreprocessor
+
+  build-depends:
+    , base
+    , bot-plutus-interface
+    , containers
     , data-default
     , freer-extras
     , freer-simple
     , lens
     , mlabs-plutus-use-cases
     , mtl
-    , containers
     , playground-common
+    , plutus-contract
     , plutus-core
-    , plutus-contract
     , plutus-ledger
-    , plutus-tx
-    , plutus-tx-spooky
     , plutus-ledger-api
-    , plutus-tx-plugin
+    , plutus-ledger-constraints
     , plutus-pab
+    , plutus-tx
+    , plutus-tx-plugin
+    , plutus-tx-spooky
+    , plutus-simple-model
     , plutus-use-cases
-    , plutus-contract
-    , prettyprinter
+    , plutip
     , pretty-show
+    , prettyprinter
+    , QuickCheck
     , record-dot-preprocessor
     , record-hasfield
     , tasty
-    , tasty-hunit
     , tasty-expected-failure
+    , tasty-hunit
     , tasty-plutus
     , tasty-quickcheck
-    , QuickCheck
     , text
 
-  Other-modules:
+  other-modules:
     Test.Demo.Contract.Mint
+    Test.EfficientNFT.Resources
+    Test.EfficientNFT.Script.TokenBurn
+    Test.EfficientNFT.Script.TokenChangeOwner
+    Test.EfficientNFT.Script.TokenChangePrice
+    Test.EfficientNFT.Script.TokenMint
+    Test.EfficientNFT.Script.TokenUnstake
+    Test.EfficientNFT.Script.TokenRestake
+    Test.EfficientNFT.Script.TokenMarketplaceSetPrice
+    Test.EfficientNFT.Script.TokenMarketplaceBuy
+    Test.EfficientNFT.Script.TokenMarketplaceRedeem
+    Test.EfficientNFT.Script.FeeWithdraw
+    Test.EfficientNFT.Script.Values
+    Test.EfficientNFT.Size
+    Test.EfficientNFT.Trace
+    Test.EfficientNFT.Quickcheck
+    Test.EfficientNFT.Plutip
     Test.Governance.Contract
     Test.Governance.Init
     Test.Lending.Contract
     Test.Lending.Init
     Test.Lending.Logic
     Test.Lending.QuickCheck
+    Test.NFT.Contract
+    Test.NFT.Init
+    Test.NFT.QuickCheck
+    Test.NFT.Script.Auction
+    Test.NFT.Script.Dealing
+    Test.NFT.Script.Main
+    Test.NFT.Script.Minting
+    Test.NFT.Script.Values
+    Test.NFT.Size
+    Test.NFT.Trace
     Test.NftStateMachine.Contract
     Test.NftStateMachine.Init
     Test.NftStateMachine.Logic
     Test.Utils
-    Test.NFT.Init
-    Test.NFT.Trace
-    Test.NFT.Contract
-    Test.NFT.QuickCheck
-    Test.NFT.Script.Auction
-    Test.NFT.Script.Main
-    Test.NFT.Script.Dealing
-    Test.NFT.Script.Minting
-    Test.NFT.Script.Values
-    Test.NFT.Size
 
   default-extensions:
-    RecordWildCards
     OverloadedStrings
     QuasiQuotes
+    RecordWildCards
     TupleSections

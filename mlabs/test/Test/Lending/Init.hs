@@ -32,7 +32,8 @@ import Prelude
 
 import Control.Lens ((&), (.~))
 import Data.Map qualified as M
-import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, walletPubKeyHash)
+import Ledger (PaymentPubKeyHash (unPaymentPubKeyHash))
+import Plutus.Contract.Test (CheckOptions, Wallet (..), defaultCheckOptions, emulatorConfig, mockWalletPaymentPubKeyHash)
 import Plutus.Trace.Emulator (EmulatorTrace, initialChainState)
 import Plutus.V1.Ledger.Ada qualified as Ada
 import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
@@ -56,10 +57,10 @@ w3 = walletFromNumber 3
 wAdmin = walletFromNumber 4
 
 toUserId :: Wallet -> UserId
-toUserId = UserId . walletPubKeyHash
+toUserId = UserId . mockWalletPaymentPubKeyHash
 
 toPubKeyHash :: Wallet -> PubKeyHash
-toPubKeyHash = walletPubKeyHash
+toPubKeyHash = unPaymentPubKeyHash . mockWalletPaymentPubKeyHash
 
 -- | Identifier for our lendex platform
 lendexId :: LendexId

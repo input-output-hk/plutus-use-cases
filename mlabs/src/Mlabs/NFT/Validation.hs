@@ -25,8 +25,6 @@ import PlutusTx qualified
 import PlutusTx.Prelude
 
 import Ledger (
-  AssetClass,
-  CurrencySymbol,
   Datum (..),
   MintingPolicy,
   Redeemer (..),
@@ -52,16 +50,7 @@ import Ledger.Typed.Scripts (
   wrapMintingPolicy,
  )
 import Ledger.Typed.TypeUtils (Any)
-import Ledger.Value (
-  TokenName (..),
-  assetClass,
-  flattenValue,
-  singleton,
-  valueOf,
- )
-import Plutus.V1.Ledger.Ada (lovelaceValueOf)
-import Plutus.V1.Ledger.Ada qualified as Ada
-import Plutus.V1.Ledger.Value (AssetClass (..), Value (..), assetClassValueOf)
+import PlutusTx.Ratio qualified as R
 
 import Data.Function (on)
 import Data.Maybe (catMaybes)
@@ -74,13 +63,26 @@ import Mlabs.NFT.Governance.Types (
  )
 import Mlabs.NFT.Spooky (
   Address,
+  AssetClass (AssetClass),
+  CurrencySymbol,
   ScriptContext,
+  TokenName (TokenName),
   TxOut,
+  Value,
+  adaSymbol,
+  adaToken,
+  assetClass,
+  assetClassValueOf,
   findDatum,
+  flattenValue,
+  lovelaceValueOf,
   ownCurrencySymbol,
   scriptContextTxInfo,
+  singleton,
   toSpooky,
   toSpookyAddress,
+  toSpookyCurrencySymbol,
+  toSpookyTokenName,
   txInInfoResolved,
   txInfoInputs,
   txInfoMint,
@@ -89,6 +91,12 @@ import Mlabs.NFT.Spooky (
   txOutAddress,
   txOutDatumHash,
   txOutValue,
+  unAssetClass,
+  unPaymentPubKeyHash,
+  unSpookyCurrencySymbol,
+  unSpookyTokenName,
+  unTokenName,
+  valueOf,
   valuePaidTo,
  )
 import Mlabs.NFT.Types (
@@ -203,7 +211,7 @@ mkMintPolicy !appInstance !act !ctx =
     -- Check if minted NFT is sent to script address
     checkSentAddress nftId =
       let currency = ownCurrencySymbol ctx
-          tokenName = TokenName . nftId'contentHash $ nftId
+          tokenName = TokenName . toSpooky . nftId'contentHash $ nftId
           txOut = find (\tx -> valueOf (txOutValue tx) currency tokenName == 1) $ txInfoOutputs info
        in maybe False sentToScript txOut
 
@@ -219,7 +227,7 @@ mkMintPolicy !appInstance !act !ctx =
     -- Check if minting only one token
     checkMintedAmount nftid =
       let currency = ownCurrencySymbol ctx
-          tokenName = TokenName . nftId'contentHash $ nftid
+          tokenName = TokenName . toSpooky . nftId'contentHash $ nftid
        in txInfoMint info == singleton currency tokenName 1
 
     -- Check if only thing changed in first node is `next` pointer
@@ -397,13 +405,13 @@ mkTxPolicy _ !datum' !act !ctx =
     nftCurr = app'symbol . act'symbol $ act
 
     feeRate :: Rational
-    feeRate
-      | [GovLHead {..}] <- mapMaybe (getGHead . gov'list . fst) $ getOutputDatumsWithTx @GovDatum ctx =
-        govLHead'feeRate
-      | otherwise = traceError' "Expecting excatly one gov head"
-      where
-        getGHead HeadLList {..} = Just _head'info
-        getGHead _ = Nothing
+    feeRate = R.reduce 5 1000
+    --  | [GovLHead {..}] <- mapMaybe (getGHead . gov'list . fst) $ getOutputDatumsWithTx @GovDatum ctx =
+    --    govLHead'feeRate
+    --  | otherwise = traceError' "Expecting excatly one gov head"
+    --  where
+    --    getGHead HeadLList {..} = Just _head'info
+    --    getGHead _ = Nothing
 
     getHead h = case h of
       HeadDatum h' -> Just h'
@@ -423,7 +431,7 @@ mkTxPolicy _ !datum' !act !ctx =
 
     -- containsNft !v = valueOf v nftCurr (nftTokenName datum') == 1
 
-    !getAda = flip assetClassValueOf $ assetClass Ada.adaSymbol Ada.adaToken
+    !getAda = flip assetClassValueOf $ assetClass adaSymbol adaToken
 
     -- Check if the Person is being reimbursed accordingly, with the help of 2
     -- getter functions. Helper function.
@@ -431,7 +439,7 @@ mkTxPolicy _ !datum' !act !ctx =
       where
         personId = getUserId . userIdGetter $ node
         share = info'share . node'information $ node
-        personGetsAda = getAda $ valuePaidTo info personId
+        personGetsAda = getAda $ valuePaidTo info (unPaymentPubKeyHash personId)
         personWantsAda = subtractFee . getAda $ shareCalcFn bid share
 
     ownerIsAuthor =
@@ -453,7 +461,7 @@ mkTxPolicy _ !datum' !act !ctx =
     -- Check if Datum id matches NFT id in UTXO
     checkTxDatumMatch nodeDatum tx =
       let cur = app'symbol . act'symbol $ act
-          tn = TokenName . nftId'contentHash . info'id . node'information $ nodeDatum
+          tn = TokenName . toSpooky . nftId'contentHash . info'id . node'information $ nodeDatum
        in valueOf (txOutValue tx) cur tn == 1
 
     fromJust !x = fromMaybe (traceError' "fromJust") x
@@ -515,7 +523,7 @@ mkTxPolicy _ !datum' !act !ctx =
     --     case as'highestBid auctionState of
     --       Nothing -> True
     --       Just (AuctionBid bid bidder) ->
-    --         valuePaidTo info (getUserId bidder) == Ada.lovelaceValueOf bid
+    --         valuePaidTo info (getUserId bidder) == lovelaceValueOf bid
 
     -- correctInputValue :: NftListNode -> Bool
     -- correctInputValue node =
@@ -526,12 +534,12 @@ mkTxPolicy _ !datum' !act !ctx =
     --         Nothing -> traceError "mauctionState: Nothing"
     --         Just as -> case as'highestBid as of
     --           Nothing -> tokenValue == txOutValue out
-    --           Just hb -> txOutValue out == (tokenValue <> Ada.lovelaceValueOf (ab'bid hb))
+    --           Just hb -> txOutValue out == (tokenValue <> lovelaceValueOf (ab'bid hb))
 
     -- auctionBidValueSupplied :: Integer -> Bool
     -- auctionBidValueSupplied redeemerBid =
     --   case fmap snd . getOutputDatumsWithTx @DatumNft $ ctx of
-    --     [out] -> txOutValue out == tokenValue <> Ada.lovelaceValueOf redeemerBid
+    --     [out] -> txOutValue out == tokenValue <> lovelaceValueOf redeemerBid
     --     [] -> traceError "auctionBidValueSupplied: expected exactly one continuing output, got none"
     --     _ -> traceError "auctionBidValueSupplied: expected exactly one continuing output, got several instead"
 
@@ -641,10 +649,10 @@ mkTxPolicy _ !datum' !act !ctx =
     -- Check if the price of NFT is changed by the owner of NFT
     signedByOwner node =
       case txInfoSignatories $ scriptContextTxInfo ctx of
-        [pkh] -> pkh == getUserId (info'owner $ node'information node)
+        [pkh] -> pkh == unPaymentPubKeyHash (getUserId (info'owner $ node'information node))
         _ -> False
 
-    -- Check if no new token is minted.
+    -- Check If No new token is minted.
     !noMint = all ((nftCurr /=) . fst3) . flattenValue $ minted
       where
         minted = txInfoMint . scriptContextTxInfo $ ctx
@@ -725,7 +733,7 @@ txScrAddress = toSpookyAddress . validatorAddress . txPolicy
 
 -- | Calculate the currency symbol of the NFT.
 curSymbol :: NftAppInstance -> CurrencySymbol
-curSymbol appInstance = scriptCurrencySymbol $ mintPolicy appInstance
+curSymbol = toSpookyCurrencySymbol . scriptCurrencySymbol . mintPolicy
 
 {-# INLINEABLE nftCurrency #-}
 
@@ -740,10 +748,9 @@ nftCurrency = \case
 -- | Calculate the NFT `AssetClass` from Datum.
 nftAsset :: DatumNft -> AssetClass
 nftAsset datum =
-  AssetClass
-    ( nftCurrency datum
-    , nftTokenName datum
-    )
+  assetClass
+    (nftCurrency datum)
+    (nftTokenName datum)
 
 {-# INLINEABLE calculateShares #-}
 
@@ -754,8 +761,8 @@ calculateShares :: Integer -> Rational -> (Value, Value)
 calculateShares bid authorShare = (toOwner, toAuthor)
   where
     authorPart = round $ fromInteger bid * authorShare
-    toAuthor = Ada.lovelaceValueOf authorPart
-    toOwner = Ada.lovelaceValueOf $ bid - authorPart
+    toAuthor = lovelaceValueOf authorPart
+    toOwner = lovelaceValueOf $ bid - authorPart
 
 {-# INLINEABLE calculateOwnerShare #-}
 

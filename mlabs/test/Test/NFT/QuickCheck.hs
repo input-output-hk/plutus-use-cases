@@ -13,7 +13,7 @@ import Data.Monoid (Last (..))
 import Data.String (IsString (..))
 import Data.Text (Text)
 import Ledger.TimeSlot (slotToBeginPOSIXTime)
-import Plutus.Contract.Test (Wallet (..), walletPubKeyHash)
+import Plutus.Contract.Test (Wallet (..), mockWalletPaymentPubKeyHash)
 import Plutus.Contract.Test.ContractModel (
   Action,
   Actions,
@@ -25,6 +25,7 @@ import Plutus.Contract.Test.ContractModel (
   assertModel,
   contractState,
   currentSlot,
+  defaultCoverageOptions,
   deposit,
   forAllDL,
   getModelState,
@@ -43,15 +44,17 @@ import Plutus.V1.Ledger.Ada (lovelaceValueOf)
 import Plutus.V1.Ledger.Slot (Slot (..))
 import Plutus.V1.Ledger.Value (valueOf)
 import PlutusTx.Prelude hiding ((<$>), (<*>), (==))
+import PlutusTx.Ratio qualified as R
 import Test.QuickCheck qualified as QC
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 import Prelude ((<$>), (<*>), (==))
 import Prelude qualified as Hask
 
+import Ledger (PaymentPubKeyHash (unPaymentPubKeyHash))
 import Mlabs.NFT.Api (NFTAppSchema, adminEndpoints, endpoints)
 import Mlabs.NFT.Contract (hashData)
-import Mlabs.NFT.Spooky (toSpooky)
+import Mlabs.NFT.Spooky (toSpooky, toSpookyPubKeyHash, unSpookyValue)
 import Mlabs.NFT.Types (
   AuctionBidParams (..),
   AuctionCloseParams (..),
@@ -152,6 +155,8 @@ instance ContractModel NftModel where
 
   instanceTag key _ = fromString $ Hask.show key
 
+  initialHandleSpecs = instanceSpec
+
   arbitraryAction model =
     let nfts = Map.keys (model ^. contractState . mMarket)
         genWallet = QC.elements wallets
@@ -163,7 +168,7 @@ instance ContractModel NftModel where
         genContent = MockContent . Content . toSpooky @BuiltinByteString . fromString . ('x' :) <$> genString
         -- genTitle = Title . fromString <$> genString
         genTitle = Hask.pure (Title . toSpooky @BuiltinByteString $ "")
-        genShare = (% 100) <$> QC.elements [1 .. 99]
+        genShare = (`R.reduce` 100) <$> QC.elements [1 .. 99]
         genNftId = QC.elements nfts
      in QC.oneof
           [ Hask.pure ActionInit
@@ -276,8 +281,8 @@ instance ContractModel NftModel where
                 feeValue = round $ fromInteger aPrice * feeRate
                 (ownerShare, authorShare) = calculateShares (aPrice - feeValue) (nft ^. nftShare)
             mMarket $~ Map.insert aNftId newNft
-            transfer aPerformer (nft ^. nftOwner) ownerShare
-            transfer aPerformer (nft ^. nftAuthor) authorShare
+            transfer aPerformer (nft ^. nftOwner) (unSpookyValue ownerShare)
+            transfer aPerformer (nft ^. nftAuthor) (unSpookyValue authorShare)
             transfer aPerformer wAdmin (lovelaceValueOf feeValue)
             deposit aPerformer (mkFreeGov aPerformer feeValue)
     wait 5
@@ -346,8 +351,8 @@ instance ContractModel NftModel where
                     feeValue = round $ fromInteger price * feeRate
                     (ownerShare, authorShare) = calculateShares (price - feeValue) (nft ^. nftShare)
                 mMarket $~ Map.insert aNftId newNft
-                deposit (nft ^. nftOwner) ownerShare
-                deposit (nft ^. nftAuthor) authorShare
+                deposit (nft ^. nftOwner) (unSpookyValue ownerShare)
+                deposit (nft ^. nftAuthor) (unSpookyValue authorShare)
                 deposit wAdmin (lovelaceValueOf feeValue)
                 deposit newOwner (mkFreeGov newOwner feeValue)
     wait 5
@@ -360,8 +365,8 @@ instance ContractModel NftModel where
           params =
             InitParams
               [toUserId wAdmin]
-              (5 % 1000)
-              (walletPubKeyHash wAdmin)
+              (R.reduce 5 1000)
+              (toSpookyPubKeyHash . unPaymentPubKeyHash . mockWalletPaymentPubKeyHash $ wAdmin)
       callEndpoint @"app-init" hAdmin params
       void $ Trace.waitNSlots 5
     ActionMint {..} -> do
@@ -424,7 +429,7 @@ deriving instance Hask.Eq (ContractInstanceKey NftModel w s e)
 deriving instance Hask.Show (ContractInstanceKey NftModel w s e)
 
 feeRate :: Rational
-feeRate = 5 % 1000
+feeRate = R.reduce 5 1000
 
 wallets :: [Wallet]
 wallets = [w1, w2, w3]
@@ -446,7 +451,7 @@ propContract =
   QC.withMaxSuccess 10
     . propRunActionsWithOptions
       checkOptions
-      instanceSpec
+      defaultCoverageOptions
       (const $ Hask.pure True)
 
 noLockedFunds :: DL NftModel ()

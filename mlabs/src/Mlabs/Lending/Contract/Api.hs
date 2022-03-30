@@ -52,6 +52,7 @@ module Mlabs.Lending.Contract.Api (
 import PlutusTx.Prelude
 
 import GHC.Generics (Generic)
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash))
 import Playground.Contract (FromJSON, ToJSON, ToSchema)
 import Plutus.Contract (type (.\/))
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
@@ -261,7 +262,7 @@ instance IsUserAct SwapBorrowRateModel where toUserAct SwapBorrowRateModel {..} 
 instance IsUserAct AddCollateral where toUserAct AddCollateral {..} = Types.AddCollateralAct addCollateral'asset addCollateral'amount
 instance IsUserAct RemoveCollateral where toUserAct RemoveCollateral {..} = Types.RemoveCollateralAct removeCollateral'asset removeCollateral'amount
 instance IsUserAct Withdraw where toUserAct Withdraw {..} = Types.WithdrawAct withdraw'asset withdraw'amount
-instance IsUserAct LiquidationCall where toUserAct LiquidationCall {..} = Types.LiquidationCallAct liquidationCall'collateral (Types.BadBorrow (Types.UserId liquidationCall'debtUser) liquidationCall'debtAsset) liquidationCall'debtToCover liquidationCall'receiveAToken
+instance IsUserAct LiquidationCall where toUserAct LiquidationCall {..} = Types.LiquidationCallAct liquidationCall'collateral (Types.BadBorrow (Types.UserId $ PaymentPubKeyHash liquidationCall'debtUser) liquidationCall'debtAsset) liquidationCall'debtToCover liquidationCall'receiveAToken
 
 -- price acts
 

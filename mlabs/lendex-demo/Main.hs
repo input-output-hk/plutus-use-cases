@@ -29,6 +29,7 @@ import Plutus.PAB.Simulator qualified as Simulator
 import Wallet.Emulator.Wallet (fromWalletNumber)
 import Wallet.Emulator.Wallet qualified as Wallet
 
+import Ledger (PaymentPubKeyHash (unPaymentPubKeyHash))
 import Mlabs.Lending.Contract qualified as Contract
 import Mlabs.Lending.Contract.Api (StartLendex (..))
 import Mlabs.Lending.Contract.Simulator.Handler qualified as Handler
@@ -116,7 +117,7 @@ main = Handler.runSimulator lendexId initContract $ do
 
 initContract :: Handler.InitContract
 initContract = do
-  ownPK <- ownPubKeyHash
+  ownPK <- ownPaymentPubKeyHash
   logInfo @String "Start forge"
   cur <-
     mapError
@@ -136,7 +137,7 @@ initContract = do
     toVal cs tn = Value.singleton cs tn amount
 
     giveTo ownPK w v = do
-      let pkh = Wallet.walletPubKeyHash w
+      let pkh = Wallet.mockWalletPaymentPubKeyHash w
       when (pkh /= ownPK) $ do
         tx <- submitTx $ mustPayToPubKey pkh v
         awaitTxConfirmed $ getCardanoTxId tx
@@ -201,7 +202,7 @@ startParams cur =
                 , coinCfg'rate = R.fromInteger 1
                 , coinCfg'aToken = aCoin
                 , coinCfg'interestModel = defaultInterestModel
-                , coinCfg'liquidationBonus = 5 R.% 100
+                , coinCfg'liquidationBonus = R.reduce 5 100
                 }
           )
           [(adaCoin, aAda), (toCoin cur token1, aToken1), (toCoin cur token2, aToken2), (toCoin cur token3, aToken3)]
@@ -217,4 +218,4 @@ toCoin cur tn = Value.AssetClass (cur, tn)
 -- utils
 
 toPubKeyHash :: Wallet -> PubKeyHash
-toPubKeyHash = Wallet.walletPubKeyHash
+toPubKeyHash = unPaymentPubKeyHash . Wallet.mockWalletPaymentPubKeyHash

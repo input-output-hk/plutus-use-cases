@@ -15,16 +15,16 @@ import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
-import Plutus.Contract (AsContractError, Contract, ownPubKeyHash)
+import Ledger (PaymentPubKeyHash)
+import Plutus.Contract (AsContractError, Contract, ownPaymentPubKeyHash)
 import Plutus.V1.Ledger.Ada qualified as Ada
-import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Plutus.V1.Ledger.Value (AssetClass (..))
 import PlutusTx (unstableMakeIsData)
 import Prelude qualified as Hask
 
 -- | Address of the wallet that can hold values of assets
 data UserId
-  = UserId PubKeyHash -- user address
+  = UserId PaymentPubKeyHash -- user address
   | Self -- addres of the lending platform
   deriving stock (Hask.Show, Generic, Hask.Eq, Hask.Ord)
   deriving anyclass (FromJSON, ToJSON)
@@ -46,4 +46,4 @@ PlutusTx.unstableMakeIsData ''UserId
 
 -- | Get user id of the wallet owner.
 ownUserId :: AsContractError e => Contract w s e UserId
-ownUserId = fmap UserId ownPubKeyHash
+ownUserId = fmap UserId ownPaymentPubKeyHash

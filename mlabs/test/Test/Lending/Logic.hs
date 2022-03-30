@@ -20,6 +20,7 @@ import Plutus.V1.Ledger.Value (AssetClass (AssetClass), CurrencySymbol, TokenNam
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase)
 
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash))
 import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
 import Mlabs.Emulator.Blockchain (BchWallet (..))
 import Mlabs.Lending.Logic.App (AppConfig (AppConfig), LendingApp, Script, priceAct, runLendingApp, toCoin, userAct)
@@ -240,9 +241,9 @@ lendingPoolCurrency = currencySymbol "lending-pool"
 
 -- users
 user1, user2, user3 :: UserId
-user1 = UserId $ PubKeyHash "1"
-user2 = UserId $ PubKeyHash "2"
-user3 = UserId $ PubKeyHash "3"
+user1 = UserId $ PaymentPubKeyHash $ PubKeyHash "1"
+user2 = UserId $ PaymentPubKeyHash $ PubKeyHash "2"
+user3 = UserId $ PaymentPubKeyHash $ PubKeyHash "3"
 
 -- coins
 coin1, coin2, coin3 :: Coin
@@ -280,7 +281,7 @@ testAppConfig = AppConfig reserves users lendingPoolCurrency admins oracles
               , coinCfg'rate = R.fromInteger 1
               , coinCfg'aToken = aCoin
               , coinCfg'interestModel = defaultInterestModel
-              , coinCfg'liquidationBonus = 5 R.% 100
+              , coinCfg'liquidationBonus = R.reduce 5 100
               }
         )
         [(coin1, aToken1), (coin2, aToken2), (coin3, aToken3)]

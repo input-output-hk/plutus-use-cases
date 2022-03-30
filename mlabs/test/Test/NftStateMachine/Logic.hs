@@ -10,6 +10,7 @@ import Plutus.V1.Ledger.Crypto (PubKeyHash (..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 
+import Ledger (PaymentPubKeyHash (PaymentPubKeyHash))
 import Mlabs.Emulator.App (checkWallets, noErrors, someErrors)
 import Mlabs.Emulator.Blockchain (BchWallet (..))
 import Mlabs.Emulator.Types (UserId (UserId), adaCoin)
@@ -121,6 +122,6 @@ failToBuyNotEnoughPrice = do
 
 -- users
 user1, user2, user3 :: UserId
-user1 = UserId $ PubKeyHash "1"
-user2 = UserId $ PubKeyHash "2"
-user3 = UserId $ PubKeyHash "3"
+user1 = UserId $ PaymentPubKeyHash $ PubKeyHash "1"
+user2 = UserId $ PaymentPubKeyHash $ PubKeyHash "2"
+user3 = UserId $ PaymentPubKeyHash $ PubKeyHash "3"
