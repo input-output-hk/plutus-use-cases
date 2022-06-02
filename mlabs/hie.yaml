@@ -1,0 +1,18 @@
+cradle:
+  cabal:
+    - path: "./src/Mlabs/"
+      component: "lib:mlabs-plutus-use-cases"
+    - path: "./app/"
+      component: "exe:mlabs-plutus-use-cases"
+    - path: "./governance-demo/"
+      component: "exe:governance-demo"
+    - path: "./lendex-demo/"
+      component: "exe:lendex-demo"
+    - path: "./nft-demo/"
+      component: "exe:nft-demo"
+    - path: "./nft-marketplace/"
+      component: "exe:nft-marketplace"
+    - path: "./deploy-app/"
+      component: "exe:deploy-app"
+    - path: "./test"
+      component: "test:mlabs-plutus-use-cases-tests"
