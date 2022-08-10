@@ -174,6 +174,6 @@
       # Includes all of the packages in the `checks`, otherwise only the
       # test suite would be included
       checks = perSystem (system: self.flake.${system}.checks);
-      hydraJobs.x86_64-linux = self.checks.x86_64-linux;
+      hydraJobs.checks.x86_64-linux = self.checks.x86_64-linux;
     };
 }
